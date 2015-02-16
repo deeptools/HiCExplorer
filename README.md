@@ -14,7 +14,8 @@ Examples of usage
 
 ```shell
 # build matrix from idependently mated read pairs
-$ hiCBuildMatrix --samFiles mate1.sam mate2.sam --binSize 10000 --restrictionSequence GATC -outBam hic.bam -o hic_matrix.npz
+$ hiCBuildMatrix --samFiles mate1.sam mate2.sam --binSize 10000 \
+	--restrictionSequence GATC -outBam hic.bam -o hic_matrix.npz
 # this creates two files, a bam file containing only the valid Hi-C read pairs
 # and a matrix summarizing the Hi-C contacts at the given resolution.
 
@@ -27,7 +28,7 @@ $ hiCPlotMatrix -m hic_corrected.npz -o hic_plot.png
 
 
 
-There are seven major functions available in MACS serving as sub-commands.
+The following is the list of tools available in HiCExplorer
 
 | tool 				| description	|
 | ----------------------------- | ---------------------------------- |
@@ -54,7 +55,7 @@ Installation
 
 
 <a name="general"/></a>
-__A second option is to clone the repository:__
+### General Installation
 	
 	$ git clone https://github.com/maxplanck-ie/HiCExplorer.git
 	$ cd HiCExplorer
