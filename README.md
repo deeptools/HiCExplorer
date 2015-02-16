@@ -5,30 +5,42 @@ HiCExplorer
 
 HiCexplorer addresses the common tasks of Hi-C analysis from processing to visualization.
 
-![gallery](https://raw.github.com/fidelram/deepTools/master/examples/collage.png)
+![gallery](https://raw.githubusercontent.com/maxplanck-ie/HiCExplorer/master/examples/images/hicexplorer.png?token=AEu_1VmdSzz0lipVV1DMKuYgYcIjUb4qks5U6zbwwA%3D%3D)
 
 Usage of HiCExplorer
 ==============
 
+Examples of usage
 
-hiCBuildMatrix -xyx
+```shell
+# build matrix from idependently mated read pairs
+$ hiCBuildMatrix --samFiles mate1.sam mate2.sam --binSize 10000 --restrictionSequence GATC -outBam hic.bam -o hic_matrix.npz
+# this creates two files, a bam file containing only the valid Hi-C read pairs
+# and a matrix summarizing the Hi-C contacts at the given resolution.
 
-hiCorrectMatrix -xyx
+# correct Hi-C matrix
+$ hiCorrectMatrix -m hic_matrix.npz -o hic_corrected.npz
 
-hiCPlotMatrix -xyx
+# visualize the corrected matrix
+$ hiCPlotMatrix -m hic_corrected.npz -o hic_plot.png
+```
+
 
 
 There are seven major functions available in MACS serving as sub-commands.
 
-| hicBuildMatrix 					| Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads. 	|
-| hicCorrectMatrix 				| Uses iterative correction to remove biases from a Hi-C matrix 	|
+| tool 				| description	|
+| ----------------------------- | ---------------------------------- |
+| hicBuildMatrix 		| Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads. 	|
+| hicCorrectMatrix 		| Uses iterative correction to remove biases from a Hi-C matrix 	|
 | hicFindEnrichedContacts  	| Identifies enriched Hi-C contacts.            	|
-| hicCorrelate 						| Computes and visualises the correlation of Hi-C matrices            	|
-| hicFindTADs 						| Identifies Topologically Associating Domains (TADs)            	|
-| hicMergeMatrixBins			| Merges consecutives bins on a Hi-C matrix to reduce resolution     |
-| hicPlotMatrix						| Plots a Hi-C matrix as a heatmap |
-| hicPlotTADs				 		| Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)|
-| hicSumMatrices					| Adds Hi-C matrices of the same size|
+| hicCorrelate 			| Computes and visualises the correlation of Hi-C matrices            	|
+| hicFindTADs 			| Identifies Topologically Associating Domains (TADs)            	|
+| hicMergeMatrixBins		| Merges consecutives bins on a Hi-C matrix to reduce resolution     |
+| hicPlotMatrix			| Plots a Hi-C matrix as a heatmap |
+| hicPlotTADs			| Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)|
+| hicSumMatrices		| Adds Hi-C matrices of the same size|
+
 
 -------------------------------------------------------------------------------------------------------------------
 
@@ -36,37 +48,16 @@ There are seven major functions available in MACS serving as sub-commands.
 Installation
 ---------------
 
-deepTools are available for:
-
-* command line usage
-* integration into Galaxy servers
-
-Details on the installation routines can be found here.
-
 [General Installation](#general)
 
 [Installation on a Mac](#mac)
 
-[Galaxy installation](#galaxy)
-
 
 <a name="general"/></a>
-### General Installation
-
-The easiest way to install deepTools is by using python `pip` or `easy_install tools`:
-
-Requirements: Python 2.7, numpy, scipy (http://www.scipy.org/install.html) installed
-
-Commands:
-
-      $ pip install deeptools
-Done.
-
-
 __A second option is to clone the repository:__
 	
-	$ git clone https://github.com/fidelram/deepTools
-	$ cd deepTools
+	$ git clone https://github.com/maxplanck-ie/HiCExplorer.git
+	$ cd HiCExplorer
 	$ python setup.py install
 	
 By default, the script will install the python library and executable
@@ -102,59 +93,5 @@ Then open terminal ("Applications" → "Terminal")
 and follow the [General Installation](#general)
 
 
-<a name="trouble"/></a>
-
-<a name="galaxy"/></a>
-#### Galaxy Installation
-
-deepTools can be easily integrated into [Galaxy](http://galaxyproject.org). All wrappers and dependencies are 
-available in the [Galaxy Tool Shed](http://toolshed.g2.bx.psu.edu/view/bgruening/deeptools).
-
-
-##### Installation via Galaxy API (recommended)
-
-At first generate an [API Key](http://wiki.galaxyproject.org/Admin/API#Generate_the_Admin_Account_API_Key) for your admin 
-user and run the the installation script:
-
-	python ./scripts/api/install_tool_shed_repositories.py --api YOUR_API_KEY -l http://localhost:8080 --url http://toolshed.g2.bx.psu.edu/ -o bgruening -r <revision> --name deeptools --tool-deps --repository-deps --panel-section-name deepTools
-
-The -r argument specifies the version of deepTools. You can get the latest revsion number from the test tool shed or with the following command:
-
-	hg identify http://toolshed.g2.bx.psu.edu/view/bgruening/deeptools
-
-You can watch the installation status under: Top Panel → Admin → Manage installed tool shed repositories
-
-
-##### Installation via webbrowser
-
-- go to the [admin page](http://localhost:8080/admin)
-- select *Search and browse tool sheds*
-- Galaxy tool shed → Sequence Analysis → deeptools
-- install deeptools
-
-remember: for support, questions, or feature requests contact: deeptools@googlegroups.com
-
-------------------------------------
-[BAM]: https://docs.google.com/document/d/1Iv9QnuRYWCtV_UCi4xoXxEfmSZYQNyYJPNsFHnvv9C0/edit?usp=sharing "binary version of a SAM file; contains all information about aligned reads"
-[SAM]: https://docs.google.com/document/d/1Iv9QnuRYWCtV_UCi4xoXxEfmSZYQNyYJPNsFHnvv9C0/edit?usp=sharing "text file containing all information about aligned reads"
-[bigWig]: https://docs.google.com/document/d/1Iv9QnuRYWCtV_UCi4xoXxEfmSZYQNyYJPNsFHnvv9C0/edit?usp=sharing "binary version of a bedGraph file; contains genomic intervals and corresponding scores, e.g. average read numbers per 50 bp"
-[bedGraph]: https://docs.google.com/document/d/1Iv9QnuRYWCtV_UCi4xoXxEfmSZYQNyYJPNsFHnvv9C0/edit?usp=sharing "text file that contains genomic intervals and corresponding scores, e.g. average read numbers per 50 bp"
-[FASTQ]: https://docs.google.com/document/d/1Iv9QnuRYWCtV_UCi4xoXxEfmSZYQNyYJPNsFHnvv9C0/edit?usp=sharing "text file of raw reads (almost straight out of the sequencer)"
-
-[bamCorrelate]: https://github.com/fidelram/deepTools/wiki/QC#wiki-bamCorrelate
-[bamFingerprint]: https://github.com/fidelram/deepTools/wiki/QC#wiki-bamFingerprint
-[computeGCBias]: https://github.com/fidelram/deepTools/wiki/QC#wiki-computeGCbias
-[bamCoverage]: https://github.com/fidelram/deepTools/wiki/Normalizations#wiki-bamCoverage
-[bamCompare]: https://github.com/fidelram/deepTools/wiki/Normalizations#wiki-bamCompare
-[computeMatrix]: https://github.com/fidelram/deepTools/wiki/Visualizations
-[heatmapper]: https://github.com/fidelram/deepTools/wiki/Visualizations
-[profiler]: https://github.com/fidelram/deepTools/wiki/Visualizations
-[FAQ]: https://github.com/fidelram/deepTools/wiki/FAQ
-
-[Benjamini and Speed]: http://nar.oxfordjournals.org/content/40/10/e72 "Nucleic Acids Research (2012)"
-[Diaz et al.]: http://www.degruyter.com/view/j/sagmb.2012.11.issue-3/1544-6115.1750/1544-6115.1750.xml "Stat. Appl. Gen. Mol. Biol. (2012)"
-[Anaconda Scientific Python Distribution]: https://store.continuum.io/cshop/anaconda/
-
 This tool suite is developed by the [Bioinformatics Facility](http://www1.ie-freiburg.mpg.de/bioinformaticsfac) at the [Max Planck Institute for Immunobiology and Epigenetics, Freiburg](http://www1.ie-freiburg.mpg.de/).
 
-[Wiki Start Page](https://github.com/fidelram/deepTools/wiki) | [deepTools Galaxy](http://deeptools.ie-freiburg.mpg.de) | [FAQ](https://github.com/fidelram/deepTools/wiki/FAQ)
