@@ -12,8 +12,7 @@ import pysam
 from bx.intervals.intersection import IntervalTree, Interval
 
 # own tools
-from deeptools import bamHandler, parserCommon
-from hicexplorer.utilities import getUserRegion
+from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer import HiCMatrix as hm
 
 debug = 1
@@ -154,7 +153,7 @@ def parseArguments(args=None):
                         'specify a chromosome, for example --region chr10',
                         metavar="CHR:START-END",
                         required=False,
-                        type=parserCommon.genomicRegion
+                        type=genomicRegion
                         )
 
     args = parser.parse_args(args)
@@ -200,7 +199,7 @@ def get_bins(bin_size, chrom_size, region=None):
     ('chrom', start, end)
 
     >>> test = Tester()
-    >>> chrom_size = get_chrom_sizes(bamHandler.openBam(test.bam_file_1))
+    >>> chrom_size = get_chrom_sizes(pysam.Samfile(test.bam_file_1))
     >>> get_bins(50000, chrom_size)
     [('contig-2', 0, 3345L), ('contig-1', 0, 7125L)]
     >>> get_bins(50000, chrom_size, region='contig-1')
@@ -319,100 +318,22 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     return zip(new_chrom, new_start, new_end)
 
 
-## remove after debugging
-def get_rf_bins_old(rf_cut_intervals, chrom_size, min_distance=500):
-    r"""
-    returns a list of tuples containing a bin having the format:
-    ('chrom', start, end)
-
-    The goal is to have bins that each contains (close to the center)
-    a restriction site. Restriction sites that are close together
-    are merged
-
-    The given cut sites list has to be ordered chr, and start site
-
-    >>> import tempfile, os
-
-    Make a temporary file to sent to get_rf_bins
-    >>> rf_cut_interval = [('chr1', 10, 20), ('chr1', 60, 70)]
-
-    The following two bins are close together
-    and should be  merged under min_distance = 25
-    >>> rf_cut_interval.extend([('chr2', 20, 30), ('chr2', 40, 50),
-    ... ('chr2', 70, 80)])
-    >>> get_rf_bins_old(rf_cut_interval, [('chr1', 100),
-    ... ('chr2', 100)], min_distance=25)
-    [('chr1', 0, 40), ('chr1', 40, 100), ('chr2', 0, 60), ('chr2', 60, 100)]
-    """
-    sys.stderr.write("Minimum distance considered between "
-                     "restriction sites is {}\n".format(min_distance))
-    bin_intvals = []
-    start = 0
-    current_chr = None
-    chrom_size = dict(chrom_size)
-    count = 0
-    end_prev = None
-    chrom = None
-    for chrom, start_cut, end_cut in rf_cut_intervals:
-        count += 1
-
-        assert end_cut > start_cut, "end bigger than start at line " \
-            "{}".format(count)
-
-        assert end_cut < chrom_size[chrom], "end of restriction site " \
-            "({}) bigger than chrom size: {}: {} ".format(end_cut, chrom,
-                                                          chrom_size[chrom])
-        if end_prev is None:
-            end_prev = end_cut
-            current_chr = chrom
-            continue
-
-        # find the position, right in the middle of the the
-        # current and previous cut (end_prev)
-        end = end_prev + (start_cut-end_prev) / 2
-        if current_chr and current_chr != chrom:
-            end_chr = chrom_size[current_chr]
-            bin_intvals.append((current_chr, start, end_chr))
-            current_chr = chrom
-            end_prev = end_cut
-            start = 0
-            continue
-
-        assert start_cut > start, "restriction file not ordered " \
-            "at line {}".format(count)
-
-        if end_cut - end_prev < min_distance:
-            end_prev = end_cut
-            continue
-
-        end_prev = end_cut
-        current_chr = chrom
-
-        bin_intvals.append((chrom, start, end))
-        start = end
-
-    if chrom:
-        # add last bin
-        bin_intvals.append((chrom, start, chrom_size[chrom]))
-
-    return bin_intvals
-
 
 def get_chrom_sizes(bam_handle):
     """
     return the list of chromosome names and their
     size from the bam file
-    The return value is a lits of the form
+    The return value is a list of the form
     [('chr1', 2343434), ('chr2', 43432432)]
 
     >>> test = Tester()
-    >>> get_chrom_sizes(bamHandler.openBam(test.bam_file_1))
+    >>> get_chrom_sizes(pysam.Samfile(test.bam_file_1, 'rb'))
     [('contig-2', 3345L), ('contig-1', 7125L)]
     """
 
     # in some cases there are repeated entries in
     # the bam file. Thus, I first convert to dict,
-    # then to list
+    # then to list.
     list_chrom_sizes = dict(zip(bam_handle.references,
                                 bam_handle.lengths))
     return list_chrom_sizes.items()
@@ -438,41 +359,6 @@ def check_dangling_end(read, dangling_sequences):
 
     return False
 
-## remove after debugging
-def get_closest_rf_site_old(read, bin_intval, rf_positions):
-    """
-    given a pysam read, a bin and the interval tree
-    of rf positions, the closest distance from the 
-    read to the restriction site is returned.
-    """
-    chrom, start, end = bin_intval
-
-    rest_sites_in_bin = rf_positions[chrom].find(start, end)
-    dist_to_rest_site = []
-    for rest_site in rest_sites_in_bin:
-        if read.is_reverse:
-            # for the backward read
-            # evaluate the distance from the start
-            # of the restriction site to the start of
-            # the read.
-            dist = read.pos - rest_site.start
-        else:
-            # for foward read, evaluate the distance
-            # from the read end to the end of
-            # the restriction site.
-            dist = rest_site.end - read.pos + read.qlen
-        if dist > 0:
-            # if dist is not positive, it means
-            # that the end of a forward read was after the
-            # end of the restriction site or that the
-            # start of a backward read was before
-            # the start of the restriction site
-            dist_to_rest_site.append(dist)
-
-    if len(dist_to_rest_site):
-        return min(dist_to_rest_site)
-    else:
-        return None
 
 def get_poor_bins(max_coverage_list):
     """
@@ -541,39 +427,6 @@ def enlarge_bins(bin_intervals, chrom_sizes):
 
     return bin_intervals
 
-## REMOVE AFTER DEBUGGING, NO LONGER USED
-def shuffle_intervals(bin_intervals, chrom_sizes, sample_fraction=0.1):
-    """
-    randomizes the positions of sampling bins. A sub-sample of size
-    sample_fraction is taken. Positions are shuffled withen the same
-    chromosome.
-
-    Returns the shuffle bins keeping the relative order of
-    one to the other.
-
-    >>> import random
-    >>> random.seed(1)
-    >>> chrom_sizes = [('chr1', 100), ('chr2', 100)]
-    >>> bin_intervals =     [('chr1', 10, 30), ('chr1', 50, 80),
-    ... ('chr2', 10, 60), ('chr2', 60, 90)]
-    >>> shuffle_intervals(bin_intervals, chrom_sizes, 0.5)
-    [('chr1', 61, 81), ('chr2', 13, 63)]
-    """
-    import random
-
-    chrom_sizes = dict(chrom_sizes)
-    num_samples = int(sample_fraction * len(bin_intervals))
-    sample_idx = sorted(random.sample(range(len(bin_intervals)),
-                                      num_samples))
-    bin_intervals = [bin_intervals[x] for x in sample_idx]
-    # shuffle only within the same chromosome
-    new_intervals = []
-    for interval in bin_intervals:
-        chrom, start, end = interval
-        interval_length = end - start
-        new_start = random.randint(0, chrom_sizes[chrom] - interval_length)
-        new_intervals.append((chrom, new_start, new_start + interval_length))
-    return new_intervals
 
 def main(args):
     """
@@ -582,7 +435,7 @@ def main(args):
     to the mapped position of the two ends of a Hi-C
     fragment.
 
-    Each mate pair is assesed to determine if it is
+    Each mate pair is assessed to determine if it is
     a valid Hi-C pair, in such case a matrix
     reporting the counts of mates is constructed.
 
