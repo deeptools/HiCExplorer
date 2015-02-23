@@ -126,7 +126,7 @@ setup(
     scripts=['bin/findRestSite', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindEnrichedContacts', 'bin/hicFindTADs',
              'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix',
-             'bin/hicPlotTADs', 'bin/hicSumMatrices'],
+             'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport'],
     include_package_data=True,
     package_data={'': ['config/hicexplorer.cfg']},
     #url='http://pypi.python.org/pypi/hicexplorer/',
