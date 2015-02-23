@@ -555,7 +555,7 @@ class hiCMatrix:
         try:
             fileh = gzip.open(fileName, 'w')
         except:
-            msg = "{} file can be opened for writting".format(fileName)
+            msg = "{} file can be opened for writing".format(fileName)
             raise msg
 
         colNames = []
