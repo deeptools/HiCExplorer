@@ -28,10 +28,14 @@ def parseArguments(args=None):
         'for the whole chromosome')
 
     # define the arguments
+#    parser.add_argument('--tracks',
+#                        help='List of files to plot. Type of plot is decided '
+#                        'based on the file ending. ',
+#                        nargs='+',
+#                        )
     parser.add_argument('--tracks',
-                        help='List of files to plot. Type of plot is decided '
-                        'based on the file ending. ',
-                        nargs='+',
+                        help='File containing the instructions to plot the tracks ',
+                        required=True,
                         )
 
     parser.add_argument('--width',
@@ -62,40 +66,6 @@ def parseArguments(args=None):
                         required=True
                         )
 
-    parser.add_argument('--depth',
-                        help='depth of the hic matrices that wants to be'
-                        'plotted in bp',
-                        metavar='INT bp',
-                        type=int,
-                        )
-
-    parser.add_argument('--log1p',
-                        help='Plot the log1p of the matrix values.',
-                        action='store_true')
-
-    parser.add_argument('--log',
-                        help='Plot the *MINUS* log of the matrix values.',
-                        action='store_true')
-
-    color_options = "', '".join([m for m in cm.datad
-                                 if not m.endswith('_r')])
-
-    parser.add_argument('--colorMap', default='RdYlBu',
-                        help='Color map to use for the heatmap. Available '
-                        'values can be seen here: '
-                        'http://www.astro.lsa.umich.edu/~msshin/science/code/'
-                        'matplotlib_cm/ The available options are: \'' +
-                        color_options + '\'')
-
-    parser.add_argument('--vMin',
-                        help='vMin',
-                        type=float,
-                        default=None)
-
-    parser.add_argument('--vMax',
-                        help='vMax',
-                        type=float,
-                        default=None)
 
     parser.add_argument('--zMax',
                         help='zMax',
@@ -119,8 +89,8 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region, args):
     chrom, region_start, region_end = region
     hic_ma.keepOnlyTheseChr(chrom)
     hic_ma.maskBins(hic_ma.nan_bins)
-    if 'extra' in matrix_properties and \
-            'inverted' in matrix_properties['extra']:
+    if 'orientation' in matrix_properties and \
+            matrix_properties['orientation'] == 'inverted':
         plot_inverted = True
     else:
         plot_inverted = False
@@ -138,8 +108,8 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region, args):
     chr_start_id, chr_end_id = hic_ma.getChrBinRange(chrom)
     chr_start = hic_ma.cut_intervals[chr_start_id][1]
     chr_end = hic_ma.cut_intervals[chr_end_id-1][1]
-    start_bp = max(chr_start, region_start - args.depth)
-    end_bp = min(chr_end, region_end + args.depth)
+    start_bp = max(chr_start, region_start - matrix_properties['depth'])
+    end_bp = min(chr_end, region_end + matrix_properties['depth'])
 
     idx, start_pos = zip(*[(idx, x[1]) for idx, x in
                            enumerate(hic_ma.cut_intervals)
@@ -192,33 +162,34 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region, args):
     matrix = np.asarray(hic_ma.matrix.todense().astype(float))
 
     norm = None
-    if args.log1p:
-        matrix += 1
-        norm = LogNorm()
 
-    if args.log:
-        mask = matrix == 0
-        matrix[mask] = matrix[mask == False].min()
-        matrix = -1 * np.log(matrix)
+    if 'transform' in matrix_properties:
+        if matrix_properties['transform'] == 'log1p':
+            matrix += 1
+            norm = LogNorm()
 
-    if args.vMax is None and matrix_properties['max_value'] == 'auto':
+        elif matrix_properties['transform'] == '-log':
+            mask = matrix == 0
+            matrix[mask] = matrix[mask == False].min()
+            matrix = -1 * np.log(matrix)
+
+    if 'max_value' in matrix_properties and matrix_properties['max_value'] != 'auto':
+        vmax = matrix_properties['max_value']
+
+    else:
         # try to use a 'aesthetically pleasant' max value
         vmax = np.percentile(matrix.diagonal(1), 80)
-    elif args.vMax is None and matrix_properties['max_value'] != 'auto':
-        vmax = matrix_properties['max_value']
+
+    if 'min_value' in matrix_properties and matrix_properties['min_value'] != 'auto':
+        vmin = matrix_properties['min_value']
     else:
-        vmax = args.vMax
-    if args.vMin is None and matrix_properties['min_value'] == 'auto':
         bin_size = hic_ma.getBinSize()
         depth_bins = int(args.depth / bin_size)
         vmin = np.median(matrix.diagonal(depth_bins))
-    elif args.vMin is None and matrix_properties['min_value'] != 'auto':
-        vmin = matrix_properties['min_value']
-    else:
-        vmin = args.vMin
-    sys.stderr.write("setting min, max: {}, {}\n".format(vmin, vmax))
+
+    sys.stderr.write("setting min, max values to: {}, {}\n".format(vmin, vmax))
     chrom, region_start, region_end = region
-    cmap = cm.get_cmap(matrix_properties['color'])
+    cmap = cm.get_cmap(matrix_properties['colormap'])
     cmap.set_bad('white')
 
     img = pcolormesh_45deg(matrix, ax, start_pos, vmax=vmax,
@@ -226,9 +197,9 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region, args):
                            plot_inverted=plot_inverted)
     img.set_rasterized(True)
     if plot_inverted:
-        ax.set_ylim(-args.depth, 0)
+        ax.set_ylim(-matrix_properties['depth'], 0)
     else:
-        ax.set_ylim(0, args.depth)
+        ax.set_ylim(0, matrix_properties['depth'])
 
     ax.set_xlim(region_start, region_end)
 
@@ -282,7 +253,7 @@ def plot_x_axis(ax, region):
 
     ax.set_frame_on(False)
     ax.axes.get_yaxis().set_visible(False)
-    
+
 
 def pcolormesh_45deg(C, ax, start_pos_vector, vmin=None,
                      vmax=None, cmap=None, norm=None,
@@ -550,8 +521,8 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
         """
         start_box = [(x0, y0), (start, y0 + 50), (x0, y1), (thick_start, y1), (thick_start, y0)]
         end_box = [(thick_end, y0), (thick_end, y1), (end, y1),  (end, y0)]
-    
- 
+
+
     for idx in range(0, block_count):
         x0 = start + block_starts[idx]
         x1 = x0 + block_sizes[idx]
@@ -562,12 +533,12 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
             y0 = ypos
             y1 = ypos + 100
 
-        if x0 < thick_start and x1 > thick_start:
-            vertices = ([(x0, ypos+25), (x0, ypos+75), (thick_start, ypos+75), (thick_start, ypos+100), 
+        if x0 < thick_start < x1:
+            vertices = ([(x0, ypos+25), (x0, ypos+75), (thick_start, ypos+75), (thick_start, ypos+100),
                          (thick_start, ypos+100), (x1, ypos+100), (x1, ypos), (thick_start, ypos), (thick_start, ypos+25)])
 
-        elif x0 < thick_end and x1 > thick_end:
-            vertices = ([(x0, ypos), (x0, ypos+100), (thick_end, ypos+100), (thick_end, ypos+75), 
+        elif x0 < thick_end < x1:
+            vertices = ([(x0, ypos), (x0, ypos+100), (thick_end, ypos+100), (thick_end, ypos+75),
                          (x1, ypos+75), (x1, ypos+25), (thick_end, ypos+25), (thick_end, ypos)])
         else:
             vertices = ([(x0,y0), (x0, y1), (x1, y1), (x1, y0)])
@@ -577,7 +548,7 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
                                                 edgecolor='none',
                                                 facecolor=rgb))
 
-        if idx < block_count -1:
+        if idx < block_count - 1:
             intron_length =  block_starts[idx+1]  - (block_starts[idx] + block_sizes[idx])
             marker = 5 if strand == '+' else 4
             if intron_length > 3*small_relative:
@@ -590,8 +561,7 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
                 ax.plot([intron_center], [ypos+50], '.', marker=5,
                     fillstyle='none', color='blue', markersize = 3)
 
-                
-    
+
     center = start + float(end - start)/2
     ax.text(center, ypos + 125, fields[3],
             horizontalalignment='center', verticalalignment='top')
@@ -896,18 +866,59 @@ def get_region(region_string):
         region_string = [chrom, region_start, region_end]
     return chrom, region_start, region_end
 
+def parse_tracks(tracks_file):
+    """
+    Parses a configuration file
+
+    :param tracks_file: file path containing the track configuration
+    :return: array of dictionaries. Each
+    """
+    from ConfigParser import SafeConfigParser
+    from ast import literal_eval
+    parser = SafeConfigParser()
+    parser.read(tracks_file)
+
+    track_list = []
+    for section_name in parser.sections():
+        track_options = dict()
+        if section_name in ['spacer', 'x-axis']:
+            track_options[section_name] = True
+        for name, value in parser.items(section_name):
+            if name in ['max_value', 'min_value', 'depth', 'width']:
+                track_options[name] =  literal_eval(value)
+            else:
+                track_options[name] =  value
+
+        track_list.append(track_options)
+
+    return track_list
+
 def main(args):
 
     region = get_region(args.region)
     chrom, region_start, region_end = region
 
+    track_properties = parse_tracks(args.tracks)
+
     # prepare layout based on the tracks given.
     # The main purpose of the following loop is
     # to get the height of each of the tracks
 
+
     track_height = []
-    track_properties = []
-    for track_data in args.tracks:
+    for track_dict in track_properties:
+        if 'width' in track_dict:
+            track_height.append(track_dict['width'])
+        elif 'depth' in track_dict:
+            height = (track_dict['depth'] * args.width /
+                      (1.8*(region_end - region_start)))
+            track_height.append(height)
+        else:
+            track_height.append(0.3)
+
+
+    """
+    for track_data in track_list:
         track_data = track_data.strip()
         if track_data == 'spacer':
             properties = {'spacer': True}
@@ -964,14 +975,16 @@ def main(args):
                     properties['extra'][0] == 'interaction':
                 track_height.append(2)
             else:
-                height = (args.depth * args.width / 
+                height = (args.depth * args.width /
                           (1.8*(region_end - region_start)))
                 track_height.append(height)
+    """
 
     if args.height:
         fig_height = args.height
     else:
         fig_height = sum(track_height)
+
     print (args.width, fig_height)
     fig = plt.figure(figsize=(args.width, fig_height))
     fig.suptitle(args.title)
@@ -979,13 +992,14 @@ def main(args):
     font = {'size'   : fontsize}
     matplotlib.rc('font', **font)
 
-    grids = gridspec.GridSpec(len(args.tracks), 2,
+    grids = gridspec.GridSpec(len(track_properties), 2,
                               height_ratios=track_height,
                               width_ratios=[1, 0.2])
 
     # iterate again to plot each track
     axis_list = []
     for idx, properties in enumerate(track_properties):
+#        import ipdb;ipdb.set_trace()
         if 'spacer' in properties:
             continue
         axis = plt.subplot(grids[idx, 0])
@@ -1000,7 +1014,7 @@ def main(args):
         elif properties['file'].endswith('.bw'):
             plot_bigwig(axis, label_axis, properties, region)
         elif properties['file'].endswith('.npz'):
-            if 'extra' in properties and 'interaction' in properties['extra']:
+            if 'type' in properties and properties['type'] == 'interaction':
                 plot_interactions(axis, properties, region, args)
             else:
                 # to avoid the color bar to span all the
