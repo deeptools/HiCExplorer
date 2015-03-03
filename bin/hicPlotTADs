@@ -502,7 +502,7 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
         starting in the lower left corner and progressing in a clock wise manner.
 
         -----------------\
-        ---------------- /
+        -----------------/
 
         """
         start_box = [(start, y0), (start, y1), (x1, y1), (x1, y0)]
@@ -587,21 +587,20 @@ def plot_bed(ax, label_ax, bed_properties, region):
     # it is good to have an estimation of the label
     # length. In the following code I try to get
     # the length of a 'w'.
-    if 'extra' in bed_properties and \
-        bed_properties['extra'][0] == 'genes':
+    if 'type' in bed_properties and \
+        bed_properties['type'] == 'genes':
         t = matplotlib.textpath.TextPath((0,0), 'w')
         len_w = t.get_extents().width * 250
     else:
         len_w = 1
 
     if bed_properties['color'] in color_options:
-        if bed_properties['color'] in color_options:
-            import matplotlib as mpl
-            import matplotlib.cm as cm
-            norm = mpl.colors.Normalize(vmin=bed_properties['min_value'],
-                                        vmax=bed_properties['max_value'])
-            cmap = cm.get_cmap(bed_properties['color'])
-            colormap  = cm.ScalarMappable(norm=norm, cmap=cmap)
+        import matplotlib as mpl
+        import matplotlib.cm as cm
+        norm = mpl.colors.Normalize(vmin=bed_properties['min_value'],
+                                    vmax=bed_properties['max_value'])
+        cmap = cm.get_cmap(bed_properties['color'])
+        colormap  = cm.ScalarMappable(norm=norm, cmap=cmap)
 
     for line in file_h.readlines():
         if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
@@ -646,8 +645,8 @@ def plot_bed(ax, label_ax, bed_properties, region):
             except Exception as e:
                 exit("Error occurred: {}".format(e))
 
-            if 'extra' in bed_properties and \
-                    bed_properties['extra'][0] == 'domain':
+            if 'type' in bed_properties and \
+                    bed_properties['type'] == 'domain':
                 ypos = 100 if counter % 2 == 0 else 1
                 ax.add_patch(matplotlib.patches.Rectangle(
                         (start, ypos),
@@ -665,8 +664,8 @@ def plot_bed(ax, label_ax, bed_properties, region):
                     rows_used[x.value] = 1
                 min_free_row = min(np.flatnonzero(rows_used==0))
 
-            if 'extra' in bed_properties and \
-                bed_properties['extra'][0] == 'genes' and \
+            if 'type' in bed_properties and \
+                bed_properties['type'] == 'genes' and \
                 end - start < len(fields[3]) * len_w:
                 region_intervals.add_interval(Interval(start, start + (len(fields[3]) * len_w), min_free_row))
             else:
@@ -680,13 +679,13 @@ def plot_bed(ax, label_ax, bed_properties, region):
             else:
                 ypos = 0
 
-            if 'extra' in bed_properties and \
-                    bed_properties['extra'][0] == 'collapsed':
+            if 'display' in bed_properties and \
+                    bed_properties['display'] == 'collapsed':
                 ypos = 0
 
             # give direction to genes
-            if 'extra' in bed_properties and \
-                    bed_properties['extra'][0] == 'genes' and \
+            if 'type' in bed_properties and \
+                    bed_properties['type'] == 'genes' and \
                     strand in ['+','-']:
 #                draw_gene_simple(ax, fields, ypos, bed_properties, small_relative)
                 draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor)
@@ -697,11 +696,11 @@ def plot_bed(ax, label_ax, bed_properties, region):
                         100, edgecolor=edgecolor,
                         facecolor=rgb))
 
-    if 'extra' in bed_properties and \
-            bed_properties['extra'][0] == 'domain':
+    if 'type' in bed_properties and \
+            bed_properties['type'] == 'domain':
         ax.set_ylim(-5, 205)
-    elif 'extra' in bed_properties and \
-        bed_properties['extra'][0] == 'collapsed':
+    elif 'display' in bed_properties and \
+        bed_properties['display'] == 'collapsed':
         ax.set_ylim(-5, 105)
     else:
         ax.set_ylim((max_num_row+1)*230, -25)
@@ -781,6 +780,61 @@ def plot_bedgraph(ax, label_ax, bedgraph_properties, region):
         ax.set_xticklabels(labels, size='large')
         ax.axes.get_xaxis().set_visible(True)
     """
+
+def plot_bedgraph_matrix(ax, label_ax, properties, region):
+    """
+    Plots a bedgraph matrix file, that instead of having
+    a single value per bin, it has several values.
+
+    :param ax:
+    :param label_ax:
+    :param properties:
+    :param region:
+    :return:
+    """
+
+    fh = open(properties['file'], 'r')
+    chrom_region, start_region, end_region = region
+    start_pos = []
+    matrix_rows = []
+    for line in fh:
+        line = line.strip()
+        region = line.split('\t')
+        chrom = region[0]
+        start = int(region[1])
+        end = int(region[2])
+        if chrom == chrom_region and start_region -100000 <= start and \
+            end_region + 100000 >= end:
+            start_pos.append(start)
+            matrix_rows.append(np.fromiter(region[3:], np.float))
+
+    matrix = np.vstack(matrix_rows).T
+    if 'orientation' in properties and \
+        properties['orientation'] == 'inverted':
+        matrix = np.flipud(matrix)
+
+    vmin = None
+    vmax = None
+    if 'max_value' in properties and properties['max_value'] != 'auto':
+        vmax = properties['max_value']
+
+
+    if 'min_value' in properties and properties['min_value'] != 'auto':
+        vmin = properties['min_value']
+
+
+    X,Y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
+    img = ax.pcolormesh(X, Y, matrix, vmin=vmin, vmax=vmax)
+    img.set_rasterized(True)
+    ax.set_xlim(start_region, end_region)
+    ax.set_frame_on(False)
+    ax.axes.get_xaxis().set_visible(False)
+    ax.axes.get_yaxis().set_visible(False)
+
+    label_ax.text(0.15, 0, properties['title'],
+            horizontalalignment='left', size='large',
+            verticalalignment='bottom', transform=label_ax.transAxes)
+
 
 
 def plot_bigwig(ax, label_ax, bigwig_properties, region):
@@ -1025,8 +1079,9 @@ def main(args):
                 label_axis.set_axis_off()
                 plot_matrix(axis, label_axis, cbar_axis,
                             properties, region, args)
+        elif properties['file'].endswith('.bm'):
+            plot_bedgraph_matrix(axis, label_axis, properties, region)
         axis_list.append(axis)
-
     if args.vlines:
         from matplotlib.patches import ConnectionPatch
         a_ymax = axis_list[0].get_ylim()[1]
@@ -1038,7 +1093,8 @@ def main(args):
                                   axesA=axis_list[0],
                                   axesB=axis_list[-1],
                                   arrowstyle="-",
-                                   linestyle='dashed')
+                                   linestyle='dashed',
+                                    linewidth=0.5)
             axis_list[0].add_artist(con)
 
     plt.subplots_adjust(wspace=0, hspace=0.1, top=0.9,

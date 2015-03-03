@@ -19,7 +19,7 @@ def parsearguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Uses the graph clustering measure "coverage" to '
+        description='Uses the graph clustering measure "conductance" to '
         'find minimum cuts that correspond to boundaries.')
 
     # define the arguments
@@ -29,7 +29,7 @@ def parsearguments(args=None):
                         required=True)
 
     parser.add_argument('--depth',
-                        help='window length to be considered lefta and right '
+                        help='window length to be considered left and right '
                         'of the cut point in bp',
                         metavar='INT bp',
                         type=int,

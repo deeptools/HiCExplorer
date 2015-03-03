@@ -1,0 +1,487 @@
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+from __future__ import division
+import sys
+import argparse
+from hicexplorer import HiCMatrix as hm
+from hicexplorer.utilities import enlarge_bins
+from scipy import sparse
+import numpy as np
+
+
+def parsearguments(args=None):
+    """
+    get command line arguments
+    """
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description='Uses the graph clustering measure "coverage" to '
+        'find minimum cuts that correspond to boundaries.')
+
+    # define the arguments
+    parser.add_argument('--matrix', '-m',
+                        help='matrix to use.',
+                        metavar='.npz fileformat',
+                        required=True)
+
+    parser.add_argument('--minDepth',
+                        help='window length to be considered left and right '
+                        'of the cut point in bp',
+                        metavar='INT bp',
+                        type=int,
+                        default=20000
+                        )
+
+    parser.add_argument('--maxDepth',
+                        help='window length to be considered left and right '
+                        'of the cut point in bp',
+                        metavar='INT bp',
+                        type=int,
+                        default=400000
+                        )
+
+    parser.add_argument('--delta',
+                        help='minimun difference between a peak and following'
+                             'points.',
+                        type=float,
+                        default=0.001
+                        )
+
+    parser.add_argument('--outFileName', '-o',
+                        help='File name to save the values',
+                        type=argparse.FileType('w'),
+                        required=True)
+
+    parser.add_argument('--outFileSpectrum',
+                        help='File name to save the domain spectrum',
+                        type=argparse.FileType('w'),
+                        required=True)
+
+    args = parser.parse_args(args)
+    if args.maxDepth <= args.minDepth:
+        exit("Please check that maxDepth is larger than minDepth.")
+
+    return args
+
+
+def get_cut_weight(matrix, cut, depth):
+    """
+    Get inter cluster edges sum.
+    Computes the sum of the counts
+    between the left and right regions of a cut
+
+    >>> matrix = np.array([
+    ... [ 0,  0,  0,  0,  0],
+    ... [10,  0,  0,  0,  0],
+    ... [ 5, 15,  0,  0,  0],
+    ... [ 3,  5,  7,  0,  0],
+    ... [ 0,  1,  3,  1,  0]])
+
+    Test a cut at position 2, depth 2.
+    The values in the matrix correspond
+    to:
+          [[ 5, 15],
+           [ 3,  5]]
+    >>> get_cut_weight(matrix, 2, 2)
+    28
+
+    For the next test the expected
+    submatrix is [[10],
+                  [5]]
+    >>> get_cut_weight(matrix, 1, 2)
+    15
+    >>> get_cut_weight(matrix, 4, 2)
+    4
+    >>> get_cut_weight(matrix, 5, 2)
+    0
+    """
+    # the range [start:i] should have running window
+    # length elements (i is excluded from the range)
+    start = max(0, cut - depth)
+    # same for range [i+1:end] (i is excluded from the range)
+    end = min(matrix.shape[0], cut + depth)
+
+    # the idea is to evaluate the interactions
+    # between the upstream neighbors with the
+    # down stream neighbors. In other words
+    # the inter-domain interactions
+    return matrix[cut:end, :][:, start:cut].sum()
+
+
+def get_min_volume(matrix, cut, depth):
+    """
+    The volume is the weight of the edges
+    from a region to all other.
+
+    In this case what I compute is
+    a submatrix that goes from
+    cut - depth to cut + depth
+    """
+    start = max(0, cut - depth)
+    # same for range [i+1:end] (i is excluded from the range)
+    end = min(matrix.shape[0], cut + depth)
+
+    left_region = matrix[start:end, :][:, start:cut].sum()
+    right_region = matrix[cut:end, :][:, start:end].sum()
+
+    return min(left_region, right_region)
+
+def get_conductance(matrix, cut, depth):
+    """
+    Computes the conductance measure for
+    a matrix at a given cut position and
+    up to a given depth.
+
+    If int = inter-domain counts
+
+    then the conductance is defined as
+
+    conductance = int / min(int + left counts, int + right counts)
+
+    The matrix has to be lower or uppper to avoid
+    double counting
+
+    In the following example the conductance is to be
+    computed for a cut at index position 2 (between column 2 and 3)
+    >>> matrix = np.array([
+    ... [ 0,  0,  0,  0,  0],
+    ... [10,  0,  0,  0,  0],
+    ... [ 5, 15,  0,  0,  0],
+    ... [ 3,  5,  7,  0,  0],
+    ... [ 0,  1,  3,  1,  0]])
+
+    The lower left intra counts are [0,10,0]',
+    The lower right intra counts are [0, 7 0],
+    The inter counts are:
+          [[ 5, 15],
+           [ 3,  5]], sum = 28
+
+    The min of left and right is min(28+7, 28+10) = 35
+    >>> res = get_conductance(matrix, 2, 2)
+    >>> res == 28.0 / 35
+    True
+    """
+    start = max(0, cut - depth)
+    # same for range [i+1:end] (i is excluded from the range)
+    end = min(matrix.shape[0], cut + depth)
+
+    inter_edges = get_cut_weight(matrix, cut, depth)
+    edges_left = inter_edges + matrix[start:cut, :][:, start:cut].sum()
+    edges_right = inter_edges + matrix[cut:end, :][:, cut:end].sum()
+
+    return float(inter_edges) / min(edges_left, edges_right)
+#    return float(inter_edges) / (sum([edges_left, edges_right]) - inter_edges)
+
+
+def get_coverage(matrix, cut, depth):
+    """
+    The coverage is defined as the
+    intra-domain edges / all edges
+
+    It is only computed for a small running window
+    of length 2*depth
+
+    The matrix has to be lower or upper to avoid
+    double counting
+    """
+    start = max(0, cut - depth)
+    # same for range [i+1:end] (i is excluded from the range)
+    end = min(matrix.shape[0], cut + depth)
+
+    cut_weight = get_cut_weight(matrix, cut, depth)
+    total_edges = matrix[start:end, :][:, start:end].sum()
+    return cut_weight / total_edges
+
+
+def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
+    """
+    Iterates over the Hi-C matrix computing at each bin
+    interface the conductance at different window lengths
+    :param hic_ma: Hi-C matrix object from HiCMatrix
+    :param outfile: String, path of a file to save the conductance
+                matrix in *bedgraph matrix* format
+    :return: (chrom, start, end, matrix)
+    """
+
+    positions_array = []
+    cond_matrix = []
+    binsize = hic_ma.getBinSize()
+    chrom, start, end = hic_ma.cut_intervals[0]
+    prev_length = int(end - start) / 2
+    for cut in range(1, hic_ma.matrix.shape[0]-1):
+
+        chrom, chr_start, chr_end, _ = hic_ma.cut_intervals[cut]
+
+        # the evaluation of the conductance happens
+        # at the position between bins, thus the
+        # conductance is stored in bins that
+        # span the neighboring bins. In other
+        # words, the conductance is evaluated
+        # at the position between let's say
+        # bins number 14 and 15. Instead of
+        # storing a score at the position in between
+        # bin 14 and bin 15, a region of the size
+        # of the bins, centered on the interface.
+        if chr_start - prev_length > 0:
+            chr_start -= prev_length
+        else:
+            chr_start = 0
+        this_length = int(chr_end - chr_start) / 2
+        if chr_start + this_length > 0:
+            chr_end =  chr_start + this_length
+        else:
+            continue
+        prev_length = this_length
+
+        # get conductance
+        # for multiple window lengths at a time
+        mult_matrix = [get_coverage(hic_ma.matrix, cut, x)
+                       for x in range(min_win_size, max_win_size, 3)]
+        cond_matrix.append(mult_matrix)
+
+        positions_array.append((chrom, chr_start, chr_end))
+
+    chrom, chr_start, chr_end = zip(*positions_array)
+    # save matrix as chrom, start, end ,row, values separated by tab
+    # I call this a bedgraph matrix (bm)
+    cond_matrix = np.vstack(cond_matrix)
+    if outfile:
+        # save matrix as chrom start end row values
+        with open(outfile, 'w') as f:
+            for idx in range(len(chrom)):
+                matrix_values = "\t".join(
+                        np.char.mod('%f', cond_matrix[idx,:]))
+                f.write("{}\t{}\t{}\t{}\n".format(chrom[idx], chr_start[idx],
+                                                  chr_end[idx], matrix_values))
+
+    return chrom, chr_start, chr_end, cond_matrix
+
+
+def peakdetect(y_axis, x_axis = None, lookahead = 300, delta=0):
+    """
+    Converted from/based on a MATLAB script at:
+    http://billauer.co.il/peakdet.html
+
+    function for detecting local maximas and minmias in a signal.
+    Discovers peaks by searching for values which are surrounded by lower
+    or larger values for maximas and minimas respectively
+
+    keyword arguments:
+    y_axis -- A list containg the signal over which to find peaks
+    x_axis -- (optional) A x-axis whose values correspond to the y_axis list
+        and is used in the return to specify the postion of the peaks. If
+        omitted an index of the y_axis is used. (default: None)
+    lookahead -- (optional) distance to look ahead from a peak candidate to
+        determine if it is the actual peak (default: 200)
+        '(sample / period) / f' where '4 >= f >= 1.25' might be a good value
+    delta -- (optional) this specifies a minimum difference between a peak and
+        the following points, before a peak may be considered a peak. Useful
+        to hinder the function from picking up false peaks towards to end of
+        the signal. To work well delta should be set to delta >= RMSnoise * 5.
+        (default: 0)
+            delta function causes a 20% decrease in speed, when omitted
+            Correctly used it can double the speed of the function
+
+    return -- two lists [max_peaks, min_peaks] containing the positive and
+        negative peaks respectively. Each cell of the lists contains a tupple
+        of: (position, peak_value)
+        to get the average peak value do: np.mean(max_peaks, 0)[1] on the
+        results to unpack one of the lists into x, y coordinates do:
+        x, y = zip(*tab)
+    """
+    max_peaks = []
+    min_peaks = []
+    dump = []   #Used to pop the first hit which almost always is false
+
+    # check input data
+    if x_axis is None:
+        x_axis = np.arange(len(y_axis))
+
+    if len(y_axis) != len(x_axis):
+        raise (ValueError,
+                'Input vectors y_axis and x_axis must have same length')
+
+    # store data length for later use
+    length = len(y_axis)
+
+    # perform some checks
+    if lookahead < 1:
+        raise ValueError, "Lookahead must be '1' or above in value"
+    if not (np.isscalar(delta) and delta >= 0):
+        raise ValueError, "delta must be a positive number"
+
+    # maximum and minimum candidates are temporarily stored in
+    # mx and mn respectively
+    mn, mx = np.Inf, -np.Inf
+    mxpos, mnpos = None, None
+
+    # Only detect peak if there is 'lookahead' amount of points after it
+    for index, (x, y) in enumerate(zip(x_axis[:-lookahead],
+                                        y_axis[:-lookahead])):
+        if y > mx:
+            mx = y
+            mxpos = x
+        if y < mn:
+            mn = y
+            mnpos = x
+
+        # look for max
+        if y < mx-delta and mx != np.Inf:
+            # Maxima peak candidate found
+            # look ahead in signal to ensure that this is a peak and not jitter
+            if y_axis[index:index+lookahead].max() < mx:
+                max_peaks.append([mxpos, mx])
+                dump.append(True)
+                # set algorithm to only find minima now
+                mx = np.Inf
+                mn = np.Inf
+                if index+lookahead >= length:
+                    #end is within lookahead no more peaks can be found
+                    break
+                continue
+
+        # look for min
+        if y > mn+delta and mn != -np.Inf:
+            # Minima peak candidate found
+            # look ahead in signal to ensure that this is a peak and not jitter
+            if y_axis[index:index+lookahead].min() > mn:
+                min_peaks.append([mnpos, mn])
+                dump.append(False)
+                # set algorithm to only find maxima now
+                mn = -np.Inf
+                mx = -np.Inf
+                if index+lookahead >= length:
+                    # end is within lookahead no more peaks can be found
+                    break
+
+    # Remove the false hit on the first value of the y_axis
+    try:
+        if dump[0]:
+            max_peaks.pop(0)
+        else:
+            min_peaks.pop(0)
+        del dump
+    except IndexError:
+        # no peaks were found, should the function return empty lists?
+        pass
+
+    return [max_peaks, min_peaks]
+
+
+def find_consensus_minima(matrix, delta=0):
+    """
+    For each row in the matrix minimum are found, then
+    a consensus of at least half of the sites have to agree
+    to call a minimum. Neighboring minimum are merged.
+    :param matrix:
+    :return:
+    """
+
+    # use the matrix transpose such that each row
+    # represents the conductance at each genomic
+    # position
+    matrix = matrix.T
+    # initialize a matrix of the same shape
+    # as the conductance matrix to hold the
+    # min peaks found at each row
+    mins_matrix = np.zeros(matrix.shape)
+
+    # for each row in the matrix, get the minimun peaks
+    for idx, row in enumerate(matrix):
+    #    _max, _min= peakdetect(row, lookahead=1, delta=np.std(np.diff(row))/2)
+        _max, _min= peakdetect(row, lookahead=1, delta=delta)
+        min_indices, __ = zip(*_min)
+        mins_matrix[idx, min_indices] = 1
+
+    # get all rows with at least 3 called peaks.
+    total_peaks = mins_matrix.sum(axis=0)
+    min_idx = np.where(total_peaks > 3)[0]
+
+    # Merge nearby minima based on the last row position (most specific)
+    min_idx_last = np.flatnonzero(mins_matrix[0, :])
+    for idx in range(0, len(min_idx) -1):
+        if min_idx[idx+1] - min_idx[idx] == 1:
+            # use value found in min_idx_last
+            if min_idx[idx] in min_idx_last:
+                from_ = min_idx[idx + 1]
+                to_ = min_idx[idx]
+            else:
+                from_ = min_idx[idx]
+                to_ = min_idx[idx + 1]
+
+            total_peaks[to_] = total_peaks[to_] + total_peaks[from_]
+            total_peaks[from_] = 0
+
+    half = matrix.shape[0]/2
+    sys.stderr.write('DEBUG: half = {}'.format(half))
+    return np.where(total_peaks >= half)[0]
+
+def main(args):
+    hic_ma = hm.hiCMatrix(args.matrix)
+    # hic_ma.keepOnlyTheseChr('chrX')
+    # sys.stderr.write("\nWARNING: using only chromosome 3L\n\n")
+    # hic_ma.save('/tmp/chrX.npz')
+    # remove self counts
+    hic_ma.diagflat(value=0)
+    sys.stderr.write('removing diagonal values\n')
+
+    # use log values for the computations
+    hic_ma.matrix.data = np.log(hic_ma.matrix.data)
+    sys.stderr.write('using log matrix values\n')
+
+    # mask bins without any information
+    hic_ma.maskBins(hic_ma.nan_bins)
+    orig_intervals = hic_ma.cut_intervals
+
+    # extend remaining bins to remove gaps in
+    # the matrix
+    new_intervals = enlarge_bins(hic_ma.cut_intervals)
+
+    # rebuilt bin positions if necessary
+    if new_intervals != orig_intervals:
+        hic_ma.interval_trees, hic_ma.chrBinBoundaries = \
+            hic_ma.intervalListToIntervalTree(new_intervals)
+
+    if args.minDepth % hic_ma.getBinSize() != 0:
+        sys.stderr.write('Warning. specified depth is not multiple of the '
+                         'hi-c matrix bin size ({})\n'.format(
+            hic_ma.getBinSize()))
+
+    binsize = hic_ma.getBinSize()
+
+    min_depth_in_bins = int(args.minDepth / binsize)
+    max_depth_in_bins = int(args.maxDepth / binsize)
+    sys.stderr.write("computing spectrum for window sizes between {} ({} bp)"
+                     "and {} ({} bp)".format(min_depth_in_bins,
+                                             binsize*min_depth_in_bins,
+                                             max_depth_in_bins,
+                                             binsize*max_depth_in_bins))
+    if min_depth_in_bins <= 1:
+        sys.stderr.write('minDepth length too small. Use a value that is larger '
+                         'than the binsize which is: {}\n'.format(binsize))
+        exit()
+
+    if max_depth_in_bins <= 1:
+        sys.stderr.write('maxDepth length too small. Use a value that is larger '
+                         'than the binsize which is: {}\n'.format(binsize))
+        exit()
+
+    # work only with the lower matrix
+    hic_ma.matrix = sparse.tril(hic_ma.matrix, k=0, format='csr')
+
+    # compute conductance matrix
+    chrom, chr_start, chr_end, matrix = compute_matrix(hic_ma, min_depth_in_bins,
+                                                       max_depth_in_bins,
+                                                       outfile=args.outFileSpectrum.name)
+
+    min_idx = find_consensus_minima(matrix, delta=args.delta)
+
+    # save results
+    for idx in min_idx:
+        args.outFileName.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom[idx], chr_start[idx],
+                                              chr_end[idx], matrix[idx, 10]))
+
+
+if __name__ == "__main__":
+    ARGS = parsearguments()
+    main(ARGS)
