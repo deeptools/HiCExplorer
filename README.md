@@ -47,12 +47,18 @@ The following is the list of tools available in HiCExplorer
 
 <a name="installation"/></a>
 Installation
----------------
+------------
 
-[General Installation](#general)
+ * [Quick start](#quick)
+ * [General Installation](#general)
+ * [Installation on a Mac](#mac)
 
-[Installation on a Mac](#mac)
+<a name="quick"/></a>
+### Quick start guide ###
 
+The easiest way to install the latest HiCExplorer version is to use `pip` with our github repository.
+
+	$ pip install git+ssh://git@github.com/maxplanck-ie/HiCExplorer.git --user
 
 <a name="general"/></a>
 ### General Installation
