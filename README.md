@@ -30,29 +30,35 @@ $ hiCPlotMatrix -m hic_corrected.npz -o hic_plot.png
 
 The following is the list of tools available in HiCExplorer
 
-| tool 				| description	|
-| ----------------------------- | ---------------------------------- |
-| hicBuildMatrix 		| Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads. 	|
-| hicCorrectMatrix 		| Uses iterative correction to remove biases from a Hi-C matrix 	|
-| hicFindEnrichedContacts  	| Identifies enriched Hi-C contacts.            	|
-| hicCorrelate 			| Computes and visualises the correlation of Hi-C matrices            	|
-| hicFindTADs 			| Identifies Topologically Associating Domains (TADs)            	|
-| hicMergeMatrixBins		| Merges consecutives bins on a Hi-C matrix to reduce resolution     |
-| hicPlotMatrix			| Plots a Hi-C matrix as a heatmap |
-| hicPlotTADs			| Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)|
-| hicSumMatrices		| Adds Hi-C matrices of the same size|
+| tool 			          | description	                       |
+| ----------------------- | ---------------------------------- |
+| hicBuildMatrix 		  | Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads |
+| hicCorrectMatrix 		  | Uses iterative correction to remove biases from a Hi-C matrix |
+| hicFindEnrichedContacts | Identifies enriched Hi-C contacts |
+| hicCorrelate 			  | Computes and visualises the correlation of Hi-C matrices |
+| hicFindTADs 			  | Identifies Topologically Associating Domains (TADs) |
+| hicMergeMatrixBins	  | Merges consecutives bins on a Hi-C matrix to reduce resolution |
+| hicPlotMatrix			  | Plots a Hi-C matrix as a heatmap |
+| hicPlotTADs			  | Plots TADs as a track that can be combined with other tracks (genes, signal, interactions) |
+| hicSumMatrices		  | Adds Hi-C matrices of the same size |
 
 
 -------------------------------------------------------------------------------------------------------------------
 
 <a name="installation"/></a>
 Installation
----------------
+------------
 
-[General Installation](#general)
+ * [Quick start](#quick)
+ * [General Installation](#general)
+ * [Installation on a Mac](#mac)
 
-[Installation on a Mac](#mac)
+<a name="quick"/></a>
+### Quick start guide ###
 
+The easiest way to install the latest HiCExplorer version is to use `pip` with our github repository.
+
+	$ pip install git+ssh://git@github.com/maxplanck-ie/HiCExplorer.git --user
 
 <a name="general"/></a>
 ### General Installation
