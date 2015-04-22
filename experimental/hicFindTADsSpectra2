@@ -37,7 +37,7 @@ def parsearguments(args=None):
                         'of the cut point in bp',
                         metavar='INT bp',
                         type=int,
-                        default=400000
+                        default=60000
                         )
 
     parser.add_argument('--delta',
@@ -169,7 +169,9 @@ def get_conductance(matrix, cut, depth):
     edges_left = inter_edges + matrix[start:cut, :][:, start:cut].sum()
     edges_right = inter_edges + matrix[cut:end, :][:, cut:end].sum()
 
-    return float(inter_edges) / min(edges_left, edges_right)
+#    return float(inter_edges) / min(edges_left, edges_right)
+    return float(inter_edges) / max(edges_left, edges_right)
+#    return float(inter_edges) / 100000
 #    return float(inter_edges) / (sum([edges_left, edges_right]) - inter_edges)
 
 
@@ -206,8 +208,8 @@ def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
     positions_array = []
     cond_matrix = []
     binsize = hic_ma.getBinSize()
-    chrom, start, end = hic_ma.cut_intervals[0]
-    prev_length = int(end - start) / 2
+    chrom, start, end, __ = hic_ma.cut_intervals[0]
+    prev_length = int((end - start) / 2)
     for cut in range(1, hic_ma.matrix.shape[0]-1):
 
         chrom, chr_start, chr_end, _ = hic_ma.cut_intervals[cut]
@@ -222,21 +224,26 @@ def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
         # storing a score at the position in between
         # bin 14 and bin 15, a region of the size
         # of the bins, centered on the interface.
-        if chr_start - prev_length > 0:
-            chr_start -= prev_length
-        else:
-            chr_start = 0
-        this_length = int(chr_end - chr_start) / 2
+        this_length = int((chr_end - chr_start) / 2)
+
         if chr_start + this_length > 0:
             chr_end =  chr_start + this_length
         else:
             continue
+
+        if chr_start - prev_length > 0:
+            chr_start -= prev_length
+        else:
+            chr_start = 0
+
         prev_length = this_length
 
         # get conductance
         # for multiple window lengths at a time
         mult_matrix = [get_coverage(hic_ma.matrix, cut, x)
-                       for x in range(min_win_size, max_win_size, 3)]
+                       for x in range(min_win_size, max_win_size, 1)]
+#        mult_matrix = [get_conductance(hic_ma.matrix, cut, x)
+#                       for x in range(8, 50, 2)]
         cond_matrix.append(mult_matrix)
 
         positions_array.append((chrom, chr_start, chr_end))
@@ -257,33 +264,30 @@ def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
     return chrom, chr_start, chr_end, cond_matrix
 
 
-def peakdetect(y_axis, x_axis = None, lookahead = 300, delta=0):
+def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
     """
     Converted from/based on a MATLAB script at:
     http://billauer.co.il/peakdet.html
 
-    function for detecting local maximas and minmias in a signal.
+    function for detecting local maximum and minimum in a signal.
     Discovers peaks by searching for values which are surrounded by lower
-    or larger values for maximas and minimas respectively
+    or larger values for maximum and minimum respectively
 
     keyword arguments:
-    y_axis -- A list containg the signal over which to find peaks
-    x_axis -- (optional) A x-axis whose values correspond to the y_axis list
-        and is used in the return to specify the postion of the peaks. If
+    :param: y_axis -- A list containig the signal over which to find peaks
+    :param: x_axis -- (optional) A x-axis whose values correspond to the y_axis list
+        and is used in the return to specify the position of the peaks. If
         omitted an index of the y_axis is used. (default: None)
-    lookahead -- (optional) distance to look ahead from a peak candidate to
-        determine if it is the actual peak (default: 200)
-        '(sample / period) / f' where '4 >= f >= 1.25' might be a good value
-    delta -- (optional) this specifies a minimum difference between a peak and
+    :param: lookahead -- (optional) distance to look ahead from a peak candidate to
+        determine if it is the actual peak
+    :param: delta -- (optional) this specifies a minimum difference between a peak and
         the following points, before a peak may be considered a peak. Useful
         to hinder the function from picking up false peaks towards to end of
         the signal. To work well delta should be set to delta >= RMSnoise * 5.
-        (default: 0)
-            delta function causes a 20% decrease in speed, when omitted
-            Correctly used it can double the speed of the function
 
-    return -- two lists [max_peaks, min_peaks] containing the positive and
-        negative peaks respectively. Each cell of the lists contains a tupple
+
+    :return: -- two lists [max_peaks, min_peaks] containing the positive and
+        negative peaks respectively. Each cell of the lists contains a tuple
         of: (position, peak_value)
         to get the average peak value do: np.mean(max_peaks, 0)[1] on the
         results to unpack one of the lists into x, y coordinates do:
@@ -317,7 +321,7 @@ def peakdetect(y_axis, x_axis = None, lookahead = 300, delta=0):
 
     # Only detect peak if there is 'lookahead' amount of points after it
     for index, (x, y) in enumerate(zip(x_axis[:-lookahead],
-                                        y_axis[:-lookahead])):
+                                       y_axis[:-lookahead])):
         if y > mx:
             mx = y
             mxpos = x
@@ -326,28 +330,28 @@ def peakdetect(y_axis, x_axis = None, lookahead = 300, delta=0):
             mnpos = x
 
         # look for max
-        if y < mx-delta and mx != np.Inf:
-            # Maxima peak candidate found
+        if y < mx - delta and mx != np.Inf:
+            # Maximum peak candidate found
             # look ahead in signal to ensure that this is a peak and not jitter
             if y_axis[index:index+lookahead].max() < mx:
                 max_peaks.append([mxpos, mx])
                 dump.append(True)
-                # set algorithm to only find minima now
+                # set algorithm to only find minimum now
                 mx = np.Inf
                 mn = np.Inf
-                if index+lookahead >= length:
-                    #end is within lookahead no more peaks can be found
+                if index + lookahead >= length:
+                    # end is within lookahead no more peaks can be found
                     break
                 continue
 
         # look for min
-        if y > mn+delta and mn != -np.Inf:
-            # Minima peak candidate found
+        if y > mn + delta and mn != -np.Inf:
+            # Minimum peak candidate found
             # look ahead in signal to ensure that this is a peak and not jitter
             if y_axis[index:index+lookahead].min() > mn:
                 min_peaks.append([mnpos, mn])
                 dump.append(False)
-                # set algorithm to only find maxima now
+                # set algorithm to only find maximum now
                 mn = -np.Inf
                 mx = -np.Inf
                 if index+lookahead >= length:
@@ -370,17 +374,21 @@ def peakdetect(y_axis, x_axis = None, lookahead = 300, delta=0):
 
 def find_consensus_minima(matrix, delta=0):
     """
-    For each row in the matrix minimum are found, then
-    a consensus of at least half of the sites have to agree
-    to call a minimum. Neighboring minimum are merged.
+    Finds the minimum over the average values per column
     :param matrix:
     :return:
     """
 
+
     # use the matrix transpose such that each row
     # represents the conductance at each genomic
     # position
-    matrix = matrix.T
+
+    _max, _min= peakdetect(matrix.mean(axis=1), lookahead=4, delta=delta)
+    min_indices, __ = zip(*_min)
+    return min_indices
+
+    """
     # initialize a matrix of the same shape
     # as the conductance matrix to hold the
     # min peaks found at each row
@@ -389,13 +397,15 @@ def find_consensus_minima(matrix, delta=0):
     # for each row in the matrix, get the minimun peaks
     for idx, row in enumerate(matrix):
     #    _max, _min= peakdetect(row, lookahead=1, delta=np.std(np.diff(row))/2)
-        _max, _min= peakdetect(row, lookahead=1, delta=delta)
+        _max, _min= peakdetect(row, lookahead=3, delta=delta)
         min_indices, __ = zip(*_min)
         mins_matrix[idx, min_indices] = 1
 
     # get all rows with at least 3 called peaks.
     total_peaks = mins_matrix.sum(axis=0)
     min_idx = np.where(total_peaks > 3)[0]
+
+
 
     # Merge nearby minima based on the last row position (most specific)
     min_idx_last = np.flatnonzero(mins_matrix[0, :])
@@ -414,7 +424,191 @@ def find_consensus_minima(matrix, delta=0):
 
     half = matrix.shape[0]/2
     sys.stderr.write('DEBUG: half = {}'.format(half))
+
+    ### DEBUG
+    import matplotlib.pyplot as plt
+    matrix = matrix[:,254:643]
+    mins_matrix = np.ma.masked_where(mins_matrix < 0.9, mins_matrix)
+    mins_matrix = mins_matrix[:,336:643]
+    fig = plt.figure(figsize=(30,10))
+    ax = fig.add_subplot(212)
+    ax.imshow(matrix, aspect='auto')
+    ax.imshow(mins_matrix, aspect='auto', cmap='binary_r', interpolation='nearest')
+    plt.savefig("/tmp/out.png")
+    np.save("/tmp/matrix_l2", matrix)
+    ######
+
     return np.where(total_peaks >= half)[0]
+    """
+
+
+def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
+    """
+    :param boundary_list: is a list of tuples each containing
+    the location of a boundary. The order should be sorted
+    and contain the following values:
+        (chrom, start, value)
+    :param clust_cutoff: List of values to separate clusters. The
+        clusters found at those value thresholds are returned.
+
+    """
+    # run the hierarchical clustering per chromosome
+    if clusters_cutoff:
+        # sort in reverse order
+        clusters_cutoff = np.sort(np.unique(clusters_cutoff))[::-1]
+
+    chrom, start, value = zip(*boundary_list)
+
+    unique_chr, indices = np.unique(chrom, return_index=True)
+    indices = indices[1:] # the first element is not needed
+    start_per_chr = np.split(start, indices)
+    value_per_chr = np.split(value, indices)
+    Z = {}
+    points = {} # variable to hold the positions of the H clustering points for plotting
+
+    def get_domain_positions(boundary_position):
+        """
+        returns for each boundary a start,end position
+        corresponding to each TAD
+        :param boundary_position: list of boundary chromosomal positions
+        :return: list of (start, end) tuples.
+        """
+        start = None
+        domain_list = []
+        for position in boundary_position:
+            if start is None:
+                start = position
+                continue
+            domain_list.append((start, position))
+            start = position
+
+        return domain_list
+
+    def find_in_clusters(clusters, search_id):
+        """
+        Given a list of clusters (each cluster defined as as set,
+        the function returns the position in which an id is found
+        :param clusters:
+        :param search_id:
+        :return:
+        """
+        for set_idx, set_of_ids in enumerate(clusters):
+            if search_id in set_of_ids:
+                return set_idx
+    return_clusters = {}
+    for chrom_idx, chrom_name in enumerate(unique_chr):
+        Z[chrom_name] = []
+        points[chrom_name] = []
+        return_clusters[chrom_name] = []
+        clust_cutoff = clusters_cutoff[:]
+        domains = get_domain_positions(start_per_chr[chrom_idx])
+        clusters = [{x} for x in range(len(domains))]
+
+        # for plotting
+        cluster_y = [0] * len(domains)
+        cluster_x = [d_start + float(d_end - d_start) / 2 for d_start, d_end in domains]
+        # number of domains should be equal to the number of values minus 1
+        assert len(domains) == len(value_per_chr[chrom_idx]) -1, "error"
+
+        """
+        domain:id
+             0            1               2            3
+         |---------|---------------|----------------|----|
+        values:id
+         0         1               3                3    4
+        values id after removing flanks
+                   0               1                2
+         """
+        values = value_per_chr[chrom_idx][1:-1] # remove flanking values that do not join TADs
+        start_trimmed = start_per_chr[chrom_idx][1:-1]
+        # from highest to lowest merge neighboring domains
+        order = np.argsort(values)[::-1]
+        for idx, order_idx in enumerate(order):
+            if len(clust_cutoff) and idx + 1 < len(order) and \
+                    values[order_idx] >= clust_cutoff[0] > values[order[idx + 1]]:
+                clust_cutoff = clust_cutoff[1:] # remove first element
+                return_clusters[chrom_name].append(cluster_to_regions(clusters, domains, chrom_name))
+            # merge domains order_idx - 1 and order_idx
+            left = find_in_clusters(clusters, order_idx)
+            right = find_in_clusters(clusters, order_idx + 1)
+            Z[chrom_name].append((left, right, values[order_idx],
+                     len(clusters[left]) + len(clusters[right])))
+
+            #for plotting
+            x = []
+            y = []
+            for cluster_id in [left, right]:
+                x.append(cluster_x[cluster_id])
+                y.append(cluster_y[cluster_id])
+
+            y.append(1-values[order_idx])
+
+            cluster_x.append(start_trimmed[order_idx])
+            cluster_y.append(1-values[order_idx])
+            points[chrom_name].append(np.vstack([(x[0], x[0], x[1], x[1]),
+                                               (y[0], y[2], y[2], y[1])]))
+            # end for plotting
+
+            clusters.append(clusters[left].union(clusters[right]))
+            clusters[left] = set()
+            clusters[right] = set()
+
+    # convert clusters per chr into one list:
+    ret_ = {}
+    for cutoff  in clusters_cutoff:
+        ret_[cutoff] = []
+        for chr_name in return_clusters:
+            ret_[cutoff].extend(return_clusters[chr_name])
+
+
+    return  Z, points, ret_
+
+def cluster_to_regions(cluster, domains, chrom_name):
+    """
+    Transforms a list of sets from the hierarchical
+    clustering to genomic positions
+    :param cluster:
+    :return:
+    """
+    start_list = []
+    end_list = []
+    for set_ in cluster:
+        if len(set_) == 0:
+            continue
+
+        start_list.append(domains[min(set_)][0])
+        end_list.append(domains[max(set_)][1])
+
+    start_list = np.array(start_list)
+    end_list = np.array(end_list)
+    order = np.argsort(start_list)
+
+    return zip([chrom_name] * len(order), start_list[order], end_list[order])
+
+def get_domains(boundary_list):
+    """
+    returns for each boundary a chrom, start,end position
+    corresponding to each TAD
+    :param boundary_position: list of boundary chromosomal positions
+    :return: list of (chrom, start, end, value) tuples.
+    """
+    prev_start = None
+    prev_chrom = boundary_list[0][0]
+    domain_list = []
+    for chrom, start, value in boundary_list:
+        if start is None:
+            prev_start = start
+            prev_chrom = chrom
+            continue
+        if prev_chrom != chrom:
+            prev_chrom = chrom
+            prev_start = None
+            continue
+        domain_list.append((chrom, prev_start, start, value))
+        prev_start = start
+        prev_chrom = chrom
+
+    return domain_list
 
 def main(args):
     hic_ma = hm.hiCMatrix(args.matrix)
@@ -426,8 +620,8 @@ def main(args):
     sys.stderr.write('removing diagonal values\n')
 
     # use log values for the computations
-    hic_ma.matrix.data = np.log(hic_ma.matrix.data)
-    sys.stderr.write('using log matrix values\n')
+    #hic_ma.matrix.data = np.log(hic_ma.matrix.data)
+    #sys.stderr.write('using log matrix values\n')
 
     # mask bins without any information
     hic_ma.maskBins(hic_ma.nan_bins)
@@ -442,6 +636,7 @@ def main(args):
         hic_ma.interval_trees, hic_ma.chrBinBoundaries = \
             hic_ma.intervalListToIntervalTree(new_intervals)
 
+
     if args.minDepth % hic_ma.getBinSize() != 0:
         sys.stderr.write('Warning. specified depth is not multiple of the '
                          'hi-c matrix bin size ({})\n'.format(
@@ -451,6 +646,7 @@ def main(args):
 
     min_depth_in_bins = int(args.minDepth / binsize)
     max_depth_in_bins = int(args.maxDepth / binsize)
+    print (min_depth_in_bins, max_depth_in_bins)
     sys.stderr.write("computing spectrum for window sizes between {} ({} bp)"
                      "and {} ({} bp)".format(min_depth_in_bins,
                                              binsize*min_depth_in_bins,
@@ -466,6 +662,7 @@ def main(args):
                          'than the binsize which is: {}\n'.format(binsize))
         exit()
 
+
     # work only with the lower matrix
     hic_ma.matrix = sparse.tril(hic_ma.matrix, k=0, format='csr')
 
@@ -474,13 +671,59 @@ def main(args):
                                                        max_depth_in_bins,
                                                        outfile=args.outFileSpectrum.name)
 
+    mean_mat = matrix.mean(axis=1)
     min_idx = find_consensus_minima(matrix, delta=args.delta)
 
-    # save results
-    for idx in min_idx:
-        args.outFileName.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom[idx], chr_start[idx],
-                                              chr_end[idx], matrix[idx, 10]))
+    boundary_list = [(chrom[min], chr_start[min], mean_mat[min]) for min in min_idx]
 
+    Z, points, clusters = hierarchical_clustering(boundary_list, clusters_cutoff=(0.3, 0.2))
+
+    import pdb;pdb.set_trace()
+    # save results
+    # 1. save boundaries position
+    for idx in min_idx:
+        start = hic_ma.cut_intervals[idx][2]
+        end = start + 1 # boundaries at 1 bp resolution
+        args.outFileName.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom[idx], start,
+                                              end, matrix[idx, -1]))
+
+
+    domains = get_domains(boundary_list)
+    save_domains("/tmp/d1.bed", domains)
+
+    # 2. save domains and clusters
+def save_domains(file_name, domains):
+    filed = open(file_domains, 'w')
+    prev_start = 0
+    count = 0
+    for idx in min_idx:
+        boundary_center = end[idx] - int((end[idx] - start[idx])/2)
+        # this happens at the borders of chromosomes
+        if boundary_center < 0:
+            continue
+        fileh.write("{0}\t{1}\t{2}\tID_{3}\t{4}\t.\n".format(
+                chrom[idx],
+                boundary_center,
+                boundary_center + 1,
+                idx,
+                conductance[idx]))
+
+        if count % 2 == 0:
+            rgb = '51,160,44'
+        else:
+            rgb = '31,120,180'
+        filed.write("{0}\t{1}\t{2}\tID_{3}\t{4}\t."
+                    "\t{1}\t{2}\t{5}\n".format(chrom[idx],
+                                               prev_start,
+                                               boundary_center,
+                                               idx,
+                                               conductance[idx],
+                                               rgb))
+        count += 1
+        prev_start = boundary_center
+
+    fileh.close()
+    filed.close()
 
 if __name__ == "__main__":
     ARGS = parsearguments()

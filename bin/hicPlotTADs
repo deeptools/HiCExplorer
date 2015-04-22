@@ -35,6 +35,7 @@ def parseArguments(args=None):
 #                        )
     parser.add_argument('--tracks',
                         help='File containing the instructions to plot the tracks ',
+                        type=argparse.FileType('r'),
                         required=True,
                         )
 
@@ -66,7 +67,6 @@ def parseArguments(args=None):
                         required=True
                         )
 
-
     parser.add_argument('--zMax',
                         help='zMax',
                         type=float,
@@ -82,13 +82,89 @@ def parseArguments(args=None):
     return parser.parse_args(args)
 
 
-def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region, args):
+def plot_boundaries(ax, file_name, region):
+    """
+    Plots the boundaries as triangles in the given ax.
+
+    :param ax:
+    :param file_name: boundaries file
+    :param region: chromosome region to plot
+    :return:
+    """
+    chrom_region, start_region, end_region = region
+    try:
+        file_h = open(file_name, 'r')
+    except IOError:
+        sys.stderr.write("Boundaries file not found:\n{}".format(file_name))
+        return
+
+    prev_start = -1
+    prev_chrom = None
+    prev_line = None
+    x = []
+    y = []
+    for line in file_h.readlines():
+        if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
+            continue
+        fields = line.strip().split('\t')
+        chrom = None
+        start = None
+        end = None
+        try:
+            chrom, start, end = fields[0:3]
+        except Exception as detail:
+            msg = "Error reading line: {}\nError message: {}".format(detail)
+            exit(msg)
+
+        start = int(start)
+        end = int(end)
+        if prev_chrom == chrom:
+            assert prev_start <= start, \
+                "Bed file not sorted. Please use a sorted bed file.\n{}{} ".format(prev_line, line)
+
+        assert start > 0, \
+            "negative values found in bed file in line {}".format(line)
+
+        if chrom == chrom_region and end > start_region and \
+                start < end_region:
+
+            if prev_start is None:
+                # draw only half a triangle
+                length = start - prev_start
+                x1 = prev_start
+                y1 = length
+                x2 = start
+                y2 = 0
+                x.extend([x1, x2])
+                y.extend([y1, y2])
+            else:
+                x1 = prev_start
+                x2 = x1 + (start - prev_start) / 2
+                x3 = start
+                y1 = 0
+                y2 = (start - prev_start)
+                y3 = 0
+                x.extend([x1, x2, x3])
+                y.extend([y1, y2, y3])
+
+            prev_start = start
+            prev_line = line
+            prev_chrom = chrom
+    file_h.close()
+    ax.plot(x, y,  color = 'black')
+
+
+def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
 
     matrix_file = matrix_properties['file']
     hic_ma = HiCMatrix.hiCMatrix(matrix_file)
     chrom, region_start, region_end = region
     hic_ma.keepOnlyTheseChr(chrom)
-    hic_ma.maskBins(hic_ma.nan_bins)
+    if 'show_masked_bins' in matrix_properties and \
+            matrix_properties['show_masked_bins'] == 'yes':
+        pass
+    else:
+        hic_ma.maskBins(hic_ma.nan_bins)
     if 'orientation' in matrix_properties and \
             matrix_properties['orientation'] == 'inverted':
         plot_inverted = True
@@ -184,7 +260,7 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region, args):
         vmin = matrix_properties['min_value']
     else:
         bin_size = hic_ma.getBinSize()
-        depth_bins = int(args.depth / bin_size)
+        depth_bins = int(matrix_properties['depth'] / bin_size)
         vmin = np.median(matrix.diagonal(depth_bins))
 
     sys.stderr.write("setting min, max values to: {}, {}\n".format(vmin, vmax))
@@ -193,13 +269,19 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region, args):
     cmap.set_bad('white')
 
     img = pcolormesh_45deg(matrix, ax, start_pos, vmax=vmax,
-                     vmin=vmin, cmap=cmap, norm=norm,
-                           plot_inverted=plot_inverted)
+                     vmin=vmin, cmap=cmap, norm=norm)
+
     img.set_rasterized(True)
     if plot_inverted:
-        ax.set_ylim(-matrix_properties['depth'], 0)
+        ax.set_ylim(matrix_properties['depth'], 0)
     else:
         ax.set_ylim(0, matrix_properties['depth'])
+
+    # if a boundaries file is given, plot the
+    # tad boundaries as line delineating the TAD triangles
+    if 'boundaries_file' in matrix_properties:
+        plot_boundaries(ax, matrix_properties['boundaries_file'], region)
+
 
     ax.set_xlim(region_start, region_end)
 
@@ -256,8 +338,7 @@ def plot_x_axis(ax, region):
 
 
 def pcolormesh_45deg(C, ax, start_pos_vector, vmin=None,
-                     vmax=None, cmap=None, norm=None,
-                     plot_inverted=False):
+                     vmax=None, cmap=None, norm=None):
     """
     Turns the matrix 45 degrees and adjusts the
     bins to match the actual start end positions.
@@ -274,8 +355,6 @@ def pcolormesh_45deg(C, ax, start_pos_vector, vmin=None,
     # this is to convert the indices into bp ranges
     X = A[:, 1].reshape(n+1, n+1)
     Y = A[:, 0].reshape(n+1, n+1)
-    if plot_inverted:
-        Y *= -1
     # plot
     im = ax.pcolormesh(X, Y, np.flipud(C),
                        vmin=vmin, vmax=vmax, cmap=cmap, norm=norm)
@@ -573,6 +652,8 @@ def plot_bed(ax, label_ax, bed_properties, region):
     counter = 0
     small_relative = 0.003 * (end_region-start_region)
     prev_start = -1
+    prev_line = None
+    prev_chrom = None
     max_num_row = 1
     region_intervals = IntervalTree()
     colormap = None
@@ -614,9 +695,14 @@ def plot_bed(ax, label_ax, bed_properties, region):
             exit(msg)
         start = int(start)
         end = int(end)
-        assert prev_start < start, \
-            "Bed file not sorted. Please use a sorted bed file. "
+        if prev_chrom is None:
+            prev_chrom = chrom
+        if prev_chrom == chrom:
+            assert prev_start <= start, \
+                "Bed file not sorted. Please use a sorted bed file.\n{}\n{} ".format(prev_line, line)
 
+        prev_start = start
+        prev_line = line
         assert start > 0, \
             "negative values found in bed file in line {}".format(line)
 
@@ -631,7 +717,7 @@ def plot_bed(ax, label_ax, bed_properties, region):
             try:
                 rgb = fields[8]
                 rgb = rgb.split(',')
-                rgb[2] # check that rgb has three elements
+                rgb[2]  # check that rgb has three elements
                 rgb = [float(x)/255 for x in rgb]
                 edgecolor = bed_properties['color']
             except IndexError:
@@ -767,8 +853,8 @@ def plot_bedgraph(ax, label_ax, bedgraph_properties, region):
             verticalalignment='bottom')
 
     label_ax.text(0.15, 0, bedgraph_properties['title'],
-            horizontalalignment='left', size='large',
-            verticalalignment='bottom', transform=label_ax.transAxes)
+                horizontalalignment='left', size='large',
+                verticalalignment='bottom', transform=label_ax.transAxes)
 
     """
     if 'extra' in bedgraph_properties :
@@ -824,7 +910,7 @@ def plot_bedgraph_matrix(ax, label_ax, properties, region):
 
 
     X,Y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
-    img = ax.pcolormesh(X, Y, matrix, vmin=vmin, vmax=vmax)
+    img = ax.pcolormesh(X, Y, matrix, vmin=vmin, vmax=vmax, shading='gouraud')
     img.set_rasterized(True)
     ax.set_xlim(start_region, end_region)
     ax.set_frame_on(False)
@@ -834,7 +920,6 @@ def plot_bedgraph_matrix(ax, label_ax, properties, region):
     label_ax.text(0.15, 0, properties['title'],
             horizontalalignment='left', size='large',
             verticalalignment='bottom', transform=label_ax.transAxes)
-
 
 
 def plot_bigwig(ax, label_ax, bigwig_properties, region):
@@ -930,7 +1015,7 @@ def parse_tracks(tracks_file):
     from ConfigParser import SafeConfigParser
     from ast import literal_eval
     parser = SafeConfigParser()
-    parser.read(tracks_file)
+    parser.readfp(tracks_file)
 
     track_list = []
     for section_name in parser.sections():
@@ -938,7 +1023,7 @@ def parse_tracks(tracks_file):
         if section_name in ['spacer', 'x-axis']:
             track_options[section_name] = True
         for name, value in parser.items(section_name):
-            if name in ['max_value', 'min_value', 'depth', 'width']:
+            if name in ['max_value', 'min_value', 'depth', 'width'] and value != 'auto':
                 track_options[name] =  literal_eval(value)
             else:
                 track_options[name] =  value
@@ -970,70 +1055,6 @@ def main(args):
         else:
             track_height.append(0.3)
 
-
-    """
-    for track_data in track_list:
-        track_data = track_data.strip()
-        if track_data == 'spacer':
-            properties = {'spacer': True}
-            track_height.append(0.3)
-            track_properties.append(properties)
-            continue
-        if track_data == 'x-axis':
-            properties = {'x-axis': True}
-            track_height.append(0.3)
-            track_properties.append(properties)
-            continue
-        fields = track_data.split(":")
-        try:
-            file_name, title, color, min_value, max_value = fields[0:5]
-        except ValueError:
-            sys.stderr.write("Track {} is not valid. Please "
-                             "check.".format(track_data))
-            exit(1)
-        if max_value != 'auto':
-            max_value = float(max_value)
-        if min_value != 'auto':
-            min_value = float(min_value)
-        properties = {'file': file_name,
-                      'title': title,
-                      'color': color,
-                      'max_value': max_value,
-                      'min_value': min_value}
-        if len(fields) > 5:
-            properties['extra'] = fields[5:]
-        track_properties.append(properties)
-        if file_name.endswith('.bed'):
-            try:
-                track_height.append(float(fields[6]))
-            except:
-                track_height.append(0.2)
-
-        elif file_name.endswith('.bg'):
-            try:
-                track_height.append(float(fields[6]))
-            except:
-                track_height.append(1)
-
-        elif file_name.endswith('.bw'):
-            try:
-                track_height.append(float(fields[6]))
-            except:
-                track_height.append(1)
-
-        elif file_name.endswith('.npz'):
-            # matrix height is proportional to the
-            # plotted region, the fig width and
-            # the depth being plotted
-            if 'extra' in properties and \
-                    properties['extra'][0] == 'interaction':
-                track_height.append(2)
-            else:
-                height = (args.depth * args.width /
-                          (1.8*(region_end - region_start)))
-                track_height.append(height)
-    """
-
     if args.height:
         fig_height = args.height
     else:
@@ -1042,8 +1063,8 @@ def main(args):
     print (args.width, fig_height)
     fig = plt.figure(figsize=(args.width, fig_height))
     fig.suptitle(args.title)
-    fontsize = float(args.width) * 0.7
-    font = {'size'   : fontsize}
+    fontsize = float(args.width) * 1.0
+    font = {'size': fontsize}
     matplotlib.rc('font', **font)
 
     grids = gridspec.GridSpec(len(track_properties), 2,
@@ -1053,7 +1074,6 @@ def main(args):
     # iterate again to plot each track
     axis_list = []
     for idx, properties in enumerate(track_properties):
-#        import ipdb;ipdb.set_trace()
         if 'spacer' in properties:
             continue
         axis = plt.subplot(grids[idx, 0])
@@ -1078,7 +1098,7 @@ def main(args):
                 label_axis = plt.subplot(grids[idx, 1])
                 label_axis.set_axis_off()
                 plot_matrix(axis, label_axis, cbar_axis,
-                            properties, region, args)
+                            properties, region)
         elif properties['file'].endswith('.bm'):
             plot_bedgraph_matrix(axis, label_axis, properties, region)
         axis_list.append(axis)
@@ -1093,15 +1113,15 @@ def main(args):
                                   axesA=axis_list[0],
                                   axesB=axis_list[-1],
                                   arrowstyle="-",
-                                   linestyle='dashed',
-                                    linewidth=0.5)
+                                  linestyle='dashed',
+                                  linewidth=0.5,
+                                  zorder=10)
             axis_list[0].add_artist(con)
 
     plt.subplots_adjust(wspace=0, hspace=0.1, top=0.9,
                         bottom=0.12, left=0.04, right=0.96)
 
     plt.savefig(args.outFileName.name, dpi=200)
-
 
 
 if __name__ == "__main__":
