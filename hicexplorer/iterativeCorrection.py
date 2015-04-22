@@ -80,6 +80,10 @@ def iterativeCorrection(matrix, v=None, M=50, diag=-1,
                              "used\n".format(iternum + 1))
             break
 
+    # scale the total bias such that the sum is 1.0
+    corr = total_bias[total_bias != 0].mean()
+    total_bias /= corr
+    W.data = W.data * corr * corr
 
     return W.tocsr(), total_bias
 
