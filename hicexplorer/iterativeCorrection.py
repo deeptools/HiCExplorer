@@ -51,22 +51,16 @@ def iterativeCorrection(matrix, v=None, M=50, diag=-1,
         mask = (s == 0)
         s = s / np.mean(s[mask == False])
         s[mask] = 1
-        """
-        s = np.sqrt(s)  # [fidel] added this considering that
-                        # for each cell the row factor and col
-                        # factors are multiplied.
-        """
-        # seems to work without keeping track of the total_bias
-#        total_bias *= s
+        total_bias *= s
         deviation = np.abs(s - 1).max()
 
         s  = 1.0 / s
-        """
-        The following code  is a simplification of this
-        for i in range(N):
-            for j in range(N):
-                W[i,j] = W[i,j] / (s[i] * s[j])
-        """
+
+        # The following code  is an optimization of this
+        # for i in range(N):
+        #     for j in range(N):
+        #         W[i,j] = W[i,j] / (s[i] * s[j])
+
         W.data *= np.take(s, W.row)
         W.data *= np.take(s, W.col)
 
@@ -75,10 +69,10 @@ def iterativeCorrection(matrix, v=None, M=50, diag=-1,
                 end_time = time.time()
                 estimated = \
                     (float(M - iternum ) * (end_time - start_time) ) / iternum
-                m, s = divmod(estimated, 60)
+                m, sec = divmod(estimated, 60)
                 h, m = divmod(m, 60)
                 print "pass {} Estimated time {:.0f}:{:.0f}:{:.0f}".format(
-                    iternum, h, m, s)
+                    iternum, h, m, sec)
                 print "max delta - 1 = {} ".format(deviation)
 
         if deviation < tolerance:
@@ -86,10 +80,8 @@ def iterativeCorrection(matrix, v=None, M=50, diag=-1,
                              "used\n".format(iternum + 1))
             break
 
-    corr = total_bias[mask == False].mean()  # mean correction factor
-    W = W * corr * corr  # renormalizing everything
-    total_bias /= corr
-    return W.tocsr(), v / total_bias, total_bias
+
+    return W.tocsr(), total_bias
 
 def iterativeCorrection_dekker(x,v = None,M=50,diag = -1, 
                                     tolerance=1e-5):

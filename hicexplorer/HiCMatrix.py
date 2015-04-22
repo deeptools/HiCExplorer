@@ -21,6 +21,7 @@ class hiCMatrix:
     """
 
     def __init__(self, matrixFile=None, format=None, skiprows=None):
+        self.correction_factors = None # this value is set in case a matrix was iteratively corrected
         if matrixFile:
             self.nan_bins = np.array([])
             if not format:
@@ -47,6 +48,9 @@ class hiCMatrix:
                 if 'nan_bins' in _ma.keys():
                     self.nan_bins = _ma['nan_bins']
                     self.restoreMaskedBins()
+                if 'correction_factors' in _ma.keys():
+                    self.correction_factors = _ma['correction_factors']
+
             elif format == 'dekker':
                 self.cut_intervals = self.getDekkerBins(matrixFile)
                 if not skiprows:
@@ -609,7 +613,7 @@ class hiCMatrix:
             np.savez(
                 fileName, matrix=matrix, chrNameList=chrNameList,
                 startList=startList, endList=endList, extraList=extraList,
-                nan_bins=nan_bins)
+                nan_bins=nan_bins, correction_factors=self.correction_factors)
         except Exception as e:
             print "error saving matrix: {}".format(e)
             try:
@@ -690,6 +694,11 @@ class hiCMatrix:
             "values need to have the same shape as previous matrix."
 
         self.matrix = csr_matrix(newMatrix)
+
+    def setCorrectionFactors(self, correction_factors):
+        assert len(correction_factors)==self.matrix.shape[0], \
+            "length of correction factors and length of matrix are different."
+        self.correction_factors = correction_factors
 
     def reorderChromosomes_old(self, new_chr_order):
         if len(new_chr_order) != len(self.chrBinBoundaries):
@@ -795,6 +804,9 @@ class hiCMatrix:
         self.interval_trees, self.chrBinBoundaries = \
             self.intervalListToIntervalTree(self.cut_intervals)
 
+        if self.correction_factors is not None:
+            self.correction_factors = self.correction_factors[rows]
+
     def restoreMaskedBins(self):
         """
         Puts backs into the matrix the bins
@@ -826,6 +838,13 @@ class hiCMatrix:
             self.intervalListToIntervalTree(self.cut_intervals)
         # set as nan_bins the masked bins that were restored
         self.nan_bins = self.orig_bin_ids[M:]
+
+        if self.correction_factors is not None:
+            # add missing values as nans at end of array
+            self.correction_factors = np.concatenate([self.correction_factors,
+                                                      np.repeat(np.nan, N)])
+            # reorder array
+            self.correction_factors = self.correction_factors[rows]
         del(self.orig_cut_intervals, self.orig_bin_ids)
         sys.stderr.write("masked bins were restored\n")
 
@@ -850,6 +869,9 @@ class hiCMatrix:
         self.cut_intervals = [self.cut_intervals[x] for x in rows]
         self.interval_trees, self.chrBinBoundaries = \
             self.intervalListToIntervalTree(self.cut_intervals)
+
+        if self.correction_factors is not None:
+            self.correction_factors = self.correction_factors[rows]
         return
 
     def truncTrans(self, high=0.05):

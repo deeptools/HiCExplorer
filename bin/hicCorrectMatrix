@@ -87,11 +87,11 @@ def parseArguments(args=None):
 
 
 def iterative_correction(matrix, args):
-    corrected_matrix = iterativeCorrection(matrix,
+    corrected_matrix, correction_factors = iterativeCorrection(matrix,
                                            M=args.iterNum,
-                                           verbose=args.verbose)[0]
+                                           verbose=args.verbose)
 
-    return corrected_matrix
+    return corrected_matrix, correction_factors
 
 
 def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
@@ -306,21 +306,23 @@ def main(args):
         ma.truncTrans(high=cutoff)
 
     pre_row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
-
+    correction_factors = []
     if args.perchr:
         corrected_matrix = lil_matrix(ma.matrix.shape)
         # normalize each chromosome independently
         for chrname in ma.interval_trees.keys():
             chr_range = ma.getChrBinRange(chrname)
             chr_submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
-            corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = \
-                iterative_correction(chr_submatrix, args)
+            _matrix, _corr_factors = iterative_correction(chr_submatrix, args)
+            corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = _matrix
+            correction_factors.append(_corr_factors)
+        correction_factors = np.concatenate(correction_factors)
 
     else:
-        corrected_matrix = iterative_correction(ma.matrix, args)
+        corrected_matrix, correction_factors = iterative_correction(ma.matrix, args)
 
     ma.setMatrixValues(corrected_matrix)
-
+    ma.setCorrectionFactors(correction_factors)
     if args.inflationCutoff and args.inflationCutoff > 0:
         after_row_sum = np.asarray(corrected_matrix.sum(axis=1)).flatten()
         # identify rows that were expanded more than args.inflationCutoff times
