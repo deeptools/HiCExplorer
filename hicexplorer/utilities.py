@@ -63,7 +63,8 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None):
 
     counts_by_distance = hicma.getCountsByDistance(per_chr=per_chr)
     if method in ['nbinom-p-value', 'nbinom-expected', 'nbinom-est-dist']:
-        size, prob = fitNegBinom_Rserve(counts_by_distance, per_chr=per_chr)
+        size, prob = fitNegBinom_Rserve(counts_by_distance, per_chr=per_chr,
+                                        plot_distribution=True)
     elif method == 'log-norm':
         mu_, sigma = fitDistribution(counts_by_distance, 'lognorm')
     else:
@@ -272,7 +273,7 @@ def applyFdr(matrix):
     compute false discovery rate
     but only for half the symmetric matrix
 
-    :param: matrix a spase matrix
+    :param: matrix a sparse matrix
     """
     # use only the upper half of the matrix
     mat = scipy.sparse.triu(matrix)
@@ -315,7 +316,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
     number as defined after exploring different values
     of z-scores and estimating the best goodness of fit.
     The HiC data is expected to contain outliers but they
-    are problematic to fit and test the goodess of fit of a
+    are problematic to fit and test the goodness of fit of a
     distribution, that's why there are removed.
     """
 
@@ -328,7 +329,8 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
             sys.stderr.write('computing negative binomial for '
                              '{}\n'.format(chrom))
             size[chrom], prob[chrom] = \
-                fitNegBinom_Rserve(countsByDistance[chrom])
+                fitNegBinom_Rserve(countsByDistance[chrom],
+                                   plot_distribution=plot_distribution)
         return size, prob
 
     import pyRserve
@@ -525,7 +527,7 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
         conn = pyRserve.connect()
         conn.r('library("MASS")')
     except RConnectionRefused:
-        print "Could not connec to Rserve. Check that Rserve is up and running"
+        print "Could not connect to Rserve. Check that Rserve is up and running"
         exit(1)
 
     import sys
