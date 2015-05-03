@@ -1,0 +1,80 @@
+<tool id="bg_hicBuildMatrix" name="hicBuildMatrix" version="@WRAPPER_VERSION@.0">
+    <description>correlates pairs of BAM files</description>
+    <macros>
+        <token name="@BINARY@">hicBuildMatrix</token>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements" />
+    <command>
+<![CDATA[
+    hicBuildMatrix
+        --samFiles "$input1" "$input2"
+        --outBam "$output_bam"
+        --binSize $binSize
+
+        --fragmentLength $fragmentLength
+
+        #if $restrictionCutFile.restrictionCutFile_select == 'yes':
+            --restrictionCutFile "$restrictionCutFile.restrictionCutFile"
+            --minDistance $restrictionCutFile.minDistance
+            --maxDistance $restrictionCutFile.maxDistance
+        #end if
+
+        #if $restrictionSequence and str($restrictionSequence):
+            --restrictionSequence $restrictionSequence
+        #end if
+
+        --outFileName "$output_matrix"
+
+        #if $region and str($region):
+            --region $region
+        #end if
+]]>
+    </command>
+    <inputs>
+        <param name="input1" type="data" format="bam,sam" label="First mapped read file" help="(--samFiles)" />
+        <param name="input2" type="data" format="bam,sam" label="First mapped read file" help="(--samFiles)" />
+
+        <param name="binSize" type="integer" value="0" min="0"
+            label="Bin size in bp"
+            help="The restriction cut places (if given) are used to only consider reads that are in the vicinity of the resctriction sites. Otherwise all reads in the interval are considered. (--binSize)"/>
+
+        <expand macro="fragmentLength"/>
+
+        <conditional name="restrictionCutFile">
+            <param name="restrictionCutFile_select" type="select" label="Specify restriction sites">
+                <option value="no" selected="true">No</option>
+                <option value="yes">Yes</option>
+            </param>
+            <when value="no"/>
+            <when value="yes">
+                <param name="restrictionCutFile" type="data" optional="True" format="bed" label="BED file with all restriction cut places"
+                    help="Should contain only mapable restriction sites. The bins are set to match the restriction fragments (i.e. the region between one restriction site and the next). (--restrictionCutFile)" />
+
+                <param name="minDistance" type="integer" value="300" label="Minimum distance between restriction sites"
+                    help="Restriction sites that are closer that this distance are merged into one. (--minDistance)"/>
+
+                <param name="maxDistance" type="integer" value="800" label="Maximum distance in bp from restriction site to read, to consider a read a valid one"
+                    help="(--maxDistance)"/>
+            </when>
+        </conditional>
+
+        <param name="restrictionSequence" type="text" label="Sequence of the restriction site" optional="True"
+            help="This is used to discard reads that end/start with such sequence and that are considered un-ligated fragments or &quot;dangling-ends&quot;. If not given, such statistics will not be available. (--restrictionSequence)"/>
+
+        <expand macro="region_limit_operation" />
+
+    </inputs>
+    <outputs>
+        <data name="output_bam" format="bam"/>
+        <data name="output_matrix" format="hicexplorer_matrix"/>
+    </outputs>
+    <help>
+<![CDATA[
+
+Using an aligment from Bowtie2 were both PE reads are mapped using  the --local option, this code reads such file and creates a matrix of interactions.
+
+]]>
+    </help>
+</tool>
+

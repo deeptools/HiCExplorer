@@ -1,0 +1,79 @@
+<tool id="hicCorrectMatrix" name="hicCorrectMatrix" version="@WRAPPER_VERSION@.0">
+    <description>using Dekker's iterative correction</description>
+    <macros>
+        <token name="@BINARY@">hicCorrectMatrix</token>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements" />
+    <command>
+<![CDATA[
+    hicCorrectMatrix
+        --matrix $matrix
+
+        --iterNum $iterNum
+        --outFileName "$output_matrix"
+
+        #if $poorRegionsCutoff:
+            --poorRegionsCutoff $poorRegionsCutoff
+        #end if
+
+        #if $inflationCutoff:
+            --inflationCutoff $inflationCutoff
+        #end if
+
+        #if $transCutoff:
+            --transCutoff $transCutoff
+        #end if
+
+        #if $sequencedCountCutoff:
+            --sequencedCountCutoff $sequencedCountCutoff
+        #end if
+
+        ##--chromosomes "$repeat_var_8"
+
+        $skipDiagonal
+        $perchr
+
+]]>
+    </command>
+    <inputs>
+        <param name="input_matrix" type="data" format="hicexplorer_matrix" label="Hi-C matrix" help="The matrix produced by hicBuildMatrix tool. (--matrix)"/>
+        <param name="iterNum" type="integer" value="500" label="Number of iterations" hel="(--iterNum)"/>
+
+        <param name="poorRegionsCutoff" type="float" value="" optional="True" label="Poor region cutoff"
+            help="Poor regions are bins with low coverage. Those regions considered outliers in the low range are
+            identified using the MAD method. A usual cutoff is -1.2 (--poorRegionsCutoff)"/>
+
+        <param name="inflationCutoff" type="float" value="" optional="True" label="Inflation Cutoff"
+            help="Value corresponding to the maximum number of times a bin can be scaled up during the iterative correction.
+            For example, a inflationCutoff of 3 will filter out all bins that were expanded 3 times or more during the iterative correction. (--inflationCutoff)"/>
+
+        <param name="transCutoff" type="float" value="" optional="True" label="Trans Cutoff"
+            help="Clip high counts in the top -transcut trans regions (i.e. between chromosomes). A usual value is 0.05  (--transCutoff)"/>
+
+        <param name="sequencedCountCutoff" type="float" value="" optional="True" label="Sequenced Count Cutoff"
+            help="Each bin receives a value indicating the fraction that is covered by reads.
+            A cutoff of 0.5 will discard all those bins that have less than half of the bin covered. (--sequencedCountCutoff)" />
+
+        <!--repeat min="1" name="repeat_8" title="repeat_title">
+            <param label="List of chromosomes to be included in the iterative correction. The order of the given chromosomes will be kept for the resulting corrected matrix (-chromosomes)" name="chromosomes" type="text"/>
+        </repeat-->
+
+        <param name="skipDiagonal" type="boolean" truevalue="--skipDiagonal" falsevalue="" checked="False"
+            label="Diagonal counts are not included" help="(--skipDiagonal)"/>
+        <param name="perchr" type="boolean" truevalue="--perchr" falsevalue="" checked="False"
+            label="Normalize each chromosome separately" help="(--perchr)"/>
+
+  </inputs>
+    <outputs>
+        <data name="output_matrix" format="hicexplorer_matrix"/>
+    </outputs>
+    <help>
+<![CDATA[
+
+using Dekker's iterative correction
+
+]]>
+    </help>
+</tool>
+
