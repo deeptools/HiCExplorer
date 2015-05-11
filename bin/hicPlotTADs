@@ -79,6 +79,11 @@ def parseArguments(args=None):
                         nargs='+'
                         )
 
+    parser.add_argument('--fontSize',
+                        help='Font size for the labels of the plot',
+                        type=float,
+                        )
+
     return parser.parse_args(args)
 
 
@@ -1183,7 +1188,12 @@ def main(args):
     print (args.width, fig_height)
     fig = plt.figure(figsize=(args.width, fig_height))
     fig.suptitle(args.title)
-    fontsize = float(args.width) * 1.0
+
+    if args.fontSize:
+        fontsize = args.fontSize
+    else:
+        fontsize = float(args.width) * 0.7
+
     font = {'size': fontsize}
     matplotlib.rc('font', **font)
 
