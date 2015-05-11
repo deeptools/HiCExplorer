@@ -284,18 +284,25 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
 
 
     ax.set_xlim(region_start, region_end)
+    if 'x labels' in matrix_properties and matrix_properties['x labels'] != 'no':
+        ticks = ax.get_xticks()
+        labels = ["{:.2f}".format((x / 1e6))
+                  for x in ticks]
+        labels[-1] = labels[-1] + "Mbp"
+        ax.get_xaxis().set_tick_params(
+            which='both',
+            bottom='on',
+            top='off',
+            direction='out')
 
-    ticks = ax.get_xticks()
-    labels = ["{:.2f}".format((x / 1e6))
-              for x in ticks]
-    labels[-1] = labels[-1] + "Mbp"
-    ax.get_xaxis().set_tick_params(
-        which='both',
-        bottom='on',
-        top='off',
-        direction='out')
-
-    ax.set_xticklabels(labels)
+        ax.set_xticklabels(labels)
+    else:
+        ax.get_xaxis().set_tick_params(
+            which='both',
+            bottom='off',
+            top='off',
+            direction='out')
+        ax.axes.get_xaxis().set_visible(False)
 
 #    ax.xaxis.tick_top()
 
@@ -423,6 +430,103 @@ def fill_gaps(hic_ma, depth, fill_contiguous=False):
 
     # return the matrix and the bins that continue to be nan
     return fill_ma.tocsr(), np.sort(consecutive_nan_idx)
+
+
+def plot_hic_arcs(ax, label_ax, properties, region):
+
+    """
+    Makes and arc connecting two points on a linear scale representing
+    interactions between Hi-C bins.
+    :param ax: matplotlib axis
+    :param label_ax: matplotlib axis for labels
+    :param region: tuple containing (chrom, start, end) that will limit the view to
+    only the genomic positions between start and end
+
+    :param properties: Dictionary of values that should include:
+        at least the file. Optionally: lower threshold, value to filter out low scoring
+        enrichments, alpha: (transparency) value for arc lines,  color: default color
+        for arcs unless specified in the intervals
+        intervals: list of the format chr1:1000000:200000:red
+         chr3:13000000:14000000:blue. Only the arcs starting or ending on
+         such regions will be plotted. The last field field of the intervals used
+         to set the color of the arcs.
+    """
+    from matplotlib.colors import colorConverter
+    from matplotlib.patches import Arc
+
+    hic_matrix = HiCMatrix.hiCMatrix(properties['file'])
+    chrom, region_start, region_end = region
+    hic_matrix.keepOnlyTheseChr(chrom)
+    hic_matrix.diagflat()
+    hic_matrix.keepOnlyTheseChr(chrom)
+
+    # filter low scoring enrichments
+    hic_matrix.matrix.data[np.isnan(hic_matrix.matrix.data)] = 0
+    if 'lower threshold' not in properties:
+        sys.stderr.write("Plotting arcs without a lower threshold. This can result "
+                         "in too many interactions being plotted. Consider adding a "
+                         "'lower threshold' value to the configuration file.")
+    else:
+        hic_matrix.matrix.data[hic_matrix.matrix.data < properties['lower threshold']] = 0
+
+    mat = triu(hic_matrix.matrix, k=0, format='coo')
+    max_radius = 0
+    count = 0
+
+    if properties['color']:
+        color = properties['color']
+    else:
+        color = 'blue'
+
+    if properties['alpha']:
+        alpha = properties['alpha']
+    else:
+        alpha = 0.8
+
+    # process intervals, if any, to plot
+    # only interactions from those regions
+    intervals = None
+    if properties['view points']:
+        intervals = {chrom: IntervalTree()}
+        for rangebp in properties['view points']:
+            fields = rangebp.split(":")
+            chrom_vp = fields[0]
+            start = int(fields[1])
+            end = int(fields[2])
+            if len(fields) == 4:
+                color = fields[3]
+            else:
+                color = 'blue'
+            print (chrom, start, end, color)
+            intervals[chrom_vp].insert_interval(Interval(start, end, value=color))
+
+    for idx, (row, col) in enumerate(np.vstack([mat.row, mat.col]).T):
+        chrom1, start1, end1, _ = hic_matrix.cut_intervals[row]
+        chrom2, start2, end2, _ = hic_matrix.cut_intervals[col]
+        if intervals:
+            match1 = intervals[chrom1].find(start1, end1)
+            match2 = intervals[chrom2].find(start2, end2)
+            if len(match1) == 0 and len(match2) == 0:
+                continue
+            if len(match1) > 0:
+                color = colorConverter.to_rgba(match1[0].value, alpha=alpha)
+            else:
+                color = colorConverter.to_rgba(match2[0].value, alpha=alpha)
+
+        center = start1 + float(start2 - start1) / 2
+        radius = start2 - start1
+        if radius > max_radius:
+            max_radius = radius
+        count += 1
+        ax.plot([center], [radius])
+        ax.add_patch(Arc((center, 0), radius,
+                         radius*2, 0, 0, 180, color=color, lw=0.5*np.sqrt(mat.data[idx])))
+
+    print "{} arcs plotted".format(count)
+    chrom, region_start, region_end = region
+    ax.set_ylim(-1, region_end)
+    ax.set_xlim(region_start, region_end)
+    ax.axis('off')
 
 
 def plot_interactions(ax, matrix_properties, region, args):
@@ -825,18 +929,20 @@ def plot_bedgraph(ax, label_ax, bedgraph_properties, region):
         ax.vlines(pos_list, [0], score_list, color='olive', linewidth=0.5)
         ax.plot(pos_list, score_list, '-', color='slateblue', linewidth=0.7)
     else:
-        ax.fill_between(pos_list, score_list,
-                        facecolor=bedgraph_properties['color'])
-
+        try:
+            ax.fill_between(pos_list, score_list,
+                            facecolor=bedgraph_properties['color'])
+        except ValueError:
+            exit("Invalid color {} for {}".format(bedgraph_properties['color'], bedgraph_properties['file']))
     ax.set_frame_on(False)
     ax.axes.get_xaxis().set_visible(False)
     ax.axes.get_yaxis().set_visible(False)
     ax.set_xlim(region[1], region[2])
 
     ymin, ymax = ax.get_ylim()
-    if bedgraph_properties['max_value'] != 'auto':
+    if 'max_value' in bedgraph_properties and bedgraph_properties['max_value'] != 'auto':
         ymax = bedgraph_properties['max_value']
-    if bedgraph_properties['min_value'] != 'auto':
+    if 'min_value' in bedgraph_properties and bedgraph_properties['min_value'] != 'auto':
         ymin = bedgraph_properties['min_value']
 
     if float(ymax) % 1 == 0:
@@ -931,7 +1037,15 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
 #    score = np.array([bw.query(region[0], x, x+10000,1)[0]['mean']
 #                      for x in range(region[1], region[2], 10000)])
 
-    num_bins = 700
+    if 'number of bins' in bigwig_properties:
+        try:
+            num_bins = int(bigwig_properties['number of bins'])
+        except TypeError:
+            exit("'number of bins' value: {} for bigwig file {} "
+                 "is not valid.".format(bigwig_properties['number of bins'],
+                                        bigwig_properties['file']))
+    else:
+        num_bins = 700
     score = bw.query(chrom, region_start, region_end, num_bins)
     if score is None:
         chrom = chrom.replace('chr', '')
@@ -955,7 +1069,13 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
     if bigwig_properties['min_value'] != 'auto':
         ymin = bigwig_properties['min_value']
 
-    ax.set_ylim(ymin, ymax)
+    if 'orientation' in bigwig_properties and \
+        bigwig_properties['orientation'] == 'inverted':
+
+        ax.set_ylim(ymax, ymin)
+    else:
+        ax.set_ylim(ymin, ymax)
+
 #    ax.set_yticks([ymax])
     ydelta = ymax - ymin
 
