@@ -8,6 +8,7 @@ import numpy as np
 from hicexplorer import HiCMatrix
 import parserCommon
 from hicexplorer.utilities import transformMatrix, applyFdr, getPearson
+from hicexplorer._version import __version__
 
 def parse_argumentss(args=None):
     """
@@ -66,6 +67,11 @@ def parse_argumentss(args=None):
         'correction.',
         default=None,
         nargs='+')
+
+    parser.add_argument('--version', action='version',
+        version='%(prog)s {}'.format(__version__))
+
+
     return parser.parse_args(args)
 
 

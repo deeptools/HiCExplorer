@@ -6,6 +6,7 @@ import sys
 import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import enlarge_bins
+from hicexplorer._version import __version__
 
 from scipy import sparse
 
@@ -44,6 +45,10 @@ def parsearguments(args=None):
                         help='File name to save the values',
                         type=argparse.FileType('w'),
                         required=True)
+
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
+
 
     return parser.parse_args(args)
 

@@ -12,8 +12,9 @@ import pysam
 from bx.intervals.intersection import IntervalTree, Interval
 
 # own tools
-from hicexplorer.utilities import getUserRegion, genomicRegion
+#from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer import HiCMatrix as hm
+from hicexplorer._version import __version__
 
 debug = 1
 
@@ -155,6 +156,8 @@ def parseArguments(args=None):
                         required=False,
                         type=genomicRegion
                         )
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
 
     args = parser.parse_args(args)
 

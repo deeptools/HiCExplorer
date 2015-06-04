@@ -5,6 +5,7 @@ from os.path import splitext
 import sys
 import argparse
 from hicexplorer import HiCMatrix as hm
+from hicexplorer._version import __version__
 from scipy import sparse
 
 
@@ -43,12 +44,13 @@ def parsearguments(args=None):
                     default='dekker',
                     choices=['dekker', 'ren'])
 
-
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
                              'are those that do not have any values, mainly because they are'
                              'repetitive regions of the genome',
                         action='store_true')
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
 
 
     return parser.parse_args(args)
