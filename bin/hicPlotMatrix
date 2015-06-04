@@ -49,7 +49,7 @@ def parseArguments(args=None):
     parser.add_argument('--whatToShow',
                         help='Options are: "heatmap", "3D", and "both". '
                         'Default is both',
-                        default="heatmap",
+                        default="both",
                         choices=["heatmap", "3D", "both"])
 
     parser.add_argument('--chromosomeOrder',
