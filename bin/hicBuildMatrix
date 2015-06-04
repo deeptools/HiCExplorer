@@ -12,7 +12,7 @@ import pysam
 from bx.intervals.intersection import IntervalTree, Interval
 
 # own tools
-#from hicexplorer.utilities import getUserRegion, genomicRegion
+from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
