@@ -4,6 +4,7 @@
 import sys
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import writableFile
+from hicexplorer._version import __version__
 from scipy.sparse import tril
 import numpy as np
 
@@ -106,6 +107,8 @@ def parseArguments(args=None):
                         type=float,
                         default=None)
 
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
 
     return(parser.parse_args(args))
 

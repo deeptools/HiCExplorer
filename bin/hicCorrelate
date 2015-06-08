@@ -8,6 +8,7 @@ from scipy.stats import pearsonr, spearmanr
 
 import hicexplorer.HiCMatrix as hm
 from deeptools.correlation_heatmap import plot_correlation
+from hicexplorer._version import __version__
 
 # for plotting
 from matplotlib import use as mplt_use
@@ -69,6 +70,8 @@ def parseArguments(args=None):
                         'correlation.',
                         default=None,
                         nargs='+')
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
 
 
     args = parser.parse_args(args)
