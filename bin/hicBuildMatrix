@@ -98,7 +98,7 @@ def parseArguments(args=None):
                               'sites. Otherwise all reads in the '
                               'interval are considered. '),
                         type=int,
-                        metavar='INT',
+                        default=10000,
                         required=True)
 
     parser.add_argument('--fragmentLength', '-f',
