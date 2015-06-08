@@ -5,6 +5,7 @@ import sys, argparse
 import numpy as np
 from scipy.sparse import lil_matrix, vstack, triu
 from hicexplorer import HiCMatrix as hm
+from hicexplorer._version import __version__
 
 debug = 0
 
@@ -14,7 +15,6 @@ def parseArguments(args=None):
                                      description = ( 'Adds HiC matrices together. Format'
                                                      'has to be .npz' ))
 
-    # define the arguments
     parser.add_argument('--matrices', '-m',
                         help = 'matrices to add. Must have the same shape.',
                         metavar = '.npz fileformat',
@@ -25,6 +25,9 @@ def parseArguments(args=None):
                         help = 'File name to save the resulting matrix. The output is '
                                'also a .npz file. But don\'t add the suffix', 
                         required=True)
+
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
 
     return(parser.parse_args(args))
 

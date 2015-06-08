@@ -5,6 +5,7 @@ import sys
 
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import enlarge_bins
+from hicexplorer._version import __version__
 
 from scipy import sparse
 from scipy.sparse import triu, dia_matrix
@@ -78,6 +79,10 @@ def parseArguments(args=None):
                         type=int,
                         nargs='+'
                         )
+
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
+
 
     return parser.parse_args(args)
 

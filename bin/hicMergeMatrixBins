@@ -7,6 +7,7 @@ from scipy.sparse import lil_matrix, vstack
 
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
+from hicexplorer._version import __version__
 
 debug = 0
 
@@ -40,6 +41,10 @@ def parseArguments(args=None):
                         'The output is also a .npz file. But don\'t add '
                         'the suffix', 
                         required=True)
+
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
+
 
     return(parser.parse_args(args))
 
