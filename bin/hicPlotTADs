@@ -18,6 +18,7 @@ from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
+import mpl_toolkits.axisartist as axisartist
 from bx.intervals.intersection import IntervalTree, Interval
 
 def parseArguments(args=None):
@@ -156,7 +157,7 @@ def plot_boundaries(ax, file_name, region):
             prev_line = line
             prev_chrom = chrom
     file_h.close()
-    ax.plot(x, y,  color = 'black')
+    ax.plot(x, y,  color='black')
 
 
 def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
@@ -322,31 +323,36 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
     # plt.subplots_adjust(wspace=0, hspace=0.1, top=0.95,
     #                    bottom=0.05, left=0.1, right=0.5)
 
-def plot_x_axis(ax, region):
+def plot_x_axis(ax, region, properties):
     chrom_region, region_start, region_end = region
     ax.set_xlim(region_start, region_end)
-
     ticks = ax.get_xticks()
-    if ticks[-1] - ticks[1] < 1e5:
+    if ticks[-1] - ticks[1] <= 1e5:
+        labels = ["{:.3f}".format((x / 1e3))
+                  for x in ticks]
+        labels[-1] = labels[-1] + "Kbp"
+
+    elif 1e5 < ticks[-1] - ticks[1] < 4e6:
         labels = ["{:.3f}".format((x / 1e3))
                   for x in ticks]
         labels[-1] = labels[-1] + "Kbp"
     else:
-        labels = ["{:.2f}".format((x / 1e6))
+        labels = ["{:.0f}Mbp".format((x / 1e6))
                   for x in ticks]
-        labels[-1] = labels[-1] + "Mbp"
-    ax.get_xaxis().set_tick_params(
-        which='both',
-        bottom='on',
-        top='off',
-        direction='out')
+        #labels[-1] = labels[-1] + "Mbp"
 
-    ax.set_xticklabels(labels)
 
-#    ax.xaxis.tick_top()
 
-    ax.set_frame_on(False)
-    ax.axes.get_yaxis().set_visible(False)
+    ax.axis["x"] = ax.new_floating_axis(0,0.5)
+    
+    ax.axis["x"].axis.set_ticklabels(labels)
+    ax.axis['x'].axis.set_tick_params(which='minor',bottom='on')
+
+    if 'fontsize' in properties:
+        ax.axis["x"].major_ticklabels.set(size=int(properties['fontsize']))
+
+    if 'where' in properties and properties['where']=='top':
+        ax.axis["x"].set_axis_direction("top")
 
 
 def pcolormesh_45deg(C, ax, start_pos_vector, vmin=None,
@@ -472,38 +478,77 @@ def plot_hic_arcs(ax, label_ax, properties, region):
                          "in too many interactions being plotted. Consider adding a "
                          "'lower threshold' value to the configuration file.")
     else:
-        hic_matrix.matrix.data[hic_matrix.matrix.data < properties['lower threshold']] = 0
+        try:
+            lower_threshold = float(properties['lower threshold'])
+        except ValueError:
+            sys.exit("lower threshold value is invalid: {} for {}".format(properties['lower threshold'],
+                                                                          properties['file']))
+        hic_matrix.matrix.data[hic_matrix.matrix.data < lower_threshold] = 0
 
+    hic_matrix.matrix.eliminate_zeros()
     mat = triu(hic_matrix.matrix, k=0, format='coo')
     max_radius = 0
     count = 0
 
     if properties['color']:
-        color = properties['color']
+        color_main = properties['color']
     else:
-        color = 'blue'
+        color_main = 'blue'
 
     if properties['alpha']:
-        alpha = properties['alpha']
+        alpha = float(properties['alpha'])
     else:
         alpha = 0.8
 
+    # expand view point
+    vp_chrom, vp_start, vp_end = properties['view point'].split(':')
+    if vp_chrom == chrom:
+        vp_intval = IntervalTree()
+        vp_intval.insert_interval(Interval(int(vp_start), int(vp_end)))
+    else:
+        vp_intval = None
     # process intervals, if any, to plot
     # only interactions from those regions
     intervals = None
-    if properties['view points']:
+    if 'highlights' in properties:
         intervals = {chrom: IntervalTree()}
-        for rangebp in properties['view points']:
-            fields = rangebp.split(":")
-            chrom_vp = fields[0]
-            start = int(fields[1])
-            end = int(fields[2])
-            if len(fields) == 4:
-                color = fields[3]
-            else:
-                color = 'blue'
-            print (chrom, start, end, color)
-            intervals[chrom_vp].insert_interval(Interval(start, end, value=color))
+        if properties['highlights'].endswith(".bed"):
+            # the highlights are a bed file
+            with open(properties['highlights']) as f:
+                for line in f.readlines():
+                    if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
+                        continue
+                    fields = line.strip().split('\t')
+
+                    try:
+                        chrom_vp, start, end = fields[0:3]
+                    except Exception as detail:
+                        msg = "Error reading line: {}\nError message: {}".format(detail)
+                        exit(msg)
+                    # skip regions not in the same chromosome
+                    if chrom_vp != chrom:
+                        continue
+                    start = int(start)
+                    end = int(end)
+                    # insert the interval only if it does not overlap with the view point
+                    if vp_intval is not None:
+                        if len(vp_intval.find(start, end+1)) > 0:
+                            sys.stderr.write("skipping region\n".format(start, end))
+                            continue
+
+                    intervals[chrom_vp].insert_interval(Interval(start, end, value='red'))
+        else:
+            for rangebp in properties['highlights']:
+                fields = rangebp.split(":")
+                chrom_vp = fields[0]
+                start = int(fields[1])
+                end = int(fields[2])
+                if len(fields) == 4:
+                    color = fields[3]
+                else:
+                    color = 'blue'
+                print (chrom, start, end, color)
+                intervals[chrom_vp].insert_interval(Interval(start, end, value=color))
 
     for idx, (row, col) in enumerate(np.vstack([mat.row, mat.col]).T):
         chrom1, start1, end1, _ = hic_matrix.cut_intervals[row]
@@ -512,11 +557,13 @@ def plot_hic_arcs(ax, label_ax, properties, region):
             match1 = intervals[chrom1].find(start1, end1)
             match2 = intervals[chrom2].find(start2, end2)
             if len(match1) == 0 and len(match2) == 0:
-                continue
-            if len(match1) > 0:
-                color = colorConverter.to_rgba(match1[0].value, alpha=alpha)
+                #continue
+                color = color_main
             else:
-                color = colorConverter.to_rgba(match2[0].value, alpha=alpha)
+                if len(match1) > 0:
+                    color = colorConverter.to_rgba(match1[0].value, alpha=alpha)
+                else:
+                    color = colorConverter.to_rgba(match2[0].value, alpha=alpha)
 
         center = start1 + float(start2 - start1) / 2
         radius = start2 - start1
@@ -524,15 +571,25 @@ def plot_hic_arcs(ax, label_ax, properties, region):
             max_radius = radius
         count += 1
         ax.plot([center], [radius])
+        if 'line width' in properties:
+            line_width = float(properties['line width'])
+        else:
+            line_width = 0.5*np.sqrt(mat.data[idx])
         ax.add_patch(Arc((center, 0), radius,
-                         radius*2, 0, 0, 180, color=color, lw=0.5*np.sqrt(mat.data[idx])))
+                         radius*2, 0, 0, 180, color=color, lw=line_width))
 
     print "{} arcs plotted".format(count)
     chrom, region_start, region_end = region
-    ax.set_ylim(-1, region_end)
+    if 'orientation' in properties and properties['orientation'] == 'inverted':
+        ax.set_ylim(region_end, -1)
+    else:
+        ax.set_ylim(-1, region_end)
     ax.set_xlim(region_start, region_end)
     ax.axis('off')
 
+    label_ax.text(0.3, 0.0, properties['title'],
+            horizontalalignment='left', size='large',
+            verticalalignment='bottom', transform=label_ax.transAxes)
 
 def plot_interactions(ax, matrix_properties, region, args):
     """
@@ -621,7 +678,8 @@ def get_gene_parts(fields, bed_properties):
         block_sizes = []
         block_starts = []
 
-    return chrom, start, end, name, strand, thick_start, thick_end, rgb,  block_count, block_sizes, block_starts
+    return chrom, start, end, name, strand, thick_start, thick_end, rgb, \
+           block_count, block_sizes, block_starts
 
 def draw_gene_simple(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor):
     """
@@ -958,10 +1016,15 @@ def plot_bedgraph(ax, label_ax, bedgraph_properties, region):
     ydelta = ymax - ymin
     small_x = 0.01 * (end_region - start_region)
 
-    ax.text(start_region-small_x, ymax - ydelta * 0.2,
-            "[{}-{}]".format(ymin, ymax_print),
-            horizontalalignment='left', size='small',
-            verticalalignment='bottom')
+    if 'show data range' in bedgraph_properties and \
+            bedgraph_properties['show data range'] == 'no':
+        pass
+    else:
+        # by default show the data range
+        ax.text(start_region-small_x, ymax - ydelta * 0.2,
+                "[{}-{}]".format(ymin, ymax_print),
+                horizontalalignment='left', size='small',
+                verticalalignment='bottom')
 
     label_ax.text(0.15, 0, bedgraph_properties['title'],
                 horizontalalignment='left', size='large',
@@ -1091,10 +1154,15 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
     else:
         ymax_print = "{:.1f}".format(ymax)
     small_x = 0.01 * (region_end - region_start)
-    ax.text(region_start-small_x, ymax - ydelta * 0.2,
-            "[{}-{}]".format(int(ymin), ymax_print),
-            horizontalalignment='left', size='small',
-            verticalalignment='bottom')
+    if 'show data range' in bigwig_properties and \
+        bigwig_properties['show data range'] == 'no':
+        pass
+    else:
+        # by default show the data range
+        ax.text(region_start-small_x, ymax - ydelta * 0.2,
+                "[{}-{}]".format(int(ymin), ymax_print),
+                horizontalalignment='left', size='small',
+                verticalalignment='bottom')
 
     """
     ax.text(region_end, ymax - ydelta * 0.2, bigwig_properties['title'],
@@ -1199,27 +1267,42 @@ def main(args):
 
     grids = gridspec.GridSpec(len(track_properties), 2,
                               height_ratios=track_height,
-                              width_ratios=[1, 0.2])
+                              width_ratios=[1, 0.05])
 
     # iterate again to plot each track
     axis_list = []
     for idx, properties in enumerate(track_properties):
         if 'spacer' in properties:
             continue
-        axis = plt.subplot(grids[idx, 0])
-        label_axis = plt.subplot(grids[idx, 1])
-        label_axis.set_axis_off()
+        axis = axisartist.Subplot(fig, grids[idx, 0])
+        fig.add_subplot(axis)
+        axis.axis[:].set_visible(False)
+
         if 'x-axis' in properties:
-            plot_x_axis(axis, region)
-        elif properties['file'].endswith('.bed'):
+            # ideally the axisartis would allow
+            # to have a floating axis but this is not
+            # working
+            plot_x_axis(axis, region, properties)
+            continue
+        else:
+            label_axis = plt.subplot(grids[idx, 1])
+            label_axis.set_axis_off()
+
+        if properties['file'].endswith('.bed'):
             plot_bed(axis, label_axis, properties, region)
         elif properties['file'].endswith('.bg'):
             plot_bedgraph(axis, label_axis, properties, region)
         elif properties['file'].endswith('.bw'):
             plot_bigwig(axis, label_axis, properties, region)
         elif properties['file'].endswith('.npz'):
-            if 'type' in properties and properties['type'] == 'interaction':
-                plot_interactions(axis, properties, region, args)
+            if 'type' in properties:
+                if properties['type'] == 'interaction':
+                    plot_interactions(axis, properties, region, args)
+                elif properties['type'] == 'arcplot':
+                    plot_hic_arcs(axis, label_axis, properties, region)
+                else:
+                    exit("Hi-C plot type invalid ({}) for {}".format(properties['type'],
+                                                                     properties['file']))
             else:
                 # to avoid the color bar to span all the
                 # width of the axis I pass two axes
@@ -1251,7 +1334,7 @@ def main(args):
     plt.subplots_adjust(wspace=0, hspace=0.1, top=0.9,
                         bottom=0.12, left=0.04, right=0.96)
 
-    plt.savefig(args.outFileName.name, dpi=200)
+    plt.savefig(args.outFileName.name, dpi=300)
 
 
 if __name__ == "__main__":
