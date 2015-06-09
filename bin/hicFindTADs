@@ -61,9 +61,12 @@ def get_min_indices(conductance):
     """
     conductance = np.array(conductance)
     # find nan conductance and replace by average
-    for nan_idx in  np.flatnonzero(np.isnan(conductance)):
-        conductance[nan_idx] = np.mean([conductance[nan_idx-1],
-                                   conductance[nan_idx+1]])
+    for nan_idx in np.flatnonzero(np.isnan(conductance)):
+        try:
+            conductance[nan_idx] = np.mean([conductance[nan_idx-1],
+                                       conductance[nan_idx+1]])
+        except IndexError:
+            conductance[nan_idx] = 0
 
     min_indices = np.array(
         [idx for idx in range(1, len(conductance) - 2)
