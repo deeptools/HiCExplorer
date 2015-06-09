@@ -1,0 +1,56 @@
+<tool id="hicFindTADs" name="hicFindTADs" version="1.0">
+    <description>find minimum cuts that correspond to boundaries</description>
+    <macros>
+        <token name="@BINARY@">hicFindTADs</token>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements" />
+    <command><![CDATA[
+    ln -s $matrix matrix.npz;
+
+    hicFindTADs
+         --matrix matrix.npz
+
+        #if $depth and $depth is not None:
+            --depth $depth
+        #end if
+
+        #if $threshold and $threshold is not None:
+            --threshold $threshold
+        #end if
+
+        --outFileName $outFileName
+
+    ]]></command>
+    <inputs>
+        <param name="matrix" type="data" format="hic_matrix" label="Matrix to use" help="(--matrix)"/>
+        <param name="depth" type="integer" value="50"
+            label="Window length to be considered left and right of the cut point in bp" help="(--depth)"/>
+        <param name="threshold" type="float" value="0.0" optional="True" label="Noise threshold" help="(--threshold)"/>
+    </inputs>
+    <outputs>
+        <data name="outFileName" format="tabular"/>
+    </outputs>
+    <tests>
+        <test>
+            <param name="matrix" value="hicCorrectMatrix_result1.npz" ftype="hic_matrix"/>
+            <param name="depth" value="20000"/>
+            <output name="outFileName" file="hicFindTADs_result1.tabular" ftpye="tabular"/>
+        </test>
+        <test>
+            <param name="matrix" value="hicBuildMatrix_result1.npz" ftype="hic_matrix"/>
+            <param name="threshold" value="0.05"/>
+            <param name="depth" value="20000"/>
+            <output name="outFileName" file="hicFindTADs_result2.tabular" ftpye="tabular"/>
+        </test>
+    </tests>
+    <help><![CDATA[
+
+**What it does**
+
+Uses the graph clustering measure "conductance" to find minimum cuts that correspond to boundaries.
+
+]]></help>
+    <expand macro="citations" />
+</tool>
+
