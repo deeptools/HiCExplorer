@@ -1,0 +1,42 @@
+<tool id="hicExport" name="hicExport" version="1.0">
+  <description>Saves a matrix in .npz format using a plain text format.</description>
+  <stdio>
+    <exit_code level="fatal" range="1:"/>
+  </stdio>
+  <version_command>python /home/bag/.local/bin//hicExport --version</version_command>
+  <command interpreter="python"><![CDATA[hicExport 
+#if $matrix and $matrix is not None:
+--matrix $matrix
+#end if
+
+#if $outFileName and $outFileName is not None:
+--outFileName $outFileName
+#end if
+
+#set repeat_var_3 = '" "'.join([ str($var.chromosomeOrder) for $var in $repeat_3 ])
+--chromosomeOrder "$repeat_var_3"
+
+
+#if $outputFormat and $outputFormat is not None:
+--outputFormat $outputFormat
+#end if
+$clearMaskedBins
+> $default]]></command>
+  <inputs>
+    <param area="false" label="matrix to use (--matrix)" name="matrix" type="text"/>
+    <param area="false" label="File name to save the plain text matrix (--outFileName)" name="outFileName" type="text"/>
+    <repeat min="1" name="repeat_3" title="repeat_title">
+      <param area="false" label="Chromosomes and order in which the chromosomes should be plotted. This option overrides --region and --region2  (--chromosomeOrder)" name="chromosomeOrder" type="text"/>
+    </repeat>
+    <param label="Output format. There are two possibilities: &quot;dekker&quot; and &quot;ren&quot;. The dekker format outputs the whole matrix where the first column and first row are the bin widths and labels. The &quot;ren&quot; format is a list of tuples of the form chrom, bin_star, bin_end, values. (--outputFormat)" name="outputFormat">
+      <option selected="true" value="dekker">dekker</option>
+      <option value="ren">ren</option>
+    </param>
+    <param checked="false" label="if set, masked bins are removed from the matrix. Masked bins are those that do not have any values, mainly because they arerepetitive regions of the genome (--clearMaskedBins)" name="clearMaskedBins" type="boolean" truevalue="--clearMaskedBins" falsevalue=""/>
+  </inputs>
+  <outputs>
+    <data format="txt" hidden="false" name="default"/>
+  </outputs>
+  <help><![CDATA[TODO: Write help]]></help>
+</tool>
+

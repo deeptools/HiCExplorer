@@ -1,5 +1,5 @@
-<tool id="hicCorrectMatrix" name="hicCorrectMatrix" version="@WRAPPER_VERSION@.0">
-    <description>using Dekker's iterative correction</description>
+<tool id="hicCorrectMatrix" name="hicCorrectMatrix" version="1.0">
+    <description>Runs Dekker's iterative correction over a hic matrix.</description>
     <macros>
         <token name="@BINARY@">hicCorrectMatrix</token>
         <import>macros.xml</import>
@@ -7,73 +7,81 @@
     <expand macro="requirements" />
     <command>
 <![CDATA[
-    hicCorrectMatrix
-        --matrix $matrix
+        ln -s $matrix temp_matrix.npz &&
 
+        hicCorrectMatrix
+        
+        --matrix temp_matrix.npz
         --iterNum $iterNum
-        --outFileName "$output_matrix"
+        --outFileName corrected_matrix.npz
 
-        #if $poorRegionsCutoff:
-            --poorRegionsCutoff $poorRegionsCutoff
+        #if $poorRegionsCutoff and $poorRegionsCutoff is not None:
+        --poorRegionsCutoff $poorRegionsCutoff
         #end if
 
-        #if $inflationCutoff:
-            --inflationCutoff $inflationCutoff
+        #if $inflationCutoff and $inflationCutoff is not None:
+        --inflationCutoff $inflationCutoff
         #end if
 
-        #if $transCutoff:
-            --transCutoff $transCutoff
+        #if $transCutoff and $transCutoff is not None:
+        --transCutoff $transCutoff
         #end if
 
-        #if $sequencedCountCutoff:
-            --sequencedCountCutoff $sequencedCountCutoff
+        #if $sequencedCountCutoff and $sequencedCountCutoff is not None:
+        --sequencedCountCutoff $sequencedCountCutoff
         #end if
 
-        ##--chromosomes "$repeat_var_8"
-
+        ## special: --chromosomes is optional, but if given needs at least one argument
+        #set chroms = '" "'.join([ str($var.chromosome) for $var in $chromosomes ])
+        #if chroms
+        --chromosomes "$chroms"
+        #end if
+        
         $skipDiagonal
         $perchr
-
+        $verbose
 ]]>
     </command>
     <inputs>
-        <param name="input_matrix" type="data" format="hicexplorer_matrix" label="Hi-C matrix" help="The matrix produced by hicBuildMatrix tool. (--matrix)"/>
-        <param name="iterNum" type="integer" value="500" label="Number of iterations" hel="(--iterNum)"/>
-
-        <param name="poorRegionsCutoff" type="float" value="" optional="True" label="Poor region cutoff"
-            help="Poor regions are bins with low coverage. Those regions considered outliers in the low range are
-            identified using the MAD method. A usual cutoff is -1.2 (--poorRegionsCutoff)"/>
-
-        <param name="inflationCutoff" type="float" value="" optional="True" label="Inflation Cutoff"
-            help="Value corresponding to the maximum number of times a bin can be scaled up during the iterative correction.
-            For example, a inflationCutoff of 3 will filter out all bins that were expanded 3 times or more during the iterative correction. (--inflationCutoff)"/>
-
-        <param name="transCutoff" type="float" value="" optional="True" label="Trans Cutoff"
-            help="Clip high counts in the top -transcut trans regions (i.e. between chromosomes). A usual value is 0.05  (--transCutoff)"/>
-
-        <param name="sequencedCountCutoff" type="float" value="" optional="True" label="Sequenced Count Cutoff"
-            help="Each bin receives a value indicating the fraction that is covered by reads.
-            A cutoff of 0.5 will discard all those bins that have less than half of the bin covered. (--sequencedCountCutoff)" />
-
-        <!--repeat min="1" name="repeat_8" title="repeat_title">
-            <param label="List of chromosomes to be included in the iterative correction. The order of the given chromosomes will be kept for the resulting corrected matrix (-chromosomes)" name="chromosomes" type="text"/>
-        </repeat-->
-
-        <param name="skipDiagonal" type="boolean" truevalue="--skipDiagonal" falsevalue="" checked="False"
-            label="Diagonal counts are not included" help="(--skipDiagonal)"/>
-        <param name="perchr" type="boolean" truevalue="--perchr" falsevalue="" checked="False"
-            label="Normalize each chromosome separately" help="(--perchr)"/>
-
-  </inputs>
+        <param argument="--matrix" name="matrix" type="data" format="hic_matrix" label="Hi-C matrix" />
+        <param argument="--iterNum" name="iterNum" type="integer" optional="true" value="500" label="Number of iterations" />
+        <param argument="--poorRegionsCutoff" name="poorRegionsCutoff" type="float" optional="true" label="Poor regions cutoff" help="Poor regions are bins with low coverage. Those regions considered outliers in the low range are identified using the MAD method. A usual cutoff is -1.2."/>
+        <param argument="--inflationCutoff" name="inflationCutoff" type="float" optional="true" label="Inflation cutoff" help="Value corresponding to the maximum number of times a bin can be scaled up during the iterative correction. For example, a inflationCutoff of 3 will filter out all bins that were expanded 3 times or more during the iterative correction."/>
+        <param argument="--transCutoff" name="transCutoff" type="float" optional="true" label="Trans region cutoff" help="Clip high counts in the top -transcut trans regions (i.e. between chromosomes). A usual value is 0.05."/>
+        <param argument="--sequencedCountCutoff" name="sequencedCountCutoff" optional="true" type="float" label="Sequenced count cutoff" help="Each bin receives a value indicating the fraction that is covered by reads. A cutoff of 0.5 will discard all those bins that have less than half of the bin covered."/>
+        <repeat argument="--chromosomes" name="chromosomes" min="1" optional="true" title="Include chromosomes:" help="List of chromosomes to be included in the iterative correction. The order of the given chromosomes will be kept for the resulting corrected matrix">
+            <param name="chromosome" type="text"/>
+        </repeat>
+        <param argument="--skipDiagonal" name="skipDiagonal" type="boolean" truevalue="--skipDiagonal" falsevalue="" checked="false" label="Skip diagonal counts"/>
+        <param argument="--perchr" name="perchr" type="boolean" truevalue="--perchr" falsevalue="" checked="false" label="Normalize each chromosome separately" />
+        <param argument="--verbose" name="verbose" type="boolean" truevalue="--verbose" falsevalue="" checked="false" label="Print processing status" />
+    </inputs>
     <outputs>
-        <data name="output_matrix" format="hicexplorer_matrix"/>
+        <data name="outFileName"  from_work_dir="corrected_matrix.npz" format="hic_matrix" label="${tool.name} on ${on_string}" argument="--outFileName"/>
     </outputs>
-    <help>
-<![CDATA[
+    <tests>
+        <test>
+            <param name="matrix" ftype="hic_matrix" value="hicBuildMatrix_result1.npz"/>
+            <output name="outFileName" file="hicCorrectMatrix_result1.npz" ftype="hic_matrix" compare="sim_size"/>
+        </test>
+        <test>
+            <param name="matrix" ftype="hic_matrix" value="hicBuildMatrix_result1.npz"/>
+            <repeat name="chromosomes">
+                <param name="chromosome" value="chrUextra"/>
+            </repeat>
+            <repeat name="chromosomes">
+                <param name="chromosome" value="chr3LHet"/>
+            </repeat> 
+            <output name="outFileName" file="hicCorrectMatrix_result2.npz" ftype="hic_matrix" compare="sim_size"/>
+        </test>
+    </tests>
+    <help><![CDATA[
 
-using Dekker's iterative correction
+**What it does**
 
-]]>
-    </help>
+Runs Dekker's iterative correction over a hic matrix.
+
+]]></help>
+    <expand macro="citations" />
 </tool>
 

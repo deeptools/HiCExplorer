@@ -1,17 +1,4 @@
 <macros>
-
-    <token name="@WRAPPER_VERSION@">0.1</token>
-    <xml name="requirements">
-        <requirements>
-            <requirement type="binary">@BINARY@</requirement>
-            <requirement type="package" >hicexplorer</requirement>
-            <requirement type="package" version="0.1">hicexplorer</requirement>
-            <yield />
-        </requirements>
-        <expand macro="stdio" />
-        <version_command>@BINARY@ --version</version_command>
-    </xml>
-
     <xml name="stdio">
         <stdio>
             <exit_code range="1:" />
@@ -23,90 +10,218 @@
         </stdio>
     </xml>
 
-    <xml name="fragmentLength">
-        <param name="fragmentLength" type="integer" value="300" min="1"
-            label="Fragment length used for the sequencing"
-            help ="If paired-end reads are used, the fragment length is computed from the BAM file. (--fragmentLength)"/>
-    </xml>
-
-    <xml name="region_limit_operation">
-        <param name="region" type="text" value="" optional="True"
-            label="Region of the genome to limit the operation to"
-            help="This is useful when testing parameters to reduce the computing time. The format is chr:start:end, for example &quot;chr10&quot; or &quot;chr10:456700:891000&quot;. (--region)" />
-    </xml>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <xml name="bamCorrelate_mode_actions">
-        <expand macro="region_limit_operation" />
-        <conditional name="advancedOpt">
-            <param name="showAdvancedOpt" type="select" label="Show advanced options" >
-                <option value="no" selected="true">no</option>
-                <option value="yes">yes</option>
-            </param>
-            <when value="no" />
-            <when value="yes">
-                <expand macro="doNotExtendPairedEnds" />
-                <expand macro="ignoreDuplicates" />
-                <expand macro="minMappingQuality" />
-                <expand macro="includeZeros" />
-                <expand macro="zMin_zMax" />
-                <expand macro="colormap" />
-            </when>
-        </conditional>
-    </xml>
-
-
-    <xml name="bigwigCorrelate_mode_actions">
-
-        <expand macro="region_limit_operation" />
-
-        <conditional name="advancedOpt">
-            <param name="showAdvancedOpt" type="select" label="Show advanced options" >
-                <option value="no" selected="true">no</option>
-                <option value="yes">yes</option>
-            </param>
-            <when value="no" />
-            <when value="yes">
-                <expand macro="includeZeros" />
-                <expand macro="zMin_zMax" />
-                <expand macro="colormap" />
-                <expand macro="plotTitle" />
-                <expand macro="plotNumbers" />
-            </when>
-        </conditional>
-    </xml>
-
-
-    <xml name="includeZeros">
-        <param name="includeZeros" type="boolean" truevalue="--includeZeros" falsevalue=""
-            label="Include zeros"
-            help="If set, then regions with zero counts for *all* BAM files given are included. The default behavior is to ignore those cases. (--includeZeros)" />
-    </xml>
-    <xml name="zMin_zMax">
-        <param name="zMin" type="integer" value="" optional="true" label="Minimum value for the heatmap intensities"
-            help="If not specified the value is set automatically. (--zMin)"/>
-        <param name="zMax" type="integer" value="" optional="true" label="Maximum value for the heatmap intensities"
-            help="If not specified the value is set automatically. (--zMax)"/>
-    </xml>
-
-
-
     <token name="@THREADS@">--numberOfProcessors "\${GALAXY_SLOTS:-4}"</token>
+    <token name="@WRAPPER_VERSION@">1.0</token>
+    <xml name="requirements">
+        <requirements>
+            <requirement type="package" version="2.7">python</requirement>
+            <requirement type="binary">@BINARY@</requirement>
+            <requirement type="package" >hicexplorer</requirement>
+            <requirement type="package" version="1.5.10">hicexplorer</requirement>
+            <yield />
+        </requirements>
+        <expand macro="stdio" />
+        <version_command>@BINARY@ --version</version_command>
+    </xml>
+
+    <xml name="citations">
+        <citations>
+            <citation type="doi">10.1093/nar/gku365</citation>
+            <yield />
+        </citations>
+    </xml>
+
+    <xml name="zMax">
+        <param argument="--zMax" name="zMax" type="float" optional="true" label="zMax for 3D plot"/> <!-- this should only be enabled when both or 3d is selected for param whatToShow -->
+    </xml>
+
+    <xml name="colormap">
+        <param name="colorMap" type="select" label="Color map to use for the heatmap" help=" Available color map names can be found here: http://www.astro.lsa.umich.edu/~msshin/science/code/matplotlib_cm/">
+            <option value="RdYlBu" selected="true">RdYlBu</option>
+            <option value="Accent">Accent</option>
+            <option value="Spectral">Spectral</option>
+            <option value="Set1">Set1</option>
+            <option value="Set2">Set2</option>
+            <option value="Set3">Set3</option>
+            <option value="Dark2">Dark2</option>
+            <option value="Reds">Reds</option>
+            <option value="Oranges">Oranges</option>
+            <option value="Greens">Greens</option>
+            <option value="Blues">Blues</option>
+            <option value="Greys">Greys</option>
+            <option value="Purples">Purples</option>
+            <option value="Paired">Paired</option>
+            <option value="Pastel1">Pastel1</option>
+            <option value="Pastel2">Pastel2</option>
+            <option value="spring">spring</option>
+            <option value="summer">summer</option>
+            <option value="autumn">autumn</option>
+            <option value="winter">winter</option>
+            <option value="hot">hot</option>
+            <option value="coolwarm">coolwarm</option>
+            <option value="cool">cool</option>
+            <option value="seismic">seismic</option>
+            <option value="terrain">terrain</option>
+            <option value="ocean">ocean</option>
+            <option value="rainbow">rainbow</option>
+            <option value="bone">bone</option>
+            <option value="flag">flag</option>
+            <option value="prism">prism</option>
+            <option value="cubehelix">cubehelix</option>
+            <option value="binary">binary</option>
+            <option value="pink">pink</option>
+            <option value="gray">gray</option>
+            <option value="copper">copper</option>
+            <option value="BrBG">BrBG</option>
+            <option value="BuGn">BuGn</option>
+            <option value="BuPu">BuPu</option>
+            <option value="GnBu">GnBu</option>
+            <option value="OrRd">OrRd</option>
+            <option value="PiYG">PiYG</option>
+            <option value="PRGn">PRGn</option>
+            <option value="PuOr">PuOr</option>
+            <option value="PuRd">PuRd</option>
+            <option value="PuBu">PuBu</option>
+            <option value="RdBu">RdBu</option>
+            <option value="RdGy">RdGy</option>
+            <option value="RdPu">RdPu</option>
+            <option value="YlGn">YlGn</option>
+            <option value="PuBuGn">PuBuGn</option>
+            <option value="RdYlGn">RdYlGn</option>
+            <option value="YlGnBu">YlGnBu</option>
+            <option value="YlOrBr">YlOrBr</option>
+            <option value="YlOrRd">YlOrRd</option>
+            <option value="gist_gray">gist_gray</option>
+            <option value="gist_stern">gist_stern</option>
+            <option value="gist_earth">gist_earth</option>
+            <option value="gist_yarg">gist_yarg</option>
+            <option value="gist_ncar">gist_ncar</option>
+            <option value="gist_rainbow">gist_rainbow</option>
+            <option value="gist_heat">gist_heat</option>
+            <option value="gnuplot">gnuplot</option>
+            <option value="gnuplot2">gnuplot2</option>
+            <option value="CMRmap">CMRmap</option>
+            <option value="bwr">bwr</option>
+            <option value="hsv">hsv</option>
+            <option value="brg">brg</option>
+            <option value="jet">jet</option>
+            <option value="afmhot">afmhot</option>
+            <option value="Accent_r">Accent reversed</option>
+            <option value="Spectral_r">Spectral reversed</option>
+            <option value="Set1_r">Set1 reversed</option>
+            <option value="Set2_r">Set2 reversed</option>
+            <option value="Set3_r">Set3 reversed</option>
+            <option value="Dark2_r">Dark2 reversed</option>
+            <option value="Reds_r">Reds reversed</option>
+            <option value="Oranges_r">Oranges reversed</option>
+            <option value="Greens_r">Greens reversed</option>
+            <option value="Blues_r">Blues reversed</option>
+            <option value="Greys_r">Greys reversed</option>
+            <option value="Purples_r">Purples reversed</option>
+            <option value="Paired_r">Paired reversed</option>
+            <option value="Pastel1_r">Pastel1 reversed</option>
+            <option value="Pastel2_r">Pastel2 reversed</option>
+            <option value="spring_r">spring reversed</option>
+            <option value="summer_r">summer reversed</option>
+            <option value="autumn_r">autumn reversed</option>
+            <option value="winter_r">winter reversed</option>
+            <option value="hot_r">hot reversed</option>
+            <option value="coolwarm_r">coolwarm reversed</option>
+            <option value="cool_r">cool reversed</option>
+            <option value="seismic_r">seismic reversed</option>
+            <option value="terrain_r">terrain reversed</option>
+            <option value="ocean_r">ocean reversed</option>
+            <option value="rainbow_r">rainbow reversed</option>
+            <option value="bone_r">bone reversed</option>
+            <option value="flag_r">flag reversed</option>
+            <option value="prism_r">prism reversed</option>
+            <option value="cubehelix_r">cubehelix reversed</option>
+            <option value="binary_r">binary reversed</option>
+            <option value="pink_r">pink reversed</option>
+            <option value="gray_r">gray reversed</option>
+            <option value="copper_r">copper reversed</option>
+            <option value="BrBG_r">BrBG reversed</option>
+            <option value="BuGn_r">BuGn reversed</option>
+            <option value="BuPu_r">BuPu reversed</option>
+            <option value="GnBu_r">GnBu reversed</option>
+            <option value="OrRd_r">OrRd reversed</option>
+            <option value="PiYG_r">PiYG reversed</option>
+            <option value="PRGn_r">PRGn reversed</option>
+            <option value="PuOr_r">PuOr reversed</option>
+            <option value="PuRd_r">PuRd reversed</option>
+            <option value="PuBu_r">PuBu reversed</option>
+            <option value="RdBu_r">RdBu reversed</option>
+            <option value="RdGy_r">RdGy reversed</option>
+            <option value="RdPu_r">RdPu reversed</option>
+            <option value="YlGn_r">YlGn reversed</option>
+            <option value="PuBuGn_r">PuBuGn reversed</option>
+            <option value="RdYlBu_r">RdYlBu reversed</option>
+            <option value="RdYlGn_r">RdYlGn reversed</option>
+            <option value="YlGnBu_r">YlGnBu reversed</option>
+            <option value="YlOrBr_r">YlOrBr reversed</option>
+            <option value="YlOrRd_r">YlOrRd reversed</option>
+            <option value="gist_gray_r">gist_gray reversed</option>
+            <option value="gist_stern_r">gist_stern reversed</option>
+            <option value="gist_earth_r">gist_earth reversed</option>
+            <option value="gist_yarg_r">gist_yarg reversed</option>
+            <option value="gist_ncar_r">gist_ncar reversed</option>
+            <option value="gist_rainbow_r">gist_rainbow reversed</option>
+            <option value="gist_heat_r">gist_heat reversed</option>
+            <option value="gnuplot_r">gnuplot reversed</option>
+            <option value="gnuplot2_r">gnuplot2 reversed</option>
+            <option value="CMRmap_r">CMRmap reversed</option>
+            <option value="bwr_r">bwr reversed</option>
+            <option value="hsv_r">hsv reversed</option>
+            <option value="brg_r">brg reversed</option>
+            <option value="jet_r">jet reversed</option>
+            <option value="afmhot_r">afmhot reversed</option>
+        </param>
+    </xml>
+
+
+    <xml name="multiple_input_matrices">
+        <repeat name="input_files" title="HiC Matrix files" min="2">
+            <param name="matrix" type="data" format="hic_matrix" 
+                label="HiC Matrix file" 
+                help=""/>
+            <param name="mlabel" type="text" size="30" optional="true" value=""
+                label="Label"
+                help="Label to use in the output. If not given the dataset name will be used instead."/>
+        </repeat>
+    </xml>
+
+    <token name="@multiple_input_matrices@">
+        #set matrices=[]
+        #set mlabels=[]
+        #for $counter, $i in enumerate($input_files):
+            ln -s $i.matrix #echo str($counter)+'.npz'#;
+            #silent $matrices.append( '%s.npz' % $counter )
+
+            #if str($i.mlabel.value) != "":
+                #set $mlabels += ['"%s"' % ($i.mlabel.value)]
+            #else
+                #set $mlabels += ['"%s"' % ($i.matrix.name)]
+            #end if
+        #end for
+        #set $mlabels = ' '.join($mlabels)
+        #set matrices = ' '.join($matrices)
+    </token>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     <xml name="kmeans_clustering">
@@ -115,7 +230,7 @@
                 label="Did you compute the matrix with more than one groups of regions?"
                 help="Would you like to cluster the regions according to the similarity of the signal distribution? This is only possible if you used computeMatrix on only one group of regions.">
                 <option value="yes">Yes, I used multiple groups of regions</option>
-                <option value="no">No, I used only one region.</option>
+                <option value="no">No, I used only one group</option>
             </param>
             <when value="no">
                 <conditional name="clustering">
@@ -210,12 +325,7 @@ This tool is developed by the `Bioinformatics and Deep-Sequencing Unit`_ at the 
 .. _help site: https://github.com/fidelram/deepTools/wiki/
 
     </token>
-    <xml name="citations">
-        <citations>
-            <citation type="doi">10.1093/nar/gku365</citation>
-            <yield />
-        </citations>
-    </xml>
+
 
     <xml name="multiple_input_bams">
         <repeat name="input_files" title="BAM files" min="2">
@@ -424,148 +534,6 @@ This tool is developed by the `Bioinformatics and Deep-Sequencing Unit`_ at the 
         </data>
     </xml>
 
-    <xml name="colormap">
-        <param name="colorMap" type="select" label="Color map to use for the heatmap" help=" Available color map names can be found here: http://www.astro.lsa.umich.edu/~msshin/science/code/matplotlib_cm/">
-            <option value="RdYlBu" selected="true">RdYlBu</option>
-            <option value="Accent">Accent</option>
-            <option value="Spectral">Spectral</option>
-            <option value="Set1">Set1</option>
-            <option value="Set2">Set2</option>
-            <option value="Set3">Set3</option>
-            <option value="Dark2">Dark2</option>
-            <option value="Reds">Reds</option>
-            <option value="Oranges">Oranges</option>
-            <option value="Greens">Greens</option>
-            <option value="Blues">Blues</option>
-            <option value="Greys">Greys</option>
-            <option value="Purples">Purples</option>
-            <option value="Paired">Paired</option>
-            <option value="Pastel1">Pastel1</option>
-            <option value="Pastel2">Pastel2</option>
-            <option value="spring">spring</option>
-            <option value="summer">summer</option>
-            <option value="autumn">autumn</option>
-            <option value="winter">winter</option>
-            <option value="hot">hot</option>
-            <option value="coolwarm">coolwarm</option>
-            <option value="cool">cool</option>
-            <option value="seismic">seismic</option>
-            <option value="terrain">terrain</option>
-            <option value="ocean">ocean</option>
-            <option value="rainbow">rainbow</option>
-            <option value="bone">bone</option>
-            <option value="flag">flag</option>
-            <option value="prism">prism</option>
-            <option value="cubehelix">cubehelix</option>
-            <option value="binary">binary</option>
-            <option value="pink">pink</option>
-            <option value="gray">gray</option>
-            <option value="copper">copper</option>
-            <option value="BrBG">BrBG</option>
-            <option value="BuGn">BuGn</option>
-            <option value="BuPu">BuPu</option>
-            <option value="GnBu">GnBu</option>
-            <option value="OrRd">OrRd</option>
-            <option value="PiYG">PiYG</option>
-            <option value="PRGn">PRGn</option>
-            <option value="PuOr">PuOr</option>
-            <option value="PuRd">PuRd</option>
-            <option value="PuBu">PuBu</option>
-            <option value="RdBu">RdBu</option>
-            <option value="RdGy">RdGy</option>
-            <option value="RdPu">RdPu</option>
-            <option value="YlGn">YlGn</option>
-            <option value="PuBuGn">PuBuGn</option>
-            <option value="RdYlGn">RdYlGn</option>
-            <option value="YlGnBu">YlGnBu</option>
-            <option value="YlOrBr">YlOrBr</option>
-            <option value="YlOrRd">YlOrRd</option>
-            <option value="gist_gray">gist_gray</option>
-            <option value="gist_stern">gist_stern</option>
-            <option value="gist_earth">gist_earth</option>
-            <option value="gist_yarg">gist_yarg</option>
-            <option value="gist_ncar">gist_ncar</option>
-            <option value="gist_rainbow">gist_rainbow</option>
-            <option value="gist_heat">gist_heat</option>
-            <option value="gnuplot">gnuplot</option>
-            <option value="gnuplot2">gnuplot2</option>
-            <option value="CMRmap">CMRmap</option>
-            <option value="bwr">bwr</option>
-            <option value="hsv">hsv</option>
-            <option value="brg">brg</option>
-            <option value="jet">jet</option>
-            <option value="afmhot">afmhot</option>
-            <option value="Accent_r">Accent reversed</option>
-            <option value="Spectral_r">Spectral reversed</option>
-            <option value="Set1_r">Set1 reversed</option>
-            <option value="Set2_r">Set2 reversed</option>
-            <option value="Set3_r">Set3 reversed</option>
-            <option value="Dark2_r">Dark2 reversed</option>
-            <option value="Reds_r">Reds reversed</option>
-            <option value="Oranges_r">Oranges reversed</option>
-            <option value="Greens_r">Greens reversed</option>
-            <option value="Blues_r">Blues reversed</option>
-            <option value="Greys_r">Greys reversed</option>
-            <option value="Purples_r">Purples reversed</option>
-            <option value="Paired_r">Paired reversed</option>
-            <option value="Pastel1_r">Pastel1 reversed</option>
-            <option value="Pastel2_r">Pastel2 reversed</option>
-            <option value="spring_r">spring reversed</option>
-            <option value="summer_r">summer reversed</option>
-            <option value="autumn_r">autumn reversed</option>
-            <option value="winter_r">winter reversed</option>
-            <option value="hot_r">hot reversed</option>
-            <option value="coolwarm_r">coolwarm reversed</option>
-            <option value="cool_r">cool reversed</option>
-            <option value="seismic_r">seismic reversed</option>
-            <option value="terrain_r">terrain reversed</option>
-            <option value="ocean_r">ocean reversed</option>
-            <option value="rainbow_r">rainbow reversed</option>
-            <option value="bone_r">bone reversed</option>
-            <option value="flag_r">flag reversed</option>
-            <option value="prism_r">prism reversed</option>
-            <option value="cubehelix_r">cubehelix reversed</option>
-            <option value="binary_r">binary reversed</option>
-            <option value="pink_r">pink reversed</option>
-            <option value="gray_r">gray reversed</option>
-            <option value="copper_r">copper reversed</option>
-            <option value="BrBG_r">BrBG reversed</option>
-            <option value="BuGn_r">BuGn reversed</option>
-            <option value="BuPu_r">BuPu reversed</option>
-            <option value="GnBu_r">GnBu reversed</option>
-            <option value="OrRd_r">OrRd reversed</option>
-            <option value="PiYG_r">PiYG reversed</option>
-            <option value="PRGn_r">PRGn reversed</option>
-            <option value="PuOr_r">PuOr reversed</option>
-            <option value="PuRd_r">PuRd reversed</option>
-            <option value="PuBu_r">PuBu reversed</option>
-            <option value="RdBu_r">RdBu reversed</option>
-            <option value="RdGy_r">RdGy reversed</option>
-            <option value="RdPu_r">RdPu reversed</option>
-            <option value="YlGn_r">YlGn reversed</option>
-            <option value="PuBuGn_r">PuBuGn reversed</option>
-            <option value="RdYlBu_r">RdYlBu reversed</option>
-            <option value="RdYlGn_r">RdYlGn reversed</option>
-            <option value="YlGnBu_r">YlGnBu reversed</option>
-            <option value="YlOrBr_r">YlOrBr reversed</option>
-            <option value="YlOrRd_r">YlOrRd reversed</option>
-            <option value="gist_gray_r">gist_gray reversed</option>
-            <option value="gist_stern_r">gist_stern reversed</option>
-            <option value="gist_earth_r">gist_earth reversed</option>
-            <option value="gist_yarg_r">gist_yarg reversed</option>
-            <option value="gist_ncar_r">gist_ncar reversed</option>
-            <option value="gist_rainbow_r">gist_rainbow reversed</option>
-            <option value="gist_heat_r">gist_heat reversed</option>
-            <option value="gnuplot_r">gnuplot reversed</option>
-            <option value="gnuplot2_r">gnuplot2 reversed</option>
-            <option value="CMRmap_r">CMRmap reversed</option>
-            <option value="bwr_r">bwr reversed</option>
-            <option value="hsv_r">hsv reversed</option>
-            <option value="brg_r">brg reversed</option>
-            <option value="jet_r">jet reversed</option>
-            <option value="afmhot_r">afmhot reversed</option>
-        </param>
 
-    </xml>
 
 </macros>
