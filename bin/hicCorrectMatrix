@@ -286,7 +286,8 @@ def main(args):
     """
     if args.poorRegionsCutoff: 
         poor_regions = getPoorRegions(ma, cutoff=args.poorRegionsCutoff)
-        ma.printchrtoremove(poor_regions, label="Bins that are MAD outliers")
+        pct_poor = 100 * float(len(poor_regions)) / ma.matrix.shape[0]
+        ma.printchrtoremove(poor_regions, label="Bins that are MAD outliers ({:.2f}%)".format(pct_poor))
         ma.maskBins(poor_regions)
         total_filtered_out = total_filtered_out.union(poor_regions)
     """
