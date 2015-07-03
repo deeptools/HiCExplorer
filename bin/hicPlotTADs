@@ -197,6 +197,7 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
     start_bp = max(chr_start, region_start - matrix_properties['depth'])
     end_bp = min(chr_end, region_end + matrix_properties['depth'])
 
+
     idx, start_pos = zip(*[(idx, x[1]) for idx, x in
                            enumerate(hic_ma.cut_intervals)
                            if x[0] == chrom and x[1] >= start_bp
@@ -327,6 +328,7 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
     # plt.subplots_adjust(wspace=0, hspace=0.1, top=0.95,
     #                    bottom=0.05, left=0.1, right=0.5)
 
+
 def plot_x_axis(ax, region, properties):
     chrom_region, region_start, region_end = region
     ax.set_xlim(region_start, region_end)
@@ -435,11 +437,11 @@ def fill_gaps(hic_ma, depth, fill_contiguous=False):
                 # neighbors that do have a value
 
                 fill_value = np.mean([
-                        hic_ma.matrix[bin_a-1, bin_b-1],
-                        hic_ma.matrix[bin_a-1, bin_b+1],
-                        hic_ma.matrix[bin_a+1, bin_b-1],
-                        hic_ma.matrix[bin_a+1, bin_b+1],
-                        ])
+                    hic_ma.matrix[bin_a-1, bin_b-1],
+                    hic_ma.matrix[bin_a-1, bin_b+1],
+                    hic_ma.matrix[bin_a+1, bin_b-1],
+                    hic_ma.matrix[bin_a+1, bin_b+1],
+                    ])
 
                 fill_ma[bin_a, bin_b] = fill_value
 
@@ -1233,6 +1235,9 @@ def main(args):
 
     region = get_region(args.region)
     chrom, region_start, region_end = region
+    if region_end <= region_start:
+        exit("Please check that the region end is larger than the region start.\n"
+             "Values given:\nstart: {}\nend: {}\n".format(region_start, region_end))
 
     track_properties = parse_tracks(args.tracks)
 
