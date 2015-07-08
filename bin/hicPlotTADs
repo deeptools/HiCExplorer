@@ -1,5 +1,58 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
+
+"""
+
+[hic]
+file = /data/manke/group/ramirez/HiC-ThomasLing/data/hic_data/s2/hic-norm/RF/merge.npz
+title =
+colormap = RdYlBu_r
+depth = 100000
+#min_value =2.8
+#max_value = 3.0
+transform = log1p
+boundaries_file = /home/ramirez/p/HiC-ThomasLing/doc/hic_paper/revision/figure_boundaries_method/conductance_vs_hic/boundaries_all.bed
+#show_masked_bins = yes
+
+[x-axis]
+
+[spacer]
+
+[rna-kc]
+file = /data/manke/group/ramirez/HiC-ThomasLing/data/external/Graveley_mRNA-seq/GSM390060_Kc167-4_spa.bw
+title = Kc RNA-seq (Cherbas et al.)
+color = black
+min_value = 0
+#max_value = auto
+width = 1.5
+
+[rna-clone8]
+file = /data/manke/group/ramirez/HiC-ThomasLing/data/external/Graveley_mRNA-seq/GSM390061_CME_W1_Cl.8+-60_spa.bw
+title = clone-8 RNA-seq (Cherbas et al.)
+color = black
+min_value = 0
+#max_value = auto
+width = 1.5
+
+[rna-s2]
+file = /data/manke/group/ramirez/HiC-ThomasLing/data/external/Graveley_mRNA-seq/GSM390063_S2_DRSC_14_spa.bw
+title = S2 RNA-seq (Cherbas et al.)
+color = black
+min_value = 0
+#max_value = auto
+width = 1.5
+
+[genes]
+file = dm3.genes_with_symbol_chrX.bed
+title = genes
+color = darkblue
+width = 5
+type = genes
+
+
+
+"""
+
 from __future__ import division
 import sys
 
@@ -275,7 +328,6 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
         vmin = np.median(matrix.diagonal(depth_bins))
 
     sys.stderr.write("setting min, max values to: {}, {}\n".format(vmin, vmax))
-    chrom, region_start, region_end = region
     cmap = cm.get_cmap(matrix_properties['colormap'])
     cmap.set_bad('white')
 
@@ -292,7 +344,6 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
     # tad boundaries as line delineating the TAD triangles
     if 'boundaries_file' in matrix_properties:
         plot_boundaries(ax, matrix_properties['boundaries_file'], region)
-
 
     ax.set_xlim(region_start, region_end)
     if 'x labels' in matrix_properties and matrix_properties['x labels'] != 'no':
@@ -744,6 +795,7 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
     if block_count == 0 and thick_start == start and thick_end == end:
         draw_gene_simple(ax, fields, ypos,  bed_properties, small_relative, rgb, edgecolor)
         return
+
     ax.plot([start, end], [ypos + 50, ypos + 50], 'black', linewidth=0.5, zorder = -1)
     if strand == '+':
         x1  = thick_start
@@ -835,8 +887,6 @@ def plot_bed(ax, label_ax, bed_properties, region):
     color_options = [m for m in cm.datad]
 
     ax.set_frame_on(False)
-    ax.set_xlim(region[1], region[2])
-
     # to improve the visualization of the genes
     # it is good to have an estimation of the label
     # length. In the following code I try to get
@@ -964,8 +1014,7 @@ def plot_bed(ax, label_ax, bed_properties, region):
     else:
         ax.set_ylim((max_num_row+1)*230, -25)
 
-    ax.axes.get_yaxis().set_visible(False)
-    ax.axes.get_xaxis().set_visible(False)
+    ax.set_xlim(region[1], region[2])
 
     label_ax.text(0.15, 1.0, bed_properties['title'],
             horizontalalignment='left', size='large',
@@ -1111,6 +1160,7 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
 #    score = np.array([bw.query(region[0], x, x+10000,1)[0]['mean']
 #                      for x in range(region[1], region[2], 10000)])
 
+    num_bins = 700
     if 'number of bins' in bigwig_properties:
         try:
             num_bins = int(bigwig_properties['number of bins'])
@@ -1118,9 +1168,26 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
             exit("'number of bins' value: {} for bigwig file {} "
                  "is not valid.".format(bigwig_properties['number of bins'],
                                         bigwig_properties['file']))
+
+    scores = np.ma.masked_invalid(bw.get_as_array(chrom, region_start, region_end))
+    if scores is None:
+        chrom = chrom.replace('chr', '')
+        scores = np.ma.masked_invalid(bw.get_as_array(chrom, region_start, region_end))
+    if scores is None:
+        sys.stderr.write("could not find values for region {}\n".format(region))
+
     else:
-        num_bins = 700
-    score = bw.query(chrom, region_start, region_end, num_bins)
+        lins = np.linspace(0, len(scores), num_bins).astype(int)
+        scores_per_bin = [np.mean(scores[lins[x]:lins[x+1]]) for x in range(len(lins)-1)]
+        _x = lins + region_start
+        x_values = [float(_x[x] + _x[x+1])/2 for x in range(len(lins)-1)]
+        ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
+                        color=bigwig_properties['color'],
+                        facecolor=bigwig_properties['color'])
+
+    """
+    # this method produces shifted regions. It is not clear why to me
+    score = bw.query(chrom, region_start-num_bins, region_end-num_bins, num_bins)
     if score is None:
         chrom = chrom.replace('chr', '')
         score = bw.query(chrom, region_start, region_end, num_bins)
@@ -1133,14 +1200,12 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
                         color=bigwig_properties['color'],
                         facecolor=bigwig_properties['color'])
 
-    ax.set_frame_on(False)
-    ax.axes.get_xaxis().set_visible(False)
-    ax.axes.get_yaxis().set_visible(False)
+    """
     ax.set_xlim(region[1], region[2])
     ymin, ymax = ax.get_ylim()
-    if bigwig_properties['max_value'] != 'auto':
+    if 'max_value' in bigwig_properties and ['max_value'] != 'auto':
         ymax = bigwig_properties['max_value']
-    if bigwig_properties['min_value'] != 'auto':
+    if 'min_value' in bigwig_properties and bigwig_properties['min_value'] != 'auto':
         ymin = bigwig_properties['min_value']
 
     if 'orientation' in bigwig_properties and \
@@ -1341,8 +1406,9 @@ def main(args):
             axis_list[0].add_artist(con)
 
     plt.subplots_adjust(wspace=0, hspace=0.1, top=0.9,
-                        bottom=0.12, left=0.04, right=0.96)
+                        bottom=0.12, left=0.04, right=0.92)
 
+#    plt.tight_layout()
     plt.savefig(args.outFileName.name, dpi=300)
 
 
