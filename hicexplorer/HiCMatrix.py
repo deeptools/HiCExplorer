@@ -49,7 +49,16 @@ class hiCMatrix:
                     self.nan_bins = _ma['nan_bins']
                     self.restoreMaskedBins()
                 if 'correction_factors' in _ma.keys():
-                    self.correction_factors = _ma['correction_factors']
+                    try:
+                        # None value
+                        # for correction_factors is saved by numpy
+                        # as: array(None, dtype=object)
+                        # Thus, to get the original None value
+                        # the first item of the array is taken.
+                        _ma['correction_factors'][0]
+                        self.setCorrectionFactors(_ma['correction_factors'])
+                    except IndexError:
+                        pass
 
             elif format == 'dekker':
                 self.cut_intervals = self.getDekkerBins(matrixFile)
