@@ -6,7 +6,7 @@ import argparse
 import numpy as np
 
 from hicexplorer import HiCMatrix
-import parserCommon
+import hicexplorer.parserCommon
 from hicexplorer.utilities import transformMatrix, applyFdr, getPearson
 from hicexplorer._version import __version__
 
