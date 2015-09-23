@@ -12,35 +12,24 @@ depth = 100000
 #max_value = 3.0
 transform = log1p
 boundaries_file = /home/ramirez/p/HiC-ThomasLing/doc/hic_paper/revision/figure_boundaries_method/conductance_vs_hic/boundaries_all.bed
-#show_masked_bins = yes
+show_masked_bins = yes
+x labels = yes
+type = arcplot
+type = interaction
 
 [x-axis]
 
 [spacer]
 
-[rna-kc]
+[bigwig]
 file = /data/manke/group/ramirez/HiC-ThomasLing/data/external/Graveley_mRNA-seq/GSM390060_Kc167-4_spa.bw
 title = Kc RNA-seq (Cherbas et al.)
 color = black
 min_value = 0
 #max_value = auto
 width = 1.5
-
-[rna-clone8]
-file = /data/manke/group/ramirez/HiC-ThomasLing/data/external/Graveley_mRNA-seq/GSM390061_CME_W1_Cl.8+-60_spa.bw
-title = clone-8 RNA-seq (Cherbas et al.)
-color = black
-min_value = 0
-#max_value = auto
-width = 1.5
-
-[rna-s2]
-file = /data/manke/group/ramirez/HiC-ThomasLing/data/external/Graveley_mRNA-seq/GSM390063_S2_DRSC_14_spa.bw
-title = S2 RNA-seq (Cherbas et al.)
-color = black
-min_value = 0
-#max_value = auto
-width = 1.5
+number of bins = 500
+nans to zeros = True
 
 [genes]
 file = dm3.genes_with_symbol_chrX.bed
@@ -49,7 +38,12 @@ color = darkblue
 width = 5
 type = genes
 
-
+[chrom states]
+file = /data/manke/group/ramirez/HiC-ThomasLing/data/ChromatinStates/chromatinStates_kc.bed
+title =
+color = black
+display = collapsed
+width = 0.3
 
 """
 
@@ -785,7 +779,8 @@ def draw_gene_simple(ax, fields, ypos, bed_properties, small_relative, rgb, edge
             horizontalalignment='center', verticalalignment='top')
 
 
-def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor):
+def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor,
+                           fontproperties=None):
     """
     draws a gene using different styles
     """
@@ -868,7 +863,7 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
 
     center = start + float(end - start)/2
     ax.text(center, ypos + 125, fields[3],
-            horizontalalignment='center', verticalalignment='top')
+            horizontalalignment='center', verticalalignment='top', fontproperties=fontproperties)
 
 
 def plot_bed(ax, label_ax, bed_properties, region):
@@ -891,10 +886,17 @@ def plot_bed(ax, label_ax, bed_properties, region):
     # it is good to have an estimation of the label
     # length. In the following code I try to get
     # the length of a 'w'.
+
+    if 'fontsize' in bed_properties:
+        from matplotlib import font_manager
+        fp = font_manager.FontProperties(size=bed_properties['fontsize'])
+    else:
+        fp = None
+
     if 'type' in bed_properties and \
         bed_properties['type'] == 'genes':
-        t = matplotlib.textpath.TextPath((0,0), 'w')
-        len_w = t.get_extents().width * 250
+        t = matplotlib.textpath.TextPath((0,0), 'w', prop=fp)
+        len_w = t.get_extents().width * 300
     else:
         len_w = 1
 
@@ -997,7 +999,8 @@ def plot_bed(ax, label_ax, bed_properties, region):
                     bed_properties['type'] == 'genes' and \
                     strand in ['+','-']:
 #                draw_gene_simple(ax, fields, ypos, bed_properties, small_relative)
-                draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor)
+                draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor,
+                                       fontproperties=fp)
 
             else:
                 ax.add_patch(matplotlib.patches.Rectangle(
@@ -1169,38 +1172,46 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
                  "is not valid.".format(bigwig_properties['number of bins'],
                                         bigwig_properties['file']))
 
-    scores = np.ma.masked_invalid(bw.get_as_array(chrom, region_start, region_end))
-    if scores is None:
-        chrom = chrom.replace('chr', '')
-        scores = np.ma.masked_invalid(bw.get_as_array(chrom, region_start, region_end))
-    if scores is None:
-        sys.stderr.write("could not find values for region {}\n".format(region))
+    scores = bw.get_as_array(chrom, region_start, region_end)
+    if 'nans to zeros' in bigwig_properties and bigwig_properties['nans to zeros'] is True:
+        scores[np.isnan(scores)] = 0
+
+    scores = np.ma.masked_invalid(scores)
+
+    if region_end - region_start < 2e6:
+        if scores is None:
+            chrom = chrom.replace('chr', '')
+            scores = np.ma.masked_invalid(bw.get_as_array(chrom, region_start, region_end))
+        if scores is None:
+            sys.stderr.write("could not find values for region {}\n".format(region))
+
+        else:
+            lins = np.linspace(0, len(scores), num_bins).astype(int)
+            scores_per_bin = [np.mean(scores[lins[x]:lins[x+1]]) for x in range(len(lins)-1)]
+            _x = lins + region_start
+            x_values = [float(_x[x] + _x[x+1])/2 for x in range(len(lins)-1)]
+            ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
+                            color=bigwig_properties['color'],
+                            facecolor=bigwig_properties['color'])
 
     else:
-        lins = np.linspace(0, len(scores), num_bins).astype(int)
-        scores_per_bin = [np.mean(scores[lins[x]:lins[x+1]]) for x in range(len(lins)-1)]
-        _x = lins + region_start
-        x_values = [float(_x[x] + _x[x+1])/2 for x in range(len(lins)-1)]
-        ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
-                        color=bigwig_properties['color'],
-                        facecolor=bigwig_properties['color'])
-
-    """
-    # this method produces shifted regions. It is not clear why to me
-    score = bw.query(chrom, region_start-num_bins, region_end-num_bins, num_bins)
-    if score is None:
-        chrom = chrom.replace('chr', '')
+        # this method produces shifted regions. It is not clear to me why this happens.
+        # Thus I only activate the faster but shifted method for large regions
+        # when the previous method would be to slow
         score = bw.query(chrom, region_start, region_end, num_bins)
-    if score is None:
-        sys.stderr.write("could not find values for region {}\n".format(region))
-    else:
-        score = [x['mean'] for x in score]
-        x_values = np.linspace(region_start, region_end, num_bins)
-        ax.fill_between(x_values, score, linewidth=0.1,
-                        color=bigwig_properties['color'],
-                        facecolor=bigwig_properties['color'])
+        if score is None:
+            chrom = chrom.replace('chr', '')
+            score = bw.query(chrom, region_start, region_end, num_bins)
+        if score is None:
+            sys.stderr.write("could not find values for region {}\n".format(region))
+        else:
+            score = [x['mean'] for x in score]
+            x_values = np.linspace(region_start, region_end, num_bins)
+            ax.fill_between(x_values, score, linewidth=0.1,
+                            color=bigwig_properties['color'],
+                            facecolor=bigwig_properties['color'])
 
-    """
+
     ax.set_xlim(region[1], region[2])
     ymin, ymax = ax.get_ylim()
     if 'max_value' in bigwig_properties and ['max_value'] != 'auto':
