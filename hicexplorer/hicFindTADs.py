@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
 from __future__ import division
 from os.path import splitext
 import sys
@@ -47,7 +45,7 @@ def parsearguments(args=None):
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
-    return parser.parse_args(args)
+    return parser
 
 
 def get_min_indices(conductance):
@@ -302,7 +300,8 @@ def smooth(x, window_len=11, window='hanning'):
     return y[window_len:-window_len+1]
 
 
-def main(args):
+def main():
+    args = parseArguments().parse_args()
     hic_ma = hm.hiCMatrix(args.matrix)
 
 #    hic_ma.keepOnlyTheseChr('chr3L')
@@ -391,7 +390,3 @@ def main(args):
     for interval in conductance_array:
         args.outFileName.write("{}\t{}\t{}\t{}\n".format(*interval))
     args.outFileName.close()
-
-if __name__ == "__main__":
-    ARGS = parsearguments()
-    main(ARGS)
