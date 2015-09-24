@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
-
 import sys
 import argparse
 import numpy as np
@@ -10,12 +7,13 @@ import hicexplorer.parserCommon
 from hicexplorer.utilities import transformMatrix, applyFdr, getPearson
 from hicexplorer._version import __version__
 
-def parse_argumentss(args=None):
+
+def parse_arguments(args=None):
     """
     parse arguments
     """
 
-    parent_parser = parserCommon.getParentArgParse()
+    parent_parser = hicexplorer.parserCommon.getParentArgParse()
     parser = argparse.ArgumentParser(
         parents=[parent_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -27,7 +25,7 @@ def parse_argumentss(args=None):
 
     parser.add_argument('--outFileName', '-o',
                         help='File name to save the resulting matrix ',
-                        type=parserCommon.writableFile,
+                        type=hicexplorer.parserCommon.writableFile,
                         required=True)
 
     parser.add_argument(
@@ -69,17 +67,18 @@ def parse_argumentss(args=None):
         nargs='+')
 
     parser.add_argument('--version', action='version',
-        version='%(prog)s {}'.format(__version__))
+                        version='%(prog)s {}'.format(__version__))
+
+    return parser
 
 
-    return parser.parse_args(args)
-
-
-def main(args):
+def main():
     """
     collects all arguments and executes
     the appropriate functions
     """
+    args = parse_arguments().parse_args()
+
     hic_ma = HiCMatrix.hiCMatrix(args.matrix)
     if args.originalMat:
         orig_ma = HiCMatrix.hiCMatrix(args.originalMat.name)
@@ -105,7 +104,7 @@ def main(args):
         hic_ma.diagflat()
         if args.originalMat:
             orig_ma.diagflat()
-    ## hide nan bins
+    # hide nan bins
     if args.method == 'pearson':
         new_ma = transformMatrix(hic_ma, 'obs/exp')
         new_ma = getPearson(new_ma)
@@ -130,7 +129,3 @@ def main(args):
         hic_ma.save_dekker(args.outFileName)
     else:
         hic_ma.save(args.outFileName)
-
-if __name__ == "__main__":
-    ARGS = parse_argumentss()
-    main(ARGS)

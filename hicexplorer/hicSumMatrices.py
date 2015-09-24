@@ -1,38 +1,36 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
-
 import sys, argparse
 import numpy as np
 from scipy.sparse import lil_matrix, vstack, triu
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
-debug = 0
 
-def parseArguments(args=None):
+def parse_arguments(args=None):
     
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description = ( 'Adds HiC matrices together. Format'
-                                                     'has to be .npz' ))
+                                     description=('Adds Hi-C matrices of the same size. Format'
+                                                  'has to be .npz.'))
 
     parser.add_argument('--matrices', '-m',
-                        help = 'matrices to add. Must have the same shape.',
-                        metavar = '.npz fileformat',
-                        nargs = '+',
-                        required = True)
+                        help='matrices to add. Must have the same shape.',
+                        metavar='.npz fileformat',
+                        nargs='+',
+                        required=True)
 
     parser.add_argument('--outFileName', '-o',
-                        help = 'File name to save the resulting matrix. The output is '
-                               'also a .npz file. But don\'t add the suffix', 
+                        help='File name to save the resulting matrix. The output is '
+                             'also a .npz file. But don\'t add the suffix',
                         required=True)
 
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
-    return(parser.parse_args(args))
+    return parser
 
-def main(args):
+
+def main():
     
+    args = parse_arguments().parse_args()
     hic = hm.hiCMatrix(args.matrices[0])
     summed_matrix = hic.matrix
     nan_bins = set(hic.nan_bins)
@@ -49,7 +47,7 @@ def main(args):
                 nan_bins = nan_bins.union(_loaded_data['nan_bins'])
         except:
             print "\nMatrix {} seems to be corrupted or of different " \
-            "shape".format(matrix)
+                  "shape".format(matrix)
             exit(1)
 
     # save only the upper triangle of the
@@ -57,7 +55,3 @@ def main(args):
     hic.setMatrixValues(summed_matrix)
     hic.maskBins(sorted(nan_bins))
     hic.save(args.outFileName)
-
-if __name__ == "__main__":
-    args = parseArguments()
-    main(args)

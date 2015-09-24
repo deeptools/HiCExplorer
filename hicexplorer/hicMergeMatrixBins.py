@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
-
 import sys, argparse
 import numpy as np
 from scipy.sparse import lil_matrix, vstack
@@ -11,11 +8,12 @@ from hicexplorer._version import __version__
 
 debug = 0
 
-def parseArguments(args=None):
+
+def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Merges bins from a Hi-Cmatrix. For example, '
+        description='Merges bins from a Hi-C matrix. For example, '
         'using a matrix containing 5bk bins, a matrix '
         'of 50 kb bins can be derived. ')
 
@@ -45,8 +43,8 @@ def parseArguments(args=None):
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
+    return parser
 
-    return(parser.parse_args(args))
 
 def running_window_merge(hic_matrix):
     """Creates a 'running window' merge. If the original matrix
@@ -98,21 +96,18 @@ def running_window_merge(hic_matrix):
     merge_matrix = vstack([merge_matrix, cols_mat],
                           format='coo').astype(int)
 
-
-    #merge_matrix = hic_matrix.matrix.tocoo()
-
     # merge matrix is equal to merge_matrix + down + right + down_right
     # where down is the same matrix but all rows are +1,
     # for right, all cols are +1 and for down_right, cols and rows are
     # +1
     down = merge_matrix.copy()
-    down.row = down.row + 1
+    down.row += 1
 
     right = merge_matrix.copy()
-    right.col = right.col + 1
+    right.col += 1
 
     down_right = down.copy()
-    down_right.col = down_right.col + 1
+    down_right.col += 1
 
     merge_matrix = (merge_matrix + down + right + down_right).tocsr()
     # new matrix is one row and one column bigger, which need to be
@@ -138,14 +133,14 @@ def running_window_merge(hic_matrix):
         to_keep.append(idx)
         coverage = np.mean([coverage, hic_matrix.cut_intervals[idx+1][-1]])
         new_intervals.append((chrom, start + bin_size_half,
-                        end + bin_size_half, coverage))
-
+                              end + bin_size_half, coverage))
 
     hic_matrix.matrix = merge_matrix[to_keep, :][:, to_keep]
     hic_matrix.cut_intervals = new_intervals
     hic_matrix.nan_bins = np.flatnonzero(hic_matrix.matrix.sum(0).A == 0)
 
     return hic_matrix
+
 
 def running_window_merge_v2(hic_matrix, num_bins):
     """Creates a 'running window' merge without changing the
@@ -203,7 +198,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
         return hic_matrix
 
     assert num_bins % 2 == 1, "num_bins has to be an odd number"
-    half_num_bins = int((num_bins-1) /2)
+    half_num_bins = int((num_bins-1) / 2)
     from scipy.sparse import coo_matrix, vstack, hstack, dia_matrix, triu
     M = hic_matrix.matrix.shape[0]
     ma = triu(hic_matrix.matrix, k=0, format='coo')
@@ -220,7 +215,8 @@ def running_window_merge_v2(hic_matrix, num_bins):
     new_col = col
     new_data = data
     for idx_pair in idx_list:
-        if idx_pair == (0,0): continue
+        if idx_pair == (0, 0):
+            continue
         new_row = np.concatenate([new_row, row + idx_pair[0]])
         new_col = np.concatenate([new_col, col + idx_pair[1]])
         new_data = np.concatenate([new_data, data])
@@ -231,7 +227,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
     # remove illegal matrix id
     # that are less than zero
     # or bigger than matrix size
-    keep = ((new_row  > -1) & (new_col >-1) & 
+    keep = ((new_row  > -1) & (new_col > -1) &
             (new_row  < M ) & (new_col < M))
     new_data =new_data[keep]
     new_row = new_row[keep]
@@ -239,7 +235,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
     
     new_ma = coo_matrix((new_data, (new_row, new_col)), shape=(M, M))
     new_ma = triu(new_ma, k=0)
- #   new_ma.data = new_ma.data / len(idx_list)
+#   new_ma.data = new_ma.data / len(idx_list)
     dia = dia_matrix(([new_ma.diagonal()], [0]), shape=new_ma.shape)
     new_ma = new_ma + new_ma.T - dia
 
@@ -247,6 +243,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
     hic_matrix.nan_bins = np.flatnonzero(hic_matrix.matrix.sum(0).A == 0)
 
     return hic_matrix
+
 
 def merge_bins(hic, num_bins):
     """
@@ -312,8 +309,9 @@ def merge_bins(hic, num_bins):
     return hic
 
 
-def main(args):
+def main():
 
+    args = parse_arguments().parse_args()
     hic = hm.hiCMatrix(args.matrix)
     if args.runningWindow:
         merged_matrix = running_window_merge_v2(hic, args.numBins)
@@ -331,8 +329,3 @@ def main(args):
     merged_matrix.matrix.eliminate_zeros()
 
     merged_matrix.save(args.outFileName)
-
-
-if __name__ == "__main__":
-    args = parseArguments()
-    main(args)
