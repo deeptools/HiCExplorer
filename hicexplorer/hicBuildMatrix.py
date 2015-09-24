@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
-
 
 import argparse, sys
 import numpy as np
@@ -159,9 +156,10 @@ def parseArguments(args=None):
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
-    args = parser.parse_args(args)
+    return parser
+    #args = parser.parse_args(args)
 
-    return args
+    #return args
 
 
 def intervalListToIntervalTree(intervalList):
@@ -431,7 +429,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     return bin_intervals
 
 
-def main(args):
+def main():
     """
     Reads line by line two bam files that are not sorted.
     Each line in the two bam files should correspond
@@ -445,6 +443,9 @@ def main(args):
     A bam file containing the valid Hi-C reads
     is also constructed
     """
+
+    args = parseArguments().parse_args()
+
     sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
                                                                       args.samFiles[1].name))
     str1 = pysam.Samfile(args.samFiles[0].name, 'rb')

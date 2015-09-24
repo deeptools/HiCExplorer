@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
 
 """
 
@@ -136,7 +134,7 @@ def parseArguments(args=None):
                         version='%(prog)s {}'.format(__version__))
 
 
-    return parser.parse_args(args)
+    return parser
 
 
 def plot_boundaries(ax, file_name, region):
@@ -1307,7 +1305,9 @@ def parse_tracks(tracks_file):
 
     return track_list
 
-def main(args):
+def main():
+
+    args = parseArguments().parse_args()
 
     region = get_region(args.region)
     chrom, region_start, region_end = region
@@ -1421,8 +1421,3 @@ def main(args):
 
 #    plt.tight_layout()
     plt.savefig(args.outFileName.name, dpi=300)
-
-
-if __name__ == "__main__":
-    args = parseArguments()
-    main(args)
