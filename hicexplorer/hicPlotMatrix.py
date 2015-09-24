@@ -260,7 +260,7 @@ def plotPerChr(hic_matrix, cmap, args):
                                       # the color bar in pdf plots
     cbar.ax.set_ylabel(args.scoreName, rotation=270, labelpad=20)
 
-def main(args):
+def main():
     args = parseArguments().parse_args()
 
     ma = HiCMatrix.hiCMatrix(args.matrix)
