@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
-
 import sys, argparse
 from scipy.sparse import lil_matrix
 import logging
@@ -12,7 +9,8 @@ from hicexplorer._version import __version__
 import numpy as np
 debug = 0
 
-def parseArguments(args=None):
+
+def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -25,16 +23,15 @@ def parseArguments(args=None):
                         required=True)
 
     parser.add_argument('--iterNum', '-n',
-                       help='number of iterations',
+                        help='number of iterations',
                         type=int,
                         metavar='INT',
                         default=500)
 
     parser.add_argument('--outFileName', '-o',
                         help='File name to save the resulting matrix. The '
-                               'output is a .npz file.',
+                             'output is a .npz file.',
                         required=True)
-
 
     parser.add_argument('--poorRegionsCutoff', '-lowcut',
                         help='Poor regions are bins with low coverage. Those regions '
@@ -48,7 +45,6 @@ def parseArguments(args=None):
                         'a inflationCutoff of 3 will filter out all bins that were '
                         'expanded 3 times or more during the iterative correction.',
                         type=float)
-
 
     parser.add_argument('--transCutoff', '-transcut',
                         help='Clip high counts in the top -transcut trans '
@@ -85,13 +81,13 @@ def parseArguments(args=None):
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
-    return parser.parse_args(args)
+    return parser
 
 
 def iterative_correction(matrix, args):
     corrected_matrix, correction_factors = iterativeCorrection(matrix,
-                                           M=args.iterNum,
-                                           verbose=args.verbose)
+                                                               M=args.iterNum,
+                                                               verbose=args.verbose)
 
     return corrected_matrix, correction_factors
 
@@ -127,7 +123,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
                                 consecutive_failed_idx+1])))
         # find the failed regions that are not consecutive
         discontinuous_failed = [x for idx, x in enumerate(failed_bins)
-                     if idx not in consecutive_failed_idx]
+                                if idx not in consecutive_failed_idx]
 
     sys.stderr.write("Filling {} failed bins\n".format(
             len(discontinuous_failed)))
@@ -184,9 +180,9 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
                 fill_ma[bin_a, bin_b-1] = fill_value
                 fill_ma[bin_a, bin_b+1] = fill_value
 
-
     # return the matrix and the bins that continue to be failed regions
     return fill_ma.tocsr(), np.sort(failed_bins[consecutive_failed_idx])
+
 
 def getPoorRegions(hic_ma, cutoff=-1.2):
     """
@@ -206,7 +202,7 @@ def getPoorRegions(hic_ma, cutoff=-1.2):
     for chrname in hic_ma.interval_trees.keys():
         chr_range = hic_ma.getChrBinRange(chrname)
         chr_submatrix = hic_ma.matrix[chr_range[0]:chr_range[1],
-                                    chr_range[0]:chr_range[1]]
+                        chr_range[0]:chr_range[1]]
 
         chr_submatrix.data[np.isnan(chr_submatrix.data)] = 0
         row_sum = np.asarray(chr_submatrix.sum(axis=1)).flatten()
@@ -214,8 +210,8 @@ def getPoorRegions(hic_ma, cutoff=-1.2):
         # to account for interactions with other bins
         # and not only self interactions that are the dominant count
         row_sum = row_sum - chr_submatrix.diagonal()
-        median = np.median(row_sum[row_sum>0])
-        b_value = 1.4826 # value for normal distribution
+        median = np.median(row_sum[row_sum > 0])
+        b_value = 1.4826  # value for normal distribution
         mad = b_value * np.median(np.abs(row_sum-median))
         print("MAD value threshold for {}: {}, median: {}".format(chrname,
                                                                   mad, median))
@@ -233,7 +229,8 @@ def getPoorRegions(hic_ma, cutoff=-1.2):
     return sorted(to_remove)
 
 
-def main(args):
+def main():
+    args = parse_arguments().parse_args()
     ma = hm.hiCMatrix(args.matrix)
     if args.verbose:
         print "matrix contains {} data points. Sparsity {:.3f}.".format(
@@ -251,9 +248,7 @@ def main(args):
         total_filtered_out = set(ma.failed_bins)
         ma.printchrtoremove(ma.failed_bins, label="Failed bins")
 
-    if args.sequencedCountCutoff and args.sequencedCountCutoff > 0 \
-            and args.sequencedCountCutoff < 1:
-        max_coverage = None
+    if args.sequencedCountCutoff and 0 < args.sequencedCountCutoff < 1:
         chrom, _, _, coverage = zip(*ma.cut_intervals)
 
         assert type(coverage[0]) == np.float64
@@ -303,7 +298,7 @@ def main(args):
         ma.removePoorRegions(cutoff=args.poorRegionsCutoff)
     """
 
-    if args.transCutoff and args.transCutoff > 0 and args.transCutoff < 100:
+    if args.transCutoff and 0 < args.transCutoff < 100:
         cutoff = float(args.transCutoff)/100
         # a usual cutoff is 0.05 
         ma.truncTrans(high=cutoff)
@@ -341,7 +336,3 @@ def main(args):
                         label="Total regions to be removed")
 
     ma.save(args.outFileName)
-
-if __name__ == "__main__":
-    args = parseArguments()
-    main(args)

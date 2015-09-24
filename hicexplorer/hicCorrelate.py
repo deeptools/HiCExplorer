@@ -1,23 +1,22 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
-
-import argparse, sys, os
+import argparse
+import sys
+import os
 import numpy as np
 from scipy.sparse import triu
 from scipy.stats import pearsonr, spearmanr
 
 import hicexplorer.HiCMatrix as hm
-from deeptools.correlation_heatmap import plot_correlation
 from hicexplorer._version import __version__
 
 # for plotting
 from matplotlib import use as mplt_use
-mplt_use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.ticker import MultipleLocator, FixedLocator
+from matplotlib.ticker import FixedLocator
+mplt_use('Agg')
 
-def parseArguments(args=None):
+
+def parse_arguments(args=None):
 
     heatmap_parser = heatmap_options()
     
@@ -73,16 +72,8 @@ def parseArguments(args=None):
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
+    return parser
 
-    args = parser.parse_args(args)
-
-    if args.labels and len(args.matrices) != len(args.labels):
-        print "The number of labels does not match the number of matrices."
-        exit(0)
-    if not args.labels:
-        args.labels = map(lambda x: os.path.basename(x), args.matrices)
-
-    return args
 
 def heatmap_options():
     """
@@ -92,15 +83,13 @@ def heatmap_options():
     heatmap = parser.add_argument_group('Heat map options')
 
     heatmap.add_argument('--zMin', '-min',
-                        #metavar='',
-                        default=None,
-                        help='Minimum value for the heat map intensities. '
-                            'If not specified the value is set automatically')
+                         default=None,
+                         help='Minimum value for the heat map intensities. '
+                              'If not specified the value is set automatically')
     heatmap.add_argument('--zMax', '-max',
-                        #metavar='',
-                        default=None,
-                        help='Maximum value for the heat map intensities.'
-                            'If not specified the value is set automatically')
+                         default=None,
+                         help='Maximum value for the heat map intensities.'
+                              'If not specified the value is set automatically')
 
     from matplotlib import cm
     color_options = "', '".join([m for m in cm.datad
@@ -110,29 +99,29 @@ def heatmap_options():
         '--colorMap', default='jet',
         metavar='',
         help='Color map to use for the heatmap. Available values can be '
-            'seen here: '
-            'http://www.astro.lsa.umich.edu/~msshin/science/code/'
-            'matplotlib_cm/ The available options are: \'' +
+             'seen here: '
+             'http://www.astro.lsa.umich.edu/~msshin/science/code/'
+             'matplotlib_cm/ The available options are: \'' +
         color_options + '\'')
 
     heatmap.add_argument('--plotFileFormat',
-                        metavar='FILETYPE',
-                        help='Image format type. If given, this option '
-                            'overrides the image format based on the plotFile '
-                            'ending. The available options are: png, emf, '
-                            'eps, pdf and svg.',
-                        choices=['png', 'pdf', 'svg', 'eps', 'emf'])
+                         metavar='FILETYPE',
+                         help='Image format type. If given, this option '
+                              'overrides the image format based on the plotFile '
+                              'ending. The available options are: png, emf, '
+                              'eps, pdf and svg.',
+                         choices=['png', 'pdf', 'svg', 'eps', 'emf'])
 
     heatmap.add_argument('--plotNumbers',
-                        help='If set, then the correlation number is plotted '
-                          'on top of the heatmap.',
-                        action='store_true',
-                        required=False)
+                         help='If set, then the correlation number is plotted '
+                              'on top of the heatmap.',
+                         action='store_true',
+                         required=False)
     return parser
 
 
-def plot_correlation(corr_matrix, labels, plotFileName, vmax=None,
-                    vmin=None, colormap='Reds', image_format=None):
+def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
+                     vmin=None, colormap='Reds', image_format=None):
     import scipy.cluster.hierarchy as sch
     num_rows = corr_matrix.shape[0]
 
@@ -189,7 +178,8 @@ def plot_correlation(corr_matrix, labels, plotFileName, vmax=None,
                           "{:.2f}".format(corr_matrix[row, col]),
                           ha='center', va='center')
 
-    fig.savefig(plotFileName, format=image_format)
+    fig.savefig(plot_filename, format=image_format)
+
 
 def get_vectors(mat1, mat2):
     """
@@ -221,10 +211,18 @@ def get_vectors(mat1, mat2):
     # _mat
     values2 = (_mat - mat2).data - 1
 
-    return (values1, values2)
+    return values1, values2
 
 
-def main(args):
+def main():
+
+    args = parse_arguments().parse_args()
+
+    if args.labels and len(args.matrices) != len(args.labels):
+        print "The number of labels does not match the number of matrices."
+        exit(0)
+    if not args.labels:
+        args.labels = map(lambda x: os.path.basename(x), args.matrices)
 
     num_files = len(args.matrices)
     labels = map(lambda x: os.path.basename(x), args.matrices)
@@ -234,7 +232,7 @@ def main(args):
 
     rows, cols = np.triu_indices(num_files)
     correlation_opts = {'spearman': spearmanr,
-                   'pearson': pearsonr}
+                        'pearson': pearsonr}
     hic_mat_list = []
     max_value = None
     min_value = None
@@ -251,7 +249,6 @@ def main(args):
         _mat.filterOutInterChrCounts()
         bin_size = _mat.getBinSize()
         all_nan = np.unique(np.concatenate([all_nan, _mat.nan_bins]))
-
 
         _mat = triu(_mat.matrix, k=0, format='csr')
         """
@@ -286,7 +283,7 @@ def main(args):
 
         hic_mat_list.append(_mat)
 
-    #remove nan bins
+    # remove nan bins
     rows_keep = cols_keep = np.delete(range(all_mat.shape[1]), all_nan)
     all_mat = all_mat[rows_keep, :][:, cols_keep]
 
@@ -303,7 +300,6 @@ def main(args):
         else:
             big_mat = np.vstack([big_mat, sample_vector])
 
-    #np.savetxt("/tmp/bigmat.txt", big_mat.T)
     # take the transpose such that columns represent each of the samples
     big_mat = np.ma.masked_invalid(big_mat).T
 
@@ -317,11 +313,11 @@ def main(args):
     if (min_value % 2 == 0 and max_value % 2 == 0) or \
             (min_value % 1 == 0 and max_value % 2 == 1):
         # make one value odd and the other even
-        max_value = max_value + 1
+        max_value += 1
 
     if args.log1p:
-        majorLocator = FixedLocator(range(min_value, max_value, 2))
-        minorLocator = FixedLocator(range(min_value, max_value, 1))
+        major_locator = FixedLocator(range(min_value, max_value, 2))
+        minor_locator = FixedLocator(range(min_value, max_value, 1))
 
     for index in xrange(len(rows)):
         row = rows[index]
@@ -343,7 +339,6 @@ def main(args):
         sys.stderr.write("comparing {} and {}\n".format(args.matrices[row],
                                                         args.matrices[col]))
 
-
         # remove cases in which both are zero or one is zero and
         # the other is one
         _mat = big_mat[:, [row, col]]
@@ -356,11 +351,10 @@ def main(args):
         ##### scatter plots
         ax = fig.add_subplot(grids[row, col])
         if args.log1p:
-            ax.xaxis.set_major_locator(majorLocator)
-            ax.xaxis.set_minor_locator(minorLocator)
-            ax.yaxis.set_major_locator(majorLocator)
-            ax.yaxis.set_minor_locator(minorLocator)
-
+            ax.xaxis.set_major_locator(major_locator)
+            ax.xaxis.set_minor_locator(minor_locator)
+            ax.yaxis.set_major_locator(major_locator)
+            ax.yaxis.set_minor_locator(minor_locator)
 
         ax.text(0.2, 0.8, "{}={:.2f}".format(args.method,
                                              results[row, col]),
@@ -398,7 +392,7 @@ def main(args):
             ax.set_xticklabels([])
 
         ax.hist2d(vector1, vector2, bins=200, cmin=0.1)
-        #downsample for plotting
+        # downsample for plotting
 #        choice_idx = np.random.randint(0,len(vector1),min(len(vector1), 500000))
 #        ax.plot(vector1[choice_idx], vector2[choice_idx], '.', markersize=1,
 #                 alpha=0.2, color='darkblue',
@@ -415,19 +409,11 @@ def main(args):
     print "saving {}".format(args.outFileNameScatter)
     fig.savefig(args.outFileNameScatter, bbox_inches='tight')
 
-
     results = results + np.triu(results, 1).T
     plot_correlation(results, args.labels,
-                                 args.outFileNameHeatmap,
-                                 args.zMax,
-                                 args.zMin,
-                                 args.colorMap,
-                                 image_format=args.plotFileFormat)
-#                                 plot_numbers=args.plotNumbers)
-
-
-if __name__ == "__main__":
-    args = parseArguments()
-    main(args)
-
-
+                     args.outFileNameHeatmap,
+                     args.zMax,
+                     args.zMin,
+                     args.colorMap,
+                     image_format=args.plotFileFormat)
+#                    plot_numbers=args.plotNumbers)

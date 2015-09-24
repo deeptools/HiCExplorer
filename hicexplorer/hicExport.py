@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
 from __future__ import division
 from os.path import splitext
 import sys
@@ -9,8 +7,7 @@ from hicexplorer._version import __version__
 from scipy import sparse
 
 
-
-def parsearguments(args=None):
+def parse_arguments(args=None):
     """
     get command line arguments
     """
@@ -36,13 +33,13 @@ def parsearguments(args=None):
                         nargs='+')
 
     parser.add_argument('--outputFormat',
-                    help='Output format. There are two possibilities: "dekker" and "ren". '
-                         'The dekker format outputs the whole matrix where the '
-                         'first column and first row are the bin widths and labels. '
-                         'The "ren" format is a list of tuples of the form '
-                         'chrom, bin_star, bin_end, values.',
-                    default='dekker',
-                    choices=['dekker', 'ren'])
+                        help='Output format. There are two possibilities: "dekker" and "ren". '
+                             'The dekker format outputs the whole matrix where the '
+                             'first column and first row are the bin widths and labels. '
+                             'The "ren" format is a list of tuples of the form '
+                             'chrom, bin_star, bin_end, values.',
+                        default='dekker',
+                        choices=['dekker', 'ren'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
@@ -52,25 +49,23 @@ def parsearguments(args=None):
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
+    return parser
 
-    return parser.parse_args(args)
 
+def main():
+    args = parse_arguments().parse_args()
 
-if __name__ == "__main__":
-    ARGS = parsearguments()
+    hic_ma = hm.hiCMatrix(args.matrix)
+    if args.chromosomeOrder:
+        hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
 
-    hic_ma = hm.hiCMatrix(ARGS.matrix)
-    if ARGS.chromosomeOrder:
-        hic_ma.keepOnlyTheseChr(ARGS.chromosomeOrder)
-
-    if ARGS.clearMaskedBins:
+    if args.clearMaskedBins:
         hic_ma.maskBins(hic_ma.nan_bins)
 
     sys.stderr.write('saving...\n')
-    matrix_name = ARGS.outFileName.name
-    ARGS.outFileName.close()
-    if ARGS.outputFormat == 'dekker':
+    matrix_name = args.outFileName.name
+    args.outFileName.close()
+    if args.outputFormat == 'dekker':
         hic_ma.save_dekker(matrix_name)
     else:
         hic_ma.save_bing_ren(matrix_name)
-
