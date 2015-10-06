@@ -7,7 +7,7 @@ from Bio.Alphabet import generic_dna
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description='returns a bed file'
+    parser = argparse.ArgumentParser(description='returns a bed file '
                                      'containing the positions '
                                      'of a string, giving a fasta file')
     
@@ -23,7 +23,7 @@ def parse_arguments(args=None):
                         required=True)
 
     parser.add_argument('--outFile', '-o',
-                        help='Output file',
+                        help='Name for the resulting bed file',
                         type=argparse.FileType('w'),
                         required=True)
 
