@@ -138,8 +138,9 @@ setup(
         "numpy >= 1.8.1",
         "scipy >= 0.14.0",
         "matplotlib >= 1.3.1",
-        "pysam >= 0.7.7",
+        "pysam >= 0.8.3",
         "bx-python >= 0.7.1",
+        "biopython > = 1.65"
     ],
     cmdclass={'sdist': sdist, 'install': install}
 )
