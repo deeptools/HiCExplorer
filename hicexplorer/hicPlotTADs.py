@@ -43,6 +43,18 @@ color = black
 display = collapsed
 width = 0.3
 
+
+[bedgraph matrix]
+# a bedgraph matrix file is like a bedgraph, except that per bin there
+# are more than one value separated by tab: E.g.
+# chrX	18279	40131	0.399113	0.364118	0.320857	0.274307
+# chrX	40132	54262	0.479340	0.425471	0.366541	0.324736
+file = spectra_conductance.bm ,
+title = conductance spectra ,
+width = 1.5,
+orientation = inverted
+min_value = 0.10
+max_value = 0.70
 """
 
 from __future__ import division
@@ -132,7 +144,6 @@ def parseArguments(args=None):
                         )
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
-
 
     return parser
 
