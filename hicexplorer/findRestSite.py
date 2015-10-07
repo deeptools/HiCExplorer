@@ -9,7 +9,7 @@ from Bio.Alphabet import generic_dna
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(description='returns a bed file '
                                      'containing the positions '
-                                     'of a string, giving a fasta file',
+                                     'of a string from a given fasta file',
                                      usage='An example usage is: %(prog)s --fasta mm10.fa '
                                            '--searchPattern AAGCTT -o rest_site_positions.bed')
     
@@ -21,7 +21,7 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--searchPattern', '-p',
-                        help='Search pattern. For example for HindII this pattern is "AAGCTT". '
+                        help='Search pattern. For example, for HindII this pattern is "AAGCTT". '
                              'Both, forward and reverse strand are searched for a match.',
                         required=True)
 
@@ -69,5 +69,5 @@ def find_pattern(pattern, fasta_file, out_file):
 
 def main():
     args = parse_arguments().parse_args()
-    find_pattern(args.searchPattern, args.fasta, args,outFile)
+    find_pattern(args.searchPattern, args.fasta, args.outFile)
 
