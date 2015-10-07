@@ -9,7 +9,7 @@ depth = 100000
 #min_value =2.8
 #max_value = 3.0
 transform = log1p
-boundaries_file = /home/ramirez/p/HiC-ThomasLing/doc/hic_paper/revision/figure_boundaries_method/conductance_vs_hic/boundaries_all.bed
+boundaries_file = conductance_vs_hic/boundaries_all.bed
 show_masked_bins = yes
 x labels = yes
 type = arcplot
@@ -79,7 +79,7 @@ import matplotlib.gridspec as gridspec
 import mpl_toolkits.axisartist as axisartist
 from bx.intervals.intersection import IntervalTree, Interval
 
-def parseArguments(args=None):
+def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         description='Plots the diagonal,  and some values close to '
         'the ediagonal of a  HiC matrix. The diagonal of the matrix is '
@@ -253,11 +253,9 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
     start_bp = max(chr_start, region_start - matrix_properties['depth'])
     end_bp = min(chr_end, region_end + matrix_properties['depth'])
 
-
     idx, start_pos = zip(*[(idx, x[1]) for idx, x in
                            enumerate(hic_ma.cut_intervals)
-                           if x[0] == chrom and x[1] >= start_bp
-                           and x[2] <= end_bp])
+                           if x[0] == chrom and x[1] >= start_bp and x[2] <= end_bp])
 
     idx = idx[0:-1]
     # select only relevant matrix part
@@ -281,7 +279,7 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
             "otherwise it looks bad..."
         max_value = hic_ma.matrix.data.max()
         main_diagonal = dia_matrix(([max_value]*hic_ma.matrix.shape[0], [0]),
-                                shape=hic_ma.matrix.shape)
+                                   shape=hic_ma.matrix.shape)
         hic_ma.matrix = hic_ma.matrix + main_diagonal
     """
     # code to select some meaningful max and min values
@@ -335,7 +333,7 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
     cmap.set_bad('white')
 
     img = pcolormesh_45deg(matrix, ax, start_pos, vmax=vmax,
-                     vmin=vmin, cmap=cmap, norm=norm)
+                           vmin=vmin, cmap=cmap, norm=norm)
 
     img.set_rasterized(True)
     if plot_inverted:
@@ -353,7 +351,7 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
         ticks = ax.get_xticks()
         labels = ["{:.2f}".format((x / 1e6))
                   for x in ticks]
-        labels[-1] = labels[-1] + "Mbp"
+        labels[-1] += "Mbp"
         ax.get_xaxis().set_tick_params(
             which='both',
             bottom='on',
@@ -377,8 +375,8 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
     cobar = plt.colorbar(img, ax=cbar_ax, fraction=0.95)
     cobar.solids.set_edgecolor("face")
     label_ax.text(0.3, 0.0, matrix_properties['title'],
-            horizontalalignment='left', size='large',
-            verticalalignment='bottom', transform=label_ax.transAxes)
+                  horizontalalignment='left', size='large',
+                  verticalalignment='bottom', transform=label_ax.transAxes)
     # plt.subplots_adjust(wspace=0, hspace=0.1, top=0.95,
     #                    bottom=0.05, left=0.1, right=0.5)
 
@@ -390,32 +388,30 @@ def plot_x_axis(ax, region, properties):
     if ticks[-1] - ticks[1] <= 1e5:
         labels = ["{:.3f}".format((x / 1e3))
                   for x in ticks]
-        labels[-1] = labels[-1] + "Kbp"
+        labels[-1] += "Kbp"
 
     elif 1e5 < ticks[-1] - ticks[1] < 4e6:
         labels = ["{:.3f}".format((x / 1e3))
                   for x in ticks]
-        labels[-1] = labels[-1] + "Kbp"
+        labels[-1] += "Kbp"
     else:
         labels = ["{:.0f}Mbp".format((x / 1e6))
                   for x in ticks]
-        #labels[-1] = labels[-1] + "Mbp"
+        # labels[-1] += "Mbp"
 
-
-
-    ax.axis["x"] = ax.new_floating_axis(0,0.5)
+    ax.axis["x"] = ax.new_floating_axis(0, 0.5)
     
     ax.axis["x"].axis.set_ticklabels(labels)
-    ax.axis['x'].axis.set_tick_params(which='minor',bottom='on')
+    ax.axis['x'].axis.set_tick_params(which='minor', bottom='on')
 
     if 'fontsize' in properties:
         ax.axis["x"].major_ticklabels.set(size=int(properties['fontsize']))
 
-    if 'where' in properties and properties['where']=='top':
+    if 'where' in properties and properties['where'] == 'top':
         ax.axis["x"].set_axis_direction("top")
 
 
-def pcolormesh_45deg(C, ax, start_pos_vector, vmin=None,
+def pcolormesh_45deg(matrix_c, ax, start_pos_vector, vmin=None,
                      vmax=None, cmap=None, norm=None):
     """
     Turns the matrix 45 degrees and adjusts the
@@ -423,18 +419,18 @@ def pcolormesh_45deg(C, ax, start_pos_vector, vmin=None,
     """
     import itertools
     # code for rotating the image 45 degrees
-    n = C.shape[0]
+    n = matrix_c.shape[0]
     # create rotation/scaling matrix
     t = np.array([[1, 0.5], [-1, 0.5]])
     # create coordinate matrix and transform it
-    A = np.dot(np.array([(i[1], i[0])
-                         for i in itertools.product(start_pos_vector[::-1],
-                                                    start_pos_vector)]),t)
+    matrix_a = np.dot(np.array([(i[1], i[0])
+                                for i in itertools.product(start_pos_vector[::-1],
+                                                           start_pos_vector)]), t)
     # this is to convert the indices into bp ranges
-    X = A[:, 1].reshape(n+1, n+1)
-    Y = A[:, 0].reshape(n+1, n+1)
+    X = matrix_a[:, 1].reshape(n+1, n+1)
+    Y = matrix_a[:, 0].reshape(n+1, n+1)
     # plot
-    im = ax.pcolormesh(X, Y, np.flipud(C),
+    im = ax.pcolormesh(X, Y, np.flipud(matrix_c),
                        vmin=vmin, vmax=vmax, cmap=cmap, norm=norm)
     return im
 
@@ -617,7 +613,7 @@ def plot_hic_arcs(ax, label_ax, properties, region):
             match1 = intervals[chrom1].find(start1, end1)
             match2 = intervals[chrom2].find(start2, end2)
             if len(match1) == 0 and len(match2) == 0:
-                #continue
+                # continue
                 color = color_main
             else:
                 if len(match1) > 0:
@@ -648,8 +644,9 @@ def plot_hic_arcs(ax, label_ax, properties, region):
     ax.axis('off')
 
     label_ax.text(0.3, 0.0, properties['title'],
-            horizontalalignment='left', size='large',
-            verticalalignment='bottom', transform=label_ax.transAxes)
+                  horizontalalignment='left', size='large',
+                  verticalalignment='bottom', transform=label_ax.transAxes)
+
 
 def plot_interactions(ax, matrix_properties, region, args):
     """
@@ -741,6 +738,7 @@ def get_gene_parts(fields, bed_properties):
     return chrom, start, end, name, strand, thick_start, thick_end, rgb, \
            block_count, block_sizes, block_starts
 
+
 def draw_gene_simple(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor):
     """
     draws a gene using different styles
@@ -763,10 +761,10 @@ def draw_gene_simple(ax, fields, ypos, bed_properties, small_relative, rgb, edge
 
         """
 
-        vertices = [(x0, y0), (x0, y1), (x1, y1), (x1 + small_relative, y0 + 50 ), (x1, y0)]
+        vertices = [(x0, y0), (x0, y1), (x1, y1), (x1 + small_relative, y0 + 50), (x1, y0)]
 
     elif strand == '-':
-        x0  = start + small_relative
+        x0 = start + small_relative
         x1  = end
         y0 = ypos
         y1 = ypos + 100
@@ -802,7 +800,7 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
 
     ax.plot([start, end], [ypos + 50, ypos + 50], 'black', linewidth=0.5, zorder = -1)
     if strand == '+':
-        x1  = thick_start
+        x1 = thick_start
         y0 = ypos
         y1 = ypos + 100
         """
@@ -857,18 +855,17 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
                                                 facecolor=rgb))
 
         if idx < block_count - 1:
-            intron_length =  block_starts[idx+1]  - (block_starts[idx] + block_sizes[idx])
+            intron_length = block_starts[idx+1] - (block_starts[idx] + block_sizes[idx])
             marker = 5 if strand == '+' else 4
             if intron_length > 3*small_relative:
-                pos = np.arange(x1 + 1*small_relative, x1 + intron_length +small_relative, int(2*small_relative))
+                pos = np.arange(x1 + 1*small_relative, x1 + intron_length + small_relative, int(2 * small_relative))
                 ax.plot(pos, np.zeros(len(pos))+ypos+50, '.', marker=marker,
-                    fillstyle='none', color='blue', markersize = 3)
+                        fillstyle='none', color='blue', markersize=3)
 
             elif intron_length > small_relative:
                 intron_center = x1 + int(intron_length)/2
                 ax.plot([intron_center], [ypos+50], '.', marker=5,
-                    fillstyle='none', color='blue', markersize = 3)
-
+                        fillstyle='none', color='blue', markersize=3)
 
     center = start + float(end - start)/2
     ax.text(center, ypos + 125, fields[3],
@@ -902,9 +899,8 @@ def plot_bed(ax, label_ax, bed_properties, region):
     else:
         fp = None
 
-    if 'type' in bed_properties and \
-        bed_properties['type'] == 'genes':
-        t = matplotlib.textpath.TextPath((0,0), 'w', prop=fp)
+    if 'type' in bed_properties and bed_properties['type'] == 'genes':
+        t = matplotlib.textpath.TextPath((0, 0), 'w', prop=fp)
         len_w = t.get_extents().width * 300
     else:
         len_w = 1
@@ -915,7 +911,7 @@ def plot_bed(ax, label_ax, bed_properties, region):
         norm = mpl.colors.Normalize(vmin=bed_properties['min_value'],
                                     vmax=bed_properties['max_value'])
         cmap = cm.get_cmap(bed_properties['color'])
-        colormap  = cm.ScalarMappable(norm=norm, cmap=cmap)
+        colormap = cm.ScalarMappable(norm=norm, cmap=cmap)
 
     for line in file_h.readlines():
         if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
@@ -1006,8 +1002,8 @@ def plot_bed(ax, label_ax, bed_properties, region):
             # give direction to genes
             if 'type' in bed_properties and \
                     bed_properties['type'] == 'genes' and \
-                    strand in ['+','-']:
-#                draw_gene_simple(ax, fields, ypos, bed_properties, small_relative)
+                    strand in ['+', '-']:
+                # draw_gene_simple(ax, fields, ypos, bed_properties, small_relative)
                 draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor,
                                        fontproperties=fp)
 
@@ -1017,11 +1013,9 @@ def plot_bed(ax, label_ax, bed_properties, region):
                         100, edgecolor=edgecolor,
                         facecolor=rgb))
 
-    if 'type' in bed_properties and \
-            bed_properties['type'] == 'domain':
+    if 'type' in bed_properties and bed_properties['type'] == 'domain':
         ax.set_ylim(-5, 205)
-    elif 'display' in bed_properties and \
-        bed_properties['display'] == 'collapsed':
+    elif 'display' in bed_properties and bed_properties['display'] == 'collapsed':
         ax.set_ylim(-5, 105)
     else:
         ax.set_ylim((max_num_row+1)*230, -25)
@@ -1029,8 +1023,8 @@ def plot_bed(ax, label_ax, bed_properties, region):
     ax.set_xlim(region[1], region[2])
 
     label_ax.text(0.15, 1.0, bed_properties['title'],
-            horizontalalignment='left', size='large',
-            verticalalignment='top', transform=label_ax.transAxes)
+                  horizontalalignment='left', size='large',
+                  verticalalignment='top', transform=label_ax.transAxes)
 
 
 def plot_bedgraph(ax, label_ax, bedgraph_properties, region):
@@ -1094,8 +1088,8 @@ def plot_bedgraph(ax, label_ax, bedgraph_properties, region):
                 verticalalignment='bottom')
 
     label_ax.text(0.15, 0, bedgraph_properties['title'],
-                horizontalalignment='left', size='large',
-                verticalalignment='bottom', transform=label_ax.transAxes)
+                  horizontalalignment='left', size='large',
+                  verticalalignment='bottom', transform=label_ax.transAxes)
 
     """
     if 'extra' in bedgraph_properties :
@@ -1107,6 +1101,7 @@ def plot_bedgraph(ax, label_ax, bedgraph_properties, region):
         ax.set_xticklabels(labels, size='large')
         ax.axes.get_xaxis().set_visible(True)
     """
+
 
 def plot_bedgraph_matrix(ax, label_ax, properties, region):
     """
@@ -1130,14 +1125,12 @@ def plot_bedgraph_matrix(ax, label_ax, properties, region):
         chrom = region[0]
         start = int(region[1])
         end = int(region[2])
-        if chrom == chrom_region and start_region -100000 <= start and \
-            end_region + 100000 >= end:
+        if chrom == chrom_region and start_region - 100000 <= start and end_region + 100000 >= end:
             start_pos.append(start)
             matrix_rows.append(np.fromiter(region[3:], np.float))
 
     matrix = np.vstack(matrix_rows).T
-    if 'orientation' in properties and \
-        properties['orientation'] == 'inverted':
+    if 'orientation' in properties and properties['orientation'] == 'inverted':
         matrix = np.flipud(matrix)
 
     vmin = None
@@ -1145,12 +1138,11 @@ def plot_bedgraph_matrix(ax, label_ax, properties, region):
     if 'max_value' in properties and properties['max_value'] != 'auto':
         vmax = properties['max_value']
 
-
     if 'min_value' in properties and properties['min_value'] != 'auto':
         vmin = properties['min_value']
 
 
-    X,Y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
+    X, Y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
     img = ax.pcolormesh(X, Y, matrix, vmin=vmin, vmax=vmax, shading='gouraud')
     img.set_rasterized(True)
     ax.set_xlim(start_region, end_region)
@@ -1159,8 +1151,8 @@ def plot_bedgraph_matrix(ax, label_ax, properties, region):
     ax.axes.get_yaxis().set_visible(False)
 
     label_ax.text(0.15, 0, properties['title'],
-            horizontalalignment='left', size='large',
-            verticalalignment='bottom', transform=label_ax.transAxes)
+                  horizontalalignment='left', size='large',
+                  verticalalignment='bottom', transform=label_ax.transAxes)
 
 
 def plot_bigwig(ax, label_ax, bigwig_properties, region):
@@ -1220,7 +1212,6 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
                             color=bigwig_properties['color'],
                             facecolor=bigwig_properties['color'])
 
-
     ax.set_xlim(region[1], region[2])
     ymin, ymax = ax.get_ylim()
     if 'max_value' in bigwig_properties and ['max_value'] != 'auto':
@@ -1228,8 +1219,7 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
     if 'min_value' in bigwig_properties and bigwig_properties['min_value'] != 'auto':
         ymin = bigwig_properties['min_value']
 
-    if 'orientation' in bigwig_properties and \
-        bigwig_properties['orientation'] == 'inverted':
+    if 'orientation' in bigwig_properties and bigwig_properties['orientation'] == 'inverted':
 
         ax.set_ylim(ymax, ymin)
     else:
@@ -1245,8 +1235,7 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
     else:
         ymax_print = "{:.1f}".format(ymax)
     small_x = 0.01 * (region_end - region_start)
-    if 'show data range' in bigwig_properties and \
-        bigwig_properties['show data range'] == 'no':
+    if 'show data range' in bigwig_properties and bigwig_properties['show data range'] == 'no':
         pass
     else:
         # by default show the data range
@@ -1264,7 +1253,7 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
     label_ax.text(0.15, 0, bigwig_properties['title'],
                   horizontalalignment='left', size='large',
                   verticalalignment='bottom')
-                  #transform=label_ax.transAxes)
+                  # transform=label_ax.transAxes)
 
 
 def get_region(region_string):
@@ -1308,17 +1297,18 @@ def parse_tracks(tracks_file):
             track_options[section_name] = True
         for name, value in parser.items(section_name):
             if name in ['max_value', 'min_value', 'depth', 'width'] and value != 'auto':
-                track_options[name] =  literal_eval(value)
+                track_options[name] = literal_eval(value)
             else:
-                track_options[name] =  value
+                track_options[name] = value
 
         track_list.append(track_options)
 
     return track_list
 
+
 def main():
 
-    args = parseArguments().parse_args()
+    args = parse_arguments().parse_args()
 
     region = get_region(args.region)
     chrom, region_start, region_end = region
@@ -1331,8 +1321,6 @@ def main():
     # prepare layout based on the tracks given.
     # The main purpose of the following loop is
     # to get the height of each of the tracks
-
-
     track_height = []
     for track_dict in track_properties:
         if 'width' in track_dict:
