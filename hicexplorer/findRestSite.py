@@ -32,18 +32,42 @@ def parse_arguments(args=None):
 
     return parser
 
+def find_pattern(pattern, fasta_file, out_file):
+    r"""
+    Finds the occurences of the match in the fasta file
+    and saves a bed file.
 
-def main():
-    args = parse_arguments().parse_args()
+    The coordinate system is zero based
 
-    rev_compl = str(Seq(args.searchPattern, generic_dna).complement())
-    for record in SeqIO.parse(args.fasta, 'fasta', generic_dna):
+    :param pattern: Sequence to search for
+    :param fasta_file:
+    :param out_file: file handler
+
+    :return: none
+
+    >>> fa = open("/tmp/test.fa", 'w')
+    >>> fa.write(">chr1\nCGTACGAACGTACGGTACGcgtaGTACGGCATT\n")
+    >>> fa.close()
+    >>> find_pattern("CGTA", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
+    >>> open("/tmp/test.bed", 'r').readlines()
+    ['chr1\t0\t4\t.\t0\t+\n', 'chr1\t8\t12\t.\t0\t+\n', 'chr1\t19\t23\t.\t0\t+\n', 'chr1\t28\t32\t.\t0\t-\n']
+    """
+
+    rev_compl = str(Seq(pattern, generic_dna).complement())
+    for record in SeqIO.parse(fasta_file, 'fasta', generic_dna):
         # find all the occurrences of pattern
-        for match in re.finditer(args.searchPattern, str(record.seq), re.IGNORECASE):
-            args.outFile.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
+        for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
+            out_file.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
                                                      match.start(),
                                                      match.end()))
         for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
-            args.outFile.write('{}\t{}\t{}\t.\t0\t.\n'.format(record.name,
+            out_file.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
                                                      match.start(),
                                                      match.end()))
+
+
+
+def main():
+    args = parse_arguments().parse_args()
+    find_pattern(args.searchPattern, args.fasta, args,outFile)
+
