@@ -133,7 +133,7 @@ class hiCMatrix:
         diff = np.array(end) - np.array(start)
         # check if the bin size is homogeneous
         if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
-            print 'bin size is not homogeneous. Median {}'.format(median)
+            sys.stderr.write('bin size is not homogeneous. Median {}\n'.format(median))
 #            raise Exception('bin size is not homogeneous')
         return median
 
