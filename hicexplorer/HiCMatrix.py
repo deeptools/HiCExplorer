@@ -22,6 +22,7 @@ class hiCMatrix:
 
     def __init__(self, matrixFile=None, format=None, skiprows=None):
         self.correction_factors = None # this value is set in case a matrix was iteratively corrected
+        self.non_homogeneous_warning_already_printed = False
         if matrixFile:
             self.nan_bins = np.array([])
             if not format:
@@ -136,7 +137,9 @@ class hiCMatrix:
         diff = np.array(end) - np.array(start)
         # check if the bin size is homogeneous
         if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
-            sys.stderr.write('WARNING: bin size is not homogeneous. Median {}\n'.format(median))
+            if self.non_homogeneous_warning_already_printed is False:
+                sys.stderr.write('WARNING: bin size is not homogeneous. Median {}\n'.format(median))
+                self.non_homogeneous_warning_already_printed = True
 #            raise Exception('bin size is not homogeneous')
         return median
 
