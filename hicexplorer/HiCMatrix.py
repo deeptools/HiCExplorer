@@ -126,14 +126,17 @@ class hiCMatrix:
 
     def getBinSize(self):
         """
-        estimates the bin size
+        estimates the bin size. In case the bin size
+        is not equal for all bins (maybe except for the
+        bin at the en of the chromosomes) a warning is issued.
+        In case of uneven bins, the median is returned.
         """
         chrom, start, end, extra = zip(*self.cut_intervals)
         median = int(np.median(np.diff(start)))
         diff = np.array(end) - np.array(start)
         # check if the bin size is homogeneous
         if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
-            sys.stderr.write('bin size is not homogeneous. Median {}\n'.format(median))
+            sys.stderr.write('WARNING: bin size is not homogeneous. Median {}\n'.format(median))
 #            raise Exception('bin size is not homogeneous')
         return median
 
