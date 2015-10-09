@@ -22,7 +22,10 @@ def parse_arguments(args=None):
     # define the arguments
     parser.add_argument('--searchPattern', '-p',
                         help='Search pattern. For example, for HindII this pattern is "AAGCTT". '
-                             'Both, forward and reverse strand are searched for a match.',
+                             'Both, forward and reverse strand are searched for a match. The patter '
+                             'is a regexp and can contain regexp specif syntax '
+                             '(see https://docs.python.org/2/library/re.html). For example the pattern'
+                             'CG..GC will find all occurrence of CG followed by any two bases and then GC.',
                         required=True)
 
     parser.add_argument('--outFile', '-o',
@@ -46,14 +49,19 @@ def find_pattern(pattern, fasta_file, out_file):
     :return: none
 
     >>> fa = open("/tmp/test.fa", 'w')
-    >>> fa.write(">chr1\nCGTACGAACGTACGGTACGcgtaGTACGGCATT\n")
+    >>> fa.write(">chr1\nCGTACGAACGTACGGTACGcgtaGCATCGAGT\n")
     >>> fa.close()
     >>> find_pattern("CGTA", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
     >>> open("/tmp/test.bed", 'r').readlines()
-    ['chr1\t0\t4\t.\t0\t+\n', 'chr1\t8\t12\t.\t0\t+\n', 'chr1\t19\t23\t.\t0\t+\n', 'chr1\t28\t32\t.\t0\t-\n']
+    ['chr1\t0\t4\t.\t0\t+\n', 'chr1\t8\t12\t.\t0\t+\n', 'chr1\t19\t23\t.\t0\t+\n', 'chr1\t23\t27\t.\t0\t-\n']
+
+    >>> find_pattern("CG.AG", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
+    >>> open("/tmp/test.bed", 'r').readlines()
+    ['chr1\t19\t24\t.\t0\t+\n', 'chr1\t23\t28\t.\t0\t-\n']
     """
 
     rev_compl = str(Seq(pattern, generic_dna).complement())
+
     for record in SeqIO.parse(fasta_file, 'fasta', generic_dna):
         # find all the occurrences of pattern
         for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
