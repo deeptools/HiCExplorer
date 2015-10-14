@@ -559,8 +559,10 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
         cutoff = str(cutoff)
         ret_[cutoff] = []
         for chr_name in return_clusters:
-            if idx in return_clusters[chr_name]:
+            try:
                 ret_[cutoff].extend(return_clusters[chr_name][idx])
+            except IndexError:
+                pass
 
     return  Z, ret_
 
