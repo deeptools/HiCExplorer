@@ -49,12 +49,23 @@ width = 0.3
 # are more than one value separated by tab: E.g.
 # chrX	18279	40131	0.399113	0.364118	0.320857	0.274307
 # chrX	40132	54262	0.479340	0.425471	0.366541	0.324736
-file = spectra_conductance.bm ,
-title = conductance spectra ,
-width = 1.5,
+file = spectra_conductance.bm
+title = conductance spectra
+width = 1.5
 orientation = inverted
 min_value = 0.10
 max_value = 0.70
+
+[dendrogram]
+# a dendrogram is saved in a bed file that contains
+# further fields defining the linkage.
+file =  linkage.bed
+title = dendrogram
+width = 2
+orientation = inverted
+type = dendrogram
+hlines = 0.2 0.3
+
 """
 
 from __future__ import division
@@ -84,7 +95,8 @@ def parse_arguments(args=None):
         description='Plots the diagonal,  and some values close to '
         'the ediagonal of a  HiC matrix. The diagonal of the matrix is '
         'plotted horizontally for a region. I will not draw the diagonal '
-        'for the whole chromosome')
+        'for the whole chromosome',
+        usage="%(prog)s --tracks tracks.ini --region chr1:1000000-4000000 -o image.png")
 
     # define the arguments
 #    parser.add_argument('--tracks',
@@ -109,11 +121,11 @@ def parse_arguments(args=None):
 
     parser.add_argument('--title', '-t',
                         help='Plot title',
-                        required=True)
+                        required=False)
 
     parser.add_argument('--scoreName', '-s',
                         help='Score name',
-                        required=True)
+                        required=False)
 
     parser.add_argument('--outFileName', '-out',
                         help='File name to save the image. ',
@@ -148,52 +160,226 @@ def parse_arguments(args=None):
     return parser
 
 
+def plot_dendrogram(ax, label_ax, properties, region):
+    """
+    Uses a linkage stored in a BED format to plot a dendrogram.
+    The BED format for the linkage is:
+    chrom pos_a pos_b, id, distance, ., id_cluster_a, id_cluster_b, num_clusters
+
+
+    Each chromosome has a separate linkage
+
+    """
+    chrom_region, start_region, end_region = region
+
+    linkage_file = open(properties['file'], 'r')
+
+    # the order of the file is important and must not be sorted.
+    # thus, the chromosomes are supposed to be one after the other
+    Z = []
+    for line in linkage_file.readlines():
+        chrom, pos_a, pos_b, clust_id, distance, strand, id_cluster_a, \
+        id_cluster_b, num_clusters = line.strip().split('\t')
+        if chrom != chrom_region:
+            continue
+
+        try:
+            pos_a = int(pos_a)
+            pos_b = int(pos_b)
+            id_cluster_a = int(id_cluster_a)
+            id_cluster_b = int(id_cluster_b)
+            distance = float(distance)
+
+        except ValueError:
+            exit("BED values not valid")
+
+        Z.append((id_cluster_a, id_cluster_b, distance, num_clusters, pos_a, pos_b))
+
+    boxes = _dendrogram_calculate_info(Z)
+    min_y = 1
+    max_y = 0
+    for box in boxes:
+        if box[1, :].min() < min_y:
+            min_y = box[1, :].min()
+        if box[1, :].max() > max_y:
+            max_y = box[1, :].max()
+
+        ax.plot(box[0, :], box[1, :], 'black')
+
+    if 'hlines' in properties and properties['hlines'] != '':
+        # split by space
+        for hline in properties['hlines'].split(" "):
+            try:
+                hline = float(hline)
+            except ValueError:
+                sys.stderr.write("hlines value: {} in dendrogram is not valid.\n".format(hline))
+
+            ax.hlines(hline, start_region, end_region, 'red', '--')
+
+    if 'orientation' in properties and properties['orientation'] == 'inverted':
+        ax.set_ylim(max_y, min_y)
+    else:
+        ax.set_ylim(min_y, max_y)
+
+    ax.set_xlim(start_region, end_region)
+    ax.set_frame_on(False)
+    ax.axes.get_xaxis().set_visible(False)
+    ax.axes.get_yaxis().set_visible(False)
+
+    label_ax.text(0.15, 0, properties['title'], horizontalalignment='left', size='large',
+                  verticalalignment='bottom', transform=label_ax.transAxes)
+
+
+def _dendrogram_calculate_info(Z):
+    """
+    :param Z: list of 6-tuples containing the linkage
+    information in :func:`hierarchical_clustering`
+
+    >>> Z = [(1, 2, 0.5, 2, 0, 10), (4, 3, 0.6, 3, 5, 15)]
+    >>> _dendrogram_calculate_info(Z)
+    [array([[  0. ,   0. ,  10. ,  10. ],
+           [  0.5,   0.5,   0.5,   0.5]]), array([[  5. ,   5. ,  15. ,  15. ],
+           [  0.6,   0.6,   0.6,   0.5]])]
+    """
+    boxes = []
+
+    def is_cluster_leaf(cluster_id):
+        """
+        A cluster is a leaf if the id is less than
+        the length of Z
+        """
+
+        return False if cluster_id >= num_leafs else True
+
+    def prev_cluster_y(cluster_id):
+        """
+        The prev_cluster y has as index:
+        cluster_id - num_leafs and the
+        distance is found at position 2.
+        """
+        return Z[cluster_id - num_leafs][2]
+
+    # at each iteration a sort of box is drawn:
+    #
+    #           _______
+    #   |       |     |
+    #   y       |       pos-b, y - prev_cluster_y(id_cluster_b)
+    #   |       |
+    #           pos_a, y - prev_cluster_y(id_cluster_a)
+    #
+    # ``y`` is the distance.
+    #
+    # Four points are required to define such box which
+    # are obtained in the following code
+
+    num_leafs = len(Z) + 1
+    for id_cluster_a, id_cluster_b, distance, num_clusters, pos_a, pos_b in Z:
+        if is_cluster_leaf(id_cluster_a):
+            y_a = 0.5
+        else:
+            y_a = prev_cluster_y(id_cluster_a)
+
+        if is_cluster_leaf(id_cluster_b):
+            y_b = 0.5
+        else:
+            y_b = prev_cluster_y(id_cluster_b)
+
+        boxes.append(np.array([[pos_a, pos_a, pos_b, pos_b],
+                               [y_a, distance, distance, y_b]]))
+    return boxes
+
+
 def plot_boundaries(ax, file_name, region):
     """
     Plots the boundaries as triangles in the given ax.
 
     :param ax:
-    :param file_name: boundaries file
+    :param file_name: boundaries file in bed format.
+                      The file should have either the boundary positions or
+                      the continuous genomic intervals. Numerous files, separated by
+                      a space are accepted.
     :param region: chromosome region to plot
     :return:
     """
     chrom_region, start_region, end_region = region
-    try:
-        file_h = open(file_name, 'r')
-    except IOError:
-        sys.stderr.write("Boundaries file not found:\n{}".format(file_name))
-        return
 
-    prev_start = -1
-    prev_chrom = None
-    prev_line = None
-    x = []
-    y = []
-    for line in file_h.readlines():
-        if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
-            continue
-        fields = line.strip().split('\t')
-        chrom = None
-        start = None
-        end = None
+    file_names = [x for x in file_name.split(" ") if x != '']
+
+    for file_name in file_names:
         try:
-            chrom, start, end = fields[0:3]
-        except Exception as detail:
-            msg = "Error reading line: {}\nError message: {}".format(detail)
-            exit(msg)
+            file_h = open(file_name, 'r')
+        except IOError:
+            sys.stderr.write("Boundaries file not found:\n{}".format(file_name))
+            return
 
-        start = int(start)
-        end = int(end)
-        if prev_chrom == chrom:
-            assert prev_start <= start, \
-                "Bed file not sorted. Please use a sorted bed file.\n{}{} ".format(prev_line, line)
+        # get intervals as list
+        intervals = []
+        line_number = 0
+        prev_chrom = None
+        prev_start = -1
+        for line in file_h.readlines():
+            line_number += 1
+            if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
+                continue
+            fields = line.strip().split('\t')
+            chrom = None
+            start = None
+            end = None
+            try:
+                chrom, start, end = fields[0:3]
+            except Exception as detail:
+                msg = "Error reading line: {}\nError message: {}".format(line_number, detail)
+                exit(msg)
 
-        assert start > 0, \
-            "negative values found in bed file in line {}".format(line)
+            if prev_chrom == chrom:
+                assert prev_start <= start, \
+                    "Bed file not sorted. Please use a sorted bed file.\n{}{} ".format(prev_line, line)
 
-        if chrom == chrom_region and end > start_region and \
-                start < end_region:
+            try:
+                start = int(start)
+            except ValueError as detail:
+                msg = "Error reading line: {}. The start field is not " \
+                      "an integer.\nError message: {}".format(line_number, detail)
+                exit(msg)
 
+            try:
+                end = int(end)
+            except ValueError as detail:
+                msg = "Error reading line: {}. The end field is not " \
+                      "an integer.\nError message: {}".format(line_number, detail)
+                exit(msg)
+
+            # use only intervals in the selected region
+            if chrom == chrom_region and \
+               start_region - 100000 <= start and \
+               end_region + 100000 >= end:
+
+
+                assert start > 0, \
+                    "negative values found in bed file in line {}".format(line)
+
+                intervals.append((start, end))
+
+            prev_start = start
+            prev_chrom = chrom
+
+        file_h.close()
+        if len(intervals) == 0:
+            sys.stderr.write("No valid intervals were found in file {}".format(file_name))
+            continue
+        start, end = zip(*intervals)
+        start_list = np.array(start)
+        end = np.array(end)
+        # check if intervals are consecutive or 1bp positions demarcating the boundaries
+        #import ipdb;ipdb.set_trace()
+        if np.any(end - start_list > 1):
+            # intervals are consecutive, but only the boundaries are need.
+            start_list = end
+
+        prev_start = -1
+        x = []
+        y = []
+        for start in start_list:
             if prev_start is None:
                 # draw only half a triangle
                 length = start - prev_start
@@ -214,10 +400,7 @@ def plot_boundaries(ax, file_name, region):
                 y.extend([y1, y2, y3])
 
             prev_start = start
-            prev_line = line
-            prev_chrom = chrom
-    file_h.close()
-    ax.plot(x, y,  color='black')
+        ax.plot(x, y,  color='black')
 
 
 def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
@@ -341,6 +524,7 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
     else:
         ax.set_ylim(0, matrix_properties['depth'])
 
+    # ##plot boundaries
     # if a boundaries file is given, plot the
     # tad boundaries as line delineating the TAD triangles
     if 'boundaries_file' in matrix_properties:
@@ -933,7 +1117,7 @@ def plot_bed(ax, label_ax, bed_properties, region):
 
         prev_start = start
         prev_line = line
-        assert start > 0, \
+        assert start >= 0, \
             "negative values found in bed file in line {}".format(line)
 
         if chrom == chrom_region and end > start_region and \
@@ -1373,7 +1557,10 @@ def main():
             label_axis.set_axis_off()
 
         if properties['file'].endswith('.bed'):
-            plot_bed(axis, label_axis, properties, region)
+            if properties['type'] == 'dendrogram':
+                plot_dendrogram(axis, label_axis, properties, region)
+            else:
+                plot_bed(axis, label_axis, properties, region)
         elif properties['file'].endswith('.bg'):
             plot_bedgraph(axis, label_axis, properties, region)
         elif properties['file'].endswith('.bw'):
