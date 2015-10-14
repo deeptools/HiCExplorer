@@ -326,7 +326,7 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
     # mx and mn respectively
     min_y, max_y = np.Inf, -np.Inf
     max_pos, min_pos = None, None
-
+    search_for = None
     # Only detect peak if there is 'lookahead' amount of points after it
     for index, (x, y) in enumerate(zip(x_axis[:-lookahead],
                                        y_axis[:-lookahead])):
@@ -338,7 +338,7 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
             min_pos = x
 
         # look for max
-        if y < max_y - delta and max_y != np.Inf:
+        if y < max_y - delta and max_y != np.Inf and search_for != 'min':
             # Maximum peak candidate found
             # look ahead in signal to ensure that this is a peak and not jitter
             if y_axis[index:index + lookahead].max() < max_y:
@@ -347,22 +347,23 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
                 # set algorithm to only find minimum now
                 max_y = y
                 min_y = y
-                min_pos =x
+                search_for = 'min'
                 if index + lookahead >= length:
                     # end is within lookahead no more peaks can be found
                     break
                 continue
 
         # look for min
-        if y > min_y + delta and min_y != -np.Inf:
+        if y > min_y + delta and min_y != -np.Inf and search_for != 'max':
             # Minimum peak candidate found
             # look ahead in signal to ensure that this is a peak and not jitter
             if y_axis[index:index + lookahead].min() > min_y:
                 min_peaks.append([min_pos, min_y])
                 dump.append(False)
                 # set algorithm to only find maximum now
-                min_y = -np.Inf
-                max_y = -np.Inf
+                min_y = y
+                max_y = y
+                search_for = 'max'
                 if index + lookahead >= length:
                     # end is within lookahead no more peaks can be found
                     break
