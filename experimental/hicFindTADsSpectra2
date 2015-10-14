@@ -207,7 +207,6 @@ def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
 
     positions_array = []
     cond_matrix = []
-    binsize = hic_ma.getBinSize()
     chrom, start, end, __ = hic_ma.cut_intervals[0]
     prev_length = int((end - start) / 2)
     for cut in range(1, hic_ma.matrix.shape[0]-1):
@@ -223,7 +222,7 @@ def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
         # bins number 14 and 15. Instead of
         # storing a score at the position in between
         # bin 14 and bin 15, a region of the size
-        # of the bins, centered on the interface.
+        # of the bins, centered on the interface is used.
         this_length = int((chr_end - chr_start) / 2)
 
         if chr_start + this_length > 0:
@@ -253,7 +252,7 @@ def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
     # I call this a bedgraph matrix (bm)
     cond_matrix = np.vstack(cond_matrix)
     if outfile:
-        # save matrix as chrom start end row values
+        # save matrix as chrom start end row values (bed graph matrix)
         with open(outfile, 'w') as f:
             for idx in range(len(chrom)):
                 matrix_values = "\t".join(
@@ -266,7 +265,7 @@ def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
 
 def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
     """
-    Converted from/based on a MATLAB script at:
+    Based on the MATLAB script at:
     http://billauer.co.il/peakdet.html
 
     function for detecting local maximum and minimum in a signal.
@@ -388,59 +387,6 @@ def find_consensus_minima(matrix, delta=0):
     min_indices, __ = zip(*_min)
     return min_indices
 
-    """
-    # initialize a matrix of the same shape
-    # as the conductance matrix to hold the
-    # min peaks found at each row
-    mins_matrix = np.zeros(matrix.shape)
-
-    # for each row in the matrix, get the minimun peaks
-    for idx, row in enumerate(matrix):
-    #    _max, _min= peakdetect(row, lookahead=1, delta=np.std(np.diff(row))/2)
-        _max, _min= peakdetect(row, lookahead=3, delta=delta)
-        min_indices, __ = zip(*_min)
-        mins_matrix[idx, min_indices] = 1
-
-    # get all rows with at least 3 called peaks.
-    total_peaks = mins_matrix.sum(axis=0)
-    min_idx = np.where(total_peaks > 3)[0]
-
-
-
-    # Merge nearby minima based on the last row position (most specific)
-    min_idx_last = np.flatnonzero(mins_matrix[0, :])
-    for idx in range(0, len(min_idx) -1):
-        if min_idx[idx+1] - min_idx[idx] == 1:
-            # use value found in min_idx_last
-            if min_idx[idx] in min_idx_last:
-                from_ = min_idx[idx + 1]
-                to_ = min_idx[idx]
-            else:
-                from_ = min_idx[idx]
-                to_ = min_idx[idx + 1]
-
-            total_peaks[to_] = total_peaks[to_] + total_peaks[from_]
-            total_peaks[from_] = 0
-
-    half = matrix.shape[0]/2
-    sys.stderr.write('DEBUG: half = {}'.format(half))
-
-    ### DEBUG
-    import matplotlib.pyplot as plt
-    matrix = matrix[:,254:643]
-    mins_matrix = np.ma.masked_where(mins_matrix < 0.9, mins_matrix)
-    mins_matrix = mins_matrix[:,336:643]
-    fig = plt.figure(figsize=(30,10))
-    ax = fig.add_subplot(212)
-    ax.imshow(matrix, aspect='auto')
-    ax.imshow(mins_matrix, aspect='auto', cmap='binary_r', interpolation='nearest')
-    plt.savefig("/tmp/out.png")
-    np.save("/tmp/matrix_l2", matrix)
-    ######
-
-    return np.where(total_peaks >= half)[0]
-    """
-
 
 def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
     """
@@ -451,6 +397,25 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
     :param clust_cutoff: List of values to separate clusters. The
         clusters found at those value thresholds are returned.
 
+
+    :return: Z, clusters
+
+    For Z, the format used is similar as the scipy.cluster.hierarchy.linkage() function
+    which is described as follows:
+
+    A 4 by :math:`(n-1)` matrix ``Z`` is returned. At the
+    :math:`i`-th iteration, clusters with indices ``Z[i, 0]`` and
+    ``Z[i, 1]`` are combined to form cluster :math:`n + i`. A
+    cluster with an index less than :math:`n` corresponds to one of
+    the :math:`n` original observations. The distance between
+    clusters ``Z[i, 0]`` and ``Z[i, 1]`` is given by ``Z[i, 2]``. The
+    fourth value ``Z[i, 3]`` represents the number of original
+    observations in the newly formed cluster.
+
+    The difference is that instead of a 4 times n-1 array, a
+    6 times n-1 array is returned. Where positions 4, and 5
+    correspond to the genomic coordinates of ``Z[i, 0]`` and ``Z[i, 1]``
+
     """
     # run the hierarchical clustering per chromosome
     if clusters_cutoff:
@@ -460,11 +425,10 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
     chrom, start, value = zip(*boundary_list)
 
     unique_chr, indices = np.unique(chrom, return_index=True)
-    indices = indices[1:] # the first element is not needed
+    indices = indices[1:]  # the first element is not needed
     start_per_chr = np.split(start, indices)
     value_per_chr = np.split(value, indices)
     Z = {}
-    points = {} # variable to hold the positions of the H clustering points for plotting
 
     def get_domain_positions(boundary_position):
         """
@@ -473,40 +437,69 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
         :param boundary_position: list of boundary chromosomal positions
         :return: list of (start, end) tuples.
         """
-        start = None
+        start_ = None
         domain_list = []
         for position in boundary_position:
-            if start is None:
-                start = position
+            if start_ is None:
+                start_ = position
                 continue
-            domain_list.append((start, position))
-            start = position
+            domain_list.append((start_, position))
+            start_ = position
 
         return domain_list
 
-    def find_in_clusters(clusters, search_id):
+    def find_in_clusters(clusters_, search_id):
         """
         Given a list of clusters (each cluster defined as as set,
         the function returns the position in which an id is found
-        :param clusters:
+        :param clusters_:
         :param search_id:
         :return:
         """
-        for set_idx, set_of_ids in enumerate(clusters):
+        for set_idx, set_of_ids in enumerate(clusters_):
             if search_id in set_of_ids:
                 return set_idx
-    return_clusters = {}
+
+    def cluster_to_regions(clusters_, chrom_name):
+        """
+        Transforms a list of sets of ids from the hierarchical
+        clustering to genomic positions
+        :param clusters: cluster ids
+        :return: list of tuples with (chrom_name, start, end)
+
+        Example:
+
+        clusters = [set(1,2,3), set(4,5,10)]
+
+        """
+        start_list = []
+        end_list = []
+        for set_ in clusters_:
+            if len(set_) == 0:
+                continue
+
+            # the ids in the sets are created in such a
+            # that the min id is the one with the smalles start position
+            start_list.append(domains[min(set_)][0])
+            end_list.append(domains[max(set_)][1])
+
+        start_list = np.array(start_list)
+        end_list = np.array(end_list)
+        order = np.argsort(start_list)
+
+        return zip([chrom_name] * len(order), start_list[order], end_list[order])
+
+    return_clusters = {} # collects the genomic positions of the clusters per chromosome
+                         # The values are a list, one for each cutoff.
     for chrom_idx, chrom_name in enumerate(unique_chr):
         Z[chrom_name] = []
-        points[chrom_name] = []
         return_clusters[chrom_name] = []
         clust_cutoff = clusters_cutoff[:]
         domains = get_domain_positions(start_per_chr[chrom_idx])
         clusters = [{x} for x in range(len(domains))]
 
-        # for plotting
-        cluster_y = [0] * len(domains)
-        cluster_x = [d_start + float(d_end - d_start) / 2 for d_start, d_end in domains]
+        # initialize the cluster_x with the genomic position of domain centers
+        cluster_x = [int(d_start + float(d_end - d_start) / 2) for d_start, d_end in domains]
         # number of domains should be equal to the number of values minus 1
         assert len(domains) == len(value_per_chr[chrom_idx]) -1, "error"
 
@@ -527,63 +520,67 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
             if len(clust_cutoff) and idx + 1 < len(order) and \
                     values[order_idx] >= clust_cutoff[0] > values[order[idx + 1]]:
                 clust_cutoff = clust_cutoff[1:] # remove first element
-                return_clusters[chrom_name].append(cluster_to_regions(clusters, domains, chrom_name))
+                return_clusters[chrom_name].append(cluster_to_regions(clusters, chrom_name))
             # merge domains order_idx - 1 and order_idx
             left = find_in_clusters(clusters, order_idx)
             right = find_in_clusters(clusters, order_idx + 1)
             Z[chrom_name].append((left, right, values[order_idx],
-                     len(clusters[left]) + len(clusters[right])))
+                                  len(clusters[left]) + len(clusters[right]),
+                                  cluster_x[left], cluster_x[right]))
 
-            #for plotting
-            x = []
-            y = []
-            for cluster_id in [left, right]:
-                x.append(cluster_x[cluster_id])
-                y.append(cluster_y[cluster_id])
+            # set as new cluster position the center between the two merged
+            # clusters
+            gen_dist = int(float(abs(cluster_x[left] - cluster_x[right]))/2)
+            cluster_x.append(min(cluster_x[left], cluster_x[right]) + gen_dist)
 
-            y.append(1-values[order_idx])
-
-            cluster_x.append(start_trimmed[order_idx])
-            cluster_y.append(1-values[order_idx])
-            points[chrom_name].append(np.vstack([(x[0], x[0], x[1], x[1]),
-                                               (y[0], y[2], y[2], y[1])]))
-            # end for plotting
 
             clusters.append(clusters[left].union(clusters[right]))
             clusters[left] = set()
             clusters[right] = set()
 
-    # convert clusters per chr into one list:
-    ret_ = {}
-    for cutoff  in clusters_cutoff:
+
+    # convert return_clusters from a per chromosome dictionary to
+    # a per cut_off dictionary merging all chromosomes in to one list.
+    ret_ = {}  # dictionary to hold the clusters per cutoff. The key of
+               # each item is the str(cutoff)
+
+    for idx, cutoff  in enumerate(clusters_cutoff):
+        cutoff = str(cutoff)
         ret_[cutoff] = []
         for chr_name in return_clusters:
-            ret_[cutoff].extend(return_clusters[chr_name])
+            ret_[cutoff].extend(return_clusters[chr_name][idx])
 
 
-    return  Z, points, ret_
+    return  Z, ret_
 
-def cluster_to_regions(cluster, domains, chrom_name):
+
+def save_linkage(Z, file_name):
     """
-    Transforms a list of sets from the hierarchical
-    clustering to genomic positions
-    :param cluster:
-    :return:
+
+    :param Z: Z has a format similar to the scipy.cluster.linkage matrix (see function
+                hierarchical_clustering).
+    :param file_name: File name to save the results
+    :return: None
     """
-    start_list = []
-    end_list = []
-    for set_ in cluster:
-        if len(set_) == 0:
-            continue
 
-        start_list.append(domains[min(set_)][0])
-        end_list.append(domains[max(set_)][1])
+    try:
+        file_h = open(file_name, 'w')
+    except IOError:
+        sys.stderr.write("Can't save linkage file:\n{}".format(file_name))
+        return
 
-    start_list = np.array(start_list)
-    end_list = np.array(end_list)
-    order = np.argsort(start_list)
+    count = 0
+    for chrom, values in Z.iteritems():
+        for id_a, id_b, distance, num_clusters, pos_a, pos_b in values:
+            count += 1
+            file_h.write('{}\t{}\t{}\tclust_{}\t{}\t.\t{}\t{}\t{}\n'.format(chrom,
+                                                                        int(pos_a),
+                                                                        int(pos_b),
+                                                                        count,
+                                                                        distance,
+                                                                        id_a, id_b,
+                                                                        num_clusters))
 
-    return zip([chrom_name] * len(order), start_list[order], end_list[order])
 
 def get_domains(boundary_list):
     """
@@ -610,10 +607,26 @@ def get_domains(boundary_list):
 
     return domain_list
 
+
+def save_clusters(clusters, file_prefix):
+    """
+
+    :param clusters: is a dictionary whose key is the cut of used to create it.
+                     the value is a list of tuples, each representing
+                      a genomec interval as ('chr', start, end).
+    :param file_prefix: file prefix to save the resulting bed files
+    :return: list of file names created
+    """
+    for cutoff, intervals in clusters.iteritems():
+        fileh = open("{}_{}.bed".format(file_prefix, cutoff) , 'w')
+        for chrom, start, end in intervals:
+            fileh.write("{}\t{}\t{}\t.\t0\t.\n".format(chrom, start, end))
+
+
 def main(args):
     hic_ma = hm.hiCMatrix(args.matrix)
-    # hic_ma.keepOnlyTheseChr('chrX')
-    # sys.stderr.write("\nWARNING: using only chromosome 3L\n\n")
+    hic_ma.keepOnlyTheseChr('chrX')
+    sys.stderr.write("\nWARNING: using only chromosome X\n\n")
     # hic_ma.save('/tmp/chrX.npz')
     # remove self counts
     hic_ma.diagflat(value=0)
@@ -636,11 +649,9 @@ def main(args):
         hic_ma.interval_trees, hic_ma.chrBinBoundaries = \
             hic_ma.intervalListToIntervalTree(new_intervals)
 
-
     if args.minDepth % hic_ma.getBinSize() != 0:
         sys.stderr.write('Warning. specified depth is not multiple of the '
-                         'hi-c matrix bin size ({})\n'.format(
-            hic_ma.getBinSize()))
+                         'hi-c matrix bin size ({})\n'.format(hic_ma.getBinSize()))
 
     binsize = hic_ma.getBinSize()
 
@@ -648,20 +659,19 @@ def main(args):
     max_depth_in_bins = int(args.maxDepth / binsize)
     print (min_depth_in_bins, max_depth_in_bins)
     sys.stderr.write("computing spectrum for window sizes between {} ({} bp)"
-                     "and {} ({} bp)".format(min_depth_in_bins,
-                                             binsize*min_depth_in_bins,
-                                             max_depth_in_bins,
-                                             binsize*max_depth_in_bins))
+                     "and {} ({} bp)\n".format(min_depth_in_bins,
+                                               binsize * min_depth_in_bins,
+                                               max_depth_in_bins,
+                                               binsize * max_depth_in_bins))
     if min_depth_in_bins <= 1:
-        sys.stderr.write('minDepth length too small. Use a value that is larger '
-                         'than the binsize which is: {}\n'.format(binsize))
+        sys.stderr.write('ERROR\nminDepth length too small. Use a value that is at least'
+                         'twice as large as the bin size which is: {}\n'.format(binsize))
         exit()
 
     if max_depth_in_bins <= 1:
-        sys.stderr.write('maxDepth length too small. Use a value that is larger '
-                         'than the binsize which is: {}\n'.format(binsize))
+        sys.stderr.write('ERROR\nmaxDepth length too small. Use a value that is larger '
+                         'than the bin size which is: {}\n'.format(binsize))
         exit()
-
 
     # work only with the lower matrix
     hic_ma.matrix = sparse.tril(hic_ma.matrix, k=0, format='csr')
@@ -674,56 +684,100 @@ def main(args):
     mean_mat = matrix.mean(axis=1)
     min_idx = find_consensus_minima(matrix, delta=args.delta)
 
-    boundary_list = [(chrom[min], chr_start[min], mean_mat[min]) for min in min_idx]
+#    boundary_list = [(chrom[min], chr_start[min], mean_mat[min]) for min in min_idx]
+    boundary_list = [(hic_ma.cut_intervals[min_][0], hic_ma.cut_intervals[min_][2], mean_mat[min_]) for min_ in min_idx]
 
-    Z, points, clusters = hierarchical_clustering(boundary_list, clusters_cutoff=(0.3, 0.2))
+    Z, clusters = hierarchical_clustering(boundary_list, clusters_cutoff=[0.4, 0.3, 0.2])
 
-    import pdb;pdb.set_trace()
+    save_linkage(Z, '/tmp/linkage')
+    save_clusters(clusters, '/tmp/clusters')
+
     # save results
-    # 1. save boundaries position
-    for idx in min_idx:
-        start = hic_ma.cut_intervals[idx][2]
-        end = start + 1 # boundaries at 1 bp resolution
-        args.outFileName.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom[idx], start,
-                                              end, matrix[idx, -1]))
-
-
-    domains = get_domains(boundary_list)
-    save_domains("/tmp/d1.bed", domains)
-
-    # 2. save domains and clusters
-def save_domains(file_name, domains):
-    filed = open(file_domains, 'w')
     prev_start = 0
+    prev_chrom = chrom[0]
     count = 0
+    filed = open('/tmp/filed.txt', 'w')
+    rgb = '31,120,180'
     for idx in min_idx:
-        boundary_center = end[idx] - int((end[idx] - start[idx])/2)
-        # this happens at the borders of chromosomes
-        if boundary_center < 0:
-            continue
-        fileh.write("{0}\t{1}\t{2}\tID_{3}\t{4}\t.\n".format(
-                chrom[idx],
-                boundary_center,
-                boundary_center + 1,
-                idx,
-                conductance[idx]))
+        # 1. save boundaries position
+        chrom_name = hic_ma.cut_intervals[idx][0]
+        start = hic_ma.cut_intervals[idx][2]
+        end = start + 1  # boundaries at 1 bp resolution
+        args.outFileName.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_name, start, end, matrix[idx, -1]))
 
+        if prev_chrom != chrom[idx]:
+            chrom_first_bin_id, chrom_last_bin_id = hic_ma.getChrBinRange(prev_chrom)
+            filed.write("{0}\t{1}\t{2}\tID_{3}\t{4}\t."
+                        "\t{1}\t{2}\t{5}\n".format(chrom[idx],
+                                                   prev_start,
+                                                   hic_ma.cut_intervals[chrom_last_bin_id-1][2],
+                                                   idx,
+                                                   mean_mat[idx],
+                                                   rgb))
+
+        # 2. save domain intervals
         if count % 2 == 0:
             rgb = '51,160,44'
         else:
             rgb = '31,120,180'
         filed.write("{0}\t{1}\t{2}\tID_{3}\t{4}\t."
-                    "\t{1}\t{2}\t{5}\n".format(chrom[idx],
+                    "\t{1}\t{2}\t{5}\n".format(chrom_name,
                                                prev_start,
-                                               boundary_center,
+                                               start,
                                                idx,
-                                               conductance[idx],
+                                               mean_mat[idx],
                                                rgb))
-        count += 1
-        prev_start = boundary_center
 
-    fileh.close()
-    filed.close()
+        count += 1
+        prev_start = start
+
+    # save last domain
+    chrom_first_bin_id, chrom_last_bin_id = hic_ma.getChrBinRange(chrom_name)
+    filed.write("{0}\t{1}\t{2}\tID_{3}\t{4}\t."
+                "\t{1}\t{2}\t{5}\n".format(chrom_name,
+                                           prev_start,
+                                           hic_ma.cut_intervals[chrom_last_bin_id-1][2],
+                                           idx,
+                                           mean_mat[idx],
+                                           rgb))
+
+    """
+    ## legacy code just in case
+    ## the following lines center the boundary in the bin that
+    ## has the minimun and not between two bins.
+
+    boundary_center = chr_end[idx] - int((chr_end[idx] - chr_start[idx])/2)
+    # previous method to get boundaries. I don't remember why I replaced it
+    # but they return different, yet similar, regions.
+
+    # this happens at the borders of chromosomes
+    if boundary_center < 0:
+        continue
+    fileh.write("{0}\t{1}\t{2}\tID_{3}\t{4}\t.\n".format(
+            chrom[idx],
+            boundary_center,
+            boundary_center + 1,
+            idx,
+            mean_mat[idx]))
+    # 2. save domain intervals
+
+    if count % 2 == 0:
+        rgb = '51,160,44'
+    else:
+        rgb = '31,120,180'
+    filed.write("{0}\t{1}\t{2}\tID_{3}\t{4}\t."
+                "\t{1}\t{2}\t{5}\n".format(chrom[idx],
+                                           prev_start,
+                                           boundary_center,
+                                           idx,
+                                           mean_mat[idx],
+                                           rgb))
+    """
+
+    domains = get_domains(boundary_list)
+    # TODO: fix this line
+    # 2. save domains and clusters
+
 
 if __name__ == "__main__":
     ARGS = parsearguments()
