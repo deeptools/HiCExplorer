@@ -57,6 +57,11 @@ def parsearguments(args=None):
                         type=argparse.FileType('w'),
                         required=True)
 
+    parser.add_argument('--useLogValues',
+                        help='If set, the log of the matrix values are'
+                             'used.',
+                        action='store_true')
+
     args = parser.parse_args(args)
     if args.maxDepth <= args.minDepth:
         exit("Please check that maxDepth is larger than minDepth.")
@@ -548,8 +553,8 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
         cutoff = str(cutoff)
         ret_[cutoff] = []
         for chr_name in return_clusters:
-            ret_[cutoff].extend(return_clusters[chr_name][idx])
-
+            if idx in return_clusters[chr_name]:
+                ret_[cutoff].extend(return_clusters[chr_name][idx])
 
     return  Z, ret_
 
@@ -632,9 +637,10 @@ def main(args):
     hic_ma.diagflat(value=0)
     sys.stderr.write('removing diagonal values\n')
 
-    # use log values for the computations
-    #hic_ma.matrix.data = np.log(hic_ma.matrix.data)
-    #sys.stderr.write('using log matrix values\n')
+    if args.useLogValues is True:
+        # use log values for the computations
+        hic_ma.matrix.data = np.log(hic_ma.matrix.data)
+        sys.stderr.write('using log matrix values\n')
 
     # mask bins without any information
     hic_ma.maskBins(hic_ma.nan_bins)
