@@ -320,45 +320,46 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
 
     # maximum and minimum candidates are temporarily stored in
     # mx and mn respectively
-    mn, mx = np.Inf, -np.Inf
-    mxpos, mnpos = None, None
+    min_y, max_y = np.Inf, -np.Inf
+    max_pos, min_pos = None, None
 
     # Only detect peak if there is 'lookahead' amount of points after it
     for index, (x, y) in enumerate(zip(x_axis[:-lookahead],
                                        y_axis[:-lookahead])):
-        if y > mx:
-            mx = y
-            mxpos = x
-        if y < mn:
-            mn = y
-            mnpos = x
+        if y > max_y:
+            max_y = y
+            max_pos = x
+        if y < min_y:
+            min_y = y
+            min_pos = x
 
         # look for max
-        if y < mx - delta and mx != np.Inf:
+        if y < max_y - delta and max_y != np.Inf:
             # Maximum peak candidate found
             # look ahead in signal to ensure that this is a peak and not jitter
-            if y_axis[index:index+lookahead].max() < mx:
-                max_peaks.append([mxpos, mx])
+            if y_axis[index:index + lookahead].max() < max_y:
+                max_peaks.append([max_pos, max_y])
                 dump.append(True)
                 # set algorithm to only find minimum now
-                mx = np.Inf
-                mn = np.Inf
+                max_y = y
+                min_y = y
+                min_pos =x
                 if index + lookahead >= length:
                     # end is within lookahead no more peaks can be found
                     break
                 continue
 
         # look for min
-        if y > mn + delta and mn != -np.Inf:
+        if y > min_y + delta and min_y != -np.Inf:
             # Minimum peak candidate found
             # look ahead in signal to ensure that this is a peak and not jitter
-            if y_axis[index:index+lookahead].min() > mn:
-                min_peaks.append([mnpos, mn])
+            if y_axis[index:index + lookahead].min() > min_y:
+                min_peaks.append([min_pos, min_y])
                 dump.append(False)
                 # set algorithm to only find maximum now
-                mn = -np.Inf
-                mx = -np.Inf
-                if index+lookahead >= length:
+                min_y = -np.Inf
+                max_y = -np.Inf
+                if index + lookahead >= length:
                     # end is within lookahead no more peaks can be found
                     break
 
