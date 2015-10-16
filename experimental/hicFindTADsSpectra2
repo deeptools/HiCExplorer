@@ -396,7 +396,7 @@ def find_consensus_minima(matrix, lookahead=3, delta=0):
 
     _max, _min= peakdetect(matrix.mean(axis=1), lookahead=lookahead, delta=delta)
     min_indices, __ = zip(*_min)
-    return min_indices
+    return np.unique(min_indices)
 
 
 def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
@@ -490,7 +490,7 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
                 continue
 
             # the ids in the sets are created in such a
-            # that the min id is the one with the smalles start position
+            # that the min id is the one with the smaller start position
             start_list.append(domains[min(set_)][0])
             end_list.append(domains[max(set_)][1])
 
@@ -638,9 +638,8 @@ def save_clusters(clusters, file_prefix):
 
 def main(args):
     hic_ma = hm.hiCMatrix(args.matrix)
-    hic_ma.keepOnlyTheseChr('chrX')
-    sys.stderr.write("\nWARNING: using only chromosome X\n\n")
-    # hic_ma.save('/tmp/chrX.npz')
+    #hic_ma.keepOnlyTheseChr('chrX')
+    #sys.stderr.write("\nWARNING: using only chromosome X\n\n")
     # remove self counts
     hic_ma.diagflat(value=0)
     sys.stderr.write('removing diagonal values\n')
