@@ -55,6 +55,9 @@ width = 1.5
 orientation = inverted
 min_value = 0.10
 max_value = 0.70
+# if type is set as lines, then the TAD score lines are drawn instead
+# of the matrix
+type = lines
 
 [dendrogram]
 # a dendrogram is saved in a bed file that contains
@@ -579,7 +582,7 @@ def plot_x_axis(ax, region, properties):
                   for x in ticks]
         labels[-1] += "Kbp"
     else:
-        labels = ["{:.0f}Mbp".format((x / 1e6))
+        labels = ["{:.1f}Mbp".format((x / 1e6))
                   for x in ticks]
         # labels[-1] += "Mbp"
 
@@ -1325,10 +1328,14 @@ def plot_bedgraph_matrix(ax, label_ax, properties, region):
     if 'min_value' in properties and properties['min_value'] != 'auto':
         vmin = properties['min_value']
 
-
-    X, Y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
-    img = ax.pcolormesh(X, Y, matrix, vmin=vmin, vmax=vmax, shading='gouraud')
-    img.set_rasterized(True)
+    if 'type' in properties and properties['type'] == 'lines':
+        for row in matrix:
+            ax.plot(start_pos, row)
+        ax.plot(start_pos, matrix.mean(axis=0), "--")
+    else:
+        X, Y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
+        img = ax.pcolormesh(X, Y, matrix, vmin=vmin, vmax=vmax, shading='gouraud')
+        img.set_rasterized(True)
     ax.set_xlim(start_region, end_region)
     ax.set_frame_on(False)
     ax.axes.get_xaxis().set_visible(False)
@@ -1557,7 +1564,7 @@ def main():
             label_axis.set_axis_off()
 
         if properties['file'].endswith('.bed'):
-            if properties['type'] == 'dendrogram':
+            if 'type' in properties and properties['type'] == 'dendrogram':
                 plot_dendrogram(axis, label_axis, properties, region)
             else:
                 plot_bed(axis, label_axis, properties, region)
