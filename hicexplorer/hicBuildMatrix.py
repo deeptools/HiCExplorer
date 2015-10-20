@@ -107,7 +107,7 @@ def parseArguments(args=None):
 
     parser.add_argument('--restrictionCutFile', '-rs',
                         help=('BED file with all restriction cut places. '
-                                'Should contaion only  mappable '
+                                'Should contain only  mappable '
                                 'restriction sites. If given, the bins are '
                                 'set to match the restriction fragments (i.e. '
                                 'the region between one restriction site and '
