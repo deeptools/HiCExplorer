@@ -21,6 +21,11 @@ Examples of usage
 
 .. code-block:: bash
 
+   # map the reads, each mate individually using for example 
+   # bowtie2
+   $ bowtie2 -p 16 --local --reorder -x indes_path \
+       -U mate_R1.fastq.gz ) 2>>mate_R1.log | samtools view -Shb - > mate_R1.bam
+   
    # build matrix from idependently mated read pairs
    $ hiCBuildMatrix --samFiles mate1.sam mate2.sam \
                     --binSize 10000 \
