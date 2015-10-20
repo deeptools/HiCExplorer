@@ -92,7 +92,7 @@ def parseArguments(args=None):
                         help=('Size in bp. If used, the '
                               'restriction cut places (if given) '
                               'are used to only consider reads that '
-                              'are in the vicinity of the resctriction '
+                              'are in the vicinity of the restriction '
                               'sites. Otherwise all reads in the '
                               'interval are considered. '),
                         type=int,
