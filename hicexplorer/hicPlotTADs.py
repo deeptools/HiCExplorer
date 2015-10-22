@@ -14,6 +14,9 @@ show_masked_bins = yes
 x labels = yes
 type = arcplot
 type = interaction
+#optional in case it can not be guessed by the file ending
+file_type = hic_matrix
+
 
 [x-axis]
 
@@ -28,20 +31,59 @@ min_value = 0
 width = 1.5
 number of bins = 500
 nans to zeros = True
+#optional in case it can not be guessed by the file ending
+file_type = bigwig
+
+[simple bed]
+file = file.bed
+title = peaks
+color = read
+width = 0.5
+# optional. If not given is guessed from the file ending
+file_type = bed
 
 [genes]
-file = dm3.genes_with_symbol_chrX.bed
+# example of a genes track
+# has the same options as a simple
+# bed but if the type=genes is given
+# the the file is interpreted as gene
+# file. If the bed file contains the exon
+# structure then this is plottee. Otherwise
+# a region **with direction** is plotted.
+file = genes.bed
 title = genes
 color = darkblue
 width = 5
+# to turn off/on printing of labels
+labels = off
+# options are 'genes' or 'domains'.
 type = genes
+# optional. If not given is guessed from the file ending
+file_type = bed
 
 [chrom states]
-file = /data/manke/group/ramirez/HiC-ThomasLing/data/ChromatinStates/chromatinStates_kc.bed
-title =
+# this is a case of a bed file that is plotted 'collapsed'
+# useful to plot chromatin states if the bed file contains
+# the color to plot
+file = chromatinStates.bed
+title = chromatin states
+# color is replaced by the color in the bed file
+# in this case
 color = black
+# default behaviour when plotting intervals from a
+# bed file is to 'expand' them such that they
+# do not overlap. The display = collapsed
+# directive overlaps the intervals.
 display = collapsed
 width = 0.3
+
+[bedgraph]
+file = file.bg
+title = bedgraph track
+color = green
+width = 0.2
+# optional, otherwise guseed from file ending
+file_type = bedgraph
 
 
 [bedgraph matrix]
@@ -57,7 +99,10 @@ min_value = 0.10
 max_value = 0.70
 # if type is set as lines, then the TAD score lines are drawn instead
 # of the matrix
+# set to lines if a heatmap representing the matrix
+# is not wanted
 type = lines
+file_type = bedgraph_matrix
 
 [dendrogram]
 # a dendrogram is saved in a bed file that contains
@@ -66,8 +111,11 @@ file =  linkage.bed
 title = dendrogram
 width = 2
 orientation = inverted
-type = dendrogram
+# required on this case. Otherwise
+# the bed file will be plotted as regions
+file_type = dendrogram
 hlines = 0.2 0.3
+
 
 """
 
@@ -309,11 +357,7 @@ def plot_boundaries(ax, file_name, region):
     file_names = [x for x in file_name.split(" ") if x != '']
 
     for file_name in file_names:
-        try:
-            file_h = open(file_name, 'r')
-        except IOError:
-            sys.stderr.write("Boundaries file not found:\n{}".format(file_name))
-            return
+        file_h = open(file_name, 'r')
 
         # get intervals as list
         intervals = []
@@ -968,9 +1012,10 @@ def draw_gene_simple(ax, fields, ypos, bed_properties, small_relative, rgb, edge
                                             edgecolor='black',
                                             facecolor=rgb))
 
-    center = start + float(end - start)/2
-    ax.text(center, ypos + 125, fields[3], size='small',
-            horizontalalignment='center', verticalalignment='top')
+    if 'labels' in bed_properties and bed_properties['labels'] != 'off':
+        center = start + float(end - start)/2
+        ax.text(center, ypos + 125, fields[3], size='small',
+                horizontalalignment='center', verticalalignment='top')
 
 
 def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor,
@@ -1054,9 +1099,10 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
                 ax.plot([intron_center], [ypos+50], '.', marker=5,
                         fillstyle='none', color='blue', markersize=3)
 
-    center = start + float(end - start)/2
-    ax.text(center, ypos + 125, fields[3],
-            horizontalalignment='center', verticalalignment='top', fontproperties=fontproperties)
+    if 'labels' in bed_properties and bed_properties['labels'] != 'off':
+        center = start + float(end - start)/2
+        ax.text(center, ypos + 125, fields[3],
+                horizontalalignment='center', verticalalignment='top', fontproperties=fontproperties)
 
 
 def plot_bed(ax, label_ax, bed_properties, region):
@@ -1086,7 +1132,10 @@ def plot_bed(ax, label_ax, bed_properties, region):
     else:
         fp = None
 
-    if 'type' in bed_properties and bed_properties['type'] == 'genes':
+    # to avoid overlaping gene labels, the size of a 'w' is estimated
+    if 'type' in bed_properties and bed_properties['type'] == 'genes' \
+            and 'labels' in bed_properties and bed_properties['label' \
+                                                              's'] != 'off':
         t = matplotlib.textpath.TextPath((0, 0), 'w', prop=fp)
         len_w = t.get_extents().width * 300
     else:
@@ -1190,7 +1239,6 @@ def plot_bed(ax, label_ax, bed_properties, region):
             if 'type' in bed_properties and \
                     bed_properties['type'] == 'genes' and \
                     strand in ['+', '-']:
-                # draw_gene_simple(ax, fields, ypos, bed_properties, small_relative)
                 draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor,
                                        fontproperties=fp)
 
@@ -1403,6 +1451,7 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
                             color=bigwig_properties['color'],
                             facecolor=bigwig_properties['color'])
 
+    ax.patch.set_visible(False)
     ax.set_xlim(region[1], region[2])
     ymin, ymax = ax.get_ylim()
     if 'max_value' in bigwig_properties and ['max_value'] != 'auto':
@@ -1469,6 +1518,7 @@ def get_region(region_string):
         region_string = [chrom, region_start, region_end]
     return chrom, region_start, region_end
 
+
 def parse_tracks(tracks_file):
     """
     Parses a configuration file
@@ -1483,7 +1533,7 @@ def parse_tracks(tracks_file):
 
     track_list = []
     for section_name in parser.sections():
-        track_options = dict()
+        track_options = dict({"section_name": section_name})
         if section_name in ['spacer', 'x-axis']:
             track_options[section_name] = True
         for name, value in parser.items(section_name):
@@ -1497,9 +1547,57 @@ def parse_tracks(tracks_file):
     return track_list
 
 
-def main():
+def check_file_exists(track_dict):
+    """
+    Checks if a file or list of files exists
+    :param track_dict: dictionary of track values. Should contain
+                        a 'file' key containing the path of the file
+                        or files to be checked separated by space
+                        For example: file1 file2 file3
+    :return: None
+    """
+    file_names = [x for x in track_dict['file'].split(" ") if x != '']
+    for file_name in file_names:
+        try:
+            file_h = open(file_name, 'r').close()
+        except IOError:
+            sys.stderr.write("File in section [{}] "
+                             "not found:\n{}".format(track_dict['section_name'],
+                                                                file_name))
+            exit(1)
 
-    args = parse_arguments().parse_args()
+
+def guess_filetype(track_dict):
+    """
+
+    :param track_dict: dictionary of track values with the 'file' key
+                containing a string path of the file or files. Only the ending
+                 of the last file is used in case when there are more files
+    :return: string file type detected
+    """
+    file = track_dict['file'].strip()
+    file_type = None
+
+    if file.endswith(".bed"):
+        file_type = 'bed'
+    elif file.endswith(".npz"):
+        file_type = 'hic_matrix'
+    elif file.endswith(".bw"):
+        file_type = 'bigwig'
+    elif file.endswith(".bg"):
+        file_type = 'bedgraph'
+    elif file.endswith(".bm"):
+        file_type = 'bedgraph_matrix'
+    else:
+        exit("Section [{}]: can not identify file type. Please specify "
+             "the file_type for {}".format(track_dict['section_name'],
+                                           file))
+
+    return file_type
+
+def main(args=None):
+
+    args = parse_arguments().parse_args(args)
 
     region = get_region(args.region)
     chrom, region_start, region_end = region
@@ -1514,6 +1612,10 @@ def main():
     # to get the height of each of the tracks
     track_height = []
     for track_dict in track_properties:
+        if 'file' in track_dict and track_dict['file'] != '':
+            if 'file_type' not in track_dict:
+                track_dict['file_type'] = guess_filetype(track_dict)
+            check_file_exists(track_dict)
         if 'width' in track_dict:
             track_height.append(track_dict['width'])
         elif 'depth' in track_dict:
@@ -1563,16 +1665,17 @@ def main():
             label_axis = plt.subplot(grids[idx, 1])
             label_axis.set_axis_off()
 
-        if properties['file'].endswith('.bed'):
-            if 'type' in properties and properties['type'] == 'dendrogram':
-                plot_dendrogram(axis, label_axis, properties, region)
-            else:
-                plot_bed(axis, label_axis, properties, region)
-        elif properties['file'].endswith('.bg'):
+        if properties['file_type'] == 'bed':
+            plot_bed(axis, label_axis, properties, region)
+        elif properties and properties['file_type'] == 'dendrogram':
+            plot_dendrogram(axis, label_axis, properties, region)
+        elif properties['file_type'] == 'bedgraph':
             plot_bedgraph(axis, label_axis, properties, region)
-        elif properties['file'].endswith('.bw'):
+        elif properties['file_type'] == 'bigwig':
             plot_bigwig(axis, label_axis, properties, region)
-        elif properties['file'].endswith('.npz'):
+        elif properties['file_type'] == 'begraph_matrix':
+            plot_bedgraph_matrix(axis, label_axis, properties, region)
+        elif properties['file_type'] == 'hic_matrix':
             if 'type' in properties:
                 if properties['type'] == 'interaction':
                     plot_interactions(axis, properties, region, args)
@@ -1590,8 +1693,6 @@ def main():
                 label_axis.set_axis_off()
                 plot_matrix(axis, label_axis, cbar_axis,
                             properties, region)
-        elif properties['file'].endswith('.bm'):
-            plot_bedgraph_matrix(axis, label_axis, properties, region)
         axis_list.append(axis)
     if args.vlines:
         from matplotlib.patches import ConnectionPatch
@@ -1606,7 +1707,7 @@ def main():
                                   arrowstyle="-",
                                   linestyle='dashed',
                                   linewidth=0.5,
-                                  zorder=10)
+                                  zorder=100)
             axis_list[0].add_artist(con)
 
     plt.subplots_adjust(wspace=0, hspace=0.1, top=0.9,
