@@ -114,7 +114,19 @@ orientation = inverted
 # required on this case. Otherwise
 # the bed file will be plotted as regions
 file_type = dendrogram
+# y positions to draw horizontal lines
 hlines = 0.2 0.3
+
+[vlines]
+# vertical dotted lines from the top to the bottom of the figure
+# can be drawn. For this a bed file is required
+# but only the first two columns (chromosome name and start
+# are used.
+# vlines can also be given at the command line as a list
+# of genomic positions. However, sometimes to give a file
+# is more convenient in case many lines want to be plotted.
+file = regions.bed
+type = vlines
 
 
 """
@@ -1496,6 +1508,52 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
                   # transform=label_ax.transAxes)
 
 
+def plot_vlines(vlines_list, vlines_file, axis_list, region):
+    """
+    Plots dotted lines from the top of the first plot to the bottom
+    of the last plot at the specified positions.
+
+    :param vlines_list: list of positions
+    :param vlines_file: bed file
+    :param axis_list: list of plotted axis
+    :param region: tuple containing the region to plot
+    :return: None
+    """
+    chrom_region, start_region, end_region = region
+    if vlines_list is None:
+        vlines_list = []
+
+    if vlines_file:
+        file_h = open(vlines_file, 'r')
+        for line in file_h.readlines():
+            if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
+                continue
+            # consider only the first two columns (chrom and start)
+            chrom, start = line.strip().split('\t')[0:2]
+            start = int(start)
+            if chrom == chrom_region and \
+               start_region <= start and \
+               end_region >= start + 1:
+                vlines_list.append(start)
+
+    from matplotlib.patches import ConnectionPatch
+    a_ymax = axis_list[0].get_ylim()[1]
+    b_ymin = axis_list[-1].get_ylim()[0]
+
+
+    for start_pos in vlines_list:
+        con = ConnectionPatch(xyA=(start_pos, a_ymax),
+                              xyB=(start_pos, b_ymin),
+                              coordsA="data", coordsB="data",
+                              axesA=axis_list[0],
+                              axesB=axis_list[-1],
+                              arrowstyle="-",
+                              linestyle='dashed',
+                              linewidth=0.5,
+                              zorder=100)
+        axis_list[0].add_artist(con)
+
+
 def get_region(region_string):
     """
     splits a region string into
@@ -1515,8 +1573,8 @@ def get_region(region_string):
             region_end = int(region[2])
         except IndexError:
             region_end = 1e15  # a huge number
-        region_string = [chrom, region_start, region_end]
-    return chrom, region_start, region_end
+
+        return chrom, region_start, region_end
 
 
 def parse_tracks(tracks_file):
@@ -1524,7 +1582,7 @@ def parse_tracks(tracks_file):
     Parses a configuration file
 
     :param tracks_file: file path containing the track configuration
-    :return: array of dictionaries. Each
+    :return: array of dictionaries and vlines_file. One dictionary per track
     """
     from ConfigParser import SafeConfigParser
     from ast import literal_eval
@@ -1532,6 +1590,7 @@ def parse_tracks(tracks_file):
     parser.readfp(tracks_file)
 
     track_list = []
+    vlines_file = None
     for section_name in parser.sections():
         track_options = dict({"section_name": section_name})
         if section_name in ['spacer', 'x-axis']:
@@ -1542,9 +1601,12 @@ def parse_tracks(tracks_file):
             else:
                 track_options[name] = value
 
-        track_list.append(track_options)
+        if 'type' in track_options and track_options['type'] == 'vlines':
+            vlines_file = track_options['file']
+        else:
+            track_list.append(track_options)
 
-    return track_list
+    return track_list, vlines_file
 
 
 def check_file_exists(track_dict):
@@ -1605,7 +1667,7 @@ def main(args=None):
         exit("Please check that the region end is larger than the region start.\n"
              "Values given:\nstart: {}\nend: {}\n".format(region_start, region_end))
 
-    track_properties = parse_tracks(args.tracks)
+    track_properties, vlines_file = parse_tracks(args.tracks)
 
     # prepare layout based on the tracks given.
     # The main purpose of the following loop is
@@ -1616,6 +1678,7 @@ def main(args=None):
             if 'file_type' not in track_dict:
                 track_dict['file_type'] = guess_filetype(track_dict)
             check_file_exists(track_dict)
+
         if 'width' in track_dict:
             track_height.append(track_dict['width'])
         elif 'depth' in track_dict:
@@ -1642,7 +1705,7 @@ def main(args=None):
     font = {'size': fontsize}
     matplotlib.rc('font', **font)
 
-    grids = gridspec.GridSpec(len(track_properties), 2,
+    grids = gridspec.GridSpec(len(track_height), 2,
                               height_ratios=track_height,
                               width_ratios=[1, 0.05])
 
@@ -1694,21 +1757,9 @@ def main(args=None):
                 plot_matrix(axis, label_axis, cbar_axis,
                             properties, region)
         axis_list.append(axis)
-    if args.vlines:
-        from matplotlib.patches import ConnectionPatch
-        a_ymax = axis_list[0].get_ylim()[1]
-        b_ymin = axis_list[-1].get_ylim()[0]
-        for start_pos in args.vlines:
-            con = ConnectionPatch(xyA=(start_pos, a_ymax),
-                                  xyB=(start_pos, b_ymin),
-                                  coordsA="data", coordsB="data",
-                                  axesA=axis_list[0],
-                                  axesB=axis_list[-1],
-                                  arrowstyle="-",
-                                  linestyle='dashed',
-                                  linewidth=0.5,
-                                  zorder=100)
-            axis_list[0].add_artist(con)
+    if args.vlines or vlines_file:
+        plot_vlines(args.vlines, vlines_file, axis_list, region)
+
 
     plt.subplots_adjust(wspace=0, hspace=0.1, top=0.9,
                         bottom=0.12, left=0.04, right=0.92)
