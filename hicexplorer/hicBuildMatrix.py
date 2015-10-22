@@ -92,7 +92,7 @@ def parseArguments(args=None):
                         help=('Size in bp. If used, the '
                               'restriction cut places (if given) '
                               'are used to only consider reads that '
-                              'are in the vicinity of the resctriction '
+                              'are in the vicinity of the restriction '
                               'sites. Otherwise all reads in the '
                               'interval are considered. '),
                         type=int,
@@ -107,7 +107,7 @@ def parseArguments(args=None):
 
     parser.add_argument('--restrictionCutFile', '-rs',
                         help=('BED file with all restriction cut places. '
-                                'Should contaion only  mappable '
+                                'Should contain only  mappable '
                                 'restriction sites. If given, the bins are '
                                 'set to match the restriction fragments (i.e. '
                                 'the region between one restriction site and '
