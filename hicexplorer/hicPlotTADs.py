@@ -1461,9 +1461,8 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
             x_values = np.linspace(region_start, region_end, num_bins)
             ax.fill_between(x_values, score, linewidth=0.1,
                             color=bigwig_properties['color'],
-                            facecolor=bigwig_properties['color'])
+                            facecolor=bigwig_properties['color'], zorder=1)
 
-    ax.patch.set_visible(False)
     ax.set_xlim(region[1], region[2])
     ymin, ymax = ax.get_ylim()
     if 'max_value' in bigwig_properties and ['max_value'] != 'auto':
@@ -1717,6 +1716,8 @@ def main(args=None):
         axis = axisartist.Subplot(fig, grids[idx, 0])
         fig.add_subplot(axis)
         axis.axis[:].set_visible(False)
+        # to make the background transparent
+        axis.patch.set_visible(False)
 
         if 'x-axis' in properties:
             # ideally the axisartis would allow
