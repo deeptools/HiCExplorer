@@ -524,9 +524,9 @@ def main():
                              "second)\n".format(iter_num,
                                                 elapsed_time,
                                                 iter_num/elapsed_time))
-            sys.stderr.write("{} ({:.2f}) pairs added to matrix"\
+            sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"\
                                  "\n".format(pair_added,
-                                             float(pair_added)/iter_num))
+                                             float(100 * pair_added)/iter_num))
         """
         if iter_num > 2e6:
             sys.stderr.write("\n## WARNING. Early exit because of debugging ##\n\n")
@@ -537,6 +537,15 @@ def main():
             mate2 = str2.next()
         except StopIteration:
             break
+
+        # skip secondary alignments which
+        # have flag 256
+        while mate1.flag & 256 == 256:
+                mate1 = str1.next()
+
+        while mate2.flag & 256 == 256:
+                mate2 = str2.next()
+
 
         assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
             "Be sure that the sam files have the same read order " \
