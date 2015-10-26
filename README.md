@@ -20,7 +20,7 @@ $ hiCBuildMatrix --samFiles mate1.sam mate2.sam --binSize 10000 \
 # and a matrix summarizing the Hi-C contacts at the given resolution.
 
 # correct Hi-C matrix
-$ hiCorrectMatrix -m hic_matrix.npz -o hic_corrected.npz
+$ hicCorrectMatrix -m hic_matrix.npz -o hic_corrected.npz
 
 # visualize the corrected matrix
 $ hiCPlotMatrix -m hic_corrected.npz -o hic_plot.png
