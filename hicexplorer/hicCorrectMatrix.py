@@ -42,7 +42,7 @@ def parse_arguments(args=None):
     parser.add_argument('--inflationCutoff',
                         help='Value corresponding to the maximum number of times a bin '
                         'can be scaled up during the iterative correction. For example, '
-                        'a inflationCutoff of 3 will filter out all bins that were '
+                        'a inflation Cutoff of 3 will filter out all bins that were '
                         'expanded 3 times or more during the iterative correction.',
                         type=float)
 
@@ -62,7 +62,7 @@ def parse_arguments(args=None):
 
     parser.add_argument('--chromosomes', 
                         help='List of chromosomes to be included in the iterative '
-                        'correction. The order of the given chromosomes will be the' 
+                        'correction. The order of the given chromosomes will be then ' 
                         'kept for the resulting corrected matrix',
                         default=None,
                         nargs='+')
@@ -101,7 +101,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
     hic_ma: hic matrix object
     failed_bins: list of bin ids
     fill_contiguous: If True, stretches of masked rows/cols are filled.
-                     Otherwise, this cases are skipped
+                     Otherwise, these cases are skipped
 
     """
     logging.info("starting fill gaps")
