@@ -42,6 +42,7 @@ Examples of usage
    $ hicCorrectMatrix -m hic_matrix.npz -o hic_corrected.npz
 
    # visualize the corrected matrix
+   ## This needs different options now?? --tracks
    $ hicPlotMatrix -m hic_corrected.npz -o hic_plot.png
 
 
