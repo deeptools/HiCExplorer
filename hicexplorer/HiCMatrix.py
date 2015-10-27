@@ -191,6 +191,12 @@ class hiCMatrix:
     def getMatrix(self):
         matrix = self.matrix.todense()
         if len(self.nan_bins):
+            # to set NaN values the matrix type has to be
+            # float. Corrected matrices are of float
+            # type while uncorrected matrices are of
+            # of int type
+            if np.issubdtype(self.matrix, 'float') is False:
+                matrix = matrix.astype(float)
             matrix[self.nan_bins,:] = np.nan
             matrix[:,self.nan_bins] = np.nan
 
