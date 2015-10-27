@@ -217,6 +217,14 @@ def parse_arguments(args=None):
                         help='Font size for the labels of the plot',
                         type=float,
                         )
+
+    parser.add_argument('--dpi',
+                        help='Resolution for the image in case the'
+                             'ouput is a raster graphics image (e.g png, jpg)',
+                        type=int,
+                        default=72
+                        )
+
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -1737,7 +1745,7 @@ def main(args=None):
             plot_bedgraph(axis, label_axis, properties, region)
         elif properties['file_type'] == 'bigwig':
             plot_bigwig(axis, label_axis, properties, region)
-        elif properties['file_type'] == 'begraph_matrix':
+        elif properties['file_type'] == 'bedgraph_matrix':
             plot_bedgraph_matrix(axis, label_axis, properties, region)
         elif properties['file_type'] == 'hic_matrix':
             if 'type' in properties:
@@ -1766,4 +1774,4 @@ def main(args=None):
                         bottom=0.12, left=0.04, right=0.92)
 
 #    plt.tight_layout()
-    plt.savefig(args.outFileName.name, dpi=300)
+    plt.savefig(args.outFileName.name, dpi=args.dpi)
