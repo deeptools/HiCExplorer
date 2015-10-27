@@ -47,7 +47,7 @@ def parseArguments(args=None):
     parser.add_argument('--whatToShow',
                         help='Options are: "heatmap", "3D", and "both". '
                         'Default is both',
-                        default="both",
+                        default="heatmap",
                         choices=["heatmap", "3D", "both"])
 
     parser.add_argument('--chromosomeOrder',
@@ -104,6 +104,12 @@ def parseArguments(args=None):
                         type=float,
                         default=None)
 
+    parser.add_argument('--dpi',
+                        help='Resolution for the image in case the'
+                             'ouput is a raster graphics image (e.g png, jpg)',
+                        type=int,
+                        default=72)
+
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -142,6 +148,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
                           norm=norm
                           )
 
+    img3.set_rasterized(True)
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     divider = make_axes_locatable(axHeat2)
     cax = divider.append_axes("right", size="2.5%", pad=0.09)
@@ -212,7 +219,7 @@ def plotPerChr(hic_matrix, cmap, args):
     fig_height = 6
     fig_width = sum((np.array(width_ratios)+0.95) * fig_height)
 
-    fig = plt.figure(figsize=(fig_width, fig_height), dpi=300)
+    fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
     norm = None
     if args.log1p:
@@ -235,6 +242,8 @@ def plotPerChr(hic_matrix, cmap, args):
                           norm=norm,
                           extent=[start[chrom_range[0]], end[chrom_range[1] - 1],
                                   end[chrom_range[1]-1], start[chrom_range[0]]])
+
+        img.set_rasterized(True)
 
         xticks = axis.get_xticks()
         xlabels = ["{:.0f}".format(int(x) / 1e6)
@@ -302,11 +311,10 @@ def main():
             idx2 = [idx for idx, x in enumerate(ma.cut_intervals) if \
                        x[0] == chrom2 and x[1] >= region_start2 and \
                        x[2] < region_end2]
-
-            # select only relevant part
-            matrix = ma.matrix[idx1, :][:, idx2].todense().astype(float)
         else:
-            matrix = ma.matrix[idx1, :][:, idx1].todense().astype(float)
+            idx2 = idx1
+        # select only relevant part
+        matrix = ma.matrix[idx1, :][:, idx2].todense().astype(float)
 
     else:
         matrix = ma.getMatrix().astype(float)
@@ -332,8 +340,7 @@ def main():
             width = 4.4/fig_width
             left_margin = (1.0-width) * 0.35
 
-
-        fig = plt.figure(figsize=(fig_width, fig_height), dpi=720)
+        fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
         bottom = 0.6 /fig_height
 
         if args.log:
@@ -360,4 +367,4 @@ def main():
             plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
                         args, fig_width, cmap)
 
-    plt.savefig(args.outFileName, dpi=320)
+    plt.savefig(args.outFileName, dpi=args.dpi)
