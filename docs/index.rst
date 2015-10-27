@@ -27,7 +27,7 @@ Examples of usage
        -U mate_R1.fastq.gz ) 2>>mate_R1.log | samtools view -Shb - > mate_R1.bam
    
    # build matrix from idependently mated read pairs
-   $ hiCBuildMatrix --samFiles mate1.sam mate2.sam \
+   $ hicBuildMatrix --samFiles mate1.sam mate2.sam \
                     --binSize 10000 \
                     --restrictionSequence GATC \
                     --outBam hic.bam \
@@ -39,10 +39,11 @@ Examples of usage
    # Hi-C contacts at the given resolution.
 
    # correct Hi-C matrix
-   $ hiCorrectMatrix -m hic_matrix.npz -o hic_corrected.npz
+   $ hicCorrectMatrix -m hic_matrix.npz -o hic_corrected.npz
 
    # visualize the corrected matrix
-   $ hiCPlotMatrix -m hic_corrected.npz -o hic_plot.png
+   ## This needs different options now?? --tracks
+   $ hicPlotMatrix -m hic_corrected.npz -o hic_plot.png
 
 
 
