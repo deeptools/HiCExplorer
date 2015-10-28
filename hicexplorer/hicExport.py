@@ -33,13 +33,13 @@ def parse_arguments(args=None):
                         nargs='+')
 
     parser.add_argument('--outputFormat',
-                        help='Output format. There are two possibilities: "dekker" and "ren". '
+                        help='Output format. The possibilities are "dekker",  "ren" and "hicexplorer". '
                              'The dekker format outputs the whole matrix where the '
                              'first column and first row are the bin widths and labels. '
                              'The "ren" format is a list of tuples of the form '
-                             'chrom, bin_star, bin_end, values.',
+                             'chrom, bin_star, bin_end, values. ',
                         default='dekker',
-                        choices=['dekker', 'ren'])
+                        choices=['dekker', 'ren', 'hicexplorer'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
@@ -67,5 +67,7 @@ def main():
     args.outFileName.close()
     if args.outputFormat == 'dekker':
         hic_ma.save_dekker(matrix_name)
-    else:
+    elif args.outputFormat == 'ren':
         hic_ma.save_bing_ren(matrix_name)
+    else:
+        hic_ma.save(matrix_name)
