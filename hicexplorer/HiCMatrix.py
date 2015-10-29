@@ -639,10 +639,10 @@ class hiCMatrix:
             print "error saving matrix: {}".format(e)
             try:
                 print "Matrix can not be saved because is too big!"
-                print "Eliminating bins with only one count."
+                print "Eliminating entries with only one count."
 
                 # try to remove noise by deleting 1
-                matrix.data = matris.data - 1
+                matrix.data = matrix.data - 1
                 matrix.eliminate_zeros()
                 np.savez(
                     fileName, matrix=matrix, chrNameList=chrNameList,
