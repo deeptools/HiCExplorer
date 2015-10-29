@@ -18,7 +18,7 @@ def parse_arguments(args=None):
         description='Uses a measure called TAD score to identify the separation between '
                     'left and right regions for a given position. This is done for a '
                     'running window of different sizes. Then, TADs are called as those '
-                    'positions having a local minimum.'
+                    'positions having a local minimum.')
 
     # define the arguments
     parser.add_argument('--matrix', '-m',
