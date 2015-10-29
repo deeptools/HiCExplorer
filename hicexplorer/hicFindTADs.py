@@ -638,9 +638,8 @@ def save_clusters(clusters, file_prefix):
 
 
 def main(args=None):
-    args = parse_arguments().parse_args(args)
 
-    args = parser.parse_args(args)
+    args = parse_arguments().parse_args(args)
     if args.maxDepth <= args.minDepth:
         exit("Please check that maxDepth is larger than minDepth.")
 
