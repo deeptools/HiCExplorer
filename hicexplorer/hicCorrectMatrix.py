@@ -325,6 +325,8 @@ def plot_total_contact_dist(hic_ma, plot_name):
     # high remove outliers
     row_sum = row_sum[modified_z_score < 5]
 
+    from matplotlib import use
+    use('Agg')
     import matplotlib.pyplot as plt
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
