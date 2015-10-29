@@ -529,7 +529,7 @@ class hiCMatrix:
         # select. By default none are selected
         sel = np.empty(size[0], dtype=np.bool)
         sel[:] = False
-        if type(chromosome_list) == type('string'):
+        if isinstance(chromosome_list, str):
             chromosome_list = [chromosome_list]
 
         for chrName in self.interval_trees.keys():
@@ -973,6 +973,16 @@ class hiCMatrix:
         """
         cnt = {}
         try:
+            self.prev_to_remove
+        except:
+            self.prev_to_remove = np.array([])
+
+        # if the same information was already printed don't
+        # show it again.
+        if np.array_equal(self.prev_to_remove, to_remove):
+            return
+
+        try:
             # check if a masked bin already exists
             if len(self.orig_bin_ids) > 0:
                 print "Masked bins already present"
@@ -988,6 +998,8 @@ class hiCMatrix:
         sys.stderr.write('{}: {}\n{}\n'.format(label,
                 len(to_remove),
                 cnt))
+        self.prev_to_remove = to_remove
+
 
     def removeBySequencedCount(self, sequencedFraction=0.5):
         """
