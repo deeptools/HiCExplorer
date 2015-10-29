@@ -13,11 +13,75 @@ debug = 0
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Runs Dekker\'s iterative '
-        'correction over a hic matrix.')
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        conflict_handler='resolve',
+        description="""
+Iterative correction for a hic matrix (see Imakaev et al. 2012
+Nature Methods for details). For the method to work correctly, bins
+with low or too high coverage need to be filtered. For this, it is
+recommended to first run some diagnostic plots to determine the
+modified z-score cut off. '
 
+It is recommended to run %(prog)s as follows:
+
+    $ %(prog)s diagnostic_plot --matrix hic_matrix -o plot_file.png
+
+Then, after revising the plot and deciding the threshold values:
+
+    $ %(prog)s correct --matrix hic_matrix \\
+         --filterThreshold <lower threshold> <upper threshold> -o corrected_matrix
+
+
+To get detailed help on each of the options:
+
+    $ %(prog)s diagnostic_plot -h
+    $ %(prog)s correct -h
+
+
+"""
+    )
+
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
+
+    subparsers = parser.add_subparsers(
+        title="commands",
+        dest='command',
+        metavar='')
+
+    bins_mode = subparsers.add_parser(
+        'correct',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        parents=[correct_subparser()],
+        help="Run the iterative correction.",
+        usage='%(prog)s correct '
+              '--matrix hic_matrix.npz '
+              '--filterThreshold -1.2 5'
+              '-out corrected_matrix.npz \n')
+
+    plot_mode = subparsers.add_parser(
+        'diagnostic_plot',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        help="Plots a histogram of the coverage per bin together with the modified z-score "
+             "based on the median absolute deviation method (see Boris Iglewicz and David Hoaglin (1993), "
+             "Volume 16: How to Detect and Handle Outliers The ASQC Basic References in Quality Control:  "
+             "Statistical Techniques, Edward F. Mykytka, Ph.D., Editor. ",
+        usage='%(prog)s '
+              '--matrix hic_matrix.npz '
+              '-o file.png')
+    plot_mode.add_argument('--matrix', '-m',
+                           help='Hi-C matrix.',
+                           required=True)
+    plot_mode.add_argument('--plotName', '-o',
+                           help='File name to save the diagnostic plot.',
+                           required=True)
+
+    return parser
+
+
+def correct_subparser():
     # define the arguments
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--matrix', '-m',
                         help='Hi-C matrix.',
                         required=True)
@@ -33,11 +97,16 @@ def parse_arguments(args=None):
                              'output is a .npz file.',
                         required=True)
 
-    parser.add_argument('--poorRegionsCutoff', '-lowcut',
-                        help='Poor regions are bins with low coverage. Those regions '
-                        'considered  outliers in the low range are identified using '
-                        'the MAD method. A usual cutoff is -1.2',
-                        type=float)
+    parser.add_argument('--filterThreshold', '-t',
+                        help='Bins of low coverage or large coverage need to be removed. '
+                             'Usually they do not contain valid Hi-C data of represent '
+                             'regions that accumulate reads. Use the %(prog)s diagnostic_plot '
+                             'to identify the modified z-value thresholds. A lower and upper '
+                             'threshold are required separated by space. Eg. --filterThreshold '
+                             '-1.5 5',
+                        type=float,
+                        nargs=2,
+                        required=True)
 
     parser.add_argument('--inflationCutoff',
                         help='Value corresponding to the maximum number of times a bin '
@@ -184,47 +253,129 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
     return fill_ma.tocsr(), np.sort(failed_bins[consecutive_failed_idx])
 
 
-def getPoorRegions(hic_ma, cutoff=-1.2):
+class MAD(object):
+
+    def __init__(self, points):
+        """
+        Returns a boolean array with True if points are outliers and False
+        otherwise.
+
+        :param points: An array
+
+        :returns: A numobservations-length boolean array.
+
+        :references: Boris Iglewicz and David Hoaglin (1993), "Volume 16: How to Detect and
+            Handle Outliers", The ASQC Basic References in Quality Control:
+            Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
+        """
+
+        self.mad_b_value = 0.6745
+        if len(points.shape) == 1:
+            points = points[:, None]
+        self.median = np.median(points[points > 0], axis=0)
+
+        diff = np.sum((points - self.median), axis=-1)
+
+        self.med_abs_deviation = np.median(np.abs(diff))
+        self.modified_z_score = self.mad_b_value * diff / self.med_abs_deviation
+
+    def get_motified_zscores(self):
+
+        return self.modified_z_score
+
+    def is_outlier(self, lower_threshold, upper_threshold):
+        """
+        Returns a boolean list of outliers
+
+        :param lower_threshold: Lower median absolute deviation
+        :param upper_threshold: upper median absolute deviation
+
+        :return: boolean array
+        """
+
+        return self.modified_z_score[(self.modified_z_score < lower_threshold) |
+                                     (self.modified_z_score > upper_threshold)]
+
+    def value_to_mad(self, value):
+        """
+        return the mad value for a given value
+        based on the data
+        """
+
+        diff = value - self.median
+        return self.mad_b_value * diff / self.med_abs_deviation
+
+
+def plot_total_contact_dist(hic_ma, plot_name):
     """
-    The method is based on the median absolute deviation. See
-    Boris Iglewicz and David Hoaglin (1993),
-    "Volume 16: How to Detect and Handle Outliers",
-    The ASQC Basic References in Quality Control:
-    Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
+    Plots the distribution of number of contacts (excluding self contacts)
+    Outliers with a high number are removed for the plot
 
-    calls maskBins for the poor regions identified
+    :param hic_ma: sparse matrix
+    :return:
+    """
 
+    # replace nan by 0
+    hic_ma.data[np.isnan(hic_ma.data)] = 0
+    row_sum = np.asarray(hic_ma.sum(axis=1)).flatten()
+    row_sum = row_sum - hic_ma.diagonal()
+    mad = MAD(row_sum)
+    modified_z_score = mad.get_motified_zscores()
+
+    # high remove outliers
+    row_sum = row_sum[modified_z_score < 5]
+
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+
+    ax1.hist(row_sum, 100, color='green')
+    ax1.set_xlabel("total counts per bin")
+    ax1.set_ylabel("frequency")
+    # add second axis on top
+    ax2 = ax1.twiny()
+    ax2.set_xlabel("modified z-score")
+
+    # update second axis values by mapping the min max
+    # of the main axis to the translated values
+    # into modified z score.
+    ax2.set_xlim(mad.value_to_mad(np.array(ax1.get_xlim())))
+    plt.savefig(plot_name)
+    plt.close()
+
+
+def filter_by_zscore(hic_ma, lower_threshold, upper_threshold):
+    """
     The method defines thresholds per chromosome
     to avoid introducing bias due to different chromosome numbers
+
     """
-    # replace nan values by zero
     to_remove = []
     for chrname in hic_ma.interval_trees.keys():
         chr_range = hic_ma.getChrBinRange(chrname)
         chr_submatrix = hic_ma.matrix[chr_range[0]:chr_range[1],
-                        chr_range[0]:chr_range[1]]
+                                      chr_range[0]:chr_range[1]]
 
+        # replace nan values by zero
         chr_submatrix.data[np.isnan(chr_submatrix.data)] = 0
         row_sum = np.asarray(chr_submatrix.sum(axis=1)).flatten()
         # subtract from row sum, the diagonal
         # to account for interactions with other bins
         # and not only self interactions that are the dominant count
         row_sum = row_sum - chr_submatrix.diagonal()
-        median = np.median(row_sum[row_sum > 0])
-        b_value = 1.4826  # value for normal distribution
-        mad = b_value * np.median(np.abs(row_sum-median))
-        print("MAD value threshold for {}: {}, median: {}".format(chrname,
-                                                                  mad, median))
-        if mad > 0:
-            deviation = (row_sum - median) / mad
-            zero_deviation = np.mean(deviation[np.flatnonzero(row_sum == 0)])
-            if zero_deviation > cutoff:
-                sys.stderr.write("Warning. Cutoff too low. Bins with no "
-                                 "counts have a deviation = {}"
-                                 "\n".format(zero_deviation))
-            problematic = np.flatnonzero(deviation <= cutoff)
-            problematic += chr_range[0]
-            to_remove.extend(problematic)
+        mad = MAD(row_sum)
+        problematic = np.flatnonzero(mad.is_outlier(lower_threshold, upper_threshold))
+
+        # because the problematic indices are specific for the given chromosome
+        # they need to be updated to match the large matrix indices
+        problematic += chr_range[0]
+
+        if len(problematic) == 0:
+            sys.stderr.write("Warning. No bins removed for chromosome {} "
+                             "using thresholds {} {}"
+                             "\n".format(chrname, lower_threshold, upper_threshold))
+
+        to_remove.extend(problematic)
 
     return sorted(to_remove)
 
@@ -232,6 +383,12 @@ def getPoorRegions(hic_ma, cutoff=-1.2):
 def main():
     args = parse_arguments().parse_args()
     ma = hm.hiCMatrix(args.matrix)
+
+    if 'plotName' in args:
+        plot_total_contact_dist(ma.matrix, args.plotName)
+        sys.stderr.write("Saving diagnostic plot {}".format(args.plotName))
+        exit()
+
     if args.verbose:
         print "matrix contains {} data points. Sparsity {:.3f}.".format(
             len(ma.matrix.data),
@@ -267,36 +424,16 @@ def main():
         ma.maskBins(to_remove)
         """
 
-    """
-    OBSOLETE
-    addPseudocount = False
-    if addPseudocount is True:
-        sys.stderr.write("WARNING, adding pseudocount to diagonals close "
-                   "to main diagonal\n")
-        from scipy.sparse import dia_matrix
-        data = np.array([np.zeros(ma.matrix.shape[0])]).repeat(201, axis=0) + 0.5
-        ma.matrix = ma.matrix + dia_matrix((data, range(-100,101)),
-                                            shape=ma.matrix.shape)
+    # filter based on threshold
+    outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1])
 
-    """
-    if args.poorRegionsCutoff: 
-        poor_regions = getPoorRegions(ma, cutoff=args.poorRegionsCutoff)
-        pct_poor = 100 * float(len(poor_regions)) / ma.matrix.shape[0]
-        ma.printchrtoremove(poor_regions, label="Bins that are MAD outliers ({:.2f}%)".format(pct_poor))
-        ma.maskBins(poor_regions)
-        total_filtered_out = total_filtered_out.union(poor_regions)
-    """
-    The following code is obsolete and only kept for reference
+    # compute and print some statistics
+    pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
+    ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%)".format(pct_outlier))
 
-    if args.poorRegionsCutoff:
-        poor_regions = ma.maskPoorRegions(cutoff=args.poorRegionsCutoff)
-        ma.printchrtoremove(poor_regions)
-
-
-    if args.poorRegionsCutoff and args.poorRegionsCutoff > 0 and \
-            args.poorRegionsCutoff < 100:
-        ma.removePoorRegions(cutoff=args.poorRegionsCutoff)
-    """
+    # mask filtered regions
+    ma.maskBins(outlier_regions)
+    total_filtered_out = total_filtered_out.union(outlier_regions)
 
     if args.transCutoff and 0 < args.transCutoff < 100:
         cutoff = float(args.transCutoff)/100
