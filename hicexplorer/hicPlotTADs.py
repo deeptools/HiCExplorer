@@ -133,6 +133,7 @@ type = vlines
 
 from __future__ import division
 import sys
+from collections import OrderedDict
 
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import enlarge_bins
@@ -1440,11 +1441,11 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
         if chrom.startswith('chr'):
             scores = bw.get_as_array(chrom[3:] + chrom, region_start, region_end)
         else:
-            scores = bw.get_as_array('chrs' + chrom, region_start, region_end)
+            scores = bw.get_as_array('chr' + chrom, region_start, region_end)
 
         if scores is None:
-            exit("Can not read region {}:{}-{} from bigwig file:\n"
-                 "{}\nPlease check that the chromosome name is part of the bigwig file "
+            exit("Can not read region {}:{}-{} from bigwig file:\n\n"
+                 "{}\n\nPlease check that the chromosome name is part of the bigwig file "
                  "and that the region is valid".format(chrom, region_start, region_end,
                                                        bigwig_properties['file']))
 
@@ -1598,7 +1599,7 @@ def get_region(region_string):
 
         return chrom, region_start, region_end
 
-from collections import OrderedDict
+
 class multidict(OrderedDict):
     """
     Class to allow identically named
@@ -1632,8 +1633,10 @@ def parse_tracks(tracks_file):
     vlines_file = None
     for section_name in parser.sections():
         track_options = dict({"section_name": section_name})
-        if section_name in ['spacer', 'x-axis']:
-            track_options[section_name] = True
+        if section_name.endswith('spacer'):
+            track_options['spacer'] = True
+        elif section_name.endswith('x-axis'):
+            track_options['x-axis'] = True
         for name, value in parser.items(section_name):
             if name in ['max_value', 'min_value', 'depth', 'width'] and value != 'auto':
                 track_options[name] = literal_eval(value)
@@ -1660,11 +1663,11 @@ def check_file_exists(track_dict):
     file_names = [x for x in track_dict['file'].split(" ") if x != '']
     for file_name in file_names:
         try:
-            file_h = open(file_name, 'r').close()
+            open(file_name, 'r').close()
         except IOError:
             sys.stderr.write("\n*ERROR*\nFile in section [{}] "
                              "not found:\n{}\n\n".format(track_dict['section_name'],
-                                                                file_name))
+                                                         file_name))
             exit(1)
 
 
@@ -1768,7 +1771,6 @@ def main(args=None):
         else:
             label_axis = plt.subplot(grids[idx, 1])
             label_axis.set_axis_off()
-
         if properties['file_type'] == 'bed':
             plot_bed(axis, label_axis, properties, region)
         elif properties and properties['file_type'] == 'dendrogram':
