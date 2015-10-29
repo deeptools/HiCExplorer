@@ -1433,6 +1433,21 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
                                         bigwig_properties['file']))
 
     scores = bw.get_as_array(chrom, region_start, region_end)
+    if scores is None:
+        # usually bw returns None when the chromosome
+        # is not found. So, we try either
+        # removing or appending 'chr'
+        if chrom.startswith('chr'):
+            scores = bw.get_as_array(chrom[3:] + chrom, region_start, region_end)
+        else:
+            scores = bw.get_as_array('chrs' + chrom, region_start, region_end)
+
+        if scores is None:
+            exit("Can not read region {}:{}-{} from bigwig file:\n"
+                 "{}\nPlease check that the chromosome name is part of the bigwig file "
+                 "and that the region is valid".format(chrom, region_start, region_end,
+                                                       bigwig_properties['file']))
+
     if 'nans to zeros' in bigwig_properties and bigwig_properties['nans to zeros'] is True:
         scores[np.isnan(scores)] = 0
 
@@ -1583,6 +1598,23 @@ def get_region(region_string):
 
         return chrom, region_start, region_end
 
+from collections import OrderedDict
+class multidict(OrderedDict):
+    """
+    Class to allow identically named
+    sections in configuration file
+    by appending the section number as
+    for example:
+    1. section name
+    """
+    _unique = 0
+
+    def __setitem__(self, key, val):
+        if isinstance(val, OrderedDict):
+            self._unique += 1
+            key = "{}. {}".format(str(self._unique), key)
+        OrderedDict.__setitem__(self, key, val)
+
 
 def parse_tracks(tracks_file):
     """
@@ -1593,7 +1625,7 @@ def parse_tracks(tracks_file):
     """
     from ConfigParser import SafeConfigParser
     from ast import literal_eval
-    parser = SafeConfigParser()
+    parser = SafeConfigParser(None, multidict)
     parser.readfp(tracks_file)
 
     track_list = []
@@ -1630,8 +1662,8 @@ def check_file_exists(track_dict):
         try:
             file_h = open(file_name, 'r').close()
         except IOError:
-            sys.stderr.write("File in section [{}] "
-                             "not found:\n{}".format(track_dict['section_name'],
+            sys.stderr.write("\n*ERROR*\nFile in section [{}] "
+                             "not found:\n{}\n\n".format(track_dict['section_name'],
                                                                 file_name))
             exit(1)
 
