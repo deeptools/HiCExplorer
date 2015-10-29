@@ -327,5 +327,8 @@ def main():
     merged_matrix.matrix.data = merged_matrix.matrix.data - 1
     """
     merged_matrix.matrix.eliminate_zeros()
+    if merged_matrix.correction_factors is not None:
+        sys.stderr.write("*WARNING*: The corrections factors are not merged and are set to None\n")
+        merged_matrix.correction_factors = None
 
     merged_matrix.save(args.outFileName)
