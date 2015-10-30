@@ -72,9 +72,22 @@ To get detailed help on each of the options:
     plot_mode.add_argument('--matrix', '-m',
                            help='Hi-C matrix.',
                            required=True)
+
     plot_mode.add_argument('--plotName', '-o',
                            help='File name to save the diagnostic plot.',
                            required=True)
+
+    plot_mode.add_argument('--chromosomes',
+                        help='List of chromosomes to be included in the iterative '
+                        'correction. The order of the given chromosomes will be then '
+                        'kept for the resulting corrected matrix',
+                        default=None,
+                        nargs='+')
+
+    parser.add_argument('--xMax',
+                        help='Max value for the X field in counts per bin',
+                        default=None,
+                        type=float)
 
     return parser
 
@@ -293,8 +306,8 @@ class MAD(object):
         :return: boolean array
         """
 
-        return self.modified_z_score[(self.modified_z_score < lower_threshold) |
-                                     (self.modified_z_score > upper_threshold)]
+        return (self.modified_z_score < lower_threshold) | \
+               (self.modified_z_score > upper_threshold)
 
     def value_to_mad(self, value):
         """
@@ -306,7 +319,7 @@ class MAD(object):
         return self.mad_b_value * diff / self.med_abs_deviation
 
 
-def plot_total_contact_dist(hic_ma, plot_name):
+def plot_total_contact_dist(hic_ma, args):
     """
     Plots the distribution of number of contacts (excluding self contacts)
     Outliers with a high number are removed for the plot
@@ -327,13 +340,16 @@ def plot_total_contact_dist(hic_ma, plot_name):
 
     from matplotlib import use
     use('Agg')
-    import matplotlib.pyplot as plt
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
 
     ax1.hist(row_sum, 100, color='green')
     ax1.set_xlabel("total counts per bin")
     ax1.set_ylabel("frequency")
+
+    if args.xMax:
+        ax1.set_xlim(ax1.get_xlim()[0], args.xMax)
+
     # add second axis on top
     ax2 = ax1.twiny()
     ax2.set_xlabel("modified z-score")
@@ -342,7 +358,7 @@ def plot_total_contact_dist(hic_ma, plot_name):
     # of the main axis to the translated values
     # into modified z score.
     ax2.set_xlim(mad.value_to_mad(np.array(ax1.get_xlim())))
-    plt.savefig(plot_name)
+    plt.savefig(args.plotName)
     plt.close()
 
 
@@ -386,18 +402,18 @@ def main():
     args = parse_arguments().parse_args()
     ma = hm.hiCMatrix(args.matrix)
 
+    if args.chromosomes:
+        ma.reorderChromosomes(args.chromosomes)
+
     if 'plotName' in args:
-        plot_total_contact_dist(ma.matrix, args.plotName)
-        sys.stderr.write("Saving diagnostic plot {}".format(args.plotName))
+        plot_total_contact_dist(ma.matrix, args)
+        sys.stderr.write("Saving diagnostic plot {}\n".format(args.plotName))
         exit()
 
     if args.verbose:
         print "matrix contains {} data points. Sparsity {:.3f}.".format(
             len(ma.matrix.data),
             float(len(ma.matrix.data))/(ma.matrix.shape[0]**2))
-
-    if args.chromosomes:
-        ma.reorderChromosomes(args.chromosomes)
 
     if args.skipDiagonal:
         ma.diagflat(value=0)
