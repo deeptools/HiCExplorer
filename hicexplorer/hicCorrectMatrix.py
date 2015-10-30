@@ -78,11 +78,11 @@ To get detailed help on each of the options:
                            required=True)
 
     plot_mode.add_argument('--chromosomes',
-                        help='List of chromosomes to be included in the iterative '
-                        'correction. The order of the given chromosomes will be then '
-                        'kept for the resulting corrected matrix',
-                        default=None,
-                        nargs='+')
+                           help='List of chromosomes to be included in the iterative '
+                           'correction. The order of the given chromosomes will be then '
+                           'kept for the resulting corrected matrix',
+                           default=None,
+                           nargs='+')
 
     parser.add_argument('--xMax',
                         help='Max value for the X field in counts per bin',
@@ -340,6 +340,7 @@ def plot_total_contact_dist(hic_ma, args):
 
     from matplotlib import use
     use('Agg')
+    import matplotlib.pyplot as plt
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
 
