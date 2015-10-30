@@ -703,13 +703,6 @@ def main(args=None):
     mean_mat = matrix.mean(axis=1)
     min_idx = find_consensus_minima(matrix, lookahead=args.lookahead, delta=args.delta)
 
-#    boundary_list = [(chrom[min], chr_start[min], mean_mat[min]) for min in min_idx]
-    boundary_list = [(hic_ma.cut_intervals[min_][0], hic_ma.cut_intervals[min_][2], mean_mat[min_]) for min_ in min_idx]
-
-    Z, clusters = hierarchical_clustering(boundary_list, clusters_cutoff=[0.4, 0.3, 0.2])
-
-    save_linkage(Z, args.outPrefix + '_linkage.bed')
-    save_clusters(clusters, args.outPrefix)
 
     # save results
     prev_start = 0
@@ -794,3 +787,11 @@ def main(args=None):
                                            rgb))
     """
 
+    # turn of hierarchical clustering which is apparently not working.
+    if 2==1:
+        boundary_list = [(hic_ma.cut_intervals[min_][0], hic_ma.cut_intervals[min_][2], mean_mat[min_]) for min_ in min_idx]
+
+        Z, clusters = hierarchical_clustering(boundary_list, clusters_cutoff=[0.4, 0.3, 0.2])
+
+        save_linkage(Z, args.outPrefix + '_linkage.bed')
+        save_clusters(clusters, args.outPrefix)
