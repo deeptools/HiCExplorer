@@ -112,7 +112,6 @@ class hiCMatrix:
 
         return matrix
 
-
     def setMatrix(self, matrix, cut_intervals):
         """
         Initialize a matrix with a given matrix
@@ -197,8 +196,8 @@ class hiCMatrix:
             # of int type
             if np.issubdtype(self.matrix, 'float') is False:
                 matrix = matrix.astype(float)
-            matrix[self.nan_bins,:] = np.nan
-            matrix[:,self.nan_bins] = np.nan
+            matrix[self.nan_bins, :] = np.nan
+            matrix[:, self.nan_bins] = np.nan
 
         return matrix
 
@@ -231,14 +230,14 @@ class hiCMatrix:
             ret = self.cut_intervals[binIndex]
         return ret
 
-    def getRegionBinRange(self, chrName, startPos, endPos):
+    def getRegionBinRange(self, chrname, startpos, endpos):
         """
         Given a chromosome region, this function returns
         the bin indices that overlap with such region.
         """
 
         try:
-            self.interval_trees[chrName]
+            self.interval_trees[chrname]
         except KeyError:
             """
             print "chromosome: {} name not found in matrix".format(chrName)
@@ -247,22 +246,22 @@ class hiCMatrix:
             """
             return None
         try:
-            startPos = int(startPos)
-            endPos = int(endPos)
+            startpos = int(startpos)
+            endpos = int(endpos)
         except:
             print "{} or {}  are not valid " \
-                "position values.".format(startPos, endPos)
+                "position values.".format(startpos, endpos)
             exit()
 
         try:
-            startBin = self.interval_trees[chrName].find(
-                startPos, startPos + 1)[0].value
-            endBin = self.interval_trees[chrName].find(
-                endPos, endPos + 1)[0].value
+            startbin = self.interval_trees[chrname].find(
+                startpos, startpos + 1)[0].value
+            endbin = self.interval_trees[chrname].find(
+                endpos, endpos + 1)[0].value
         except IndexError:
             return None
 
-        return (startBin, endBin)
+        return startbin, endbin
 
     @staticmethod
     def getDistList(rows, cols, cut_intervals):
@@ -293,25 +292,25 @@ class hiCMatrix:
         >>> chrom_list.tolist()
         ['a', 'a', 'a', 'a', '', 'a', 'a', 'a', '', 'a', 'a', '', 'a', '', 'b']
         """
-        chrNameList, startList, endList, extraList = zip(*cut_intervals)
+        chrnamelist, startlist, endlist, extralist = zip(*cut_intervals)
         # now the distance between any two points
         # is computed and arranged such that for each
-        # element of the data array, a correspondend distance is stored
-        start_row = np.take(startList, rows )
-        start_col = np.take(startList, cols )
+        # element of the data array, a corespondent distance is stored
+        start_row = np.take(startlist, rows)
+        start_col = np.take(startlist, cols)
         dist_list = start_col - start_row
 
         # now  all distances that are between chromosomes are removed
         # to do this I convert the array of chromosomes to
-        # a array of indices. Then, when substracting the
+        # a array of indices. Then, when subtracting the
         # values that correspond to matrix.row and matrix.col
         # using the array of indices, any value other
-        # than 0 means interchromosomal row,col combination.
+        # than 0 means inter-chromosomal row,col combination.
 
         # chr_id_list is based on a trick using np.unique
         # to get from a list of strings
         # a list of integers
-        chr_id_list = np.unique(chrNameList, return_inverse=True)[1]
+        chr_id_list = np.unique(chrnamelist, return_inverse=True)[1]
 
         chr_row = np.take(chr_id_list, rows)
         chr_col = np.take(chr_id_list, cols)
@@ -321,7 +320,7 @@ class hiCMatrix:
 
         # make a corresponding chromosome name list
         # if filtering per chromosome is required
-        chrom_list = np.take(chrNameList, rows)
+        chrom_list = np.take(chrnamelist, rows)
         chrom_list[chr_diff != 0] = ''
 
         return dist_list, chrom_list
@@ -420,7 +419,7 @@ class hiCMatrix:
         data = np.asarray(self.matrix.todense()[(rows, cols)]).flatten()
 
         # convert nans to zeros. Otherwise the computations will fail
-        if np.any(np.isnan(data)) == True:
+        if np.any(np.isnan(data)):
             num_nan = len(np.flatnonzero(np.isnan(data)))
             sys.stderr.write("converting {} ({:.2f}) nans "
                              "to zeros".format(num_nan,
@@ -620,7 +619,7 @@ class hiCMatrix:
 
         fileh.close()
 
-    def save(self, fileName):
+    def save(self, filename):
         self.restoreMaskedBins()
         chrNameList, startList, endList, extraList = zip(*self.cut_intervals)
         try:
@@ -632,7 +631,7 @@ class hiCMatrix:
         matrix = triu(self.matrix, k=0, format='csr')
         try:
             np.savez(
-                fileName, matrix=matrix, chrNameList=chrNameList,
+                filename, matrix=matrix, chrNameList=chrNameList,
                 startList=startList, endList=endList, extraList=extraList,
                 nan_bins=nan_bins, correction_factors=self.correction_factors)
         except Exception as e:
@@ -645,7 +644,7 @@ class hiCMatrix:
                 matrix.data = matrix.data - 1
                 matrix.eliminate_zeros()
                 np.savez(
-                    fileName, matrix=matrix, chrNameList=chrNameList,
+                    filename, matrix=matrix, chrNameList=chrNameList,
                     startList=startList, endList=endList, extraList=extraList,
                     nan_bins=nan_bins)
             except:
