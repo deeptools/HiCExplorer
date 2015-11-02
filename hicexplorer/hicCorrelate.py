@@ -91,18 +91,13 @@ def heatmap_options():
                          help='Maximum value for the heat map intensities.'
                               'If not specified the value is set automatically')
 
-    from matplotlib import cm
-    color_options = "', '".join([m for m in cm.datad
-                                 if not m.endswith('_r')])
 
     heatmap.add_argument(
         '--colorMap', default='jet',
         metavar='',
         help='Color map to use for the heatmap. Available values can be '
              'seen here: '
-             'http://www.astro.lsa.umich.edu/~msshin/science/code/'
-             'matplotlib_cm/ The available options are: \'' +
-        color_options + '\'')
+             'http://matplotlib.org/examples/color/colormaps_reference.html')
 
     heatmap.add_argument('--plotFileFormat',
                          metavar='FILETYPE',
