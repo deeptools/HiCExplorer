@@ -1,2 +1,4 @@
-pysam
+biopython>+1.65
+pysam>+0.8.
+bx-python>=0.7.2
 https://github.com/fidelram/sphinx-argparse/archive/master.zip
