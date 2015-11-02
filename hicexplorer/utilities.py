@@ -4,6 +4,7 @@ import time
 import numpy as np
 import scipy.stats
 import scipy.sparse
+import argparse
 
 from hicexplorer.HiCMatrix import hiCMatrix
 
@@ -11,7 +12,7 @@ def writableFile(string):
     try:
         open(string, 'w').close()
     except:
-        msg = "{} file can be opened for writting".format(string)
+        msg = "{} file can be opened for writing".format(string)
         raise argparse.ArgumentTypeError(msg)
     return string
 
