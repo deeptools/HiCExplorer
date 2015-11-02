@@ -133,7 +133,7 @@ setup(
     license='LICENSE.txt',
     description='Set of programms to process, analyze and visualize Hi-C data'
     'BAM format.',
-    long_description=open('README.md').read(),
+    long_description=open('README.rst').read(),
     install_requires=[
         "numpy >= 1.8.1",
         "scipy >= 0.14.0",
