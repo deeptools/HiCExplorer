@@ -77,17 +77,11 @@ def parseArguments(args=None):
                         help='Plot the *MINUS* log of the matrix values.',
                         action='store_true')
 
-
-    color_options = "', '".join([m for m in cm.datad
-                                 if not m.endswith('_r')])
-
     parser.add_argument('--colorMap',
                         help='Color map to use for the heatmap. Available '
                         'values can be seen here: '
-                        'http://www.astro.lsa.umich.edu/~msshin/science/code/'
-                        'matplotlib_cm/ The available options are: \'' +
-                        color_options + '\'',
-                        default='jet')
+                        'http://matplotlib.org/examples/color/colormaps_reference.html',
+                        default='RdYlBu_r')
 
     parser.add_argument('--vMin',
                         help='vMin',
