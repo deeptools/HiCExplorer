@@ -154,6 +154,13 @@ import matplotlib.gridspec as gridspec
 import mpl_toolkits.axisartist as axisartist
 from bx.intervals.intersection import IntervalTree, Interval
 
+
+DEFAULT_BED_COLOR = '#1f78b4'
+DEFAULT_BIGWIG_COLOR = '#33a02c'
+DEFAULT_BEDGRAPH_COLOR = '#a6cee3'
+DEFAULT_MATRIX_COLORMAP = 'RdYlBu_r'
+
+
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         description='Plots the diagonal,  and some values close to '
@@ -580,6 +587,10 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
         vmin = np.median(matrix.diagonal(depth_bins))
 
     sys.stderr.write("setting min, max values to: {}, {}\n".format(vmin, vmax))
+
+    if 'colormap' not in matrix_properties:
+        matrix_properties['colormap'] == DEFAULT_MATRIX_COLORMAP
+
     cmap = cm.get_cmap(matrix_properties['colormap'])
     cmap.set_bad('white')
 
@@ -1147,11 +1158,11 @@ def plot_bed(ax, label_ax, bed_properties, region):
     # length. In the following code I try to get
     # the length of a 'w'.
 
+    from matplotlib import font_manager
     if 'fontsize' in bed_properties:
-        from matplotlib import font_manager
         fp = font_manager.FontProperties(size=bed_properties['fontsize'])
     else:
-        fp = None
+        fp = font_manager.FontProperties()
 
     # to avoid overlaping gene labels, the size of a 'w' is estimated
     if 'type' in bed_properties and bed_properties['type'] == 'genes' \
@@ -1161,6 +1172,9 @@ def plot_bed(ax, label_ax, bed_properties, region):
         len_w = t.get_extents().width * 300
     else:
         len_w = 1
+
+    if 'color' not in bed_properties:
+        bed_properties['color'] = DEFAULT_BED_COLOR
 
     if bed_properties['color'] in color_options:
         import matplotlib as mpl
@@ -1299,6 +1313,9 @@ def plot_bedgraph(ax, label_ax, bedgraph_properties, region):
                 end_region + 100000 >= end:
             score_list.append(float(score))
             pos_list.append(start + (end - start)/2)
+
+    if 'color' not in bedgraph_properties:
+        bedgraph_properties['color'] = DEFAULT_BEDGRAPH_COLOR
 
     if 'extra' in bedgraph_properties and \
             bedgraph_properties['extra'][0] == '4C':
@@ -1453,6 +1470,9 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
         scores[np.isnan(scores)] = 0
 
     scores = np.ma.masked_invalid(scores)
+
+    if 'color' not in bigwig_properties:
+        bigwig_properties['color'] = DEFAULT_BIGWIG_COLOR
 
     if region_end - region_start < 2e6:
         if scores is None:
