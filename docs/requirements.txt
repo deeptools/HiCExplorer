@@ -1,0 +1,1 @@
+https://github.com/fidelram/sphinx-argparse/archive/master.zip
