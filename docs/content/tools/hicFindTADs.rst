@@ -1,7 +1,9 @@
+.. _hicFindTADs:
+
 hicFindTADs
 ===========
 
 .. argparse::
-   :ref: hicexplorer.hicFindTADs.parseArguments
+   :ref: hicexplorer.hicFindTADs.parse_arguments
    :prog: hicFindTADs
 

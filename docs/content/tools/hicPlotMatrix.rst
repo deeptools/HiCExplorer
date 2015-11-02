@@ -1,3 +1,5 @@
+.. _hicPlotMatrix:
+
 hicPlotMatrix
 =============
 

@@ -1,9 +1,3 @@
-.. HiCExplorer documentation master file, created by
-   sphinx-quickstart on Wed Sep 23 13:37:43 2015.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
-
 HiCExplorer
 ===========
 
@@ -85,7 +79,12 @@ diagnostic plot as follows:
 
 The plot should look like this:
 
-.. image:: ./images/diagnostic_plot.png
+.. figure:: ./images/diagnostic_plot.png
+    :scale: 70 %
+    :align: center
+
+    Histogram of the number of counts per bin.
+
 
 
 For the upper threshold is only important to remove very high outliers and thus a value of 5 could be used.
@@ -118,25 +117,31 @@ plot the counts using the `--log1p` option.
 
 
 
-.. image:: ./images/corrected_matrix_example.png
+.. figure:: ./images/corrected_matrix_example.png
+    :scale: 90 %
+    :align: center
+
+    Corrected Hi-C counts in log scale.
 
 
 The following is the list of tools available in HiCExplorer
 
 
-========================= ===========================================================================================
-tool                      description
-========================= ===========================================================================================
-hicBuildMatrix            Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
-hicCorrectMatrix          Uses iterative correction to remove biases from a Hi-C matrix
-hicFindEnrichedContacts   Identifies enriched Hi-C contacts
-hicCorrelate              Computes and visualises the correlation of Hi-C matrices
-hicFindTADs               Identifies Topologically Associating Domains (TADs)
-hicMergeMatrixBins        Merges consecutives bins on a Hi-C matrix to reduce resolution
-hicPlotMatrix             Plots a Hi-C matrix as a heatmap
-hicPlotTADs               Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
-hicSumMatrices            Adds Hi-C matrices of the same size
-========================= ===========================================================================================
+=============================== ===========================================================================================
+tool                            description
+=============================== ===========================================================================================
+:ref:`findRestSites`              Identifies the genomic locations of restriction sites
+:ref:`hicBuildMatrix`            Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
+:ref:`hicCorrectMatrix`          Uses iterative correction to remove biases from a Hi-C matrix
+:ref:`hicFindEnrichedContacts`   Identifies enriched Hi-C contacts
+:ref:`hicCorrelate`              Computes and visualises the correlation of Hi-C matrices
+:ref:`hicFindTADs`               Identifies Topologically Associating Domains (TADs)
+:ref:`hicMergeMatrixBins`        Merges consecutives bins on a Hi-C matrix to reduce resolution
+:ref:`hicPlotMatrix`             Plots a Hi-C matrix as a heatmap
+:ref:`hicPlotTADs`               Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
+:ref:`hicSumMatrices`            Adds Hi-C matrices of the same size
+:ref:`hicExport`                 Export matrix to text formats
+=============================== ===========================================================================================
 
 
 Installation
