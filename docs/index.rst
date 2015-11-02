@@ -187,7 +187,7 @@ Contents:
    :maxdepth: 2
 
    content/list-of-tools
-
+   content/mES-HiC_analysis
 
 
 Indices and tables
