@@ -159,22 +159,21 @@ DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'
 DEFAULT_BEDGRAPH_COLOR = '#a6cee3'
 DEFAULT_MATRIX_COLORMAP = 'RdYlBu_r'
+DEFAULT_TRACK_HEIGHT = 3  # in centimeters
+DEFAULT_FIGURE_WIDTH = 40  # in centimeters
+# proportion of width dedicated to (figure, legends)
+DEFAULT_WIDTH_RATIOS = (0.95, 0.05)
+DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         description='Plots the diagonal,  and some values close to '
-        'the ediagonal of a  HiC matrix. The diagonal of the matrix is '
+        'the diagonal of a  HiC matrix. The diagonal of the matrix is '
         'plotted horizontally for a region. I will not draw the diagonal '
         'for the whole chromosome',
         usage="%(prog)s --tracks tracks.ini --region chr1:1000000-4000000 -o image.png")
 
-    # define the arguments
-#    parser.add_argument('--tracks',
-#                        help='List of files to plot. Type of plot is decided '
-#                        'based on the file ending. ',
-#                        nargs='+',
-#                        )
     parser.add_argument('--tracks',
                         help='File containing the instructions to plot the tracks ',
                         type=argparse.FileType('r'),
@@ -182,12 +181,15 @@ def parse_arguments(args=None):
                         )
 
     parser.add_argument('--width',
-                        help='figure width in inches :p',
+                        help='figure width in centimeters',
                         type=float,
-                        default=20)
+                        default=DEFAULT_FIGURE_WIDTH)
 
     parser.add_argument('--height',
-                        help='figure height in inches :p',
+                        help='Figure height in centimeters. If not given, the figure height is computed '
+                             'based on the widths of the tracks and on the depth '
+                             'of the Hi-C tracks, if any. Setting this '
+                             'this parameter can cause the Hi-C tracks to look collapsed or expanded.',
                         type=float)
 
     parser.add_argument('--title', '-t',
@@ -586,10 +588,11 @@ def plot_matrix(ax, label_ax, cbar_ax, matrix_properties, region):
         depth_bins = int(matrix_properties['depth'] / bin_size)
         vmin = np.median(matrix.diagonal(depth_bins))
 
-    sys.stderr.write("setting min, max values to: {}, {}\n".format(vmin, vmax))
+    sys.stderr.write("setting min, max values for track {} to: {}, {}\n".format(matrix_properties['section_name'],
+                                                                                vmin, vmax))
 
     if 'colormap' not in matrix_properties:
-        matrix_properties['colormap'] == DEFAULT_MATRIX_COLORMAP
+        matrix_properties['colormap'] = DEFAULT_MATRIX_COLORMAP
 
     cmap = cm.get_cmap(matrix_properties['colormap'])
     cmap.set_bad('white')
@@ -649,16 +652,14 @@ def plot_x_axis(ax, region, properties):
     ax.set_xlim(region_start, region_end)
     ticks = ax.get_xticks()
     if ticks[-1] - ticks[1] <= 1e5:
-        labels = ["{:.3f}".format((x / 1e3))
+        labels = ["{:,.0f} kb".format((x / 1e3))
                   for x in ticks]
-        labels[-1] += "Kbp"
 
     elif 1e5 < ticks[-1] - ticks[1] < 4e6:
-        labels = ["{:.3f}".format((x / 1e3))
+        labels = ["{:,.0f} kb".format((x / 1e3))
                   for x in ticks]
-        labels[-1] += "Kbp"
     else:
-        labels = ["{:.1f}Mbp".format((x / 1e6))
+        labels = ["{:,.0f}Mbp".format((x / 1e6))
                   for x in ticks]
         # labels[-1] += "Mbp"
 
@@ -1283,6 +1284,12 @@ def plot_bed(ax, label_ax, bed_properties, region):
                         100, edgecolor=edgecolor,
                         facecolor=rgb))
 
+    if counter == 0:
+        sys.stderr.write("*Warning* No intervals were found for file {} \n"
+                         "in section '{}' for the interval plotted ({}:{}-{}).\n"
+                         "".format(bed_properties['file'],
+                                   bed_properties['section_name'],
+                                   chrom_region, start_region, end_region))
     if 'type' in bed_properties and bed_properties['type'] == 'domain':
         ax.set_ylim(-5, 205)
     elif 'display' in bed_properties and bed_properties['display'] == 'collapsed':
@@ -1719,6 +1726,14 @@ def guess_filetype(track_dict):
 
     return file_type
 
+def cm2inch(*tupl):
+    inch = 2.54
+    if isinstance(tupl[0], tuple):
+        return tuple(i/inch for i in tupl[0])
+    else:
+        return tuple(i/inch for i in tupl)
+
+
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
@@ -1736,33 +1751,64 @@ def main(args=None):
     # to get the height of each of the tracks
     track_height = []
     for track_dict in track_properties:
+        warn = None
+        height = DEFAULT_TRACK_HEIGHT
         if 'file' in track_dict and track_dict['file'] != '':
             if 'file_type' not in track_dict:
                 track_dict['file_type'] = guess_filetype(track_dict)
             check_file_exists(track_dict)
 
+            ## set some default values
+            if 'title' not in track_dict:
+                warn = "\ntitle not set for 'section {}'\n".format(track_dict['section_name'])
+                track_dict['title'] = ''
+            if warn:
+                sys.stderr.write(warn)
+
         if 'width' in track_dict:
-            track_height.append(track_dict['width'])
-        elif 'depth' in track_dict:
-            height = (track_dict['depth'] * args.width /
-                      (1.8*(region_end - region_start)))
-            track_height.append(height)
-        else:
-            track_height.append(0.3)
+            height = track_dict['width']
+
+        # compute the height of a Hi-C track
+        # based on the depth such that the
+        # resulting plot appears proportional
+        #
+        #      /|\
+        #     / | \
+        #    /  |d \   d is the depth that we want to be proportional
+        #   /   |   \  when plotted in the figure
+        # ------------------
+        #   region len
+        #
+        # d (in cm) =  depth (in bp) * width (in cm) / region len (in bp)
+
+        elif 'depth' in track_dict and track_dict['file_type'] == 'hic_matrix':
+            # to compute the actual width of the figure the margins and the region
+            # set for the legends have to be considered
+            # DEFAULT_MARGINS[1] - DEFAULT_MARGINS[0] is the proportion of plotting area
+
+            hic_width = args.width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * DEFAULT_WIDTH_RATIOS[0]
+            scale_factor = 0.6  # the scale factor is to obtain a pleasing result.
+            height = scale_factor * track_dict['depth'] * hic_width / (region_end - region_start)
+
+#            height = (track_dict['depth'] * args.width /
+#                      (1.8*(region_end - region_start)))
+
+        track_height.append(height)
+
 
     if args.height:
         fig_height = args.height
     else:
         fig_height = sum(track_height)
 
-    print (args.width, fig_height)
-    fig = plt.figure(figsize=(args.width, fig_height))
+    sys.stderr.write("Figure size in cm is {} x {}. Dpi is set to {}\n".format(args.width, fig_height, args.dpi))
+    fig = plt.figure(figsize=cm2inch(args.width, fig_height))
     fig.suptitle(args.title)
 
     if args.fontSize:
         fontsize = args.fontSize
     else:
-        fontsize = float(args.width) * 0.7
+        fontsize = float(args.width) * 0.4
 
     font = {'size': fontsize}
     matplotlib.rc('font', **font)
@@ -1824,8 +1870,10 @@ def main(args=None):
         plot_vlines(args.vlines, vlines_file, axis_list, region)
 
 
-    plt.subplots_adjust(wspace=0, hspace=0.1, top=0.9,
-                        bottom=0.12, left=0.04, right=0.92)
+    plt.subplots_adjust(wspace=0, hspace=0.1,
+                        left=DEFAULT_MARGINS['left'],
+                        right=DEFAULT_MARGINS['right'],
+                        bottom=DEFAULT_MARGINS['bottom'],
+                        top=DEFAULT_MARGINS['top'])
 
-#    plt.tight_layout()
     plt.savefig(args.outFileName.name, dpi=args.dpi)
