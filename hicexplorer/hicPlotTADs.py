@@ -257,10 +257,10 @@ def plot_dendrogram(ax, label_ax, properties, region):
 
     # the order of the file is important and must not be sorted.
     # thus, the chromosomes are supposed to be one after the other
-    Z = []
+    z_value = []
     for line in linkage_file.readlines():
-        chrom, pos_a, pos_b, clust_id, distance, strand, id_cluster_a, \
-        id_cluster_b, num_clusters = line.strip().split('\t')
+        [chrom, pos_a, pos_b, clust_id, distance, strand, id_cluster_a, id_cluster_b, num_clusters] = \
+            line.strip().split('\t')
         if chrom != chrom_region:
             continue
 
@@ -274,9 +274,9 @@ def plot_dendrogram(ax, label_ax, properties, region):
         except ValueError:
             exit("BED values not valid")
 
-        Z.append((id_cluster_a, id_cluster_b, distance, num_clusters, pos_a, pos_b))
+        z_value.append((id_cluster_a, id_cluster_b, distance, num_clusters, pos_a, pos_b))
 
-    boxes = _dendrogram_calculate_info(Z)
+    boxes = _dendrogram_calculate_info(z_value)
     min_y = 1
     max_y = 0
     for box in boxes:
@@ -311,13 +311,13 @@ def plot_dendrogram(ax, label_ax, properties, region):
                   verticalalignment='bottom', transform=label_ax.transAxes)
 
 
-def _dendrogram_calculate_info(Z):
+def _dendrogram_calculate_info(z):
     """
-    :param Z: list of 6-tuples containing the linkage
+    :param z: list of 6-tuples containing the linkage
     information in :func:`hierarchical_clustering`
 
-    >>> Z = [(1, 2, 0.5, 2, 0, 10), (4, 3, 0.6, 3, 5, 15)]
-    >>> _dendrogram_calculate_info(Z)
+    >>> _z_ = [(1, 2, 0.5, 2, 0, 10), (4, 3, 0.6, 3, 5, 15)]
+    >>> _dendrogram_calculate_info(_z_)
     [array([[  0. ,   0. ,  10. ,  10. ],
            [  0.5,   0.5,   0.5,   0.5]]), array([[  5. ,   5. ,  15. ,  15. ],
            [  0.6,   0.6,   0.6,   0.5]])]
@@ -338,7 +338,7 @@ def _dendrogram_calculate_info(Z):
         cluster_id - num_leafs and the
         distance is found at position 2.
         """
-        return Z[cluster_id - num_leafs][2]
+        return z[cluster_id - num_leafs][2]
 
     # at each iteration a sort of box is drawn:
     #
@@ -353,8 +353,8 @@ def _dendrogram_calculate_info(Z):
     # Four points are required to define such box which
     # are obtained in the following code
 
-    num_leafs = len(Z) + 1
-    for id_cluster_a, id_cluster_b, distance, num_clusters, pos_a, pos_b in Z:
+    num_leafs = len(z) + 1
+    for id_cluster_a, id_cluster_b, distance, num_clusters, pos_a, pos_b in z:
         if is_cluster_leaf(id_cluster_a):
             y_a = 0.5
         else:
@@ -394,6 +394,7 @@ def plot_boundaries(ax, file_name, region):
         line_number = 0
         prev_chrom = None
         prev_start = -1
+        prev_line = None
         for line in file_h.readlines():
             line_number += 1
             if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
@@ -431,12 +432,12 @@ def plot_boundaries(ax, file_name, region):
                start_region - 100000 <= start and \
                end_region + 100000 >= end:
 
-
                 assert start > 0, \
                     "negative values found in bed file in line {}".format(line)
 
                 intervals.append((start, end))
 
+            prev_line = line
             prev_start = start
             prev_chrom = chrom
 
@@ -448,7 +449,6 @@ def plot_boundaries(ax, file_name, region):
         start_list = np.array(start)
         end = np.array(end)
         # check if intervals are consecutive or 1bp positions demarcating the boundaries
-        #import ipdb;ipdb.set_trace()
         if np.any(end - start_list > 1):
             # intervals are consecutive, but only the boundaries are need.
             start_list = end
@@ -691,10 +691,10 @@ def pcolormesh_45deg(matrix_c, ax, start_pos_vector, vmin=None,
                                 for i in itertools.product(start_pos_vector[::-1],
                                                            start_pos_vector)]), t)
     # this is to convert the indices into bp ranges
-    X = matrix_a[:, 1].reshape(n+1, n+1)
-    Y = matrix_a[:, 0].reshape(n+1, n+1)
+    x = matrix_a[:, 1].reshape(n+1, n+1)
+    y = matrix_a[:, 0].reshape(n+1, n+1)
     # plot
-    im = ax.pcolormesh(X, Y, np.flipud(matrix_c),
+    im = ax.pcolormesh(x, y, np.flipud(matrix_c),
                        vmin=vmin, vmax=vmax, cmap=cmap, norm=norm)
     return im
 
@@ -912,14 +912,13 @@ def plot_hic_arcs(ax, label_ax, properties, region):
                   verticalalignment='bottom', transform=label_ax.transAxes)
 
 
-def plot_interactions(ax, matrix_properties, region, args):
+def plot_interactions(ax, matrix_properties, region):
     """
     Plots arrows from a viewpoint to nearby
     positions that are in 'regions'
     """
     matrix_file = matrix_properties['file']
     hic_ma = HiCMatrix.hiCMatrix(matrix_file)
-    bin_size = hic_ma.getBinSize()
     chrom, region_start, region_end = region
     hic_ma.keepOnlyTheseChr(chrom)
 
@@ -962,19 +961,19 @@ def get_gene_parts(fields, bed_properties):
     end = int(end)
     try:
         name = fields[3]
-    except:
+    except IndexError:
         name = ''
     try:
         strand = fields[5]
-    except:
+    except IndexError:
         strand = "."
     try:
         thick_start = int(fields[6])
-    except:
+    except (IndexError, ValueError):
         thick_start = int(fields[1])
     try:
         thick_end = int(fields[7])
-    except:
+    except (IndexError, ValueError):
         thick_end = int(fields[2])
 
     try:
@@ -982,13 +981,13 @@ def get_gene_parts(fields, bed_properties):
         rgb = rgb.split(',')
         if len(rgb) == 3:
             rgb = [float(x)/255 for x in rgb]
-            edgecolor = 'black'
+            # edgecolor = 'black'
         else:
             rgb = bed_properties['color']
-            edgecolor = bed_properties['color']
+            # edgecolor = bed_properties['color']
     except IndexError:
         rgb = bed_properties['color']
-        edgecolor = bed_properties['color']
+        # edgecolor = bed_properties['color']
     try:
         block_count = int(fields[9])
         block_sizes = [int(x) for x in fields[10].split(',') if x.strip() != '']
@@ -999,21 +998,21 @@ def get_gene_parts(fields, bed_properties):
         block_sizes = []
         block_starts = []
 
-    return chrom, start, end, name, strand, thick_start, thick_end, rgb, \
-           block_count, block_sizes, block_starts
+    return chrom, start, end, name, strand, thick_start, thick_end, rgb, block_count, block_sizes, block_starts
 
 
 def draw_gene_simple(ax, fields, ypos, bed_properties, small_relative, rgb, edgecolor):
     """
     draws a gene using different styles
     """
+    from matplotlib.patches import Polygon
     (chrom, start, end, name, strand, thick_start, thick_end, rgb_, block_count,
      block_sizes, block_starts) = get_gene_parts(fields, bed_properties)
     # prepare the vertices for all elements that will be drawn
     # the region length without the tip of the end arrow whose length is 'small_relative'
     if strand == '+':
-        x0  = start
-        x1  = end - small_relative
+        x0 = start
+        x1 = end - small_relative
         y0 = ypos
         y1 = ypos + 100
         """
@@ -1029,7 +1028,7 @@ def draw_gene_simple(ax, fields, ypos, bed_properties, small_relative, rgb, edge
 
     elif strand == '-':
         x0 = start + small_relative
-        x1  = end
+        x1 = end
         y0 = ypos
         y1 = ypos + 100
         """
@@ -1039,11 +1038,11 @@ def draw_gene_simple(ax, fields, ypos, bed_properties, small_relative, rgb, edge
         /--------___---------_
         \--------   ----------
         """
-        vertices = [(x0, y0), (x0 -small_relative, y0 + 50), (x0, y1), (x1, y1), (x1, y0)]
+        vertices = [(x0, y0), (x0 - small_relative, y0 + 50), (x0, y1), (x1, y1), (x1, y0)]
 
-    ax.add_patch(matplotlib.patches.Polygon(vertices, closed=True, fill=True,
-                                            edgecolor='black',
-                                            facecolor=rgb))
+    ax.add_patch(Polygon(vertices, closed=True, fill=True,
+                         edgecolor=edgecolor,
+                         facecolor=rgb))
 
     if 'labels' in bed_properties and bed_properties['labels'] != 'off':
         center = start + float(end - start)/2
@@ -1056,6 +1055,8 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
     """
     draws a gene using different styles
     """
+    from matplotlib.patches import Polygon
+
     (chrom, start, end, name, strand, thick_start, thick_end, rgb_, block_count,
      block_sizes, block_starts) = get_gene_parts(fields, bed_properties)
     # draw a line from the start until the end of the gene
@@ -1063,7 +1064,7 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
         draw_gene_simple(ax, fields, ypos,  bed_properties, small_relative, rgb, edgecolor)
         return
 
-    ax.plot([start, end], [ypos + 50, ypos + 50], 'black', linewidth=0.5, zorder = -1)
+    ax.plot([start, end], [ypos+50, ypos+50], 'black', linewidth=0.5, zorder=-1)
     if strand == '+':
         x1 = thick_start
         y0 = ypos
@@ -1080,7 +1081,7 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
         end_box = [(thick_end, y0), (thick_end, y1), (end - small_relative, y1), (end, y0 + 50), (end-small_relative, y0)]
 
     elif strand == '-':
-        x0  = start + min(small_relative, thick_start - start)
+        x0 = start + min(small_relative, thick_start - start)
         y0 = ypos
         y1 = ypos + 100
         """
@@ -1092,7 +1093,6 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
         """
         start_box = [(x0, y0), (start, y0 + 50), (x0, y1), (thick_start, y1), (thick_start, y0)]
         end_box = [(thick_end, y0), (thick_end, y1), (end, y1),  (end, y0)]
-
 
     for idx in range(0, block_count):
         x0 = start + block_starts[idx]
@@ -1106,18 +1106,19 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
 
         if x0 < thick_start < x1:
             vertices = ([(x0, ypos+25), (x0, ypos+75), (thick_start, ypos+75), (thick_start, ypos+100),
-                         (thick_start, ypos+100), (x1, ypos+100), (x1, ypos), (thick_start, ypos), (thick_start, ypos+25)])
+                         (thick_start, ypos+100), (x1, ypos+100), (x1, ypos),
+                         (thick_start, ypos), (thick_start, ypos+25)])
 
         elif x0 < thick_end < x1:
             vertices = ([(x0, ypos), (x0, ypos+100), (thick_end, ypos+100), (thick_end, ypos+75),
                          (x1, ypos+75), (x1, ypos+25), (thick_end, ypos+25), (thick_end, ypos)])
         else:
-            vertices = ([(x0,y0), (x0, y1), (x1, y1), (x1, y0)])
+            vertices = ([(x0, y0), (x0, y1), (x1, y1), (x1, y0)])
 
-        ax.add_patch(matplotlib.patches.Polygon(vertices, closed=True, fill=True,
-                                                linewidth=0.1,
-                                                edgecolor='none',
-                                                facecolor=rgb))
+        ax.add_patch(Polygon(vertices, closed=True, fill=True,
+                             linewidth=0.1,
+                             edgecolor='none',
+                             facecolor=rgb))
 
         if idx < block_count - 1:
             intron_length = block_starts[idx+1] - (block_starts[idx] + block_sizes[idx])
@@ -1139,6 +1140,9 @@ def draw_gene_with_introns(ax, fields, ypos, bed_properties, small_relative, rgb
 
 
 def plot_bed(ax, label_ax, bed_properties, region):
+
+    from matplotlib.patches import Rectangle
+
     file_h = open(bed_properties['file'], 'r')
     chrom_region, start_region, end_region = region
     counter = 0
@@ -1167,8 +1171,7 @@ def plot_bed(ax, label_ax, bed_properties, region):
 
     # to avoid overlaping gene labels, the size of a 'w' is estimated
     if 'type' in bed_properties and bed_properties['type'] == 'genes' \
-            and 'labels' in bed_properties and bed_properties['label' \
-                                                              's'] != 'off':
+            and 'labels' in bed_properties and bed_properties['labels'] != 'off':
         t = matplotlib.textpath.TextPath((0, 0), 'w', prop=fp)
         len_w = t.get_extents().width * 300
     else:
@@ -1179,7 +1182,6 @@ def plot_bed(ax, label_ax, bed_properties, region):
 
     if bed_properties['color'] in color_options:
         import matplotlib as mpl
-        import matplotlib.cm as cm
         norm = mpl.colors.Normalize(vmin=bed_properties['min_value'],
                                     vmax=bed_properties['max_value'])
         cmap = cm.get_cmap(bed_properties['color'])
@@ -1214,7 +1216,7 @@ def plot_bed(ax, label_ax, bed_properties, region):
             counter += 1
             try:
                 strand = fields[5]
-            except:
+            except IndexError:
                 strand = "."
             try:
                 rgb = fields[8]
@@ -1236,7 +1238,7 @@ def plot_bed(ax, label_ax, bed_properties, region):
             if 'type' in bed_properties and \
                     bed_properties['type'] == 'domain':
                 ypos = 100 if counter % 2 == 0 else 1
-                ax.add_patch(matplotlib.patches.Rectangle(
+                ax.add_patch(Rectangle(
                         (start, ypos),
                         end-start,
                         100, edgecolor='black',
@@ -1250,11 +1252,9 @@ def plot_bed(ax, label_ax, bed_properties, region):
                 rows_used = np.zeros(max_num_row + 2)
                 for x in match:
                     rows_used[x.value] = 1
-                min_free_row = min(np.flatnonzero(rows_used==0))
+                min_free_row = min(np.flatnonzero(rows_used == 0))
 
-            if 'type' in bed_properties and \
-                bed_properties['type'] == 'genes' and \
-                end - start < len(fields[3]) * len_w:
+            if 'type' in bed_properties and bed_properties['type'] == 'genes' and end - start < len(fields[3]) * len_w:
                 region_intervals.add_interval(Interval(start, start + (len(fields[3]) * len_w), min_free_row))
             else:
                 region_intervals.add_interval(Interval(start, end+small_relative, min_free_row))
@@ -1279,7 +1279,7 @@ def plot_bed(ax, label_ax, bed_properties, region):
                                        fontproperties=fp)
 
             else:
-                ax.add_patch(matplotlib.patches.Rectangle(
+                ax.add_patch(Rectangle(
                         (start, ypos), end-start,
                         100, edgecolor=edgecolor,
                         facecolor=rgb))
@@ -1316,7 +1316,7 @@ def plot_bedgraph(ax, label_ax, bedgraph_properties, region):
         chrom, start, end, score = line.split('\t')
         start = int(start)
         end = int(end)
-        if chrom == chrom_region and start_region -100000 <= start and \
+        if chrom == chrom_region and start_region - 100000 <= start and \
                 end_region + 100000 >= end:
             score_list.append(float(score))
             pos_list.append(start + (end - start)/2)
@@ -1426,8 +1426,8 @@ def plot_bedgraph_matrix(ax, label_ax, properties, region):
             ax.plot(start_pos, row)
         ax.plot(start_pos, matrix.mean(axis=0), "--")
     else:
-        X, Y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
-        img = ax.pcolormesh(X, Y, matrix, vmin=vmin, vmax=vmax, shading='gouraud')
+        x, y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
+        img = ax.pcolormesh(x, y, matrix, vmin=vmin, vmax=vmax, shading='gouraud')
         img.set_rasterized(True)
     ax.set_xlim(start_region, end_region)
     ax.set_frame_on(False)
@@ -1555,7 +1555,6 @@ def plot_bigwig(ax, label_ax, bigwig_properties, region):
     label_ax.text(0.15, 0, bigwig_properties['title'],
                   horizontalalignment='left', size='large',
                   verticalalignment='bottom')
-                  # transform=label_ax.transAxes)
 
 
 def plot_vlines(vlines_list, vlines_file, axis_list, region):
@@ -1589,7 +1588,6 @@ def plot_vlines(vlines_list, vlines_file, axis_list, region):
     from matplotlib.patches import ConnectionPatch
     a_ymax = axis_list[0].get_ylim()[1]
     b_ymin = axis_list[-1].get_ylim()[0]
-
 
     for start_pos in vlines_list:
         con = ConnectionPatch(xyA=(start_pos, a_ymax),
@@ -1627,7 +1625,7 @@ def get_region(region_string):
         return chrom, region_start, region_end
 
 
-class multidict(OrderedDict):
+class MultiDict(OrderedDict):
     """
     Class to allow identically named
     sections in configuration file
@@ -1653,7 +1651,7 @@ def parse_tracks(tracks_file):
     """
     from ConfigParser import SafeConfigParser
     from ast import literal_eval
-    parser = SafeConfigParser(None, multidict)
+    parser = SafeConfigParser(None, MultiDict)
     parser.readfp(tracks_file)
 
     track_list = []
@@ -1726,6 +1724,7 @@ def guess_filetype(track_dict):
 
     return file_type
 
+
 def cm2inch(*tupl):
     inch = 2.54
     if isinstance(tupl[0], tuple):
@@ -1758,7 +1757,7 @@ def main(args=None):
                 track_dict['file_type'] = guess_filetype(track_dict)
             check_file_exists(track_dict)
 
-            ## set some default values
+            #  set some default values
             if 'title' not in track_dict:
                 warn = "\ntitle not set for 'section {}'\n".format(track_dict['section_name'])
                 track_dict['title'] = ''
@@ -1794,7 +1793,6 @@ def main(args=None):
 #                      (1.8*(region_end - region_start)))
 
         track_height.append(height)
-
 
     if args.height:
         fig_height = args.height
@@ -1850,7 +1848,7 @@ def main(args=None):
         elif properties['file_type'] == 'hic_matrix':
             if 'type' in properties:
                 if properties['type'] == 'interaction':
-                    plot_interactions(axis, properties, region, args)
+                    plot_interactions(axis, properties, region)
                 elif properties['type'] == 'arcplot':
                     plot_hic_arcs(axis, label_axis, properties, region)
                 else:
