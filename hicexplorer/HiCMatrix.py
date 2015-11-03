@@ -23,6 +23,8 @@ class hiCMatrix:
     def __init__(self, matrixFile=None, format=None, skiprows=None):
         self.correction_factors = None # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
+        self.distanceCounts = None # only defined when getCountsByDistance is called
+
         if matrixFile:
             self.nan_bins = np.array([])
             if not format:
