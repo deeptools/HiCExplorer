@@ -1,9 +1,6 @@
 Hi-C analysis of mouse ESCs using HiC-Explorer
 ==============================================
 
-| Vivek Bhardwaj
-| 20.10.2015
-
 The following example shows how we can use HiCExplorer to analyse a
 published dataset. Here we are using a HiC dataset from `Marks et. al.
 2015 <http://www.genomebiology.com/2015/16/1/149>`__, on mouse ESCs.
@@ -203,23 +200,39 @@ resolution
     --chromosomeOrder 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 X Y \
     -o plots/replicateMerged_Corrected-100bins_plot.png
 
+.. figure:: ./plots/replicateMerged_Corrected-100bins_plot.png
+   :alt: corrected\_100kb\_plot
+
+   corrected\_100kb\_plot
 Remove outliers from hic-Matrix
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Outliers can be removed by a cutoff after looking at the diagnostic plot
-for **hicCorrectMatrix** (using **diagnostic\_plot** option). Here I am
-using a matrix with 20kb bins (produced by hicMergeMatrixBins -nb 2),
-since 20kb seems to be decent resolution.
+for **hicCorrectMatrix** (using **diagnostic\_plot** option). Here we
+are using a matrix with 20kb bins (produced by *hicMergeMatrixBins -nb
+2*), since 20kb seems to be decent resolution.
 
 Select threshold for outlier removal
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Following is the disgnostic plot that shows a bimodal distribution. We
+should remove the values from both lower and upper end of the
+distribution.
 
 .. code:: bash
 
     hicCorrectMatrix diagnostic_plot -m hiCmatrix/replicateMerged.matrix_20kb.npz -o plots/diagPlot-20kb.png
 
+.. figure:: ./plots/diagPlot-20kb.png
+   :alt: diagplot
+
+   diagplot
 Correct matrix removing outliers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Looking at the above distribution, we can select the value of -2 (lower
+end) and 3 (upper end) to remove. This is given by the **-t** option in
+hicCorrectMatrix.
 
 .. code:: bash
 
@@ -231,16 +244,21 @@ Correct matrix removing outliers
 Plot corrected matrix
 ^^^^^^^^^^^^^^^^^^^^^
 
-We can now plot the chromosome X, with the corrected matrix.
+We can now plot the one of the chromosomes (eg. chromosome X) , with the
+corrected matrix.
 
 .. code:: bash
 
     hicPlotMatrix \
     --log1p --dpi 300 \
     -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
-    --region X \
+    --region X -t "Corrected Hi-C matrix for mESC : chrX" \
     -o plots/replicateMerged_Corrected-20kb_plot-chrX.png
 
+.. figure:: ./plots/replicateMerged_Corrected-20kb_plot-chrX.png
+   :alt: correctMatrixPlot
+
+   correctMatrixPlot
 Find and plot TADs
 ------------------
 
@@ -251,24 +269,52 @@ Find TADs
 
     mkdir TADs
     hicFindTADs -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
-    --minDepth 40000 --maxDepth 80000 \
+    --minDepth 40000 --maxDepth 120000 --lookahead 4 \
     --outPrefix TADs/marks_et-al_TADs_20kb-Bins
 
 Plot TADs
 ~~~~~~~~~
 
+Build Tracks File
+^^^^^^^^^^^^^^^^^
+
 We can plot the TADs for a given chromosomal region. For this we need to
 create a tracks file, which is a file containing instructions to plot.
-One of the example is attached `here <./plots/track_example.txt>`__.
+`HERE <>`__ are the instructions on how to build the track file. One of
+the example is attached `here <./plots/track_example.txt>`__.
+
+Plot
+^^^^
 
 Here I am plotting the TADs we have found (using 20kb bins) along with
-the TADs found by Marks et. al., available as bed file `here <>`__ , and
-GRCm37\_genes bed file (from ensembl).
+the TADs found by Marks et. al., available as bed file
+`here <http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM1652666>`__
+and GRCm37\_genes.bed file (from ensembl).
 
 .. code:: bash
 
     hicPlotTADs --tracks tracks_toPlot/tracks_2.txt \
     --region X:99974316-101359967 --dpi 300 \
-    -out plots/TADs_around_Xist.png
+    -out plots/marks_et-al_TADs.png -t "Marks et. al. TADs on X"
 
+.. figure:: ./plots/marks_et-al_TADs.png
+   :alt: TADplot
+
+   TADplot
+Comparing Marks et. al. and Dixon et. al.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We analysed the mESC Hi-C data from `Dixon et.
+al <http://www.nature.com/nature/journal/v485/n7398/full/nature11082.html>`__
+using Hi-C explorer, and compared it to Marks et. al. dataset. Following
+is the plot showing the TADs on the X chromosomes, at 1.2 MB region
+around Xist (the X Inactivation Center). We have plotted here the Hi-C
+tracks from both the studies, containing TADs as triangles, detected by
+Hi-C explorer, along with the boundaries as bed files provided with the
+studies, and a genes.bed file from ensembl.
+
+.. figure:: ./plots/marks_and_dixon-TADs.png
+   :alt: TADplot2
+
+   TADplot2
 
