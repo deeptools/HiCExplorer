@@ -10,15 +10,20 @@ depth = 100000
 #max_value = 3.0
 transform = log1p
 boundaries_file = conductance_vs_hic/boundaries_all.bed
-show_masked_bins = yes
 x labels = yes
 type = arcplot
 type = interaction
 #optional in case it can not be guessed by the file ending
 file_type = hic_matrix
-
+# show masked bins plots as white lines
+# those bins that were not used during the correction
+# the default is to extend neighboring bins to
+# obtain an aesthetically pleasant output
+show_masked_bins = yes
 
 [x-axis]
+#optional
+fontsize=20
 
 [spacer]
 
@@ -48,7 +53,7 @@ file_type = bed
 # bed but if the type=genes is given
 # the the file is interpreted as gene
 # file. If the bed file contains the exon
-# structure then this is plottee. Otherwise
+# structure then this is plotted. Otherwise
 # a region **with direction** is plotted.
 file = genes.bed
 title = genes
@@ -60,6 +65,8 @@ labels = off
 type = genes
 # optional. If not given is guessed from the file ending
 file_type = bed
+# optional: font size can be given if default are not good
+fontsize = 10
 
 [chrom states]
 # this is a case of a bed file that is plotted 'collapsed'
