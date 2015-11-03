@@ -357,14 +357,14 @@ class hiCMatrix:
 20: array([5, 5]), 30: array([3]), -1: array([0, 1, 3, 1])}
 
         Test get distance counts per chromosome
-        >>> del(hic.distanceCounts)
+        >>> del hic.distanceCounts
         >>> hic.getCountsByDistance(per_chr=True)
         {'a': {0: array([0, 0, 0, 0]), 10: array([10, 15,  7]), \
 20: array([5, 5]), 30: array([3])}, 'b': {0: array([0])}}
 
         Test the removal of masked bins
         >>> hic.nan_bins = [3]
-        >>> del(hic.distanceCounts)
+        >>> del hic.distanceCounts
         >>> hic.getCountsByDistance()
         {0: array([0, 0, 0, 0]), 10: array([10, 15]), 20: array([5]), \
 -1: array([0, 1, 3])}
@@ -381,10 +381,8 @@ class hiCMatrix:
 22: array([5, 5]), -1: array([0, 1, 3, 1])}
         """
 
-        try:
+        if self.distance_counts:
             return self.distanceCounts
-        except:
-            pass
 
         # check that the matrix has bins of same size
         # otherwise the computations will fail
@@ -395,9 +393,9 @@ class hiCMatrix:
         if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
             # set the start position of a bin to the closest multiple
             # of the median
-            def snap_nearest_multiple(X, m):
-                resi = [-1*(X % m), -X % m]
-                return X + resi[np.argmin(np.abs(resi))]
+            def snap_nearest_multiple(start_x, m):
+                resi = [-1*(start_x % m), -start_x % m]
+                return start_x + resi[np.argmin(np.abs(resi))]
             start = [snap_nearest_multiple(x, median) for x in start]
             end = [snap_nearest_multiple(x, median) for x in end]
             cut_intervals = zip(chrom, start, end, extra)
@@ -506,9 +504,8 @@ class hiCMatrix:
     @staticmethod
     def getUnwantedChrs():
         # too drosophila specific. Should remove this function
-        unwanted_chr = set(['chrM', 'chrYHet', 'chrXHet',
-                            'chrUextra', 'chrU', 'chr3RHet', 'chr3LHet',
-                            'chr2RHet', 'chr2LHet'])
+        unwanted_chr = {'chrM', 'chrYHet', 'chrXHet', 'chrUextra', 'chrU', 'chr3RHet', 'chr3LHet', 'chr2RHet',
+                        'chr2LHet'}
         return unwanted_chr
 
     def filterUnwantedChr(self, chromosome=None):
@@ -524,14 +521,20 @@ class hiCMatrix:
         these are kept, while any other is removed
         from the matrix
         """
+        if isinstance(chromosome_list, str):
+            chromosome_list = [chromosome_list]
+
+        try:
+            [self.chrBinBoundaries[x] for x in chromosome_list]
+        except KeyError as e:
+            raise Exception("Chromosome name {} not in matrix.".format(e))
+
         self.restoreMaskedBins()
         size = self.matrix.shape
         # initialize a 1D array containing the columns (and rows) to
         # select. By default none are selected
         sel = np.empty(size[0], dtype=np.bool)
         sel[:] = False
-        if isinstance(chromosome_list, str):
-            chromosome_list = [chromosome_list]
 
         for chrName in self.interval_trees.keys():
             if chrName not in chromosome_list:
