@@ -666,12 +666,12 @@ def plot_x_axis(ax, region, properties):
         labels = ["{:,.0f} kb".format((x / 1e3))
                   for x in ticks]
     else:
-        labels = ["{:,.0f}Mbp".format((x / 1e6))
+        labels = ["{:,.1f} Mbp".format((x / 1e6))
                   for x in ticks]
         # labels[-1] += "Mbp"
 
     ax.axis["x"] = ax.new_floating_axis(0, 0.5)
-    
+
     ax.axis["x"].axis.set_ticklabels(labels)
     ax.axis['x'].axis.set_tick_params(which='minor', bottom='on')
 
@@ -1268,7 +1268,7 @@ def plot_bed(ax, label_ax, bed_properties, region):
             if min_free_row > max_num_row:
                 max_num_row = min_free_row
             if min_free_row > 0:
-                # this means we are plotting 
+                # this means we are plotting
                 # on top of previous genes
                 ypos = min_free_row * 230
             else:
@@ -1645,7 +1645,7 @@ class MultiDict(OrderedDict):
     def __setitem__(self, key, val):
         if isinstance(val, OrderedDict):
             self._unique += 1
-            key = "{}. {}".format(str(self._unique), key)
+            key = "{}. [{}]".format(str(self._unique), key)
         OrderedDict.__setitem__(self, key, val)
 
 
@@ -1665,9 +1665,9 @@ def parse_tracks(tracks_file):
     vlines_file = None
     for section_name in parser.sections():
         track_options = dict({"section_name": section_name})
-        if section_name.endswith('spacer'):
+        if section_name.endswith('[spacer]'):
             track_options['spacer'] = True
-        elif section_name.endswith('x-axis'):
+        elif section_name.endswith('[x-axis]'):
             track_options['x-axis'] = True
         for name, value in parser.items(section_name):
             if name in ['max_value', 'min_value', 'depth', 'width'] and value != 'auto':
