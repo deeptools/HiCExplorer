@@ -308,10 +308,13 @@ We analysed the mESC Hi-C data from `Dixon et.
 al <http://www.nature.com/nature/journal/v485/n7398/full/nature11082.html>`__
 using Hi-C explorer, and compared it to Marks et. al. dataset. Following
 is the plot showing the TADs on the X chromosomes, at 1.2 MB region
-around Xist (the X Inactivation Center). We have plotted here the Hi-C
-tracks from both the studies, containing TADs as triangles, detected by
-Hi-C explorer, along with the boundaries as bed files provided with the
-studies, and a genes.bed file from ensembl.
+around Xist (the X Inactivation Center).
+
+We have plotted here the Hi-C tracks from both the studies, containing
+TADs as triangles, detected by Hi-C explorer, along with the boundaries
+as bed files provided with the studies, normalized CTCF signal from
+ENCODE, spectrum of Hi-C signal produced by *hicFindTADs*, and a
+genes.bed file from ensembl.
 
 .. figure:: ./plots/marks_and_dixon-TADs.png
    :alt: TADplot2
