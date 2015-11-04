@@ -728,7 +728,13 @@ def main(args=None):
         exit()
 
     # work only with the lower matrix
-    hic_ma.matrix = sparse.tril(hic_ma.matrix, k=0, format='csr')
+    # and remove all pixels that are beyond
+    # 2 * max_depth_in_bis which are not required
+    # (this is done by subtracting a second sparse matrix
+    # that contains only the lower matrix that wants to be removed.
+    limit = -2 * max_depth_in_bins
+    hic_ma.matrix = sparse.tril(hic_ma.matrix, k=0, format='csr') - sparse.tril(hic_ma.matrix, k=limit, format='csr')
+    hic_ma.matrix.eliminate_zeros()
 
     num_processors = args.numberOfProcessors
     pool = multiprocessing.Pool(num_processors)
