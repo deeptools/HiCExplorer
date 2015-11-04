@@ -7,6 +7,7 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import enlarge_bins
 from scipy import sparse
 import numpy as np
+import multiprocessing
 
 
 def parse_arguments(args=None):
@@ -44,6 +45,13 @@ def parse_arguments(args=None):
                         default=60000
                         )
 
+    parser.add_argument('--step',
+                        help='step size when moving from --minDepth to --maxDepth',
+                        metavar='INT bp',
+                        type=int,
+                        default=10000
+                        )
+
     parser.add_argument('--lookahead',
                         help='number of bins ahead to look for before deciding '
                              'if a local minimum is a boundary.'
@@ -70,6 +78,12 @@ def parse_arguments(args=None):
                         help='If set, the log of the matrix values are'
                              'used.',
                         action='store_true')
+
+
+    parser.add_argument('--numberOfProcessors',  '-p',
+                        help='Number of processors to use ',
+                        type=int,
+                        default=1)
 
     return parser
 
@@ -205,7 +219,11 @@ def get_coverage(matrix, cut, depth):
     return cut_weight / total_edges
 
 
-def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
+def compute_matrix_wrapper(args):
+    return compute_matrix(*args)
+
+
+def compute_matrix(hic_ma, bins_list, min_win_size=8, max_win_size=50, step_len=2, outfile=None):
     """
     Iterates over the Hi-C matrix computing at each bin
     interface the conductance at different window lengths
@@ -219,7 +237,7 @@ def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
     cond_matrix = []
     chrom, start, end, __ = hic_ma.cut_intervals[0]
     prev_length = int((end - start) / 2)
-    for cut in range(1, hic_ma.matrix.shape[0]-1):
+    for cut in bins_list:
 
         chrom, chr_start, chr_end, _ = hic_ma.cut_intervals[cut]
 
@@ -250,25 +268,14 @@ def compute_matrix(hic_ma, min_win_size=8, max_win_size=50, outfile=None):
         # get conductance
         # for multiple window lengths at a time
         mult_matrix = [get_coverage(hic_ma.matrix, cut, x)
-                       for x in range(min_win_size, max_win_size, 1)]
-#        mult_matrix = [get_conductance(hic_ma.matrix, cut, x)
-#                       for x in range(8, 50, 2)]
+                       for x in range(min_win_size, max_win_size, step_len)]
+
         cond_matrix.append(mult_matrix)
 
         positions_array.append((chrom, chr_start, chr_end))
 
     chrom, chr_start, chr_end = zip(*positions_array)
-    # save matrix as chrom, start, end ,row, values separated by tab
-    # I call this a bedgraph matrix (bm)
     cond_matrix = np.vstack(cond_matrix)
-    if outfile:
-        # save matrix as chrom start end row values (bed graph matrix)
-        with open(outfile, 'w') as f:
-            for idx in range(len(chrom)):
-                matrix_values = "\t".join(
-                        np.char.mod('%f', cond_matrix[idx,:]))
-                f.write("{}\t{}\t{}\t{}\n".format(chrom[idx], chr_start[idx],
-                                                  chr_end[idx], matrix_values))
 
     return chrom, chr_start, chr_end, cond_matrix
 
@@ -410,23 +417,23 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
         clusters found at those value thresholds are returned.
 
 
-    :return: Z, clusters
+    :return: z_value, clusters
 
-    For Z, the format used is similar as the scipy.cluster.hierarchy.linkage() function
+    For z_value, the format used is similar as the scipy.cluster.hierarchy.linkage() function
     which is described as follows:
 
-    A 4 by :math:`(n-1)` matrix ``Z`` is returned. At the
-    :math:`i`-th iteration, clusters with indices ``Z[i, 0]`` and
-    ``Z[i, 1]`` are combined to form cluster :math:`n + i`. A
+    A 4 by :math:`(n-1)` matrix ``z_value`` is returned. At the
+    :math:`i`-th iteration, clusters with indices ``z_value[i, 0]`` and
+    ``z_value[i, 1]`` are combined to form cluster :math:`n + i`. A
     cluster with an index less than :math:`n` corresponds to one of
     the :math:`n` original observations. The distance between
-    clusters ``Z[i, 0]`` and ``Z[i, 1]`` is given by ``Z[i, 2]``. The
-    fourth value ``Z[i, 3]`` represents the number of original
+    clusters ``z_value[i, 0]`` and ``z_value[i, 1]`` is given by ``z_value[i, 2]``. The
+    fourth value ``z_value[i, 3]`` represents the number of original
     observations in the newly formed cluster.
 
     The difference is that instead of a 4 times n-1 array, a
     6 times n-1 array is returned. Where positions 4, and 5
-    correspond to the genomic coordinates of ``Z[i, 0]`` and ``Z[i, 1]``
+    correspond to the genomic coordinates of ``z_value[i, 0]`` and ``z_value[i, 1]``
 
     """
     # run the hierarchical clustering per chromosome
@@ -440,7 +447,7 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
     indices = indices[1:]  # the first element is not needed
     start_per_chr = np.split(start, indices)
     value_per_chr = np.split(value, indices)
-    Z = {}
+    z_value = {}
 
     def get_domain_positions(boundary_position):
         """
@@ -476,7 +483,8 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
         """
         Transforms a list of sets of ids from the hierarchical
         clustering to genomic positions
-        :param clusters: cluster ids
+        :param clusters_: cluster ids
+        :param chrom_name: chromosome name
         :return: list of tuples with (chrom_name, start, end)
 
         Example:
@@ -504,7 +512,7 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
     return_clusters = {} # collects the genomic positions of the clusters per chromosome
                          # The values are a list, one for each cutoff.
     for chrom_idx, chrom_name in enumerate(unique_chr):
-        Z[chrom_name] = []
+        z_value[chrom_name] = []
         return_clusters[chrom_name] = []
         clust_cutoff = clusters_cutoff[:]
         domains = get_domain_positions(start_per_chr[chrom_idx])
@@ -536,7 +544,7 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
             # merge domains order_idx - 1 and order_idx
             left = find_in_clusters(clusters, order_idx)
             right = find_in_clusters(clusters, order_idx + 1)
-            Z[chrom_name].append((left, right, values[order_idx],
+            z_value[chrom_name].append((left, right, values[order_idx],
                                   len(clusters[left]) + len(clusters[right]),
                                   cluster_x[left], cluster_x[right]))
 
@@ -556,7 +564,7 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
     ret_ = {}  # dictionary to hold the clusters per cutoff. The key of
                # each item is the str(cutoff)
 
-    for idx, cutoff  in enumerate(clusters_cutoff):
+    for idx, cutoff in enumerate(clusters_cutoff):
         cutoff = str(cutoff)
         ret_[cutoff] = []
         for chr_name in return_clusters:
@@ -565,7 +573,7 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
             except IndexError:
                 pass
 
-    return  Z, ret_
+    return  z_value, ret_
 
 
 def save_linkage(Z, file_name):
@@ -587,13 +595,14 @@ def save_linkage(Z, file_name):
     for chrom, values in Z.iteritems():
         for id_a, id_b, distance, num_clusters, pos_a, pos_b in values:
             count += 1
-            file_h.write('{}\t{}\t{}\tclust_{}\t{}\t.\t{}\t{}\t{}\n'.format(chrom,
-                                                                        int(pos_a),
-                                                                        int(pos_b),
-                                                                        count,
-                                                                        distance,
-                                                                        id_a, id_b,
-                                                                        num_clusters))
+            file_h.write('{}\t{}\t{}\tclust_{}'
+                         '\t{}\t.\t{}\t{}\t{}\n'.format(chrom,
+                                                        int(pos_a),
+                                                        int(pos_b),
+                                                        count,
+                                                        distance,
+                                                        id_a, id_b,
+                                                        num_clusters))
 
 
 def get_domains(boundary_list):
@@ -620,6 +629,27 @@ def get_domains(boundary_list):
         prev_chrom = chrom
 
     return domain_list
+
+
+def save_bedgraph_matrix(outfile, chrom, chr_start, chr_end, score_matrix):
+    """
+    Save matrix as chrom, start, end ,row, values separated by tab
+    I call this a bedgraph matrix (bm)
+
+    :param outfile: string file name
+    :param chrom: list of chrom names
+    :param chr_start: list of start positions
+    :param chr_end: list of end positions
+    :param score_matrix: list of lists
+    :return: None
+    """
+
+    with open(outfile, 'w') as f:
+        for idx in range(len(chrom)):
+            matrix_values = "\t".join(
+                    np.char.mod('%f', score_matrix[idx, :]))
+            f.write("{}\t{}\t{}\t{}\n".format(chrom[idx], chr_start[idx],
+                                              chr_end[idx], matrix_values))
 
 
 def save_clusters(clusters, file_prefix):
@@ -670,18 +700,23 @@ def main(args=None):
 
     if args.minDepth % hic_ma.getBinSize() != 0:
         sys.stderr.write('Warning. specified depth is not multiple of the '
-                         'hi-c matrix bin size ({})\n'.format(hic_ma.getBinSize()))
+             'hi-c matrix bin size ({})\n'.format(hic_ma.getBinSize()))
+    if args.step % hic_ma.getBinSize() != 0:
+        sys.stderr.write('Warning. Epecified step is not multiple of the '
+             'hi-c matrix bin size ({})\n'.format(hic_ma.getBinSize()))
 
     binsize = hic_ma.getBinSize()
 
     min_depth_in_bins = int(args.minDepth / binsize)
     max_depth_in_bins = int(args.maxDepth / binsize)
-    print (min_depth_in_bins, max_depth_in_bins)
+    step_in_bins = int(args.step / binsize)
+
     sys.stderr.write("computing spectrum for window sizes between {} ({} bp)"
-                     "and {} ({} bp)\n".format(min_depth_in_bins,
-                                               binsize * min_depth_in_bins,
-                                               max_depth_in_bins,
-                                               binsize * max_depth_in_bins))
+                     "and {} ({} bp) at {} ({} bp) steps\n".format(min_depth_in_bins,
+                                                                   binsize * min_depth_in_bins,
+                                                                   max_depth_in_bins,
+                                                                   binsize * max_depth_in_bins,
+                                                                   step_in_bins, binsize * step_in_bins))
     if min_depth_in_bins <= 1:
         sys.stderr.write('ERROR\nminDepth length too small. Use a value that is at least'
                          'twice as large as the bin size which is: {}\n'.format(binsize))
@@ -695,14 +730,40 @@ def main(args=None):
     # work only with the lower matrix
     hic_ma.matrix = sparse.tril(hic_ma.matrix, k=0, format='csr')
 
-    # compute conductance matrix
-    chrom, chr_start, chr_end, matrix = compute_matrix(hic_ma, min_depth_in_bins,
-                                                       max_depth_in_bins,
-                                                       outfile=args.outPrefix + "_spectrum.bm")
+    num_processors = args.numberOfProcessors
+    pool = multiprocessing.Pool(num_processors)
+    func = compute_matrix_wrapper
+    TASKS = []
+    bins_to_consider = []
+    for chrom in hic_ma.chrBinBoundaries.keys():
+        bins_to_consider.extend(range(*hic_ma.chrBinBoundaries[chrom]))
+
+    for idx_array in np.array_split(bins_to_consider, num_processors):
+        TASKS.append((hic_ma, idx_array, min_depth_in_bins, max_depth_in_bins, step_in_bins))
+
+    if num_processors > 1:
+        sys.stderr.write("Using {} processors\n".format(num_processors))
+        res = pool.map_async(func, TASKS).get(9999999)
+    else:
+        res = map(func, TASKS)
+
+    chrom = []
+    chr_start = []
+    chr_end = []
+    matrix = []
+    for _chrom, _chr_start, _chr_end, _matrix in res:
+        chrom.extend(_chrom)
+        chr_start.extend(_chr_start)
+        chr_end.extend(_chr_end)
+        matrix.append(_matrix)
+
+    matrix = np.vstack(matrix)
+
+    outfile=args.outPrefix + "_spectrum.bm"
+    save_bedgraph_matrix(outfile, chrom, chr_start, chr_end, matrix)
 
     mean_mat = matrix.mean(axis=1)
     min_idx = find_consensus_minima(matrix, lookahead=args.lookahead, delta=args.delta)
-
 
     # save results
     prev_start = 0
