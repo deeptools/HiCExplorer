@@ -65,6 +65,7 @@ class PlotTracks(object):
             if 'spacer' in properties:
                 continue
             if 'x-axis' in properties:
+                self.track_obj_list.append(PlotXAxis(properties))
                 continue
             if properties['file_type'] == 'bedgraph':
                 self.track_obj_list.append(PlotBedGraph(properties))
@@ -144,6 +145,9 @@ class PlotTracks(object):
             track.plot(axis, label_axis, chrom, start, end)
             axis_list.append(axis)
 
+        if self.vlines_intval_tree:
+            self.plot_vlines(axis_list, chrom, start, end)
+
         fig.subplots_adjust(wspace=0, hspace=0.1,
                             left=DEFAULT_MARGINS['left'],
                             right=DEFAULT_MARGINS['right'],
@@ -152,11 +156,40 @@ class PlotTracks(object):
 
         print "time before saving"
         start = self.print_elapsed(start)
+        print "saving {}".format(file_name)
 
         fig.savefig(file_name, dpi=self.dpi)
-
         print "time saving "
         start = self.print_elapsed(start)
+
+    def plot_vlines(self, axis_list, chrom_region, start_region, end_region):
+        """
+        Plots dotted lines from the top of the first plot to the bottom
+        of the last plot at the specified positions.
+
+        :param axis_list: list of plotted axis
+        :return: None
+        """
+        vlines_list = []
+        for region in self.vlines_intval_tree[chrom_region].find(start_region - 10000,
+                                                                 end_region + 10000):
+            vlines_list.append(region.start)
+
+        from matplotlib.patches import ConnectionPatch
+        a_ymax = axis_list[0].get_ylim()[1]
+        b_ymin = axis_list[-1].get_ylim()[0]
+
+        for start_pos in vlines_list:
+            con = ConnectionPatch(xyA=(start_pos, a_ymax),
+                                  xyB=(start_pos, b_ymin),
+                                  coordsA="data", coordsB="data",
+                                  axesA=axis_list[0],
+                                  axesB=axis_list[-1],
+                                  arrowstyle="-",
+                                  linestyle='dashed',
+                                  linewidth=0.5,
+                                  zorder=100)
+            axis_list[0].add_artist(con)
 
     def parse_tracks(self, tracks_file):
         """
@@ -204,7 +237,7 @@ class PlotTracks(object):
                     sys.stderr.write(warn)
 
         self.track_list = track_list
-        self.vlines_file = vlines_file
+        self.vlines_intval_tree = file_to_intervaltree(vlines_file)
 
 
     def check_file_exists(self, track_dict):
@@ -271,59 +304,67 @@ class PlotTracks(object):
         return time.time()
 
 
-class IntervalFile(object):
-    def __init__(self, file_name):
-        # iterate over the file contents and save them for later usage
-        file_h = open(file_name, 'r')
-        line_number = 0
-        valid_intervals = 0
-        prev_chrom = None
-        prev_start = -1
-        prev_line = None
-        self.interval_tree = {}
-        for line in file_h.readlines():
-            line_number += 1
-            if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
-                continue
-            fields = line.strip().split('\t')
-            chrom = None
-            start = None
-            end = None
-            try:
-                chrom, start, end = fields[0:3]
-            except Exception as detail:
-                msg = "Error reading line: {}\nError message: {}".format(line_number, detail)
-                exit(msg)
+def file_to_intervaltree(file_name):
+    # iterate over a BED like file
+    # saving the data into an interval tree
+    # for quick retrieval
+    file_h = open(file_name, 'r')
+    line_number = 0
+    valid_intervals = 0
+    prev_chrom = None
+    prev_start = -1
+    prev_line = None
+    interval_tree = {}
+    for line in file_h.readlines():
+        line_number += 1
+        if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
+            continue
+        fields = line.strip().split('\t')
+        chrom = None
+        start = None
+        end = None
+        try:
+            chrom, start, end = fields[0:3]
+        except Exception as detail:
+            msg = "Error reading line: {}\nError message: {}".format(line_number, detail)
+            exit(msg)
 
-            try:
-                start = int(start)
-            except ValueError as detail:
-                msg = "Error reading line: {}. The start field is not " \
-                      "an integer.\nError message: {}".format(line_number, detail)
-                exit(msg)
+        try:
+            start = int(start)
+        except ValueError as detail:
+            msg = "Error reading line: {}. The start field is not " \
+                  "an integer.\nError message: {}".format(line_number, detail)
+            exit(msg)
 
-            try:
-                end = int(end)
-            except ValueError as detail:
-                msg = "Error reading line: {}. The end field is not " \
-                      "an integer.\nError message: {}".format(line_number, detail)
-                exit(msg)
+        try:
+            end = int(end)
+        except ValueError as detail:
+            msg = "Error reading line: {}. The end field is not " \
+                  "an integer.\nError message: {}".format(line_number, detail)
+            exit(msg)
 
-            if prev_chrom == chrom:
-                assert prev_start <= start, \
-                    "Bed file not sorted. Please use a sorted bed file.\n{}{} ".format(prev_line, line)
+        if prev_chrom == chrom:
+            assert prev_start <= start, \
+                "Bed file not sorted. Please use a sorted bed file.\n{}{} ".format(prev_line, line)
 
-            if chrom not in self.interval_tree:
-                self.interval_tree[chrom] = IntervalTree()
+        if chrom not in interval_tree:
+            interval_tree[chrom] = IntervalTree()
 
-            value = None
-            if fields > 3:
-                value = fields[3:]
+        value = None
+        if fields > 3:
+            value = fields[3:]
 
-            self.interval_tree[chrom].insert_interval(Interval(start, end, value=value))
-            valid_intervals += 1
-        if valid_intervals == 0:
-            sys.stderr.write("No valid intervals were found in file {}".format(file_name))
+        assert end > start, \
+                "Start position larger or equal than end for line\n{} ".format(line)
+
+        interval_tree[chrom].insert_interval(Interval(start, end, value=value))
+        valid_intervals += 1
+
+    if valid_intervals == 0:
+        sys.stderr.write("No valid intervals were found in file {}".format(file_name))
+
+    file_h.close()
+    return interval_tree
 
 
 class TrackPlot(object):
@@ -333,11 +374,12 @@ class TrackPlot(object):
 
 class PlotBedGraph(TrackPlot):
 
-    def __init__(self, *args, **kwargs):
-        super(self.__class__, self).__init__(*args, **kwargs)
+    def __init__(self, properties_dict):
+        #super(self.__class__, self).__init__(*args, **kwargs)
+        self.properties = properties_dict
         if 'color' not in self.properties:
             self.properties['color'] = DEFAULT_BEDGRAPH_COLOR
-        self.interval_tree = IntervalFile(self.properties['file'])
+        self.interval_tree = file_to_intervaltree(self.properties['file'])
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
         self.ax = ax
@@ -621,10 +663,13 @@ class PlotHiCMatrix(TrackPlot):
 
         self.cmap.set_bad('black')
 
-    def plot(self, ax, label_axis, chrom, region_start, region_end):
+        if 'boundaries_file' in self.properties:
+            self.boundaries_obj = PlotBoundaries({'file':self.properties['boundaries_file']})
+
+    def plot(self, ax, label_ax, chrom, region_start, region_end):
         import copy
-        self.cbar_ax = copy.copy(label_axis)
-        self.label_ax = label_axis
+        self.cbar_ax = copy.copy(label_ax)
+        self.label_ax = label_ax
         self.label_ax.set_axis_off()
         self.ax = ax
 
@@ -684,8 +729,8 @@ class PlotHiCMatrix(TrackPlot):
         # if a boundaries file is given, plot the
         # tad boundaries as line delineating the TAD triangles
         if 'boundaries_file' in self.properties:
-            plot_boundaries(ax, self.properties['boundaries_file'], region)
-    
+            self.boundaries_obj.plot(ax, label_ax, chrom, region_start, region_end)
+
         self.ax.set_xlim(region_start, region_end)
         if 'x labels' in self.properties and self.properties['x labels'] != 'no':
             ticks = self.ax.get_xticks()
@@ -739,3 +784,74 @@ class PlotHiCMatrix(TrackPlot):
                                 vmin=vmin, vmax=vmax, cmap=self.cmap, norm=self.norm)
         return im
 
+class PlotXAxis(TrackPlot):
+
+    def plot(self, ax, label_axis, chrom_region, region_start, region_end):
+        ax.set_xlim(region_start, region_end)
+        ticks = ax.get_xticks()
+        if ticks[-1] - ticks[1] <= 1e5:
+            labels = ["{:,.0f} kb".format((x / 1e3))
+                      for x in ticks]
+
+        elif 1e5 < ticks[-1] - ticks[1] < 4e6:
+            labels = ["{:,.0f} kb".format((x / 1e3))
+                      for x in ticks]
+        else:
+            labels = ["{:,.1f} Mbp".format((x / 1e6))
+                      for x in ticks]
+            # labels[-1] += "Mbp"
+
+        ax.axis["x"] = ax.new_floating_axis(0, 0.5)
+
+        ax.axis["x"].axis.set_ticklabels(labels)
+        ax.axis['x'].axis.set_tick_params(which='minor', bottom='on')
+
+        if 'fontsize' in self.properties:
+            ax.axis["x"].major_ticklabels.set(size=int(self.properties['fontsize']))
+
+        if 'where' in self.properties and self.properties['where'] == 'top':
+            ax.axis["x"].set_axis_direction("top")
+
+class PlotBoundaries(PlotBedGraph):
+    def plot(self, ax, label_ax, chrom_region, start_region, end_region):
+        """
+        Plots the boundaries as triangles in the given ax.
+        """
+        intervals = []
+        for region in self.interval_tree[chrom_region].find(start_region - 10000,
+                                                            end_region + 10000):
+            intervals.append((region.start, region.end))
+
+        start, end = zip(*intervals)
+        start_list = np.array(start)
+        end = np.array(end)
+        # check if intervals are consecutive or 1bp positions demarcating the boundaries
+        if np.any(end - start_list > 1):
+            # intervals are consecutive, but only the boundaries are need.
+            start_list = end
+
+        prev_start = -1
+        x = []
+        y = []
+        for start in start_list:
+            if prev_start is None:
+                # draw only half a triangle
+                length = start - prev_start
+                x1 = prev_start
+                y1 = length
+                x2 = start
+                y2 = 0
+                x.extend([x1, x2])
+                y.extend([y1, y2])
+            else:
+                x1 = prev_start
+                x2 = x1 + (start - prev_start) / 2
+                x3 = start
+                y1 = 0
+                y2 = (start - prev_start)
+                y3 = 0
+                x.extend([x1, x2, x3])
+                y.extend([y1, y2, y3])
+
+            prev_start = start
+        ax.plot(x, y,  color='black')

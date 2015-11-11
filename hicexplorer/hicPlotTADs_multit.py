@@ -279,7 +279,7 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
     region = get_region(args.region)
     import trackPlot
-    trp = trackPlot.PlotTracks(args.tracks, args.width, fig_height=args.height,
+    trp = trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
                                fontsize=args.fontSize, dpi=args.dpi)
     trp.plot(args.outFileName, *region, title=args.title)
 
