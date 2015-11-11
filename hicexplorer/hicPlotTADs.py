@@ -24,6 +24,8 @@ show_masked_bins = yes
 [x-axis]
 #optional
 fontsize=20
+# optional, options are top or bottom
+where=top
 
 [spacer]
 
