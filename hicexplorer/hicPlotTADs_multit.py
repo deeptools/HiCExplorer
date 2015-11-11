@@ -280,8 +280,8 @@ def main(args=None):
     region = get_region(args.region)
     import trackPlot
     trp = trackPlot.PlotTracks(args.tracks, args.width, fig_height=args.height,
-                               title=args.title, fontsize=args.fontSize, dpi=args.dpi)
-    trp.plot(args.outFileName, *region)
+                               fontsize=args.fontSize, dpi=args.dpi)
+    trp.plot(args.outFileName, *region, title=args.title)
 
     trp.plot("/tmp/test1.png", *region)
 

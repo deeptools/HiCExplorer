@@ -44,25 +44,49 @@ class MultiDict(OrderedDict):
 
 class PlotTracks(object):
 
-    def __init__(self, tracks_file, fig_width, fig_height=None, title=None, fontsize=None, dpi=None):
+    def __init__(self, tracks_file, fig_width=DEFAULT_FIGURE_WIDTH,
+                 fig_height=None, fontsize=None, dpi=None):
+        self.fig_width = fig_width
+        self.fig_height = fig_height
         self.dpi = dpi
         start = self.print_elapsed(None)
         self.parse_tracks(tracks_file)
+        if fontsize:
+            fontsize = fontsize
+        else:
+            fontsize = float(fig_width) * 0.4
 
+        font = {'size': fontsize}
+        matplotlib.rc('font', **font)
+
+        # initialize each track
+        self.track_obj_list = []
+        for idx, properties in enumerate(self.track_list):
+            if 'spacer' in properties:
+                continue
+            if 'x-axis' in properties:
+                continue
+            if properties['file_type'] == 'bedgraph':
+                self.track_obj_list.append(PlotBedGraph(properties))
+            elif properties['file_type'] == 'bigwig':
+                self.track_obj_list.append(PlotBigWig(properties))
+
+            elif properties['file_type'] == 'bedgraph_matrix':
+                self.track_obj_list.append(PlotBedGraphMatrix(properties))
+
+            elif properties['file_type'] == 'hic_matrix':
+                self.track_obj_list.append(PlotHiCMatrix(properties))
+
+        print "time initializing tracks"
+        start = self.print_elapsed(start)
+
+    def get_tracks_height(self, start, end):
         # prepare layout based on the tracks given.
         # The main purpose of the following loop is
         # to get the height of each of the tracks
         track_height = []
         for track_dict in self.track_list:
-            warn = None
             height = DEFAULT_TRACK_HEIGHT
-            if 'file' in track_dict and track_dict['file'] != '':
-                #  set some default values
-                if 'title' not in track_dict:
-                    warn = "\ntitle not set for 'section {}'\n".format(track_dict['section_name'])
-                    track_dict['title'] = ''
-                if warn:
-                    sys.stderr.write(warn)
 
             if 'width' in track_dict:
                 height = track_dict['width']
@@ -85,93 +109,51 @@ class PlotTracks(object):
                 # set for the legends have to be considered
                 # DEFAULT_MARGINS[1] - DEFAULT_MARGINS[0] is the proportion of plotting area
 
-                hic_width = fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * DEFAULT_WIDTH_RATIOS[0]
+                hic_width = self.fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * DEFAULT_WIDTH_RATIOS[0]
                 scale_factor = 0.6  # the scale factor is to obtain a pleasing result.
-                #height = scale_factor * track_dict['depth'] * hic_width / (region_end - region_start)
-                height = scale_factor * track_dict['depth'] * hic_width / (1000000)
+                height = scale_factor * track_dict['depth'] * hic_width / (end - start)
 
             track_height.append(height)
 
-        if fig_height:
-            fig_height = fig_height
+        return track_height
+
+    def plot(self, file_name, chrom, start, end, title=None):
+        track_height = self.get_tracks_height(start, end)
+        if self.fig_height:
+            fig_height = self.fig_height
         else:
             fig_height = sum(track_height)
 
-        print "time processing ini"
-        start = self.print_elapsed(start)
-
-        sys.stderr.write("Figure size in cm is {} x {}. Dpi is set to {}\n".format(fig_width, fig_height, self.dpi))
-        self.fig = plt.figure(figsize=self.cm2inch(fig_width, fig_height))
-        self.fig.suptitle(title)
-
-        if fontsize:
-            fontsize = fontsize
-        else:
-            fontsize = float(fig_width) * 0.4
-
-        font = {'size': fontsize}
-        matplotlib.rc('font', **font)
+        sys.stderr.write("Figure size in cm is {} x {}. Dpi is set to {}\n".format(self.fig_width,
+                                                                                   fig_height, self.dpi))
+        fig = plt.figure(figsize=self.cm2inch(self.fig_width, fig_height))
+        fig.suptitle(title)
 
         grids = matplotlib.gridspec.GridSpec(len(track_height), 2,
                                              height_ratios=track_height,
                                              width_ratios=[1, 0.05])
-
-        # iterate again to initialize each track
         axis_list = []
-        self.track_obj_list = []
-        for idx, properties in enumerate(self.track_list):
-            if 'spacer' in properties:
-                continue
-            axis = axisartist.Subplot(self.fig, grids[idx, 0])
-            self.fig.add_subplot(axis)
+        for idx, track in enumerate(self.track_obj_list):
+            axis = axisartist.Subplot(fig, grids[idx, 0])
+            fig.add_subplot(axis)
             axis.axis[:].set_visible(False)
             # to make the background transparent
             axis.patch.set_visible(False)
-            if 'x-axis' in properties:
-                # ideally the axisartis would allow
-                # to have a floating axis but this is not
-                # working
-                continue
             label_axis = plt.subplot(grids[idx, 1])
             label_axis.set_axis_off()
-
-            if properties['file_type'] == 'bedgraph':
-                self.track_obj_list.append(PlotBedGraph(ax, label_axis, properties))
-            elif properties['file_type'] == 'bigwig':
-                self.track_obj_list.append(PlotBigWig(axis, label_axis, properties))
-
-            elif properties['file_type'] == 'bedgraph_matrix':
-                self.track_obj_list.append(PlotBedGraphMatrix(ax, label_axis, properties))
-
-            elif properties['file_type'] == 'hic_matrix':
-                # to avoid the color bar to span all the
-                # width of the axis I pass two axes
-                # to plot_matrix
-                cbar_axis = label_axis
-                label_axis = plt.subplot(grids[idx, 1])
-                label_axis.set_axis_off()
-                self.track_obj_list.append(PlotHiCMatrix(axis, label_axis, cbar_axis, properties))
-
+            track.plot(axis, label_axis, chrom, start, end)
             axis_list.append(axis)
 
-        print "time initializing tracks"
-        start = self.print_elapsed(start)
-
-    def plot(self, file_name, chrom, start, end):
-
-        for track in self.track_obj_list:
-            track.plot(chrom, start, end)
-
-        self.fig.subplots_adjust(wspace=0, hspace=0.1,
-                                 left=DEFAULT_MARGINS['left'],
-                                 right=DEFAULT_MARGINS['right'],
-                                 bottom=DEFAULT_MARGINS['bottom'],
-                                 top=DEFAULT_MARGINS['top'])
+        fig.subplots_adjust(wspace=0, hspace=0.1,
+                            left=DEFAULT_MARGINS['left'],
+                            right=DEFAULT_MARGINS['right'],
+                            bottom=DEFAULT_MARGINS['bottom'],
+                            top=DEFAULT_MARGINS['top'])
 
         print "time before saving"
         start = self.print_elapsed(start)
 
-        self.fig.savefig(file_name, dpi=self.dpi)
+        fig.savefig(file_name, dpi=self.dpi)
 
         print "time saving "
         start = self.print_elapsed(start)
@@ -186,7 +168,7 @@ class PlotTracks(object):
         from ConfigParser import SafeConfigParser
         from ast import literal_eval
         parser = SafeConfigParser(None, MultiDict)
-        parser.readfp(tracks_file)
+        parser.readfp(open(tracks_file, 'r'))
 
         track_list = []
         vlines_file = None
@@ -208,10 +190,18 @@ class PlotTracks(object):
                 track_list.append(track_options)
 
         for track_dict in track_list:
+            warn = None
             if 'file' in track_dict and track_dict['file'] != '':
                 self.check_file_exists(track_dict)
                 if 'file_type' not in track_dict:
                     track_dict['file_type'] = self.guess_filetype(track_dict)
+
+                #  set some default values
+                if 'title' not in track_dict:
+                    warn = "\ntitle not set for 'section {}'\n".format(track_dict['section_name'])
+                    track_dict['title'] = ''
+                if warn:
+                    sys.stderr.write(warn)
 
         self.track_list = track_list
         self.vlines_file = vlines_file
@@ -338,9 +328,7 @@ class IntervalFile(object):
 
 class TrackPlot(object):
 
-    def __init__(self, ax, label_ax, properties_dict):
-        self.ax = ax
-        self.label_ax = label_ax
+    def __init__(self, properties_dict):
         self.properties = properties_dict
 
 class PlotBedGraph(TrackPlot):
@@ -351,7 +339,9 @@ class PlotBedGraph(TrackPlot):
             self.properties['color'] = DEFAULT_BEDGRAPH_COLOR
         self.interval_tree = IntervalFile(self.properties['file'])
 
-    def plot(self, chrom_region, start_region, end_region):
+    def plot(self, ax, label_ax, chrom_region, start_region, end_region):
+        self.ax = ax
+        self.label_ax = label_ax
         score_list = []
         pos_list = []
 
@@ -412,7 +402,9 @@ class PlotBedGraph(TrackPlot):
 
 class PlotBedGraphMatrix(PlotBedGraph):
 
-    def plot(self, chrom_region, start_region, end_region):
+    def plot(self, ax, label_ax, chrom_region, start_region, end_region):
+        self.ax = ax
+        self.label_ax = label_ax
         """
         Plots a bedgraph matrix file, that instead of having
         a single value per bin, it has several values.
@@ -466,7 +458,9 @@ class PlotBigWig(TrackPlot):
             self.properties['color'] = DEFAULT_BIGWIG_COLOR
 
 
-    def plot(self, chrom_region, start_region, end_region):
+    def plot(self, ax, label_ax, chrom_region, start_region, end_region):
+        self.ax = ax
+        self.label_ax = label_ax
         formated_region = "{}:{}-{}".format(chrom_region, start_region, end_region)
         print "plotting {}".format(self.properties['file'])
         # compute the score in bins of 10000 SLOW
@@ -579,10 +573,10 @@ class PlotBigWig(TrackPlot):
 
 class PlotHiCMatrix(TrackPlot):
 
-    def __init__(self, ax, label_ax, cbar_ax, properties_dict):
-        self.ax = ax
-        self.cbar_ax = cbar_ax
-        self.label_ax = label_ax
+    def __init__(self, properties_dict):
+        # to avoid the color bar to span all the
+        # width of the axis I pass two axes
+        # to plot_matrix
         self.properties = properties_dict
 
         self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'])
@@ -627,7 +621,12 @@ class PlotHiCMatrix(TrackPlot):
 
         self.cmap.set_bad('black')
 
-    def plot(self, chrom, region_start, region_end):
+    def plot(self, ax, label_axis, chrom, region_start, region_end):
+        import copy
+        self.cbar_ax = copy.copy(label_axis)
+        self.label_ax = label_axis
+        self.label_ax.set_axis_off()
+        self.ax = ax
 
         # expand region to plus depth on both sides
         # to avoid a 45 degree 'cut' on the edges
