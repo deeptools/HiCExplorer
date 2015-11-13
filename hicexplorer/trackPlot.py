@@ -2,10 +2,12 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.textpath
 import matplotlib.colors
 import matplotlib.gridspec
 import matplotlib.cm
 import mpl_toolkits.axisartist as axisartist
+from matplotlib.patches import Rectangle
 
 import scipy.sparse
 from collections import OrderedDict
@@ -49,6 +51,7 @@ class PlotTracks(object):
         self.fig_width = fig_width
         self.fig_height = fig_height
         self.dpi = dpi
+        self.vlines_intval_tree = None
         start = self.print_elapsed(None)
         self.parse_tracks(tracks_file)
         if fontsize:
@@ -58,7 +61,7 @@ class PlotTracks(object):
 
         font = {'size': fontsize}
         matplotlib.rc('font', **font)
-
+        #import ipdb;ipdb.set_trace()
         # initialize each track
         self.track_obj_list = []
         for idx, properties in enumerate(self.track_list):
@@ -69,6 +72,7 @@ class PlotTracks(object):
                 continue
             if properties['file_type'] == 'bedgraph':
                 self.track_obj_list.append(PlotBedGraph(properties))
+
             elif properties['file_type'] == 'bigwig':
                 self.track_obj_list.append(PlotBigWig(properties))
 
@@ -77,6 +81,9 @@ class PlotTracks(object):
 
             elif properties['file_type'] == 'hic_matrix':
                 self.track_obj_list.append(PlotHiCMatrix(properties))
+
+            elif properties['file_type'] == 'bed':
+                self.track_obj_list.append(PlotBed(properties))
 
         print "time initializing tracks"
         start = self.print_elapsed(start)
@@ -237,7 +244,8 @@ class PlotTracks(object):
                     sys.stderr.write(warn)
 
         self.track_list = track_list
-        self.vlines_intval_tree = file_to_intervaltree(vlines_file)
+        if vlines_file:
+            self.vlines_intval_tree = file_to_intervaltree(vlines_file)
 
 
     def check_file_exists(self, track_dict):
@@ -305,6 +313,12 @@ class PlotTracks(object):
 
 
 def file_to_intervaltree(file_name):
+    """
+    converts a BED like file into a bx python interval tree
+    :param file_name: string file name
+    :return: interval tree dictionary. They key is the chromosome/contig name and the
+    value is an IntervalTree. Each of the intervals have as 'value' the fields[3:] if any.
+    """
     # iterate over a BED like file
     # saving the data into an interval tree
     # for quick retrieval
@@ -855,3 +869,383 @@ class PlotBoundaries(PlotBedGraph):
 
             prev_start = start
         ax.plot(x, y,  color='black')
+
+class PlotBed(TrackPlot):
+
+    def __init__(self, *args, **kwarg):
+        super(PlotBed, self).__init__(*args, **kwarg)
+        import readBed
+        bed_file_h = readBed.ReadBed(open(self.properties['file'], 'r'))
+        self.bed_type = bed_file_h.file_type
+        valid_intervals = 0
+        self.interval_tree = {}
+        for bed in bed_file_h:
+            if bed.chromosome not in self.interval_tree:
+                self.interval_tree[bed.chromosome] = IntervalTree()
+
+            self.interval_tree[bed.chromosome].insert_interval(Interval(bed.start, bed.end, value=bed))
+            valid_intervals += 1
+
+        if valid_intervals == 0:
+            sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file_name']))
+
+        from matplotlib import font_manager
+        if 'fontsize' in self.properties:
+            self.fp = font_manager.FontProperties(size=self.properties['fontsize'])
+        else:
+            self.fp = font_manager.FontProperties()
+
+        if 'color' not in self.properties:
+            self.properties['color'] = DEFAULT_BED_COLOR
+        if 'border_color' not in self.properties:
+            self.properties['border_color'] = 'black'
+        if 'labels' not in self.properties:
+            self.properties['labels'] = 'on'
+        if 'style' not in self.properties:
+            self.properties['style'] = 'flybase'
+
+        # to improve the visualization of the genes
+        # it is good to have an estimation of the label
+        # length. In the following code I try to get
+        # the length of a 'w'.
+        if self.properties['labels'] == 'on':
+            text_path = matplotlib.textpath.TextPath((0, 0), 'w', prop=self.fp)
+            self.len_w = text_path.get_extents().width * 1000
+            #self.len_w = text_path.get_extents().width * 300
+        else:
+            self.len_w = 1
+
+        self.colormap = None
+        # check if the color given is a color map
+        color_options = [m for m in matplotlib.cm.datad]
+        if self.properties['color'] in color_options:
+            norm = matplotlib.colors.Normalize(vmin=self.properties['min_value'],
+                                               vmax=self.properties['max_value'])
+            cmap = matplotlib.cm.get_cmap(self.properties['color'])
+            self.colormap = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
+
+    def get_y_pos(self, bed):
+        """
+        The y_pos is set such that regions to be plotted do not overlap. To override this
+        the properties['collapsed'] needs to be set.
+        :return: int y position
+        """
+
+        # if the domain directive is given, ypos simply oscilates between 0 and 100
+        if 'display' in self.properties and self.properties['display'] == 'interlaced':
+            ypos = 100 if self.counter % 2 == 0 else 1
+
+        elif 'display' in self.properties and  self.properties['display'] == 'collapsed':
+            ypos = 0
+
+        else:
+            # 1. check for the number of other intervals that overlap
+            #    with the given interval
+            #
+            #  1=========       4=========
+            #       2=========
+            #         3============
+            #
+            # for 1, min_free_row is 0
+            # for 2, min_free_row is 1
+            # for 3, min_free_row is 2
+            # for 4, min_free_row is 0
+
+            # check for overlapping features
+            match = self.region_intervals.find(bed.start, bed.end)
+            if len(match) == 0:
+                min_free_row = 0
+            else:
+                rows_used = np.zeros(self.max_num_row + 2)
+                for x in match:
+                    # in the Interval, the 'value' field stores the row
+                    # in which the bed region was printed
+                    rows_used[x.value] = 1
+                min_free_row = min(np.flatnonzero(rows_used == 0))
+
+            # check if the label may be larger than the interval, if this is the case
+            # set the interval to match the expected label length
+            print min_free_row, len(bed.name) * self.len_w, bed.end - bed.start
+            if self.properties['labels'] == 'on' and \
+                        bed.end - bed.start < len(bed.name) * self.len_w:
+                print "long label"
+                self.region_intervals.add_interval(Interval(bed.start,
+                                                            bed.start + (len(bed.name) * self.len_w),
+                                                            min_free_row))
+            else:
+                self.region_intervals.add_interval(Interval(bed.start,
+                                                            bed.end + 2 * self.small_relative,
+                                                            min_free_row))
+            if min_free_row > self.max_num_row:
+                self.max_num_row = min_free_row
+
+            if self.properties['labels'] == 'off':
+                scale_factor = 230
+            else:
+                #scale_factor = self.len_w * 2
+                scale_factor = 330
+
+            ypos = min_free_row * scale_factor
+
+        print ypos
+        return ypos
+
+    def plot(self, ax, label_ax, chrom_region, start_region, end_region):
+        from matplotlib.patches import Rectangle
+        self.counter = 0
+        self.small_relative = 0.005 * (end_region-start_region)
+        self.max_num_row = 1
+        self.region_intervals = IntervalTree()
+
+        ax.set_frame_on(False)
+        for region in self.interval_tree[chrom_region].find(start_region, end_region):
+            """
+            BED12 gene format with exon locations at the end
+            chrX    20850   23076   CG17636-RA      0       -       20850   23017   0       3       946,765,64,     0,1031,2162,
+
+            BED10
+            bed with rbg at end 
+            chr2L   0       70000   ID_5    0.26864549832   .       0       70000   51,160,44            
+
+            BED6
+            bed with rbg at end
+            chr2L   0       70000   ID_5    0.26864549832   .
+            """
+            self.counter += 1
+            bed = region.value
+            if self.colormap:
+                # translate value field (in the example above is 0 or 0.2686...) into a color
+                rgb = self.colormap.to_rgba(bed.score)
+                edgecolor = self.colormap.to_rgba(bed.score)
+            else:
+                rgb = self.properties['color']
+                edgecolor = self.properties['border_color']
+
+            # if rgb is set in the bed line, this overrides the previously
+            # defined colormap
+            if self.bed_type == 'bed10' and len(bed.rgb) == 3:
+                try:
+                    rgb = [float(x)/255 for x in rgb]
+                    edgecolor = self.properties['color']
+                except IndexError:
+                    pass
+
+            ypos = self.get_y_pos(bed)
+            if self.bed_type == 'bed12':
+                if self.properties['style'] == 'flybase':
+                    self.draw_gene_with_introns_flybase_style(ax, bed, ypos, rgb, edgecolor)
+                else:
+                    self.draw_gene_with_introns(ax, bed, ypos, rgb, edgecolor)
+
+
+            else:
+                self.draw_gene_simple(ax, bed, ypos, rgb, edgecolor)
+
+            if 'labels' in self.properties and self.properties['labels'] == 'off':
+                pass
+            else:
+                ax.text(bed.start, ypos + 125, bed.name, horizontalalignment='left',
+                        verticalalignment='top', fontproperties=self.fp)
+
+        if self.counter == 0:
+            sys.stderr.write("*Warning* No intervals were found for file {} \n"
+                             "in section '{}' for the interval plotted ({}:{}-{}).\n"
+                             "".format(self.properties['file'],
+                                       self.properties['section_name'],
+                                       chrom_region, start_region, end_region))
+
+        ax.set_ylim((self.max_num_row + 1) * 330, -25)
+
+        if 'display' in self.properties:
+            if self.properties['display'] == 'domain':
+                ax.set_ylim(-5, 205)
+            elif self.properties['display'] == 'collapsed':
+                ax.set_ylim(-5, 105)
+
+        ax.set_xlim(start_region, end_region)
+
+        label_ax.text(0.15, 1.0, self.properties['title'],
+                      horizontalalignment='left', size='large',
+                      verticalalignment='top', transform=label_ax.transAxes)
+
+    def draw_gene_simple(self, ax, bed, ypos, rgb, edgecolor):
+        """
+        draws an interval with direction (if given)
+        """
+
+        if bed.strand not in ['+', '-']:
+            ax.add_patch(Rectangle((bed.start, ypos), bed.end-bed.start, 100, edgecolor=edgecolor,
+                                   facecolor=rgb, linewidth=0.5))
+        else:
+            vertices = self._draw_arrow(ax, first_pos[0], first_pos[1], bed.strand, ypos)
+            ax.add_patch(Polygon(vertices, closed=True, fill=True,
+                                 edgecolor=edgecolor,
+                                 facecolor=rgb,
+                                 linewidth=0.5))
+
+    def draw_gene_with_introns_flybase_style(self, ax, bed, ypos, rgb, edgecolor):
+        """
+        draws a gene using different styles
+        """
+        from matplotlib.patches import Polygon
+        if bed.block_count == 0 and bed.thick_start == bed.start and bed.thick_end == bed.end:
+            self.draw_gene_simple(ax, bed, ypos, rgb, edgecolor)
+            return
+
+        # draw 'backbone', a line from the start until the end of the gene
+        ax.plot([bed.start, bed.end], [ypos+50, ypos+50], 'black', linewidth=0.5, zorder=-1)
+
+        # get start, end of all the blocks
+        positions = []
+        for idx in range(0, bed.block_count):
+            x0 = bed.start + bed.block_starts[idx]
+            x1 = x0 + bed.block_sizes[idx]
+            if x0 < bed.thick_start < x1:
+                positions.append((x0, bed.thick_start, 'UTR'))
+                positions.append((bed.thick_start, x1, 'coding'))
+
+            elif x0 < bed.thick_end < x1:
+                positions.append((x0, bed.thick_end, 'coding'))
+                positions.append((bed.thick_end, x1, 'UTR'))
+
+            else:
+                if x1 < bed.thick_start or x0 > bed.thick_end:
+                    type = 'UTR'
+                else:
+                    type = 'coding'
+
+                positions.append((x0, x1, type))
+
+        # plot all blocks as rectangles except the last if the strand is + or
+        # the first is the strand is -, which are drawn as arrows.
+        if bed.strand == '-':
+            positions = positions[::-1]
+
+        first_pos = positions.pop()
+        if first_pos[2] == 'UTR':
+            _rgb = 'grey'
+        else:
+            _rgb = rgb
+
+        vertices = self._draw_arrow(ax, first_pos[0], first_pos[1], bed.strand, ypos)
+
+        ax.add_patch(Polygon(vertices, closed=True, fill=True,
+                             edgecolor=edgecolor,
+                             facecolor=_rgb,
+                             linewidth=0.5))
+
+        for start_pos, end_pos, _type in positions:
+            if _type == 'UTR':
+                _rgb = 'grey'
+            else:
+                _rgb = rgb
+            vertices = [(start_pos, ypos), (start_pos, ypos + 100),
+                        (end_pos, ypos + 100), (end_pos, ypos)]
+
+            ax.add_patch(Polygon(vertices, closed=True, fill=True,
+                                 edgecolor=edgecolor,
+                                 facecolor=_rgb,
+                                 linewidth=0.5))
+
+#            ax.add_patch(Rectangle((start_pos, ypos), end_pos-start_pos, 100, edgecolor=edgecolor,
+#                                   facecolor=_rgb, linewidth=0.5))
+
+    def _draw_arrow(self, ax, start, end, strand, ypos):
+        """
+        Draws a filled arrow
+        :param ax:
+        :param start:
+        :param end:
+        :param strand:
+        :param ypos:
+        :param rgb:
+        :return: None
+        """
+        from matplotlib.patches import Polygon
+        if strand == '+':
+            x0 = start
+            x1 = end #- self.small_relative
+            y0 = ypos
+            y1 = ypos + 100
+            """
+            The vertices correspond to 5 points along the path of a form like the following,
+            starting in the lower left corner and progressing in a clock wise manner.
+
+            -----------------\
+            ---------------- /
+
+            """
+
+            vertices = [(x0, y0), (x0, y1), (x1, y1), (x1 + self.small_relative, y0 + 50), (x1, y0)]
+
+        else:
+            x0 = start #+ self.small_relative
+            x1 = end
+            y0 = ypos
+            y1 = ypos + 100
+            """
+            The vertices correspond to 5 points along the path of a form like the following,
+            starting in the lower left corner and progressing in a clock wise manner.
+
+            /-----------------
+            \-----------------
+            """
+            vertices = [(x0, y0), (x0 - self.small_relative, y0 + 50), (x0, y1), (x1, y1), (x1, y0)]
+
+        return vertices
+
+
+    def draw_gene_with_introns(self, ax, bed, ypos, rgb, edgecolor):
+            """
+            draws a gene like in flybase gbrowse.
+            """
+            from matplotlib.patches import Polygon
+
+            if bed.block_count == 0 and bed.thick_start == bed.start and bed.thick_end == bed.end:
+                self.draw_gene_simple(ax, bed, ypos, rgb, edgecolor)
+                return
+
+            # draw 'backbone', a line from the start until the end of the gene
+            ax.plot([bed.start, bed.end], [ypos+50, ypos+50], 'black', linewidth=0.5, zorder=-1)
+
+            for idx in range(0, bed.block_count):
+                x0 = bed.start + bed.block_starts[idx]
+                x1 = x0 + bed.block_sizes[idx]
+                if x1 < bed.thick_start or x0 > bed.thick_end:
+                    y0 = ypos + 25
+                    y1 = ypos + 75
+                else:
+                    y0 = ypos
+                    y1 = ypos + 100
+
+                if x0 < bed.thick_start < x1:
+                    vertices = ([(x0, ypos+25), (x0, ypos+75), (bed.thick_start, ypos+75), (bed.thick_start, ypos+100),
+                                 (bed.thick_start, ypos+100), (x1, ypos+100), (x1, ypos),
+                                 (bed.thick_start, ypos), (bed.thick_start, ypos+25)])
+
+                elif x0 < bed.thick_end < x1:
+                    vertices = ([(x0, ypos), (x0, ypos+100), (bed.thick_end, ypos+100), (bed.thick_end, ypos+75),
+                                 (x1, ypos+75), (x1, ypos+25), (bed.thick_end, ypos+25), (bed.thick_end, ypos)])
+                else:
+                    vertices = ([(x0, y0), (x0, y1), (x1, y1), (x1, y0)])
+
+                ax.add_patch(Polygon(vertices, closed=True, fill=True,
+                                     linewidth=0.1,
+                                     edgecolor='none',
+                                     facecolor=rgb))
+
+                if idx < bed.block_count - 1:
+                    # plot small arrows using the character '<' or '>' over the back bone
+                    intron_length = bed.block_starts[idx+1] - (bed.block_starts[idx] + bed.block_sizes[idx])
+                    marker = 5 if bed.strand == '+' else 4
+                    if intron_length > 3 * self.small_relative:
+                        pos = np.arange(x1 + 1 * self.small_relative,
+                                        x1 + intron_length + self.small_relative, int(2 * self.small_relative))
+                        ax.plot(pos, np.zeros(len(pos)) + ypos + 50, '.', marker=marker,
+                                fillstyle='none', color='blue', markersize=3)
+
+                    elif intron_length > self.small_relative:
+                        intron_center = x1 + int(intron_length)/2
+                        ax.plot([intron_center], [ypos+50], '.', marker=5,
+                                fillstyle='none', color='blue', markersize=3)
+

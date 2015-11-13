@@ -47,7 +47,7 @@ width = 0.5
 # optional. If not given is guessed from the file ending
 file_type = bed
 
-[genes]
+[bed genes]
 # example of a genes track
 # has the same options as a simple
 # bed but if the type=genes is given
@@ -58,15 +58,25 @@ file_type = bed
 file = genes.bed
 title = genes
 color = darkblue
+#if color is a valid colormap, then the score is mapped
+# to the colormap
+#color = RdBlGn
 width = 5
 # to turn off/on printing of labels
 labels = off
-# options are 'genes' or 'domains'.
-type = genes
 # optional. If not given is guessed from the file ending
 file_type = bed
 # optional: font size can be given if default are not good
 fontsize = 10
+# optional
+# display = collapsed
+# display = interleaved
+#optional, default is black
+#border_color = black
+# style to plot the genes when they have exon information
+#style = UCSC
+#style = flybase
+
 
 [chrom states]
 # this is a case of a bed file that is plotted 'collapsed'
@@ -281,8 +291,8 @@ def main(args=None):
     import trackPlot
     trp = trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
                                fontsize=args.fontSize, dpi=args.dpi)
-    trp.plot(args.outFileName, *region, title=args.title)
+    trp.plot(args.outFileName.name, *region, title=args.title)
 
-    trp.plot("/tmp/test1.png", *region)
+    #trp.plot("/tmp/test1.png", *region)
 
-    trp.plot("/tmp/test2.png", *region)
+    #trp.plot("/tmp/test2.png", *region)
