@@ -85,6 +85,9 @@ class PlotTracks(object):
             elif properties['file_type'] == 'bed':
                 self.track_obj_list.append(PlotBed(properties))
 
+            elif properties['file_type'] == 'links':
+                self.track_obj_list.append(PlotArcs(properties))
+
         print "time initializing tracks"
         start = self.print_elapsed(start)
 
@@ -469,9 +472,9 @@ class PlotBedGraphMatrix(PlotBedGraph):
         start_pos = []
         matrix_rows = []
         for region in self.interval_tree[chrom_region].find(start_region - 10000,
-                                                           end_region + 10000):
+                                                            end_region + 10000):
             start_pos.append(region.start)
-            values = map(float, region.values)
+            values = map(float, region.value)
             matrix_rows.append(values)
 
         matrix = np.vstack(matrix_rows).T
@@ -903,6 +906,8 @@ class PlotBed(TrackPlot):
             self.properties['labels'] = 'on'
         if 'style' not in self.properties:
             self.properties['style'] = 'flybase'
+        if 'display' not in self.properties:
+            self.properties['display'] = 'stacked'
 
         # to improve the visualization of the genes
         # it is good to have an estimation of the label
@@ -926,16 +931,19 @@ class PlotBed(TrackPlot):
 
     def get_y_pos(self, bed):
         """
-        The y_pos is set such that regions to be plotted do not overlap. To override this
+        The y_pos is set such that regions to be plotted do not overlap (stacked). To override this
         the properties['collapsed'] needs to be set.
+
+        The algorithm uses a interval tree (self.region_interval) to check the overlaps
+        and a sort of coverage vector 'rows used' to identify the row in which to plot
         :return: int y position
         """
 
         # if the domain directive is given, ypos simply oscilates between 0 and 100
-        if 'display' in self.properties and self.properties['display'] == 'interlaced':
+        if self.properties['display'] == 'interlaced':
             ypos = 100 if self.counter % 2 == 0 else 1
 
-        elif 'display' in self.properties and  self.properties['display'] == 'collapsed':
+        elif self.properties['display'] == 'collapsed':
             ypos = 0
 
         else:
@@ -947,9 +955,9 @@ class PlotBed(TrackPlot):
             #         3============
             #
             # for 1, min_free_row is 0
-            # for 2, min_free_row is 1
-            # for 3, min_free_row is 2
-            # for 4, min_free_row is 0
+            # for 2, min_free_row is 1, rows_used = [1,0,0]
+            # for 3, min_free_row is 2, rows_used = [1,1,0,0]
+            # for 4, min_free_row is 0, rows_used = [0,1,1,0,0]
 
             # check for overlapping features
             match = self.region_intervals.find(bed.start, bed.end)
@@ -965,10 +973,8 @@ class PlotBed(TrackPlot):
 
             # check if the label may be larger than the interval, if this is the case
             # set the interval to match the expected label length
-            print min_free_row, len(bed.name) * self.len_w, bed.end - bed.start
             if self.properties['labels'] == 'on' and \
                         bed.end - bed.start < len(bed.name) * self.len_w:
-                print "long label"
                 self.region_intervals.add_interval(Interval(bed.start,
                                                             bed.start + (len(bed.name) * self.len_w),
                                                             min_free_row))
@@ -987,23 +993,24 @@ class PlotBed(TrackPlot):
 
             ypos = min_free_row * scale_factor
 
-        print ypos
         return ypos
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
-        from matplotlib.patches import Rectangle
         self.counter = 0
         self.small_relative = 0.005 * (end_region-start_region)
         self.max_num_row = 1
         self.region_intervals = IntervalTree()
+        genes_overlap = self.interval_tree[chrom_region].find(start_region, end_region)
+        if len(genes_overlap) > 100:
+            return
 
         ax.set_frame_on(False)
-        for region in self.interval_tree[chrom_region].find(start_region, end_region):
+        for region in genes_overlap:
             """
             BED12 gene format with exon locations at the end
             chrX    20850   23076   CG17636-RA      0       -       20850   23017   0       3       946,765,64,     0,1031,2162,
 
-            BED10
+            BED9
             bed with rbg at end 
             chr2L   0       70000   ID_5    0.26864549832   .       0       70000   51,160,44            
 
@@ -1023,9 +1030,9 @@ class PlotBed(TrackPlot):
 
             # if rgb is set in the bed line, this overrides the previously
             # defined colormap
-            if self.bed_type == 'bed10' and len(bed.rgb) == 3:
+            if self.bed_type in ['bed9', 'bed12'] and len(bed.rgb) == 3:
                 try:
-                    rgb = [float(x)/255 for x in rgb]
+                    rgb = [float(x)/255 for x in bed.rgb]
                     edgecolor = self.properties['color']
                 except IndexError:
                     pass
@@ -1036,7 +1043,6 @@ class PlotBed(TrackPlot):
                     self.draw_gene_with_introns_flybase_style(ax, bed, ypos, rgb, edgecolor)
                 else:
                     self.draw_gene_with_introns(ax, bed, ypos, rgb, edgecolor)
-
 
             else:
                 self.draw_gene_simple(ax, bed, ypos, rgb, edgecolor)
@@ -1073,11 +1079,13 @@ class PlotBed(TrackPlot):
         draws an interval with direction (if given)
         """
 
+        from matplotlib.patches import Polygon
+
         if bed.strand not in ['+', '-']:
             ax.add_patch(Rectangle((bed.start, ypos), bed.end-bed.start, 100, edgecolor=edgecolor,
                                    facecolor=rgb, linewidth=0.5))
         else:
-            vertices = self._draw_arrow(ax, first_pos[0], first_pos[1], bed.strand, ypos)
+            vertices = self._draw_arrow(ax, bed.start, bed.end, bed.strand, ypos)
             ax.add_patch(Polygon(vertices, closed=True, fill=True,
                                  edgecolor=edgecolor,
                                  facecolor=rgb,
@@ -1161,7 +1169,6 @@ class PlotBed(TrackPlot):
         :param rgb:
         :return: None
         """
-        from matplotlib.patches import Polygon
         if strand == '+':
             x0 = start
             x1 = end #- self.small_relative
@@ -1249,3 +1256,115 @@ class PlotBed(TrackPlot):
                         ax.plot([intron_center], [ypos+50], '.', marker=5,
                                 fillstyle='none', color='blue', markersize=3)
 
+
+class PlotArcs(TrackPlot):
+
+    def __init__(self, *args, **kwarg):
+        super(PlotArcs, self).__init__(*args, **kwarg)
+        # the file format expected is similar to file format of links in
+        # circos:
+        # chr1 100 200 chr1 250 300 0.5
+        # where the last valus is an score.
+
+        import scipy.sparse
+
+        data = []
+        row = []
+        col = []
+        bins = []
+
+        def _get_bin_id(chrom, start, end):
+            """
+            :return: index id of bins list
+            """
+            if (chrom, start, end) in bins:
+                return bins.index((chrom, start, end))
+            else:
+                bins.append((chrom, start, end))
+                return len(bins)-1
+
+        with open(self.properties['file'], 'r') as fh:
+            for line in fh.readlines():
+
+                chrom1, start1, end1, chrom2, start2, end2, score = line.strip().split('\t')
+                start1 = int(start1)
+                end1 = int(end1)
+                assert start1 <= end1, "Error, end larger than start in {}".format(line)
+                start2 = int(start2)
+                end2 = int(end2)
+                assert start2 <= end2, "Error, end larger than start in {}".format(line)
+                score = float(score)
+                #  check if the genomic positions where already seen
+                row.append(_get_bin_id(chrom1, start1, end1))
+                col.append(_get_bin_id(chrom2, start2, end2))
+                data.append(score)
+
+        shape = (len(bins), len(bins))
+        self.matrix = scipy.sparse.coo_matrix((data, (row, col)), shape=shape)
+        self.bins = bins
+        # make interval tree of bins
+
+        self.interval_tree = {}
+        for idx, (chrom_name, start, end) in enumerate(bins):
+            if chrom_name not in self.interval_tree:
+                self.interval_tree[chrom_name] = IntervalTree()
+
+            self.interval_tree[chrom_name].insert_interval(Interval(start, end, value=idx))
+
+        if 'color' not in self.properties:
+            self.properties['color'] = 'blue'
+
+        if 'alpha' not in self.properties:
+            self.properties['alpha'] = 0.8
+
+    def plot(self, ax, label_ax, chrom_region, region_start, region_end):
+
+        """
+        Makes and arc connecting two points on a linear scale representing
+        interactions between Hi-C bins.
+        :param ax: matplotlib axis
+        :param label_ax: matplotlib axis for labels
+        """
+        from matplotlib.colors import colorConverter
+        from matplotlib.patches import Arc
+        max_radius = 0
+        count = 0
+
+        region_len = region_end - region_start
+
+        # get idx of bins in plotting range plus 10% more on each of the sides
+        _start = region_start - int(region_len * 1)
+        _end = region_end + int(region_len * 1)
+        match = self.interval_tree[chrom_region].find(_start, _end)
+
+        idx_list = [x.value for x in match]
+
+        for idx, (row, col) in enumerate(np.vstack([self.matrix.row, self.matrix.col]).T):
+            if row not in idx_list or col not in idx_list:
+                continue
+            chrom1, start1, end1 = self.bins[row]
+            chrom2, start2, end2 = self.bins[col]
+
+            center = start1 + float(start2 - start1) / 2
+            radius = abs(start2 - start1)
+            if radius > max_radius:
+                max_radius = radius
+            count += 1
+            ax.plot([center], [radius])
+            if 'line width' in self.properties:
+                line_width = float(self.properties['line width'])
+            else:
+                line_width = 0.5*np.sqrt(self.matrix.data[idx])
+            ax.add_patch(Arc((center, 0), radius,
+                             radius*2, 0, 0, 180, color=self.properties['color'], lw=line_width))
+
+        print "{} arcs plotted".format(count)
+        if 'orientation' in self.properties and self.properties['orientation'] == 'inverted':
+            ax.set_ylim(max_radius, -1)
+        else:
+            ax.set_ylim(-1, max_radius)
+
+        ax.set_xlim(region_start, region_end)
+        label_ax.text(0.3, 0.0, self.properties['title'],
+                      horizontalalignment='left', size='large',
+                      verticalalignment='bottom', transform=label_ax.transAxes)

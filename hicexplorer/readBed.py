@@ -41,8 +41,8 @@ class ReadBed(object):
 
         if self.file_type == 'bed12':
             self.BedInterval = collections.namedtuple('BedInterval', self.fields)
-        elif self.file_type == 'bed10':
-            self.BedInterval = collections.namedtuple('BedInterval', self.fields[:10])
+        elif self.file_type == 'bed9':
+            self.BedInterval = collections.namedtuple('BedInterval', self.fields[:9])
         else:
             self.BedInterval = collections.namedtuple('BedInterval', self.fields[:6])
 
@@ -74,9 +74,9 @@ class ReadBed(object):
             self.file_type = 'bed6'
         elif len(line_values) == 12:
             self.file_type = 'bed12'
-        elif len(line_values) == 10:
+        elif len(line_values) == 9:
             # this is a case where a specific color is encoded in the 10 field of the bed file
-            self.file_type = 'bed10'
+            self.file_type = 'bed9'
         elif len(line_values) > 6:
             # assume bed6
             self.file_type = 'bed6'
