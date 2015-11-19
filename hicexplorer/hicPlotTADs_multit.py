@@ -164,14 +164,6 @@ import matplotlib
 import numpy as np
 matplotlib.use('Agg')
 
-from matplotlib.colors import LogNorm
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.gridspec as gridspec
-import mpl_toolkits.axisartist as axisartist
-from bx.intervals.intersection import IntervalTree, Interval
-
-
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'
 DEFAULT_BEDGRAPH_COLOR = '#a6cee3'
