@@ -344,21 +344,21 @@ def file_to_intervaltree(file_name):
             chrom, start, end = fields[0:3]
         except Exception as detail:
             msg = "Error reading line: {}\nError message: {}".format(line_number, detail)
-            exit(msg)
+            sys.exit(msg)
 
         try:
             start = int(start)
         except ValueError as detail:
             msg = "Error reading line: {}. The start field is not " \
                   "an integer.\nError message: {}".format(line_number, detail)
-            exit(msg)
+            sys.exit(msg)
 
         try:
             end = int(end)
         except ValueError as detail:
             msg = "Error reading line: {}. The end field is not " \
                   "an integer.\nError message: {}".format(line_number, detail)
-            exit(msg)
+            sys.exit(msg)
 
         if prev_chrom == chrom:
             assert prev_start <= start, \
@@ -424,7 +424,7 @@ class PlotBedGraph(TrackPlot):
             try:
                 self.ax.fill_between(pos_list, score_list, facecolor=self.properties['color'])
             except ValueError:
-                exit("Invalid color {} for {}".format(self.properties['color'], self.properties['file']))
+                sys.exit("Invalid color {} for {}".format(self.properties['color'], self.properties['file']))
 
         self.ax.set_frame_on(False)
         self.ax.axes.get_xaxis().set_visible(False)
@@ -531,7 +531,7 @@ class PlotBigWig(TrackPlot):
             try:
                 num_bins = int(self.properties['number of bins'])
             except TypeError:
-                exit("'number of bins' value: {} for bigwig file {} "
+                sys.exit("'number of bins' value: {} for bigwig file {} "
                      "is not valid.".format(self.properties['number of bins'],
                                             self.properties['file']))
 
@@ -542,12 +542,12 @@ class PlotBigWig(TrackPlot):
                 # is not found. So, we try either
                 # removing or appending 'chr'
                 if chrom_region.startswith('chr'):
-                    scores = self.bw.get_as_array(chrom_region[3:] + chrom_region, start_region, end_region)
+                    scores = self.bw.get_as_array(chrom_region[3:], start_region, end_region)
                 else:
                     scores = self.bw.get_as_array('chr' + chrom_region, start_region, end_region)
 
                 if scores is None:
-                    exit("Can not read region {} from bigwig file:\n\n"
+                    sys.exit("Can not read region {} from bigwig file:\n\n"
                          "{}\n\nPlease check that the chromosome name is part of the bigwig file "
                          "and that the region is valid".format(formated_region, self.properties['file']))
 
@@ -577,7 +577,7 @@ class PlotBigWig(TrackPlot):
                     scores = self.bw.query('chr' + chrom_region, start_region, end_region)
 
                 if scores is None:
-                    exit("Can not read region {} from bigwig file:\n\n"
+                    sys.exit("Can not read region {} from bigwig file:\n\n"
                          "{}\n\nPlease check that the chromosome name is part of the bigwig file "
                          "and that the region is valid".format(formated_region, self.properties['file']))
 
@@ -1001,7 +1001,7 @@ class PlotBed(TrackPlot):
         self.max_num_row = 1
         self.region_intervals = IntervalTree()
         genes_overlap = self.interval_tree[chrom_region].find(start_region, end_region)
-        if len(genes_overlap) > 100:
+        if len(genes_overlap) > 200:
             return
 
         ax.set_frame_on(False)
@@ -1260,56 +1260,73 @@ class PlotBed(TrackPlot):
 class PlotArcs(TrackPlot):
 
     def __init__(self, *args, **kwarg):
+        import collections
         super(PlotArcs, self).__init__(*args, **kwarg)
         # the file format expected is similar to file format of links in
         # circos:
         # chr1 100 200 chr1 250 300 0.5
         # where the last valus is an score.
 
-        import scipy.sparse
+        valid_intervals = 0
+        prev_chrom = None
+        prev_start = -1
+        prev_line = None
+        interval_tree = {}
+        line_number = 0
+        Arc = collections.namedtuple("Arc", ['chrom1', 'start1', 'end1', 'start2', 'end2', 'score'])
+        with open(self.properties['file'], 'r') as file_h:
+            for line in file_h.readlines():
+                line_number += 1
+                if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
+                    continue
+                try:
+                    chrom1, start1, end1, chrom2, start2, end2, score = line.strip().split('\t')
+                except Exception as detail:
+                    msg = 'File not valid. The format is chrom1 start1, end1, ' \
+                          'chrom2, start2, end2, score\nError: {}\n in line\n {}'.format(detail, line)
+                    sys.exit(msg)
 
-        data = []
-        row = []
-        col = []
-        bins = []
+                try:
+                    start1 = int(start1)
+                    end1 = int(end1)
+                    start2 = int(start2)
+                    end2 = int(end2)
+                except ValueError as detail:
+                    msg = "Error reading line: {}. One of the fields is not " \
+                          "an integer.\nError message: {}".format(line_number, detail)
+                    sys.exit(msg)
 
-        def _get_bin_id(chrom, start, end):
-            """
-            :return: index id of bins list
-            """
-            if (chrom, start, end) in bins:
-                return bins.index((chrom, start, end))
-            else:
-                bins.append((chrom, start, end))
-                return len(bins)-1
+                assert start1 <= end1, "Error in line #{}, end1 larger than start1 in {}".format(line_number, line)
+                assert start2 <= end2, "Error in line #{}, end2 larger than start2 in {}".format(line_number, line)
+                try:
+                    score = float(score)
+                except ValueError as detail:
+                    msg = "Error reading line: {}. The score is not valid {}. " \
+                          "\nError message: {}".format(line_number, detail)
+                    sys.exit(msg)
 
-        with open(self.properties['file'], 'r') as fh:
-            for line in fh.readlines():
+                if chrom1 != chrom2:
+                    sys.stderr.write("Only links in same chromosome are considere. Skipping line\n{}\n".format(line))
+                    continue
 
-                chrom1, start1, end1, chrom2, start2, end2, score = line.strip().split('\t')
-                start1 = int(start1)
-                end1 = int(end1)
-                assert start1 <= end1, "Error, end larger than start in {}".format(line)
-                start2 = int(start2)
-                end2 = int(end2)
-                assert start2 <= end2, "Error, end larger than start in {}".format(line)
-                score = float(score)
-                #  check if the genomic positions where already seen
-                row.append(_get_bin_id(chrom1, start1, end1))
-                col.append(_get_bin_id(chrom2, start2, end2))
-                data.append(score)
+                if chrom1 not in interval_tree:
+                    interval_tree[chrom1] = IntervalTree()
 
-        shape = (len(bins), len(bins))
-        self.matrix = scipy.sparse.coo_matrix((data, (row, col)), shape=shape)
-        self.bins = bins
-        # make interval tree of bins
+                if start2 < start1:
+                    start1, start2 = start2, start1
+                    end1, end2 = end2, end1
 
-        self.interval_tree = {}
-        for idx, (chrom_name, start, end) in enumerate(bins):
-            if chrom_name not in self.interval_tree:
-                self.interval_tree[chrom_name] = IntervalTree()
+                value = Arc._make([chrom1, start1, end1, start2, end2, score])
 
-            self.interval_tree[chrom_name].insert_interval(Interval(start, end, value=idx))
+                # each interval spans from the smallest start to the largest end
+                interval_tree[chrom1].insert_interval(Interval(start1, end2, value=value))
+                valid_intervals += 1
+
+        if valid_intervals == 0:
+            sys.stderr.write("No valid intervals were found in file {}".format(file_name))
+
+        file_h.close()
+        self.interval_tree = interval_tree
 
         if 'color' not in self.properties:
             self.properties['color'] = 'blue'
@@ -1327,42 +1344,34 @@ class PlotArcs(TrackPlot):
         """
         from matplotlib.colors import colorConverter
         from matplotlib.patches import Arc
-        max_radius = 0
+        max_diameter = 0
         count = 0
 
-        region_len = region_end - region_start
+        arcs_in_region = self.interval_tree[chrom_region].find(region_start, region_end)
 
-        # get idx of bins in plotting range plus 10% more on each of the sides
-        _start = region_start - int(region_len * 1)
-        _end = region_end + int(region_len * 1)
-        match = self.interval_tree[chrom_region].find(_start, _end)
-
-        idx_list = [x.value for x in match]
-
-        for idx, (row, col) in enumerate(np.vstack([self.matrix.row, self.matrix.col]).T):
-            if row not in idx_list or col not in idx_list:
+        for idx, interval in enumerate(arcs_in_region):
+            # skip arcs whose start and end are outside the ploted region
+            if interval.start < region_start and interval.end > region_end:
                 continue
-            chrom1, start1, end1 = self.bins[row]
-            chrom2, start2, end2 = self.bins[col]
 
-            center = start1 + float(start2 - start1) / 2
-            radius = abs(start2 - start1)
-            if radius > max_radius:
-                max_radius = radius
+            diameter = interval.end - interval.start
+            center = interval.start + float(diameter) / 2
+            if diameter > max_diameter:
+                max_diameter = diameter
             count += 1
-            ax.plot([center], [radius])
+            ax.plot([center], [diameter])
             if 'line width' in self.properties:
                 line_width = float(self.properties['line width'])
             else:
-                line_width = 0.5*np.sqrt(self.matrix.data[idx])
-            ax.add_patch(Arc((center, 0), radius,
-                             radius*2, 0, 0, 180, color=self.properties['color'], lw=line_width))
+                line_width = 0.5*np.sqrt(interval.value.score)
+            ax.add_patch(Arc((center, 0), diameter,
+                             diameter*2, 0, 0, 180, color=self.properties['color'], lw=line_width))
 
         print "{} arcs plotted".format(count)
         if 'orientation' in self.properties and self.properties['orientation'] == 'inverted':
-            ax.set_ylim(max_radius, -1)
+            ax.set_ylim(max_diameter, -1)
         else:
-            ax.set_ylim(-1, max_radius)
+            ax.set_ylim(-1, max_diameter)
 
         ax.set_xlim(region_start, region_end)
         label_ax.text(0.3, 0.0, self.properties['title'],
