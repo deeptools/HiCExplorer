@@ -1,5 +1,7 @@
 import sys
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib
 import matplotlib.textpath
@@ -61,7 +63,6 @@ class PlotTracks(object):
 
         font = {'size': fontsize}
         matplotlib.rc('font', **font)
-        #import ipdb;ipdb.set_trace()
         # initialize each track
         self.track_obj_list = []
         for idx, properties in enumerate(self.track_list):
@@ -158,7 +159,7 @@ class PlotTracks(object):
         if self.vlines_intval_tree:
             self.plot_vlines(axis_list, chrom, start, end)
 
-        fig.subplots_adjust(wspace=0, hspace=0.1,
+        fig.subplots_adjust(wspace=0, hspace=0.0,
                             left=DEFAULT_MARGINS['left'],
                             right=DEFAULT_MARGINS['right'],
                             bottom=DEFAULT_MARGINS['bottom'],
@@ -185,6 +186,16 @@ class PlotTracks(object):
                                                                  end_region + 10000):
             vlines_list.append(region.start)
 
+        for idx, track in enumerate(self.track_obj_list):
+            ymin, ymax = axis_list[idx].get_ylim()
+            axis_list[idx].vlines(vlines_list, ymin, ymax, linestyle='dashed', zorder=10)
+
+            #track.plot_vlines(axis_list[idx], vlines_list)
+        return
+
+        """
+        The following code is nice but does not work as expected, some
+        images appear over the lines. zorder didn't help
         from matplotlib.patches import ConnectionPatch
         a_ymax = axis_list[0].get_ylim()[1]
         b_ymin = axis_list[-1].get_ylim()[0]
@@ -200,6 +211,7 @@ class PlotTracks(object):
                                   linewidth=0.5,
                                   zorder=100)
             axis_list[0].add_artist(con)
+        """
 
     def parse_tracks(self, tracks_file):
         """
@@ -268,7 +280,7 @@ class PlotTracks(object):
                 sys.stderr.write("\n*ERROR*\nFile in section [{}] "
                                  "not found:\n{}\n\n".format(track_dict['section_name'],
                                                              file_name))
-                exit(1)
+                sys.exit(1)
 
     @staticmethod
     def guess_filetype(track_dict):
@@ -293,8 +305,8 @@ class PlotTracks(object):
         elif file.endswith(".bm"):
             file_type = 'bedgraph_matrix'
         else:
-            exit("Section [{}]: can not identify file type. Please specify "
-                 "the file_type for {}".format(track_dict['section_name'],
+            sys.exit("Section {}: can not identify file type. Please specify "
+                     "the file_type for {}".format(track_dict['section_name'],
                                                file))
         return file_type
 
@@ -379,7 +391,6 @@ def file_to_intervaltree(file_name):
 
     if valid_intervals == 0:
         sys.stderr.write("No valid intervals were found in file {}".format(file_name))
-
     file_h.close()
     return interval_tree
 
@@ -495,7 +506,9 @@ class PlotBedGraphMatrix(PlotBedGraph):
             self.ax.plot(start_pos, matrix.mean(axis=0), "--")
         else:
             x, y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
-            img = self.ax.pcolormesh(x, y, matrix, vmin=vmin, vmax=vmax, shading='gouraud')
+            shading = 'gouraud'
+            #shading = 'flat'
+            img = self.ax.pcolormesh(x, y, matrix, vmin=vmin, vmax=vmax, shading=shading)
             img.set_rasterized(True)
         self.ax.set_xlim(start_region, end_region)
         self.ax.set_frame_on(False)
@@ -829,48 +842,98 @@ class PlotXAxis(TrackPlot):
         if 'where' in self.properties and self.properties['where'] == 'top':
             ax.axis["x"].set_axis_direction("top")
 
-class PlotBoundaries(PlotBedGraph):
+class PlotBoundaries(TrackPlot):
+
+    def __init__(self, *args, **kwargs):
+        super(PlotBoundaries, self).__init__(*args, **kwargs)
+
+        line_number = 0
+        interval_tree = {}
+        intervals = []
+        prev_chrom = None
+        valid_intervals =0
+
+        with open(self.properties['file'], 'r') as file_h:
+            for line in file_h.readlines():
+                line_number += 1
+                if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
+                    continue
+                try:
+                    chrom, start, end = line.strip().split('\t')[0:3]
+                except Exception as detail:
+                    msg = 'Could not read line\n{}\n. {}'.format(line, detail)
+                    sys.exit(msg)
+
+                try:
+                    start = int(start)
+                    end = int(end)
+                except ValueError as detail:
+                    msg = "Error reading line: {}. One of the fields is not " \
+                          "an integer.\nError message: {}".format(line_number, detail)
+                    sys.exit(msg)
+
+                assert start <= end, "Error in line #{}, end1 larger than start1 in {}".format(line_number, line)
+
+                if prev_chrom and chrom != prev_chrom:
+                    start_array, end_array = zip(*intervals)
+                    start_array = np.array(start_array)
+                    end_array = np.array(end_array)
+                    # check if intervals are consecutive or 1bp positions demarcating the boundaries
+                    if np.any(end_array - start_array == 1):
+                        # The file contains only boundaries at 1bp position.
+                        end_array = start_array[1:]
+                        start_array = start_array[:-1]
+                    interval_tree[prev_chrom] = IntervalTree()
+                    for idx in range(len(start_array)):
+                        interval_tree[prev_chrom].insert_interval(Interval(start_array[idx], end_array[idx]))
+                        valid_intervals += 1
+                    intervals = []
+                intervals.append((start, end))
+
+                # each interval spans from the smallest start to the largest end
+                prev_chrom = chrom
+
+        start, end = zip(*intervals)
+        start = np.array(start)
+        end = np.array(end)
+        # check if intervals are consecutive or 1bp positions demarcating the boundaries
+        if np.any(end - start == 1):
+            # The file contains only boundaries at 1bp position.
+            end = start[1:]
+            start = start[:-1]
+        interval_tree[chrom] = IntervalTree()
+        for idx in range(len(start)):
+            interval_tree[chrom].insert_interval(Interval(start[idx], end[idx]))
+            valid_intervals += 1
+
+        if valid_intervals == 0:
+            sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file']))
+
+        file_h.close()
+        self.interval_tree = interval_tree
+
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
         """
         Plots the boundaries as triangles in the given ax.
         """
-        intervals = []
-        for region in self.interval_tree[chrom_region].find(start_region - 10000,
-                                                            end_region + 10000):
-            intervals.append((region.start, region.end))
-
-        start, end = zip(*intervals)
-        start_list = np.array(start)
-        end = np.array(end)
-        # check if intervals are consecutive or 1bp positions demarcating the boundaries
-        if np.any(end - start_list > 1):
-            # intervals are consecutive, but only the boundaries are need.
-            start_list = end
-
-        prev_start = -1
         x = []
         y = []
-        for start in start_list:
-            if prev_start is None:
-                # draw only half a triangle
-                length = start - prev_start
-                x1 = prev_start
-                y1 = length
-                x2 = start
-                y2 = 0
-                x.extend([x1, x2])
-                y.extend([y1, y2])
-            else:
-                x1 = prev_start
-                x2 = x1 + (start - prev_start) / 2
-                x3 = start
-                y1 = 0
-                y2 = (start - prev_start)
-                y3 = 0
-                x.extend([x1, x2, x3])
-                y.extend([y1, y2, y3])
+        for region in self.interval_tree[chrom_region].find(start_region, end_region):
+            """
+                  /\
+                 /  \
+                /    \
+            _____________________
+               x1 x2 x3
+            """
+            x1 = region.start
+            x2 = x1 + float(region.end - region.start) / 2
+            x3 = region.end
+            y1 = 0
+            y2 = (region.end - region.start)
+            x.extend([x1, x2, x3])
+            y.extend([y1, y2, y1])
 
-            prev_start = start
         ax.plot(x, y,  color='black')
 
 class PlotBed(TrackPlot):
@@ -1001,7 +1064,7 @@ class PlotBed(TrackPlot):
         self.max_num_row = 1
         self.region_intervals = IntervalTree()
         genes_overlap = self.interval_tree[chrom_region].find(start_region, end_region)
-        if len(genes_overlap) > 200:
+        if len(genes_overlap) > 100:
             return
 
         ax.set_frame_on(False)
@@ -1268,9 +1331,6 @@ class PlotArcs(TrackPlot):
         # where the last valus is an score.
 
         valid_intervals = 0
-        prev_chrom = None
-        prev_start = -1
-        prev_line = None
         interval_tree = {}
         line_number = 0
         Arc = collections.namedtuple("Arc", ['chrom1', 'start1', 'end1', 'start2', 'end2', 'score'])
