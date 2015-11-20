@@ -149,20 +149,15 @@ type = vlines
 """
 
 from __future__ import division
-import sys
-from collections import OrderedDict
-
-import hicexplorer.HiCMatrix as HiCMatrix
-from hicexplorer.utilities import enlarge_bins
 from hicexplorer._version import __version__
 
-from scipy import sparse
-from scipy.sparse import triu, dia_matrix
 
 import argparse
 import matplotlib
 import numpy as np
 matplotlib.use('Agg')
+
+import hicexplorer.trackPlot
 
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'
@@ -280,9 +275,8 @@ def main(args=None):
 
     args = parse_arguments().parse_args(args)
     region = get_region(args.region)
-    import trackPlot
-    trp = trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
-                               fontsize=args.fontSize, dpi=args.dpi)
+    trp = hicexplorer.trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
+                                           fontsize=args.fontSize, dpi=args.dpi)
     trp.plot(args.outFileName.name, *region, title=args.title)
 
     #trp.plot("/tmp/test1.png", *region)
