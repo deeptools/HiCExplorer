@@ -888,6 +888,7 @@ class PlotBoundaries(TrackPlot):
                         interval_tree[prev_chrom].insert_interval(Interval(start_array[idx], end_array[idx]))
                         valid_intervals += 1
                     intervals = []
+
                 intervals.append((start, end))
 
                 # each interval spans from the smallest start to the largest end
@@ -1064,8 +1065,10 @@ class PlotBed(TrackPlot):
         self.max_num_row = 1
         self.region_intervals = IntervalTree()
         genes_overlap = self.interval_tree[chrom_region].find(start_region, end_region)
-        if len(genes_overlap) > 100:
-            return
+
+        # turn labels off when too many intervals are visible.
+        if self.properties['labels'] != 'off' and len(genes_overlap) > 60:
+            self.properties['labels'] != 'off'
 
         ax.set_frame_on(False)
         for region in genes_overlap:
