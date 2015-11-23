@@ -87,6 +87,8 @@ class hiCMatrix:
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
 
+            if format == 'lieberman':
+                data = np.loadtxt()
     @staticmethod
     def fillLowerTriangle(matrix):
         """
@@ -1023,6 +1025,13 @@ class hiCMatrix:
         to_remove = np.flatnonzero(np.array(coverage) < sequencedFraction)
         self.maskBins(to_remove)
         return to_remove
+
+    def get_chromosome_sizes(self):
+        chrom_sizes = OrderedDict()
+        for chrom, (start_bin, end_bin) in self.chrBinBoundaries.iteritems():
+            chrom, start, end, _ = self.cut_intervals[end_bin - 1]
+            chrom_sizes[chrom] = end
+        return chrom_sizes
 
     @staticmethod
     def intervalListToIntervalTree(interval_list):
