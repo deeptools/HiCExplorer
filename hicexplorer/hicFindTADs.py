@@ -31,9 +31,9 @@ $ hicFindTads find_TADs -f TAD_score.txt --outPrefix TADs
 
 For detailed help:
 
- hicFindTads TAD_score -h
+ hicFindTADs TAD_score -h
   or
- hicFindTads find_TADs -h
+ hicFindTADs find_TADs -h
 
 """)
 
