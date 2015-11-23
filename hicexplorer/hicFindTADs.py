@@ -33,7 +33,7 @@ For detailed help:
 
  hicFindTads TAD_score -h
   or
- hicFindTads find_TADS -h
+ hicFindTads find_TADs -h
 
 """)
 
