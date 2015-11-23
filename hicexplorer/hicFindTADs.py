@@ -673,20 +673,28 @@ def save_clusters(clusters, file_prefix):
 
 def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args):
 
-    unique_chr, indices = np.unique(chrom, return_index=True)
-    indices = indices[1:]  # the first element is not needed
-    end_per_chr = np.split(chr_end, indices)
-    # get the chromosome sizes based on the given chr_end values.
-    chrom_sizes = dict([(_chrom, end_per_chr[idx][-1]) for idx, _chrom in enumerate(unique_chr)])
+
+    prev_chrom = chrom[0]
+    chrom_sizes = {}
+    chr_bin_range = []
+    for idx, chr_name in enumerate(chrom):
+        if prev_chrom != chr_name:
+            chrom_sizes[prev_chrom] = chr_end[idx-1]
+            chr_bin_range.append(idx)
+        prev_chrom = chr_name
+
+    chrom_sizes[chr_name] = chr_end[idx]
+    chr_bin_range.append(idx)
 
     new_min_idx = [0]
     for idx in min_idx:
         # for each chromosome, add position 0 and end position as boundaries
-        # 'indices'contains the indices values where the chromosome changes
+        # 'chr_bin_range'contains the indices values where the chromosome changes
 
-        if len(indices) and idx > indices[0]:
-            new_min_idx.append(indices[0])
-            indices = indices[1:]
+        if len(chr_bin_range) and idx > chr_bin_range[0]:
+            new_min_idx.append(chr_bin_range[0] - 1)
+            new_min_idx.append(chr_bin_range[0])
+            chr_bin_range = chr_bin_range[1:]
         new_min_idx.append(idx)
 
     new_min_idx.append(len(chr_start - 1))
