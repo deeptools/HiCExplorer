@@ -282,7 +282,7 @@ minima. Noise can be reduced by increasing the default *--delta* value.
     --minDepth 40000 --maxDepth 120000 -t 20 --step 20000 \
     -o TADs/marks_et-al_TADs_20kb-Bins
 
-    hicFindTADs TAD_score -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
+    hicFindTADs find_TADs -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
     --lookahead 4 \
     --outPrefix TADs/marks_et-al_TADs_20kb-Bins
 
