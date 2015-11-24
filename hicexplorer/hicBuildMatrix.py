@@ -67,7 +67,7 @@ def parseArguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description=('Using an aligment from Bowtie2 were both '
+        description=('Using an aligment from Bowtie2 where both '
                      'PE reads are mapped using  the --local '
                      'option, this code reads such file and '
                      'creates a matrix of interactions.'))
