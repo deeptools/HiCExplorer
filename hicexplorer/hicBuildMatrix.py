@@ -88,24 +88,15 @@ def parseArguments(args=None):
                         required=True)
 
 
-    parser.add_argument('--binSize', '-bs',
-                        help=('Size in bp. If used, the '
-                              'restriction cut places (if given) '
-                              'are used to only consider reads that '
-                              'are in the vicinity of the restriction '
-                              'sites. Otherwise all reads in the '
-                              'interval are considered. '),
-                        type=int,
-                        default=10000,
-                        required=True)
+    group = parser.add_mutually_exclusive_group(required=True)
 
-    parser.add_argument('--fragmentLength', '-f',
-                        help='Estimated fragment length',
-                        type=int,
-                        default=300,
-                        required=False)
 
-    parser.add_argument('--restrictionCutFile', '-rs',
+    group.add_argument('--binSize', '-bs',
+                        help=('Size in bp for the bins.'),
+                        type=int,
+                        default=10000)
+
+    group.add_argument('--restrictionCutFile', '-rs',
                         help=('BED file with all restriction cut places. '
                                 'Should contain only  mappable '
                                 'restriction sites. If given, the bins are '
@@ -114,6 +105,12 @@ def parseArguments(args=None):
                                 'the next).'),
                         type=argparse.FileType('r'),
                         metavar='BED file')
+
+    parser.add_argument('--fragmentLength', '-f',
+                        help='Estimated fragment length',
+                        type=int,
+                        default=300)
+
 
     parser.add_argument('--minDistance',
                         help='Minimum distance between restriction sites. '
