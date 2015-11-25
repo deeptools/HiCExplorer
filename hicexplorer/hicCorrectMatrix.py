@@ -84,7 +84,7 @@ To get detailed help on each of the options:
                            default=None,
                            nargs='+')
 
-    parser.add_argument('--xMax',
+    plot_mode.add_argument('--xMax',
                         help='Max value for the X field in counts per bin',
                         default=None,
                         type=float)
@@ -344,12 +344,13 @@ def plot_total_contact_dist(hic_ma, args):
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
 
+    if args.xMax:
+        ax1.set_xlim(ax1.get_xlim()[0], args.xMax)
+        row_sum = row_sum[row_sum <  args.xMax]
     ax1.hist(row_sum, 100, color='green')
     ax1.set_xlabel("total counts per bin")
     ax1.set_ylabel("frequency")
 
-    if args.xMax:
-        ax1.set_xlim(ax1.get_xlim()[0], args.xMax)
 
     # add second axis on top
     ax2 = ax1.twiny()
