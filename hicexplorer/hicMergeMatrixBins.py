@@ -199,7 +199,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
 
     assert num_bins % 2 == 1, "num_bins has to be an odd number"
     half_num_bins = int((num_bins-1) / 2)
-    from scipy.sparse import coo_matrix, vstack, hstack, dia_matrix, triu
+    from scipy.sparse import coo_matrix, dia_matrix, triu
     M = hic_matrix.matrix.shape[0]
     ma = triu(hic_matrix.matrix, k=0, format='coo')
     row = ma.row
@@ -227,9 +227,9 @@ def running_window_merge_v2(hic_matrix, num_bins):
     # remove illegal matrix id
     # that are less than zero
     # or bigger than matrix size
-    keep = ((new_row  > -1) & (new_col > -1) &
-            (new_row  < M ) & (new_col < M))
-    new_data =new_data[keep]
+    keep = ((new_row > -1) & (new_col > -1) &
+            (new_row < M) & (new_col < M))
+    new_data = new_data[keep]
     new_row = new_row[keep]
     new_col = new_col[keep]
     
@@ -262,7 +262,7 @@ def merge_bins(hic, num_bins):
 
 
     make the matrix symmetric:
-    >>> from scipy.sparse import coo_matrix, dia_matrix
+    >>> from scipy.sparse import dia_matrix
 
     >>> dia = dia_matrix(([matrix.diagonal()], [0]), shape=matrix.shape)
     >>> hic.matrix = csr_matrix(matrix + matrix.T - dia)
@@ -276,8 +276,7 @@ def merge_bins(hic, num_bins):
             [  1,   4, 100]])
     """
     # get the bins to merge
-    ref_name_list, start_list, end_list, coverage_list = \
-        zip(*hic.cut_intervals)
+    ref_name_list, start_list, end_list, coverage_list = zip(*hic.cut_intervals)
     new_bins = []
     bins_to_merge = []
     prev_ref = ref_name_list[0]
