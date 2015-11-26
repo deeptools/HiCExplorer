@@ -66,6 +66,7 @@ class PlotTracks(object):
         # initialize each track
         self.track_obj_list = []
         for idx, properties in enumerate(self.track_list):
+            print properties
             if 'spacer' in properties:
                 continue
             if 'x-axis' in properties:
@@ -88,6 +89,9 @@ class PlotTracks(object):
 
             elif properties['file_type'] == 'links':
                 self.track_obj_list.append(PlotArcs(properties))
+
+            elif properties['file_type'] == 'boundaries':
+                self.track_obj_list.append(PlotBoundaries(properties))
 
         print "time initializing tracks"
         start = self.print_elapsed(start)
@@ -936,6 +940,8 @@ class PlotBoundaries(TrackPlot):
             y.extend([y1, y2, y1])
 
         ax.plot(x, y,  color='black')
+        ax.set_xlim(start_region, end_region)
+
 
 class PlotBed(TrackPlot):
 
