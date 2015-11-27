@@ -149,15 +149,14 @@ type = vlines
 """
 
 from __future__ import division
-from hicexplorer._version import __version__
-
-
+import sys
 import argparse
 import matplotlib
 import numpy as np
 matplotlib.use('Agg')
 
 import hicexplorer.trackPlot
+from hicexplorer._version import __version__
 
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'
@@ -184,6 +183,18 @@ def parse_arguments(args=None):
                         required=True,
                         )
 
+    group = parser.add_mutually_exclusive_group(required=True)
+
+    group.add_argument('--region',
+                        help='Region to plot, the format is chr:start-end')
+
+    group.add_argument('--BED',
+                        help='Instead of a region, a file containing the regions to plot, in BED format, '
+                             'can be given. If this is the case, multiple files will be created using a prefix '
+                             'the value of --outFileName',
+                        type=argparse.FileType('r')
+                        )
+
     parser.add_argument('--width',
                         help='figure width in centimeters',
                         type=float,
@@ -205,15 +216,9 @@ def parse_arguments(args=None):
                         required=False)
 
     parser.add_argument('--outFileName', '-out',
-                        help='File name to save the image. ',
-                        type=argparse.FileType('w'),
+                        help='File name to save the image, file prefix in case multiple images '
+                             'are stored',
                         required=True)
-
-    parser.add_argument('--region',
-                        help='Plot only this region. The format is '
-                        'chr:start-end ',
-                        required=True
-                        )
 
     parser.add_argument('--zMax',
                         help='zMax',
@@ -274,11 +279,27 @@ def get_region(region_string):
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-    region = get_region(args.region)
     trp = hicexplorer.trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
                                            fontsize=args.fontSize, dpi=args.dpi)
-    trp.plot(args.outFileName.name, *region, title=args.title)
 
-    #trp.plot("/tmp/test1.png", *region)
-
-    #trp.plot("/tmp/test2.png", *region)
+    if args.BED:
+        count = 0
+        for line in args.BED.readlines():
+            count += 1
+            try:
+                chrom, start, end = line.strip().split('\t')[0:3]
+            except ValueError:
+                continue
+            try:
+                start, end = map(int, [start, end])
+            except ValueError as detail:
+                sys.stderr.write("Invalid value found at line\t{}\t. {}\n".format(line, detail))
+            file_name = "{}_{}:{}-{}".format(args.outFileName, chrom, start, end)
+            if end - start < 200000:
+                start -= 100000
+                end += 100000
+            sys.stderr.write("saving {}'\n".format(file_name))
+            trp.plot(file_name, chrom, start, end, title=args.title)
+    else:
+        region = get_region(args.region)
+        trp.plot(args.outFileName, *region, title=args.title)
