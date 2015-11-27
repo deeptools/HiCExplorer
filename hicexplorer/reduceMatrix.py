@@ -5,7 +5,7 @@ import logging
 
 def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     """
-    This function sums the rows and colums corresponding
+    This function sums the rows and columns corresponding
     to the bins_to_merge, returning a new sparse
     matrix of size len(bins_to_merge).
 
