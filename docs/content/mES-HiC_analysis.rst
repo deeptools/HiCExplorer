@@ -265,12 +265,28 @@ Find and plot TADs
 Find TADs
 ~~~~~~~~~
 
+To find TADs we will first compute the TAD scores using hicFindTADs
+**TAD\_score** option. It requires the minimum and maximum depth (window
+length in base-pairs) to search around cut-points (bigger range will
+find bigger TADs), and the step size (in base-pairs).
+
+Then we find the TADs using hicFindTADs **find\_TADs** option.
+Boundaries are discovered as local minima in a window. The *--lookahead*
+option tells the number of bins to search before deciding the local
+minima. Noise can be reduced by increasing the default *--delta* value.
+
 .. code:: bash
 
     mkdir TADs
-    hicFindTADs -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
-    --minDepth 40000 --maxDepth 120000 --lookahead 4 \
+    hicFindTADs TAD_score -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
+    --minDepth 40000 --maxDepth 120000 -t 20 --step 20000 \
+    -o TADs/marks_et-al_TADs_20kb-Bins
+
+    hicFindTADs find_TADs -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
+    --lookahead 4 \
     --outPrefix TADs/marks_et-al_TADs_20kb-Bins
+
+As an output we get the boundries and domains as seperate bed files.
 
 Plot TADs
 ~~~~~~~~~
@@ -306,7 +322,8 @@ Comparing Marks et. al. and Dixon et. al.
 
 We analysed the mESC Hi-C data from `Dixon et.
 al <http://www.nature.com/nature/journal/v485/n7398/full/nature11082.html>`__
-using Hi-C explorer, and compared it to Marks et. al. dataset. Following
+using Hi-C explorer, and compared it to Marks et. al. dataset. For this
+we mapped the reads using bowtie and prepared 20kb matrices. Following
 is the plot showing the TADs on the X chromosomes, at 1.2 MB region
 around Xist (the X Inactivation Center).
 
@@ -316,7 +333,7 @@ as bed files provided with the studies, normalized CTCF signal from
 ENCODE, spectrum of Hi-C signal produced by *hicFindTADs*, and a
 genes.bed file from ensembl.
 
-.. figure:: ./plots/marks_and_dixon-TADs.png
+.. figure:: ./plots/Marks-Dixon_TADs.png
    :alt: TADplot2
 
    TADplot2
