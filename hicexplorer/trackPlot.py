@@ -703,6 +703,14 @@ class PlotHiCMatrix(TrackPlot):
         self.label_ax.set_axis_off()
         self.ax = ax
 
+        chrom_sizes = self.hic_ma.get_chromosome_sizes()
+        if region_end > chrom_sizes[chrom]:
+            sys.stderr.write("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
+            sys.stderr.write("{} size: {}. Region to plot {}-{}\n".format(chrom, chrom_sizes[chrom],
+                                                                          region_start, region_end))
+
+            exit(1)
+
         # expand region to plus depth on both sides
         # to avoid a 45 degree 'cut' on the edges
     
@@ -744,8 +752,9 @@ class PlotHiCMatrix(TrackPlot):
         else:
             bin_size = self.hic_ma.getBinSize()
             depth_bins = int(self.properties['depth'] / bin_size)
+            if depth_bins > matrix.shape[0]:
+                depth_bins = matrix.shape[0] - 5
             vmin = np.median(matrix.diagonal(depth_bins))
-    
         sys.stderr.write("setting min, max values for track {} to: {}, {}\n".format(self.properties['section_name'],
                                                                                     vmin, vmax))
         img = self.pcolormesh_45deg(matrix, start_pos, vmax=vmax, vmin=vmin)
@@ -957,10 +966,12 @@ class PlotBed(TrackPlot):
             sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file_name']))
 
         from matplotlib import font_manager
-        if 'fontsize' in self.properties:
-            self.fp = font_manager.FontProperties(size=self.properties['fontsize'])
+        if 'fontsize' not in self.properties:
+            self.properties['fontsize'] = 12
         else:
-            self.fp = font_manager.FontProperties()
+            self.properties['fontsize'] = float(self.properties['fontsize'])
+
+        self.fp = font_manager.FontProperties(size=self.properties['fontsize'])
 
         if 'color' not in self.properties:
             self.properties['color'] = DEFAULT_BED_COLOR
@@ -976,11 +987,10 @@ class PlotBed(TrackPlot):
         # to improve the visualization of the genes
         # it is good to have an estimation of the label
         # length. In the following code I try to get
-        # the length of a 'w'.
+        # the length of a 'W'.
         if self.properties['labels'] == 'on':
-            text_path = matplotlib.textpath.TextPath((0, 0), 'w', prop=self.fp)
-            self.len_w = text_path.get_extents().width * 1000
-            #self.len_w = text_path.get_extents().width * 300
+            text_path = matplotlib.textpath.TextPath((0, 0), 'W', prop=self.fp)
+            self.len_w = text_path.get_extents().width * 60 * self.properties['fontsize']
         else:
             self.len_w = 1
 
