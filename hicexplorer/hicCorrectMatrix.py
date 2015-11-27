@@ -49,7 +49,7 @@ To get detailed help on each of the options:
         dest='command',
         metavar='')
 
-    bins_mode = subparsers.add_parser(
+    correct_mode = subparsers.add_parser(
         'correct',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[correct_subparser()],
@@ -85,10 +85,54 @@ To get detailed help on each of the options:
                            nargs='+')
 
     plot_mode.add_argument('--xMax',
-                        help='Max value for the X field in counts per bin',
+                        help='Max value for the x-axis in counts per bin',
                         default=None,
                         type=float)
 
+
+    merge_mode = subparsers.add_parser(
+        'merge_failed',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        help="Merges together failed bins to rescue some of the information instead of discarding it. This option"
+             "is mostly useful with processing small restrition fragment size bins",
+        usage='%(prog)s '
+              '--matrix hic_matrix.npz '
+              '--outMatrixFile hic_matrix_merged_failed.npz '
+              '-o file.png')
+    merge_mode.add_argument('--matrix', '-m',
+                            help='Hi-C matrix.',
+                            required=True)
+
+    merge_mode.add_argument('--outMatrixFile',
+                            help='Name to save the resulting matrix.',
+                            required=True)
+
+    merge_mode.add_argument('--plotName', '-o',
+                            help='File name to save the diagnostic plot.',
+                            required=True)
+
+    merge_mode.add_argument('--filterThreshold', '-t',
+                        help='Bins of low coverage or large coverage need to be removed. '
+                             'Usually they do not contain valid Hi-C data of represent '
+                             'regions that accumulate reads. Use the %(prog)s diagnostic_plot '
+                             'to identify the modified z-value thresholds. A lower and upper '
+                             'threshold are required separated by space. Eg. --filterThreshold '
+                             '-1.5 5',
+                        type=float,
+                        nargs=2,
+                        required=True)
+
+    merge_mode.add_argument('--chromosomes',
+                            help='List of chromosomes to be included in the iterative '
+                            'correction. The order of the given chromosomes will be then '
+                            'kept for the resulting corrected matrix',
+                            default=None,
+                            nargs='+')
+
+    merge_mode.add_argument('--xMax',
+                            help='Max value for the X field in counts per bin',
+                            default=None,
+                            type=float)
     return parser
 
 
@@ -251,7 +295,7 @@ def merge_failed_bins(hic_matrix, failed_bins):
 
         else:
             # skip if the bin was already added in the previous loop
-            if idx not in bins_to_merge[-1]:
+            if idx == 0 or idx not in bins_to_merge[-1]:
                 bins_to_merge.append([idx,])
                 new_bins.append(hic_matrix.cut_intervals[idx])
 
@@ -261,7 +305,6 @@ def merge_failed_bins(hic_matrix, failed_bins):
     assert len(np.flatnonzero(diff > 1)) == 0, "Some indexes are missing"
     hic_matrix.update_matrix(hicexplorer.reduceMatrix.reduce_matrix(hic_matrix.matrix, bins_to_merge, diagonal=True),
                              new_bins)
-
     return hic_matrix
 
 
@@ -509,7 +552,21 @@ def main():
     if args.chromosomes:
         ma.reorderChromosomes(args.chromosomes)
 
-    if 'plotName' in args:
+    if 'outMatrixFile' in args:
+        # get below threshold outliers by using an extremely high upper threshold
+        outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], 1e6)
+        print len(outlier_regions), ma.matrix.shape
+        # compute and print some statistics
+        pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
+        ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%)".format(pct_outlier))
+        # try to recover some of the outliers by merging them
+        ma = merge_failed_bins(ma, outlier_regions)
+        ma.save(args.outMatrixFile)
+        plot_total_contact_dist(ma.matrix, args)
+        sys.stderr.write("Saving diagnostic plot {}\n".format(args.plotName))
+        exit()
+
+    elif 'plotName' in args:
         plot_total_contact_dist(ma.matrix, args)
         sys.stderr.write("Saving diagnostic plot {}\n".format(args.plotName))
         exit()
@@ -522,22 +579,11 @@ def main():
     if args.skipDiagonal:
         ma.diagflat(value=0)
 
-
-    # filter based on threshold
     outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1])
-    print len(outlier_regions), ma.matrix.shape
     # compute and print some statistics
     pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
-    ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%)".format(pct_outlier))
-
-    # try to recover some of the outliers by merging them
-    ma = merge_failed_bins(ma, outlier_regions)
-
-    outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1])
-    print len(outlier_regions), ma.matrix.shape
-    # compute and print some statistics
-    pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
-    ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers after merge ({:.2f}%)".format(pct_outlier))
+    ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers after merge ({:.2f}%) "
+                                               "out of".format(pct_outlier, ma.matrix.shape[0]))
 
     # mask filtered regions
     ma.maskBins(outlier_regions)
