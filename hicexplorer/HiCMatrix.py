@@ -834,6 +834,29 @@ class hiCMatrix:
         if self.correction_factors is not None:
             self.correction_factors = self.correction_factors[rows]
 
+    def update_matrix(self, new_matrix, new_cut_intervals):
+        """
+        give a new matrix and list of cut intervals, the matrix,  cut intervals and
+        the respective tree are updated
+        :param new_matrix: now values for the sparse matrix
+        :param new_cut_intervals: list of cut intervals, each entry being a tuple of the form
+        (chrom, start, end, coverage)
+        :return:
+        """
+        if hasattr(self, 'orig_bin_ids'):
+            raise Exception("matrix contains masked bins. Restore masked bins first")
+
+        assert len(new_cut_intervals) == new_matrix.shape[0], "matrix shape and len of cut intervals do not match"
+
+        self.matrix = new_matrix
+        self.cut_intervals = new_cut_intervals
+
+        self.interval_trees, self.chrBinBoundaries = \
+            self.intervalListToIntervalTree(self.cut_intervals)
+
+        self.nan_bins = np.flatnonzero(self.matrix.sum(0).A == 0)
+
+
     def restoreMaskedBins(self):
         """
         Puts backs into the matrix the bins
@@ -856,8 +879,8 @@ class hiCMatrix:
         self.matrix = sparse_vstack([self.matrix, rows_mat])
         self.matrix = sparse_hstack([self.matrix, cols_mat], format='csr')
 
-        #the new matrix has the right number of cols and rows, now
-        #they need to be reordered to be back in their original places
+        # the new matrix has the right number of cols and rows, now
+        # they need to be reordered to be back in their original places
         rows = cols = np.argsort(self.orig_bin_ids)
         self.matrix = self.matrix[rows, :][:, cols]
         self.cut_intervals = [self.orig_cut_intervals[x] for x in rows]
