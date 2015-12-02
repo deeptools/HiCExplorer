@@ -487,17 +487,20 @@ def plot_total_contact_dist(hic_ma, args):
     if args.xMax:
         ax1.set_xlim(ax1.get_xlim()[0], args.xMax)
         row_sum = row_sum[row_sum <  args.xMax]
-    ax1.hist(row_sum, 100, color='green')
+
+
     ax1.set_xlabel("total counts per bin")
     ax1.set_ylabel("frequency")
-
+#    ax1.xaxis.grid(True)
+    ax1.patch.set_visible(False)
+    dist, bin_s, __ = ax1.hist(row_sum, 100, color='green')
 
     # add second axis on top
     ax2 = ax1.twiny()
     ax2.set_xlabel("modified z-score")
     ax2.xaxis.set_major_locator(majorLocator)
     ax2.xaxis.set_major_formatter(majorFormatter)
-
+    ax2.xaxis.grid(True, which='minor')
     # for the minor ticks, use no labels; default NullFormatter
     ax2.xaxis.set_minor_locator(minorLocator)
 
@@ -505,6 +508,22 @@ def plot_total_contact_dist(hic_ma, args):
     # of the main axis to the translated values
     # into modified z score.
     ax2.set_xlim(mad.value_to_mad(np.array(ax1.get_xlim())))
+
+    # get first local miminum value
+    local_min = [x for x, y in enumerate(dist) if 1 <= x < len(dist) - 1 and
+                 dist[x-1] > y < dist[x+1]]
+
+    if len(local_min) > 0:
+        threshold = bin_s[local_min[0]]
+    else:
+        threshold = None
+
+    if threshold:
+        mad_threshold = mad.value_to_mad(threshold)
+        ymin, ymax = ax2.get_ylim()
+        ax2.vlines(mad_threshold, ymin, ymax)
+        print "mad threshold {}".format(mad_threshold)
+
     plt.savefig(args.plotName)
     plt.close()
 
