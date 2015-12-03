@@ -150,6 +150,20 @@ def parseArguments(args=None):
                         required=False,
                         type=genomicRegion
                         )
+
+    parser.add_argument('--removeSelfLigation',
+                        help='If set, inward facing reads less than 1000 bp appart and having a restriction'
+                             'site in between are removed.',
+                        required=False,
+                        action='store_true'
+                        )
+
+    parser.add_argument('--removeSelfCircles',
+                        help='If set, outward facing reads, at a distance of less thatn 25kbs are removed.',
+                        required=False,
+                        action='store_true'
+                        )
+
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -283,8 +297,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     # add max_distance to both sides
     start = np.array(start) - max_distance
     end = np.array(end) + max_distance
-    new_start = []
-    new_start.append(max(0, start[0]))
+    new_start = [max(0, start[0])]
     new_end = []
     new_chrom = [chrom[0]]
     for idx in range(1, len(start)):
@@ -356,36 +369,6 @@ def check_dangling_end(read, dangling_sequences):
         return True
 
     return False
-
-
-def get_poor_bins(max_coverage_list):
-    """
-    identify poor bins that have low coverage.
-    The distribution of max_coverage usually
-    looks like a mixture of two distributions
-    and is bimodal. The min between the two distributions
-    is used to set the poor bins threshold.
-
-    """
-    max_coverage_list = np.array(max_coverage_list)
-
-    dist, bin_s = np.histogram(max_coverage_list, 100, (0, 200))
-    # find the first local minimun in the max_coverage_list distribution
-    local_min = [x for x, y in enumerate(dist) if 1 < x < len(dist) - 1 and
-                 dist[x-1] > y < dist[x+1]]
-
-    if len(local_min) > 0:
-        threshold = bin_s[local_min[0]]
-    else:
-        threshold = 5
-
-    poor_bins = np.flatnonzero(max_coverage_list <= threshold)
-    sys.stderr.write("Number of poor bins found: {} ({:.2f})\n"
-                     "Coverage threshold used {}\n".format(len(poor_bins),
-                             100*float(len(poor_bins))/len(max_coverage_list),
-                             threshold))
-
-    return poor_bins
 
 
 def enlarge_bins(bin_intervals, chrom_sizes):
@@ -600,16 +583,15 @@ def main():
             mate_bin_id = mate_bin.value
             mate_bins.append(mate_bin_id)
 
-        # if a mate is unasigned, it means it is not close
+        # if a mate is unassigned, it means it is not close
         # to a restriction sites
         if mate_is_unasigned is True:
             mate_not_close_to_rf += 1
             continue
 
-
         # check if mates are in the same chromosome
         if mate1.rname == mate2.rname:
-            # to identify 'indward' and 'outward' orientations
+            # to identify 'inward' and 'outward' orientations
             # the order or the mates in the genome has to be 
             # known.
             if mate1.pos < mate2.pos:
@@ -636,13 +618,13 @@ def main():
             else:
                 orientation = 'same-strand'
 
-
-            # check self-circles
-            # self circles are defined as pairs within 25kb
-            # with 'outward' orientation (Jin et al. 2013. Nature)
-            if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
-                self_circle += 1
-                continue
+            if args.removeSelfCircles:
+                # check self-circles
+                # self circles are defined as pairs within 25kb
+                # with 'outward' orientation (Jin et al. 2013. Nature)
+                if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
+                    self_circle += 1
+                    continue
 
             # check for dangling ends if the restriction sequence
             # is known:
@@ -653,14 +635,16 @@ def main():
                     continue
 
             if abs(mate2.pos - mate1.pos) < 1000 and orientation == 'inward':
+                has_rf = []
+
                 if rf_positions and args.restrictionSequence:
                     # check if in between the two mate
-                    # ends the restriction fragment
-                    # is found.
+                    # ends the restriction fragment is found.
+
                     # the interval used is:
                     # start of fragment + length of restriction sequence
                     # end of fragment - length of restriction sequence
-                    # the restriction sequence length is substracted
+                    # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
                     frag_start = min(mate1.pos, mate2.pos) + \
@@ -671,12 +655,13 @@ def main():
                     mate_ref = ref_id2name[mate1.rname]
                     has_rf = rf_positions[mate_ref].find(frag_start,
                                                          frag_end)
-                    if len(has_rf) > 0:
-                        self_ligation += 1
-                        continue
 
-                same_fragment += 1
-                continue
+                if len(has_rf) == 0:
+                    same_fragment += 1
+                    continue
+                elif args.removeSelfLigation and len(has_rf) > 0:
+                    self_ligation += 1
+                    continue
 
             # set insert size to save bam
             mate1.isize = mate2.pos - mate1.pos
@@ -754,6 +739,7 @@ def main():
              startList=start_list, endList=end_list,
              extraList=bin_max)
 
+    """
     if args.restrictionCutFile:
         # load the matrix to mask those
         # bins that most likely didn't
@@ -764,6 +750,7 @@ def main():
 
         hic_matrix.maskBins(get_poor_bins(bin_max))
         hic_matrix.save(args.outFileName.name)
+    """
 
     mappable_pairs = iter_num - one_pair_unmapped
     print("""
