@@ -561,16 +561,21 @@ def main():
             duplicated_pairs += 1
             continue
 
-
         # check if reads belong to a bin
         mate_bins = []
         mate_is_unasigned = False
         for mate in [mate1, mate2]:
             mate_ref = ref_id2name[mate.rname]
-            # find middle of read
+            # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen/2)
-            mate_bin = bin_intval_tree[mate_ref].find(read_middle,
-                                                      read_middle + 1)
+            try:
+                mate_bin = bin_intval_tree[mate_ref].find(read_middle, read_middle + 1)
+            except KeyError:
+                # for small contigs it can happen that they are not
+                # in the bin_intval_tree keys if no restriction site is found on the contig.
+                mate_is_unasigned = True
+                break
+
             # report no match case
             if len(mate_bin) == 0:
                 mate_is_unasigned = True
@@ -656,11 +661,15 @@ def main():
                     has_rf = rf_positions[mate_ref].find(frag_start,
                                                          frag_end)
 
+                # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
                     same_fragment += 1
                     continue
-                elif args.removeSelfLigation and len(has_rf) > 0:
-                    self_ligation += 1
+
+                self_ligation += 1
+
+                if args.removeSelfLigation:
+                    # skip self ligations
                     continue
 
             # set insert size to save bam
@@ -751,6 +760,10 @@ def main():
         hic_matrix.maskBins(get_poor_bins(bin_max))
         hic_matrix.save(args.outFileName.name)
     """
+    if args.removeSelfLigation:
+        msg = " (removed)"
+    else:
+        msg = " (not removed)"
 
     mappable_pairs = iter_num - one_pair_unmapped
     print("""
@@ -763,7 +776,7 @@ One mate unmapped\t{}\t({:.2f})\t({:.2f})
 One mate not unique\t{}\t({:.2f})\t({:.2f})
 One mate low quality\t{}\t({:.2f})\t({:.2f})
 dangling end\t{}\t({:.2f})\t({:.2f})
-self ligation\t{}\t({:.2f})\t({:.2f})
+self ligation{}\t{}\t({:.2f})\t({:.2f})
 One mate not close to rest site\t{}\t({:.2f})\t({:.2f})
 same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})
 self circle\t{}\t({:.2f})\t({:.2f},
@@ -780,7 +793,7 @@ duplicated pairs\t{}\t({:.2f})\t({:.2f})
            100*float(one_pair_low_quality)/mappable_pairs,
            dangling_end, 100*float(dangling_end)/iter_num,
            100*float(dangling_end)/mappable_pairs,
-           self_ligation, 100*float(self_ligation)/iter_num,
+           msg, self_ligation, 100*float(self_ligation)/iter_num,
            100*float(self_ligation)/mappable_pairs,
            mate_not_close_to_rf, 100*float(mate_not_close_to_rf)/iter_num,
            100*float(mate_not_close_to_rf)/mappable_pairs,
