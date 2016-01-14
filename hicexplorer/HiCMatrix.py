@@ -1063,6 +1063,8 @@ class hiCMatrix:
         this is transformed to a number of interval trees,
         one for each chromosome
         """
+
+        assert len(interval_list) > 0, "List is empty"
         cut_int_tree = {}
         chrbin_boundaries = OrderedDict()
         intval_id = 0
@@ -1086,5 +1088,7 @@ class hiCMatrix:
                 Interval(start, end, value=intval_id))
 
             intval_id += 1
+
         chrbin_boundaries[chrom] = (chr_start_id, intval_id)
+
         return (cut_int_tree, chrbin_boundaries)

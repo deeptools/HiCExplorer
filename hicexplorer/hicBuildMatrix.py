@@ -10,7 +10,6 @@ from bx.intervals.intersection import IntervalTree, Interval
 
 # own tools
 from hicexplorer.utilities import getUserRegion, genomicRegion
-from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
 debug = 1
@@ -150,6 +149,20 @@ def parseArguments(args=None):
                         required=False,
                         type=genomicRegion
                         )
+
+    parser.add_argument('--removeSelfLigation',
+                        help='If set, inward facing reads less than 1000 bp appart and having a restriction'
+                             'site in between are removed.',
+                        required=False,
+                        action='store_true'
+                        )
+
+    parser.add_argument('--removeSelfCircles',
+                        help='If set, outward facing reads, at a distance of less thatn 25kbs are removed.',
+                        required=False,
+                        action='store_true'
+                        )
+
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -283,8 +296,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     # add max_distance to both sides
     start = np.array(start) - max_distance
     end = np.array(end) + max_distance
-    new_start = []
-    new_start.append(max(0, start[0]))
+    new_start = [max(0, start[0])]
     new_end = []
     new_chrom = [chrom[0]]
     for idx in range(1, len(start)):
@@ -358,35 +370,82 @@ def check_dangling_end(read, dangling_sequences):
     return False
 
 
-def get_poor_bins(max_coverage_list):
+def get_supplementary_alignment(read, str):
+    """Checks if a read has a supplementary alignment
+    :param read pysam AlignedSegment
+    :param str pysam file object
+
+    :return pysam AlignedSegment of the supplementary aligment or None in case of no supplementary alignment
     """
-    identify poor bins that have low coverage.
-    The distribution of max_coverage usually
-    looks like a mixture of two distributions
-    and is bimodal. The min between the two distributions
-    is used to set the poor bins threshold.
 
-    """
-    max_coverage_list = np.array(max_coverage_list)
+    # the SA field contains a list of other alignments as a ';' delimited list in the format
+    # rname,pos,strand,CIGAR,mapQ,NM;
+    if read.has_tag('SA'):
+        # field always ends in ';' thus last element after split is always empty, hence [0:-1]
+        other_alignments = read.get_tag('SA').split(";")[0:-1]
+        supplementary_alignment = []
+        for i in range(len(other_alignments)):
+            _sup = str.next()
+            if _sup.is_supplementary and _sup.qname == read.qname:
+              supplementary_alignment.append(_sup)
 
-    dist, bin_s = np.histogram(max_coverage_list, 100, (0, 200))
-    # find the first local minimun in the max_coverage_list distribution
-    local_min = [x for x, y in enumerate(dist) if 1 < x < len(dist) - 1 and
-                 dist[x-1] > y < dist[x+1]]
+        return supplementary_alignment
 
-    if len(local_min) > 0:
-        threshold = bin_s[local_min[0]]
     else:
-        threshold = 5
+        return None
 
-    poor_bins = np.flatnonzero(max_coverage_list <= threshold)
-    sys.stderr.write("Number of poor bins found: {} ({:.2f})\n"
-                     "Coverage threshold used {}\n".format(len(poor_bins),
-                             100*float(len(poor_bins))/len(max_coverage_list),
-                             threshold))
 
-    return poor_bins
 
+def get_correct_map(primary, supplement_list):
+    """
+    Decides which of the mappings, the primary or supplement, is correct. In the case of
+    long reads (eg. 150bp) the restriction enzyme site could split the read into two parts
+    but only the mapping corresponding to the start of the read should be considered as
+    the correct one.
+
+    For example:
+
+    Forward read:
+
+                          _  <- cut site
+    |======================|==========>
+                           -
+    |----------------------|
+        correct mapping
+
+
+    reverse read:
+
+                          _  <- cut site
+    <======================|==========|
+                           -
+                           |----------|
+                           correct mapping
+
+
+    :param primary: pysam AlignedSegment for primary mapping
+    :param supplement: pysam AlignedSegment for secondary mapping
+
+    :return: pysam AlignedSegment that is mapped correctly
+    """
+
+    for supplement in supplement_list:
+        assert primary.qname == supplement.qname, "ERROR, primary " \
+           "and supplementary reads do not have the same id. The ids " \
+           "are as follows\n{}\n{}".format(primary.qname, supplement.qname)
+    read_list = [primary] + supplement_list
+    first_mapped = []
+    for idx, read in enumerate(read_list):
+        if read.is_reverse:
+            cigartuples = read.cigartuples[::-1]
+        else:
+            cigartuples = read.cigartuples[:]
+
+        first_mapped.append([x for x, cig in enumerate(cigartuples) if cig[0] == 0][0])
+    # find which read has a cigar string that maps first than any of the others.
+    idx_min = first_mapped.index(min(first_mapped))
+
+    return read_list[idx_min]
 
 def enlarge_bins(bin_intervals, chrom_sizes):
     r"""
@@ -426,7 +485,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     return bin_intervals
 
 
-def main():
+def main(args=None):
     """
     Reads line by line two bam files that are not sorted.
     Each line in the two bam files should correspond
@@ -535,19 +594,32 @@ def main():
         except StopIteration:
             break
 
-        # skip secondary alignments which
-        # have flag 256
+        # skip 'not primary' alignments
         while mate1.flag & 256 == 256:
                 mate1 = str1.next()
 
         while mate2.flag & 256 == 256:
                 mate2 = str2.next()
 
+        if mate1.qname != mate2.qname:
+            import ipdb; ipdb.set_trace()
 
         assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
             "Be sure that the sam files have the same read order " \
-            "If using botwie2 add " \
+            "If using Bowtie2 or Hisat2 add " \
             "the --reorder option".format(mate1.qname, mate2.qname)
+
+        # check for supplementary alignments
+        # (needs to be done before skipping any unmapped reads
+        # to keep the order of the two bam files in sync)
+        mate1_supplementary_list = get_supplementary_alignment(mate1, str1)
+        mate2_supplementary_list = get_supplementary_alignment(mate2, str2)
+
+        if mate1_supplementary_list:
+            mate1 = get_correct_map(mate1, mate1_supplementary_list)
+
+        if mate2_supplementary_list:
+            mate2 = get_correct_map(mate2, mate2_supplementary_list)
 
         # skip if any of the reads is not mapped
         if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
@@ -569,8 +641,6 @@ def main():
             one_pair_low_quality += 1
             continue
 
-        # check for a duplicate read pair
-
         if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
                                          mate1.pos,
                                          ref_id2name[mate2.rname],
@@ -578,16 +648,21 @@ def main():
             duplicated_pairs += 1
             continue
 
-
         # check if reads belong to a bin
         mate_bins = []
         mate_is_unasigned = False
         for mate in [mate1, mate2]:
             mate_ref = ref_id2name[mate.rname]
-            # find middle of read
+            # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen/2)
-            mate_bin = bin_intval_tree[mate_ref].find(read_middle,
-                                                      read_middle + 1)
+            try:
+                mate_bin = bin_intval_tree[mate_ref].find(read_middle, read_middle + 1)
+            except KeyError:
+                # for small contigs it can happen that they are not
+                # in the bin_intval_tree keys if no restriction site is found on the contig.
+                mate_is_unasigned = True
+                break
+
             # report no match case
             if len(mate_bin) == 0:
                 mate_is_unasigned = True
@@ -600,16 +675,15 @@ def main():
             mate_bin_id = mate_bin.value
             mate_bins.append(mate_bin_id)
 
-        # if a mate is unasigned, it means it is not close
+        # if a mate is unassigned, it means it is not close
         # to a restriction sites
         if mate_is_unasigned is True:
             mate_not_close_to_rf += 1
             continue
 
-
         # check if mates are in the same chromosome
         if mate1.rname == mate2.rname:
-            # to identify 'indward' and 'outward' orientations
+            # to identify 'inward' and 'outward' orientations
             # the order or the mates in the genome has to be 
             # known.
             if mate1.pos < mate2.pos:
@@ -636,13 +710,13 @@ def main():
             else:
                 orientation = 'same-strand'
 
-
-            # check self-circles
-            # self circles are defined as pairs within 25kb
-            # with 'outward' orientation (Jin et al. 2013. Nature)
-            if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
-                self_circle += 1
-                continue
+            if args.removeSelfCircles:
+                # check self-circles
+                # self circles are defined as pairs within 25kb
+                # with 'outward' orientation (Jin et al. 2013. Nature)
+                if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
+                    self_circle += 1
+                    continue
 
             # check for dangling ends if the restriction sequence
             # is known:
@@ -653,14 +727,16 @@ def main():
                     continue
 
             if abs(mate2.pos - mate1.pos) < 1000 and orientation == 'inward':
+                has_rf = []
+
                 if rf_positions and args.restrictionSequence:
                     # check if in between the two mate
-                    # ends the restriction fragment
-                    # is found.
+                    # ends the restriction fragment is found.
+
                     # the interval used is:
                     # start of fragment + length of restriction sequence
                     # end of fragment - length of restriction sequence
-                    # the restriction sequence length is substracted
+                    # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
                     frag_start = min(mate1.pos, mate2.pos) + \
@@ -671,12 +747,17 @@ def main():
                     mate_ref = ref_id2name[mate1.rname]
                     has_rf = rf_positions[mate_ref].find(frag_start,
                                                          frag_end)
-                    if len(has_rf) > 0:
-                        self_ligation += 1
-                        continue
 
-                same_fragment += 1
-                continue
+                # case when there is no restriction fragment site between the mates
+                if len(has_rf) == 0:
+                    same_fragment += 1
+                    continue
+
+                self_ligation += 1
+
+                if args.removeSelfLigation:
+                    # skip self ligations
+                    continue
 
             # set insert size to save bam
             mate1.isize = mate2.pos - mate1.pos
@@ -727,7 +808,7 @@ def main():
     hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size,
                                                        matrix_size))
 
-    # the resulting matrix is only filled unenvenly with some pairs
+    # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
@@ -742,7 +823,10 @@ def main():
     bin_max = []
     for cov in coverage:
         # bin_coverage.append(round(float(len(cov[cov > 0])) / len(cov), 3))
-        bin_max.append(max(cov))
+        try:
+            bin_max.append(max(cov))
+        except:
+            import ipdb;ipdb.set_trace()
 
     chr_name_list, start_list, end_list = zip(*bin_intervals)
     # save only the upper triangle of the
@@ -754,6 +838,7 @@ def main():
              startList=start_list, endList=end_list,
              extraList=bin_max)
 
+    """
     if args.restrictionCutFile:
         # load the matrix to mask those
         # bins that most likely didn't
@@ -764,6 +849,11 @@ def main():
 
         hic_matrix.maskBins(get_poor_bins(bin_max))
         hic_matrix.save(args.outFileName.name)
+    """
+    if args.removeSelfLigation:
+        msg = " (removed)"
+    else:
+        msg = " (not removed)"
 
     mappable_pairs = iter_num - one_pair_unmapped
     print("""
@@ -776,7 +866,7 @@ One mate unmapped\t{}\t({:.2f})\t({:.2f})
 One mate not unique\t{}\t({:.2f})\t({:.2f})
 One mate low quality\t{}\t({:.2f})\t({:.2f})
 dangling end\t{}\t({:.2f})\t({:.2f})
-self ligation\t{}\t({:.2f})\t({:.2f})
+self ligation{}\t{}\t({:.2f})\t({:.2f})
 One mate not close to rest site\t{}\t({:.2f})\t({:.2f})
 same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})
 self circle\t{}\t({:.2f})\t({:.2f},
@@ -793,7 +883,7 @@ duplicated pairs\t{}\t({:.2f})\t({:.2f})
            100*float(one_pair_low_quality)/mappable_pairs,
            dangling_end, 100*float(dangling_end)/iter_num,
            100*float(dangling_end)/mappable_pairs,
-           self_ligation, 100*float(self_ligation)/iter_num,
+           msg, self_ligation, 100*float(self_ligation)/iter_num,
            100*float(self_ligation)/mappable_pairs,
            mate_not_close_to_rf, 100*float(mate_not_close_to_rf)/iter_num,
            100*float(mate_not_close_to_rf)/mappable_pairs,
@@ -804,10 +894,6 @@ duplicated pairs\t{}\t({:.2f})\t({:.2f})
            duplicated_pairs, 100*float(duplicated_pairs)/iter_num,
            100*float(duplicated_pairs)/mappable_pairs
            ))
-
-if __name__ == "__main__":
-    args = parseArguments()
-    main(args)
 
 
 
