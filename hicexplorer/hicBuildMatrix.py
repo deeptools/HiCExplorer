@@ -62,11 +62,12 @@ class ReadPositionMatrix(object):
     def pos2matrix_bin(self, chrom, start):
         return self.chr_start_pos[chrom] + start
 
+
 def parseArguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description=('Using an aligment from Bowtie2 where both '
+        description=('Using an alignment from Bowtie2 where both '
                      'PE reads are mapped using  the --local '
                      'option, this code reads such file and '
                      'creates a matrix of interactions.'))
@@ -86,36 +87,33 @@ def parseArguments(args=None):
                         type=argparse.FileType('w'),
                         required=True)
 
-
     group = parser.add_mutually_exclusive_group(required=True)
 
-
     group.add_argument('--binSize', '-bs',
-                        help=('Size in bp for the bins.'),
-                        type=int,
-                        default=10000)
+                       help='Size in bp for the bins.',
+                       type=int,
+                       default=10000)
 
     group.add_argument('--restrictionCutFile', '-rs',
-                        help=('BED file with all restriction cut places. '
-                                'Should contain only  mappable '
-                                'restriction sites. If given, the bins are '
-                                'set to match the restriction fragments (i.e. '
-                                'the region between one restriction site and '
-                                'the next).'),
-                        type=argparse.FileType('r'),
-                        metavar='BED file')
+                       help=('BED file with all restriction cut places. '
+                             'Should contain only  mappable '
+                             'restriction sites. If given, the bins are '
+                             'set to match the restriction fragments (i.e. '
+                             'the region between one restriction site and '
+                             'the next).'),
+                       type=argparse.FileType('r'),
+                       metavar='BED file')
 
     parser.add_argument('--fragmentLength', '-f',
                         help='Estimated fragment length',
                         type=int,
                         default=300)
 
-
     parser.add_argument('--minDistance',
                         help='Minimum distance between restriction sites. '
-                            'Restriction sites that are closer that this '
-                            'distance are merged into one. This option only '
-                            'applies if --restrictionCutFile is given.',
+                        'Restriction sites that are closer that this '
+                        'distance are merged into one. This option only '
+                        'applies if --restrictionCutFile is given.',
                         type=int,
                         default=300,
                         required=False)
@@ -167,9 +165,6 @@ def parseArguments(args=None):
                         version='%(prog)s {}'.format(__version__))
 
     return parser
-    #args = parser.parse_args(args)
-
-    #return args
 
 
 def intervalListToIntervalTree(intervalList):
@@ -227,6 +222,7 @@ def get_bins(bin_size, chrom_size, region=None):
             bin_intvals.append((chrom, interval,
                                 min(size, interval + bin_size)))
     return bin_intvals
+
 
 def bed2interval_list(bed_file_handler):
     r"""
@@ -289,9 +285,9 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     chrom, start, end = zip(*rf_cut_intervals)
     rest_site_len = end[0] - start[0]
 
-    # find sites that are less than min_distance appart
+    # find sites that are less than min_distance apart
     to_merge = np.flatnonzero(np.diff(start) - rest_site_len <= min_distance)
-    to_merge += 1 # + 1 to account for np.diff index handling
+    to_merge += 1  # + 1 to account for np.diff index handling
     merge_idx = 0
     # add max_distance to both sides
     start = np.array(start) - max_distance
@@ -326,7 +322,6 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     assert len(new_chrom) == len(new_start), "error"
     assert len(new_end) == len(new_start), "error"
     return zip(new_chrom, new_start, new_end)
-
 
 
 def get_chrom_sizes(bam_handle):
@@ -370,10 +365,10 @@ def check_dangling_end(read, dangling_sequences):
     return False
 
 
-def get_supplementary_alignment(read, str):
+def get_supplementary_alignment(read, pysam_obj):
     """Checks if a read has a supplementary alignment
     :param read pysam AlignedSegment
-    :param str pysam file object
+    :param pysam_obj pysam file object
 
     :return pysam AlignedSegment of the supplementary aligment or None in case of no supplementary alignment
     """
@@ -385,15 +380,14 @@ def get_supplementary_alignment(read, str):
         other_alignments = read.get_tag('SA').split(";")[0:-1]
         supplementary_alignment = []
         for i in range(len(other_alignments)):
-            _sup = str.next()
+            _sup = pysam_obj.next()
             if _sup.is_supplementary and _sup.qname == read.qname:
-              supplementary_alignment.append(_sup)
+                supplementary_alignment.append(_sup)
 
         return supplementary_alignment
 
     else:
         return None
-
 
 
 def get_correct_map(primary, supplement_list):
@@ -424,7 +418,7 @@ def get_correct_map(primary, supplement_list):
 
 
     :param primary: pysam AlignedSegment for primary mapping
-    :param supplement: pysam AlignedSegment for secondary mapping
+    :param supplement_list: list of pysam AlignedSegment for secondary mapping
 
     :return: pysam AlignedSegment that is mapped correctly
     """
@@ -447,6 +441,7 @@ def get_correct_map(primary, supplement_list):
 
     return read_list[idx_min]
 
+
 def enlarge_bins(bin_intervals, chrom_sizes):
     r"""
     takes a list of consecutive but not
@@ -466,7 +461,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     chrom_sizes_dict = dict(chrom_sizes)
     for idx in range(len(bin_intervals)-1):
         chrom, start, end = bin_intervals[idx]
-        chrom_next, start_next, end_next = bin_intervals[idx +1]
+        chrom_next, start_next, end_next = bin_intervals[idx + 1]
         if chr_start is True:
             start = 0
             chr_start = False
@@ -580,9 +575,8 @@ def main(args=None):
                              "second)\n".format(iter_num,
                                                 elapsed_time,
                                                 iter_num/elapsed_time))
-            sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"\
-                                 "\n".format(pair_added,
-                                             float(100 * pair_added)/iter_num))
+            sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
+                             "\n".format(pair_added, float(100 * pair_added)/iter_num))
         """
         if iter_num > 2e6:
             sys.stderr.write("\n## WARNING. Early exit because of debugging ##\n\n")
@@ -600,9 +594,6 @@ def main(args=None):
 
         while mate2.flag & 256 == 256:
                 mate2 = str2.next()
-
-        if mate1.qname != mate2.qname:
-            import ipdb; ipdb.set_trace()
 
         assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
             "Be sure that the sam files have the same read order " \
@@ -739,11 +730,8 @@ def main(args=None):
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + \
-                        len(args.restrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen,
-                              mate2.pos + mate2.qlen) - \
-                              len(args.restrictionSequence)
+                    frag_start = min(mate1.pos, mate2.pos) + len(args.restrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(args.restrictionSequence)
                     mate_ref = ref_id2name[mate1.rname]
                     has_rf = rf_positions[mate_ref].find(frag_start,
                                                          frag_end)
@@ -775,7 +763,6 @@ def main(args=None):
             vec_end = min(len(coverage[mate_bin_id]), vec_start +
                           len(mate.seq) / binsize)
             coverage[mate_bin_id][vec_start:vec_end] += 1
-
 
         row.append(mate_bins[0])
         col.append(mate_bins[1])
@@ -823,10 +810,7 @@ def main(args=None):
     bin_max = []
     for cov in coverage:
         # bin_coverage.append(round(float(len(cov[cov > 0])) / len(cov), 3))
-        try:
-            bin_max.append(max(cov))
-        except:
-            import ipdb;ipdb.set_trace()
+        bin_max.append(max(cov))
 
     chr_name_list, start_list, end_list = zip(*bin_intervals)
     # save only the upper triangle of the
@@ -896,8 +880,7 @@ duplicated pairs\t{}\t({:.2f})\t({:.2f})
            ))
 
 
-
-class Tester():
+class Tester(object):
     def __init__(self):
         self.root = "../hicexplorer/test/"
         self.bam_file_1 = self.root + "hic.bam"
