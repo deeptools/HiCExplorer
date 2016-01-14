@@ -10,7 +10,6 @@ from bx.intervals.intersection import IntervalTree, Interval
 
 # own tools
 from hicexplorer.utilities import getUserRegion, genomicRegion
-from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
 debug = 1
@@ -371,6 +370,83 @@ def check_dangling_end(read, dangling_sequences):
     return False
 
 
+def get_supplementary_alignment(read, str):
+    """Checks if a read has a supplementary alignment
+    :param read pysam AlignedSegment
+    :param str pysam file object
+
+    :return pysam AlignedSegment of the supplementary aligment or None in case of no supplementary alignment
+    """
+
+    # the SA field contains a list of other alignments as a ';' delimited list in the format
+    # rname,pos,strand,CIGAR,mapQ,NM;
+    if read.has_tag('SA'):
+        # field always ends in ';' thus last element after split is always empty, hence [0:-1]
+        other_alignments = read.get_tag('SA').split(";")[0:-1]
+        supplementary_alignment = []
+        for i in range(len(other_alignments)):
+            _sup = str.next()
+            if _sup.is_supplementary and _sup.qname == read.qname:
+              supplementary_alignment.append(_sup)
+
+        return supplementary_alignment
+
+    else:
+        return None
+
+
+
+def get_correct_map(primary, supplement_list):
+    """
+    Decides which of the mappings, the primary or supplement, is correct. In the case of
+    long reads (eg. 150bp) the restriction enzyme site could split the read into two parts
+    but only the mapping corresponding to the start of the read should be considered as
+    the correct one.
+
+    For example:
+
+    Forward read:
+
+                          _  <- cut site
+    |======================|==========>
+                           -
+    |----------------------|
+        correct mapping
+
+
+    reverse read:
+
+                          _  <- cut site
+    <======================|==========|
+                           -
+                           |----------|
+                           correct mapping
+
+
+    :param primary: pysam AlignedSegment for primary mapping
+    :param supplement: pysam AlignedSegment for secondary mapping
+
+    :return: pysam AlignedSegment that is mapped correctly
+    """
+
+    for supplement in supplement_list:
+        assert primary.qname == supplement.qname, "ERROR, primary " \
+           "and supplementary reads do not have the same id. The ids " \
+           "are as follows\n{}\n{}".format(primary.qname, supplement.qname)
+    read_list = [primary] + supplement_list
+    first_mapped = []
+    for idx, read in enumerate(read_list):
+        if read.is_reverse:
+            cigartuples = read.cigartuples[::-1]
+        else:
+            cigartuples = read.cigartuples[:]
+
+        first_mapped.append([x for x, cig in enumerate(cigartuples) if cig[0] == 0][0])
+    # find which read has a cigar string that maps first than any of the others.
+    idx_min = first_mapped.index(min(first_mapped))
+
+    return read_list[idx_min]
+
 def enlarge_bins(bin_intervals, chrom_sizes):
     r"""
     takes a list of consecutive but not
@@ -409,7 +485,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     return bin_intervals
 
 
-def main():
+def main(args=None):
     """
     Reads line by line two bam files that are not sorted.
     Each line in the two bam files should correspond
@@ -518,19 +594,32 @@ def main():
         except StopIteration:
             break
 
-        # skip secondary alignments which
-        # have flag 256
+        # skip 'not primary' alignments
         while mate1.flag & 256 == 256:
                 mate1 = str1.next()
 
         while mate2.flag & 256 == 256:
                 mate2 = str2.next()
 
+        if mate1.qname != mate2.qname:
+            import ipdb; ipdb.set_trace()
 
         assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
             "Be sure that the sam files have the same read order " \
-            "If using botwie2 add " \
+            "If using Bowtie2 or Hisat2 add " \
             "the --reorder option".format(mate1.qname, mate2.qname)
+
+        # check for supplementary alignments
+        # (needs to be done before skipping any unmapped reads
+        # to keep the order of the two bam files in sync)
+        mate1_supplementary_list = get_supplementary_alignment(mate1, str1)
+        mate2_supplementary_list = get_supplementary_alignment(mate2, str2)
+
+        if mate1_supplementary_list:
+            mate1 = get_correct_map(mate1, mate1_supplementary_list)
+
+        if mate2_supplementary_list:
+            mate2 = get_correct_map(mate2, mate2_supplementary_list)
 
         # skip if any of the reads is not mapped
         if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
@@ -551,8 +640,6 @@ def main():
 
             one_pair_low_quality += 1
             continue
-
-        # check for a duplicate read pair
 
         if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
                                          mate1.pos,
@@ -721,7 +808,7 @@ def main():
     hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size,
                                                        matrix_size))
 
-    # the resulting matrix is only filled unenvenly with some pairs
+    # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
@@ -736,7 +823,10 @@ def main():
     bin_max = []
     for cov in coverage:
         # bin_coverage.append(round(float(len(cov[cov > 0])) / len(cov), 3))
-        bin_max.append(max(cov))
+        try:
+            bin_max.append(max(cov))
+        except:
+            import ipdb;ipdb.set_trace()
 
     chr_name_list, start_list, end_list = zip(*bin_intervals)
     # save only the upper triangle of the
@@ -804,10 +894,6 @@ duplicated pairs\t{}\t({:.2f})\t({:.2f})
            duplicated_pairs, 100*float(duplicated_pairs)/iter_num,
            100*float(duplicated_pairs)/mappable_pairs
            ))
-
-if __name__ == "__main__":
-    args = parseArguments()
-    main(args)
 
 
 
