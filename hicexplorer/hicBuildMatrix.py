@@ -264,9 +264,14 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     the center. Restriction sites that are less than 'min_distance' appart
     are merged. To the left and right of the restriction site
     'max_distance' bp are added unless they clash with other bin.
-    Resulting bins are not inmediately one after the other.
+    Resulting bins are not immediately one after the other.
 
     The given cut sites list has to be ordered chr, and start site
+
+    :param rf_cut_intervals: list of tuples containing the position of restriction fragment sites
+    :param min_distance: min distance between restriction fragment sites.
+    :param max_distance: max distance between restriction fragment and bin border.
+    :return:
 
     # two restriction sites of length 10
     >>> rf_cut_interval = [('chr1', 10, 20), ('chr1', 60, 70)]
@@ -308,7 +313,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
             merge_idx += 1
             continue
 
-        # identify ovelapping bins
+        # identify overlapping bins
         if chrom[idx] == chrom[idx-1] and end[idx-1] > start[idx]:
             middle = start[idx] + int((end[idx-1]-start[idx])/2)
             new_start.append(middle)
@@ -321,7 +326,10 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     new_end.append(end[-1])
     assert len(new_chrom) == len(new_start), "error"
     assert len(new_end) == len(new_start), "error"
-    return zip(new_chrom, new_start, new_end)
+
+    intervals = zip(new_chrom, new_start, new_end)
+    intervals = [(chrom, start, end) for chrom, start, end in intervals if end - start >= min_distance]
+    return intervals
 
 
 def get_chrom_sizes(bam_handle):
