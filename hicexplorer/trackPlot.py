@@ -30,6 +30,9 @@ DEFAULT_FIGURE_WIDTH = 40  # in centimeters
 DEFAULT_WIDTH_RATIOS = (0.95, 0.05)
 DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 
+DEFAULT_WIDTH_RATIOS = (1, 0.00)
+DEFAULT_MARGINS = {'left': 0, 'right': 1, 'bottom': 0, 'top': 1}
+
 class MultiDict(OrderedDict):
     """
     Class to allow identically named
@@ -100,6 +103,9 @@ class PlotTracks(object):
         # prepare layout based on the tracks given.
         # The main purpose of the following loop is
         # to get the height of each of the tracks
+        # because for the hi-C the height is variable with respect
+        # to the range being plotted, the function is called
+        # when each plot is going to be printed.
         track_height = []
         for track_dict in self.track_list:
             height = DEFAULT_TRACK_HEIGHT
@@ -126,15 +132,19 @@ class PlotTracks(object):
                 # DEFAULT_MARGINS[1] - DEFAULT_MARGINS[0] is the proportion of plotting area
 
                 hic_width = self.fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * DEFAULT_WIDTH_RATIOS[0]
-                scale_factor = 0.6  # the scale factor is to obtain a pleasing result.
-                height = scale_factor * track_dict['depth'] * hic_width / (end - start)
+                scale_factor = 0.5  # the scale factor is to obtain a 'pleasing' result.
+                depth = min(track_dict['depth'],(end - start))
+
+                height = scale_factor * depth * hic_width / (end - start)
 
             track_height.append(height)
 
+        print track_height
         return track_height
 
     def plot(self, file_name, chrom, start, end, title=None):
         track_height = self.get_tracks_height(start, end)
+
         if self.fig_height:
             fig_height = self.fig_height
         else:
@@ -143,11 +153,12 @@ class PlotTracks(object):
         sys.stderr.write("Figure size in cm is {} x {}. Dpi is set to {}\n".format(self.fig_width,
                                                                                    fig_height, self.dpi))
         fig = plt.figure(figsize=self.cm2inch(self.fig_width, fig_height))
-        fig.suptitle(title)
+        if title:
+            fig.suptitle(title)
 
         grids = matplotlib.gridspec.GridSpec(len(track_height), 2,
                                              height_ratios=track_height,
-                                             width_ratios=[1, 0.05])
+                                             width_ratios=DEFAULT_WIDTH_RATIOS)
         axis_list = []
         for idx, track in enumerate(self.track_obj_list):
             axis = axisartist.Subplot(fig, grids[idx, 0])
@@ -197,26 +208,6 @@ class PlotTracks(object):
             #track.plot_vlines(axis_list[idx], vlines_list)
         return
 
-        """
-        The following code is nice but does not work as expected, some
-        images appear over the lines. zorder didn't help
-        from matplotlib.patches import ConnectionPatch
-        a_ymax = axis_list[0].get_ylim()[1]
-        b_ymin = axis_list[-1].get_ylim()[0]
-
-        for start_pos in vlines_list:
-            con = ConnectionPatch(xyA=(start_pos, a_ymax),
-                                  xyB=(start_pos, b_ymin),
-                                  coordsA="data", coordsB="data",
-                                  axesA=axis_list[0],
-                                  axesB=axis_list[-1],
-                                  arrowstyle="-",
-                                  linestyle='dashed',
-                                  linewidth=0.5,
-                                  zorder=100)
-            axis_list[0].add_artist(con)
-        """
-
     def parse_tracks(self, tracks_file):
         """
         Parses a configuration file
@@ -264,7 +255,7 @@ class PlotTracks(object):
 
         self.track_list = track_list
         if vlines_file:
-            self.vlines_intval_tree = file_to_intervaltree(vlines_file)
+            self.vlines_intval_tree, __, __ = file_to_intervaltree(vlines_file)
 
 
     def check_file_exists(self, track_dict):
@@ -348,6 +339,9 @@ def file_to_intervaltree(file_name):
     prev_start = -1
     prev_line = None
     interval_tree = {}
+    min_value = np.inf
+    max_value = -np.inf
+
     for line in file_h.readlines():
         line_number += 1
         if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
@@ -384,8 +378,19 @@ def file_to_intervaltree(file_name):
             interval_tree[chrom] = IntervalTree()
 
         value = None
+
         if fields > 3:
             value = fields[3:]
+            try:
+                line_min = min(map(float, value))
+                if line_min < min_value:
+                    min_value = line_min
+
+                line_max = max(map(float, value))
+                if line_max > max_value:
+                    max_value = line_max
+            except ValueError:
+                pass
 
         assert end > start, \
                 "Start position larger or equal than end for line\n{} ".format(line)
@@ -396,7 +401,8 @@ def file_to_intervaltree(file_name):
     if valid_intervals == 0:
         sys.stderr.write("No valid intervals were found in file {}".format(file_name))
     file_h.close()
-    return interval_tree
+
+    return interval_tree, min_value, max_value
 
 
 class TrackPlot(object):
@@ -411,7 +417,13 @@ class PlotBedGraph(TrackPlot):
         self.properties = properties_dict
         if 'color' not in self.properties:
             self.properties['color'] = DEFAULT_BEDGRAPH_COLOR
-        self.interval_tree = file_to_intervaltree(self.properties['file'])
+        self.interval_tree, ymin, ymax = file_to_intervaltree(self.properties['file'])
+
+        if 'max_value' not in self.properties or self.properties['max_value'] == 'auto':
+            self.properties['max_value'] = ymax
+
+        if 'min_value' not in self.properties or self.properties['min_value'] == 'auto':
+            self.properties['min_value'] = ymin
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
         self.ax = ax
@@ -446,11 +458,8 @@ class PlotBedGraph(TrackPlot):
         self.ax.axes.get_yaxis().set_visible(False)
         self.ax.set_xlim(start_region, end_region)
 
-        ymin, ymax = self.ax.get_ylim()
-        if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
-            ymax = self.properties['max_value']
-        if 'min_value' in self.properties and self.properties['min_value'] != 'auto':
-            ymin = self.properties['min_value']
+        ymax = self.properties['max_value']
+        ymin = self.properties['min_value']
 
         if float(ymax) % 1 == 0:
             ymax_print = int(ymax)
@@ -496,24 +505,25 @@ class PlotBedGraphMatrix(PlotBedGraph):
         if 'orientation' in self.properties and self.properties['orientation'] == 'inverted':
             matrix = np.flipud(matrix)
 
-        vmin = None
-        vmax = None
-        if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
-            vmax = self.properties['max_value']
-
-        if 'min_value' in self.properties and self.properties['min_value'] != 'auto':
-            vmin = self.properties['min_value']
-
         if 'type' in self.properties and self.properties['type'] == 'lines':
             for row in matrix:
                 self.ax.plot(start_pos, row)
             self.ax.plot(start_pos, matrix.mean(axis=0), "--")
+            ymax = self.properties['max_value']
+            ymin = self.properties['min_value']
+            self.ax.set_ylim(ymin, ymax)
+
         else:
             x, y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
             shading = 'gouraud'
             #shading = 'flat'
+            vmax = self.properties['max_value']
+            vmin = self.properties['min_value']
+
             img = self.ax.pcolormesh(x, y, matrix, vmin=vmin, vmax=vmax, shading=shading)
             img.set_rasterized(True)
+
+
         self.ax.set_xlim(start_region, end_region)
         self.ax.set_frame_on(False)
         self.ax.axes.get_xaxis().set_visible(False)
@@ -667,9 +677,18 @@ class PlotHiCMatrix(TrackPlot):
             self.hic_ma.intervalListToIntervalTree(new_intervals)
 
         self.hic_ma.cut_intervals = new_intervals
+        binsize = self.hic_ma.getBinSize()
+        max_depth_in_bins = int(self.properties['depth'] / binsize)
 
-        # select only the upper triangle of the matrix
-        self.hic_ma.matrix = scipy.sparse.triu(self.hic_ma.matrix, k=0, format='csr')
+        # work only with the lower matrix
+        # and remove all pixels that are beyond
+        # 2 * max_depth_in_bis which are not required
+        # (this is done by subtracting a second sparse matrix
+        # that contains only the lower matrix that wants to be removed.
+        limit = 2 * max_depth_in_bins
+        self.hic_ma.matrix = scipy.sparse.triu(self.hic_ma.matrix, k=0, format='csr') - \
+                             scipy.sparse.triu(self.hic_ma.matrix, k=limit, format='csr')
+        self.hic_ma.matrix.eliminate_zeros()
 
         # fill the main diagonal, otherwise it looks
         # not so good. The main diagonal is filled
@@ -699,6 +718,8 @@ class PlotHiCMatrix(TrackPlot):
 
         if 'boundaries_file' in self.properties:
             self.boundaries_obj = PlotBoundaries({'file':self.properties['boundaries_file']})
+
+
 
     def plot(self, ax, label_ax, chrom, region_start, region_end):
         import copy
@@ -732,6 +753,15 @@ class PlotHiCMatrix(TrackPlot):
         idx = idx[0:-1]
         # select only relevant matrix part
         matrix = self.hic_ma.matrix[idx, :][:, idx]
+        # limit the 'depth' based on the length of the region being viewed
+
+        region_len = region_end - region_start
+        depth = min(self.properties['depth'], int(region_len * 1.25))
+        depth_in_bins = int(1.5 * region_len / self.hic_ma.getBinSize())
+
+        if depth < self.properties['depth']:
+            # remove from matrix all data points that are not visible.
+            matrix = matrix - scipy.sparse.triu(matrix, k=depth_in_bins, format='csr')
         matrix = np.asarray(matrix.todense().astype(float))
 
         if 'transform' in self.properties:
@@ -754,19 +784,18 @@ class PlotHiCMatrix(TrackPlot):
         if 'min_value' in self.properties and self.properties['min_value'] != 'auto':
             vmin = self.properties['min_value']
         else:
-            bin_size = self.hic_ma.getBinSize()
-            depth_bins = int(self.properties['depth'] / bin_size)
-            if depth_bins > matrix.shape[0]:
-                depth_bins = matrix.shape[0] - 5
-            vmin = np.median(matrix.diagonal(depth_bins))
+            if depth_in_bins > matrix.shape[0]:
+                depth_in_bins = matrix.shape[0] - 5
+            vmin = np.median(matrix.diagonal(int(region_len / self.hic_ma.getBinSize())))
+
         sys.stderr.write("setting min, max values for track {} to: {}, {}\n".format(self.properties['section_name'],
                                                                                     vmin, vmax))
         img = self.pcolormesh_45deg(matrix, start_pos, vmax=vmax, vmin=vmin)
         img.set_rasterized(True)
         if self.plot_inverted:
-            self.ax.set_ylim(self.properties['depth'], 0)
+            self.ax.set_ylim(depth, 0)
         else:
-            self.ax.set_ylim(0, self.properties['depth'])
+            self.ax.set_ylim(0, depth)
     
         # ##plot boundaries
         # if a boundaries file is given, plot the
@@ -798,8 +827,11 @@ class PlotHiCMatrix(TrackPlot):
         self.ax.set_frame_on(False)
         self.ax.axes.get_yaxis().set_visible(False)
         self.cbar_ax.patch.set_alpha(0.0)
-        cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
-        cobar.solids.set_edgecolor("face")
+        try:
+            cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
+            cobar.solids.set_edgecolor("face")
+        except ValueError:
+            pass
         self.label_ax.text(0.3, 0.0, self.properties['title'],
                            horizontalalignment='left', size='large',
                            verticalalignment='bottom', transform=self.label_ax.transAxes)
@@ -829,6 +861,11 @@ class PlotHiCMatrix(TrackPlot):
 
 class PlotXAxis(TrackPlot):
 
+    def __init__(self, *args, **kwargs):
+        super(PlotXAxis, self).__init__(*args, **kwargs)
+        if 'fontsize' not in self.properties:
+            self.properties['fontsize'] = 15
+
     def plot(self, ax, label_axis, chrom_region, region_start, region_end):
         ax.set_xlim(region_start, region_end)
         ticks = ax.get_xticks()
@@ -849,8 +886,7 @@ class PlotXAxis(TrackPlot):
         ax.axis["x"].axis.set_ticklabels(labels)
         ax.axis['x'].axis.set_tick_params(which='minor', bottom='on')
 
-        if 'fontsize' in self.properties:
-            ax.axis["x"].major_ticklabels.set(size=int(self.properties['fontsize']))
+        ax.axis["x"].major_ticklabels.set(size=int(self.properties['fontsize']))
 
         if 'where' in self.properties and self.properties['where'] == 'top':
             ax.axis["x"].set_axis_direction("top")
