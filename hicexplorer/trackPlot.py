@@ -30,8 +30,8 @@ DEFAULT_FIGURE_WIDTH = 40  # in centimeters
 DEFAULT_WIDTH_RATIOS = (0.95, 0.05)
 DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 
-DEFAULT_WIDTH_RATIOS = (1, 0.00)
-DEFAULT_MARGINS = {'left': 0, 'right': 1, 'bottom': 0, 'top': 1}
+#DEFAULT_WIDTH_RATIOS = (1, 0.00)
+#DEFAULT_MARGINS = {'left': 0, 'right': 1, 'bottom': 0, 'top': 1}
 
 class MultiDict(OrderedDict):
     """
@@ -71,8 +71,9 @@ class PlotTracks(object):
         for idx, properties in enumerate(self.track_list):
             print properties
             if 'spacer' in properties:
+                self.track_obj_list.append(PlotSpacer(properties))
                 continue
-            if 'x-axis' in properties:
+            elif 'x-axis' in properties:
                 self.track_obj_list.append(PlotXAxis(properties))
                 continue
             if properties['file_type'] == 'bedgraph':
@@ -136,10 +137,8 @@ class PlotTracks(object):
                 depth = min(track_dict['depth'],(end - start))
 
                 height = scale_factor * depth * hic_width / (end - start)
-
             track_height.append(height)
 
-        print track_height
         return track_height
 
     def plot(self, file_name, chrom, start, end, title=None):
@@ -197,6 +196,9 @@ class PlotTracks(object):
         :return: None
         """
         vlines_list = []
+
+        if chrom_region not in self.vlines_intval_tree.keys():
+            chrom_region = change_chrom_names(chrom_region)
         for region in self.vlines_intval_tree[chrom_region].find(start_region - 10000,
                                                                  end_region + 10000):
             vlines_list.append(region.start)
@@ -410,6 +412,13 @@ class TrackPlot(object):
     def __init__(self, properties_dict):
         self.properties = properties_dict
 
+
+class PlotSpacer(TrackPlot):
+
+    def plot(self, ax, label_ax, chrom_region, start_region, end_region):
+        pass
+
+
 class PlotBedGraph(TrackPlot):
 
     def __init__(self, properties_dict):
@@ -495,6 +504,8 @@ class PlotBedGraphMatrix(PlotBedGraph):
 
         start_pos = []
         matrix_rows = []
+        if chrom_region not in self.interval_tree.keys():
+            chrom_region = change_chrom_names(chrom_region)
         for region in self.interval_tree[chrom_region].find(start_region - 10000,
                                                             end_region + 10000):
             start_pos.append(region.start)
@@ -538,8 +549,8 @@ class PlotBigWig(TrackPlot):
 
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
-        from bx.bbi.bigwig_file import BigWigFile
-        self.bw = BigWigFile(open(self.properties['file'], 'r'))
+        import pyBigWig
+        self.bw = pyBigWig.open(self.properties['file'])
         if 'color' not in self.properties:
             self.properties['color'] = DEFAULT_BIGWIG_COLOR
 
@@ -562,21 +573,16 @@ class PlotBigWig(TrackPlot):
                      "is not valid.".format(self.properties['number of bins'],
                                             self.properties['file']))
 
-        if end_region - start_region < 2e6:
-            scores = self.bw.get_as_array(chrom_region, start_region, end_region)
-            if scores is None:
-                # usually bw returns None when the chromosome
-                # is not found. So, we try either
-                # removing or appending 'chr'
-                if chrom_region.startswith('chr'):
-                    scores = self.bw.get_as_array(chrom_region[3:], start_region, end_region)
-                else:
-                    scores = self.bw.get_as_array('chr' + chrom_region, start_region, end_region)
+        if chrom_region not in self.bw.chroms().keys():
+            chrom_region = change_chrom_names(chrom_region)
 
-                if scores is None:
-                    sys.exit("Can not read region {} from bigwig file:\n\n"
-                         "{}\n\nPlease check that the chromosome name is part of the bigwig file "
-                         "and that the region is valid".format(formated_region, self.properties['file']))
+        if chrom_region not in self.bw.chroms().keys():
+            sys.exit("Can not read region {} from bigwig file:\n\n"
+                 "{}\n\nPlease check that the chromosome name is part of the bigwig file "
+                 "and that the region is valid".format(formated_region, self.properties['file']))
+
+        if end_region - start_region < 2e6:
+            scores = self.bw.values(chrom_region, start_region, end_region)
 
             if 'nans to zeros' in self.properties and self.properties['nans to zeros'] is True:
                 scores[np.isnan(scores)] = 0
@@ -595,19 +601,7 @@ class PlotBigWig(TrackPlot):
             # this method produces shifted regions. It is not clear to me why this happens.
             # Thus I only activate the faster but shifted method for large regions
             # when the previous method would be to slow
-            scores = self.bw.query(chrom_region, start_region, end_region, num_bins)
-            if scores is None:
-
-                if chrom_region.startswith('chr'):
-                    scores = self.bw.query(chrom_region[3:] + chrom_region, start_region, end_region)
-                else:
-                    scores = self.bw.query('chr' + chrom_region, start_region, end_region)
-
-                if scores is None:
-                    sys.exit("Can not read region {} from bigwig file:\n\n"
-                         "{}\n\nPlease check that the chromosome name is part of the bigwig file "
-                         "and that the region is valid".format(formated_region, self.properties['file']))
-
+            scores = self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)
             scores = [x['mean'] for x in scores]
             x_values = np.linspace(start_region, end_region, num_bins)
             self.ax.fill_between(x_values, scores, linewidth=0.1,
@@ -616,7 +610,7 @@ class PlotBigWig(TrackPlot):
 
         self.ax.set_xlim(start_region, end_region)
         ymin, ymax = self.ax.get_ylim()
-        if 'max_value' in self.properties and ['max_value'] != 'auto':
+        if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
             ymax = self.properties['max_value']
         if 'min_value' in self.properties and self.properties['min_value'] != 'auto':
             ymin = self.properties['min_value']
@@ -651,9 +645,9 @@ class PlotBigWig(TrackPlot):
                 verticalalignment='bottom')
 
         """
-        self.label_ax.text(0.15, 0, self.properties['title'],
+        self.label_ax.text(0.15, 0.5, self.properties['title'],
                            horizontalalignment='left', size='large',
-                           verticalalignment='bottom')
+                           verticalalignment='center')
 
         return self.ax
 
@@ -719,8 +713,6 @@ class PlotHiCMatrix(TrackPlot):
         if 'boundaries_file' in self.properties:
             self.boundaries_obj = PlotBoundaries({'file':self.properties['boundaries_file']})
 
-
-
     def plot(self, ax, label_ax, chrom, region_start, region_end):
         import copy
         self.cbar_ax = copy.copy(label_ax)
@@ -729,6 +721,8 @@ class PlotHiCMatrix(TrackPlot):
         self.ax = ax
 
         chrom_sizes = self.hic_ma.get_chromosome_sizes()
+        if chrom not in chrom_sizes.keys():
+            chrom = change_chrom_names(chrom)
         if region_end > chrom_sizes[chrom]:
             sys.stderr.write("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
             sys.stderr.write("{} size: {}. Region to plot {}-{}\n".format(chrom, chrom_sizes[chrom],
@@ -870,7 +864,7 @@ class PlotXAxis(TrackPlot):
         ax.set_xlim(region_start, region_end)
         ticks = ax.get_xticks()
         if ticks[-1] - ticks[1] <= 1e5:
-            labels = ["{:,.0f} kb".format((x / 1e3))
+            labels = ["{:.0f} kb".format((x / 1e3))
                       for x in ticks]
 
         elif 1e5 < ticks[-1] - ticks[1] < 4e6:
@@ -1116,13 +1110,16 @@ class PlotBed(TrackPlot):
         self.small_relative = 0.005 * (end_region-start_region)
         self.max_num_row = 1
         self.region_intervals = IntervalTree()
+
+        if chrom_region not in self.interval_tree.keys():
+            chrom_region = change_chrom_names(chrom_region)
+
         genes_overlap = self.interval_tree[chrom_region].find(start_region, end_region)
 
         # turn labels off when too many intervals are visible.
         if self.properties['labels'] != 'off' and len(genes_overlap) > 60:
             self.properties['labels'] != 'off'
 
-        ax.set_frame_on(False)
         for region in genes_overlap:
             """
             BED12 gene format with exon locations at the end
@@ -1179,7 +1176,6 @@ class PlotBed(TrackPlot):
                                        chrom_region, start_region, end_region))
 
         ax.set_ylim((self.max_num_row + 1) * 330, -25)
-
         if 'display' in self.properties:
             if self.properties['display'] == 'domain':
                 ax.set_ylim(-5, 205)
@@ -1188,9 +1184,9 @@ class PlotBed(TrackPlot):
 
         ax.set_xlim(start_region, end_region)
 
-        label_ax.text(0.15, 1.0, self.properties['title'],
+        label_ax.text(0.15, 0.5, self.properties['title'],
                       horizontalalignment='left', size='large',
-                      verticalalignment='top', transform=label_ax.transAxes)
+                      verticalalignment='center', transform=label_ax.transAxes)
 
     def draw_gene_simple(self, ax, bed, ypos, rgb, edgecolor):
         """
@@ -1492,3 +1488,19 @@ class PlotArcs(TrackPlot):
         label_ax.text(0.3, 0.0, self.properties['title'],
                       horizontalalignment='left', size='large',
                       verticalalignment='bottom', transform=label_ax.transAxes)
+
+
+def change_chrom_names(chrom):
+    """
+    Changes UCSC chromosome names to ensembl chromosome names
+    and vice versa.
+    """
+    # TODO: mapping from chromosome names like mithocondria is missing
+    if chrom.startswith('chr'):
+        # remove the chr part from chromosome name
+        chrom = chrom[3:]
+    else:
+        # prefix with 'chr' the chromosome name
+        chrom = 'chr' + chrom
+
+    return chrom
