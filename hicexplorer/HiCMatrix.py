@@ -558,7 +558,7 @@ class hiCMatrix:
         self.cut_intervals = [self.cut_intervals[x] for x in sel_id]
 
         # update correction factors
-        if self.correction_factors:
+        if self.correction_factors is not None:
             self.correction_factors = [self.correction_factors[x] for x in sel_id]
 
         # keep track of nan bins
