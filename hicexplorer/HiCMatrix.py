@@ -32,6 +32,9 @@ class hiCMatrix:
                     format = 'npz'
                 elif matrixFile[-3:] == '.gz':
                     format = 'dekker'
+                # by default assume that the matrix format is .npz
+                else:
+                    format = 'npz'
 
             if format == 'npz':
                 _ma = np.load(matrixFile)
@@ -553,6 +556,11 @@ class hiCMatrix:
 
         # update bin ids
         self.cut_intervals = [self.cut_intervals[x] for x in sel_id]
+
+        # update correction factors
+        if self.correction_factors:
+            self.correction_factors = [self.correction_factors[x] for x in sel_id]
+
         # keep track of nan bins
         if len(self.nan_bins):
             _temp = np.zeros(size[0])
