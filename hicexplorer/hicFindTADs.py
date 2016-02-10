@@ -253,6 +253,28 @@ def compute_matrix_wrapper(args):
     return compute_matrix(*args)
 
 
+def get_incremental_step_size(min_win_size, max_win_size, start_step_len):
+    """
+    generates a list of incremental windows sizes (measured in bins)
+
+    :param min_win_size: starting window size
+    :param max_win_size: end window size
+    :param start_step_len: start length
+    :return: incremental_step list of bin lengths
+    """
+    incremental_step = []
+    step = -1
+    while 1:
+        step += 1
+        inc_step = min_win_size + int(start_step_len * (step**1.5))
+        if step > 1 and inc_step == incremental_step[-1]:
+            continue
+        if inc_step > max_win_size:
+            break
+        incremental_step.append(inc_step)
+    return incremental_step
+
+
 def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2, outfile=None):
     """
     Iterates over the Hi-C matrix computing at each bin
@@ -266,15 +288,20 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2, outfi
     positions_array = []
     cond_matrix = []
     chrom, start, end, __ = hic_ma.cut_intervals[0]
-    prev_length = int((end - start) / 2)
     for cut in bins_list:
+
 
         chrom, chr_start, chr_end, _ = hic_ma.cut_intervals[cut]
 
         # get conductance
         # for multiple window lengths at a time
+        incremental_step = get_incremental_step_size(min_win_size, max_win_size, step_len)
+        mult_matrix = [get_coverage(hic_ma.matrix, cut, x) for x in incremental_step]
+
+        """
         mult_matrix = [get_coverage(hic_ma.matrix, cut, x)
                        for x in range(min_win_size, max_win_size, step_len)]
+        """
 
         cond_matrix.append(mult_matrix)
 
@@ -776,13 +803,31 @@ def compute_spectra_matrix(args):
     min_depth_in_bins = int(args.minDepth / binsize)
     max_depth_in_bins = int(args.maxDepth / binsize)
     step_in_bins = int(args.step / binsize)
+    if step_in_bins == 0:
+        exit("Please select a step size larger than {}".format(binsize))
+
+    step_len = binsize * step_in_bins
+    min_win_size = binsize * min_depth_in_bins
+    max_win_size = binsize * max_depth_in_bins
+    incremental_step = []
+    step = -1
+    while 1:
+        step += 1
+        inc_step = min_win_size + (step_len * int(step**1.5))
+        if step > 1 and inc_step == incremental_step[-1]:
+            continue
+        if inc_step > max_win_size:
+            break
+        incremental_step.append(inc_step)
+
+    print incremental_step
 
     sys.stderr.write("computing spectrum for window sizes between {} ({} bp)"
-                     "and {} ({} bp) at {} ({} bp) steps\n".format(min_depth_in_bins,
+                     "and {} ({} bp) at the following window sizes {} {}\n".format(min_depth_in_bins,
                                                                    binsize * min_depth_in_bins,
                                                                    max_depth_in_bins,
                                                                    binsize * max_depth_in_bins,
-                                                                   step_in_bins, binsize * step_in_bins))
+                                                                   step_in_bins, incremental_step))
     if min_depth_in_bins <= 1:
         sys.stderr.write('ERROR\nminDepth length too small. Use a value that is at least'
                          'twice as large as the bin size which is: {}\n'.format(binsize))
