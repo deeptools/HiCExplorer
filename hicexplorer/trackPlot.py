@@ -518,12 +518,15 @@ class PlotBedGraphMatrix(PlotBedGraph):
 
         if 'type' in self.properties and self.properties['type'] == 'lines':
             for row in matrix:
-                self.ax.plot(start_pos, row)
-            self.ax.plot(start_pos, matrix.mean(axis=0), "--")
+                self.ax.plot(start_pos, row, color='grey', linewidth=0.5)
+
+            self.ax.plot(start_pos, matrix.mean(axis=0), linestyle="--", marker="|")
             ymax = self.properties['max_value']
             ymin = self.properties['min_value']
             self.ax.set_ylim(ymin, ymax)
 
+            # plot vertical lines to identify resolution
+            #self.ax.vlines(start_pos, 0, 1, linestyle="--", linewidth=0.02)
         else:
             x, y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
             shading = 'gouraud'
