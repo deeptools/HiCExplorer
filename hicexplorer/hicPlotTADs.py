@@ -28,6 +28,8 @@ fontsize=20
 where=top
 
 [spacer]
+#optional
+width = 0.1
 
 [bigwig]
 file = /data/manke/group/ramirez/HiC-ThomasLing/data/external/Graveley_mRNA-seq/GSM390060_Kc167-4_spa.bw
@@ -38,6 +40,8 @@ min_value = 0
 width = 1.5
 number of bins = 500
 nans to zeros = True
+# optional. Default is yes, set to no to turn off the visualization of data range
+show data range = yes
 #optional in case it can not be guessed by the file ending
 file_type = bigwig
 
@@ -91,7 +95,9 @@ file = file.bg
 title = bedgraph track
 color = green
 width = 0.2
-# optional, otherwise guseed from file ending
+# optional. Default is yes, set to no to turn off the visualization of data range
+show data range = yes
+# optional, otherwise guessed from file ending
 file_type = bedgraph
 
 
