@@ -149,15 +149,38 @@ def parseArguments(args=None):
                         )
 
     parser.add_argument('--removeSelfLigation',
-                        help='If set, inward facing reads less than 1000 bp appart and having a restriction'
-                             'site in between are removed.',
+                        #help='If set, inward facing reads less than 1000 bp apart and having a restriction'
+                        #     'site in between are removed. Although this reads do not contribute to '
+                        #     'any distant contact, they are useful to account for bias in the data.',
+                        help=argparse.SUPPRESS,
                         required=False,
-                        action='store_true'
+                        default=True
+                        #action='store_true'
                         )
+
 
     parser.add_argument('--removeSelfCircles',
                         help='If set, outward facing reads, at a distance of less thatn 25kbs are removed.',
                         required=False,
+                        action='store_true'
+                        )
+
+    parser.add_argument('--minMappingQuality',
+                        help='minimun mapping quality for reads to be accepted. Because the restriction '
+                             'enzyme site could be located on top of the read, this may reduce the '
+                             'reported quality of the read. Thus, this parameter may be adusted if too many '
+                             'low quality (but otherwise perfectly valid hic-reads) are found. A good strategy '
+                             'is to make a test run (using the --doTestRun), then checking the results to see '
+                             'if too many low quality reads are present and then using the bam file generated to '
+                             'check if those low quality reads are caused by the read not being mapped entirely.',
+                        required=False,
+                        default=15,
+                        type=int
+                        )
+
+    parser.add_argument('--doTestRun',
+                        help='A test run is useful to test the quality of a Hi-C experiment quickly. It works by '
+                             'testing only 1,000.000 reads',
                         action='store_true'
                         )
 
@@ -558,15 +581,23 @@ def main(args=None):
 
     start_time = time.time()
     pair_added = 0
-    one_pair_unmapped = 0
-    one_pair_low_quality = 0
-    one_pair_not_unique = 0
+    one_mate_unmapped = 0
+    one_mate_low_quality = 0
+    one_mate_not_unique = 0
     dangling_end = 0
     self_circle = 0
     self_ligation = 0
     same_fragment = 0
     mate_not_close_to_rf = 0
     duplicated_pairs = 0
+
+    count_inward = 0
+    count_outward = 0
+    count_left = 0
+    count_right = 0
+    inter_chromosomal = 0
+    short_range = 0
+    long_range = 0
 
     iter_num = 0
     row = []
@@ -585,11 +616,9 @@ def main(args=None):
                                                 iter_num/elapsed_time))
             sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
                              "\n".format(pair_added, float(100 * pair_added)/iter_num))
-        """
-        if iter_num > 2e6:
-            sys.stderr.write("\n## WARNING. Early exit because of debugging ##\n\n")
+        if args.doTestRun and iter_num > 1e5:
+            sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
             break
-        """
         try:
             mate1 = str1.next()
             mate2 = str2.next()
@@ -622,11 +651,19 @@ def main(args=None):
 
         # skip if any of the reads is not mapped
         if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
-            one_pair_unmapped += 1
+            one_mate_unmapped += 1
             continue
 
         # skip if the read quality is low
-        if mate1.mapq < 20 or mate2.mapq < 20:
+        if mate1.mapq < args.minMappingQuality or mate2.mapq < args.minMappingQuality:
+            # for bwa other way to test
+            # for multi-mapping reads is with a mapq = 0
+            # the XS flag is not reliable.
+            if mate1.mapq == 0 & mate2.mapq == 0:
+                one_mate_not_unique += 1
+                continue
+
+            """
             # check if low quality is because of
             # read being repetitive
             # by reading the XS flag.
@@ -634,10 +671,11 @@ def main(args=None):
             # multi read and it contains the mapping score of the next
             # best match
             if 'XS' in dict(mate1.tags) or 'XS' in dict(mate2.tags):
-                one_pair_not_unique += 1
+                one_mate_not_unique += 1
                 continue
+            """
 
-            one_pair_low_quality += 1
+            one_mate_low_quality += 1
             continue
 
         if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
@@ -681,7 +719,9 @@ def main(args=None):
             continue
 
         # check if mates are in the same chromosome
-        if mate1.rname == mate2.rname:
+        if mate1.reference_id != mate2.reference_id:
+            orientation = 'diff_chromosome'
+        else:
             # to identify 'inward' and 'outward' orientations
             # the order or the mates in the genome has to be 
             # known.
@@ -694,20 +734,26 @@ def main(args=None):
             
             """
             outward
-            <---------------              ------------------->
-
+            <---------------              ---------------->
 
             inward
-            --------------->              <-------------------
+            --------------->              <----------------
 
+            same-strand-right
+            --------------->              ---------------->
+
+            same-strand-left
+            <---------------              <----------------
             """
 
             if not first_mate.is_reverse and second_mate.is_reverse:
                 orientation = 'inward'
             elif first_mate.is_reverse and not second_mate.is_reverse:
                 orientation = 'outward'
+            elif first_mate.is_reverse and second_mate.is_reverse:
+                orientation = 'same-strand-left'
             else:
-                orientation = 'same-strand'
+                orientation = 'same-strand-right'
 
             if args.removeSelfCircles:
                 # check self-circles
@@ -750,7 +796,6 @@ def main(args=None):
                     continue
 
                 self_ligation += 1
-
                 if args.removeSelfLigation:
                     # skip self ligations
                     continue
@@ -764,6 +809,24 @@ def main(args=None):
         # of the exceptions happened
         if len(mate_bins) != 2:
             continue
+
+        # count type of pair (distance, orientation)
+        if mate1.reference_id != mate2.reference_id:
+            inter_chromosomal += 1
+
+        elif abs(mate2.pos - mate1.pos) < 20000:
+            short_range += 1
+        else:
+            long_range += 1
+
+        if orientation == 'inward':
+            count_inward += 1
+        elif orientation == 'outward':
+            count_outward += 1
+        elif orientation == 'same-strand-left':
+            count_left += 1
+        elif orientation == 'same-strand-right':
+            count_right += 1
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
@@ -847,46 +910,52 @@ def main(args=None):
     else:
         msg = " (not removed)"
 
-    mappable_pairs = iter_num - one_pair_unmapped
+    mappable_pairs = iter_num - one_mate_unmapped
     print("""
 File\t{}\t\t
 Pairs considered\t{}\t\t
 Min rest. site distance\t{}\t\t
 Max rest. site distance\t{}\t\t
-Pairs used\t{}\t({:.2f})\t({:.2f})
-One mate unmapped\t{}\t({:.2f})\t({:.2f})
-One mate not unique\t{}\t({:.2f})\t({:.2f})
-One mate low quality\t{}\t({:.2f})\t({:.2f})
-dangling end\t{}\t({:.2f})\t({:.2f})
-self ligation{}\t{}\t({:.2f})\t({:.2f})
-One mate not close to rest site\t{}\t({:.2f})\t({:.2f})
-same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})
-self circle\t{}\t({:.2f})\t({:.2f},
-duplicated pairs\t{}\t({:.2f})\t({:.2f})
-""".format(args.outFileName.name, iter_num, args.minDistance,
-           args.maxDistance,
-           pair_added, 100*float(pair_added)/iter_num,
-           100*float(pair_added)/mappable_pairs,
-           one_pair_unmapped, 100*float(one_pair_unmapped)/iter_num,
-           100*float(one_pair_unmapped)/mappable_pairs,
-           one_pair_not_unique, 100*float(one_pair_not_unique)/iter_num,
-           100*float(one_pair_not_unique)/mappable_pairs,
-           one_pair_low_quality, 100*float(one_pair_low_quality)/iter_num,
-           100*float(one_pair_low_quality)/mappable_pairs,
-           dangling_end, 100*float(dangling_end)/iter_num,
-           100*float(dangling_end)/mappable_pairs,
-           msg, self_ligation, 100*float(self_ligation)/iter_num,
-           100*float(self_ligation)/mappable_pairs,
-           mate_not_close_to_rf, 100*float(mate_not_close_to_rf)/iter_num,
-           100*float(mate_not_close_to_rf)/mappable_pairs,
-           same_fragment, 100*float(same_fragment)/iter_num,
-           100*float(same_fragment)/mappable_pairs,
-           self_circle, 100*float(self_circle)/iter_num,
-           100*float(self_circle)/mappable_pairs,
-           duplicated_pairs, 100*float(duplicated_pairs)/iter_num,
-           100*float(duplicated_pairs)/mappable_pairs
-           ))
 
+""".format(args.outFileName.name, iter_num, args.minDistance,
+           args.maxDistance))
+
+    print("Pairs used\t{}\t({:.2f})\t({:.2f})".format(pair_added, 100*float(pair_added)/iter_num,
+                                                      100*float(pair_added)/mappable_pairs))
+    print("One mate unmapped\t{}\t({:.2f})\t({:.2f})".format(one_mate_unmapped, 100*float(one_mate_unmapped)/iter_num,
+                                                             100*float(one_mate_unmapped)/mappable_pairs))
+
+    print("One mate not unique\t{}\t({:.2f})\t({:.2f})".format(one_mate_not_unique, 100*float(one_mate_not_unique)/iter_num,
+                                                               100*float(one_mate_not_unique)/mappable_pairs))
+    print("One mate low quality\t{}\t({:.2f})\t({:.2f})".format(one_mate_low_quality, 100*float(one_mate_low_quality)/iter_num,
+                                                                100*float(one_mate_low_quality)/mappable_pairs))
+    print("dangling end\t{}\t({:.2f})\t({:.2f})".format(dangling_end, 100*float(dangling_end)/iter_num,
+                                                        100*float(dangling_end)/mappable_pairs))
+    print("self ligation{}\t{}\t({:.2f})\t({:.2f})".format(msg, self_ligation, 100*float(self_ligation)/iter_num,
+                                                                           100*float(self_ligation)/mappable_pairs))
+    print("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})".format(mate_not_close_to_rf, 100*float(mate_not_close_to_rf)/iter_num,
+                                                                           100*float(mate_not_close_to_rf)/mappable_pairs))
+    print("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})".format(same_fragment, 100*float(same_fragment)/iter_num,
+                                                                  100*float(same_fragment)/mappable_pairs))
+    print("self circle\t{}\t({:.2f})\t({:.2f})".format(self_circle, 100*float(self_circle)/iter_num,
+                                                      100*float(self_circle)/mappable_pairs))
+    print("duplicated pairs\t{}\t({:.2f})\t({:.2f})".format(duplicated_pairs, 100*float(duplicated_pairs)/iter_num,
+                                                            100*float(duplicated_pairs)/mappable_pairs))
+    if pair_added > 0:
+        print("Of pairs used:")
+        print("inter chromosomal\t{}\t({:.2f})".format(inter_chromosomal, 100*float(inter_chromosomal)/pair_added))
+
+        print("short range < 20kb\t{}\t({:.2f})".format(short_range, 100*float(short_range)/pair_added))
+
+        print("long range\t{}\t({:.2f})".format(long_range, 100*float(long_range)/pair_added))
+
+        print("inward pairs\t{}\t({:.2f})".format(count_inward, 100*float(count_inward)/pair_added))
+
+        print("outward pairs\t{}\t({:.2f})".format(count_outward, 100*float(count_outward)/pair_added))
+
+        print("left pairs\t{}\t({:.2f})".format(count_left, 100*float(count_left)/pair_added))
+
+        print("right pairs\t{}\t({:.2f})".format(count_right, 100*float(count_right)/pair_added))
 
 class Tester(object):
     def __init__(self):
