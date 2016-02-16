@@ -205,7 +205,9 @@ class PlotTracks(object):
 
         for idx, track in enumerate(self.track_obj_list):
             ymin, ymax = axis_list[idx].get_ylim()
-            axis_list[idx].vlines(vlines_list, ymin, ymax, linestyle='dashed', zorder=10)
+
+            axis_list[idx].vlines(vlines_list, ymin, ymax, linestyle='dashed', zorder=10, linewidth=0.5,
+                                  color=(0,0,0,0.5))
 
             #track.plot_vlines(axis_list[idx], vlines_list)
         return
@@ -416,6 +418,7 @@ class TrackPlot(object):
 class PlotSpacer(TrackPlot):
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
+        ax.set_xlim(start_region, end_region)
         pass
 
 
@@ -537,7 +540,6 @@ class PlotBedGraphMatrix(PlotBedGraph):
             img = self.ax.pcolormesh(x, y, matrix, vmin=vmin, vmax=vmax, shading=shading)
             img.set_rasterized(True)
 
-
         self.ax.set_xlim(start_region, end_region)
         self.ax.set_frame_on(False)
         self.ax.axes.get_xaxis().set_visible(False)
@@ -638,7 +640,7 @@ class PlotBigWig(TrackPlot):
         else:
             # by default show the data range
             self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
-                         "[{}-{}]".format(int(ymin), ymax_print),
+                         "[{}-{}] {}".format(int(ymin), ymax_print, self.properties['title']),
                          horizontalalignment='left', size='small',
                          verticalalignment='bottom')
 
@@ -989,20 +991,6 @@ class PlotBed(TrackPlot):
 
     def __init__(self, *args, **kwarg):
         super(PlotBed, self).__init__(*args, **kwarg)
-        import readBed
-        bed_file_h = readBed.ReadBed(open(self.properties['file'], 'r'))
-        self.bed_type = bed_file_h.file_type
-        valid_intervals = 0
-        self.interval_tree = {}
-        for bed in bed_file_h:
-            if bed.chromosome not in self.interval_tree:
-                self.interval_tree[bed.chromosome] = IntervalTree()
-
-            self.interval_tree[bed.chromosome].insert_interval(Interval(bed.start, bed.end, value=bed))
-            valid_intervals += 1
-
-        if valid_intervals == 0:
-            sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file_name']))
 
         from matplotlib import font_manager
         if 'fontsize' not in self.properties:
@@ -1023,16 +1011,6 @@ class PlotBed(TrackPlot):
         if 'display' not in self.properties:
             self.properties['display'] = 'stacked'
 
-        # to improve the visualization of the genes
-        # it is good to have an estimation of the label
-        # length. In the following code I try to get
-        # the length of a 'W'.
-        if self.properties['labels'] == 'on':
-            text_path = matplotlib.textpath.TextPath((0, 0), 'W', prop=self.fp)
-            self.len_w = text_path.get_extents().width * 60 * self.properties['fontsize']
-        else:
-            self.len_w = 1
-
         self.colormap = None
         # check if the color given is a color map
         color_options = [m for m in matplotlib.cm.datad]
@@ -1042,7 +1020,97 @@ class PlotBed(TrackPlot):
             cmap = matplotlib.cm.get_cmap(self.properties['color'])
             self.colormap = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
 
-    def get_y_pos(self, bed):
+        #self.process_bed()
+
+    def process_bed(self, fig_width, region_start, region_end):
+
+        # to improve the visualization of the genes
+        # it is good to have an estimation of the label
+        # length. In the following code I try to get
+        # the length of a 'W'.
+        if self.properties['labels'] == 'on':
+            # from http://scipy-cookbook.readthedocs.org/items/Matplotlib_LaTeX_Examples.html
+            inches_per_pt = 1.0 / 72.27
+            font_in_inches = self.properties['fontsize'] * inches_per_pt
+            region_len = region_end - region_start
+            bp_per_inch = region_len / fig_width
+            font_in_bp = font_in_inches * bp_per_inch
+            self.len_w = font_in_bp
+            print "len of w set to: {} bp".format(self.len_w)
+        else:
+            self.len_w = 1
+
+        import readBed
+
+        bed_file_h = readBed.ReadBed(open(self.properties['file'], 'r'))
+        self.bed_type = bed_file_h.file_type
+        valid_intervals = 0
+        self.interval_tree = {}
+        prev = None
+        # check for the number of other intervals that overlap
+        #    with the given interval
+        #            1         2
+        #  012345678901234567890123456
+        #  1=========       4=========
+        #       2=========
+        #         3============
+        #
+        # for 1 row_last_position = [9]
+        # for 2 row_last_position = [9, 14]
+        # for 3 row_last_position = [9, 14, 19]
+        # for 4 row_last_position = [26, 14, 19]
+
+        row_last_position = [] # each entry in this list contains the end position
+                               # of genomic interval. The list index is the row
+                               # in which the genomic interval was plotted.
+                               # Any new genomic interval that wants to be plotted,
+                               # knows the row to use by finding the list index that
+                               # is larger than its start
+        for bed in bed_file_h:
+            if prev is not None:
+                if prev.chromosome == bed.chromosome:
+                    if bed.start < prev.start:
+                        import ipdb;ipdb.set_trace()
+                    assert bed.start >= prev.start, "*Error* Bed file not sorted. Please sort using sort -k1,1 -k2,2n"
+                if prev.chromosome != bed.chromosome:
+                    # init var
+                    row_last_position = []
+
+            # check for overlapping genes including
+            # label size (if plotted)
+
+            if self.properties['labels'] == 'on' and bed.end - bed.start < len(bed.name) * self.len_w:
+                bed_extended_end = int(bed.start + (len(bed.name) * self.len_w))
+            else:
+                bed_extended_end = (bed.end + 2 * self.len_w)
+
+            # get smallest free row
+            if len(row_last_position) == 0:
+                free_row = 0
+                row_last_position.append(bed_extended_end)
+            else:
+                # get list of rows that are less than bed.start, then take the min
+                idx_list = [idx for idx, value in enumerate(row_last_position) if value < bed.start]
+                if len(idx_list):
+                    free_row = min(idx_list)
+                    row_last_position[free_row] = bed_extended_end
+                else:
+                    free_row = len(row_last_position)
+                    row_last_position.append(bed_extended_end)
+
+            if bed.chromosome not in self.interval_tree:
+                self.interval_tree[bed.chromosome] = IntervalTree()
+
+            self.interval_tree[bed.chromosome].insert_interval(Interval(bed.start, bed.end, value=(bed, free_row)))
+            valid_intervals += 1
+            prev = bed
+            #print row_last_position, bed.start, bed_extended_end, bed.end, free_row
+
+        if valid_intervals == 0:
+            sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file_name']))
+
+
+    def get_y_pos(self, bed, free_row):
         """
         The y_pos is set such that regions to be plotted do not overlap (stacked). To override this
         the properties['collapsed'] needs to be set.
@@ -1060,59 +1128,23 @@ class PlotBed(TrackPlot):
             ypos = 0
 
         else:
-            # 1. check for the number of other intervals that overlap
-            #    with the given interval
-            #
-            #  1=========       4=========
-            #       2=========
-            #         3============
-            #
-            # for 1, min_free_row is 0
-            # for 2, min_free_row is 1, rows_used = [1,0,0]
-            # for 3, min_free_row is 2, rows_used = [1,1,0,0]
-            # for 4, min_free_row is 0, rows_used = [0,1,1,0,0]
-
-            # check for overlapping features
-            match = self.region_intervals.find(bed.start, bed.end)
-            if len(match) == 0:
-                min_free_row = 0
-            else:
-                rows_used = np.zeros(self.max_num_row + 2)
-                for x in match:
-                    # in the Interval, the 'value' field stores the row
-                    # in which the bed region was printed
-                    rows_used[x.value] = 1
-                min_free_row = min(np.flatnonzero(rows_used == 0))
-
-            # check if the label may be larger than the interval, if this is the case
-            # set the interval to match the expected label length
-            if self.properties['labels'] == 'on' and \
-                        bed.end - bed.start < len(bed.name) * self.len_w:
-                self.region_intervals.add_interval(Interval(bed.start,
-                                                            bed.start + (len(bed.name) * self.len_w),
-                                                            min_free_row))
-            else:
-                self.region_intervals.add_interval(Interval(bed.start,
-                                                            bed.end + 2 * self.small_relative,
-                                                            min_free_row))
-            if min_free_row > self.max_num_row:
-                self.max_num_row = min_free_row
-
             if self.properties['labels'] == 'off':
                 scale_factor = 230
             else:
                 #scale_factor = self.len_w * 2
                 scale_factor = 330
+                #scale_factor = 60
 
-            ypos = min_free_row * scale_factor
-
+            ypos = free_row * scale_factor
+            if free_row > self.max_num_row:
+                self.max_num_row = free_row
         return ypos
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
         self.counter = 0
         self.small_relative = 0.005 * (end_region-start_region)
         self.max_num_row = 1
-        self.region_intervals = IntervalTree()
+        self.process_bed(ax.get_figure().get_figwidth(), start_region, end_region)
 
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
@@ -1137,7 +1169,8 @@ class PlotBed(TrackPlot):
             chr2L   0       70000   ID_5    0.26864549832   .
             """
             self.counter += 1
-            bed = region.value
+            # an namedTuple object is stored in the region.value together with the free value for the gene
+            bed, free_row = region.value
             if self.colormap:
                 # translate value field (in the example above is 0 or 0.2686...) into a color
                 rgb = self.colormap.to_rgba(bed.score)
@@ -1155,7 +1188,8 @@ class PlotBed(TrackPlot):
                 except IndexError:
                     pass
 
-            ypos = self.get_y_pos(bed)
+            ypos = self.get_y_pos(bed, free_row)
+            print "fr{}, {}".format(free_row, bed.name)
             if self.bed_type == 'bed12':
                 if self.properties['style'] == 'flybase':
                     self.draw_gene_with_introns_flybase_style(ax, bed, ypos, rgb, edgecolor)
@@ -1179,6 +1213,12 @@ class PlotBed(TrackPlot):
                                        chrom_region, start_region, end_region))
 
         ax.set_ylim((self.max_num_row + 1) * 330, -25)
+
+        ax.text(start_region, (self.max_num_row + 1) * 330 * 0.5,
+                     "{}".format(self.properties['title']),
+                     horizontalalignment='left', size='small',
+                     verticalalignment='bottom')
+
         if 'display' in self.properties:
             if self.properties['display'] == 'domain':
                 ax.set_ylim(-5, 205)
@@ -1186,6 +1226,7 @@ class PlotBed(TrackPlot):
                 ax.set_ylim(-5, 105)
 
         ax.set_xlim(start_region, end_region)
+
 
         label_ax.text(0.15, 0.5, self.properties['title'],
                       horizontalalignment='left', size='large',
