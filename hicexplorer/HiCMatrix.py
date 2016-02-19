@@ -83,6 +83,12 @@ class hiCMatrix:
                 row_sum = np.asarray(self.matrix.sum(axis=1)).flatten()
                 self.maskBins(np.flatnonzero(row_sum==0))
                 """
+            elif format == 'lieberman': # lieberman format needs additional arguments : chrname and resolution
+                self.cut_intervals = self.getLibermanBins(matrixFile,chrname,resolution)
+                self.matrix = csr_matrix(
+                    np.loadtxt(matrixFile,
+                               skiprows=skiprows,
+                               usecols=range(1, len(self.cut_intervals) + 1)))
             else:
                 print "matrix format not known."
                 exit()
@@ -90,13 +96,12 @@ class hiCMatrix:
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
 
-            if format == 'lieberman':
-                data = np.loadtxt()
+
     @staticmethod
     def fillLowerTriangle(matrix):
         """
         checks if the matrix is complete or if only half of the matrix was saved.
-        Returns a whole matrix. 
+        Returns a whole matrix.
 
         >>> from scipy.sparse import csr_matrix
         >>> A = csr_matrix(np.array([[12,5,3,2,0],[0,11,4,1,1],
@@ -193,6 +198,24 @@ class hiCMatrix:
             exit(1)
 
         return zip(nameList, startList, endList, binIdList)
+
+    def getLibermanBins(self,filename, chrname, resolution):
+        """
+        Reads a txt file in liberman's format and returns cut intervals.
+        Each file is seperated by chr name and contains:
+        locus1,locus2,and contact score seperated by tab.
+        """
+        data = np.loadtxt(filename)
+        normdata = np.zeros(data.shape)
+        normdata[:,0:2] = data[:,0:2]/5000
+        normdata[:,2] = data[:,2]
+        normdata = normdata.astype("int")
+        dim = max(max(normdata[:,1]), max(normdata[:,0])) + 1
+        dfspa = spa.coo_matrix( (normdata[:,2], (normdata[:,0], normdata[:,1])), (dim, dim) )
+        dfspa = dfspa.tocsr()
+        cut_intervals = [(chrname, start*resolution, (start+1)*resolution, 0) for start in range(dim) ]
+
+        return cut_intervals
 
     def getMatrix(self):
         matrix = self.matrix.todense()
@@ -504,7 +527,7 @@ class hiCMatrix:
         for index in xrange(len(distance_unique)):
             distance[distance_unique[index]] = groups[index]
 
-        return distance 
+        return distance
 
     @staticmethod
     def getUnwantedChrs():
@@ -618,7 +641,7 @@ class hiCMatrix:
         try:
             fileh = gzip.open(fileName, 'w')
         except:
-            msg = "{} file can be opened for writting".format(fileName)
+            msg = "{} file can't be opened for writing".format(fileName)
             raise msg
 
         colNames = []
