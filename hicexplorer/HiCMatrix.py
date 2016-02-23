@@ -617,7 +617,7 @@ class hiCMatrix:
         try:
             fileh = gzip.open(fileName, 'w')
         except:
-            msg = "{} file can be opened for writing".format(fileName)
+            msg = "{} file can't be opened for writing".format(fileName)
             raise msg
 
         colNames = []
@@ -633,7 +633,7 @@ class hiCMatrix:
 
     def save_dekker(self, fileName):
         """
-        Saves the matrix
+        Saves the matrix using dekker format
         """
         if fileName[-3:] != '.gz':
             fileName += '.gz'
@@ -647,7 +647,7 @@ class hiCMatrix:
         colNames = []
         for x in range(self.matrix.shape[0]):
             chrom, start, end = self.cut_intervals[x][0:3]
-            colNames.append("{}|dm3|{}:{}-{}".format(x, chrom, start, end))
+            colNames.append("{}|dm3|{}:{}-{}".format(x, chrom, start, end)) # adds dm3 to the end (?problem..)
 
         fileh.write("#converted from npz\n")
         fileh.write("\t" + "\t".join(colNames) + "\n")
@@ -656,6 +656,32 @@ class hiCMatrix:
             fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values) ) )
 
         fileh.close()
+
+    def save_lieberman(matrix, fileName, resolution):
+        """
+        Saves the matrix using lieberman format. Given an output directory name and resolution of the matrix.
+        """
+        try:
+            os.mkdir(fileName)
+        except:
+            print "Directory {} exists! Files will be overwritten.".format(fileName)
+
+        lib_mat = matrix
+        for chrom in lib_mat.interval_trees.keys():
+                fileh = gzip.open("{}/chr{}_{}.gz".format(fileName,chr,fileName), 'w')
+                rowNames = []
+                chrstart, chrend = lib_mat.getChrBinRange(chrom)
+                chrwise_mat = lib_mat.matrix[chrstart:chrend, chrstart:chrend]
+                chrwise_mat_coo = spa.triu(chrwise_mat, k=0, format='csr').tocoo()
+                for x in range(chrwise_mat_coo.shape[0]):
+                    start = chrwise_mat_coo.row[x,]*resolution
+                    end = chrwise_mat_coo.col[x,]*resolution
+                    data = chrwise_mat_coo.data[x,]
+                    rowNames.append("{}\t{}\t{}".format(start, end,data))
+
+                fileh.write("#converted from npz")
+                fileh.write("\n" + "\n".join(rowNames) + "\n")
+                fileh.close()
 
     def save(self, filename):
         self.restoreMaskedBins()
