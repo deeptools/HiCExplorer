@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 from collections import OrderedDict
-from scipy.sparse import csr_matrix, dia_matrix
+from scipy.sparse import csr_matrix, dia_matrix, coo_matrix
 from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 from scipy.sparse import triu, tril
@@ -20,7 +20,7 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, matrixFile=None, format=None, skiprows=None):
+    def __init__(self, matrixFile=None, format=None, skiprows=None, chrname=None, resolution=None):
         self.correction_factors = None # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distanceCounts = None # only defined when getCountsByDistance is called
@@ -84,14 +84,11 @@ class hiCMatrix:
                 self.maskBins(np.flatnonzero(row_sum==0))
                 """
             elif format == 'lieberman': # lieberman format needs additional arguments : chrname and resolution
-                self.cut_intervals = self.getLibermanBins(matrixFile,chrname,resolution)
-                self.matrix = csr_matrix(
-                    np.loadtxt(matrixFile,
-                               skiprows=skiprows,
-                               usecols=range(1, len(self.cut_intervals) + 1)))
+                liberman_data = self.getLibermanBins(matrixFile,chrname,resolution)
+                self.cut_intervals = liberman_data['cut_intervals']
+                self.matrix = liberman_data['matrix']
             else:
-                print "matrix format not known."
-                exit()
+                exit("matrix format not known.")
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
@@ -211,11 +208,11 @@ class hiCMatrix:
         normdata[:,2] = data[:,2]
         normdata = normdata.astype("int")
         dim = max(max(normdata[:,1]), max(normdata[:,0])) + 1
-        dfspa = spa.coo_matrix( (normdata[:,2], (normdata[:,0], normdata[:,1])), (dim, dim) )
-        dfspa = dfspa.tocsr()
+        sparse_matrix = coo_matrix( (normdata[:,2], (normdata[:,0], normdata[:,1])), (dim, dim) )
+        sparse_matrix = sparse_matrix.tocsr()
         cut_intervals = [(chrname, start*resolution, (start+1)*resolution, 0) for start in range(dim) ]
-
-        return cut_intervals
+        liberman_data = dict(cut_intervals = cut_intervals, matrix = sparse_matrix)
+        return liberman_data
 
     def getMatrix(self):
         matrix = self.matrix.todense()
@@ -672,7 +669,7 @@ class hiCMatrix:
                 rowNames = []
                 chrstart, chrend = lib_mat.getChrBinRange(chrom)
                 chrwise_mat = lib_mat.matrix[chrstart:chrend, chrstart:chrend]
-                chrwise_mat_coo = spa.triu(chrwise_mat, k=0, format='csr').tocoo()
+                chrwise_mat_coo = triu(chrwise_mat, k=0, format='csr').tocoo()
                 for x in range(chrwise_mat_coo.shape[0]):
                     start = chrwise_mat_coo.row[x,]*resolution
                     end = chrwise_mat_coo.col[x,]*resolution
