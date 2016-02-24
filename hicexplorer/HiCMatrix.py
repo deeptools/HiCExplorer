@@ -657,7 +657,7 @@ class hiCMatrix:
 
         fileh.close()
 
-    def save_lieberman(matrix, fileName, resolution):
+    def save_lieberman(self, fileName, resolution):
         """
         Saves the matrix using lieberman format. Given an output directory name and resolution of the matrix.
         """
