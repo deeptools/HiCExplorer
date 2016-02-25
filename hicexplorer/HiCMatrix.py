@@ -654,7 +654,7 @@ class hiCMatrix:
 
         fileh.close()
 
-    def save_lieberman(self, fileName, resolution):
+    def save_lieberman(self, fileName):
         """
         Saves the matrix using lieberman format. Given an output directory name and resolution of the matrix.
         """
@@ -663,9 +663,11 @@ class hiCMatrix:
         except:
             print "Directory {} exists! Files will be overwritten.".format(fileName)
 
-        lib_mat = matrix
+        lib_mat = self.matrix
+        resolution = self.matrix.getBinSize
+
         for chrom in lib_mat.interval_trees.keys():
-                fileh = gzip.open("{}/chr{}_{}.gz".format(fileName,chr,fileName), 'w')
+                fileh = gzip.open("{}/chr{}_{}.gz".format(fileName,chr,resolution), 'w')
                 rowNames = []
                 chrstart, chrend = lib_mat.getChrBinRange(chrom)
                 chrwise_mat = lib_mat.matrix[chrstart:chrend, chrstart:chrend]
