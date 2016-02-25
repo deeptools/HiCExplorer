@@ -16,10 +16,22 @@ def parse_arguments(args=None):
         description='Saves a matrix in .npz format using a plain text format.')
 
     # define the arguments
-    parser.add_argument('--matrix', '-m',
-                        help='matrix to use',
-                        metavar='.npz fileformat',
+    parser.add_argument('--inFile', '-in',
+                        help='input file',
                         required=True)
+
+    parser.add_argument('--inputFormat',
+                        help='file format for input file. \n'
+                             '(options : hicexplorer, lieberman)',
+                        default='hicexplorer')
+
+    parser.add_argument('--chrName',
+                        help='name of chromosome ( only if input format is lieberman).'
+                        )
+
+    parser.add_argument('--resolution',
+                        help='the resolution of data (only if input format is lieberman).'
+                        )
 
     parser.add_argument('--outFileName', '-o',
                         help='File name to save the plain text matrix',
@@ -37,9 +49,12 @@ def parse_arguments(args=None):
                              'The dekker format outputs the whole matrix where the '
                              'first column and first row are the bin widths and labels. '
                              'The "ren" format is a list of tuples of the form '
-                             'chrom, bin_star, bin_end, values. ',
+                             'chrom, bin_star, bin_end, values. '
+                             'The lieberman format writes separate files for each chromosome,'
+                             'with three columns : contact start, contact end, and raw observed score. '
+                             'This corresponds to the RawObserved files from lieberman group. ',
                         default='dekker',
-                        choices=['dekker', 'ren', 'hicexplorer'])
+                        choices=['dekker', 'ren', 'lieberman' , 'hicexplorer'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
@@ -55,7 +70,15 @@ def parse_arguments(args=None):
 def main():
     args = parse_arguments().parse_args()
 
-    hic_ma = hm.hiCMatrix(args.matrix)
+    ## create hiC matrix with given input format
+    if args.inputFormat == 'lieberman':
+        if (args.chrName is None or args.resolution is None):
+            exit("Error: Both chrName and resolution are required when the input format is lieberman. ")
+        else:
+            hic_ma = HiCMatrix.hiCMatrix(matrixFile= f, format = 'lieberman',chrname = args.chrName, resolution = args.resolution)
+    else:
+        hic_ma = hm.hiCMatrix(args.matrix, format = args.inputFormat)
+
     if args.chromosomeOrder:
         hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
 
@@ -65,9 +88,12 @@ def main():
     sys.stderr.write('saving...\n')
     matrix_name = args.outFileName.name
     args.outFileName.close()
+
     if args.outputFormat == 'dekker':
         hic_ma.save_dekker(matrix_name)
     elif args.outputFormat == 'ren':
         hic_ma.save_bing_ren(matrix_name)
+    elif args.outputFormat == 'lieberman':
+        hic_ma.save_lieberman(matrix_name)
     else:
         hic_ma.save(matrix_name)
