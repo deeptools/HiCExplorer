@@ -6,10 +6,14 @@ from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 from scipy.sparse import triu, tril
 
-
+## try to import pandas if exists
+try:
+    import pandas as pd
+    pandas = True
+except ImportError:
+    print "library 'pandas' unavailable. using numpy."
 
 from bx.intervals.intersection import IntervalTree, Interval
-
 import gzip
 
 
@@ -196,21 +200,36 @@ class hiCMatrix:
 
         return zip(nameList, startList, endList, binIdList)
 
-    def getLibermanBins(self,filename, chrname, resolution):
+    def getLibermanBins(filenameList, chrnameList, resolution, pandas = pandas):
         """
-        Reads a txt file in liberman's format and returns cut intervals.
-        Each file is seperated by chr name and contains:
-        locus1,locus2,and contact score seperated by tab.
+        Reads a list of txt file in liberman's format and returns
+        cut intervals and matrix. Each file is seperated by chr name
+        and contains: locus1,locus2,and contact score seperated by tab.
         """
-        data = np.loadtxt(filename)
+        data = np.zeros([0,4])
+        for i in range(len(filenameList)):
+            if pandas == True:
+                chrd = pd.read_csv(filenameList[i], sep = "\t")
+                chrdata = chrd.as_matrix()
+            else:
+                print "Pandas unavilable. Reading files using numpy (slower).."
+                chrdata = np.loadtxt(filenameList[i])
+
+            chrdata = np.insert(chrdata[:],[0],[chrnameList[i]],axis = 1)
+            data = np.vstack([data, chrdata])
+
         normdata = np.zeros(data.shape)
-        normdata[:,0:2] = data[:,0:2]/5000
-        normdata[:,2] = data[:,2]
+        normdata[:,0] = data[:,0]
+        normdata[:,1:3] = data[:,1:3]/5000
+        normdata[:,3] = data[:,3]
         normdata = normdata.astype("int")
-        dim = max(max(normdata[:,1]), max(normdata[:,0])) + 1
-        sparse_matrix = coo_matrix( (normdata[:,2], (normdata[:,0], normdata[:,1])), (dim, dim) )
+
+        dim = max(max(normdata[:,2]), max(normdata[:,1])) + 1
+        sparse_matrix = spa.coo_matrix( (normdata[:,3], (normdata[:,1], normdata[:,2])), (dim, dim) )
         sparse_matrix = sparse_matrix.tocsr()
-        cut_intervals = [(chrname, start*resolution, (start+1)*resolution, 0) for start in range(dim) ]
+        chrname = normdata[:,0]
+
+        cut_intervals = [(chrname[start], start*resolution, (start+1)*resolution, 0) for start in range(dim) ]
         liberman_data = dict(cut_intervals = cut_intervals, matrix = sparse_matrix)
         return liberman_data
 
