@@ -17,7 +17,8 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--inFile', '-in',
-                        help='input file',
+                        help='input file (an .npz matrix or a list of Files if reading lieberman format.)',
+                        nargs='+',
                         required=True)
 
     parser.add_argument('--inputFormat',
@@ -25,12 +26,9 @@ def parse_arguments(args=None):
                              '(options : hicexplorer, lieberman)',
                         default='hicexplorer')
 
-    parser.add_argument('--chrName',
-                        help='name of chromosome ( only if input format is lieberman).'
-                        )
-
-    parser.add_argument('--resolution',
-                        help='the resolution of data (only if input format is lieberman).'
+    parser.add_argument('--chrNameList',
+                        help='list of chromosome names (only if input format is lieberman), eg : 1 2 .',
+                        nargs='+',
                         )
 
     parser.add_argument('--outFileName', '-o',
@@ -72,12 +70,12 @@ def main():
 
     ## create hiC matrix with given input format
     if args.inputFormat == 'lieberman':
-        if (args.chrName is None or args.resolution is None):
-            exit("Error: Both chrName and resolution are required when the input format is lieberman. ")
+        if (args.chrNameList is None ):
+            exit("Error: --chrNameList is required when the input format is lieberman. ")
         else:
-            hic_ma = HiCMatrix.hiCMatrix(matrixFile= f, format = 'lieberman',chrname = args.chrName, resolution = args.resolution)
+            hic_ma = hm.hiCMatrix(matrixFile= args.inFile, format = 'lieberman',chrnameList = args.chrNameList)
     else:
-        hic_ma = hm.hiCMatrix(args.matrix, format = args.inputFormat)
+        hic_ma = hm.hiCMatrix(args.inFile, format = args.inputFormat)
 
     if args.chromosomeOrder:
         hic_ma.keepOnlyTheseChr(args.chromosomeOrder)

@@ -87,10 +87,10 @@ class hiCMatrix:
                 row_sum = np.asarray(self.matrix.sum(axis=1)).flatten()
                 self.maskBins(np.flatnonzero(row_sum==0))
                 """
-            elif format == 'lieberman': # lieberman format needs additional arguments : chrname and resolution
-                liberman_data = self.getLibermanBins(filenameList = matrixFile, chrnameList = chrnameList)
-                self.cut_intervals = liberman_data['cut_intervals']
-                self.matrix = liberman_data['matrix']
+            elif format == 'lieberman': # lieberman format needs additional arguments : chrnameList
+                lieberman_data = self.getLiebermanBins(filenameList = matrixFile, chrnameList = chrnameList)
+                self.cut_intervals = lieberman_data['cut_intervals']
+                self.matrix = lieberman_data['matrix']
             else:
                 exit("matrix format not known.")
 
@@ -200,7 +200,7 @@ class hiCMatrix:
 
         return zip(nameList, startList, endList, binIdList)
 
-    def getLibermanBins(self, filenameList, chrnameList, pandas = pandas):
+    def getLiebermanBins(self, filenameList, chrnameList, pandas = pandas):
         """
         Reads a list of txt file in liberman's format and returns
         cut intervals and matrix. Each file is seperated by chr name
@@ -238,11 +238,11 @@ class hiCMatrix:
             dim = dim + chrdim
 
             for _bin in range(chrdim):
-                cut_intervals.append((chrnameList[i], _bin * resolution, (_bin + 1) * resolution))
+                cut_intervals.append((chrnameList[i], _bin * resolution, (_bin + 1) * resolution,0))
 
         final_mat = coo_matrix((value, (row, col)), shape=(dim,dim))
-        liberman_data = dict(cut_intervals = cut_intervals, matrix = final_mat)
-        return liberman_data
+        lieberman_data = dict(cut_intervals = cut_intervals, matrix = final_mat)
+        return lieberman_data
 
     def getMatrix(self):
         matrix = self.matrix.todense()
