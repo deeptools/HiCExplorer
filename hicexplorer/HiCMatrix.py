@@ -24,7 +24,7 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, matrixFile=None, format=None, skiprows=None, chrname=None, resolution=None):
+    def __init__(self, matrixFile=None, format=None, skiprows=None, chrnameList=None):
         self.correction_factors = None # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distanceCounts = None # only defined when getCountsByDistance is called
@@ -88,7 +88,7 @@ class hiCMatrix:
                 self.maskBins(np.flatnonzero(row_sum==0))
                 """
             elif format == 'lieberman': # lieberman format needs additional arguments : chrname and resolution
-                liberman_data = self.getLibermanBins(matrixFile,chrname,resolution)
+                liberman_data = self.getLibermanBins(filenameList = matrixFile, chrnameList = chrnameList)
                 self.cut_intervals = liberman_data['cut_intervals']
                 self.matrix = liberman_data['matrix']
             else:
@@ -200,37 +200,48 @@ class hiCMatrix:
 
         return zip(nameList, startList, endList, binIdList)
 
-    def getLibermanBins(filenameList, chrnameList, resolution, pandas = pandas):
+    def getLibermanBins(self, filenameList, chrnameList, pandas = pandas):
         """
         Reads a list of txt file in liberman's format and returns
         cut intervals and matrix. Each file is seperated by chr name
         and contains: locus1,locus2,and contact score seperated by tab.
         """
-        data = np.zeros([0,4])
-        for i in range(len(filenameList)):
+
+        ## Create empty row, col, value for the matrix
+
+        row = np.array([]).astype("int")
+        col = np.array([]).astype("int")
+        value = np.array([])
+        cut_intervals = []
+        dim = 0
+        ## for each chr, append the row, col, value to the first one. Extend the dim
+        for i in range(0, len(filenameList)):
             if pandas == True:
-                chrd = pd.read_csv(filenameList[i], sep = "\t")
+                chrd = pd.read_csv(filenameList[i], sep = "\t", header=None)
                 chrdata = chrd.as_matrix()
             else:
-                print "Pandas unavilable. Reading files using numpy (slower).."
+                print "Pandas unavailable. Reading files using numpy (slower).."
                 chrdata = np.loadtxt(filenameList[i])
 
-            chrdata = np.insert(chrdata[:],[0],[chrnameList[i]],axis = 1)
-            data = np.vstack([data, chrdata])
+            # define resolution as the median of the difference of the rows
+            # in the data table.
 
-        normdata = np.zeros(data.shape)
-        normdata[:,0] = data[:,0]
-        normdata[:,1:3] = data[:,1:3]/5000
-        normdata[:,3] = data[:,3]
-        normdata = normdata.astype("int")
+            resolution = np.median(np.diff(np.unique(np.sort(chrdata[:,1]))))
 
-        dim = max(max(normdata[:,2]), max(normdata[:,1])) + 1
-        sparse_matrix = spa.coo_matrix( (normdata[:,3], (normdata[:,1], normdata[:,2])), (dim, dim) )
-        sparse_matrix = sparse_matrix.tocsr()
-        chrname = normdata[:,0]
+            chrcol = (chrdata[:, 1] / resolution).astype(int)
+            chrrow = (chrdata[:, 0] / resolution).astype(int)
 
-        cut_intervals = [(chrname[start], start*resolution, (start+1)*resolution, 0) for start in range(dim) ]
-        liberman_data = dict(cut_intervals = cut_intervals, matrix = sparse_matrix)
+            chrdim = max(max(chrcol), max(chrrow)) + 1
+            row = np.concatenate([row, chrrow + dim])
+            col = np.concatenate([col, chrcol + dim])
+            value = np.concatenate([value, chrdata[:, 2]])
+            dim = dim + chrdim
+
+            for _bin in range(chrdim):
+                cut_intervals.append((chrnameList[i], _bin * resolution, (_bin + 1) * resolution))
+
+        final_mat = coo_matrix((value, (row, col)), shape=(dim,dim))
+        liberman_data = dict(cut_intervals = cut_intervals, matrix = final_mat)
         return liberman_data
 
     def getMatrix(self):
@@ -683,9 +694,9 @@ class hiCMatrix:
             print "Directory {} exists! Files will be overwritten.".format(fileName)
 
         lib_mat = self.matrix
-        resolution = self.matrix.getBinSize
+        resolution = self.getBinSize()
 
-        for chrom in lib_mat.interval_trees.keys():
+        for chrom in self.interval_trees.keys():
                 fileh = gzip.open("{}/chr{}_{}.gz".format(fileName,chr,resolution), 'w')
                 rowNames = []
                 chrstart, chrend = lib_mat.getChrBinRange(chrom)
