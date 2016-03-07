@@ -108,6 +108,12 @@ For detailed help:
                                      default=0.001
                                      )
 
+    find_tads_subparser.add_argument('--maxThreshold',
+                                     help='only call boundaries that have an score below this threshold',
+                                     type=float,
+                                     default=0.3
+                                     )
+
     find_tads_subparser.add_argument('--outPrefix',
                                      help='File prefix to save the resulting files: boundary positions, '
                                           'bedgraph matrix containing the multi-scale TAD scores, '
@@ -220,14 +226,30 @@ def get_conductance(matrix, cut, depth):
     end = min(matrix.shape[0], cut + depth)
 
     inter_edges = get_cut_weight(matrix, cut, depth)
-    edges_left = inter_edges + matrix[start:cut, :][:, start:cut].sum()
-    edges_right = inter_edges + matrix[cut:end, :][:, cut:end].sum()
+    edges_left = matrix[start:cut, :][:, start:cut].sum()
+    edges_right = matrix[cut:end, :][:, cut:end].sum()
 
-#    return float(inter_edges) / min(edges_left, edges_right)
-    return float(inter_edges) / max(edges_left, edges_right)
-#    return float(inter_edges) / 100000
-#    return float(inter_edges) / (sum([edges_left, edges_right]) - inter_edges)
+    return float(inter_edges) / min(edges_left + inter_edges, edges_right + inter_edges)
 
+
+def get_coverage_norm(matrix, cut, depth):
+    """
+    Similar to the coverage but instead of dividing
+    by total count, it divides but the sum of left and right counts.
+    This measure has the advantage of being closer to the 0-1 range.
+    Where 0 occurs when there are no contacts between left and right and
+    1 occurs when the intra-counts are equal to the sum of the left and
+    right counts.
+
+    """
+    start = max(0, cut - depth)
+    # same for range [i+1:end] (i is excluded from the range)
+    end = min(matrix.shape[0], cut + depth)
+
+    inter_edges = get_cut_weight(matrix, cut, depth)
+    edges_left = matrix[start:cut, :][:, start:cut].sum()
+    edges_right = matrix[cut:end, :][:, cut:end].sum()
+    return float(inter_edges) / sum([edges_left, edges_right])
 
 def get_coverage(matrix, cut, depth):
     """
@@ -296,7 +318,8 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2, outfi
         # get conductance
         # for multiple window lengths at a time
         incremental_step = get_incremental_step_size(min_win_size, max_win_size, step_len)
-        mult_matrix = [get_coverage(hic_ma.matrix, cut, x) for x in incremental_step]
+        mult_matrix = [get_coverage_norm(hic_ma.matrix, cut, x) for x in incremental_step]
+        #mult_matrix = [get_coverage(hic_ma.matrix, cut, x) for x in incremental_step]
 
         """
         mult_matrix = [get_coverage(hic_ma.matrix, cut, x)
@@ -423,10 +446,11 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
     return [max_peaks, min_peaks]
 
 
-def find_consensus_minima(matrix, lookahead=3, delta=0):
+def find_consensus_minima(matrix, lookahead=3, delta=0, max_threshold=0.3):
     """
     Finds the minimum over the average values per column
     :param matrix:
+    :param max_threshold maximum value allowed for a local minimum to be called
     :return:
     """
 
@@ -436,7 +460,8 @@ def find_consensus_minima(matrix, lookahead=3, delta=0):
     # position
 
     _max, _min= peakdetect(matrix.mean(axis=1), lookahead=lookahead, delta=delta)
-    min_indices, __ = zip(*_min)
+    # filter all mimimum that are over a value of max_threshold
+    min_indices = [idx for idx, value in _min if value <= max_threshold]
     return np.unique(min_indices)
 
 
@@ -716,7 +741,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
     new_min_idx = [0]
     for idx in min_idx:
         # for each chromosome, add position 0 and end position as boundaries
-        # 'chr_bin_range'contains the indices values where the chromosome changes
+        # 'chr_bin_range'contains the indices values where the chromosome name changes in the list
 
         if len(chr_bin_range) and idx > chr_bin_range[0]:
             new_min_idx.append(chr_bin_range[0] - 1)
@@ -727,15 +752,15 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
     new_min_idx.append(len(chr_start - 1))
 
     # get min_idx per chromosome
-    chrom = chrom[min_idx]
+    chrom_boundary = chrom[min_idx]
     boundaries = np.array([chr_start[idx] for idx in min_idx])
-    mean_mat = matrix.mean(axis=1)
-    mean_mat = mean_mat[min_idx]
+    mean_mat_all = matrix.mean(axis=1)
+    mean_mat = mean_mat_all[min_idx]
     count = 0
     with open(args.outPrefix + '_boundaries.bed', 'w') as file_boundaries, open(args.outPrefix + '_domains.bed', 'w') as file_domains:
         for idx in range(len(boundaries)):
             # save boundaries at 1bp position
-            file_boundaries.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom[idx], boundaries[idx],
+            file_boundaries.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_boundary[idx], boundaries[idx],
                                                                     boundaries[idx] + 1,
                                                                     mean_mat[idx]))
 
@@ -743,7 +768,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
             if start == chrom_sizes[chrom[idx]]:
                 continue
             if idx + 1 == len(boundaries) or boundaries[idx + 1] < start:
-                end = chrom_sizes[chrom[idx]]
+                end = chrom_sizes[chrom_boundary[idx]]
             else:
                 end = boundaries[idx + 1]
 
@@ -754,7 +779,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
                 rgb = '31,120,180'
 
             file_domains.write("{0}\t{1}\t{2}\tID_{3}\t{4}\t."
-                        "\t{1}\t{2}\t{5}\n".format(chrom[idx],
+                        "\t{1}\t{2}\t{5}\n".format(chrom_boundary[idx],
                                                    start,
                                                    end,
                                                    min_idx[idx],
@@ -762,6 +787,11 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
                                                    rgb))
 
             count += 1
+
+    # save track with mean values in bedgraph format
+    with open(args.outPrefix + '_score.bg', 'w') as tad_score:
+        for idx in range(len(chrom)):
+            tad_score.write("{}\t{}\t{}\t{}\n".format(chrom[idx], chr_start[idx], chr_end[idx], mean_mat_all[idx]))
 
 
 def compute_spectra_matrix(args):
@@ -910,7 +940,7 @@ def main(args=None):
 
     chrom, chr_start, chr_end, matrix = load_spectrum_matrix(args.tadScoreFile)
 
-    min_idx = find_consensus_minima(matrix, lookahead=args.lookahead, delta=args.delta)
+    min_idx = find_consensus_minima(matrix, lookahead=args.lookahead, delta=args.delta, max_threshold=args.maxThreshold)
 
     save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args)
 
