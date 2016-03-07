@@ -610,6 +610,7 @@ class hiCMatrix:
 
     def save_dekker(self, fileName):
         """
+        ""
         Saves the matrix
         """
         if fileName[-3:] != '.gz':
