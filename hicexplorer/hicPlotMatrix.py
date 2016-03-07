@@ -364,4 +364,4 @@ def main():
             plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
                         args, fig_width, cmap)
 
-    plt.savefig(args.outFileName, dpi=args.dpi)
+    plt.savefig(args.outFileName, dpi=args.dpi, bbox_inches=0)
