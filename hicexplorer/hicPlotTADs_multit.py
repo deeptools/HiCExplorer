@@ -78,6 +78,18 @@ fontsize = 10
 # style to plot the genes when they have exon information
 #style = UCSC
 #style = flybase
+# maximum number of gene rows to be plotted. This
+# field is useful to limit large number of close genes
+# to be printed over many rows. When several images want
+# to be combined this must be set to get equal size
+# genes in all images
+#gene rows = 10
+# by default the ymax is the number of
+# rows occupied by the genes in the region plotted. However,
+# by setting this option, the global maximum is used instead.
+# This is useful to combine images that are all consistent and
+# have the same number of rows.
+#global max row = yes
 
 
 [chrom states]
