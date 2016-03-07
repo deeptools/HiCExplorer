@@ -183,9 +183,10 @@ class PlotTracks(object):
         start = self.print_elapsed(start)
         print "saving {}".format(file_name)
 
-        fig.savefig(file_name, dpi=self.dpi)
+        fig.savefig(file_name, dpi=self.dpi, transparent=False)
         print "time saving "
         start = self.print_elapsed(start)
+        return fig.get_size_inches()
 
     def plot_vlines(self, axis_list, chrom_region, start_region, end_region):
         """
@@ -207,7 +208,7 @@ class PlotTracks(object):
             ymin, ymax = axis_list[idx].get_ylim()
 
             axis_list[idx].vlines(vlines_list, ymin, ymax, linestyle='dashed', zorder=10, linewidth=0.5,
-                                  color=(0,0,0,0.5))
+                                  color=(0,0,0,0.7))
 
             #track.plot_vlines(axis_list[idx], vlines_list)
         return
@@ -528,6 +529,10 @@ class PlotBedGraphMatrix(PlotBedGraph):
             ymin = self.properties['min_value']
             self.ax.set_ylim(ymin, ymax)
 
+            # plot horizontal lines to compare values
+            #self.ax.hlines(np.arange(0, 1.1, 0.1), start_region, end_region, linestyle="--",
+            #               zorder=0, color='grey')
+
             # plot vertical lines to identify resolution
             #self.ax.vlines(start_pos, 0, 1, linestyle="--", linewidth=0.02)
         else:
@@ -607,7 +612,6 @@ class PlotBigWig(TrackPlot):
             # Thus I only activate the faster but shifted method for large regions
             # when the previous method would be to slow
             scores = self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)
-            scores = [x['mean'] for x in scores]
             x_values = np.linspace(start_region, end_region, num_bins)
             self.ax.fill_between(x_values, scores, linewidth=0.1,
                                  color=self.properties['color'],
@@ -1045,6 +1049,7 @@ class PlotBed(TrackPlot):
         bed_file_h = readBed.ReadBed(open(self.properties['file'], 'r'))
         self.bed_type = bed_file_h.file_type
         valid_intervals = 0
+        self.max_num_row = {}
         self.interval_tree = {}
         prev = None
         # check for the number of other intervals that overlap
@@ -1075,6 +1080,9 @@ class PlotBed(TrackPlot):
                 if prev.chromosome != bed.chromosome:
                     # init var
                     row_last_position = []
+                    self.max_num_row[bed.chromosome] = 0
+            else:
+                self.max_num_row[bed.chromosome] = 0
 
             # check for overlapping genes including
             # label size (if plotted)
@@ -1082,7 +1090,7 @@ class PlotBed(TrackPlot):
             if self.properties['labels'] == 'on' and bed.end - bed.start < len(bed.name) * self.len_w:
                 bed_extended_end = int(bed.start + (len(bed.name) * self.len_w))
             else:
-                bed_extended_end = (bed.end + 2 * self.len_w)
+                bed_extended_end = (bed.end + 2 * self.small_relative)
 
             # get smallest free row
             if len(row_last_position) == 0:
@@ -1104,7 +1112,10 @@ class PlotBed(TrackPlot):
             self.interval_tree[bed.chromosome].insert_interval(Interval(bed.start, bed.end, value=(bed, free_row)))
             valid_intervals += 1
             prev = bed
-            #print row_last_position, bed.start, bed_extended_end, bed.end, free_row
+            if free_row > self.max_num_row[bed.chromosome]:
+                self.max_num_row[bed.chromosome] = free_row
+
+        print self.max_num_row
 
         if valid_intervals == 0:
             sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file_name']))
@@ -1136,14 +1147,13 @@ class PlotBed(TrackPlot):
                 #scale_factor = 60
 
             ypos = free_row * scale_factor
-            if free_row > self.max_num_row:
-                self.max_num_row = free_row
+            #if free_row > self.max_num_row[bed.chromosome]:
+            #    self.max_num_row = free_row
         return ypos
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
         self.counter = 0
-        self.small_relative = 0.005 * (end_region-start_region)
-        self.max_num_row = 1
+        self.small_relative = 0.002 * (end_region-start_region)
         self.process_bed(ax.get_figure().get_figwidth(), start_region, end_region)
 
         if chrom_region not in self.interval_tree.keys():
@@ -1155,6 +1165,7 @@ class PlotBed(TrackPlot):
         if self.properties['labels'] != 'off' and len(genes_overlap) > 60:
             self.properties['labels'] != 'off'
 
+        max_num_row_local = 1
         for region in genes_overlap:
             """
             BED12 gene format with exon locations at the end
@@ -1189,7 +1200,9 @@ class PlotBed(TrackPlot):
                     pass
 
             ypos = self.get_y_pos(bed, free_row)
-            print "fr{}, {}".format(free_row, bed.name)
+            if free_row > max_num_row_local:
+                max_num_row_local = free_row
+
             if self.bed_type == 'bed12':
                 if self.properties['style'] == 'flybase':
                     self.draw_gene_with_introns_flybase_style(ax, bed, ypos, rgb, edgecolor)
@@ -1212,12 +1225,19 @@ class PlotBed(TrackPlot):
                                        self.properties['section_name'],
                                        chrom_region, start_region, end_region))
 
-        ax.set_ylim((self.max_num_row + 1) * 330, -25)
+        if 'global max row' in self.properties and self.properties['global max row'] == 'yes':
+            ax.set_ylim((self.max_num_row[bed.chromosome] + 1) * 330, -25)
+        elif 'gene rows' in self.properties:
+            ax.set_ylim((int(self.properties['gene rows']) + 1) * 200, -25)
+        else:
+            ax.set_ylim((max_num_row_local + 1) * 330, -25)
 
-        ax.text(start_region, (self.max_num_row + 1) * 330 * 0.5,
+        """
+        ax.text(start_region, (self.max_num_row[bed.chromosome] + 1) * 330 * 0.5,
                      "{}".format(self.properties['title']),
                      horizontalalignment='left', size='small',
                      verticalalignment='bottom')
+        """
 
         if 'display' in self.properties:
             if self.properties['display'] == 'domain':
