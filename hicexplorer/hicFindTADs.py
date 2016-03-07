@@ -764,12 +764,15 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
             count += 1
 
 
-def compute_spectra_matrix(args):
+def compute_spectra_matrix(args, matrix=None):
     if args.maxDepth <= args.minDepth:
         exit("Please check that maxDepth is larger than minDepth.")
 
-    global hic_ma
-    hic_ma = hm.hiCMatrix(args.matrix)
+    #global hic_ma
+    if matrix is not None:
+        hic_ma = matrix
+    else:
+        hic_ma = hm.hiCMatrix(args.matrix)
     # remove self counts
     hic_ma.diagflat(value=0)
     sys.stderr.write('removing diagonal values\n')
@@ -848,7 +851,7 @@ def compute_spectra_matrix(args):
     hic_ma.matrix.eliminate_zeros()
 
     num_processors = args.numberOfProcessors
-    pool = multiprocessing.Pool(num_processors)
+
     func = compute_matrix_wrapper
     TASKS = []
     bins_to_consider = []
@@ -859,6 +862,7 @@ def compute_spectra_matrix(args):
         TASKS.append((idx_array, min_depth_in_bins, max_depth_in_bins, step_in_bins))
 
     if num_processors > 1:
+        pool = multiprocessing.Pool(num_processors)
         sys.stderr.write("Using {} processors\n".format(num_processors))
         res = pool.map_async(func, TASKS).get(9999999)
     else:
