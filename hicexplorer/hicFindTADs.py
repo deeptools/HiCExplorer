@@ -768,7 +768,7 @@ def compute_spectra_matrix(args, matrix=None):
     if args.maxDepth <= args.minDepth:
         exit("Please check that maxDepth is larger than minDepth.")
 
-    #global hic_ma
+    global hic_ma
     if matrix is not None:
         hic_ma = matrix
     else:
