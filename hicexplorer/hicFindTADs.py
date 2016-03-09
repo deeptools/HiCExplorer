@@ -17,6 +17,7 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
+branch : new
 Uses a measure called TAD score to identify the separation between '
 left and right regions for a given position. This is done for a '
 running window of different sizes. Then, TADs are called as those '
@@ -919,8 +920,8 @@ def load_spectrum_matrix(file):
             fields = line.strip().split('\t')
             chrom, start, end = fields[0:3]
             chrom_list.append(chrom)
-            start_list.append(int(start))
-            end_list.append(int(end))
+            start_list.append(int(float(start)))
+            end_list.append(int(float(end)))
             matrix.append(map(float, fields[3:]))
 
     matrix = np.vstack(matrix)
