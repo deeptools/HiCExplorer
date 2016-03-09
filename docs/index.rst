@@ -1,8 +1,8 @@
 HiCExplorer
 ===========
 
-Set of programs to process, analyze and visualize Hi-C data
------------------------------------------------------------
+Set of programs to process, normalize, analyze and visualize Hi-C data
+----------------------------------------------------------------------
 
 HiCexplorer addresses the common tasks of Hi-C analysis from processing to visualization.
 
@@ -18,7 +18,8 @@ Reads mapping
 Mates have to be mapped individually to avoid mapper specific heuristics designed
 for standard paired-end libraries.
 
-We have used the HiCExplorer sucessfuly with `bowtie2` and `hisat2`. And important parameter is
+We have used the HiCExplorer sucessfuly with `bwa`, `bowtie2` and `hisat2`. An important parameter when using
+either `bowtie2`or `hisat2` is
 `--reorder` which tells bowtie2 or hisat2 to ouput the *sam* files in the **exact** same order as
 in the *.fastq* files.
 

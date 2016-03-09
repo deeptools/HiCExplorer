@@ -129,14 +129,16 @@ def plotHeatmap3D(ma, fig, position, args, cmap):
 
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
 
-    axHeat2 = fig.add_axes(position, title=args.title)
+    axHeat2 = fig.add_axes(position)
+    if args.title:
+        axHeat2.set_title(args.title)
     norm = None
     if args.log1p:
         ma += 1
         norm = LogNorm()
 
     img3 = axHeat2.imshow(ma, 
-                          interpolation='nearest',
+#                          interpolation='nearest',
 #                          interpolation='spline16',
                           vmax=args.vMax, vmin=args.vMin, cmap=cmap,
                           norm=norm
@@ -148,7 +150,8 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
     cax = divider.append_axes("right", size="2.5%", pad=0.09)
     cbar = fig.colorbar(img3, cax=cax)
     cbar.solids.set_edgecolor("face") # to avoid white lines in the color bar in pdf plots
-    cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
+    if args.scoreName:
+        cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
 
     if args.region:
         """
@@ -361,4 +364,4 @@ def main():
             plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
                         args, fig_width, cmap)
 
-    plt.savefig(args.outFileName, dpi=args.dpi)
+    plt.savefig(args.outFileName, dpi=args.dpi, bbox_inches=0)
