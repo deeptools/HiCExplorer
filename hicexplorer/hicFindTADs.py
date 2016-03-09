@@ -923,8 +923,8 @@ def load_spectrum_matrix(file):
             fields = line.strip().split('\t')
             chrom, start, end = fields[0:3]
             chrom_list.append(chrom)
-            start_list.append(int(start))
-            end_list.append(int(end))
+            start_list.append(int(float(start)))
+            end_list.append(int(float(end)))
             matrix.append(map(float, fields[3:]))
 
     matrix = np.vstack(matrix)
