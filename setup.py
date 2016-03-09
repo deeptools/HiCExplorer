@@ -125,7 +125,7 @@ setup(
     packages=['hicexplorer'],
     scripts=['bin/findRestSite', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindEnrichedContacts', 'bin/hicFindTADs',
-             'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix',
+             'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicComputeSaturation',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport'],
     include_package_data=True,
     package_data={'': ['config/hicexplorer.cfg']},
