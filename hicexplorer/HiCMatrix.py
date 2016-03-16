@@ -11,7 +11,8 @@ try:
     import pandas as pd
     pandas = True
 except ImportError:
-    print "library 'pandas' unavailable. using numpy."
+    pandas = False
+    
 
 from bx.intervals.intersection import IntervalTree, Interval
 import gzip
