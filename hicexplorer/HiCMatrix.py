@@ -1,15 +1,19 @@
 import numpy as np
 import sys
 from collections import OrderedDict
-from scipy.sparse import csr_matrix, dia_matrix
+from scipy.sparse import csr_matrix, dia_matrix, coo_matrix
 from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 from scipy.sparse import triu, tril
 
-
+## try to import pandas if exists
+try:
+    import pandas as pd
+    pandas = True
+except ImportError:
+    print "library 'pandas' unavailable. using numpy."
 
 from bx.intervals.intersection import IntervalTree, Interval
-
 import gzip
 
 
@@ -20,7 +24,7 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, matrixFile=None, format=None, skiprows=None):
+    def __init__(self, matrixFile=None, format=None, skiprows=None, chrnameList=None):
         self.correction_factors = None # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distanceCounts = None # only defined when getCountsByDistance is called
@@ -83,20 +87,22 @@ class hiCMatrix:
                 row_sum = np.asarray(self.matrix.sum(axis=1)).flatten()
                 self.maskBins(np.flatnonzero(row_sum==0))
                 """
+            elif format == 'lieberman': # lieberman format needs additional arguments : chrnameList
+                lieberman_data = self.getLiebermanBins(filenameList = matrixFile, chrnameList = chrnameList)
+                self.cut_intervals = lieberman_data['cut_intervals']
+                self.matrix = lieberman_data['matrix']
             else:
-                print "matrix format not known."
-                exit()
+                exit("matrix format not known.")
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
 
-            if format == 'lieberman':
-                data = np.loadtxt()
+
     @staticmethod
     def fillLowerTriangle(matrix):
         """
         checks if the matrix is complete or if only half of the matrix was saved.
-        Returns a whole matrix. 
+        Returns a whole matrix.
 
         >>> from scipy.sparse import csr_matrix
         >>> A = csr_matrix(np.array([[12,5,3,2,0],[0,11,4,1,1],
@@ -193,6 +199,50 @@ class hiCMatrix:
             exit(1)
 
         return zip(nameList, startList, endList, binIdList)
+
+    def getLiebermanBins(self, filenameList, chrnameList, pandas = pandas):
+        """
+        Reads a list of txt file in liberman's format and returns
+        cut intervals and matrix. Each file is seperated by chr name
+        and contains: locus1,locus2,and contact score seperated by tab.
+        """
+
+        ## Create empty row, col, value for the matrix
+
+        row = np.array([]).astype("int")
+        col = np.array([]).astype("int")
+        value = np.array([])
+        cut_intervals = []
+        dim = 0
+        ## for each chr, append the row, col, value to the first one. Extend the dim
+        for i in range(0, len(filenameList)):
+            if pandas == True:
+                chrd = pd.read_csv(filenameList[i], sep = "\t", header=None)
+                chrdata = chrd.as_matrix()
+            else:
+                print "Pandas unavailable. Reading files using numpy (slower).."
+                chrdata = np.loadtxt(filenameList[i])
+
+            # define resolution as the median of the difference of the rows
+            # in the data table.
+
+            resolution = np.median(np.diff(np.unique(np.sort(chrdata[:,1]))))
+
+            chrcol = (chrdata[:, 1] / resolution).astype(int)
+            chrrow = (chrdata[:, 0] / resolution).astype(int)
+
+            chrdim = max(max(chrcol), max(chrrow)) + 1
+            row = np.concatenate([row, chrrow + dim])
+            col = np.concatenate([col, chrcol + dim])
+            value = np.concatenate([value, chrdata[:, 2]])
+            dim = dim + chrdim
+
+            for _bin in range(chrdim):
+                cut_intervals.append((chrnameList[i], _bin * resolution, (_bin + 1) * resolution,0))
+
+        final_mat = coo_matrix((value, (row, col)), shape=(dim,dim))
+        lieberman_data = dict(cut_intervals = cut_intervals, matrix = final_mat)
+        return lieberman_data
 
     def getMatrix(self):
         matrix = self.matrix.todense()
@@ -504,7 +554,7 @@ class hiCMatrix:
         for index in xrange(len(distance_unique)):
             distance[distance_unique[index]] = groups[index]
 
-        return distance 
+        return distance
 
     @staticmethod
     def getUnwantedChrs():
@@ -594,7 +644,7 @@ class hiCMatrix:
         try:
             fileh = gzip.open(fileName, 'w')
         except:
-            msg = "{} file can be opened for writing".format(fileName)
+            msg = "{} file can't be opened for writing".format(fileName)
             raise msg
 
         colNames = []
@@ -610,8 +660,7 @@ class hiCMatrix:
 
     def save_dekker(self, fileName):
         """
-        ""
-        Saves the matrix
+        Saves the matrix using dekker format
         """
         if fileName[-3:] != '.gz':
             fileName += '.gz'
@@ -619,13 +668,13 @@ class hiCMatrix:
         try:
             fileh = gzip.open(fileName, 'w')
         except:
-            msg = "{} file can be opened for writting".format(fileName)
+            msg = "{} file can't be opened for writing".format(fileName)
             raise msg
 
         colNames = []
         for x in range(self.matrix.shape[0]):
             chrom, start, end = self.cut_intervals[x][0:3]
-            colNames.append("{}|dm3|{}:{}-{}".format(x, chrom, start, end))
+            colNames.append("{}|dm3|{}:{}-{}".format(x, chrom, start, end)) # adds dm3 to the end (?problem..)
 
         fileh.write("#converted from npz\n")
         fileh.write("\t" + "\t".join(colNames) + "\n")
@@ -634,6 +683,34 @@ class hiCMatrix:
             fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values) ) )
 
         fileh.close()
+
+    def save_lieberman(self, fileName):
+        """
+        Saves the matrix using lieberman format. Given an output directory name and resolution of the matrix.
+        """
+        try:
+            os.mkdir(fileName)
+        except:
+            print "Directory {} exists! Files will be overwritten.".format(fileName)
+
+        lib_mat = self.matrix
+        resolution = self.getBinSize()
+
+        for chrom in self.interval_trees.keys():
+                fileh = gzip.open("{}/chr{}_{}.gz".format(fileName,chr,resolution), 'w')
+                rowNames = []
+                chrstart, chrend = lib_mat.getChrBinRange(chrom)
+                chrwise_mat = lib_mat.matrix[chrstart:chrend, chrstart:chrend]
+                chrwise_mat_coo = triu(chrwise_mat, k=0, format='csr').tocoo()
+                for x in range(chrwise_mat_coo.shape[0]):
+                    start = chrwise_mat_coo.row[x,]*resolution
+                    end = chrwise_mat_coo.col[x,]*resolution
+                    data = chrwise_mat_coo.data[x,]
+                    rowNames.append("{}\t{}\t{}".format(start, end,data))
+
+                fileh.write("#converted from npz")
+                fileh.write("\n" + "\n".join(rowNames) + "\n")
+                fileh.close()
 
     def save(self, filename):
         self.restoreMaskedBins()
