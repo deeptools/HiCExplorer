@@ -12,6 +12,7 @@ HiCExplorer tools
    tools/hicMergeMatrixBins
    tools/hicPlotMatrix
    tools/hicPlotTADs
+   tools/hicPlotDistVsCounts
    tools/hicSumMatrices
    tools/hicExport
    tools/findRestSite
