@@ -295,9 +295,28 @@ Build Tracks File
 ^^^^^^^^^^^^^^^^^
 
 We can plot the TADs for a given chromosomal region. For this we need to
-create a tracks file, which is a file containing instructions to plot.
-`HERE <>`__ are the instructions on how to build the track file. One of
-the example is attached `here <./plots/track_example.txt>`__.
+create a tracks file containing the instructions to build the plot. The
+:doc:`tools/hicPlotTADs` documentation contains the instructions to build the track file.
+A small example of a track file is:
+
+.. code-block:: INI
+
+   [x-axis]
+
+   [hic track]
+   file = hic.npz
+   title = Hi-C
+   colormap = RdYlBu_r
+   depth = 1000000
+   transform = log1p
+
+   [genes]
+   file = genes.bed
+   title = genes
+   color = darkblue
+   width = 5
+   type = genes
+
 
 Plot
 ^^^^
