@@ -17,7 +17,6 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
-branch : new
 Uses a measure called TAD score to identify the separation between '
 left and right regions for a given position. This is done for a '
 running window of different sizes. Then, TADs are called as those '
