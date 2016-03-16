@@ -19,8 +19,9 @@ import shlex
 ## to allow readthedocs to compile without installing some dependencies
 import mock
 
-MOCK_MODULES = ['numpy', 'scipy', 'scipy.sparse', 'scipy.stats',
+MOCK_MODULES = ['numpy', 'scipy', 'scipy.sparse', 'scipy.stats', 'pandas',
                 'matplotlib', 'matplotlib.pyplot', 'matplotlib.gridspec', 'matplotlib.ticker',
+                'matplotlib.textpath', 'matplotlib.patches',
                 'matplotlib.colors', 'matplotlib.cm', 'mpl_toolkits', 'mpl_toolkits.axisartist',
                 'pysam', 'bx', 'bx.intervals', 'bx.intervals.intersection',
                 'Bio', 'Bio.Seq', 'Bio.Alphabet']
