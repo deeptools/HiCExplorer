@@ -699,7 +699,6 @@ def save_bedgraph_matrix(outfile, chrom, chr_start, chr_end, score_matrix):
     :param score_matrix: list of lists
     :return: None
     """
-
     with open(outfile, 'w') as f:
         for idx in range(len(chrom)):
             matrix_values = "\t".join(
@@ -909,7 +908,7 @@ def compute_spectra_matrix(args, matrix=None):
         matrix.append(_matrix)
 
     matrix = np.vstack(matrix)
-    return np.array(chrom), np.array(chr_start), np.array(chr_end), matrix
+    return np.array(chrom), np.array(chr_start).astype(int), np.array(chr_end).astype(int), matrix
 
 
 def load_spectrum_matrix(file):
