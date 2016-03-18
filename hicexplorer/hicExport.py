@@ -73,9 +73,9 @@ def main():
         if (args.chrNameList is None ):
             exit("Error: --chrNameList is required when the input format is lieberman. ")
         else:
-            hic_ma = hm.hiCMatrix(matrixFile= args.inFile, format = 'lieberman',chrnameList = args.chrNameList)
+            hic_ma = hm.hiCMatrix(matrixFile=args.inFile, format = 'lieberman',chrnameList = args.chrNameList)
     else:
-        hic_ma = hm.hiCMatrix(args.inFile, format = 'npz')
+        hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], format = 'npz')
 
     if args.chromosomeOrder:
         hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
