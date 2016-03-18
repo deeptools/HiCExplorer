@@ -23,8 +23,8 @@ def parse_arguments(args=None):
 
     parser.add_argument('--inputFormat',
                         help='file format for input file. \n'
-                             '(options : hicexplorer, lieberman)',
-                        default='hicexplorer')
+                             '(options : npz, lieberman)',
+                        default='npz')
 
     parser.add_argument('--chrNameList',
                         help='list of chromosome names (only if input format is lieberman), eg : 1 2 .',
@@ -75,7 +75,7 @@ def main():
         else:
             hic_ma = hm.hiCMatrix(matrixFile= args.inFile, format = 'lieberman',chrnameList = args.chrNameList)
     else:
-        hic_ma = hm.hiCMatrix(args.inFile, format = args.inputFormat)
+        hic_ma = hm.hiCMatrix(args.inFile, format = 'npz')
 
     if args.chromosomeOrder:
         hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
