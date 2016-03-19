@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+import os
 from collections import OrderedDict
 from scipy.sparse import csr_matrix, dia_matrix, coo_matrix
 from scipy.sparse import vstack as sparse_vstack
@@ -12,7 +13,7 @@ try:
     pandas = True
 except ImportError:
     pandas = False
-    
+
 
 from bx.intervals.intersection import IntervalTree, Interval
 import gzip
@@ -689,16 +690,14 @@ class hiCMatrix:
         """
         Saves the matrix using lieberman format. Given an output directory name and resolution of the matrix.
         """
-        try:
-            os.mkdir(fileName)
-        except:
-            print "Directory {} exists! Files will be overwritten.".format(fileName)
+
+        os.mkdir(fileName)
 
         lib_mat = self.matrix
         resolution = self.getBinSize()
 
         for chrom in self.interval_trees.keys():
-                fileh = gzip.open("{}/chr{}_{}.gz".format(fileName,chr,resolution), 'w')
+                fileh = gzip.open("{}/chr{}_{}.gz".format(fileName,chrom,resolution), 'w')
                 rowNames = []
                 chrstart, chrend = lib_mat.getChrBinRange(chrom)
                 chrwise_mat = lib_mat.matrix[chrstart:chrend, chrstart:chrend]
