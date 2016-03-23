@@ -30,6 +30,8 @@ class hiCMatrix:
         self.correction_factors = None # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distanceCounts = None # only defined when getCountsByDistance is called
+        self.bin_size = None
+        self.bin_size_homogeneous = None # track if the bins are equally spaced or not
 
         if matrixFile:
             self.nan_bins = np.array([])
@@ -146,16 +148,18 @@ class hiCMatrix:
         bin at the en of the chromosomes) a warning is issued.
         In case of uneven bins, the median is returned.
         """
-        chrom, start, end, extra = zip(*self.cut_intervals)
-        median = int(np.median(np.diff(start)))
-        diff = np.array(end) - np.array(start)
-        # check if the bin size is homogeneous
-        if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
-            if self.non_homogeneous_warning_already_printed is False:
-                sys.stderr.write('WARNING: bin size is not homogeneous. Median {}\n'.format(median))
-                self.non_homogeneous_warning_already_printed = True
-#            raise Exception('bin size is not homogeneous')
-        return median
+        if self.bin_size is None:
+            chrom, start, end, extra = zip(*self.cut_intervals)
+            median = int(np.median(np.diff(start)))
+            diff = np.array(end) - np.array(start)
+            # check if the bin size is homogeneous
+            if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
+                self.bin_size_homogeneous = False
+                if self.non_homogeneous_warning_already_printed is False:
+                    sys.stderr.write('WARNING: bin size is not homogeneous. Median {}\n'.format(median))
+                    self.non_homogeneous_warning_already_printed = True
+            self.bin_size = median
+        return self.bin_size
 
     def getDekkerBins(self, fileName):
         """
@@ -640,6 +644,9 @@ class hiCMatrix:
         Saves the matrix using bing ren's
         method which is chrom_name\tstart_bin\tend_bin\tvalues...
         """
+        if os.path.isdir(fileName):
+            exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(fileName))
+
         if fileName[-3:] != '.gz':
             fileName += '.gz'
 
@@ -664,6 +671,9 @@ class hiCMatrix:
         """
         Saves the matrix using dekker format
         """
+        if os.path.isdir(fileName):
+            exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(fileName))
+
         if fileName[-3:] != '.gz':
             fileName += '.gz'
 
@@ -676,9 +686,9 @@ class hiCMatrix:
         colNames = []
         for x in range(self.matrix.shape[0]):
             chrom, start, end = self.cut_intervals[x][0:3]
-            colNames.append("{}|dm3|{}:{}-{}".format(x, chrom, start, end)) # adds dm3 to the end (?problem..)
+            colNames.append("{}|--|{}:{}-{}".format(x, chrom, start, end)) # adds dm3 to the end (?problem..)
 
-        fileh.write("#converted from npz\n")
+        fileh.write("#converted from hicexplorer\n")
         fileh.write("\t" + "\t".join(colNames) + "\n")
         for row in range(self.matrix.shape[0]):
             values = [str(x) for x in self.matrix[row, :].toarray().flatten()]
@@ -689,27 +699,35 @@ class hiCMatrix:
     def save_lieberman(self, fileName):
         """
         Saves the matrix using lieberman format. Given an output directory name and resolution of the matrix.
+
+        In contrast to other methods, when saving using liebermans format a folder is required
+        where the data is saved per chromosome
         """
 
-        os.mkdir(fileName)
+        if os.path.isfile(fileName):
+            exit("a file with the same name as the given path exists ({}). Please choose a folder.".format(fileName))
 
-        lib_mat = self.matrix
+        if not os.path.isdir(fileName):
+            os.mkdir(fileName)
+
         resolution = self.getBinSize()
+        if not self.bin_size_homogeneous:
+            sys.stderr.write("*WARNING* The hic matrix contains bins of difference size but\n"
+                             "the 'lieberman' format requires equally spaced bins. The program\n"
+                             "will proceed but the results may be unreliable.\n")
 
         for chrom in self.interval_trees.keys():
-                fileh = gzip.open("{}/chr{}_{}.gz".format(fileName,chrom,resolution), 'w')
-                rowNames = []
-                chrstart, chrend = lib_mat.getChrBinRange(chrom)
-                chrwise_mat = lib_mat.matrix[chrstart:chrend, chrstart:chrend]
+            chrstart, chrend = self.getChrBinRange(chrom)
+            chrwise_mat = self.matrix[chrstart:chrend, chrstart:chrend]
+            if len(chrwise_mat.data) > 0:
+                sys.stderr.write("Saving chromosome {}...\n".format(chrom))
                 chrwise_mat_coo = triu(chrwise_mat, k=0, format='csr').tocoo()
-                for x in range(chrwise_mat_coo.shape[0]):
-                    start = chrwise_mat_coo.row[x,]*resolution
-                    end = chrwise_mat_coo.col[x,]*resolution
-                    data = chrwise_mat_coo.data[x,]
-                    rowNames.append("{}\t{}\t{}".format(start, end,data))
-
-                fileh.write("#converted from npz")
-                fileh.write("\n" + "\n".join(rowNames) + "\n")
+                start = chrwise_mat_coo.row * resolution
+                end = chrwise_mat_coo.col * resolution
+                fileh = gzip.open("{}/chr{}.gz".format(fileName, chrom), 'w')
+                fileh.write("#converted from HiCExplorer format\n")
+                for idx in range(len(start)):
+                    fileh.write("{}\t{}\t{}\n".format(start[idx], end[idx], chrwise_mat_coo.data[idx]))
                 fileh.close()
 
     def save(self, filename):

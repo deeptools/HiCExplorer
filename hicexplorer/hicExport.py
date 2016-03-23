@@ -32,8 +32,9 @@ def parse_arguments(args=None):
                         )
 
     parser.add_argument('--outFileName', '-o',
-                        help='File name to save the plain text matrix',
-                        type=argparse.FileType('w'),
+                        help='File name to save the plain text matrix. In the case of "lieberman" '
+                             'output format this should be the path of a folder where the information '
+                             'per chromosome is stored.',
                         required=True)
 
     parser.add_argument('--chromosomeOrder',
@@ -52,7 +53,7 @@ def parse_arguments(args=None):
                              'with three columns : contact start, contact end, and raw observed score. '
                              'This corresponds to the RawObserved files from lieberman group. ',
                         default='dekker',
-                        choices=['dekker', 'ren', 'lieberman' , 'hicexplorer'])
+                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
@@ -73,9 +74,9 @@ def main():
         if (args.chrNameList is None ):
             exit("Error: --chrNameList is required when the input format is lieberman. ")
         else:
-            hic_ma = hm.hiCMatrix(matrixFile=args.inFile, format = 'lieberman',chrnameList = args.chrNameList)
+            hic_ma = hm.hiCMatrix(matrixFile=args.inFile, format='lieberman', chrnameList=args.chrNameList)
     else:
-        hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], format = 'npz')
+        hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], format='npz')
 
     if args.chromosomeOrder:
         hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
@@ -84,14 +85,12 @@ def main():
         hic_ma.maskBins(hic_ma.nan_bins)
 
     sys.stderr.write('saving...\n')
-    matrix_name = args.outFileName.name
-    args.outFileName.close()
 
     if args.outputFormat == 'dekker':
-        hic_ma.save_dekker(matrix_name)
+        hic_ma.save_dekker(args.outFileName)
     elif args.outputFormat == 'ren':
-        hic_ma.save_bing_ren(matrix_name)
+        hic_ma.save_bing_ren(args.outFileName)
     elif args.outputFormat == 'lieberman':
-        hic_ma.save_lieberman(matrix_name)
+        hic_ma.save_lieberman(args.outFileName)
     else:
-        hic_ma.save(matrix_name)
+        hic_ma.save(args.outFileName)
