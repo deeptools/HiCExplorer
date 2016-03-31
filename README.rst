@@ -1,3 +1,6 @@
+.. image:: https://zenodo.org/badge/21196/maxplanck-ie/HiCExplorer.svg
+   :target: https://zenodo.org/badge/latestdoi/21196/maxplanck-ie/HiCExplorer
+
 HiCExplorer
 ===========
 
