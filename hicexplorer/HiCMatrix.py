@@ -844,6 +844,10 @@ class hiCMatrix:
     def reorderChromosomes(self, new_chr_order):
         new_order = []
         for chrName in new_chr_order:
+            # check that the chromosome names are valid
+            if chrName not in self.chrBinBoundaries:
+                exit("Chromosome name '{}' not found. Please check the correct spelling "
+                     "of the chromosomes and try again".format(chrName))
             orig = self.chrBinBoundaries[chrName]
             new_order.extend(range(orig[0], orig[1]))
         self.reorderBins(new_order)
