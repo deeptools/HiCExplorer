@@ -611,12 +611,11 @@ class PlotBigWig(TrackPlot):
             # this method produces shifted regions. It is not clear to me why this happens.
             # Thus I only activate the faster but shifted method for large regions
             # when the previous method would be to slow
-            scores = self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)
+            scores = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
             x_values = np.linspace(start_region, end_region, num_bins)
             self.ax.fill_between(x_values, scores, linewidth=0.1,
                                  color=self.properties['color'],
                                  facecolor=self.properties['color'], zorder=1)
-
         self.ax.set_xlim(start_region, end_region)
         ymin, ymax = self.ax.get_ylim()
         if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
