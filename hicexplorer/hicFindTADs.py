@@ -249,6 +249,9 @@ def get_coverage_norm(matrix, cut, depth):
     inter_edges = get_cut_weight(matrix, cut, depth)
     edges_left = matrix[start:cut, :][:, start:cut].sum()
     edges_right = matrix[cut:end, :][:, cut:end].sum()
+    if sum([edges_left, edges_right]) == 0:
+        return np.nan
+
     return float(inter_edges) / sum([edges_left, edges_right])
 
 def get_coverage(matrix, cut, depth):
@@ -309,22 +312,18 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2, outfi
     global hic_ma
     positions_array = []
     cond_matrix = []
-    chrom, start, end, __ = hic_ma.cut_intervals[0]
     for cut in bins_list:
-
 
         chrom, chr_start, chr_end, _ = hic_ma.cut_intervals[cut]
 
         # get conductance
         # for multiple window lengths at a time
         incremental_step = get_incremental_step_size(min_win_size, max_win_size, step_len)
-        mult_matrix = [get_coverage_norm(hic_ma.matrix, cut, x) for x in incremental_step]
+        mult_matrix = [get_coverage_norm(hic_ma.matrix, cut, depth) for depth in incremental_step]
         #mult_matrix = [get_coverage(hic_ma.matrix, cut, x) for x in incremental_step]
-
-        """
-        mult_matrix = [get_coverage(hic_ma.matrix, cut, x)
-                       for x in range(min_win_size, max_win_size, step_len)]
-        """
+        if np.any(np.isnan(mult_matrix)):
+            # skip problematic cases
+            continue
 
         cond_matrix.append(mult_matrix)
 
@@ -336,7 +335,7 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2, outfi
     return chrom, chr_start, chr_end, cond_matrix
 
 
-def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
+def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0, chrom=None):
     """
     Based on the MATLAB script at:
     http://billauer.co.il/peakdet.html
@@ -367,15 +366,14 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
     """
     max_peaks = []
     min_peaks = []
-    dump = []   #Used to pop the first hit which almost always is false
+    dump = []   # Used to pop the first hit which almost always is false
 
     # check input data
     if x_axis is None:
         x_axis = np.arange(len(y_axis))
 
     if len(y_axis) != len(x_axis):
-        raise (ValueError,
-                'Input vectors y_axis and x_axis must have same length')
+        raise (ValueError, 'Input vectors y_axis and x_axis must have same length')
 
     # store data length for later use
     length = len(y_axis)
@@ -387,13 +385,24 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
         raise ValueError, "delta must be a positive number"
 
     # maximum and minimum candidates are temporarily stored in
-    # mx and mn respectively
+    # min_x and min_y respectively
     min_y, max_y = np.Inf, -np.Inf
     max_pos, min_pos = None, None
     search_for = None
     # Only detect peak if there is 'lookahead' amount of points after it
-    for index, (x, y) in enumerate(zip(x_axis[:-lookahead],
-                                       y_axis[:-lookahead])):
+    prev_chrom = None
+    for index, (x, y) in enumerate(zip(x_axis[:-lookahead],  y_axis[:-lookahead])):
+        assert -np.inf < y < np.inf, "Error, infinity value detected for value at position {}".format(index)
+        if prev_chrom is None:
+            prev_chrom = chrom[index]
+        if prev_chrom != chrom[index]:
+            # reset variables at the start of a chromosome
+            min_y, max_y = np.Inf, -np.Inf
+            max_pos, min_pos = None, None
+            search_for = None
+
+        prev_chrom = chrom[index]
+
         if y > max_y:
             max_y = y
             max_pos = x
@@ -411,10 +420,11 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
                 # set algorithm to only find minimum now
                 max_y = y
                 min_y = y
+                min_pos = x
                 search_for = 'min'
-                if index + lookahead >= length:
-                    # end is within lookahead no more peaks can be found
-                    break
+                #if index + lookahead >= length:
+                #    # end is within lookahead no more peaks can be found
+                #    break
                 continue
 
         # look for min
@@ -427,10 +437,11 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
                 # set algorithm to only find maximum now
                 min_y = y
                 max_y = y
+                max_pos = x
                 search_for = 'max'
-                if index + lookahead >= length:
-                    # end is within lookahead no more peaks can be found
-                    break
+                #if index + lookahead >= length:
+                #    # end is within lookahead no more peaks can be found
+                #    break
 
     # Remove the false hit on the first value of the y_axis
     try:
@@ -446,7 +457,7 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0):
     return [max_peaks, min_peaks]
 
 
-def find_consensus_minima(matrix, lookahead=3, delta=0, max_threshold=0.3):
+def find_consensus_minima(matrix, lookahead=3, delta=0, max_threshold=0.3, chrom=None):
     """
     Finds the minimum over the average values per column
     :param matrix:
@@ -459,7 +470,7 @@ def find_consensus_minima(matrix, lookahead=3, delta=0, max_threshold=0.3):
     # represents the conductance at each genomic
     # position
 
-    _max, _min= peakdetect(matrix.mean(axis=1), lookahead=lookahead, delta=delta)
+    _max, _min= peakdetect(matrix.mean(axis=1), lookahead=lookahead, delta=delta, chrom=chrom)
     # filter all mimimum that are over a value of max_threshold
     min_indices = [idx for idx, value in _min if value <= max_threshold]
     return np.unique(min_indices)
@@ -724,52 +735,46 @@ def save_clusters(clusters, file_prefix):
 
 def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args):
 
+    # a boundary is added to the start and end of each chromosome
+    # np.unique return index is used to quickly get
+    # the indices at which the chrom changes
+    unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
+    # the trick to get the start positions using np.unique only works when
+    # more than one chromosome is present
+    if len(unique_chroms) == 1:
+        chr_start_idx = [0]
+        chr_end_idx = [len(chrom) - 1]
+    else:
+        chr_end_idx = chr_start_idx
+        # the indices for the end of the chromosomes
+        # are the the start indices - 1, with the exeception
+        # of the idx == 0 that is transformed into the length
+        # of the chromosome to get the idx for the end of the
+        # last chromosome
+        chr_end_idx[chr_end_idx == 0] = len(chrom)
+        chr_end_idx -= 1
 
-    prev_chrom = chrom[0]
-    chrom_sizes = {}
-    chr_bin_range = []
-    for idx, chr_name in enumerate(chrom):
-        if prev_chrom != chr_name:
-            chrom_sizes[prev_chrom] = chr_end[idx-1]
-            chr_bin_range.append(idx)
-        prev_chrom = chr_name
+    # put all indices together and sort
+    min_idx = np.sort(np.concatenate([chr_start_idx, chr_end_idx, min_idx]))
 
-    chrom_sizes[chr_name] = chr_end[idx]
-    chr_bin_range.append(idx)
-
-    new_min_idx = [0]
-    for idx in min_idx:
-        # for each chromosome, add position 0 and end position as boundaries
-        # 'chr_bin_range'contains the indices values where the chromosome name changes in the list
-
-        if len(chr_bin_range) and idx > chr_bin_range[0]:
-            new_min_idx.append(chr_bin_range[0] - 1)
-            new_min_idx.append(chr_bin_range[0])
-            chr_bin_range = chr_bin_range[1:]
-        new_min_idx.append(idx)
-
-    new_min_idx.append(len(chr_start - 1))
-
-    # get min_idx per chromosome
-    chrom_boundary = chrom[min_idx]
-    boundaries = np.array([chr_start[idx] for idx in min_idx])
+    chrom_of_boundary = chrom[min_idx]
+    boundaries_start_bp = np.array([chr_start[idx] for idx in min_idx])
     mean_mat_all = matrix.mean(axis=1)
     mean_mat = mean_mat_all[min_idx]
-    count = 0
+    count = 1
     with open(args.outPrefix + '_boundaries.bed', 'w') as file_boundaries, open(args.outPrefix + '_domains.bed', 'w') as file_domains:
-        for idx in range(len(boundaries)):
-            # save boundaries at 1bp position
-            file_boundaries.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_boundary[idx], boundaries[idx],
-                                                                    boundaries[idx] + 1,
+        for idx in range(len(boundaries_start_bp)):
+            # 1. save boundaries at 1bp position
+            file_boundaries.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx], boundaries_start_bp[idx],
+                                                                    boundaries_start_bp[idx] + 1,
                                                                     mean_mat[idx]))
-
-            start = boundaries[idx]
-            if start == chrom_sizes[chrom[idx]]:
+            # skip if the start of the boundary
+            # is the end of the chromosome
+            if min_idx[idx] in chr_end_idx:
                 continue
-            if idx + 1 == len(boundaries) or boundaries[idx + 1] < start:
-                end = chrom_sizes[chrom_boundary[idx]]
-            else:
-                end = boundaries[idx + 1]
+
+            start = boundaries_start_bp[idx]
+            end = boundaries_start_bp[idx + 1]
 
             # 2. save domain intervals
             if count % 2 == 0:
@@ -778,10 +783,10 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
                 rgb = '31,120,180'
 
             file_domains.write("{0}\t{1}\t{2}\tID_{3}\t{4}\t."
-                        "\t{1}\t{2}\t{5}\n".format(chrom_boundary[idx],
+                        "\t{1}\t{2}\t{5}\n".format(chrom_of_boundary[idx],
                                                    start,
                                                    end,
-                                                   min_idx[idx],
+                                                   count,
                                                    mean_mat[idx],
                                                    rgb))
 
@@ -861,7 +866,7 @@ def compute_spectra_matrix(args, matrix=None):
                                                                    binsize * max_depth_in_bins,
                                                                    step_in_bins, incremental_step))
     if min_depth_in_bins <= 1:
-        sys.stderr.write('ERROR\nminDepth length too small. Use a value that is at least'
+        sys.stderr.write('ERROR\nminDepth length too small. Use a value that is at least '
                          'twice as large as the bin size which is: {}\n'.format(binsize))
         exit()
 
@@ -943,7 +948,8 @@ def main(args=None):
 
     chrom, chr_start, chr_end, matrix = load_spectrum_matrix(args.tadScoreFile)
 
-    min_idx = find_consensus_minima(matrix, lookahead=args.lookahead, delta=args.delta, max_threshold=args.maxThreshold)
+    min_idx = find_consensus_minima(matrix, lookahead=args.lookahead, delta=args.delta,
+                                    max_threshold=args.maxThreshold, chrom=chrom)
 
     save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args)
 
