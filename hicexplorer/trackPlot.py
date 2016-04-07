@@ -1162,7 +1162,7 @@ class PlotBed(TrackPlot):
 
         # turn labels off when too many intervals are visible.
         if self.properties['labels'] != 'off' and len(genes_overlap) > 60:
-            self.properties['labels'] != 'off'
+            self.properties['labels'] = 'off'
 
         max_num_row_local = 1
         for region in genes_overlap:
