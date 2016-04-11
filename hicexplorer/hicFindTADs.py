@@ -738,16 +738,21 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
     # a boundary is added to the start and end of each chromosome
     # np.unique return index is used to quickly get
     # the indices at which the chrom changes
-    _, chr_start_idx = np.unique(chrom, return_index=True)
-    chr_end_idx = chr_start_idx
-
-    # the indices for the end of the chromosomes
-    # are the the start indices - 1, with the exeception
-    # of the idx == 0 that is transformed into the length
-    # of the chromosome to get the idx for the end of the
-    # last chromosome
-    chr_end_idx[chr_end_idx == 0] = len(chrom)
-    chr_end_idx -= 1
+    unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
+    # the trick to get the start positions using np.unique only works when
+    # more than one chromosome is present
+    if len(unique_chroms) == 1:
+        chr_start_idx = [0]
+        chr_end_idx = [len(chrom) - 1]
+    else:
+        chr_end_idx = chr_start_idx
+        # the indices for the end of the chromosomes
+        # are the the start indices - 1, with the exeception
+        # of the idx == 0 that is transformed into the length
+        # of the chromosome to get the idx for the end of the
+        # last chromosome
+        chr_end_idx[chr_end_idx == 0] = len(chrom)
+        chr_end_idx -= 1
 
     # put all indices together and sort
     min_idx = np.sort(np.concatenate([chr_start_idx, chr_end_idx, min_idx]))
