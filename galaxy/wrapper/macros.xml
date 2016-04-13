@@ -11,13 +11,10 @@
     </xml>
 
     <token name="@THREADS@">--numberOfProcessors "\${GALAXY_SLOTS:-4}"</token>
-    <token name="@WRAPPER_VERSION@">1.0</token>
+    <token name="@WRAPPER_VERSION@">0.1</token>
     <xml name="requirements">
         <requirements>
-            <requirement type="package" version="2.7">python</requirement>
-            <requirement type="binary">@BINARY@</requirement>
-            <requirement type="package" >hicexplorer</requirement>
-            <requirement type="package" version="1.5.10">hicexplorer</requirement>
+            <requirement type="package" version="0.1">hicexplorer</requirement>
             <yield />
         </requirements>
         <expand macro="stdio" />
