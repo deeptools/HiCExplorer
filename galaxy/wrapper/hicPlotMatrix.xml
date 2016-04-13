@@ -9,61 +9,61 @@
 <![CDATA[
         ln -s $matrix input_matrix.npz &&
 
-        hicPlotMatrix 
-        #if $matrix and $matrix is not None:
-            --matrix input_matrix.npz
-        #end if
+        hicPlotMatrix
+            #if $matrix and $matrix is not None:
+                --matrix input_matrix.npz
+            #end if
 
-        #if $title and $title is not None:
-            --title $title
-        #end if
+            #if $title and $title is not None:
+                --title $title
+            #end if
 
-        #if $scoreName and $scoreName is not None:
-            --scoreName $scoreName
-        #end if
+            #if $scoreName and $scoreName is not None:
+                --scoreName $scoreName
+            #end if
 
-        #if $outFileName and $outFileName is not None:
-            --outFileName plot.png
-        #end if
+            #if $outFileName and $outFileName is not None:
+                --outFileName plot.png
+            #end if
 
-        $perChromosome
-        $clearMaskedBins
-
-
-        --whatToShow $whatToShow.whatToShow_select
+            $perChromosome
+            $clearMaskedBins
 
 
-        ## special: --chromosomeOrder is optional, but if given needs at least one argument
-        #set chroms = '" "'.join([ str($var.chromosome) for $var in $chromosomeOrder ])
-        #if chroms
-            --chromosomeOrder "$chroms"
-        #end if
+            --whatToShow $whatToShow.whatToShow_select
 
-        #if $region and $region is not None:
-            --region $region
-        #end if
 
-        #if $region2 and $region2 is not None:
-            --region2 $region2
-        #end if
-        $log1p
-        $log
+            ## special: --chromosomeOrder is optional, but if given needs at least one argument
+            #set chroms = '" "'.join([ str($var.chromosome) for $var in $chromosomeOrder ])
+            #if chroms
+                --chromosomeOrder "$chroms"
+            #end if
 
-        #if $colorMap and $colorMap is not None:
-            --colorMap $colorMap
-        #end if
+            #if $region and $region is not None:
+                --region $region
+            #end if
 
-        #if $vMin and $vMin is not None:
-            --vMin $vMin
-        #end if
+            #if $region2 and $region2 is not None:
+                --region2 $region2
+            #end if
+            $log1p
+            $log
 
-        #if $vMax and $vMax is not None:
-            --vMax $vMax
-        #end if
+            #if $colorMap and $colorMap is not None:
+                --colorMap $colorMap
+            #end if
 
-        #if $whatToShow.whatToShow_select != 'heatmap':
-            --zMax $zMax
-        #end if
+            #if $vMin and $vMin is not None:
+                --vMin $vMin
+            #end if
+
+            #if $vMax and $vMax is not None:
+                --vMax $vMax
+            #end if
+
+            #if $whatToShow.whatToShow_select != 'heatmap':
+                --zMax $zMax
+            #end if
 
 ]]>
     </command>
@@ -71,8 +71,11 @@
         <param argument="--matrix" name="matrix" type="data" format="hic_matrix" label="Hi-C matrix to plot"/>
         <param argument="--title" name="title" type="text" optional="true" label="Plot title"/>
         <param argument="--scoreName" name="scoreName" type="text" optional="true" label="Score name"/>
-        <param argument="--perChromosome" name="perChromosome" type="boolean" truevalue="--perChromosome" falsevalue="" checked="false" label="Plot per chromosome" help="Instead of plotting the whole matrix each chromosome is plotted next to the other. This parameter is not compatible with --region" />
-        <param argument="--clearMaskedBins" name="clearMaskedBins" type="boolean" truevalue="--clearMaskedBins" falsevalue="" checked="false" label="Remove masked bins from the matrix"  />
+        <param argument="--perChromosome" name="perChromosome" type="boolean" truevalue="--perChromosome" falsevalue="" checked="false"
+            label="Plot per chromosome"
+            help="Instead of plotting the whole matrix each chromosome is plotted next to the other. This parameter is not compatible with --region" />
+        <param argument="--clearMaskedBins" name="clearMaskedBins" type="boolean" truevalue="--clearMaskedBins" falsevalue="" checked="false"
+            label="Remove masked bins from the matrix"  />
 
         <conditional name="whatToShow">
             <param argument="--whatToShow" name="whatToShow_select" type="select" label="Show heatmap/3D">
@@ -89,10 +92,10 @@
             <when value="heatmap"/>
         </conditional>
 
-
         <repeat argument="--chromosomeOrder" name="chromosomeOrder" optional="true" min="1" title="Chromosomes to include (and order to plot in):" help="This option overrides --region and --region2">
             <param name="chromosome" type="text" />
         </repeat>
+
         <param argument="--region" name="region" type="text" label="Plot only this region." help="The format is chr:start-end The plotted region contains the main diagonal and is symmetric unless  --region2 is given"/>
         <param argument="--region2" name="region2" type="text" label="If given then only the region defined by --region and --region2 is given. The format is the same as --region1"/>
         <param argument="--log1p" name="log1p" type="boolean" truevalue="--log1p" falsevalue="" checked="false" label="Plot the log1p of the matrix values."/>
