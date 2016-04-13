@@ -6,20 +6,20 @@
     </macros>
     <expand macro="requirements" />
     <command><![CDATA[
-    ln -s $matrix matrix.npz;
+        ln -s $matrix matrix.npz &&
 
-    hicFindTADs
-         --matrix matrix.npz
+        hicFindTADs
+             --matrix matrix.npz
 
-        #if $depth and $depth is not None:
-            --depth $depth
-        #end if
+            #if $depth and $depth is not None:
+                --depth $depth
+            #end if
 
-        #if $threshold and $threshold is not None:
-            --threshold $threshold
-        #end if
+            #if $threshold and $threshold is not None:
+                --threshold $threshold
+            #end if
 
-        --outFileName $outFileName
+            --outFileName $outFileName
 
     ]]></command>
     <inputs>
