@@ -1,5 +1,8 @@
-.. image:: https://zenodo.org/badge/21196/maxplanck-ie/HiCExplorer.svg
+.. image:: https://zenodo.org/badge/21196/maxplanck-ie/HiCExplorer.svg  
    :target: https://zenodo.org/badge/latestdoi/21196/maxplanck-ie/HiCExplorer
+
+.. image:: https://anaconda.org/bioconda/hicexplorer/badges/installer/conda.svg
+   :target: https://anaconda.org/bioconda/hicexplorer
 
 HiCExplorer
 ===========
