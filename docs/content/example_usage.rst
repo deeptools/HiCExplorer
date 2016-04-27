@@ -79,7 +79,7 @@ diagnostic plot as follows:
 
 The plot should look like this:
 
-.. figure:: ./images/diagnostic_plot.png
+.. figure:: ../images/diagnostic_plot.png
     :scale: 70 %
     :align: center
 
@@ -117,7 +117,7 @@ plot the counts using the `--log1p` option.
 
 
 
-.. figure:: ./images/corrected_matrix_example.png
+.. figure:: ../images/corrected_matrix_example.png
     :scale: 90 %
     :align: center
 
