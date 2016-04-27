@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-from hicexplorer.hicPlotTADs_multit import main
+from hicexplorer.hicPlotTADs import main
 
 if __name__ == "__main__":
     main()
-
