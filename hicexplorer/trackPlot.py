@@ -644,7 +644,7 @@ class PlotBigWig(TrackPlot):
             # by default show the data range
             self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
                          "[{}-{}] {}".format(int(ymin), ymax_print, self.properties['title']),
-                         horizontalalignment='left', size='small',
+                         horizontalalignment='left',
                          verticalalignment='bottom')
 
         """
@@ -775,6 +775,11 @@ class PlotHiCMatrix(TrackPlot):
                 mask = matrix == 0
                 matrix[mask] = matrix[mask == False].min()
                 matrix = -1 * np.log(matrix)
+
+            elif self.properties['transform'] == 'log':
+                mask = matrix == 0
+                matrix[mask] = matrix[mask == False].min()
+                matrix = np.log(matrix)
 
         if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
             vmax = self.properties['max_value']
