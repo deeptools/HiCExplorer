@@ -793,7 +793,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
             count += 1
 
     # save track with mean values in bedgraph format
-    with open(args.outPrefix + '_score.bg', 'w') as tad_score:
+    with open(args.outPrefix + '_score.bedgraph', 'w') as tad_score:
         for idx in range(len(chrom)):
             tad_score.write("{}\t{}\t{}\t{}\n".format(chrom[idx], chr_start[idx], chr_end[idx], mean_mat_all[idx]))
 
