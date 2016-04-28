@@ -27,9 +27,9 @@ class hiCMatrix:
     """
 
     def __init__(self, matrixFile=None, format=None, skiprows=None, chrnameList=None):
-        self.correction_factors = None # this value is set in case a matrix was iteratively corrected
+        self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
-        self.distanceCounts = None # only defined when getCountsByDistance is called
+        self.distance_counts = None  # only defined when getCountsByDistance is called
         self.bin_size = None
         self.bin_size_homogeneous = None # track if the bins are equally spaced or not
 
@@ -122,8 +122,8 @@ class hiCMatrix:
         """
         if tril(matrix, k=-1).sum() == 0:
             # this case means that the lower triangle of the
-            # symetric matrix (below the main diagonal)
-            # is cero. In this case, replace the lower
+            # symmetric matrix (below the main diagonal)
+            # is zero. In this case, replace the lower
             # triangle using the upper triangle
             matrix = matrix + triu(matrix, 1).T
 
@@ -388,6 +388,143 @@ class hiCMatrix:
 
         return dist_list, chrom_list
 
+    @staticmethod
+    def fit_cut_intervals(cut_intervals):
+        # check that the matrix has bins of same size
+        # otherwise try to adjust the bins to
+        # to match a regular binning
+        chrom, start, end, extra = zip(*cut_intervals)
+
+        median = int(np.median(np.diff(start)))
+        diff = np.array(end) - np.array(start)
+        # check if the bin size is homogeneous
+        if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
+            # set the start position of a bin to the closest multiple
+            # of the median
+            def snap_nearest_multiple(start_x, m):
+                resi = [-1*(start_x % m), -start_x % m]
+                return start_x + resi[np.argmin(np.abs(resi))]
+            start = [snap_nearest_multiple(x, median) for x in start]
+            end = [snap_nearest_multiple(x, median) for x in end]
+            cut_intervals = zip(chrom, start, end, extra)
+            sys.stderr.write('[getCountsByDistance] Bin size is not '
+                             'homogeneous, setting \n'
+                             'the bin distance to the median: {}\n'.format(median))
+        return cut_intervals
+
+    def convert_to_obs_exp_matrix(self, maxdepth=None):
+        """
+        Converts a corrected counts matrix into a
+        obs / expected matrix
+
+        :param maxdepth:
+        :return: observer / expected sparse matrix
+
+        from scipy.sparse import csr_matrix, dia_matrix
+        >>> row, col = np.triu_indices(5)
+        >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
+        ... ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
+        >>> hic = hiCMatrix()
+        >>> hic.nan_bins = []
+        >>> matrix = np.array([
+        ... [ 1,  8,  5, 3, 0],
+        ... [ 0,  4, 15, 5, 1],
+        ... [ 0,  0,  0, 7, 2],
+        ... [ 0,  0,  0, 0, 1],
+        ... [ 0,  0,  0, 0, 0]])
+
+        >>> hic.matrix = csr_matrix(matrix)
+        >>> hic.setMatrix(hic.matrix, cut_intervals)
+        >>> hic.convert_to_obs_exp_matrix().todense()
+        matrix([[ 1. ,  0.8,  1. ,  1. ,  0. ],
+                [ 0. ,  4. ,  1.5,  1. ,  1. ],
+                [ 0. ,  0. ,  0. ,  0.7,  2. ],
+                [ 0. ,  0. ,  0. ,  0. ,  1. ],
+                [ 0. ,  0. ,  0. ,  0. ,  0. ]])
+
+        >>> hic.convert_to_obs_exp_matrix(maxdepth=20).todense()
+        matrix([[ 1. ,  0.8,  0. ,  0. ,  0. ],
+                [ 0. ,  4. ,  1.5,  0. ,  0. ],
+                [ 0. ,  0. ,  0. ,  0.7,  0. ],
+                [ 0. ,  0. ,  0. ,  0. ,  nan],
+                [ 0. ,  0. ,  0. ,  0. ,  0. ]])
+        """
+
+        binsize = self.getBinSize()
+        if maxdepth:
+            if maxdepth < binsize:
+                exit("Please specify a maxDepth larger than bin size ({})".format(binsize))
+
+            max_depth_in_bins = int(maxdepth / binsize)
+            # work only with the upper matrix
+            # and remove all pixels that are beyond
+            # max_depth_in_bis
+            # (this is done by subtracting a second sparse matrix
+            # that contains only the upper matrix that wants to be removed.
+            self.matrix = triu(self.matrix, k=0, format='csr') - \
+                            triu(self.matrix, k=max_depth_in_bins, format='csr')
+        else:
+            self.matrix = triu(self.matrix, k=0, format='csr')
+
+        self.matrix.eliminate_zeros()
+        self.matrix = self.matrix.tocoo()
+        dist_list, chrom_list = self.getDistList(self.matrix.row, self.matrix.col,
+                                                 hiCMatrix.fit_cut_intervals(self.cut_intervals))
+
+        # to get the sum of all values at a given distance I use np.bincount which
+        # is quite fast. However, the input of bincount is positive integers. Moreover
+        # it returns the sum for every consecutive integer, even if this is not on the list.
+        # Thus, dist_list is converted to a list of positive consecutive integers by
+        # transforming -1 values (which represent inter-chromosomal contacts to -binsize)
+        # and then dividing by binsize and adding 1
+        dist_list[dist_list == -1] = -binsize
+        dist_list = (dist_list / binsize).astype(int) + 1
+        sum_counts = np.bincount(dist_list, weights=self.matrix.data)
+        # compute the average for each distance
+        mat_size = self.matrix.shape[0]
+        mu = {}
+        chrom_sizes = np.array([v[1]-v[0] for k, v in self.chrBinBoundaries.iteritems()])
+        for idx, sum_value in enumerate(sum_counts):
+            if idx == 0:
+                if maxdepth:
+                    # when max depth is set, the computation
+                    # of the total_intra is not accurate and is safer to
+                    # output np.nan
+                    mu[idx] = np.nan
+                else:
+                    # total intra-chromosomal interactions
+                    total_intra = mat_size ** 2 - sum([size ** 2 for size in chrom_sizes])
+                    mu[idx] = sum_value / (total_intra / 2 )
+                continue
+            # to compute the average counts per distance we take the sum_counts and divide
+            # by the number of values on the respective diagonal
+            # which is equal to the size of each chromosome - the diagonal offset (for those
+            # chromosome larger than the offset)
+            # In the following example with two chromosomes
+            # the first (main) diagonal has a size equal to the matrix (6),
+            # while the next has 1 value less for each chromosome (4) and the last one has only w values
+
+            # 0 1 2 . . .
+            # - 0 1 . . .
+            # - - 0 . . .
+            # . . . 0 1 2
+            # . . . - 0 1
+            # . . . - - 0
+
+            # idx - 1 because earlier the values where
+            # shifted.
+            diagonal_length = sum([size - (idx - 1) for size in chrom_sizes if size > (idx - 1)])
+            mu[idx] = sum_value / diagonal_length
+            if np.isnan(sum_value):
+                sys.stderr.write("nan value found for distande {}\n".format((idx-1) * binsize))
+        # use the expected values to compute obs/exp
+        transf_ma = np.zeros(len(self.matrix.data))
+        for idx, value in enumerate(self.matrix.data):
+            transf_ma[idx] = value / mu[dist_list[idx]]
+
+        self.matrix.data = transf_ma
+        return self.matrix
+
     def getCountsByDistance(self, mean=False, per_chr=False):
         """
         computes counts for each intrachromosomal distance.
@@ -418,14 +555,14 @@ class hiCMatrix:
 20: array([5, 5]), 30: array([3]), -1: array([0, 1, 3, 1])}
 
         Test get distance counts per chromosome
-        >>> del hic.distanceCounts
+        >>> hic.distance_counts = None
         >>> hic.getCountsByDistance(per_chr=True)
         {'a': {0: array([0, 0, 0, 0]), 10: array([10, 15,  7]), \
 20: array([5, 5]), 30: array([3])}, 'b': {0: array([0])}}
 
         Test the removal of masked bins
         >>> hic.nan_bins = [3]
-        >>> del hic.distanceCounts
+        >>> hic.distance_counts = None
         >>> hic.getCountsByDistance()
         {0: array([0, 0, 0, 0]), 10: array([10, 15]), 20: array([5]), \
 -1: array([0, 1, 3])}
@@ -443,29 +580,9 @@ class hiCMatrix:
         """
 
         if self.distance_counts:
-            return self.distanceCounts
+            return self.distance_counts
 
-        # check that the matrix has bins of same size
-        # otherwise the computations will fail
-        chrom, start, end, extra = zip(*self.cut_intervals)
-        median = int(np.median(np.diff(start)))
-        diff = np.array(end) - np.array(start)
-        # check if the bin size is homogeneous
-        if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
-            # set the start position of a bin to the closest multiple
-            # of the median
-            def snap_nearest_multiple(start_x, m):
-                resi = [-1*(start_x % m), -start_x % m]
-                return start_x + resi[np.argmin(np.abs(resi))]
-            start = [snap_nearest_multiple(x, median) for x in start]
-            end = [snap_nearest_multiple(x, median) for x in end]
-            cut_intervals = zip(chrom, start, end, extra)
-            sys.stderr.write('[getCountsByDiscance] Bin size is not '
-                             'homogeneous, setting \n'
-                             'the bin distance to the median: {}\n'.format(median))
-
-        else:
-            cut_intervals = self.cut_intervals
+        cut_intervals = hiCMatrix.fit_cut_intervals(self.cut_intervals)
 
         M, N = self.matrix.shape
         # get the row and col indices of the upper triangle
@@ -516,7 +633,7 @@ class hiCMatrix:
                                                                  _chr_dist_list)
         else:
             distance = hiCMatrix.dist_list_to_dict(data, dist_list)
-        self.distanceCounts = distance
+        self.distance_counts = distance
         if mean:
             return [np.mean(distance[x]) for x in range(len(distance.keys()))]
         else:
@@ -632,7 +749,7 @@ class hiCMatrix:
             self.intervalListToIntervalTree(self.cut_intervals)
         # remove distanceCounts
         try:
-            del(self.distanceCounts)
+            del(self.distance_counts)
         except AttributeError:
             pass
         self.matrix = mat
