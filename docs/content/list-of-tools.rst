@@ -1,21 +1,8 @@
 HiCExplorer tools
 =================
 
-.. toctree::
-   :maxdepth: 1
-
-   tools/hicBuildMatrix
-   tools/hicCorrectMatrix
-   tools/hicFindEnrichedContacts
-   tools/hicCorrelate
-   tools/hicFindTADs
-   tools/hicMergeMatrixBins
-   tools/hicPlotMatrix
-   tools/hicPlotTADs
-   tools/hicPlotDistVsCounts
-   tools/hicSumMatrices
-   tools/hicExport
-   tools/findRestSite
+   .. contents::
+       :local:
 
    +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
    | tool                           | type             | input files                       | main output file(s)                         | application                                                                       |
