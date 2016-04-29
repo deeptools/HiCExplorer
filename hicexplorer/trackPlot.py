@@ -496,6 +496,7 @@ class PlotBedGraph(TrackPlot):
                       horizontalalignment='left', size='large',
                       verticalalignment='bottom', transform=self.label_ax.transAxes)
 
+
 class PlotBedGraphMatrix(PlotBedGraph):
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
@@ -529,6 +530,20 @@ class PlotBedGraphMatrix(PlotBedGraph):
             ymin = self.properties['min_value']
             self.ax.set_ylim(ymin, ymax)
 
+            if 'show data range' in self.properties and self.properties['show data range'] == 'no':
+                pass
+            else:
+                if float(ymax) % 1 == 0:
+                    ymax_print = int(ymax)
+                else:
+                    ymax_print = "{:.1f}".format(ymax)
+                ydelta = ymax - ymin
+                small_x = 0.01 * (end_region - start_region)
+                # by default show the data range
+                self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
+                             "[{}-{}] {}".format(int(ymin), ymax_print, self.properties['title']),
+                             horizontalalignment='left',
+                             verticalalignment='bottom')
             # plot horizontal lines to compare values
             #self.ax.hlines(np.arange(0, 1.1, 0.1), start_region, end_region, linestyle="--",
             #               zorder=0, color='grey')
@@ -549,6 +564,7 @@ class PlotBedGraphMatrix(PlotBedGraph):
         self.ax.set_frame_on(False)
         self.ax.axes.get_xaxis().set_visible(False)
         self.ax.axes.get_yaxis().set_visible(False)
+
 
         self.label_ax.text(0.15, 0, self.properties['title'],
                       horizontalalignment='left', size='large',
