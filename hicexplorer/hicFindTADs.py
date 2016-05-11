@@ -959,6 +959,30 @@ def main(args=None):
     min_idx = find_consensus_minima(matrix, lookahead=args.lookahead, delta=args.delta,
                                     max_threshold=args.maxThreshold, chrom=chrom)
 
+    if len(min_idx) <= 10:
+        mat_mean = matrix.mean(axis=1)
+        m_mean = mat_mean.mean()
+        m_median = np.median(mat_mean)
+        m_75 = np.percentile(mat_mean, 75)
+        m_25 = np.percentile(mat_mean, 25)
+
+        msg = ("Please check the parameters:\n"
+               " delta: {}\n"
+               " maxThreshold: {}\n"
+               " lookahead: {}\n\n"
+               "TAD Score values:\n"
+               " mean: {:.3f}\n"
+               " median: {:.3f}\n"
+               " 1st quartile: {:.3f}\n"
+               " 3rd quartile: {:.3f}\n".format(args.delta, args.maxThreshold, args.lookahead,
+                                            m_mean, m_median, m_25, m_75))
+
+        if len(min_idx) == 0:
+            exit("\n*EROR*\nNo boundaries were found. {}".format(msg))
+        else:
+            sys.stderr.write("Only {} boundaries found. {}".format(len(min_idx), msg))
+
+
     save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args)
 
     # turn of hierarchical clustering which is apparently not working.
