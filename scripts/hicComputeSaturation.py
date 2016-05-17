@@ -154,3 +154,6 @@ def main(args=None):
     plt.ylabel('TADs called (% w.r.t. total)')
     plt.title('Overlap of TADs called per sample')
     plt.savefig(out, dpi=300)
+
+if __name__ == '__main__':
+    main()
