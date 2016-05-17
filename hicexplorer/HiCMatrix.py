@@ -26,7 +26,7 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, matrixFile=None, format=None, skiprows=None, chrnameList=None):
+    def __init__(self, matrixFile=None, format=None, skiprows=None, chrnameList=None, bplimit=None):
         self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distance_counts = None  # only defined when getCountsByDistance is called
@@ -45,34 +45,9 @@ class hiCMatrix:
                     format = 'npz'
 
             if format == 'npz':
-                _ma = np.load(matrixFile)
-                self.matrix = hiCMatrix.fillLowerTriangle(
-                    _ma['matrix'].tolist())
-                if 'dist_counts' not in _ma:
-                    self.distance_counts = None
-                else:
-                    self.distance_counts = _ma['dist_counts'].tolist()
-
-                self.cut_intervals = zip(_ma['chrNameList'], _ma['startList'],
-                                         _ma['endList'], _ma['extraList'])
-
-                assert len(self.cut_intervals) == self.matrix.shape[0], \
-                       "Corrupted matrix file. Matrix size and " \
-                       "matrix bin definitions do not correspond"
-                if 'nan_bins' in _ma.keys():
-                    self.nan_bins = _ma['nan_bins']
-                    self.restoreMaskedBins()
-                if 'correction_factors' in _ma.keys():
-                    try:
-                        # None value
-                        # for correction_factors is saved by numpy
-                        # as: array(None, dtype=object)
-                        # Thus, to get the original None value
-                        # the first item of the array is taken.
-                        _ma['correction_factors'][0]
-                        self.setCorrectionFactors(_ma['correction_factors'])
-                    except IndexError:
-                        pass
+                self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, \
+                self.correction_factors = hiCMatrix.load_npz(matrixFile)
+                self.restoreMaskedBins()
 
             elif format == 'dekker':
                 self.cut_intervals = self.getDekkerBins(matrixFile)
@@ -95,12 +70,48 @@ class hiCMatrix:
                 lieberman_data = self.getLiebermanBins(filenameList = matrixFile, chrnameList = chrnameList)
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
+            elif format == 'npz_multi': # npz_multi format needs additional arguments : chrnameList
+                self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, \
+                self.correction_factors = self.combineMatrices(matrixList = matrixFile, bplimit = bplimit)
+
+
             else:
                 exit("matrix format not known.")
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
 
+
+    @staticmethod
+    def load_npz(matrixFile):
+        _ma = np.load(matrixFile)
+        matrix = hiCMatrix.fillLowerTriangle(
+            _ma['matrix'].tolist())
+        if 'dist_counts' not in _ma:
+            distance_counts = None
+        else:
+            distance_counts = _ma['dist_counts'].tolist()
+
+        cut_intervals = zip(_ma['chrNameList'], _ma['startList'],
+                                 _ma['endList'], _ma['extraList'])
+
+        assert len(cut_intervals) == matrix.shape[0], \
+               "Corrupted matrix file. Matrix size and " \
+               "matrix bin definitions do not correspond"
+        if 'nan_bins' in _ma.keys():
+            nan_bins = _ma['nan_bins']
+        if 'correction_factors' in _ma.keys():
+            try:
+                # None value
+                # for correction_factors is saved by numpy
+                # as: array(None, dtype=object)
+                # Thus, to get the original None value
+                # the first item of the array is taken.
+                correction_factors = _ma['correction_factors'][0]
+                #setCorrectionFactors(matrix,_ma['correction_factors'])
+            except IndexError:
+                pass
+        return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
     def fillLowerTriangle(matrix):
@@ -263,6 +274,40 @@ class hiCMatrix:
             matrix[:, self.nan_bins] = np.nan
 
         return matrix
+
+    def combineMatrices(self, matrixList, bplimit=None):
+            ## Create empty row, col, value for the matrix
+            new_cut_intervals = []
+            row = np.array([])
+            col = np.array([])
+            values = np.array([])
+            ## for each chr, append the row, col, value to the first one. Extend the dim
+            size = 0
+            new_nan_bins = []
+            for i in range(0, len(matrixList)):
+                matrix, cut_intervals, nan_bins, distance_counts, correction_factors = hiCMatrix.load_npz(matrixList[i])
+
+                # trim matrix if bplimit given
+                if bplimit is not None:
+                    chrom, start, end, extra = zip(*cut_intervals)
+                    median = int(np.median(np.diff(start)))
+
+                    limit = int(bplimit / median)
+                    matrix = (triu(matrix, k=-limit) - triu(matrix, k=limit)).tocoo()
+                else:
+                    matrix = matrix.tocoo()
+
+                # add data
+                row = np.concatenate([row, matrix.row + size])
+                col = np.concatenate([col, matrix.col + size])
+                values = np.concatenate([values, matrix.data])
+                nan_bins = np.concatenate([new_nan_bins, nan_bins + size])
+                new_cut_intervals.append(cut_intervals)
+                size += matrix.shape[0]
+                ## also add distance_counts and correction_factors
+
+            final_mat = csr_matrix((values, (row, col)), shape=(size, size))
+            return final_mat, new_cut_intervals[0], nan_bins, [], []
 
     def getChrBinRange(self, chrName):
         """
