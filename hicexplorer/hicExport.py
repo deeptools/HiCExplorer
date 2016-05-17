@@ -17,7 +17,9 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--inFile', '-in',
-                        help='input file (an .npz matrix or a list of Files if reading lieberman format.)',
+                        help='input file(s). Could be one or many files. '
+                        'Multiple input files are allowed for hicexplorer or lieberman format. '
+                        ' In case of multiple input files, they will be combined. ',
                         nargs='+',
                         required=True)
 
@@ -42,6 +44,17 @@ def parse_arguments(args=None):
                              'chromosomes should be plotted. This option '
                              'overrides --region and --region2 ',
                         nargs='+')
+
+    parser.add_argument('--bplimit', '-b',
+                        help='When merging many matrices : maximum limit (in base pairs) after '
+                              'which the matrix will be truncated. i.e. TADs bigger than this '
+                              'size will not be shown. For Matrices with very high resolution, '
+                              'truncating the matrix after a limit helps in saving memory '
+                              'during processing, without much loss of data. You can use '
+                              'bplimit of 2 x size of biggest expected TAD. ',
+                        type=int,
+                        metavar='INT bp',
+                        default=None)
 
     parser.add_argument('--outputFormat',
                         help='Output format. The possibilities are "dekker",  "ren" and "hicexplorer". '
@@ -70,11 +83,22 @@ def main():
     args = parse_arguments().parse_args()
 
     ## create hiC matrix with given input format
+    # additional file needed for lieberman format
     if args.inputFormat == 'lieberman':
         if (args.chrNameList is None ):
             exit("Error: --chrNameList is required when the input format is lieberman. ")
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile, format='lieberman', chrnameList=args.chrNameList)
+
+    elif args.inputFormat == 'npz' and len(args.inFile) > 1: # assume npz_multi format
+        if (args.bplimit is None ):
+            print """\nNo limit given for maximum depth. Using all available data. \n
+                     Set an appropriate resolution limit  the file doesn't save"""
+        else:
+            print "\nCutting maximum matrix depth to {} for saving".format(args.bplimit)
+
+        hic_ma = hm.hiCMatrix(matrixFile=args.inFile, format='npz_multi', bplimit=args.bplimit)
+
     else:
         hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], format='npz')
 
