@@ -603,7 +603,7 @@ def main(args=None):
     row = []
     col = []
     data = []
-
+    hic_matrix = None
     # read the sam files line by line
     while True:
         iter_num += 1
@@ -862,9 +862,16 @@ def main(args=None):
         out_bam.write(mate1)
         out_bam.write(mate2)
 
-    # construct matrix
-    hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size,
-                                                       matrix_size))
+        if iter_num iter_num % 5e6 == 0:
+            # every 6 million iterations append to the matrix
+            if hic_matrix is None:
+                hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+            else:
+                hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+            row = []
+            col = []
+            data = []
+
 
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct

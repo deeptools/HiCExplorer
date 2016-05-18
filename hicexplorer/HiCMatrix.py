@@ -206,7 +206,7 @@ class hiCMatrix:
         testing.
         """
 
-        self.setMatrixValues = matrix
+        self.matrix = matrix
         self.cut_intervals = cut_intervals
         self.interval_trees, self.chrBinBoundaries = \
             self.intervalListToIntervalTree(self.cut_intervals)
