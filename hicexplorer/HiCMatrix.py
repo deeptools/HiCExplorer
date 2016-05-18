@@ -107,10 +107,12 @@ class hiCMatrix:
                 # as: array(None, dtype=object)
                 # Thus, to get the original None value
                 # the first item of the array is taken.
-                correction_factors = _ma['correction_factors'][0]
-                #setCorrectionFactors(matrix,_ma['correction_factors'])
+                _ma['correction_factors'][0]
+                assert len(_ma['correction_factors'])==matrix.shape[0], \
+                          "length of correction factors and length of matrix are different."
+                correction_factors = _ma['correction_factors']
             except IndexError:
-                pass
+                correction_factors = None
         return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
@@ -278,12 +280,14 @@ class hiCMatrix:
     def combineMatrices(self, matrixList, bplimit=None):
             ## Create empty row, col, value for the matrix
             new_cut_intervals = []
-            row = np.array([])
-            col = np.array([])
+            row = np.array([]).astype("int")
+            col = np.array([]).astype("int")
             values = np.array([])
+            new_nan_bins = np.array([]).astype('int')
+            new_correction_factors = np.array([])
+
             ## for each chr, append the row, col, value to the first one. Extend the dim
             size = 0
-            new_nan_bins = []
             for i in range(0, len(matrixList)):
                 matrix, cut_intervals, nan_bins, distance_counts, correction_factors = hiCMatrix.load_npz(matrixList[i])
 
@@ -301,13 +305,24 @@ class hiCMatrix:
                 row = np.concatenate([row, matrix.row + size])
                 col = np.concatenate([col, matrix.col + size])
                 values = np.concatenate([values, matrix.data])
-                nan_bins = np.concatenate([new_nan_bins, nan_bins + size])
-                new_cut_intervals.append(cut_intervals)
+                new_nan_bins = np.concatenate([new_nan_bins, nan_bins + size])
+                new_cut_intervals.extend(cut_intervals)
                 size += matrix.shape[0]
-                ## also add distance_counts and correction_factors
 
-            final_mat = csr_matrix((values, (row, col)), shape=(size, size))
-            return final_mat, new_cut_intervals[0], nan_bins, [], []
+                ## also add correction_factors
+                if correction_factors is not None:
+                    new_correction_factors = np.append(new_correction_factors, correction_factors)
+                else:
+                    # add an array with NaNs
+                    arr = np.empty(matrix.shape[0])
+                    arr[:] = np.NAN
+                    new_correction_factors = np.append([new_correction_factors, arr])
+
+            final_mat = coo_matrix((values, (row, col)), shape=(size, size)).tocsr()
+            assert len(new_cut_intervals) == final_mat.shape[0], \
+               "Corrupted matrix file. Matrix size and " \
+               "matrix bin definitions do not correspond"
+            return final_mat, new_cut_intervals, new_nan_bins, new_correction_factors, [] # NEED TO REPLACE THIS EMPTY LIST WITH CONCATENATED CORRECTION FACTORS OR None
 
     def getChrBinRange(self, chrName):
         """
