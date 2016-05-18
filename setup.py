@@ -140,7 +140,8 @@ setup(
         "matplotlib >= 1.3.1",
         "pysam >= 0.8.3",
         "bx-python >= 0.7.1",
-        "biopython >= 1.65"
+        "biopython >= 1.65",
+        "tables >= 3.2.2"
     ],
     cmdclass={'sdist': sdist, 'install': install}
 )

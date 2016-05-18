@@ -6,6 +6,7 @@ from scipy.sparse import csr_matrix, dia_matrix, coo_matrix
 from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 from scipy.sparse import triu, tril
+import tables
 
 ## try to import pandas if exists
 try:
@@ -26,7 +27,7 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, matrixFile=None, format=None, skiprows=None, chrnameList=None, bplimit=None):
+    def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None):
         self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distance_counts = None  # only defined when getCountsByDistance is called
@@ -35,21 +36,28 @@ class hiCMatrix:
 
         if matrixFile:
             self.nan_bins = np.array([])
-            if not format:
+            if not file_format:
                 if matrixFile[-4:] == ".npz":
-                    format = 'npz'
+                    file_format = 'npz'
+                elif matrixFile[-3:] == ".h5":
+                    file_format = 'h5'
                 elif matrixFile[-3:] == '.gz':
-                    format = 'dekker'
-                # by default assume that the matrix format is .npz
+                    file_format = 'dekker'
+                # by default assume that the matrix file_format is hd5
                 else:
-                    format = 'npz'
+                    file_format = 'h5'
 
-            if format == 'npz':
-                self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, \
-                self.correction_factors = hiCMatrix.load_npz(matrixFile)
+            if file_format == 'h5':
+                self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
+                    hiCMatrix.load_h5(matrixFile)
                 self.restoreMaskedBins()
 
-            elif format == 'dekker':
+            elif file_format == 'npz':
+                self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
+                    hiCMatrix.load_npz(matrixFile)
+                self.restoreMaskedBins()
+
+            elif file_format == 'dekker':
                 self.cut_intervals = self.getDekkerBins(matrixFile)
                 if not skiprows:
                     # +1 to also skip the column labels
@@ -66,14 +74,10 @@ class hiCMatrix:
                 row_sum = np.asarray(self.matrix.sum(axis=1)).flatten()
                 self.maskBins(np.flatnonzero(row_sum==0))
                 """
-            elif format == 'lieberman': # lieberman format needs additional arguments : chrnameList
+            elif file_format == 'lieberman':  # lieberman format needs additional arguments : chrnameList
                 lieberman_data = self.getLiebermanBins(filenameList = matrixFile, chrnameList = chrnameList)
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
-            elif format == 'npz_multi': # npz_multi format needs additional arguments : chrnameList
-                self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, \
-                self.correction_factors = self.combineMatrices(matrixList = matrixFile, bplimit = bplimit)
-
 
             else:
                 exit("matrix format not known.")
@@ -83,10 +87,50 @@ class hiCMatrix:
 
 
     @staticmethod
+    def load_h5(matrix_filename):
+        """
+        Loads a matrix stored in h5 format
+        :param matrix_filename:
+        :return: matrix, cut_intervals, nan_bins, distance_counts, correction_factors
+        """
+        with tables.open_file(matrix_filename) as f:
+            parts = {}
+            for matrix_part in ('data', 'indices', 'indptr', 'shape'):
+                parts[matrix_part] = getattr(f.root.matrix, matrix_part).read()
+
+            matrix = csr_matrix(tuple([parts['data'], parts['indices'], parts['indptr']]),
+                                shape=parts['shape'])
+            matrix = hiCMatrix.fillLowerTriangle(matrix)
+            # get intervals
+            intvals = {}
+            for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
+                intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
+            cut_intervals = zip(intvals['chr_list'], intvals['start_list'], intvals['end_list'], intvals['extra_list'])
+            # get nan_bins
+            if hasattr(f.root, 'nan_bins'):
+                nan_bins = f.root.nan_bins.read()
+            else:
+                nan_bins = np.array([])
+
+            # get correction factors
+            if hasattr(f.root, 'correction_factors'):
+                correction_factors = f.root.correction_factors.read()
+            else:
+                correction_factors = None
+
+            # get correction factors
+            if hasattr(f.root, 'distance_counts'):
+                distance_counts = f.root.correction_factors.read()
+            else:
+                distance_counts = None
+
+            return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
+
+
+    @staticmethod
     def load_npz(matrixFile):
         _ma = np.load(matrixFile)
-        matrix = hiCMatrix.fillLowerTriangle(
-            _ma['matrix'].tolist())
+        matrix = hiCMatrix.fillLowerTriangle(_ma['matrix'].tolist())
         if 'dist_counts' not in _ma:
             distance_counts = None
         else:
@@ -100,6 +144,9 @@ class hiCMatrix:
                "matrix bin definitions do not correspond"
         if 'nan_bins' in _ma.keys():
             nan_bins = _ma['nan_bins']
+        else:
+            nan_bins = np.array([])
+
         if 'correction_factors' in _ma.keys():
             try:
                 # None value
@@ -113,6 +160,9 @@ class hiCMatrix:
                 correction_factors = _ma['correction_factors']
             except IndexError:
                 correction_factors = None
+        else:
+            correction_factors = None
+
         return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
@@ -276,53 +326,6 @@ class hiCMatrix:
             matrix[:, self.nan_bins] = np.nan
 
         return matrix
-
-    def combineMatrices(self, matrixList, bplimit=None):
-            ## Create empty row, col, value for the matrix
-            new_cut_intervals = []
-            row = np.array([]).astype("int")
-            col = np.array([]).astype("int")
-            values = np.array([])
-            new_nan_bins = np.array([]).astype('int')
-            new_correction_factors = np.array([])
-
-            ## for each chr, append the row, col, value to the first one. Extend the dim
-            size = 0
-            for i in range(0, len(matrixList)):
-                matrix, cut_intervals, nan_bins, distance_counts, correction_factors = hiCMatrix.load_npz(matrixList[i])
-
-                # trim matrix if bplimit given
-                if bplimit is not None:
-                    chrom, start, end, extra = zip(*cut_intervals)
-                    median = int(np.median(np.diff(start)))
-
-                    limit = int(bplimit / median)
-                    matrix = (triu(matrix, k=-limit) - triu(matrix, k=limit)).tocoo()
-                else:
-                    matrix = matrix.tocoo()
-
-                # add data
-                row = np.concatenate([row, matrix.row + size])
-                col = np.concatenate([col, matrix.col + size])
-                values = np.concatenate([values, matrix.data])
-                new_nan_bins = np.concatenate([new_nan_bins, nan_bins + size])
-                new_cut_intervals.extend(cut_intervals)
-                size += matrix.shape[0]
-
-                ## also add correction_factors
-                if correction_factors is not None:
-                    new_correction_factors = np.append(new_correction_factors, correction_factors)
-                else:
-                    # add an array with NaNs
-                    arr = np.empty(matrix.shape[0])
-                    arr[:] = np.NAN
-                    new_correction_factors = np.append([new_correction_factors, arr])
-
-            final_mat = coo_matrix((values, (row, col)), shape=(size, size)).tocsr()
-            assert len(new_cut_intervals) == final_mat.shape[0], \
-               "Corrupted matrix file. Matrix size and " \
-               "matrix bin definitions do not correspond"
-            return final_mat, new_cut_intervals, new_nan_bins, new_correction_factors, [] # NEED TO REPLACE THIS EMPTY LIST WITH CONCATENATED CORRECTION FACTORS OR None
 
     def getChrBinRange(self, chrName):
         """
@@ -908,37 +911,72 @@ class hiCMatrix:
                 fileh.close()
 
     def save(self, filename):
+        """
+        Saves a matrix using hdf5 format
+        :param filename:
+        :return: None
+        """
         self.restoreMaskedBins()
-        chrNameList, startList, endList, extraList = zip(*self.cut_intervals)
+        if not filename.endswith(".h5"):
+            filename += ".h5"
+
+        # if the file name already exists
+        # try to find a new suitable name
+        if os.path.isfile(filename):
+            count = 1
+            while count<10:
+                new_filename = "{}_{}".format(filename, count)
+                if os.path.isfile(new_filename):
+                    count += 1
+                else:
+                    sys.stderr.write("*WARNING* File already exists {}\n "
+                                     "saving under file name {}\n".format(filename, new_filename))
+                    filename = new_filename
+                    break
         try:
-            nan_bins = self.nan_bins
+            nan_bins = np.array(self.nan_bins)
         except:
             nan_bins = np.array([])
         # save only the upper triangle of the
         # symmetric matrix
         matrix = triu(self.matrix, k=0, format='csr')
-        try:
-            np.savez(
-                filename, matrix=matrix, chrNameList=chrNameList,
-                startList=startList, endList=endList, extraList=extraList,
-                nan_bins=nan_bins, correction_factors=self.correction_factors)
-        except Exception as e:
-            print "error saving matrix: {}".format(e)
-            try:
-                print "Matrix can not be saved because is too big!"
-                print "Eliminating entries with only one count."
+        with tables.open_file(filename, mode="w", title = "HiCExplorer matrix") as h5file:
+            matrix_group = h5file.create_group("/", "matrix", )
+            # save the parts of the csr matrix
+            for matrix_part in ('data', 'indices', 'indptr', 'shape'):
+                arr = np.array(getattr(matrix, matrix_part))
+                atom = tables.Atom.from_dtype(arr.dtype)
+                ds = h5file.create_carray(matrix_group, matrix_part, atom, arr.shape)
+                ds[:] = arr
 
-                # try to remove noise by deleting 1
-                matrix.data = matrix.data - 1
-                matrix.eliminate_zeros()
-                np.savez(
-                    filename, matrix=matrix, chrNameList=chrNameList,
-                    startList=startList, endList=endList, extraList=extraList,
-                    nan_bins=nan_bins)
-            except:
-                print "Matrix can not be saved because is too big!"
-            exit()
+            # save the matrix intervals
+            intervals_group = h5file.create_group("/", "intervals", )
+            chr_list, start_list, end_list, extra_list = zip(*self.cut_intervals)
+            for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
+                arr = np.array(eval(interval_part))
+                atom = tables.Atom.from_dtype(arr.dtype)
+                ds = h5file.create_carray(intervals_group, interval_part, atom, arr.shape)
+                ds[:] = arr
 
+            # save nan bins
+            if len(nan_bins):
+                atom = tables.Atom.from_dtype(nan_bins.dtype)
+                ds = h5file.create_carray(h5file.root, 'nan_bins', atom, nan_bins.shape)
+                ds[:] = nan_bins
+
+            # save corrections factors
+            if self.correction_factors is not None and len(self.correction_factors):
+                atom = tables.Atom.from_dtype(self.correction_factors.dtype)
+                ds = h5file.create_carray(h5file.root, 'correction_factors', atom,
+                                             self.correction_factors.shape)
+                ds[:] = np.array(self.correction_factors)
+
+            # save distance counts
+            if self.distance_counts is not None and len(self.distance_counts):
+                atom = tables.Atom.from_dtype(self.distance_counts.dtype)
+                ds = h5file.create_carray(h5file.root, 'distance_counts', atom,
+                                             self.distance_counts.shape)
+                ds[:] = np.array(self.distance_counts)
 
     def diagflat(self, value=np.nan):
         """
