@@ -930,16 +930,11 @@ class hiCMatrix:
         # if the file name already exists
         # try to find a new suitable name
         if os.path.isfile(filename):
-            count = 1
-            while count<10:
-                new_filename = "{}_{}".format(filename, count)
-                if os.path.isfile(new_filename):
-                    count += 1
-                else:
-                    sys.stderr.write("*WARNING* File already exists {}\n "
-                                     "saving under file name {}\n".format(filename, new_filename))
-                    filename = new_filename
-                    break
+            sys.stderr.write("*WARNING* File already exists {}\n "
+                             "Overwriting ...\n".format(filename, new_filename))
+
+            from os import unlink
+            unlink(filename)
         try:
             nan_bins = np.array(self.nan_bins)
         except:

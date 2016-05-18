@@ -27,10 +27,6 @@ def test_save_load():
     hic.matrix = hm.hiCMatrix.fillLowerTriangle(hic.matrix)
     hic.correction_factors = np.array([0.5, 1, 2, 3, 4])
     hic.nan_bins = np.array([4])
-    try:
-        unlink(outfile)
-    except OSError:
-        pass
 
     hic.save(outfile)
 
