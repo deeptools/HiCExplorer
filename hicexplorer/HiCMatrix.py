@@ -931,7 +931,7 @@ class hiCMatrix:
         # try to find a new suitable name
         if os.path.isfile(filename):
             sys.stderr.write("*WARNING* File already exists {}\n "
-                             "Overwriting ...\n".format(filename, new_filename))
+                             "Overwriting ...\n".format(filename))
 
             from os import unlink
             unlink(filename)

@@ -1,14 +1,15 @@
 
 import argparse, sys
 import numpy as np
-from scipy.sparse import coo_matrix, dia_matrix, dok_matrix, triu
+from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
 import time
-
+from os import unlink
 import pysam
 # bx python
 from bx.intervals.intersection import IntervalTree, Interval
 
 # own tools
+from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 
@@ -526,7 +527,7 @@ def main(args=None):
     is also constructed
     """
 
-    args = parseArguments().parse_args()
+    args = parseArguments().parse_args(args)
 
     sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
                                                                       args.samFiles[1].name))
@@ -862,8 +863,10 @@ def main(args=None):
         out_bam.write(mate1)
         out_bam.write(mate2)
 
-        if iter_num iter_num % 5e6 == 0:
-            # every 6 million iterations append to the matrix
+        if iter_num % 5e6 == 0:
+            # every 5 million iterations append to the matrix
+            # otherwise the row, col and data vectors continue growing and
+            # for a large dataset the system could run out of memory
             if hic_matrix is None:
                 hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
             else:
@@ -872,6 +875,10 @@ def main(args=None):
             col = []
             data = []
 
+    if hic_matrix is None:
+        hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+    else:
+        hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
 
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
@@ -891,14 +898,16 @@ def main(args=None):
         bin_max.append(max(cov))
 
     chr_name_list, start_list, end_list = zip(*bin_intervals)
-    # save only the upper triangle of the
-    # symmetric matrix
-    hic_matrix = triu(hic_matrix, k=0, format='csr')
+    bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
+    hic_ma = hm.hiCMatrix()
+    hic_ma.setMatrix(hic_matrix, cut_intervals=bin_intervals)
+
     args.outFileName.close()
-    np.savez(args.outFileName.name, matrix=hic_matrix,
-             chrNameList=chr_name_list,
-             startList=start_list, endList=end_list,
-             extraList=bin_max)
+    # removing the empty file. Otherwise the save method
+    # will say that the file already exists.
+    unlink(args.outFileName.name)
+
+    hic_ma.save(args.outFileName.name)
 
     """
     if args.restrictionCutFile:
