@@ -106,7 +106,7 @@ def combine_matrices(matrix_list, bplimit=None):
 
         # trim matrix if bplimit given
         if bplimit is not None:
-            limit = int(bplimit / hic.bin_size)
+            limit = int(bplimit / hic.getBinSize())
             matrix = (triu(hic.matrix, k=-limit) - triu(hic.matrix, k=limit)).tocoo()
         else:
             matrix = hic.matrix.tocoo()
