@@ -106,6 +106,10 @@ class hiCMatrix:
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
                 intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
             cut_intervals = zip(intvals['chr_list'], intvals['start_list'], intvals['end_list'], intvals['extra_list'])
+            assert len(cut_intervals) == matrix.shape[0], \
+                "Error loading matrix. Length of bin intervals ({}) is different than the " \
+                "size of the matrix ({})".format(len(cut_intervals), matrix.shape[0])
+
             # get nan_bins
             if hasattr(f.root, 'nan_bins'):
                 nan_bins = f.root.nan_bins.read()
@@ -115,6 +119,9 @@ class hiCMatrix:
             # get correction factors
             if hasattr(f.root, 'correction_factors'):
                 correction_factors = f.root.correction_factors.read()
+                assert len(correction_factors) == matrix.shape[0], \
+                    "Error loading matrix. Length of correction factors does not" \
+                    "match size of matrix"
             else:
                 correction_factors = None
 
