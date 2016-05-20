@@ -624,10 +624,24 @@ class PlotBigWig(TrackPlot):
                                  facecolor=self.properties['color'])
 
         else:
-            # this method produces shifted regions. It is not clear to me why this happens.
-            # Thus I only activate the faster but shifted method for large regions
-            # when the previous method would be to slow
-            scores = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
+            # on rare occasions pyBigWig may throw an error, apparently caused by a corruption
+            # of the memory. This only occurs when calling trackPlot from different
+            # processors. Reloading the file solves the problem.
+            num_tries = 0
+            while num_tries < 5:
+                num_tries += 1
+                try:
+                    self.bw = pyBigWig.open(self.properties['file'])
+                    scores = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
+                except Exception as e:
+                    print "error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries)
+                    pass
+                else:
+                    if num_tries > 1:
+                        print "After {} the scores could be computed".format(num_tries)
+                    break
+
+
             x_values = np.linspace(start_region, end_region, num_bins)
             self.ax.fill_between(x_values, scores, linewidth=0.1,
                                  color=self.properties['color'],
