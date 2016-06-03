@@ -65,9 +65,11 @@ def parse_arguments(args=None):
                              'chrom, bin_star, bin_end, values. '
                              'The lieberman format writes separate files for each chromosome,'
                              'with three columns : contact start, contact end, and raw observed score. '
-                             'This corresponds to the RawObserved files from lieberman group. ',
+                             'This corresponds to the RawObserved files from lieberman group. The '
+                             'hicexplorer format stores the data using a hdf5 format. Optionally, '
+                             'the numpy npz format can be used for small datasets (< 4GB).',
                         default='dekker',
-                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer'])
+                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
@@ -189,5 +191,7 @@ def main():
         hic_ma.save_bing_ren(args.outFileName)
     elif args.outputFormat == 'lieberman':
         hic_ma.save_lieberman(args.outFileName)
+    elif args.outputFormat == 'npz':
+        hic_ma.save_npz(args.outFileName)
     else:
         hic_ma.save(args.outFileName)
