@@ -980,6 +980,41 @@ class hiCMatrix:
                                              self.distance_counts.shape)
                 ds[:] = np.array(self.distance_counts)
 
+    def save_npz(self, filename):
+        """
+        saves using the numpy npz format. Adequate for small samples.
+        """
+        self.restoreMaskedBins()
+        chrNameList, startList, endList, extraList = zip(*self.cut_intervals)
+        try:
+            nan_bins = self.nan_bins
+        except:
+            nan_bins = np.array([])
+        # save only the upper triangle of the
+        # symmetric matrix
+        matrix = triu(self.matrix, k=0, format='csr')
+        try:
+            np.savez(
+                filename, matrix=matrix, chrNameList=chrNameList,
+                startList=startList, endList=endList, extraList=extraList,
+                nan_bins=nan_bins, correction_factors=self.correction_factors)
+        except Exception as e:
+            print "error saving matrix: {}".format(e)
+            try:
+                print "Matrix can not be saved because is too big!"
+                print "Eliminating entries with only one count."
+
+                # try to remove noise by deleting 1
+                matrix.data = matrix.data - 1
+                matrix.eliminate_zeros()
+                np.savez(
+                    filename, matrix=matrix, chrNameList=chrNameList,
+                    startList=startList, endList=endList, extraList=extraList,
+                    nan_bins=nan_bins)
+            except:
+                print "Matrix can not be saved because is too big!"
+            exit()
+
     def diagflat(self, value=np.nan):
         """
         sets
