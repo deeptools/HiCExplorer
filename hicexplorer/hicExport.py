@@ -13,7 +13,7 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Saves a matrix in .npz format using a plain text format.')
+        description='Converts between different matrix file formats')
 
     # define the arguments
     parser.add_argument('--inFile', '-in',
@@ -25,8 +25,9 @@ def parse_arguments(args=None):
 
     parser.add_argument('--inputFormat',
                         help='file format for input file. \n'
-                             '(options : npz, lieberman)',
-                        default='npz')
+                             '(options : hicexplorer, lieberman, npz (file format of previous hicexplorer versions),'
+                             'dekker.',
+                        default='hicexplorer')
 
     parser.add_argument('--chrNameList',
                         help='list of chromosome names (only if input format is lieberman), eg : 1 2 .',
@@ -155,7 +156,7 @@ def main():
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile, file_format='lieberman', chrnameList=args.chrNameList)
 
-    elif args.inputFormat == 'npz' and len(args.inFile) > 1:  # assume npz_multi format
+    elif args.inputFormat == 'npz' and len(args.inFile) > 1:  # assume hicexplorer_multi format
         if args.bplimit:
             sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
@@ -172,7 +173,7 @@ def main():
             hic_ma.distance_counts = distance_counts
 
     else:
-        hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format='npz')
+        hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
 
     if args.chromosomeOrder:
         hic_ma.keepOnlyTheseChr(args.chromosomeOrder)

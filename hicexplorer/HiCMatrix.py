@@ -47,7 +47,7 @@ class hiCMatrix:
                 else:
                     file_format = 'h5'
 
-            if file_format == 'h5':
+            if file_format == 'h5' or file_format == 'hicexplorer':
                 self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
                     hiCMatrix.load_h5(matrixFile)
                 self.restoreMaskedBins()
