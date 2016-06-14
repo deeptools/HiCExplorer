@@ -743,8 +743,9 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
 
     # a boundary is added to the start and end of each chromosome
     # np.unique return index is used to quickly get
-    # the indices at which the chrom changes
+    # the indices at which the name of the chromosome changes (chrom, start, end should be  sorted)
     unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
+
     # the trick to get the start positions using np.unique only works when
     # more than one chromosome is present
     if len(unique_chroms) == 1:
@@ -753,7 +754,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
     else:
         chr_end_idx = chr_start_idx
         # the indices for the end of the chromosomes
-        # are the the start indices - 1, with the exeception
+        # are the the start indices - 1, with the exception
         # of the idx == 0 that is transformed into the length
         # of the chromosome to get the idx for the end of the
         # last chromosome
@@ -765,15 +766,22 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
 
     chrom_of_boundary = chrom[min_idx]
     boundaries_start_bp = np.array([chr_start[idx] for idx in min_idx])
+    boundaries_end_bp = np.array([chr_end[idx] for idx in min_idx])
     mean_mat_all = matrix.mean(axis=1)
     mean_mat = mean_mat_all[min_idx]
     count = 1
-    with open(args.outPrefix + '_boundaries.bed', 'w') as file_boundaries, open(args.outPrefix + '_domains.bed', 'w') as file_domains:
+    with open(args.outPrefix + '_boundaries.bed', 'w') as file_boundaries, open(args.outPrefix + '_boundaries_bin.bed', 'w') as file_boundary_bin, open(args.outPrefix + '_domains.bed', 'w') as file_domains:
         for idx in range(len(boundaries_start_bp)):
             # 1. save boundaries at 1bp position
-            file_boundaries.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx], boundaries_start_bp[idx],
-                                                                    boundaries_start_bp[idx] + 1,
+            bin_center = boundaries_start_bp[idx] + int((boundaries_end_bp[idx] - boundaries_start_bp[idx]) / 2)
+            file_boundaries.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx], bin_center,
+                                                                    bin_center + 1,
                                                                     mean_mat[idx]))
+            # 2. save the position of the boundary bin
+            file_boundary_bin.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx], boundaries_start_bp[idx],
+                                                                      boundaries_end_bp[idx],
+                                                                      mean_mat[idx]))
+
             # skip if the start of the boundary
             # is the end of the chromosome
             if min_idx[idx] in chr_end_idx:
