@@ -42,6 +42,7 @@ section as `color`, `title`, etc.
    # optional arguments
    min_value =2.8
    max_value = 3.0
+   # transform options are log1p, log and -log
    transform = log1p
    boundaries_file = conductance_vs_hic/boundaries_all.bed
    x labels = yes

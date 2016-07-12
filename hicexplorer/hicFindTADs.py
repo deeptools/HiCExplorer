@@ -131,11 +131,11 @@ def get_cut_weight(matrix, cut, depth):
     between the left and right regions of a cut
 
     >>> matrix = np.array([
-    ... [ 0,  0,  0,  0,  0],
-    ... [10,  0,  0,  0,  0],
-    ... [ 5, 15,  0,  0,  0],
-    ... [ 3,  5,  7,  0,  0],
-    ... [ 0,  1,  3,  1,  0]])
+    ... [ 0, 10,  5,  3,  0],
+    ... [ 0,  0, 15,  5,  1],
+    ... [ 0,  0,  0,  7,  3],
+    ... [ 0,  0,  0,  0,  1],
+    ... [ 0,  0,  0,  0,  0]])
 
     Test a cut at position 2, depth 2.
     The values in the matrix correspond
@@ -165,7 +165,8 @@ def get_cut_weight(matrix, cut, depth):
     # between the upstream neighbors with the
     # down stream neighbors. In other words
     # the inter-domain interactions
-    return matrix[cut:end, :][:, start:cut].sum()
+#    return matrix[cut:end, :][:, start:cut].sum()
+    return matrix[start:cut, cut:end].sum()
 
 
 def get_min_volume(matrix, cut, depth):
@@ -186,6 +187,7 @@ def get_min_volume(matrix, cut, depth):
 
     return min(left_region, right_region)
 
+
 def get_conductance(matrix, cut, depth):
     """
     Computes the conductance measure for
@@ -198,20 +200,20 @@ def get_conductance(matrix, cut, depth):
 
     conductance = int / min(int + left counts, int + right counts)
 
-    The matrix has to be lower or uppper to avoid
+    The matrix has to be upper or uppper to avoid
     double counting
 
     In the following example the conductance is to be
     computed for a cut at index position 2 (between column 2 and 3)
     >>> matrix = np.array([
-    ... [ 0,  0,  0,  0,  0],
-    ... [10,  0,  0,  0,  0],
-    ... [ 5, 15,  0,  0,  0],
-    ... [ 3,  5,  7,  0,  0],
-    ... [ 0,  1,  3,  1,  0]])
+    ... [ 0, 10,  5,  3,  0],
+    ... [ 0,  0, 15,  5,  1],
+    ... [ 0,  0,  0,  7,  3],
+    ... [ 0,  0,  0,  0,  1],
+    ... [ 0,  0,  0,  0,  0]])
 
-    The lower left intra counts are [0,10,0]',
-    The lower right intra counts are [0, 7 0],
+    The upper left intra counts are [0,10,0]',
+    The upper right intra counts are [0, 7 0],
     The inter counts are:
           [[ 5, 15],
            [ 3,  5]], sum = 28
@@ -253,6 +255,7 @@ def get_coverage_norm(matrix, cut, depth):
         return np.nan
 
     return float(inter_edges) / sum([edges_left, edges_right])
+
 
 def get_coverage(matrix, cut, depth):
     """
@@ -312,13 +315,13 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2, outfi
     global hic_ma
     positions_array = []
     cond_matrix = []
+    incremental_step = get_incremental_step_size(min_win_size, max_win_size, step_len)
     for cut in bins_list:
 
         chrom, chr_start, chr_end, _ = hic_ma.cut_intervals[cut]
 
         # get conductance
         # for multiple window lengths at a time
-        incremental_step = get_incremental_step_size(min_win_size, max_win_size, step_len)
         mult_matrix = [get_coverage_norm(hic_ma.matrix, cut, depth) for depth in incremental_step]
         #mult_matrix = [get_coverage(hic_ma.matrix, cut, x) for x in incremental_step]
         if np.any(np.isnan(mult_matrix)):
@@ -329,7 +332,10 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2, outfi
 
         positions_array.append((chrom, chr_start, chr_end))
 
-    chrom, chr_start, chr_end = zip(*positions_array)
+    try:
+        chrom, chr_start, chr_end = zip(*positions_array)
+    except:
+        import ipdb;ipdb.set_trace()
     cond_matrix = np.vstack(cond_matrix)
 
     return chrom, chr_start, chr_end, cond_matrix
@@ -793,7 +799,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
             count += 1
 
     # save track with mean values in bedgraph format
-    with open(args.outPrefix + '_score.bg', 'w') as tad_score:
+    with open(args.outPrefix + '_score.bedgraph', 'w') as tad_score:
         for idx in range(len(chrom)):
             tad_score.write("{}\t{}\t{}\t{}\n".format(chrom[idx], chr_start[idx], chr_end[idx], mean_mat_all[idx]))
 
@@ -809,30 +815,32 @@ def compute_spectra_matrix(args, matrix=None):
         hic_ma = hm.hiCMatrix(args.matrix)
     # remove self counts
     hic_ma.diagflat(value=0)
-    sys.stderr.write('removing diagonal values\n')
-    if args.useLogValues is True:
-        # use log values for the computations
-        hic_ma.matrix.data = np.log(hic_ma.matrix.data)
-        sys.stderr.write('using log matrix values\n')
 
     # mask bins without any information
     hic_ma.maskBins(hic_ma.nan_bins)
     orig_intervals = hic_ma.cut_intervals
+
+    sys.stderr.write('removing diagonal values\n')
+    if args.useLogValues is True:
+        # use log values for the computations
+        hic_ma.matrix.data = np.log2(hic_ma.matrix.data)
+        sys.stderr.write('using log2 matrix values\n')
 
     # extend remaining bins to remove gaps in
     # the matrix
     new_intervals = enlarge_bins(hic_ma.cut_intervals)
 
     # rebuilt bin positions if necessary
+
     if new_intervals != orig_intervals:
         hic_ma.interval_trees, hic_ma.chrBinBoundaries = \
             hic_ma.intervalListToIntervalTree(new_intervals)
 
     if args.minDepth % hic_ma.getBinSize() != 0:
-        sys.stderr.write('Warning. specified depth is not multiple of the '
+        sys.stderr.write('Warning. specified *depth* is not multiple of the '
              'hi-c matrix bin size ({})\n'.format(hic_ma.getBinSize()))
     if args.step % hic_ma.getBinSize() != 0:
-        sys.stderr.write('Warning. Epecified step is not multiple of the '
+        sys.stderr.write('Warning. specified *step* is not multiple of the '
                          'hi-c matrix bin size ({})\n'.format(hic_ma.getBinSize()))
 
     binsize = hic_ma.getBinSize()
@@ -875,13 +883,13 @@ def compute_spectra_matrix(args, matrix=None):
                          'than the bin size which is: {}\n'.format(binsize))
         exit()
 
-    # work only with the lower matrix
+    # work only with the upper matrix
     # and remove all pixels that are beyond
     # 2 * max_depth_in_bis which are not required
     # (this is done by subtracting a second sparse matrix
-    # that contains only the lower matrix that wants to be removed.
-    limit = -2 * max_depth_in_bins
-    hic_ma.matrix = sparse.tril(hic_ma.matrix, k=0, format='csr') - sparse.tril(hic_ma.matrix, k=limit, format='csr')
+    # that contains only the upper matrix that wants to be removed.
+    limit = 2 * max_depth_in_bins
+    hic_ma.matrix = sparse.triu(hic_ma.matrix, k=0, format='csr') - sparse.triu(hic_ma.matrix, k=limit, format='csr')
     hic_ma.matrix.eliminate_zeros()
 
     num_processors = args.numberOfProcessors
@@ -950,6 +958,30 @@ def main(args=None):
 
     min_idx = find_consensus_minima(matrix, lookahead=args.lookahead, delta=args.delta,
                                     max_threshold=args.maxThreshold, chrom=chrom)
+
+    if len(min_idx) <= 10:
+        mat_mean = matrix.mean(axis=1)
+        m_mean = mat_mean.mean()
+        m_median = np.median(mat_mean)
+        m_75 = np.percentile(mat_mean, 75)
+        m_25 = np.percentile(mat_mean, 25)
+
+        msg = ("Please check the parameters:\n"
+               " delta: {}\n"
+               " maxThreshold: {}\n"
+               " lookahead: {}\n\n"
+               "TAD Score values:\n"
+               " mean: {:.3f}\n"
+               " median: {:.3f}\n"
+               " 1st quartile: {:.3f}\n"
+               " 3rd quartile: {:.3f}\n".format(args.delta, args.maxThreshold, args.lookahead,
+                                            m_mean, m_median, m_25, m_75))
+
+        if len(min_idx) == 0:
+            exit("\n*EROR*\nNo boundaries were found. {}".format(msg))
+        else:
+            sys.stderr.write("Only {} boundaries found. {}".format(len(min_idx), msg))
+
 
     save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args)
 

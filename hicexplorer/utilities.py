@@ -54,7 +54,7 @@ def getPearson(matrix):
     return pMa
 
 
-def transformMatrix(hicma, method, per_chr=False, original_matrix=None):
+def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in_bins=None):
     methods_avail = {'residuals':_residuals, 'obs/exp':_obsExp,
                      'z-score':_zscore, 't-score':_tscore,
                      'p-value': _pvalue, 'nbinom-p-value': _nbinomPvalue,
@@ -62,7 +62,7 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None):
                      'log-norm': _lognormPvalue,
                      'chi-squared': _chi2Pvalue}
 
-    counts_by_distance = hicma.getCountsByDistance(per_chr=per_chr)
+    counts_by_distance, cut_intervals = hicma.getCountsByDistance(per_chr=per_chr, depth_in_bins=depth_in_bins)
     if method in ['nbinom-p-value', 'nbinom-expected', 'nbinom-est-dist']:
         size, prob = fitNegBinom_Rserve(counts_by_distance, per_chr=per_chr,
                                         plot_distribution=True)
@@ -115,16 +115,15 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None):
 
     else:
         under_noise = 0
-        dist_list, chrom_list = hiCMatrix.getDistList(triu_ma.row, triu_ma.col,
-                                                      hicma.cut_intervals)
+        dist_list, chrom_list = hiCMatrix.getDistList(triu_ma.row, triu_ma.col, cut_intervals)
 
         assert len(dist_list) == len(triu_ma.data), "lists not of equal size"
         susprow_list = []
         suspcol_list = []
         transf_ma = np.zeros(len(triu_ma.data))
         start_time = time.time()
-        # compute p_value for each data entry
-        sys.stderr.write("computing pvalues\n")
+        # transform each value  of the data matrix to p-value, obs/exp, correlation etc.
+        sys.stderr.write("computing transform values\n")
         for idx, data in enumerate(triu_ma.data):
             # skip if original value is less than noise level
             if noise_level:
@@ -170,6 +169,17 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None):
                                             orig_ma[susprow, suspcol], data))
                     susprow_list.append(susprow)
                     suspcol_list.append(suspcol)
+
+            if method in ['obs/exp', 'residuals']:
+                if per_chr:
+                    if dist_list[idx] == -1:
+                        continue
+                    fit_mu = mu_[chrom_list[idx]]
+                else:
+                    fit_mu = mu_
+
+                transf_ma[idx] = methods_avail[method](data,
+                                                       fit_mu[dist_list[idx]])
 
             else:
                 if per_chr:
@@ -688,11 +698,11 @@ def fitChisquared(countsByDistance):
 
     return (shape, loc, scale)
 
-def _residuals(value, mu, sigma, n):
+def _residuals(value, mu):
     return value - mu 
 
     
-def _obsExp(value, mu, sigma, n):
+def _obsExp(value, mu):
     return value/mu 
 
 def _zscore(value, mu, sigma, n):

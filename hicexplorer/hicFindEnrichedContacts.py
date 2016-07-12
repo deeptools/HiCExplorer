@@ -1,4 +1,4 @@
-import sys
+from __future__ import division
 import argparse
 import numpy as np
 
@@ -66,6 +66,14 @@ def parse_arguments(args=None):
         default=None,
         nargs='+')
 
+    parser.add_argument(
+        '--depth',
+        help='Depth (in base pairs) up to which the computations will be carried out. A depth of 10.0000 bp '
+             'means that any computations involving points that are over 10kbp are not considered.',
+        type=int,
+        default=None)
+
+
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -104,10 +112,29 @@ def main():
         hic_ma.diagflat()
         if args.originalMat:
             orig_ma.diagflat()
-    # hide nan bins
-    if args.method == 'pearson':
-        new_ma = transformMatrix(hic_ma, 'obs/exp')
-        new_ma = getPearson(new_ma)
+
+    max_depth_in_bins = None
+    if args.depth:
+        binsize = hic_ma.getBinSize()
+        if args.depth < binsize:
+            exit("Please specify a depth larger than bin size ({})".format(binsize))
+        max_depth_in_bins = int(args.depth / binsize)
+        import scipy.sparse
+        # work only with the upper matrix
+        # and remove all pixels that are beyond
+        # max_depth_in_bis
+        # (this is done by subtracting a second sparse matrix
+        # that contains only the upper matrix that wants to be removed.
+        hic_ma.matrix = scipy.sparse.triu(hic_ma.matrix, k=0, format='csr') - \
+                        scipy.sparse.triu(hic_ma.matrix, k=max_depth_in_bins, format='csr')
+        hic_ma.matrix.eliminate_zeros()
+
+    if args.method == 'obs/exp':
+        hic_ma.convert_to_obs_exp_matrix()
+        new_ma = hic_ma.matrix
+    elif args.method == 'pearson':
+        hic_ma.convert_to_obs_exp_matrix()
+        new_ma = getPearson(hic_ma.matrix)
     elif args.method != 'none':
         # check that the normalized and original matrices
         # have the same size
@@ -116,7 +143,8 @@ def main():
                 "original and derived matrices do not have same shape"
         new_ma = transformMatrix(hic_ma, args.method,
                                  per_chr=args.perChromosome,
-                                 original_matrix=orig_ma)
+                                 original_matrix=orig_ma,
+                                 depth_in_bins=max_depth_in_bins)
     else:
         new_ma = hic_ma.matrix
 

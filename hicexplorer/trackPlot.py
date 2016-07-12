@@ -496,6 +496,7 @@ class PlotBedGraph(TrackPlot):
                       horizontalalignment='left', size='large',
                       verticalalignment='bottom', transform=self.label_ax.transAxes)
 
+
 class PlotBedGraphMatrix(PlotBedGraph):
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
@@ -529,6 +530,20 @@ class PlotBedGraphMatrix(PlotBedGraph):
             ymin = self.properties['min_value']
             self.ax.set_ylim(ymin, ymax)
 
+            if 'show data range' in self.properties and self.properties['show data range'] == 'no':
+                pass
+            else:
+                if float(ymax) % 1 == 0:
+                    ymax_print = int(ymax)
+                else:
+                    ymax_print = "{:.1f}".format(ymax)
+                ydelta = ymax - ymin
+                small_x = 0.01 * (end_region - start_region)
+                # by default show the data range
+                self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
+                             "[{}-{}] {}".format(int(ymin), ymax_print, self.properties['title']),
+                             horizontalalignment='left',
+                             verticalalignment='bottom')
             # plot horizontal lines to compare values
             #self.ax.hlines(np.arange(0, 1.1, 0.1), start_region, end_region, linestyle="--",
             #               zorder=0, color='grey')
@@ -549,6 +564,7 @@ class PlotBedGraphMatrix(PlotBedGraph):
         self.ax.set_frame_on(False)
         self.ax.axes.get_xaxis().set_visible(False)
         self.ax.axes.get_yaxis().set_visible(False)
+
 
         self.label_ax.text(0.15, 0, self.properties['title'],
                       horizontalalignment='left', size='large',
@@ -608,10 +624,24 @@ class PlotBigWig(TrackPlot):
                                  facecolor=self.properties['color'])
 
         else:
-            # this method produces shifted regions. It is not clear to me why this happens.
-            # Thus I only activate the faster but shifted method for large regions
-            # when the previous method would be to slow
-            scores = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
+            # on rare occasions pyBigWig may throw an error, apparently caused by a corruption
+            # of the memory. This only occurs when calling trackPlot from different
+            # processors. Reloading the file solves the problem.
+            num_tries = 0
+            while num_tries < 5:
+                num_tries += 1
+                try:
+                    self.bw = pyBigWig.open(self.properties['file'])
+                    scores = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
+                except Exception as e:
+                    print "error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries)
+                    pass
+                else:
+                    if num_tries > 1:
+                        print "After {} the scores could be computed".format(num_tries)
+                    break
+
+
             x_values = np.linspace(start_region, end_region, num_bins)
             self.ax.fill_between(x_values, scores, linewidth=0.1,
                                  color=self.properties['color'],
@@ -644,7 +674,7 @@ class PlotBigWig(TrackPlot):
             # by default show the data range
             self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
                          "[{}-{}] {}".format(int(ymin), ymax_print, self.properties['title']),
-                         horizontalalignment='left', size='small',
+                         horizontalalignment='left',
                          verticalalignment='bottom')
 
         """
@@ -668,7 +698,8 @@ class PlotHiCMatrix(TrackPlot):
         self.properties = properties_dict
 
         self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'])
-
+        if len(self.hic_ma.matrix.data) == 0:
+            exit("Matrix {} is empty".format(self.properties['file']))
         if 'show_masked_bins' in self.properties and self.properties['show_masked_bins'] == 'yes':
             pass
         else:
@@ -775,6 +806,11 @@ class PlotHiCMatrix(TrackPlot):
                 mask = matrix == 0
                 matrix[mask] = matrix[mask == False].min()
                 matrix = -1 * np.log(matrix)
+
+            elif self.properties['transform'] == 'log':
+                mask = matrix == 0
+                matrix[mask] = matrix[mask == False].min()
+                matrix = np.log(matrix)
 
         if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
             vmax = self.properties['max_value']
@@ -1162,7 +1198,7 @@ class PlotBed(TrackPlot):
 
         # turn labels off when too many intervals are visible.
         if self.properties['labels'] != 'off' and len(genes_overlap) > 60:
-            self.properties['labels'] != 'off'
+            self.properties['labels'] = 'off'
 
         max_num_row_local = 1
         for region in genes_overlap:
