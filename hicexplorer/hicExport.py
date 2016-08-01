@@ -193,7 +193,7 @@ def main():
         hic_ma.save_lieberman(args.outFileName)
     elif args.outputFormat == 'npz':
         hic_ma.save_npz(args.outFileName)
-    elif args.outputFormat == 'interactionSet':
+    elif args.outputFormat == 'GInteractions':
         hic_ma.save_GInteractions(args.outFileName)
     else:
         hic_ma.save(args.outFileName)
