@@ -917,6 +917,16 @@ class hiCMatrix:
                     fileh.write("{}\t{}\t{}\n".format(start[idx], end[idx], chrwise_mat_coo.data[idx]))
                 fileh.close()
 
+    def save_GInteractions(self, fileName):
+        mat_coo = triu(self.matrix, k=0, format='csr').tocoo()
+        fileh = open("{}.tsv".format(fileName), 'w')
+        for idx, counts in enumerate(mat_coo.data):
+            chr_row, start_row, end_row, _ = self.cut_intervals[mat_coo.row[idx]]
+            chr_col, start_col, end_col, _ = self.cut_intervals[mat_coo.col[idx]]
+            fileh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chr_row, int(start_row), int(end_row),
+                                                              chr_col, int(start_col), int(end_col), counts))
+        fileh.close()
+
     def save(self, filename):
         """
         Saves a matrix using hdf5 format

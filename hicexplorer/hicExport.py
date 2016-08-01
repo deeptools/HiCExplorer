@@ -69,7 +69,7 @@ def parse_arguments(args=None):
                              'hicexplorer format stores the data using a hdf5 format. Optionally, '
                              'the numpy npz format can be used for small datasets (< 4GB).',
                         default='dekker',
-                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz'])
+                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz','GInteractions'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
@@ -193,5 +193,7 @@ def main():
         hic_ma.save_lieberman(args.outFileName)
     elif args.outputFormat == 'npz':
         hic_ma.save_npz(args.outFileName)
+    elif args.outputFormat == 'interactionSet':
+        hic_ma.save_GInteractions(args.outFileName)
     else:
         hic_ma.save(args.outFileName)
