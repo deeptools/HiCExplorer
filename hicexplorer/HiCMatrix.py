@@ -918,6 +918,8 @@ class hiCMatrix:
                 fileh.close()
 
     def save_GInteractions(self, fileName):
+        self.restoreMaskedBins()
+        print self.matrix.shape
         mat_coo = triu(self.matrix, k=0, format='csr').tocoo()
         fileh = open("{}.tsv".format(fileName), 'w')
         for idx, counts in enumerate(mat_coo.data):
