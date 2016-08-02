@@ -1006,6 +1006,10 @@ class PlotBoundaries(TrackPlot):
         """
         x = []
         y = []
+        if chrom_region not in self.interval_tree:
+            orig = chrom_region
+            chrom_region = change_chrom_names(chrom_region)
+            print 'changing {} to {}'.format(orig, chrom_region)
         for region in self.interval_tree[chrom_region].find(start_region, end_region):
             """
                   /\
