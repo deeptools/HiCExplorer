@@ -764,28 +764,41 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
     # put all indices together and sort
     min_idx = np.sort(np.concatenate([chr_start_idx, chr_end_idx, min_idx]))
 
+    # the boundary is computed at the interface between two bins.
+    # therefore, the extend of the bin boundary is defined to be from the
+    # center of the left bin, to the center of the right bin
     chrom_of_boundary = chrom[min_idx]
+
     boundaries_start_bp = np.array([chr_start[idx] for idx in min_idx])
-    boundaries_end_bp = np.array([chr_end[idx] for idx in min_idx])
+
     mean_mat_all = matrix.mean(axis=1)
     mean_mat = mean_mat_all[min_idx]
     count = 1
     with open(args.outPrefix + '_boundaries.bed', 'w') as file_boundaries, open(args.outPrefix + '_boundaries_bin.bed', 'w') as file_boundary_bin, open(args.outPrefix + '_domains.bed', 'w') as file_domains:
-        for idx in range(len(boundaries_start_bp)):
+        for idx, min_bin_id in enumerate(min_idx):
+            # skip if the start of the boundary
+            # is the end of the chromosome
+            if min_bin_id in chr_end_idx:
+                continue
+
             # 1. save boundaries at 1bp position
-            bin_center = boundaries_start_bp[idx] + int((boundaries_end_bp[idx] - boundaries_start_bp[idx]) / 2)
+            right_bin_center = chr_start[min_bin_id] + int((chr_end[min_bin_id] - chr_start[min_bin_id]) / 2)
+
+            left_bin_center = chr_start[min_bin_id - 1] + int((chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) / 2)
+
+            if chrom[min_bin_id] != chrom[min_bin_id - 1]:
+                continue
+
+            # bin center is the middle between the left and rights bin centers
+            bin_center = left_bin_center + int((right_bin_center - left_bin_center) / 2)
             file_boundaries.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx], bin_center,
                                                                     bin_center + 1,
                                                                     mean_mat[idx]))
-            # 2. save the position of the boundary bin
-            file_boundary_bin.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx], boundaries_start_bp[idx],
-                                                                      boundaries_end_bp[idx],
+            # 2. save the position of the boundary range
+            file_boundary_bin.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx],
+                                                                      left_bin_center,
+                                                                      right_bin_center,
                                                                       mean_mat[idx]))
-
-            # skip if the start of the boundary
-            # is the end of the chromosome
-            if min_idx[idx] in chr_end_idx:
-                continue
 
             start = boundaries_start_bp[idx]
             end = boundaries_start_bp[idx + 1]
@@ -808,8 +821,14 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
 
     # save track with mean values in bedgraph format
     with open(args.outPrefix + '_score.bedgraph', 'w') as tad_score:
-        for idx in range(len(chrom)):
-            tad_score.write("{}\t{}\t{}\t{}\n".format(chrom[idx], chr_start[idx], chr_end[idx], mean_mat_all[idx]))
+        for idx in range(1,len(chrom)):
+            right_bin_center = chr_start[idx] + int((chr_end[idx] - chr_start[idx]) / 2)
+            left_bin_center = chr_start[idx - 1] + int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
+            if right_bin_center < left_bin_center:
+                # this contition happens at chromosome borders
+                continue
+            tad_score.write("{}\t{}\t{}\t{}\n".format(chrom[idx], left_bin_center, right_bin_center,
+                                                      mean_mat_all[idx]))
 
 
 def compute_spectra_matrix(args, matrix=None):
