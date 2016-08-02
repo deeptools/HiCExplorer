@@ -57,6 +57,7 @@ class PlotTracks(object):
         self.fig_height = fig_height
         self.dpi = dpi
         self.vlines_intval_tree = None
+        self.vlines_properties = None
         start = self.print_elapsed(None)
         self.parse_tracks(tracks_file)
         if fontsize:
@@ -197,6 +198,10 @@ class PlotTracks(object):
         :return: None
         """
         vlines_list = []
+        if 'line width' in self.vlines_properties:
+            line_width = self.vlines_properties['line width']
+        else:
+            line_width = 0.5
 
         if chrom_region not in self.vlines_intval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
@@ -207,8 +212,9 @@ class PlotTracks(object):
         for idx, track in enumerate(self.track_obj_list):
             ymin, ymax = axis_list[idx].get_ylim()
 
-            axis_list[idx].vlines(vlines_list, ymin, ymax, linestyle='dashed', zorder=10, linewidth=0.5,
-                                  color=(0,0,0,0.7))
+            axis_list[idx].vlines(vlines_list, ymin, ymax, linestyle='dashed', zorder=10,
+                                  linewidth=line_width,
+                                  color=(0, 0, 0, 0.7))
 
             #track.plot_vlines(axis_list[idx], vlines_list)
         return
@@ -234,13 +240,13 @@ class PlotTracks(object):
             elif section_name.endswith('[x-axis]'):
                 track_options['x-axis'] = True
             for name, value in parser.items(section_name):
-                if name in ['max_value', 'min_value', 'depth', 'width'] and value != 'auto':
+                if name in ['max_value', 'min_value', 'depth', 'width', 'line width', 'fontsize'] and value != 'auto':
                     track_options[name] = literal_eval(value)
                 else:
                     track_options[name] = value
 
             if 'type' in track_options and track_options['type'] == 'vlines':
-                vlines_file = track_options['file']
+                self.vlines_properties = track_options
             else:
                 track_list.append(track_options)
 
@@ -259,8 +265,8 @@ class PlotTracks(object):
                     sys.stderr.write(warn)
 
         self.track_list = track_list
-        if vlines_file:
-            self.vlines_intval_tree, __, __ = file_to_intervaltree(vlines_file)
+        if self.vlines_properties:
+            self.vlines_intval_tree, __, __ = file_to_intervaltree(self.vlines_properties['file'])
 
 
     def check_file_exists(self, track_dict):
@@ -411,7 +417,14 @@ def file_to_intervaltree(file_name):
 
 
 class TrackPlot(object):
+    """
+    The TrackPlot object is a holder for all tracks that are to be plotted.
+    For example, to plot a bedgraph file a new class that extends TrackPlot
+    should be created.
 
+    It is expected that all TrackPlot objects have a plot method.
+
+    """
     def __init__(self, properties_dict):
         self.properties = properties_dict
 
