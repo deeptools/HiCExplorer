@@ -35,16 +35,12 @@ def main():
     summed_matrix = hic.matrix
     nan_bins = set(hic.nan_bins)
     for matrix in args.matrices[1:]:
-        try:
-            _loaded_data = np.load(matrix)
-        except:
-            print "\nMatrix {} seems to be empty.".format(matrix)
-            exit(1)
+        hic_to_append = hm.hiCMatrix(matrix)
 
         try:
-            summed_matrix = summed_matrix + _loaded_data['matrix'].tolist()
-            if 'nan_bins' in _loaded_data:
-                nan_bins = nan_bins.union(_loaded_data['nan_bins'])
+            summed_matrix = summed_matrix + hic_to_append.matrix
+            if len(hic_to_append.nan_bins):
+                nan_bins = nan_bins.union(hic_to_append.nan_bins)
         except:
             print "\nMatrix {} seems to be corrupted or of different " \
                   "shape".format(matrix)
