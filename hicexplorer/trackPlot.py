@@ -134,8 +134,8 @@ class PlotTracks(object):
                 # DEFAULT_MARGINS[1] - DEFAULT_MARGINS[0] is the proportion of plotting area
 
                 hic_width = self.fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * DEFAULT_WIDTH_RATIOS[0]
-                scale_factor = 0.5  # the scale factor is to obtain a 'pleasing' result.
-                depth = min(track_dict['depth'],(end - start))
+                scale_factor = 0.6  # the scale factor is to obtain a 'pleasing' result.
+                depth = min(track_dict['depth'], (end - start))
 
                 height = scale_factor * depth * hic_width / (end - start)
             track_height.append(height)
@@ -302,7 +302,7 @@ class PlotTracks(object):
 
         if file.endswith(".bed"):
             file_type = 'bed'
-        elif file.endswith(".npz"):
+        elif file.endswith(".npz") or file.endswith(".h5"):
             file_type = 'hic_matrix'
         elif file.endswith(".bw"):
             file_type = 'bigwig'
