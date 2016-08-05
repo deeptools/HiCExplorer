@@ -67,7 +67,9 @@ def parse_arguments(args=None):
                              'with three columns : contact start, contact end, and raw observed score. '
                              'This corresponds to the RawObserved files from lieberman group. The '
                              'hicexplorer format stores the data using a hdf5 format. Optionally, '
-                             'the numpy npz format can be used for small datasets (< 4GB).',
+                             'the numpy npz format can be used for small datasets (< 4GB).'
+                             'The GInteractions format is in the form : Bin1, Bin2 , Interaction,'
+                             'where Bin1 and Bin2 are intervals (chr,start,end), seperated by tab.',
                         default='dekker',
                         choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz','GInteractions'])
 
