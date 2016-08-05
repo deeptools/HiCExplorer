@@ -819,7 +819,7 @@ class hiCMatrix:
             self.intervalListToIntervalTree(self.cut_intervals)
         # remove distanceCounts
         try:
-            del(self.distance_counts)
+            self.distance_counts = None
         except AttributeError:
             pass
         self.matrix = mat
@@ -968,6 +968,7 @@ class hiCMatrix:
 
             # save corrections factors
             if self.correction_factors is not None and len(self.correction_factors):
+                self.correction_factors = np.array(self.correction_factors)
                 atom = tables.Atom.from_dtype(self.correction_factors.dtype)
                 ds = h5file.create_carray(h5file.root, 'correction_factors', atom,
                                              self.correction_factors.shape)
