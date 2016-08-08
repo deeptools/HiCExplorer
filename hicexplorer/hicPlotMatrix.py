@@ -16,11 +16,11 @@ import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
 
 def parseArguments(args=None):
-    parser=argparse.ArgumentParser(description='Plots a heatmap of a HiC matrix')
+    parser=argparse.ArgumentParser(description='Creates a Heatmap of a HiC matrix')
 
     # define the arguments
     parser.add_argument('--matrix', '-m',
-                        help='path of the Hi-C matrix to plot',
+                        help='Path of the Hi-C matrix to plot',
                         required=True)
 
     parser.add_argument('--title', '-t',
@@ -137,7 +137,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
         ma += 1
         norm = LogNorm()
 
-    img3 = axHeat2.imshow(ma, 
+    img3 = axHeat2.imshow(ma,
 #                          interpolation='nearest',
 #                          interpolation='spline16',
                           vmax=args.vMax, vmin=args.vMin, cmap=cmap,

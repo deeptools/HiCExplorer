@@ -17,9 +17,9 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
-Uses a measure called TAD score to identify the separation between '
-left and right regions for a given position. This is done for a '
-running window of different sizes. Then, TADs are called as those '
+Uses a measure called TAD score to identify the separation between
+left and right regions for a given position. This is done for a
+running window of different sizes. Then, TADs are called as those
 positions having a local minimum.
 
 To actually find the TADs, the program  needs to compute first the
@@ -27,12 +27,15 @@ TAD scores at different window sizes. Then, the results of that computation
 are used to call the TADs. An simple example usage is:
 
 $ hicFindTads TAD_score -m hic_matrix.npz -o TAD_score.txt
+
 $ hicFindTads find_TADs -f TAD_score.txt --outPrefix TADs
 
 For detailed help:
 
  hicFindTADs TAD_score -h
-  or
+
+ or
+
  hicFindTADs find_TADs -h
 
 """)

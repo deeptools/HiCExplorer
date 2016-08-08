@@ -20,22 +20,22 @@ Iterative correction for a hic matrix (see Imakaev et al. 2012
 Nature Methods for details). For the method to work correctly, bins
 with low or too high coverage need to be filtered. For this, it is
 recommended to first run some diagnostic plots to determine the
-modified z-score cut off. '
+modified z-score cut off.
 
-It is recommended to run %(prog)s as follows:
+It is recommended to run hicCorrectMatrix as follows:
 
-    $ %(prog)s diagnostic_plot --matrix hic_matrix -o plot_file.png
+    $ hicCorrectMatrix diagnostic_plot --matrix hic_matrix -o plot_file.png
 
 Then, after revising the plot and deciding the threshold values:
 
-    $ %(prog)s correct --matrix hic_matrix \\
+    $ hicCorrectMatrix correct --matrix hic_matrix \\
          --filterThreshold <lower threshold> <upper threshold> -o corrected_matrix
 
 
 To get detailed help on each of the options:
 
-    $ %(prog)s diagnostic_plot -h
-    $ %(prog)s correct -h
+    $ hicCorrectMatrix diagnostic_plot -h
+    $ hicCorrectMatrix correct -h
 
 
 """
@@ -63,7 +63,7 @@ To get detailed help on each of the options:
         'diagnostic_plot',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         help="Plots a histogram of the coverage per bin together with the modified z-score "
-             "based on the median absolute deviation method (see Boris Iglewicz and David Hoaglin (1993), "
+             "based on the median absolute deviation method (see Boris Iglewicz and David Hoaglin 1993, "
              "Volume 16: How to Detect and Handle Outliers The ASQC Basic References in Quality Control:  "
              "Statistical Techniques, Edward F. Mykytka, Ph.D., Editor. ",
         usage='%(prog)s '
@@ -93,7 +93,7 @@ To get detailed help on each of the options:
     merge_mode = subparsers.add_parser(
         'merge_failed',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        help="Merges together failed bins to rescue some of the information instead of discarding it. This option"
+        help="Merges together failed bins to rescue some of the information instead of discarding it. This option "
              "is mostly useful with processing small restrition fragment size bins",
         usage='%(prog)s '
               '--matrix hic_matrix.npz '
@@ -114,7 +114,7 @@ To get detailed help on each of the options:
     merge_mode.add_argument('--filterThreshold', '-t',
                         help='Bins of low coverage or large coverage need to be removed. '
                              'Usually they do not contain valid Hi-C data of represent '
-                             'regions that accumulate reads. Use the %(prog)s diagnostic_plot '
+                             'regions that accumulate reads. Use hicCorrectMatrix diagnostic_plot '
                              'to identify the modified z-value thresholds. A lower and upper '
                              'threshold are required separated by space. Eg. --filterThreshold '
                              '-1.5 5',
@@ -157,7 +157,7 @@ def correct_subparser():
     parser.add_argument('--filterThreshold', '-t',
                         help='Bins of low coverage or large coverage need to be removed. '
                              'Usually they do not contain valid Hi-C data of represent '
-                             'regions that accumulate reads. Use the %(prog)s diagnostic_plot '
+                             'regions that accumulate reads. Use hicCorrectMatrix diagnostic_plot '
                              'to identify the modified z-value thresholds. A lower and upper '
                              'threshold are required separated by space. Eg. --filterThreshold '
                              '-1.5 5',
@@ -178,7 +178,7 @@ def correct_subparser():
                         'is 0.05 ',
                         type=float)
 
-    parser.add_argument('--sequencedCountCutoff', 
+    parser.add_argument('--sequencedCountCutoff',
                         help='Each bin receives a value indicating the '
                         'fraction that is covered by reads. A cutoff of '
                         '0.5 will discard all those bins that have less '
@@ -186,9 +186,9 @@ def correct_subparser():
                         default=None,
                         type=float)
 
-    parser.add_argument('--chromosomes', 
+    parser.add_argument('--chromosomes',
                         help='List of chromosomes to be included in the iterative '
-                        'correction. The order of the given chromosomes will be then ' 
+                        'correction. The order of the given chromosomes will be then '
                         'kept for the resulting corrected matrix',
                         default=None,
                         nargs='+')
@@ -631,7 +631,7 @@ def main():
 
     if args.transCutoff and 0 < args.transCutoff < 100:
         cutoff = float(args.transCutoff)/100
-        # a usual cutoff is 0.05 
+        # a usual cutoff is 0.05
         ma.truncTrans(high=cutoff)
 
     pre_row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
