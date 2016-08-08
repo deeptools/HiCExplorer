@@ -6,10 +6,10 @@ from hicexplorer._version import __version__
 
 
 def parse_arguments(args=None):
-    
+
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description=('Adds Hi-C matrices of the same size. Format '
-                                                  'has to be .npz.'))
+                                                  'has to be .h5.'))
 
     parser.add_argument('--matrices', '-m',
                         help='matrices to add. Must have the same shape.',
@@ -19,7 +19,7 @@ def parse_arguments(args=None):
 
     parser.add_argument('--outFileName', '-o',
                         help='File name to save the resulting matrix. The output is '
-                             'also a .npz file. But don\'t add the suffix',
+                             'also a .h5 file. But don\'t add the suffix',
                         required=True)
 
     parser.add_argument('--version', action='version',
@@ -29,7 +29,7 @@ def parse_arguments(args=None):
 
 
 def main():
-    
+
     args = parse_arguments().parse_args()
     hic = hm.hiCMatrix(args.matrices[0])
     summed_matrix = hic.matrix

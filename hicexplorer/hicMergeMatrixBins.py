@@ -20,7 +20,7 @@ def parse_arguments(args=None):
     # define the arguments
     parser.add_argument('--matrix', '-m',
                         help='Matrix to reduce.',
-                        metavar='.npz fileformat',
+                        metavar='.h5 fileformat',
                         required=True)
 
     parser.add_argument('--numBins', '-nb',
@@ -36,8 +36,8 @@ def parse_arguments(args=None):
 
     parser.add_argument('--outFileName', '-o',
                         help='File name to save the resulting matrix. '
-                        'The output is also a .npz file. But don\'t add '
-                        'the suffix', 
+                        'The output is also a .h5 file. But don\'t add '
+                        'the suffix',
                         required=True)
 
     parser.add_argument('--version', action='version',
@@ -146,7 +146,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
     """Creates a 'running window' merge without changing the
     original resolution of the matrix. The window size is
     defined by the num_bins that are merged. Num bins
-    had to be an odd number such that equal amounts of left and 
+    had to be an odd number such that equal amounts of left and
     right bins can be merged.
 
        a | b | c
@@ -155,7 +155,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
        ---------
        g | h | i
 
-    In this matrix, using a merge of num_bins 3, 
+    In this matrix, using a merge of num_bins 3,
     the merge is done as follows, a = a + b + d + e,
     e = a + b + c + d + e + f etc,
 
@@ -232,7 +232,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
     new_data = new_data[keep]
     new_row = new_row[keep]
     new_col = new_col[keep]
-    
+
     new_ma = coo_matrix((new_data, (new_row, new_col)), shape=(M, M))
     new_ma = triu(new_ma, k=0)
 #   new_ma.data = new_ma.data / len(idx_list)
@@ -293,7 +293,7 @@ def merge_bins(hic, num_bins):
             bins_to_merge.append(range(idx_start, idx))
             idx_start = idx
             new_start = start_list[idx]
-            count = 0 
+            count = 0
 
         prev_ref = ref
         count += 1

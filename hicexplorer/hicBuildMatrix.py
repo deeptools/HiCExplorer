@@ -70,7 +70,7 @@ def parseArguments(args=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description=('Using an alignment from Bowtie2 where both '
                      'PE reads are mapped using  the --local '
-                     'option, this code reads such file and '
+                     'option, this program reads such file and '
                      'creates a matrix of interactions.'))
 
     # define the arguments
@@ -724,7 +724,7 @@ def main(args=None):
             orientation = 'diff_chromosome'
         else:
             # to identify 'inward' and 'outward' orientations
-            # the order or the mates in the genome has to be 
+            # the order or the mates in the genome has to be
             # known.
             if mate1.pos < mate2.pos:
                 first_mate = mate1
@@ -732,7 +732,7 @@ def main(args=None):
             else:
                 first_mate = mate2
                 second_mate = mate1
-            
+
             """
             outward
             <---------------              ---------------->
@@ -977,4 +977,3 @@ class Tester(object):
     def __init__(self):
         self.root = "../hicexplorer/test/"
         self.bam_file_1 = self.root + "hic.bam"
-
