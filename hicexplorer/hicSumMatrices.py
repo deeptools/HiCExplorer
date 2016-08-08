@@ -9,11 +9,11 @@ def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description=('Adds Hi-C matrices of the same size. Format '
-                                                  'has to be .h5.'))
+                                                  'has to be hdf5 or npz'))
 
     parser.add_argument('--matrices', '-m',
                         help='matrices to add. Must have the same shape.',
-                        metavar='.npz file format',
+                        metavar='.h5 file format',
                         nargs='+',
                         required=True)
 

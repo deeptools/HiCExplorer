@@ -35,7 +35,7 @@ section as `color`, `title`, etc.
    # that use the section label to determine the action.
 
    [hic]
-   file = hic.npz
+   file = hic.h5
    title = Hi-C
    colormap = RdYlBu_r
    depth = 100000
