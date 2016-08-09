@@ -475,10 +475,40 @@ def find_consensus_minima(matrix, lookahead=3, delta=0, max_threshold=0.3, chrom
     # use the matrix transpose such that each row
     # represents the conductance at each genomic
     # position
+    matrix_avg = matrix.mean(axis=1)
+    _max, _min= peakdetect(matrix_avg, lookahead=lookahead, delta=delta, chrom=chrom)
+    min_idx, value = zip(*_min)
+    window_len = 10
+    # check diff with neighbor mean
+    unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
+    chr_start_idx = np.concatenate([chr_start_idx, [len(chrom) - 1]])
+    chr_start_idx = np.sort(chr_start_idx)
+    chrom_ranges = [(chr_start_idx[x], chr_start_idx[x+1]) for x in range(len(chr_start_idx) - 1)]
+    larger_mean_list = []
 
-    _max, _min= peakdetect(matrix.mean(axis=1), lookahead=lookahead, delta=delta, chrom=chrom)
-    # filter all mimimum that are over a value of max_threshold
-    min_indices = [idx for idx, value in _min if value <= max_threshold]
+    for start_range, end_range in chrom_ranges:
+        # translate min_idx to new range
+        new_min_idx = np.array([x for x in min_idx if start_range <= x < end_range]) - start_range
+        _avg = matrix_avg[start_range:end_range]
+        # compute avg around the min_idx
+        for new_min in new_min_idx:
+            if 10 < new_min <= len(_avg) - 10:
+                # get the TAD_score mean around the local minimum.
+                larger_mean = np.mean(np.concatenate([_avg[new_min - window_len:new_min-1],
+                                                      _avg[new_min + 2:new_min + window_len - 1]]))
+            else:
+                larger_mean = np.nan
+            larger_mean_list += [larger_mean]
+    # compute difference between larger_mean and min_idx
+    flatness = np.array(larger_mean_list) - matrix_avg[np.array(min_idx)]
+
+    _min = zip(min_idx, value, flatness)
+    min_indices = []
+    for idx, value, flatness in _min:
+        if ((value <= max_threshold) or
+            (value > max_threshold and flatness > delta)):
+                min_indices += [idx]
+
     return np.unique(min_indices)
 
 
