@@ -895,7 +895,10 @@ def main(args=None):
     bin_max = []
     for cov in coverage:
         # bin_coverage.append(round(float(len(cov[cov > 0])) / len(cov), 3))
-        bin_max.append(max(cov))
+        if len(cov) == 0:
+            bin_max.append(np.nan)
+        else:
+            bin_max.append(max(cov))
 
     chr_name_list, start_list, end_list = zip(*bin_intervals)
     bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
