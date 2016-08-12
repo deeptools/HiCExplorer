@@ -4,6 +4,5 @@ hicPlotMatrix
 =============
 
 .. argparse::
-   :ref: hicexplorer.hicMergeMatrixBins.parse_arguments
+   :ref: hicexplorer.hicPlotMatrix.parse_arguments
    :prog: hicPlotMatrix
-
