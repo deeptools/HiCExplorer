@@ -186,7 +186,7 @@ def get_vectors(mat1, mat2):
 
     Requires two sparse matrices as input
     """
-    assert mat1.shape == mat2.shape, "Matrices have diffent shapes. "\
+    assert mat1.shape == mat2.shape, "Matrices have different shapes. "\
         "Computation of correlation is not possible."
 
     # create a new matrix that is the sum of the two
