@@ -1,5 +1,4 @@
 from __future__ import division
-from os.path import splitext
 import sys
 import argparse
 from hicexplorer import HiCMatrix as hm
@@ -35,7 +34,7 @@ def parse_arguments(args=None):
                         )
 
     parser.add_argument('--outFileName', '-o',
-                        help='File name to save the plain text matrix. In the case of "lieberman" '
+                        help='File name to save the exported matrix. In the case of "lieberman" '
                              'output format this should be the path of a folder where the information '
                              'per chromosome is stored.',
                         required=True)
@@ -58,7 +57,8 @@ def parse_arguments(args=None):
                         default=None)
 
     parser.add_argument('--outputFormat',
-                        help='Output format. The possibilities are "dekker",  "ren" and "hicexplorer". '
+                        help='Output format. The possibilities are "dekker",  "ren", "hicexplorer, '
+                             'npz (former hicexplorer format) and "GInteractoins". '
                              'The dekker format outputs the whole matrix where the '
                              'first column and first row are the bin widths and labels. '
                              'The "ren" format is a list of tuples of the form '
@@ -178,6 +178,13 @@ def main():
 
     else:
         hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
+        if args.bplimit:
+            from scipy.sparse import triu
+            sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
+
+            limit = int(args.bplimit / hic_ma.getBinSize())
+            hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
+            hic_ma.matrix.eliminate_zeros()
 
     if args.chromosomeOrder:
         hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
