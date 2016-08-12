@@ -191,7 +191,7 @@ def get_vectors(mat1, mat2):
 
     # create a new matrix that is the sum of the two
     # matrices to compare. The goal is to have
-    # a matrix than contains all the positions
+    # a matrix that contains all the positions
     # that are non-zero in both matrices
     _mat = mat1 + mat2
 
