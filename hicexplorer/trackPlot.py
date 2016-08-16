@@ -27,7 +27,7 @@ DEFAULT_MATRIX_COLORMAP = 'RdYlBu_r'
 DEFAULT_TRACK_HEIGHT = 3  # in centimeters
 DEFAULT_FIGURE_WIDTH = 40  # in centimeters
 # proportion of width dedicated to (figure, legends)
-DEFAULT_WIDTH_RATIOS = (0.95, 0.05)
+DEFAULT_WIDTH_RATIOS = (0.93, 0.07)
 DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 
 #DEFAULT_WIDTH_RATIOS = (1, 0.00)
@@ -1247,7 +1247,10 @@ class PlotBed(TrackPlot):
             if self.bed_type in ['bed9', 'bed12'] and len(bed.rgb) == 3:
                 try:
                     rgb = [float(x)/255 for x in bed.rgb]
-                    edgecolor = self.properties['color']
+                    if 'border_color' in self.properties:
+                        edgecolor = self.properties['border_color']
+                    else:
+                        edgecolor = self.properties['color']
                 except IndexError:
                     pass
 
@@ -1308,7 +1311,6 @@ class PlotBed(TrackPlot):
         """
         draws an interval with direction (if given)
         """
-
         from matplotlib.patches import Polygon
 
         if bed.strand not in ['+', '-']:
