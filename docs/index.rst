@@ -16,7 +16,7 @@ The following is the list of tools available in HiCExplorer
 =============================== ===========================================================================================
 tool                            description
 =============================== ===========================================================================================
-:ref:`findRestSites`              Identifies the genomic locations of restriction sites
+:ref:`findRestSites`             Identifies the genomic locations of restriction sites
 :ref:`hicBuildMatrix`            Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
 :ref:`hicCorrectMatrix`          Uses iterative correction to remove biases from a Hi-C matrix
 :ref:`hicFindEnrichedContacts`   Identifies enriched Hi-C contacts
@@ -27,6 +27,7 @@ tool                            description
 :ref:`hicPlotMatrix`             Plots a Hi-C matrix as a heatmap
 :ref:`hicPlotTADs`               Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
 :ref:`hicSumMatrices`            Adds Hi-C matrices of the same size
+:ref:`hicPlotDistVsCounts`       Plots distance vs. Hi-C counts of corrected data
 :ref:`hicExport`                 Export matrix to text formats
 =============================== ===========================================================================================
 
