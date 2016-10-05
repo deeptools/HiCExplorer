@@ -685,9 +685,9 @@ class PlotBigWig(TrackPlot):
         else:
             # by default show the data range
             self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
-                         "[{}-{}] {}".format(int(ymin), ymax_print),
+                         "[{}-{}]".format(int(ymin), ymax_print),
                          horizontalalignment='left',
-                         verticalalignment='bottom')
+                         verticalalignment='top')
 
         """
         self.ax.text(region_end, ymax - ydelta * 0.2, self.properties['title'],
@@ -882,9 +882,10 @@ class PlotHiCMatrix(TrackPlot):
             cobar.solids.set_edgecolor("face")
         except ValueError:
             pass
-        self.label_ax.text(0.3, 0.0, self.properties['title'],
-                           horizontalalignment='left', size='large',
-                           verticalalignment='bottom', transform=self.label_ax.transAxes)
+        cobar.ax.set_ylabel(self.properties['title'])
+        #self.label_ax.text(0.3, 0.0, self.properties['title'], rotation=90,
+        #                   horizontalalignment='left', size='large',
+        #                   verticalalignment='bottom', transform=self.label_ax.transAxes)
 
     def pcolormesh_45deg(self, matrix_c, start_pos_vector, vmin=None,
                          vmax=None):
