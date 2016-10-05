@@ -654,7 +654,6 @@ class PlotBigWig(TrackPlot):
                         print "After {} the scores could be computed".format(num_tries)
                     break
 
-
             x_values = np.linspace(start_region, end_region, num_bins)
             self.ax.fill_between(x_values, scores, linewidth=0.1,
                                  color=self.properties['color'],
@@ -686,7 +685,7 @@ class PlotBigWig(TrackPlot):
         else:
             # by default show the data range
             self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
-                         "[{}-{}] {}".format(int(ymin), ymax_print, self.properties['title']),
+                         "[{}-{}] {}".format(int(ymin), ymax_print),
                          horizontalalignment='left',
                          verticalalignment='bottom')
 
