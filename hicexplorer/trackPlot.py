@@ -10,6 +10,7 @@ import matplotlib.gridspec
 import matplotlib.cm
 import mpl_toolkits.axisartist as axisartist
 from matplotlib.patches import Rectangle
+import textwrap
 
 import scipy.sparse
 from collections import OrderedDict
@@ -63,7 +64,7 @@ class PlotTracks(object):
         if fontsize:
             fontsize = fontsize
         else:
-            fontsize = float(fig_width) * 0.4
+            fontsize = float(fig_width) * 0.3
 
         font = {'size': fontsize}
         matplotlib.rc('font', **font)
@@ -97,6 +98,11 @@ class PlotTracks(object):
 
             elif properties['file_type'] == 'boundaries':
                 self.track_obj_list.append(PlotBoundaries(properties))
+
+            if 'title' in properties:
+                # adjust titles that are too long
+                properties['title'] = textwrap.fill(properties['title'], 12)
+                print "new title is {}".format(properties['title'])
 
         print "time initializing tracks"
         start = self.print_elapsed(start)
@@ -505,9 +511,9 @@ class PlotBedGraph(TrackPlot):
                     horizontalalignment='left', size='small',
                     verticalalignment='bottom')
 
-        self.label_ax.text(0.15, 0, self.properties['title'],
+        self.label_ax.text(0.15, 0.5, self.properties['title'],
                       horizontalalignment='left', size='large',
-                      verticalalignment='bottom', transform=self.label_ax.transAxes)
+                      verticalalignment='center', transform=self.label_ax.transAxes)
 
 
 class PlotBedGraphMatrix(PlotBedGraph):
@@ -554,7 +560,7 @@ class PlotBedGraphMatrix(PlotBedGraph):
                 small_x = 0.01 * (end_region - start_region)
                 # by default show the data range
                 self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
-                             "[{}-{}] {}".format(int(ymin), ymax_print, self.properties['title']),
+                             "[{}-{}]".format(int(ymin), ymax_print),
                              horizontalalignment='left',
                              verticalalignment='bottom')
             # plot horizontal lines to compare values
@@ -577,11 +583,10 @@ class PlotBedGraphMatrix(PlotBedGraph):
         self.ax.set_frame_on(False)
         self.ax.axes.get_xaxis().set_visible(False)
         self.ax.axes.get_yaxis().set_visible(False)
-
-
-        self.label_ax.text(0.15, 0, self.properties['title'],
+        self.properties['title'].replace('\\\\', '\\')
+        self.label_ax.text(0.15, 0.5, self.properties['title'],
                       horizontalalignment='left', size='large',
-                      verticalalignment='bottom', transform=self.label_ax.transAxes)
+                      verticalalignment='center', transform=self.label_ax.transAxes)
 
 
 class PlotBigWig(TrackPlot):
@@ -644,9 +649,11 @@ class PlotBigWig(TrackPlot):
             while num_tries < 5:
                 num_tries += 1
                 try:
-                    self.bw = pyBigWig.open(self.properties['file'])
                     scores = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
                 except Exception as e:
+                    import pyBigWig
+                    self.bw = pyBigWig.open(self.properties['file'])
+
                     print "error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries)
                     pass
                 else:
@@ -878,11 +885,37 @@ class PlotHiCMatrix(TrackPlot):
         self.ax.axes.get_yaxis().set_visible(False)
         self.cbar_ax.patch.set_alpha(0.0)
         try:
-            cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
+            if self.properties['transform'] in ['log', 'log1p']:
+                from matplotlib.ticker import LogFormatter
+                formatter = LogFormatter(10, labelOnlyBase=False)
+                # get a useful log scale
+                # that looks like [1, 2, 5, 10, 20, 50, 100, ... etc]
+                aa = np.array([1, 2, 5])
+                tick_values = np.concatenate([aa * 10**x for x in range(10)])
+                cobar = plt.colorbar(img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
+            else:
+                cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
             cobar.solids.set_edgecolor("face")
+            cobar.ax.set_ylabel(self.properties['title'])
+
+
+            # adjust the labels of the colorbar
+            labels = cobar.ax.get_yticklabels()
+            ticks = cobar.ax.get_yticks()
+            if ticks[0] == 0:
+                # if the label is at the start of the colobar
+                # move it above avoid being cut or overlapping with other track
+                labels[0].set_verticalalignment('bottom')
+            if ticks[-1] == 1:
+                # if the label is at the end of the colobar
+                # move it a bit inside to avoid overlapping
+                # with other labels
+                labels[-1].set_verticalalignment('top')
+            cobar.ax.set_yticklabels(labels)
+
+
         except ValueError:
             pass
-        cobar.ax.set_ylabel(self.properties['title'])
         #self.label_ax.text(0.3, 0.0, self.properties['title'], rotation=90,
         #                   horizontalalignment='left', size='large',
         #                   verticalalignment='bottom', transform=self.label_ax.transAxes)
@@ -1303,9 +1336,9 @@ class PlotBed(TrackPlot):
         ax.set_xlim(start_region, end_region)
 
 
-        label_ax.text(0.15, 0.5, self.properties['title'],
+        label_ax.text(0.15, 1, self.properties['title'],
                       horizontalalignment='left', size='large',
-                      verticalalignment='center', transform=label_ax.transAxes)
+                      verticalalignment='top', transform=label_ax.transAxes)
 
     def draw_gene_simple(self, ax, bed, ypos, rgb, edgecolor):
         """
