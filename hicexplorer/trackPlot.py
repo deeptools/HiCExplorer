@@ -71,7 +71,6 @@ class PlotTracks(object):
         # initialize each track
         self.track_obj_list = []
         for idx, properties in enumerate(self.track_list):
-            print properties
             if 'spacer' in properties:
                 self.track_obj_list.append(PlotSpacer(properties))
                 continue
@@ -102,10 +101,9 @@ class PlotTracks(object):
             if 'title' in properties:
                 # adjust titles that are too long
                 properties['title'] = textwrap.fill(properties['title'], 12)
-                print "new title is {}".format(properties['title'])
 
-        print "time initializing tracks"
-        start = self.print_elapsed(start)
+        print "time initializing track(s):"
+        self.print_elapsed(start)
 
     def get_tracks_height(self, start, end):
         # prepare layout based on the tracks given.
@@ -186,13 +184,7 @@ class PlotTracks(object):
                             bottom=DEFAULT_MARGINS['bottom'],
                             top=DEFAULT_MARGINS['top'])
 
-        print "time before saving"
-        start = self.print_elapsed(start)
-        print "saving {}".format(file_name)
-
         fig.savefig(file_name, dpi=self.dpi, transparent=False)
-        print "time saving "
-        start = self.print_elapsed(start)
         return fig.get_size_inches()
 
     def plot_vlines(self, axis_list, chrom_region, start_region, end_region):
@@ -724,6 +716,26 @@ class PlotHiCMatrix(TrackPlot):
         else:
             self.hic_ma.maskBins(self.hic_ma.nan_bins)
 
+        # check that the matrix can be log transformed
+        if 'transform' in self.properties:
+            if self.properties['transform'] == 'log1p':
+                if self.hic_ma.matrix.data.min() + 1< 0:
+                    exit("\n*ERROR*\nMatrix contains negative values.\n"
+                         "log1p transformation can not be applied to \n"
+                         "values in matrix: {}".format(self.properties['file']))
+
+            elif self.properties['transform'] == '-log':
+                if self.hic_ma.matrix.data.min() < 0:
+                    exit("\n*ERROR*\nMatrix contains negative values.\n"
+                         "log(-1 * <values>) transformation can not be applied to \n"
+                         "values in matrix: {}".format(self.properties['file']))
+
+            elif self.properties['transform'] == 'log':
+                if self.hic_ma.matrix.data.min() < 0:
+                    exit("\n*ERROR*\nMatrix contains negative values.\n"
+                         "log transformation can not be applied to \n"
+                         "values in matrix: {}".format(self.properties['file']))
+
         new_intervals = hicexplorer.utilities.enlarge_bins(self.hic_ma.cut_intervals)
         self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = \
             self.hic_ma.intervalListToIntervalTree(new_intervals)
@@ -790,18 +802,18 @@ class PlotHiCMatrix(TrackPlot):
 
         # expand region to plus depth on both sides
         # to avoid a 45 degree 'cut' on the edges
-    
+
         # get bin id of start and end of region in given chromosome
         chr_start_id, chr_end_id = self.hic_ma.getChrBinRange(chrom)
         chr_start = self.hic_ma.cut_intervals[chr_start_id][1]
         chr_end = self.hic_ma.cut_intervals[chr_end_id-1][1]
         start_bp = max(chr_start, region_start - self.properties['depth'])
         end_bp = min(chr_end, region_end + self.properties['depth'])
-    
+
         idx, start_pos = zip(*[(idx, x[1]) for idx, x in
                                enumerate(self.hic_ma.cut_intervals)
                                if x[0] == chrom and x[1] >= start_bp and x[2] <= end_bp])
-    
+
         idx = idx[0:-1]
         # select only relevant matrix part
         matrix = self.hic_ma.matrix[idx, :][:, idx]
@@ -833,11 +845,11 @@ class PlotHiCMatrix(TrackPlot):
 
         if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
             vmax = self.properties['max_value']
-    
+
         else:
             # try to use a 'aesthetically pleasant' max value
             vmax = np.percentile(matrix.diagonal(1), 80)
-    
+
         if 'min_value' in self.properties and self.properties['min_value'] != 'auto':
             vmin = self.properties['min_value']
         else:
@@ -853,7 +865,7 @@ class PlotHiCMatrix(TrackPlot):
             self.ax.set_ylim(depth, 0)
         else:
             self.ax.set_ylim(0, depth)
-    
+
         # ##plot boundaries
         # if a boundaries file is given, plot the
         # tad boundaries as line delineating the TAD triangles
@@ -871,7 +883,7 @@ class PlotHiCMatrix(TrackPlot):
                 bottom='on',
                 top='off',
                 direction='out')
-    
+
             self.ax.set_xticklabels(labels)
         else:
             self.ax.get_xaxis().set_tick_params(
