@@ -885,7 +885,8 @@ class PlotHiCMatrix(TrackPlot):
         self.ax.axes.get_yaxis().set_visible(False)
         self.cbar_ax.patch.set_alpha(0.0)
         try:
-            if self.properties['transform'] in ['log', 'log1p']:
+            if 'transform' in self.properties and \
+                            self.properties['transform'] in ['log', 'log1p']:
                 from matplotlib.ticker import LogFormatter
                 formatter = LogFormatter(10, labelOnlyBase=False)
                 # get a useful log scale
