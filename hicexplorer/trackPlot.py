@@ -455,6 +455,9 @@ class PlotBedGraph(TrackPlot):
         score_list = []
         pos_list = []
 
+        if chrom_region not in self.interval_tree.keys():
+            chrom_region = change_chrom_names(chrom_region)
+            
         for region in self.interval_tree[chrom_region].find(start_region - 10000,
                                                            end_region + 10000):
             score_list.append(float(region.value[0]))
@@ -1623,6 +1626,8 @@ class PlotArcs(TrackPlot):
         max_diameter = 0
         count = 0
 
+        if chrom_region not in self.interval_tree.keys():
+            chrom_region = change_chrom_names(chrom_region)
         arcs_in_region = self.interval_tree[chrom_region].find(region_start, region_end)
 
         for idx, interval in enumerate(arcs_in_region):
