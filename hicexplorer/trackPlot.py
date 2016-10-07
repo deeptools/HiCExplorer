@@ -475,7 +475,9 @@ class PlotBedGraph(TrackPlot):
             try:
                 self.ax.fill_between(pos_list, score_list, facecolor=self.properties['color'])
             except ValueError:
-                sys.exit("Invalid color {} for {}".format(self.properties['color'], self.properties['file']))
+                sys.stderr.write("Invalid color {} for {}. "
+                                 "Using gray instead.".format(self.properties['color'], self.properties['file']))
+                self.ax.fill_between(pos_list, score_list, facecolor='gray')
 
         self.ax.set_frame_on(False)
         self.ax.axes.get_xaxis().set_visible(False)
@@ -605,15 +607,16 @@ class PlotBigWig(TrackPlot):
             try:
                 num_bins = int(self.properties['number of bins'])
             except TypeError:
-                sys.exit("'number of bins' value: {} for bigwig file {} "
-                     "is not valid.".format(self.properties['number of bins'],
+                num_bins = 700
+                sys.stderr.write("'number of bins' value: {} for bigwig file {} "
+                                 "is not valid. Using default value (700)".format(self.properties['number of bins'],
                                             self.properties['file']))
 
         if chrom_region not in self.bw.chroms().keys():
             chrom_region = change_chrom_names(chrom_region)
 
         if chrom_region not in self.bw.chroms().keys():
-            sys.exit("Can not read region {} from bigwig file:\n\n"
+            sys.stderr.write("Can not read region {} from bigwig file:\n\n"
                  "{}\n\nPlease check that the chromosome name is part of the bigwig file "
                  "and that the region is valid".format(formated_region, self.properties['file']))
 
@@ -797,8 +800,6 @@ class PlotHiCMatrix(TrackPlot):
             sys.stderr.write("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
             sys.stderr.write("{} size: {}. Region to plot {}-{}\n".format(chrom, chrom_sizes[chrom],
                                                                           region_start, region_end))
-
-            exit(1)
 
         # expand region to plus depth on both sides
         # to avoid a 45 degree 'cut' on the edges
@@ -1543,7 +1544,7 @@ class PlotArcs(TrackPlot):
         # the file format expected is similar to file format of links in
         # circos:
         # chr1 100 200 chr1 250 300 0.5
-        # where the last valus is an score.
+        # where the last value is an score.
 
         valid_intervals = 0
         interval_tree = {}
