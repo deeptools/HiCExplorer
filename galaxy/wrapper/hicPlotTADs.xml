@@ -1,4 +1,4 @@
-<tool id="hicexplorer_@BINARY@" name="@BINARY@" version="@WRAPPER_VERSION@.0">
+<tool id="hicexplorer_hicplottads" name="@BINARY@" version="@WRAPPER_VERSION@.0">
     <description>Plots the diagonal, and some values close to the diagonal of a HiC matrix</description>
     <macros>
         <token name="@BINARY@">hicPlotTADs</token>

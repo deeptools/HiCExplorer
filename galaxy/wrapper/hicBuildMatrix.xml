@@ -1,4 +1,4 @@
-<tool id="hicexplorer_@BINARY@" name="@BINARY@" version="@WRAPPER_VERSION@.0">
+<tool id="hicexplorer_hicbuildmatrix" name="@BINARY@" version="@WRAPPER_VERSION@.0">
     <description>creates a matrix of interactions</description>
     <macros>
         <token name="@BINARY@">hicBuildMatrix</token>

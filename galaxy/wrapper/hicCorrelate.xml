@@ -1,4 +1,4 @@
-<tool id="hicexplorer_@BINARY@" name="@BINARY@" version="@WRAPPER_VERSION@.0">
+<tool id="hicexplorer_hiccorrelate" name="@BINARY@" version="@WRAPPER_VERSION@.0">
     <description>Computes pairwise correlations between hic matrices data</description>
     <macros>
         <token name="@BINARY@">hicCorrelate</token>
