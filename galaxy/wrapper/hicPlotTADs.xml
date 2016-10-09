@@ -1,4 +1,4 @@
-<tool id="hicPlotTADs" name="hicPlotTADs" version="1.0">
+<tool id="hicexplorer_@BINARY@" name="@BINARY@" version="@WRAPPER_VERSION@.0">
     <description>Plots the diagonal, and some values close to the diagonal of a HiC matrix</description>
     <macros>
         <token name="@BINARY@">hicPlotTADs</token>
@@ -10,21 +10,20 @@
 
         @BINARY@
 
-            --tracks "$tracks"
+            --tracks '$tracks_config'
+            #if $region and $region is not None:
+                --region '$region'
+            #end if
+
 
             #if $outFileName and $outFileName is not None:
-                --outFileName plot.png
+                --outFileName plot.svg
             #end if
-
-            #if $region and $region is not None:
-                --region $region
-            #end if
-
 
 ]]>
     </command>
     <configfiles>
-        <configfile name="tracks">
+        <configfile name="tracks_config">
 ## lines that start with '#' are comment lines
 ## and are not interpreted by the program
 ## the different tracks are represented by sections in this file
@@ -67,9 +66,9 @@ x labels = yes
 type = arcplot
 type = interaction
 
-##file_type = hic_matrix
+##file_type = h5
 
-#if $track.track_input.ext == "tabular":
+#if $track.track_input.ext == "bedgraph":
 file_type = bedgraph_matrix
 #else:
 file_type = $track.track_input.ext
@@ -89,8 +88,8 @@ type = $track.type_of_data
 ## optional: font size can be given if default are not good
 fontsize = $track.fontsize
 
-#if $track.inverted
-orientation = $track.inverted
+#if $track.orientation
+orientation = $track.orientation
 #end if
 
 #if $track.plotting_type
@@ -115,13 +114,12 @@ width = 0.1
         </configfile>
     </configfiles>
     <inputs>
-        <param argument="--region" name="region" type="text" label="Plot only this region." help="The format is chr:start-end The plotted region contains the main diagonal and is symmetric unless  --region2 is given"/>
-
-
+        <expand macro="region" />
+        <param name="foo" type="data" format="h5,bed,bedgraph,bigwig,tabular" label="Track file"/>
         <repeat name="tracks" min="1" title="Include tracks in your plot"
             help="Tracks can be of different filetypes. E.g BED, HiC-Matrix, BigWig or BedGraph">
 
-            <param name="track_input" type="data" format="hic_matrix,bed,bedgraph,bigwig,tabular" label="Track file"/>
+            <param name="track_input" type="data" format="h5,bed,bedgraph,bigwig,tabular" label="Track file"/>
             <param name="title" type="text" optional="true" label="Plot title"/>
             <expand macro="colormap" />
             <param name="min_value" type="float" value="" optional="True" label="Minimum value"/>
@@ -158,15 +156,21 @@ width = 0.1
 
     </inputs>
     <outputs>
-        <data argument="--outFileName" name="outFileName" from_work_dir="plot.png" format="png" label="${tool.name} on ${on_string}"/>
+        <data name="outFileName" from_work_dir="plot.svg" format="svg"/>
     </outputs>
     <tests>
         <test>
-            <repeat name="input_files">
-                <param name="tack_input" value="hicCorrectMatrix_result2.npz" ftype="hic_matrix" />
+            <param name="foo" value="hicCorrectMatrix_result1.npz.h5" ftype="h5" />
+            <param name="region" value="chr3LHet"/>
+            <repeat name="tracks">
+                <param name="tack_input" value="hicCorrectMatrix_result1.npz.h5" ftype="h5" />
                 <param name="title" value="plot_tads_test_1"/>
             </repeat>
-            <output name="outFileName" file="hicPlotMatrix_result1.png" ftype="png" compare="sim_size"/>
+            <repeat name="tracks">
+                <param name="tack_input" value="hicCorrectMatrix_result1.npz.h5" ftype="h5" />
+                <param name="title" value="plot_tads_test_1"/>
+            </repeat>
+            <output name="outFileName" file="hicPlotTADs_result1.png" ftype="png" compare="sim_size"/>
         </test>
     </tests>
     <help><![CDATA[
@@ -178,4 +182,3 @@ Plots the diagonal, and some values close to the diagonal of a HiC matrix. The d
 ]]></help>
     <expand macro="citations" />
 </tool>
-

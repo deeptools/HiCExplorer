@@ -1,4 +1,4 @@
-<tool id="hicCorrectMatrix" name="hicCorrectMatrix" version="1.0">
+<tool id="hicexplorer_@BINARY@" name="@BINARY@" version="@WRAPPER_VERSION@.0">
     <description>Runs Dekker's iterative correction over a hic matrix.</description>
     <macros>
         <token name="@BINARY@">hicCorrectMatrix</token>
@@ -7,11 +7,11 @@
     <expand macro="requirements" />
     <command>
 <![CDATA[
-        ln -s $matrix temp_matrix.npz &&
+        ln -s '$matrix' temp_matrix.npz.h5 &&
 
         hicCorrectMatrix
-
-            --matrix temp_matrix.npz
+            $mode.mode_selector
+            --matrix temp_matrix.npz.h5
 
             ## special: --chromosomes is optional, but if given needs at least one argument
             #set chroms = '" "'.join([ str($var.chromosome) for $var in $chromosomes ])
@@ -20,8 +20,9 @@
             #end if
 
             #if $mode.mode_selector == 'correct':
+
                 --iterNum $mode.iterNum
-                --outFileName corrected_matrix.npz
+                --outFileName corrected_matrix.npz.h5
 
                 #if $mode.filterThreshold_low and $mode.filterThreshold_large:
                     --filterThreshold $mode.filterThreshold_low $mode.filterThreshold_large
@@ -41,6 +42,16 @@
 
                 $mode.skipDiagonal
                 $mode.perchr
+
+            #elif $mode.mode_selector == 'merge_failed':
+                --plotName diagnostic_plot.png
+                --outMatrixFile corrected_matrix.npz.h5
+                #if $mode.xMax:
+                    --xMax $mode.xMax
+                #end if
+                #if $mode.filterThreshold_low and $mode.filterThreshold_large:
+                    --filterThreshold $mode.filterThreshold_low $mode.filterThreshold_large
+                #end if
             #else:
                 --plotName diagnostic_plot.png
                 #if $mode.xMax:
@@ -51,68 +62,68 @@
 ]]>
     </command>
     <inputs>
-        <param argument="--matrix" name="matrix" type="data" format="hic_matrix"
+        <param argument="--matrix" name="matrix" type="data" format="h5"
             label="Hi-C matrix" />
 
         <conditional name="mode">
             <param name="mode_selector" type="select" label="Range restriction (in bp)" argument="--range">
                 <option value="diagnostic_plot">Diagnostic plot</option>
                 <option value="correct">Correct matrix</option>
+                <option value="merge_failed">Merges together failed bins</option>
             </param>
             <when value="diagnostic_plot">
-                <param argument="--xMax" name="xMax" type="integer" optional="true" value=""
-                    label="Max value for the x-axis in counts per bin" />
+                <expand macro="xMax" />
             </when>
             <when value="correct">
                 <param argument="--iterNum" name="iterNum" type="integer" optional="true" value="500"
                     label="Number of iterations" />
 
                 <param argument="--inflationCutoff" name="inflationCutoff" type="float" optional="true"
-                    label="Inflation cutoff" help="Value corresponding to the maximum number of times a bin can be scaled up during the iterative correction. For example, a inflationCutoff of 3 will filter out all bins that were expanded 3 times or more during the iterative correction."/>
+                    label="Inflation cutoff" value=""
+                    help="Value corresponding to the maximum number of times a bin can be scaled up during the iterative correction.
+                    For example, a inflationCutoff of 3 will filter out all bins that were expanded 3 times or more during the iterative correction."/>
 
                 <param argument="--transCutoff" name="transCutoff" type="float" optional="true"
-                    label="Trans region cutoff" help="Clip high counts in the top -transcut trans regions (i.e. between chromosomes). A usual value is 0.05."/>
+                    label="Trans region cutoff" value=""
+                    help="Clip high counts in the top -transcut trans regions (i.e. between chromosomes). A usual value is 0.05."/>
 
                 <param argument="--sequencedCountCutoff" name="sequencedCountCutoff" optional="true" type="float"
-                    label="Sequenced count cutoff" help="Each bin receives a value indicating the fraction that is covered by reads. A cutoff of 0.5 will discard all those bins that have less than half of the bin covered."/>
+                    label="Sequenced count cutoff"
+                    help="Each bin receives a value indicating the fraction that is covered by reads.
+                        A cutoff of 0.5 will discard all those bins that have less than half of the bin covered."/>
 
                 <param argument="--skipDiagonal" name="skipDiagonal" type="boolean" truevalue="--skipDiagonal" falsevalue="" checked="false"
                     label="Skip diagonal counts"/>
 
                 <param argument="--perchr" name="perchr" type="boolean" truevalue="--perchr" falsevalue="" checked="false"
                     label="Normalize each chromosome separately" />
+                <expand macro="filterThreshold" />
 
-                <param argument="--filterThreshold" name="filterThreshold_low" type="float" optional="true"
-                    label="Remove bins of low coverage" help="e.g. -1.5; Both Thresholds needs to be set to take effect."/>
-
-                <param argument="--filterThreshold" name="filterThreshold_large" type="float" optional="true"
-                    label="Remove bins of large coverage" help="e.g. 5; Both Thresholds needs to be set to take effect."/>
-
+            </when>
+            <when value="merge_failed">
+                <expand macro="filterThreshold" />
+                <expand macro="xMax" />
             </when>
         </conditional>
 
-        <repeat argument="--chromosomes" name="chromosomes" min="1" optional="true"
+        <repeat name="chromosomes" min="1"
             title="Include chromosomes" help="List of chromosomes to be included in the iterative correction.
                     The order of the given chromosomes will be kept for the resulting corrected matrix">
-            <param name="chromosome" type="text"/>
+            <param name="chromosome" type="text" value="" />
         </repeat>
 
     </inputs>
     <outputs>
-        <data name="outFileName"  from_work_dir="corrected_matrix.npz" format="hic_matrix" label="${tool.name} on ${on_string}" argument="--outFileName">
-            <filter>mode['mode_selector'] == "correct"</filter>
+        <data name="outFileName"  from_work_dir="corrected_matrix.npz.h5" format="h5">
+            <filter>mode['mode_selector'] == "correct" or mode['mode_selector'] == "merge_failed"</filter>
         </data>
-        <data name="diagnostic_plot"  from_work_dir="diagnostic_plot.png" format="png" label="${tool.name} on ${on_string}">
-            <filter>mode['mode_selector'] == "diagnostic_plot"</filter>
+        <data name="diagnostic_plot" from_work_dir="diagnostic_plot.png" format="png">
+            <filter>mode['mode_selector'] == "diagnostic_plot" or mode['mode_selector'] == "merge_failed"</filter>
         </data>
     </outputs>
     <tests>
         <test>
-            <param name="matrix" ftype="hic_matrix" value="hicBuildMatrix_result1.npz"/>
-            <output name="outFileName" file="hicCorrectMatrix_result1.npz" ftype="hic_matrix" compare="sim_size"/>
-        </test>
-        <test>
-            <param name="matrix" ftype="hic_matrix" value="hicBuildMatrix_result1.npz"/>
+            <param name="matrix" value="hicBuildMatrix_result1.npz.h5" ftype="h5"/>
             <param name="mode_selector" value="correct"/>
             <repeat name="chromosomes">
                 <param name="chromosome" value="chrUextra"/>
@@ -120,10 +131,10 @@
             <repeat name="chromosomes">
                 <param name="chromosome" value="chr3LHet"/>
             </repeat> 
-            <output name="outFileName" file="hicCorrectMatrix_result2.npz" ftype="hic_matrix" compare="sim_size"/>
+            <output name="outFileName" file="hicCorrectMatrix_result1.npz.h5" ftype="h5" compare="sim_size"/>
         </test>
         <test>
-            <param name="matrix" ftype="hic_matrix" value="hicBuildMatrix_result1.npz"/>
+            <param name="matrix" ftype="h5" value="hicBuildMatrix_result1.npz.h5"/>
             <param name="mode_selector" value="diagnostic_plot"/>
             <repeat name="chromosomes">
                 <param name="chromosome" value="chrUextra"/>
@@ -133,12 +144,39 @@
             </repeat> 
             <output name="diagnostic_plot" file="diagnostic_plot.png" ftype="png" compare="sim_size"/>
         </test>
+        <test>
+            <param name="matrix" ftype="h5" value="hicBuildMatrix_result1.npz.h5"/>
+            <param name="mode_selector" value="merge_failed"/>
+            <repeat name="chromosomes">
+                <param name="chromosome" value="chrUextra"/>
+            </repeat>
+            <repeat name="chromosomes">
+                <param name="chromosome" value="chr3LHet"/>
+            </repeat> 
+            <output name="diagnostic_plot" file="diagnostic_plot.png" ftype="png" compare="sim_size"/>
+            <output name="outMatrixFile" file="merged_matrix.npz.h5" ftype="h5" compare="sim_size"/>
+        </test>
     </tests>
     <help><![CDATA[
 
 **What it does**
 
 Runs Dekker's iterative correction over a hic matrix.
+
+
+    correct        Run the iterative correction.
+    diagnostic_plot
+                   Plots a histogram of the coverage per bin together with the
+                   modified z-score based on the median absolute deviation
+                   method (see Boris Iglewicz and David Hoaglin 1993, Volume
+                   16: How to Detect and Handle Outliers The ASQC Basic
+                   References in Quality Control: Statistical Techniques,
+                   Edward F. Mykytka, Ph.D., Editor.
+    merge_failed   Merges together failed bins to rescue some of the
+                   information instead of discarding it. This option is mostly
+                   useful with processing small restrition fragment size bins
+
+
 
 ]]></help>
     <expand macro="citations" />
