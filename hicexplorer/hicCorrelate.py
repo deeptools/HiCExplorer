@@ -10,10 +10,11 @@ from hicexplorer._version import __version__
 
 # for plotting
 from matplotlib import use as mplt_use
+mplt_use('Agg')
+
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import FixedLocator
-mplt_use('Agg')
 
 
 def parse_arguments(args=None):
