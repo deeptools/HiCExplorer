@@ -247,6 +247,22 @@ def running_window_merge_v2(hic_matrix, num_bins):
 
 def merge_bins(hic, num_bins):
     """
+    Merge the bins using the specified number of bins. This
+    functions takes care to make new intervals
+
+    Parameters
+    ----------
+
+    hic : HiCMatrix object
+
+    num_bins : number of consecutive bins to merge.
+
+    Returns
+    -------
+
+    A sparse matrix.
+
+    Set up a Hi-C test matrix
     >>> from scipy.sparse import csr_matrix
     >>> row, col = np.triu_indices(5)
     >>> cut_intervals = [('a', 0, 10, 0.5), ('a', 10, 20, 1),
@@ -260,13 +276,14 @@ def merge_bins(hic, num_bins):
     ... [  0,  0,  0, 90,   1],
     ... [  0,  0,  0,  0, 100]])
 
-
     make the matrix symmetric:
     >>> from scipy.sparse import dia_matrix
 
     >>> dia = dia_matrix(([matrix.diagonal()], [0]), shape=matrix.shape)
     >>> hic.matrix = csr_matrix(matrix + matrix.T - dia)
     >>> hic.setMatrix(csr_matrix(matrix + matrix.T), cut_intervals)
+
+    run merge_matrix
     >>> merge_matrix = merge_bins(hic, 2)
     >>> merge_matrix.cut_intervals
     [('a', 0, 20, 0.75), ('a', 20, 40, 0.55000000000000004), ('b', 40, 50, 1.0)]

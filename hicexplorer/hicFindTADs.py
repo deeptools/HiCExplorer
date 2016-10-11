@@ -83,12 +83,10 @@ For detailed help:
                                           'used.',
                                      action='store_true')
 
-
     tad_score_subparser.add_argument('--numberOfProcessors',  '-p',
                                      help='Number of processors to use ',
                                      type=int,
                                      default=1)
-
 
     find_tads_subparser = subparsers.add_parser('find_TADs', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -123,6 +121,13 @@ For detailed help:
                                           'the BED files for the TAD clusters and the linkage BED file that '
                                           'can be used with hicPlotTADs.',
                                      required=True)
+
+    find_tads_subparser.add_argument('--saveMergedTADbinsMatrix',
+                                     help='If set, a matrix whose counts per TAD are merged is saved. '
+                                          'In this matrix only the TADs and its contacts to other TADs '
+                                          'are saved. The name of the matrix would be <prefix>_TAD_matrix',
+                                     action='store_true',
+                                     default=False)
 
     return parser
 
@@ -1006,6 +1011,53 @@ def load_spectrum_matrix(file):
     return chrom, start, end, matrix
 
 
+def merge_tad_bins(hic, boundary_id_list, filename):
+    """
+    Reduces the HiC matrix by merging the counts of tad bins.
+    :param hic: hicMatrix object
+    :param boundary_id_list list of tad boundary bin ids
+    :param filename Name to save the resulting matrix
+    :return: hicMatrix object
+    """
+
+    import hicexplorer.reduceMatrix
+    hic.restoreMaskedBins()
+    ref_name_list, start_list, end_list, coverage_list = zip(*hic.cut_intervals)
+    new_bins = []
+    bins_to_merge = []
+    prev_ref = ref_name_list[0]
+
+    # prepare new intervals
+    idx_start = 0
+    new_start = start_list[0]
+    count = 0
+    for idx, ref in enumerate(ref_name_list):
+        if (count > 0 and idx in boundary_id_list) or ref != prev_ref:
+            coverage = np.mean(coverage_list[idx_start:idx])
+            new_bins.append((ref_name_list[idx_start], new_start,
+                             end_list[idx-1], coverage))
+            bins_to_merge.append(range(idx_start, idx))
+            idx_start = idx
+            new_start = start_list[idx]
+            count = 0
+
+        prev_ref = ref
+        count += 1
+    # check that the previous for loop ran, otherwise
+    # some variables may not be set
+    if len(bins_to_merge) > 0:
+        coverage = np.mean(coverage_list[idx_start:])
+        new_bins.append((ref, new_start, end_list[idx], coverage))
+        bins_to_merge.append(range(idx_start, idx+1))
+
+        hic.update_matrix(
+            hicexplorer.reduceMatrix(hic.matrix, bins_to_merge, diagonal=True), new_bins)
+
+        hic.save(filename)
+    else:
+        sys.stderr.write("Nothing to merge.")
+
+
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
@@ -1042,8 +1094,11 @@ def main(args=None):
         else:
             sys.stderr.write("Only {} boundaries found. {}".format(len(min_idx), msg))
 
-
     save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args)
+
+    # make a reduce matrix by merging the TAD bins
+    sys.stderr.write("Generating matrix with merged bins")
+    merge_tad_bins(args.hic_ma, min_idx, args.prefix + "_TAD_matrix")
 
     # turn of hierarchical clustering which is apparently not working.
     if 2==1:

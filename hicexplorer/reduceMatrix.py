@@ -3,6 +3,7 @@ import numpy as np
 import time
 import logging
 
+
 def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     """
     This function sums the rows and columns corresponding
@@ -22,6 +23,8 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
 
     bins_to_merge : A list of lists. The values of the lists should
         correspond to the indices of the matrix.
+
+    diagonal : If set to true, then the main diagonal is preserved (not deleted)
 
     Returns
     -------
