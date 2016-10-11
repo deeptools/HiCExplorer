@@ -56,8 +56,8 @@ def parse_arguments(args=None):
     parser.add_argument(
         '--outFormat',
         help='Output format',
-        choices=['npz', 'dekker'],
-        default='npz')
+        choices=['hdf5', 'dekker'],
+        default='hdf5')
 
     parser.add_argument(
         '--chromosomes',

@@ -32,10 +32,10 @@ section as `color`, `title`, etc.
    # the content of the section label (in the previous example 'hic') is irrelevant for
    # plotting and only used to tell the user when something goes wrong.
    # There are two exceptions for this, the [x-axis] and the [spacer] sections
-   # that use the secion label to determine the action.
+   # that use the section label to determine the action.
 
    [hic]
-   file = hic.npz
+   file = hic.h5
    title = Hi-C
    colormap = RdYlBu_r
    depth = 100000
@@ -46,7 +46,6 @@ section as `color`, `title`, etc.
    transform = log1p
    boundaries_file = conductance_vs_hic/boundaries_all.bed
    x labels = yes
-   type = arcplot
    type = interaction
    # in case it can not be guessed by the file ending
    file_type = hic_matrix
@@ -64,9 +63,22 @@ section as `color`, `title`, etc.
 
    # to insert a space simple add a
    # section title [spacer]
+
    [spacer]
    #optional
    width = 0.1
+
+   # You can also show the interactions as arcs between start and end bins.
+   # for this simply write the interactions in the Ginteraction format (HiCExport)
+   # and add the file here
+
+   [interactions]
+   file = Ginteractions.tsv
+   file_type = links
+   width =  10
+   color = black
+   title = HAS manual interactions
+   line width = 1
 
    [bigwig]
    file = file.bw

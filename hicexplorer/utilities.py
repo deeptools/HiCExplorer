@@ -5,6 +5,8 @@ import numpy as np
 import scipy.stats
 import scipy.sparse
 import argparse
+from matplotlib import use as mplt_use
+mplt_use('Agg')
 
 from hicexplorer.HiCMatrix import hiCMatrix
 

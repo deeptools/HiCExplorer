@@ -311,7 +311,7 @@ class hiCMatrix:
             row = np.concatenate([row, chrrow + dim])
             col = np.concatenate([col, chrcol + dim])
             value = np.concatenate([value, chrdata[:, 2]])
-            dim = dim + chrdim
+            dim += chrdim
 
             for _bin in range(chrdim):
                 cut_intervals.append((chrnameList[i], _bin * resolution, (_bin + 1) * resolution,0))
@@ -482,12 +482,13 @@ class hiCMatrix:
                              'the bin distance to the median: {}\n'.format(median))
         return cut_intervals
 
-    def convert_to_obs_exp_matrix(self, maxdepth=None):
+    def convert_to_obs_exp_matrix(self, maxdepth=None, zscore=False):
         """
         Converts a corrected counts matrix into a
-        obs / expected matrix
+        obs / expected matrix fast
 
         :param maxdepth:
+        :param zscore: if a zscore wants to be returned instead of obs/exp
         :return: observer / expected sparse matrix
 
         from scipy.sparse import csr_matrix, dia_matrix
@@ -512,12 +513,23 @@ class hiCMatrix:
                 [ 0. ,  0. ,  0. ,  0. ,  1. ],
                 [ 0. ,  0. ,  0. ,  0. ,  0. ]])
 
+        >>> hic.matrix = csr_matrix(matrix)
         >>> hic.convert_to_obs_exp_matrix(maxdepth=20).todense()
         matrix([[ 1. ,  0.8,  0. ,  0. ,  0. ],
                 [ 0. ,  4. ,  1.5,  0. ,  0. ],
                 [ 0. ,  0. ,  0. ,  0.7,  0. ],
                 [ 0. ,  0. ,  0. ,  0. ,  nan],
                 [ 0. ,  0. ,  0. ,  0. ,  0. ]])
+
+        >>> hic.matrix = csr_matrix(matrix)
+        >>> hic.convert_to_obs_exp_matrix(zscore=True).todense()
+        matrix([[ 0.        , -0.32444284,         nan,         nan,  0.        ],
+                [ 0.        ,  0.8660254 ,  0.81110711,         nan,  0.        ],
+                [ 0.        ,  0.        ,  0.        , -0.48666426,  0.70710678],
+                [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
+                [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ]])
+
+        nans occur where the standard deviation is zero
         """
 
         binsize = self.getBinSize()
@@ -532,7 +544,7 @@ class hiCMatrix:
             # (this is done by subtracting a second sparse matrix
             # that contains only the upper matrix that wants to be removed.
             self.matrix = triu(self.matrix, k=0, format='csr') - \
-                            triu(self.matrix, k=max_depth_in_bins, format='csr')
+                          triu(self.matrix, k=max_depth_in_bins, format='csr')
         else:
             self.matrix = triu(self.matrix, k=0, format='csr')
 
@@ -544,55 +556,82 @@ class hiCMatrix:
         # to get the sum of all values at a given distance I use np.bincount which
         # is quite fast. However, the input of bincount is positive integers. Moreover
         # it returns the sum for every consecutive integer, even if this is not on the list.
-        # Thus, dist_list is converted to a list of positive consecutive integers by
-        # transforming -1 values (which represent inter-chromosomal contacts to -binsize)
-        # and then dividing by binsize and adding 1
+        # Thus, dist_list, which contains the distance in bp between any two bins is
+        # converted to bin distance.
+
+        # Because positive integers are needed we add +1 to all bin distances
+        # such that the value of -1 (which means different chromosomes) can now be used
+
         dist_list[dist_list == -1] = -binsize
+        # divide by binsize to get a list of bin distances and add +1 to remove negative values
         dist_list = (dist_list / binsize).astype(int) + 1
+
+        # for each distance, return the sum of all values
         sum_counts = np.bincount(dist_list, weights=self.matrix.data)
         # compute the average for each distance
         mat_size = self.matrix.shape[0]
         mu = {}
+        std = {}
         chrom_sizes = np.array([v[1]-v[0] for k, v in self.chrBinBoundaries.iteritems()])
-        for idx, sum_value in enumerate(sum_counts):
-            if idx == 0:
-                if maxdepth:
-                    # when max depth is set, the computation
-                    # of the total_intra is not accurate and is safer to
-                    # output np.nan
-                    mu[idx] = np.nan
-                else:
-                    # total intra-chromosomal interactions
-                    total_intra = mat_size ** 2 - sum([size ** 2 for size in chrom_sizes])
-                    mu[idx] = sum_value / (total_intra / 2 )
+
+        # compute mean value for each distance
+        for bin_dist_plus_one, sum_value in enumerate(sum_counts):
+            if maxdepth and bin_dist_plus_one == 0:  # this is for intra chromosomal counts
+                # when max depth is set, the computation
+                # of the total_intra is not accurate and is safer to
+                # output np.nan
+                mu[bin_dist_plus_one] = np.nan
+                std[bin_dist_plus_one] = np.nan
                 continue
-            # to compute the average counts per distance we take the sum_counts and divide
-            # by the number of values on the respective diagonal
-            # which is equal to the size of each chromosome - the diagonal offset (for those
-            # chromosome larger than the offset)
-            # In the following example with two chromosomes
-            # the first (main) diagonal has a size equal to the matrix (6),
-            # while the next has 1 value less for each chromosome (4) and the last one has only w values
 
-            # 0 1 2 . . .
-            # - 0 1 . . .
-            # - - 0 . . .
-            # . . . 0 1 2
-            # . . . - 0 1
-            # . . . - - 0
+            if bin_dist_plus_one == 0:
+                total_intra = mat_size ** 2 - sum([size ** 2 for size in chrom_sizes])
+                diagonal_length = total_intra / 2
+            else:
+                # to compute the average counts per distance we take the sum_counts and divide
+                # by the number of values on the respective diagonal
+                # which is equal to the size of each chromosome - the diagonal offset (for those
+                # chromosome larger than the offset)
+                # In the following example with two chromosomes
+                # the first (main) diagonal has a size equal to the matrix (6),
+                # while the next has 1 value less for each chromosome (4) and the last one has only 2 values
 
-            # idx - 1 because earlier the values where
-            # shifted.
-            diagonal_length = sum([size - (idx - 1) for size in chrom_sizes if size > (idx - 1)])
-            mu[idx] = sum_value / diagonal_length
+                # 0 1 2 . . .
+                # - 0 1 . . .
+                # - - 0 . . .
+                # . . . 0 1 2
+                # . . . - 0 1
+                # . . . - - 0
+
+                # idx - 1 because earlier the values where
+                # shifted.
+                diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes if size > (bin_dist_plus_one - 1)])
+            mu[bin_dist_plus_one] = sum_value / diagonal_length
             if np.isnan(sum_value):
-                sys.stderr.write("nan value found for distande {}\n".format((idx-1) * binsize))
+                sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one-1) * binsize))
+
+            # if zscore is needed, compute standard deviation
+            if zscore:
+                values_sqrt_diff = \
+                    np.array((self.matrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
+                # the standard deviation is the sum of the differences with mu squared (value variable)
+                # plus all zeros that are not included in the sparse matrix
+                # for which the standard deviation is
+                # (0 - mu)**2 = (mu)**2
+                # The number of zeros is the diagonal length - the length of the non zero values
+                zero_values_sqrt_diff = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
+                std[bin_dist_plus_one] = np.sqrt(values_sqrt_diff.sum() + zero_values_sqrt_diff)
+
         # use the expected values to compute obs/exp
         transf_ma = np.zeros(len(self.matrix.data))
         for idx, value in enumerate(self.matrix.data):
-            transf_ma[idx] = value / mu[dist_list[idx]]
+            if zscore:
+                transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
+            else:
+                transf_ma[idx] = value / mu[dist_list[idx]]
 
         self.matrix.data = transf_ma
+        self.matrix = self.matrix.tocsr()
         return self.matrix
 
     def getCountsByDistance(self, mean=False, per_chr=False):
@@ -819,7 +858,7 @@ class hiCMatrix:
             self.intervalListToIntervalTree(self.cut_intervals)
         # remove distanceCounts
         try:
-            del(self.distance_counts)
+            self.distance_counts = None
         except AttributeError:
             pass
         self.matrix = mat
@@ -917,6 +956,18 @@ class hiCMatrix:
                     fileh.write("{}\t{}\t{}\n".format(start[idx], end[idx], chrwise_mat_coo.data[idx]))
                 fileh.close()
 
+    def save_GInteractions(self, fileName):
+        self.restoreMaskedBins()
+        print self.matrix.shape
+        mat_coo = triu(self.matrix, k=0, format='csr').tocoo()
+        fileh = open("{}.tsv".format(fileName), 'w')
+        for idx, counts in enumerate(mat_coo.data):
+            chr_row, start_row, end_row, _ = self.cut_intervals[mat_coo.row[idx]]
+            chr_col, start_col, end_col, _ = self.cut_intervals[mat_coo.col[idx]]
+            fileh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chr_row, int(start_row), int(end_row),
+                                                              chr_col, int(start_col), int(end_col), counts))
+        fileh.close()
+
     def save(self, filename):
         """
         Saves a matrix using hdf5 format
@@ -968,6 +1019,7 @@ class hiCMatrix:
 
             # save corrections factors
             if self.correction_factors is not None and len(self.correction_factors):
+                self.correction_factors = np.array(self.correction_factors)
                 atom = tables.Atom.from_dtype(self.correction_factors.dtype)
                 ds = h5file.create_carray(h5file.root, 'correction_factors', atom,
                                              self.correction_factors.shape)

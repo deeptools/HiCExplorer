@@ -17,9 +17,9 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
-Uses a measure called TAD score to identify the separation between '
-left and right regions for a given position. This is done for a '
-running window of different sizes. Then, TADs are called as those '
+Uses a measure called TAD score to identify the separation between
+left and right regions for a given position. This is done for a
+running window of different sizes. Then, TADs are called as those
 positions having a local minimum.
 
 To actually find the TADs, the program  needs to compute first the
@@ -27,12 +27,15 @@ TAD scores at different window sizes. Then, the results of that computation
 are used to call the TADs. An simple example usage is:
 
 $ hicFindTads TAD_score -m hic_matrix.npz -o TAD_score.txt
+
 $ hicFindTads find_TADs -f TAD_score.txt --outPrefix TADs
 
 For detailed help:
 
  hicFindTADs TAD_score -h
-  or
+
+ or
+
  hicFindTADs find_TADs -h
 
 """)
@@ -475,10 +478,40 @@ def find_consensus_minima(matrix, lookahead=3, delta=0, max_threshold=0.3, chrom
     # use the matrix transpose such that each row
     # represents the conductance at each genomic
     # position
+    matrix_avg = matrix.mean(axis=1)
+    _max, _min= peakdetect(matrix_avg, lookahead=lookahead, delta=delta, chrom=chrom)
+    min_idx, value = zip(*_min)
+    window_len = 10
+    # check diff with neighbor mean
+    unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
+    chr_start_idx = np.concatenate([chr_start_idx, [len(chrom) - 1]])
+    chr_start_idx = np.sort(chr_start_idx)
+    chrom_ranges = [(chr_start_idx[x], chr_start_idx[x+1]) for x in range(len(chr_start_idx) - 1)]
+    larger_mean_list = []
 
-    _max, _min= peakdetect(matrix.mean(axis=1), lookahead=lookahead, delta=delta, chrom=chrom)
-    # filter all mimimum that are over a value of max_threshold
-    min_indices = [idx for idx, value in _min if value <= max_threshold]
+    for start_range, end_range in chrom_ranges:
+        # translate min_idx to new range
+        new_min_idx = np.array([x for x in min_idx if start_range <= x < end_range]) - start_range
+        _avg = matrix_avg[start_range:end_range]
+        # compute avg around the min_idx
+        for new_min in new_min_idx:
+            if 10 < new_min <= len(_avg) - 10:
+                # get the TAD_score mean around the local minimum.
+                larger_mean = np.mean(np.concatenate([_avg[new_min - window_len:new_min-1],
+                                                      _avg[new_min + 2:new_min + window_len - 1]]))
+            else:
+                larger_mean = np.nan
+            larger_mean_list += [larger_mean]
+    # compute difference between larger_mean and min_idx
+    flatness = np.array(larger_mean_list) - matrix_avg[np.array(min_idx)]
+
+    _min = zip(min_idx, value, flatness)
+    min_indices = []
+    for idx, value, flatness in _min:
+        if ((value <= max_threshold) or
+            (value > max_threshold and flatness > delta)):
+                min_indices += [idx]
+
     return np.unique(min_indices)
 
 
@@ -743,8 +776,9 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
 
     # a boundary is added to the start and end of each chromosome
     # np.unique return index is used to quickly get
-    # the indices at which the chrom changes
+    # the indices at which the name of the chromosome changes (chrom, start, end should be  sorted)
     unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
+
     # the trick to get the start positions using np.unique only works when
     # more than one chromosome is present
     if len(unique_chroms) == 1:
@@ -753,7 +787,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
     else:
         chr_end_idx = chr_start_idx
         # the indices for the end of the chromosomes
-        # are the the start indices - 1, with the exeception
+        # are the the start indices - 1, with the exception
         # of the idx == 0 that is transformed into the length
         # of the chromosome to get the idx for the end of the
         # last chromosome
@@ -763,21 +797,41 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
     # put all indices together and sort
     min_idx = np.sort(np.concatenate([chr_start_idx, chr_end_idx, min_idx]))
 
+    # the boundary is computed at the interface between two bins.
+    # therefore, the extend of the bin boundary is defined to be from the
+    # center of the left bin, to the center of the right bin
     chrom_of_boundary = chrom[min_idx]
+
     boundaries_start_bp = np.array([chr_start[idx] for idx in min_idx])
+
     mean_mat_all = matrix.mean(axis=1)
     mean_mat = mean_mat_all[min_idx]
     count = 1
-    with open(args.outPrefix + '_boundaries.bed', 'w') as file_boundaries, open(args.outPrefix + '_domains.bed', 'w') as file_domains:
-        for idx in range(len(boundaries_start_bp)):
-            # 1. save boundaries at 1bp position
-            file_boundaries.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx], boundaries_start_bp[idx],
-                                                                    boundaries_start_bp[idx] + 1,
-                                                                    mean_mat[idx]))
+    with open(args.outPrefix + '_boundaries.bed', 'w') as file_boundaries, open(args.outPrefix + '_boundaries_bin.bed', 'w') as file_boundary_bin, open(args.outPrefix + '_domains.bed', 'w') as file_domains:
+        for idx, min_bin_id in enumerate(min_idx):
             # skip if the start of the boundary
             # is the end of the chromosome
-            if min_idx[idx] in chr_end_idx:
+            if min_bin_id in chr_end_idx:
                 continue
+
+            # 1. save boundaries at 1bp position
+            right_bin_center = chr_start[min_bin_id] + int((chr_end[min_bin_id] - chr_start[min_bin_id]) / 2)
+
+            left_bin_center = chr_start[min_bin_id - 1] + int((chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) / 2)
+
+            if chrom[min_bin_id] != chrom[min_bin_id - 1]:
+                continue
+
+            # bin center is the middle between the left and rights bin centers
+            bin_center = left_bin_center + int((right_bin_center - left_bin_center) / 2)
+            file_boundaries.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx], bin_center,
+                                                                    bin_center + 1,
+                                                                    mean_mat[idx]))
+            # 2. save the position of the boundary range
+            file_boundary_bin.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx],
+                                                                      left_bin_center,
+                                                                      right_bin_center,
+                                                                      mean_mat[idx]))
 
             start = boundaries_start_bp[idx]
             end = boundaries_start_bp[idx + 1]
@@ -800,8 +854,14 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
 
     # save track with mean values in bedgraph format
     with open(args.outPrefix + '_score.bedgraph', 'w') as tad_score:
-        for idx in range(len(chrom)):
-            tad_score.write("{}\t{}\t{}\t{}\n".format(chrom[idx], chr_start[idx], chr_end[idx], mean_mat_all[idx]))
+        for idx in range(1,len(chrom)):
+            right_bin_center = chr_start[idx] + int((chr_end[idx] - chr_start[idx]) / 2)
+            left_bin_center = chr_start[idx - 1] + int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
+            if right_bin_center < left_bin_center:
+                # this contition happens at chromosome borders
+                continue
+            tad_score.write("{}\t{}\t{}\t{}\n".format(chrom[idx], left_bin_center, right_bin_center,
+                                                      mean_mat_all[idx]))
 
 
 def compute_spectra_matrix(args, matrix=None):

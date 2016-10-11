@@ -24,7 +24,7 @@ MOCK_MODULES = ['numpy', 'scipy', 'scipy.sparse', 'scipy.stats', 'pandas',
                 'matplotlib.textpath', 'matplotlib.patches',
                 'matplotlib.colors', 'matplotlib.cm', 'mpl_toolkits', 'mpl_toolkits.axisartist',
                 'pysam', 'bx', 'bx.intervals', 'bx.intervals.intersection',
-                'Bio', 'Bio.Seq', 'Bio.Alphabet']
+                'Bio', 'Bio.Seq', 'Bio.Alphabet', 'tables', 'mpl_toolkits', 'mpl_toolkits.mplot3d']
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()

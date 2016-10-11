@@ -1,5 +1,4 @@
 from __future__ import division
-from os.path import splitext
 import sys
 import argparse
 from hicexplorer import HiCMatrix as hm
@@ -35,7 +34,7 @@ def parse_arguments(args=None):
                         )
 
     parser.add_argument('--outFileName', '-o',
-                        help='File name to save the plain text matrix. In the case of "lieberman" '
+                        help='File name to save the exported matrix. In the case of "lieberman" '
                              'output format this should be the path of a folder where the information '
                              'per chromosome is stored.',
                         required=True)
@@ -58,7 +57,8 @@ def parse_arguments(args=None):
                         default=None)
 
     parser.add_argument('--outputFormat',
-                        help='Output format. The possibilities are "dekker",  "ren" and "hicexplorer". '
+                        help='Output format. The possibilities are "dekker",  "ren", "hicexplorer, '
+                             'npz (former hicexplorer format) and "GInteractoins". '
                              'The dekker format outputs the whole matrix where the '
                              'first column and first row are the bin widths and labels. '
                              'The "ren" format is a list of tuples of the form '
@@ -67,9 +67,11 @@ def parse_arguments(args=None):
                              'with three columns : contact start, contact end, and raw observed score. '
                              'This corresponds to the RawObserved files from lieberman group. The '
                              'hicexplorer format stores the data using a hdf5 format. Optionally, '
-                             'the numpy npz format can be used for small datasets (< 4GB).',
+                             'the numpy npz format can be used for small datasets (< 4GB).'
+                             'The GInteractions format is in the form : Bin1, Bin2 , Interaction,'
+                             'where Bin1 and Bin2 are intervals (chr,start,end), seperated by tab.',
                         default='dekker',
-                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz'])
+                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz','GInteractions'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
@@ -176,6 +178,13 @@ def main():
 
     else:
         hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
+        if args.bplimit:
+            from scipy.sparse import triu
+            sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
+
+            limit = int(args.bplimit / hic_ma.getBinSize())
+            hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
+            hic_ma.matrix.eliminate_zeros()
 
     if args.chromosomeOrder:
         hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
@@ -193,5 +202,7 @@ def main():
         hic_ma.save_lieberman(args.outFileName)
     elif args.outputFormat == 'npz':
         hic_ma.save_npz(args.outFileName)
+    elif args.outputFormat == 'GInteractions':
+        hic_ma.save_GInteractions(args.outFileName)
     else:
         hic_ma.save(args.outFileName)

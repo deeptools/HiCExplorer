@@ -97,7 +97,9 @@ class ReadBed(object):
         bed = self.get_bed_interval(line)
         if self.prev_chrom == bed.chromosome:
             assert self.prev_start <= bed.start, \
-                "Bed file not sorted. Please use a sorted bed file.\n{}{} ".format(self.prev_line, line)
+                "Bed file not sorted. Please use a sorted bed file.\n" \
+                "File: {}\n" \
+                "Previous line: {}\n Current line{} ".format(self.file_handle.name, self.prev_line, line)
 
         self.prev_chrom = bed.chromosome
         self.prev_start = bed.start
