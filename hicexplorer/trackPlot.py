@@ -1255,7 +1255,7 @@ class PlotBed(TrackPlot):
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
         self.counter = 0
-        self.small_relative = 0.002 * (end_region-start_region)
+        self.small_relative = 0.004 * (end_region-start_region)
         self.process_bed(ax.get_figure().get_figwidth(), start_region, end_region)
 
         if chrom_region not in self.interval_tree.keys():
