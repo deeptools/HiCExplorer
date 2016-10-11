@@ -94,7 +94,7 @@ To get detailed help on each of the options:
         'merge_failed',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         help="Merges together failed bins to rescue some of the information instead of discarding it. This option "
-             "is mostly useful with processing small restrition fragment size bins",
+             "is mostly useful with processing small restriction fragment size bins.",
         usage='%(prog)s '
               '--matrix hic_matrix.npz '
               '--outMatrixFile hic_matrix_merged_failed.npz '

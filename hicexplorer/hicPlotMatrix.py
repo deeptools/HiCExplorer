@@ -138,7 +138,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
         norm = LogNorm()
 
     img3 = axHeat2.imshow(ma,
-#                          interpolation='nearest',
+                          interpolation='nearest',
 #                          interpolation='spline16',
                           vmax=args.vMax, vmin=args.vMin, cmap=cmap,
                           norm=norm

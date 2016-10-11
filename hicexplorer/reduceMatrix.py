@@ -1,7 +1,9 @@
+import sys
 from scipy.sparse import coo_matrix, dia_matrix, triu
 import numpy as np
 import time
 import logging
+
 
 def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     """
@@ -22,6 +24,8 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
 
     bins_to_merge : A list of lists. The values of the lists should
         correspond to the indices of the matrix.
+
+    diagonal : If set to true, then the main diagonal is preserved (not deleted)
 
     Returns
     -------
@@ -60,6 +64,23 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     >>> reduce_matrix(A, ll, diagonal=True).todense()
     matrix([[24,  7],
             [ 7, 10]])
+
+    Test with float and nan
+    >>> A = csr_matrix(np.array([[12.4,5.3,3.1,2.2,np.nan],
+    ... [0,11.4,4.4,1.1,1.1],
+    ... [0,0,9,6,0], [0,0,0,10,0], [0,0,0,0,0]]))
+    >>> A.todense()
+    matrix([[ 12.4,   5.3,   3.1,   2.2,   nan],
+            [  0. ,  11.4,   4.4,   1.1,   1.1],
+            [  0. ,   0. ,   9. ,   6. ,   0. ],
+            [  0. ,   0. ,   0. ,  10. ,   0. ],
+            [  0. ,   0. ,   0. ,   0. ,   0. ]])
+
+    >>> ll = [(0,2), (1,3), (4,)]
+    >>> reduce_matrix(A, ll, diagonal=True).todense()
+    matrix([[ 24.5,  17.9,   nan],
+            [ 17.9,  22.5,   1.1],
+            [  nan,   1.1,   0. ]])
     """
 
     #use only the upper triangle of the matrix
@@ -86,6 +107,13 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     if M == ma.shape[0]:
         return matrix
 
+    # check for nans and make a warning in case they are
+    # present
+    num_nan = len(np.flatnonzero(np.isnan(np.array(ma.data))))
+    if num_nan > 0:
+        sys.stderr.write(
+            "*Warning*\nmatrix contains {} NaN values.\n".format(num_nan))
+
     # each original col and row index is converted
     # to a new index based on the bins_to_merge.
     # For example, if rows 1 and 10 are to be merged
@@ -105,7 +133,6 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
 
     new_row = np.take(map_, ma.row)
     new_col = np.take(map_, ma.col)
-
 
     elapsed_time = time.time() - start_time
     start_time = time.time()
@@ -135,7 +162,7 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
 
     elapsed_time = time.time() - start_time
     start_time = time.time()
-    logging.debug( "time complex unique: {:.5f}".format(elapsed_time))
+    logging.debug("time complex unique: {:.5f}".format(elapsed_time))
     # sum the bins. For each bin, all values associated
     # to the bin members are added. Those values are in
     # the ma.data array.
@@ -156,13 +183,13 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
 
     # logging.debug( "time rebuild matrix guts: {:.5f}".format(elapsed_time))
     result = coo_matrix((sum_array, (new_row_, new_col_)),
-                        shape=(M,M), dtype='int')
+                        shape=(M,M), dtype=ma.dtype)
     elapsed_time = time.time() - start_time
     start_time = time.time()
     logging.debug( "time create sparse matrix: {:.5f}".format(elapsed_time))
 
     diagmatrix = dia_matrix(([result.diagonal()], [0]),
-                            shape=(M, M), dtype='int')
+                            shape=(M, M), dtype=ma.dtype)
 
     # to make set the main diagonal to zero I
     # multiply the diagonal by 2
