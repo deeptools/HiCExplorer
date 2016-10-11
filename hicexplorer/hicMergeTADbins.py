@@ -29,7 +29,6 @@ its total contacts of all other TADs.""")
 
     parser.add_argument('--outFile', '-o',
                         help='Name for the resulting matrix file.',
-                        type=argparse.FileType('w'),
                         required=True)
 
     return parser
@@ -73,6 +72,10 @@ def merge_tad_bins(hic, boundary_id_list, filename):
         coverage = np.mean(coverage_list[idx_start:])
         new_bins.append((ref, new_start, end_list[idx], coverage))
         bins_to_merge.append(range(idx_start, idx+1))
+        # remove correction factors otherwise they are
+        # saved but they no longer correspond to the
+        # size of the matrix.
+        hic.correction_factors = None
 
         hic.update_matrix(
             reduce_matrix(hic.matrix, bins_to_merge, diagonal=True), new_bins)
@@ -114,8 +117,8 @@ def get_boundary_bin_id(hic, bed_fh):
         start_bin, end_bin = hic.getRegionBinRange(chrom, start, end)
         boundaries.add(start_bin)
         boundaries.add(end_bin)
-
-    return list(boundaries).sort()
+    
+    return np.sort(list(boundaries))
 
 
 def main(args=None):
@@ -128,5 +131,5 @@ def main(args=None):
     boundary_id_list = get_boundary_bin_id(hic_ma, args.domains)
 
     # make a reduce matrix by merging the TAD bins
-    sys.stderr.write("Generating matrix with merged bins")
+    sys.stderr.write("Generating matrix with merged bins\n")
     merge_tad_bins(hic_ma, boundary_id_list, args.outFile)
