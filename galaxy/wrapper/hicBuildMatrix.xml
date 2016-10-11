@@ -1,4 +1,4 @@
-<tool id="hicBuildMatrix" name="hicBuildMatrix" version="1.0">
+<tool id="hicexplorer_hicbuildmatrix" name="@BINARY@" version="@WRAPPER_VERSION@.0">
     <description>creates a matrix of interactions</description>
     <macros>
         <token name="@BINARY@">hicBuildMatrix</token>
@@ -10,83 +10,111 @@
 
         hicBuildMatrix
 
-        --samFiles
-        #for $repeat in $samFiles:
-            ${repeat.samFile}
-        #end for
+            --samFiles
+            #for $repeat in $samFiles:
+                '${repeat.samFile}'
+            #end for
 
-        #if $binSize and $binSize is not None:
-            --binSize $binSize
-        #end if
+            #if $binSize and $binSize is not None:
+                --binSize $binSize
+            #end if
 
-        #if $fragmentLength and $fragmentLength is not None:
-            --fragmentLength $fragmentLength
-        #end if
+            #if $fragmentLength and $fragmentLength is not None:
+                --fragmentLength $fragmentLength
+            #end if
 
-        #if $restrictionCutFile and $restrictionCutFile is not None:
-            --restrictionCutFile $restrictionCutFile
-        #end if
+            #if $restrictionCutFile and $restrictionCutFile is not None:
+                --restrictionCutFile $restrictionCutFile
+            #end if
 
-        #if $minDistance and $minDistance is not None:
-            --minDistance $minDistance
-        #end if
+            #if $minDistance and $minDistance is not None:
+                --minDistance $minDistance
+            #end if
 
-        #if $maxDistance and $maxDistance is not None:
-            --maxDistance $maxDistance
-        #end if
+            #if $maxDistance and $maxDistance is not None:
+                --maxDistance $maxDistance
+            #end if
 
-        #if $restrictionSequence and $restrictionSequence is not None:
-            --restrictionSequence $restrictionSequence
-        #end if
+            #if $restrictionSequence and $restrictionSequence is not None:
+                --restrictionSequence '$restrictionSequence'
+            #end if
 
-        #if $region and $region is not None:
-            --region $region
-        #end if
+            #if $region and $region is not None:
+                --region '$region'
+            #end if
 
-        --outFileName ./numpy_array.npz
-        --outBam ./unsorted.bam &&
+            --outFileName ./numpy_array.npz
+            --outBam ./unsorted.bam
 
-        samtools sort ./unsorted.bam sorted
+            #if $restrictionCutFile:
+                --restrictionCutFile '$restrictionCutFile'
+            #end if
+
+            $removeSelfCircles
+
+            #if $minMappingQuality
+                --minMappingQuality $minMappingQuality
+            #end if
+        &&
+
+        samtools sort ./unsorted.bam -o sorted.bam
 
 ]]>
     </command>
     <inputs>
-        <repeat max="2" min="2" name="samFiles" title="Sam/Bam files to process" argument="--samFiles">
+        <repeat max="2" min="2" name="samFiles" title="Sam/Bam files to process">
             <param name="samFile" type="data" format="sam,bam"/>
         </repeat>
+
+        <param argument="--restrictionCutFile" type="data" format="bed" optional="True"
+            help="BED file with all restriction cut places. Should contain only mappable restriction sites. If given, the
+                  bins are set to match the restriction fragments (i.e. the region between one restriction site and the next)"/>
+
         <param name="binSize" type="integer" value="10000" label="Bin size in bp"
             help="If used, the restriction cut places (if given) are used to only consider reads that are in the vicinity of the resctriction sites.
             Otherwise all reads in the interval are considered. " argument="--binSize"/>
+
         <param name="fragmentLength" type="integer" value="300" optional="true" label="Estimated fragment length" argument="--fragmentLength" />
+
         <param name="restrictionCutFile" type="data" format="bed" optional="true" label="BED file with all restriction cut places"
             help="Should contaion only  mappable restriction sites. If given, the bins are set to match the restriction fragments
             (i.e. the region between one restriction site and the next)." argument="--restrictionCutFile"/>
+
         <param name="minDistance" type="integer" value="300" optional="true" label="Minimum distance between restriction sites"
             help="Restriction sites that are closer that this distance are merged into one.
             This option only applies if --restrictionCutFile is given." argument="--minDistance"/>
+
         <param name="maxDistance" type="integer" value="800" optional="true" label="Maximum distance in bp from restriction site to read, to consider a read a valid one"
             help="This option only applies if --restrictionCutFile is given."  argument="--maxDistance"/>
+
         <param name="restrictionSequence" type="text" optional="true" label="Sequence of the restriction site"
             help="This is used to discard reads that end/start with such sequence and that are considered un-ligated fragments or
             &quot;dangling-ends&quot;. If not given, such statistics will not be available." argument="--restrictionSequence"/>
-        <param name="region" type="text" label="Region of the genome to limit the operation"
-            help="The format is chr:start-end. Also valid is just to specify a chromosome, for example chr10" argument="--region"/>
+
+        <expand macro="region" />
+
+        <param argument="--removeSelfCircles" type="boolean" truevalue="--removeSelfCircles" falsevalue=""
+            label="Save the matrix of values underlying the heatmap" help="If set, outward facing reads, at a distance of less thatn 25kbs are removed." />
+
+        <expand macro="minMappingQuality" />
+
+
     </inputs>
     <outputs>
-        <data name="outBam" from_work_dir="sorted.bam" format="bam" label="${tool.name} BAM file on ${on_string}" argument="--outBam"/>
-        <data name="outFileName" from_work_dir="numpy_array.npz" format="txt" label="${tool.name} MATRIX on ${on_string}" argument="--outFileName"/>
+        <data name="outBam" from_work_dir="sorted.bam" format="bam" label="${tool.name} BAM file on ${on_string}"/>
+        <data name="outFileName" from_work_dir="numpy_array.npz.h5" format="h5" label="${tool.name} MATRIX on ${on_string}"/>
     </outputs>
     <tests>
         <test>
             <repeat name="samFiles">
-                <param name="samFile" value="r1.sam"/>
+                <param name="samFile" value="r1.sam" ftype="sam" />
             </repeat>
             <repeat name="samFiles">
-                <param name="samFile" value="r2.sam"/>
+                <param name="samFile" value="r2.sam" ftype="sam"/>
             </repeat>
             <param name="binSize" value="10000"/>
-            <output name="outBam" file="hicBuildMatrix_result1.bam" ftpye="bam" compare="sim_size"/>
-            <output name="outFileName" file="hicBuildMatrix_result1.npz" ftype="txt" compare="sim_size"/>
+            <output name="outBam" file="hicBuildMatrix_result1.bam" ftype="bam"/>
+            <output name="outFileName" file="hicBuildMatrix_result1.npz.h5" ftype="h5" compare="sim_size"/>
         </test>
     </tests>
     <help><![CDATA[
@@ -98,4 +126,3 @@ Creates a matrix of interactions
 ]]></help>
     <expand macro="citations" />
 </tool>
-

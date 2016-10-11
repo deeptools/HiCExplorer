@@ -1,0 +1,184 @@
+<tool id="hicexplorer_hicplottads" name="@BINARY@" version="@WRAPPER_VERSION@.0">
+    <description>Plots the diagonal, and some values close to the diagonal of a HiC matrix</description>
+    <macros>
+        <token name="@BINARY@">hicPlotTADs</token>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements" />
+    <command>
+<![CDATA[
+
+        @BINARY@
+
+            --tracks '$tracks_config'
+            #if $region and $region is not None:
+                --region '$region'
+            #end if
+
+
+            #if $outFileName and $outFileName is not None:
+                --outFileName plot.svg
+            #end if
+
+]]>
+    </command>
+    <configfiles>
+        <configfile name="tracks_config">
+## lines that start with '#' are comment lines
+## and are not interpreted by the program
+## the different tracks are represented by sections in this file
+## each section starts with a header of the form [hic]
+## the content of the section label (in the previous example 'hic') is irrelevant for
+## plotting and only used to tell the user when something goes wrong.
+## There are two exceptions for this, the [x-axis] and the [spacer] sections
+## that use the secion label to determine the action.
+
+
+#for $counter, $track in enumerate($tracks):
+
+[hic_section_$counter]
+
+file = $track.track_input
+title = $track.title
+colormap = $track.colorMap
+depth = 100000
+
+##color = black
+##width = 1.5
+
+
+## auto is possible
+#if not $track.min_value:
+min_value = auto
+#else:
+min_value = $track.min_value
+#end if
+#if not $track.max_value:
+max_value = auto
+#else:
+max_value = $track.max_value
+#end if
+transform = $track.transform
+
+
+##boundaries_file = conductance_vs_hic/boundaries_all.bed
+x labels = yes
+type = arcplot
+type = interaction
+
+##file_type = h5
+
+#if $track.track_input.ext == "bedgraph":
+file_type = bedgraph_matrix
+#else:
+file_type = $track.track_input.ext
+#end if
+
+## show masked bins plots as white lines
+## those bins that were not used during the correction
+## the default is to extend neighboring bins to
+## obtain an aesthetically pleasant output
+show_masked_bins = $track.show_masked_bins
+
+
+## to turn off/on printing of labels
+labels = $track.plot_lables
+## options are 'genes' or 'domains'.
+type = $track.type_of_data
+## optional: font size can be given if default are not good
+fontsize = $track.fontsize
+
+#if $track.orientation
+orientation = $track.orientation
+#end if
+
+#if $track.plotting_type
+type = lines
+#end if
+
+#end for
+
+[x-axis]
+# optional
+fontsize=20
+# optional, options are top or bottom
+where=top
+
+# to insert a space simple add a
+# section title [spacer]
+[spacer]
+#optional
+width = 0.1
+
+
+        </configfile>
+    </configfiles>
+    <inputs>
+        <expand macro="region" />
+        <param name="foo" type="data" format="h5,bed,bedgraph,bigwig,tabular" label="Track file"/>
+        <repeat name="tracks" min="1" title="Include tracks in your plot"
+            help="Tracks can be of different filetypes. E.g BED, HiC-Matrix, BigWig or BedGraph">
+
+            <param name="track_input" type="data" format="h5,bed,bedgraph,bigwig,tabular" label="Track file"/>
+            <param name="title" type="text" optional="true" label="Plot title"/>
+            <expand macro="colormap" />
+            <param name="min_value" type="float" value="" optional="True" label="Minimum value"/>
+            <param name="max_value" type="float" value="" optional="True" label="Maximum value"/>
+
+            <param name="transform" type="select" label="Plot the transformed value">
+                <option value="log1p">log1p</option>
+                <option selected="True" value="log">log</option>
+            </param>
+            <param name="show_masked_bins" type="boolean" truevalue="yes" falsevalue="no" checked="false"
+                label="Show masked bins" />
+
+            <param name="plot_lables" type="boolean" truevalue="on" falsevalue="off" checked="false"
+                label="Plot lables" />
+
+            <param name="type_of_data" type="select" label="Type of data">
+                <option selected="True" value="domains">Domains</option>
+                <option value="genes">Genes</option>
+            </param>
+
+            <param name="orientation" type="select" optional="True" label="Orientation">
+                <option value="inverted">Inverted</option>
+            </param>
+
+            <param name="plotting_type" type="select" optional="True" label="Plotting type">
+                <option value="lines">Lines</option>
+                <option value="vlines">vertical dotted lines from the top to the bottom</option>
+            </param>
+
+            <param name="fontsize" type="integer" value="10" label="Fontsize" />
+
+        </repeat>
+
+
+    </inputs>
+    <outputs>
+        <data name="outFileName" from_work_dir="plot.svg" format="svg"/>
+    </outputs>
+    <tests>
+        <test>
+            <param name="foo" value="hicCorrectMatrix_result1.npz.h5" ftype="h5" />
+            <param name="region" value="chr3LHet"/>
+            <repeat name="tracks">
+                <param name="tack_input" value="hicCorrectMatrix_result1.npz.h5" ftype="h5" />
+                <param name="title" value="plot_tads_test_1"/>
+            </repeat>
+            <repeat name="tracks">
+                <param name="tack_input" value="hicCorrectMatrix_result1.npz.h5" ftype="h5" />
+                <param name="title" value="plot_tads_test_1"/>
+            </repeat>
+            <output name="outFileName" file="hicPlotTADs_result1.png" ftype="png" compare="sim_size"/>
+        </test>
+    </tests>
+    <help><![CDATA[
+
+**What it does**
+
+Plots the diagonal, and some values close to the diagonal of a HiC matrix. The diagonal of the matrix is plotted horizontally for a region.
+
+]]></help>
+    <expand macro="citations" />
+</tool>

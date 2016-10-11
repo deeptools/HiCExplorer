@@ -11,13 +11,10 @@
     </xml>
 
     <token name="@THREADS@">--numberOfProcessors "\${GALAXY_SLOTS:-4}"</token>
-    <token name="@WRAPPER_VERSION@">1.0</token>
+    <token name="@WRAPPER_VERSION@">1.2</token>
     <xml name="requirements">
         <requirements>
-            <requirement type="package" version="2.7">python</requirement>
-            <requirement type="binary">@BINARY@</requirement>
-            <requirement type="package" >hicexplorer</requirement>
-            <requirement type="package" version="1.5.10">hicexplorer</requirement>
+            <requirement type="package" version="@WRAPPER_VERSION@">hicexplorer</requirement>
             <yield />
         </requirements>
         <expand macro="stdio" />
@@ -26,7 +23,7 @@
 
     <xml name="citations">
         <citations>
-            <citation type="doi">10.1093/nar/gku365</citation>
+            <citation type="doi">10.5281/zenodo.159780</citation>
             <yield />
         </citations>
     </xml>
@@ -36,7 +33,7 @@
     </xml>
 
     <xml name="colormap">
-        <param name="colorMap" type="select" label="Color map to use for the heatmap" help=" Available color map names can be found here: http://www.astro.lsa.umich.edu/~msshin/science/code/matplotlib_cm/">
+        <param argument="--colorMap" type="select" label="Color map to use for the heatmap" help=" Available color map names can be found here: http://www.astro.lsa.umich.edu/~msshin/science/code/matplotlib_cm/">
             <option value="RdYlBu" selected="true">RdYlBu</option>
             <option value="Accent">Accent</option>
             <option value="Spectral">Spectral</option>
@@ -181,8 +178,8 @@
 
     <xml name="multiple_input_matrices">
         <repeat name="input_files" title="HiC Matrix files" min="2">
-            <param name="matrix" type="data" format="hic_matrix" 
-                label="HiC Matrix file" 
+            <param name="matrix" type="data" format="h5"
+                label="HiC Matrix file"
                 help=""/>
             <param name="mlabel" type="text" size="30" optional="true" value=""
                 label="Label"
@@ -191,11 +188,11 @@
     </xml>
 
     <token name="@multiple_input_matrices@">
-        #set matrices=[]
-        #set mlabels=[]
+        #set $matrices = []
+        #set $mlabels = []
         #for $counter, $i in enumerate($input_files):
-            ln -s $i.matrix #echo str($counter)+'.npz'#;
-            #silent $matrices.append( '%s.npz' % $counter )
+            ln -s $i.matrix #echo str($counter)+'.npz.h5'#;
+            #silent $matrices.append( '%s.npz.h5' % $counter )
 
             #if str($i.mlabel.value) != "":
                 #set $mlabels += ['"%s"' % ($i.mlabel.value)]
@@ -204,29 +201,20 @@
             #end if
         #end for
         #set $mlabels = ' '.join($mlabels)
-        #set matrices = ' '.join($matrices)
+        #set $matrices = ' '.join($matrices)
     </token>
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+    <xml name="region">
+        <param name="region" type="text" label="Region of the genome to limit the operation"
+            help="The format is chr:start-end. Also valid is just to specify a chromosome, for example chr10:10-500" argument="--region"/>
+    </xml>
 
 
 
     <xml name="kmeans_clustering">
         <conditional name="used_multiple_regions">
-            <param name="used_multiple_regions_options" type="select" 
+            <param name="used_multiple_regions_options" type="select"
                 label="Did you compute the matrix with more than one groups of regions?"
                 help="Would you like to cluster the regions according to the similarity of the signal distribution? This is only possible if you used computeMatrix on only one group of regions.">
                 <option value="yes">Yes, I used multiple groups of regions</option>
@@ -239,7 +227,7 @@
                         <option value="kmeans">Kmeans clustering</option>
                     </param>
                     <when value="kmeans">
-                        <param name="k_kmeans" type="integer" value="0" label="Number of clusters to compute" 
+                        <param name="k_kmeans" type="integer" value="0" label="Number of clusters to compute"
                             help="When this option is set, then the matrix is split into clusters using the kmeans algorithm. Only works for data that is not grouped, otherwise only the first group will be clustered. If more specific clustering methods are required it is advisable to save the underlying matrix and run the clustering using other software. The plotting of the clustering may fail (Error: Segmentation fault) if a cluster has very few members compared to the total number or regions. (default: None)."/>
                     </when>
                     <when value="none" />
@@ -265,8 +253,8 @@
             help= "For example to get only reads that are the first mate use a flag of 64. This is useful to count properly paired reads only once, otherwise the second mate will be also considered for the coverage. (--samFlag)"/>
     </xml>
     <xml name="plotNumbers">
-        <param name="plotNumbers" type="boolean" truevalue="--plotNumbers" falsevalue="" 
-            label="Plot the correlation value" 
+        <param name="plotNumbers" type="boolean" truevalue="--plotNumbers" falsevalue=""
+            label="Plot the correlation value"
             help="If set, then the correlation number is plotted on top of the heatmap. (--plotNumbers)"/>
     </xml>
     <xml name="doNotExtendPairedEnds">
@@ -282,9 +270,11 @@
     </xml>
 
     <xml name="minMappingQuality">
-        <param name="minMappingQuality" type="integer" optional="true" value="1" min="1"
+        <param argument="--minMappingQuality" type="integer" optional="true" value="1" min="1"
             label="Minimum mapping quality"
-            help= "If set, only reads that have a mapping quality score higher than the given value are considered. *Note* Bowtie's Mapping quality is related to uniqueness: the higher the score, the more unique is a read. A mapping quality defined by Bowtie of 10 or less indicates that there is at least a 1 in 10 chance that the read truly originated elsewhere. (--minMappingQuality)"/>
+            help= "If set, only reads that have a mapping quality score higher than the given value are considered.
+                *Note* Bowtie's Mapping quality is related to uniqueness: the higher the score, the more unique is a read.
+                A mapping quality defined by Bowtie of 10 or less indicates that there is at least a 1 in 10 chance that the read truly originated elsewhere."/>
     </xml>
 
     <xml name="skipZeros">
@@ -304,6 +294,18 @@
         <param name="scaleFactor2" type="float" value="1" label="Scale factor for input" help="(--scaleFactors)"/>
     </xml>
 
+    <xml name="xMax">
+        <param argument="--xMax" name="xMax" type="integer" optional="true" value=""
+            label="Max value for the x-axis in counts per bin" />
+    </xml>
+
+    <xml name="filterThreshold">
+        <param argument="--filterThreshold" name="filterThreshold_low" type="float" value="-1.5"
+            label="Remove bins of low coverage" help="e.g. -1.5; Both Thresholds needs to be set to take effect."/>
+
+        <param argument="--filterThreshold" name="filterThreshold_large" type="float" value="5.0"
+            label="Remove bins of large coverage" help="e.g. 5; Both Thresholds needs to be set to take effect."/>
+    </xml>
 
 
     <xml name="pseudocount">
@@ -329,8 +331,8 @@ This tool is developed by the `Bioinformatics and Deep-Sequencing Unit`_ at the 
 
     <xml name="multiple_input_bams">
         <repeat name="input_files" title="BAM files" min="2">
-            <param name="bamfile" type="data" format="bam" 
-                label="Bam file" 
+            <param name="bamfile" type="data" format="bam"
+                label="Bam file"
                 help="The BAM file must be sorted."/>
             <param name="label" type="text" size="30" optional="true" value=""
                 label="Label"
@@ -340,8 +342,8 @@ This tool is developed by the `Bioinformatics and Deep-Sequencing Unit`_ at the 
 
     <xml name="multiple_input_bigwigs">
         <repeat name="input_files" title="BigWig files" min="2">
-            <param name="bigwigfile" type="data" format="bigwig" 
-                label="Bigwig file" 
+            <param name="bigwigfile" type="data" format="bigwig"
+                label="Bigwig file"
                 help="The Bigwig file must be sorted."/>
             <param name="label" type="text" size="30" optional="true" value=""
                 label="Label"
@@ -429,8 +431,8 @@ This tool is developed by the `Bioinformatics and Deep-Sequencing Unit`_ at the 
     <xml name="effectiveGenomeSize">
         <conditional name="effectiveGenomeSize">
             <param name="effectiveGenomeSize_opt" type="select" label="Effective genome size"
-                help="The effective genome size is the portion of the genome that is mappable. Large fractions of the genome are stretches of NNNN that should be discarded. 
-                    Also, if repetitive regions were not included in the mapping of reads, the effective genome size needs to be adjusted accordingly. 
+                help="The effective genome size is the portion of the genome that is mappable. Large fractions of the genome are stretches of NNNN that should be discarded.
+                    Also, if repetitive regions were not included in the mapping of reads, the effective genome size needs to be adjusted accordingly.
                     See Table 2 of http://www.plosone.org/article/info%3Adoi%2F10.1371%2Fjournal.pone.0030377 or http://www.nature.com/nbt/journal/v27/n1/fig_tab/nbt.1518_T1.html for several effective genome sizes.">
                 <option value="93260000">ce10 (93260000)</option>
                 <option value="121400000">dm3 (121400000)</option>
@@ -508,7 +510,7 @@ This tool is developed by the `Bioinformatics and Deep-Sequencing Unit`_ at the 
         <data format="tabular" name="outFileNameMatrix" label="${tool.name} on ${on_string}: Heatmap values">
             <filter>
             ((
-                output['showOutputSettings'] == 'yes' and 
+                output['showOutputSettings'] == 'yes' and
                 output['saveMatrix'] is True
             ))
             </filter>
@@ -519,7 +521,7 @@ This tool is developed by the `Bioinformatics and Deep-Sequencing Unit`_ at the 
         <data format="tabular" name="outFileNameData" label="${tool.name} on ${on_string}: averages per matrix column">
             <filter>
             ((
-                output['showOutputSettings'] == 'yes' and 
+                output['showOutputSettings'] == 'yes' and
                 output['saveData'] is True
             ))
             </filter>
@@ -527,7 +529,7 @@ This tool is developed by the `Bioinformatics and Deep-Sequencing Unit`_ at the 
         <data format="bed" name="outFileSortedRegions" label="${tool.name} on ${on_string}: sorted/filtered regions">
             <filter>
             ((
-                output['showOutputSettings'] == 'yes' and 
+                output['showOutputSettings'] == 'yes' and
                 output['saveSortedRegions'] is True
             ))
             </filter>

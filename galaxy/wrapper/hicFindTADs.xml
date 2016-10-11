@@ -1,4 +1,4 @@
-<tool id="hicFindTADs" name="hicFindTADs" version="1.0">
+<tool id="hicexplorer_hicfindtads" name="@BINARY@" version="@WRAPPER_VERSION@.0">
     <description>find minimum cuts that correspond to boundaries</description>
     <macros>
         <token name="@BINARY@">hicFindTADs</token>
@@ -6,42 +6,101 @@
     </macros>
     <expand macro="requirements" />
     <command><![CDATA[
-    ln -s $matrix matrix.npz;
-
-    hicFindTADs
-         --matrix matrix.npz
-
-        #if $depth and $depth is not None:
-            --depth $depth
+        #if $mode.mode_selector == 'TAD_score':
+            ln -s '$mode.matrix' matrix.npz.h5 &&
         #end if
 
-        #if $threshold and $threshold is not None:
-            --threshold $threshold
-        #end if
+        hicFindTADs
+            $mode.mode_selector
 
-        --outFileName $outFileName
+            #if $mode.mode_selector == 'find_TADs':
+                --tadScoreFile '$tadScoreFile'
+                --outPrefix galaxy_tad_prefix
+                --maxThreshold $mode.maxThreshold
+                --delta $mode.delta
+                --lookahead $mode.lookahead
+            #else:
+                --matrix matrix.npz.h5
+                --maxDepth $mode.maxDepth
+                --minDepth $mode.minDepth
+                --outFileName ./tadScoreFile.tabular
+                $mode.useLogValues
+                --step $mode.step
+            #end if
 
     ]]></command>
     <inputs>
-        <param name="matrix" type="data" format="hic_matrix" label="Matrix to use" help="(--matrix)"/>
-        <param name="depth" type="integer" value="50"
-            label="Window length to be considered left and right of the cut point in bp" help="(--depth)"/>
-        <param name="threshold" type="float" value="0.0" optional="True" label="Noise threshold" help="(--threshold)"/>
+
+        <conditional name="mode">
+            <param name="mode_selector" type="select" label="Range restriction (in bp)" argument="--range">
+                <option value="find_TADs">find TADs</option>
+                <option value="TAD_score">TAD score</option>
+            </param>
+            <when value="find_TADs">
+                <param argument="--tadScoreFile" type="data" format="tabular" label="TAD score file"/>
+                <param argument="--maxThreshold" type="float" value="0.3" optional="True" label="Only call boundaries that have an score below this threshold"/>
+
+                <param argument="--delta" type="float" value="0.001" optional="True" label="Minimum difference between a peak and followingpoints"/>
+
+                <param argument="--lookahead" type="integer" value="2" optional="True"
+                    label="Number of bins ahead to look for before deciding if a local minimum is a boundary.points"/>
+
+
+            </when>
+            <when value="TAD_score">
+
+                <param argument="--matrix" type="data" format="h5" label="Matrix to use"/>
+                <param argument="--minDepth" type="integer" value="20000"
+                    label="Window length to be considered left and right of the cut point in bp"
+                    help="This number should be at least 2 times as large as the bin size of the Hi-C matrix."/>
+                <param argument="--maxDepth" type="integer" value="60000"
+                    label="Window length to be considered left and right of the cut point in bp"
+                    help="This number should around 6 times as large as the bin size of the Hi-C matrix."/>
+                <param argument="--step" type="integer" value="10000"
+                    label="Step size when moving from minDepth to maxDepth"/>
+                <param argument="--useLogValues" type="boolean" truevalue="--useLogValues" falsevalue=""
+                    label="If set, the log of the matrix values areused" />
+            </when>
+        </conditional>
+
+
     </inputs>
     <outputs>
-        <data name="outFileName" format="tabular"/>
+        <data name="outFileName" from_work_dir="tadScoreFile.tabular" format="tabular">
+            <filter>mode['mode_selector'] == "TAD_score"</filter>
+        </data>
+        <data name="boundaries" from_work_dir="galaxy_tad_prefix_boundaries.bed" format="bed" label="${tool.name} on ${on_string}: Boundary positions">
+            <filter>mode['mode_selector'] == "find_TADs"</filter>
+        </data>
+        <data name="score" from_work_dir="galaxy_tad_prefix_score.bedgraph" format="bedgraph" label="${tool.name} on ${on_string}: Matrix with multi-scale TAD scores">
+            <filter>mode['mode_selector'] == "find_TADs"</filter>
+        </data>
+        <data name="domains" from_work_dir="galaxy_tad_prefix_domains.bed" format="bed" label="${tool.name} on ${on_string}: TAD domains">
+            <filter>mode['mode_selector'] == "find_TADs"</filter>
+        </data>
+        <data name="boundaries_bin" from_work_dir="galaxy_tad_prefix_boundaries_bin.bed" format="bed" label="${tool.name} on ${on_string}: Linkage information">
+            <filter>mode['mode_selector'] == "find_TADs"</filter>
+        </data>
     </outputs>
     <tests>
         <test>
-            <param name="matrix" value="hicCorrectMatrix_result1.npz" ftype="hic_matrix"/>
-            <param name="depth" value="20000"/>
-            <output name="outFileName" file="hicFindTADs_result1.tabular" ftpye="tabular"/>
+            <param name="tadScoreFile" value="hicFindTADs_TAD_score.tabular" ftype="tabular"/>
+            <param name="mode_selector" value="find_TADs"/>
+            <param name="delta" value="0.002"/>
+            <param name="lookahead" value="2"/>
+            <param name="maxThreshold" value="0.2"/>
+            <output name="boundaries" file="hicFindTADs_find_boundaries.bed" ftype="bed"/>
+            <output name="score" file="hicFindTADs_find_score.bedgraph" ftype="bedgraph"/>
+            <output name="domains" file="hicFindTADs_find_domains.bed" ftype="bed"/>
+            <output name="boundaries_bin" file="hicFindTADs_find_boundaries_bin.bed" ftype="bed"/>
         </test>
         <test>
-            <param name="matrix" value="hicBuildMatrix_result1.npz" ftype="hic_matrix"/>
-            <param name="threshold" value="0.05"/>
-            <param name="depth" value="20000"/>
-            <output name="outFileName" file="hicFindTADs_result2.tabular" ftpye="tabular"/>
+            <param name="matrix" value="hicBuildMatrix_result1.npz.h5" ftype="h5"/>
+            <param name="mode_selector" value="TAD_score"/>
+            <param name="minDepth" value="20000"/>
+            <param name="maxDepth" value="60000"/>
+            <param name="step" value="10000"/>
+            <output name="outFileName" file="hicFindTADs_TAD_score.tabular" ftype="tabular"/>
         </test>
     </tests>
     <help><![CDATA[
@@ -53,4 +112,3 @@ Uses the graph clustering measure "conductance" to find minimum cuts that corres
 ]]></help>
     <expand macro="citations" />
 </tool>
-
