@@ -231,9 +231,9 @@ def get_bins(bin_size, chrom_size, region=None):
     >>> test = Tester()
     >>> chrom_size = get_chrom_sizes(pysam.Samfile(test.bam_file_1))
     >>> get_bins(50000, chrom_size)
-    [('contig-2', 0, 3345L), ('contig-1', 0, 7125L)]
+    [('contig-2', 0, 3345), ('contig-1', 0, 7125)]
     >>> get_bins(50000, chrom_size, region='contig-1')
-    [('contig-1', 0, 7125L)]
+    [('contig-1', 0, 7125)]
     """
     bin_intvals = []
     start = 0
@@ -365,7 +365,7 @@ def get_chrom_sizes(bam_handle):
 
     >>> test = Tester()
     >>> get_chrom_sizes(pysam.Samfile(test.bam_file_1, 'rb'))
-    [('contig-2', 3345L), ('contig-1', 7125L)]
+    [('contig-2', 3345), ('contig-1', 7125)]
     """
 
     # in some cases there are repeated entries in
@@ -978,5 +978,6 @@ Max rest. site distance\t{}\t\t
 
 class Tester(object):
     def __init__(self):
-        self.root = "../hicexplorer/test/"
+        import os
+        self.root = os.path.dirname(os.path.abspath(__file__)) + "/test/test_data/"
         self.bam_file_1 = self.root + "hic.bam"

@@ -58,6 +58,24 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     matrix([[24, 18],
             [18, 22]])
 
+    Test symmetric matrix
+    >>> A = csr_matrix(np.array([[12,5,3,2,0],[0,11,4,1,1],
+    ... [0,0,9,6,0], [0,0,0,10,0], [0,0,0,0,0]]))
+    >>> dia = dia_matrix(([A.diagonal()], [0]), shape=A.shape)
+    >>> A= csr_matrix(A + A.T - dia)
+    >>> A.todense()
+    matrix([[12,  5,  3,  2,  0],
+            [ 5, 11,  4,  1,  1],
+            [ 3,  4,  9,  6,  0],
+            [ 2,  1,  6, 10,  0],
+            [ 0,  1,  0,  0,  0]])
+    >>> ll = [(0,2), (1,3), (4,)]
+    >>> reduce_matrix(A, ll, diagonal=True).todense()
+    matrix([[24, 17,  0],
+            [17, 22,  1],
+            [ 0,  1,  0]])
+
+
     Test removal of row/columns when the scaffold list does
     not contains all indices
     >>> ll = [(1,2), (3,)]
@@ -112,7 +130,7 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     num_nan = len(np.flatnonzero(np.isnan(np.array(ma.data))))
     if num_nan > 0:
         sys.stderr.write(
-            "*Warning*\nmatrix contains {} NaN values.\n".format(num_nan))
+            "\n*Warning*\nmatrix contains {} NaN values.\n".format(num_nan))
 
     # each original col and row index is converted
     # to a new index based on the bins_to_merge.

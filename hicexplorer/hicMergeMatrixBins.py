@@ -281,7 +281,7 @@ def merge_bins(hic, num_bins):
 
     >>> dia = dia_matrix(([matrix.diagonal()], [0]), shape=matrix.shape)
     >>> hic.matrix = csr_matrix(matrix + matrix.T - dia)
-    >>> hic.setMatrix(csr_matrix(matrix + matrix.T), cut_intervals)
+    >>> hic.setMatrix(hic.matrix, cut_intervals)
 
     run merge_matrix
     >>> merge_matrix = merge_bins(hic, 2)
