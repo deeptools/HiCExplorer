@@ -21,7 +21,7 @@ before_install:
 
 # Install packages
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=1.5.0 nose flake8 tables
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=1.5.0 nose flake8 pytables
   - conda install --yes -c https://conda.anaconda.org/bioconda pysam pyBigWig
   - python setup.py install
 
