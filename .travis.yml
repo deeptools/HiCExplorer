@@ -4,6 +4,7 @@ install:
   - virtualenv .venv
   - . .venv/bin/activate
   - pip install flake8
+  - pip install hdf5
   - pip install git+git://github.com/maxplanck-ie/HiCExplorer.git@master
 
 script:
