@@ -4,6 +4,9 @@
 .. image:: https://anaconda.org/bioconda/hicexplorer/badges/installer/conda.svg
    :target: https://anaconda.org/bioconda/hicexplorer
 
+.. image:: https://quay.io/repository/biocontainers/hicexplorer/status
+   :target: https://quay.io/repository/biocontainers/hicexplorer
+
 HiCExplorer
 ===========
 
