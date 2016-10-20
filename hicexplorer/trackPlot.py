@@ -212,7 +212,7 @@ class PlotTracks(object):
 
             axis_list[idx].vlines(vlines_list, ymin, ymax, linestyle='dashed', zorder=10,
                                   linewidth=line_width,
-                                  color=(0, 0, 0, 0.7))
+                                  color=(0, 0, 0, 0.7), alpha=0.5)
 
             #track.plot_vlines(axis_list[idx], vlines_list)
         return
