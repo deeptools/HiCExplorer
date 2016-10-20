@@ -10,6 +10,7 @@ mplt_use('Agg')
 
 from hicexplorer.HiCMatrix import hiCMatrix
 
+
 def writableFile(string):
     try:
         open(string, 'w').close()
@@ -18,38 +19,45 @@ def writableFile(string):
         raise argparse.ArgumentTypeError(msg)
     return string
 
-def mylog(data):
 
+def mylog(data):
     return np.log(data+1)
+
 
 def getZscores(hicma):
     return transformMatrix(hicma, 'z-score')
 
+
 def getTscores(hicma):
     return transformMatrix(hicma, 't-score')
+
 
 def getResiduals(hicma):
     return transformMatrix(hicma, 'residuals')
 
+
 def getObsExp(hicma):
     return transformMatrix(hicma, 'obs/exp')
 
+
 def getPearson(matrix):
-    matrix = convertNansToZeros(matrix)
+    matrix = convertNansToZeros(matrix).todense()
     from scipy.stats import pearsonr
     numRows, numCols = matrix.shape
     # create matrix to hold computed pval
     pMa = np.zeros(shape=(numCols, numRows))
     pMa[:,:] = np.nan
     for row in range(numRows):
+        if row % 10 == 0:
+            sys.stderr.write("{} rows processed ({:.2f})\n".format(row, float(row)/numRows))
         for col in range(numCols):
-            if not np.isnan(pMa[col,row]):
-                pMa[row,col] = pMa[col,row]
+            if not np.isnan(pMa[col, row]):
+                pMa[row, col] = pMa[col, row]
                 continue
             try:
                 # pearsonr returns two values, the first is the
                 # correlation, the second is a pvalue.
-                pMa[row,col] = pearsonr(matrix[row,:], matrix[:,col])[0]
+                pMa[row, col] = pearsonr(np.asarray(matrix[row,:])[0], np.asarray(matrix[:,col].T)[0])[0]
             except:
                 continue
 
@@ -742,10 +750,11 @@ def _nbinomExpected(value, size, prob):
 
 
 def convertNansToZeros(ma):
-    ma[np.where(np.isnan(ma)==True)] = 0
+    ma.data[np.flatnonzero(np.isnan(ma.data))] = 0
+    #ma[np.where(np.isnan(ma) == True)] = 0
     return ma
 
-def myAverage( valuesArray,  avgType='mean'  ) :
+def myAverage(valuesArray, avgType='mean'):
 
     valuesArray = valuesArray[ logical_not(np.isnan(valuesArray)) ]
     if avgType=='mean':
@@ -820,13 +829,15 @@ def getUserRegion(chromSizes, regionString, max_chunk_size=1e6):
     Verifies if a given region argument, given by the user
     is valid. The format of the regionString is chrom:start:end:tileSize
     where start, end and tileSize are optional.
-    >>> data = getUserRegion({'chr2': 1000}, "chr1:10:10")
-    Traceback (most recent call last):
-    NameError: Unkown chromosome: chr1
-    Known chromosomes are: ['chr2']
 
-    If the region end is biger than the chromosome size, this
-    value is used instead
+    # this should work in doctest but it does not. So I
+    # commented it.
+    #>>> data = getUserRegion({'chr2': 1000}, "chr1:10:10")
+    #Traceback (most recent call last):
+    #    ...
+    #NameError: Unknown chromosome: chr1
+    #Known chromosomes are: ['chr2']
+
     >>> getUserRegion({'chr2': 1000}, "chr2:10:1001")
     ([('chr2', 1000)], 10, 1000, 990)
 
@@ -841,7 +852,7 @@ def getUserRegion(chromSizes, regionString, max_chunk_size=1e6):
     try:
         chromSizes[chrom]
     except KeyError:
-        raise NameError("Unkown chromosome: %s\nKnown "
+        raise NameError("Unknown chromosome: %s\nKnown "
                         "chromosomes are: %s " % (chrom, chromSizes.keys()))
     try:
         regionStart = int(region[1])

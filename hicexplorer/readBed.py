@@ -119,7 +119,7 @@ class ReadBed(object):
         >>> bed = bed_f.get_bed_interval(bed_line)
         >>> bed.chromosome
         'chr1'
-        >>> bed.blockStarts
+        >>> bed.block_starts
         [20, 200, 700]
 
         >>> bed_line="chr2\t0\t1000\tgene_1\t0.5\t-\n"
