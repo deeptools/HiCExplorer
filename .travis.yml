@@ -27,10 +27,11 @@ install:
 
 # command to run tests
 script:
-  - flake8 . --ignore=E501,F403,E402,F999
-  - export owd=`pwd`
-  - cd ~/ && nosetests --with-doctest -sv hicexplorer
-  - cd ${owd}
+  - nosetests --with-doctest -sv hicexplorer
+  #- flake8 . --ignore=E501,F403,E402,F999
+  #- export owd=`pwd`
+  #- cd ~/ && nosetests --with-doctest -sv hicexplorer
+  #- cd ${owd}
   #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then export PATH=`echo $PATH | sed -e 's/\/home\/travis\/miniconda\/bin://'` ; fi
   #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then /home/travis/build/fidelram/deepTools/foo/bin/planemo lint galaxy/wrapper/ ; fi
   #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then ./.planemo.sh ; fi
