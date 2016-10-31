@@ -1,7 +1,10 @@
 import numpy as np
 import time
-import logging as log
-log.basicConfig(level=log.WARN)
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("iterative correction")
+log.setLevel(logging.WARN)
 
 
 def iterativeCorrection(matrix, v=None, M=50, diag=-1, tolerance=1e-5, verbose=False):
@@ -18,7 +21,7 @@ def iterativeCorrection(matrix, v=None, M=50, diag=-1, tolerance=1e-5, verbose=F
                       deviation of the marginals.
     """
     if verbose:
-        log.getLogger().setLevel(log.INFO)
+        log.setLevel(logging.INFO)
 
     total_bias = np.ones(matrix.shape[0], 'float64')
 
