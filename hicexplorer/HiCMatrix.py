@@ -206,6 +206,9 @@ class hiCMatrix:
         testing.
         """
 
+        # check that the matrix is squared
+        if matrix.shape[0] != matrix.shape[1]:
+            raise Exception("Matrix is not squared. Shape is {}".format(matrix.shape))
         self.matrix = matrix
         self.cut_intervals = cut_intervals
         self.interval_trees, self.chrBinBoundaries = \
