@@ -333,6 +333,20 @@ class PlotTracks(object):
         return time.time()
 
 
+def opener(filename):
+    """
+    Determines if a file is compressed or not
+    """
+    import gzip
+    f = open(filename, 'rb')
+    if f.read(2) == '\x1f\x8b':
+        f.seek(0)
+        return gzip.GzipFile(fileobj=f)
+    else:
+        f.seek(0)
+        return f
+
+
 def file_to_intervaltree(file_name):
     """
     converts a BED like file into a bx python interval tree
@@ -343,7 +357,7 @@ def file_to_intervaltree(file_name):
     # iterate over a BED like file
     # saving the data into an interval tree
     # for quick retrieval
-    file_h = open(file_name, 'r')
+    file_h = opener(file_name)
     line_number = 0
     valid_intervals = 0
     prev_chrom = None
@@ -400,8 +414,7 @@ def file_to_intervaltree(file_name):
             except ValueError:
                 pass
 
-        assert end > start, \
-                "Start position larger or equal than end for line\n{} ".format(line)
+        assert end > start, "Start position larger or equal than end for line\n{} ".format(line)
 
         interval_tree[chrom].insert_interval(Interval(start, end, value=value))
         valid_intervals += 1
@@ -1222,7 +1235,6 @@ class PlotBed(TrackPlot):
         if valid_intervals == 0:
             sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file_name']))
 
-
     def get_y_pos(self, bed, free_row):
         """
         The y_pos is set such that regions to be plotted do not overlap (stacked). To override this
@@ -1482,7 +1494,6 @@ class PlotBed(TrackPlot):
             vertices = [(x0, y0), (x0 - self.small_relative, y0 + 50), (x0, y1), (x1, y1), (x1, y0)]
 
         return vertices
-
 
     def draw_gene_with_introns(self, ax, bed, ypos, rgb, edgecolor):
             """
