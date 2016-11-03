@@ -269,7 +269,8 @@ class PlotTracks(object):
         if self.vlines_properties:
             self.vlines_intval_tree, __, __ = file_to_intervaltree(self.vlines_properties['file'])
 
-    def check_file_exists(self, track_dict):
+    @staticmethod
+    def check_file_exists(track_dict):
         """
         Checks if a file or list of files exists
         :param track_dict: dictionary of track values. Should contain
@@ -702,6 +703,7 @@ class PlotBigWig(TrackPlot):
 
         return self.ax
 
+
 class PlotHiCMatrix(TrackPlot):
 
     def __init__(self, properties_dict):
@@ -956,6 +958,7 @@ class PlotHiCMatrix(TrackPlot):
                                 vmin=vmin, vmax=vmax, cmap=self.cmap, norm=self.norm)
         return im
 
+
 class PlotXAxis(TrackPlot):
 
     def __init__(self, *args, **kwargs):
@@ -987,6 +990,7 @@ class PlotXAxis(TrackPlot):
 
         if 'where' in self.properties and self.properties['where'] == 'top':
             ax.axis["x"].set_axis_direction("top")
+
 
 class PlotBoundaries(TrackPlot):
 
