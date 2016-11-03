@@ -93,7 +93,6 @@ class ReadBed(object):
         """
         line = self.get_no_comment_line()
 
-
         bed = self.get_bed_interval(line)
         if self.prev_chrom == bed.chromosome:
             assert self.prev_start <= bed.start, \
@@ -169,7 +168,7 @@ class ReadBed(object):
                     line_values.append(int(r))
                 except ValueError:
                     sys.stderr.write("Value: {} in field {} at line {} is not an integer\n".format(r, idx+1,
-                                                                                                 self.line_number))
+                                                                                                   self.line_number))
                     return dict()
             # check item rgb
             elif idx == 8:
@@ -178,7 +177,7 @@ class ReadBed(object):
                     try:
                         r = map(int, rgb)
                     except ValueError as detail:
-                        sys.stderr.write("Error reading line: #{}. The rgb field {} is not " \
+                        sys.stderr.write("Error reading line: #{}. The rgb field {} is not "
                                          "valid.\nError message: {}\n".format(self.line_number, r, detail))
                 line_values.append(r)
 
@@ -188,7 +187,7 @@ class ReadBed(object):
                 try:
                     r = [int(x) for x in r_parts if x != '']
                 except ValueError as detail:
-                    sys.stderr.write("Error reading line #{}. The block field {} is not " \
+                    sys.stderr.write("Error reading line #{}. The block field {} is not "
                                      "valid.\nError message: {}\n".format(self.line_number, r, detail))
                 line_values.append(r)
 
@@ -202,8 +201,6 @@ class ReadBed(object):
         assert line_values[2] > line_values[1], \
             "Start position larger or equal than end for line #{}:\n{}\n".format(self.line_number,
                                                                                  bed_line)
-
-        #import ipdb; ipdb.set_trace()
 
         if self.file_type == 'bed3':
             line_values = line_values[0:3]
