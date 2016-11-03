@@ -299,22 +299,19 @@ class PlotTracks(object):
         :return: string file type detected
         """
         file = track_dict['file'].strip()
-        file_type = None
-
-        if file.endswith(".bed"):
+        if file.endswith(".bed") or file.endswith(".bed.gz"):
             file_type = 'bed'
         elif file.endswith(".npz") or file.endswith(".h5"):
             file_type = 'hic_matrix'
         elif file.endswith(".bw"):
             file_type = 'bigwig'
-        elif file.endswith(".bg"):
+        elif file.endswith(".bg") or file.endswith(".bg.gz"):
             file_type = 'bedgraph'
-        elif file.endswith(".bm"):
+        elif file.endswith(".bm") or file.endswith(".bm.gz"):
             file_type = 'bedgraph_matrix'
         else:
             sys.exit("Section {}: can not identify file type. Please specify "
-                     "the file_type for {}".format(track_dict['section_name'],
-                                               file))
+                     "the file_type for {}".format(track_dict['section_name'], file))
         return file_type
 
     @staticmethod
@@ -1161,7 +1158,7 @@ class PlotBed(TrackPlot):
 
         import readBed
 
-        bed_file_h = readBed.ReadBed(open(self.properties['file'], 'r'))
+        bed_file_h = readBed.ReadBed(opener(self.properties['file'], 'r'))
         self.bed_type = bed_file_h.file_type
         valid_intervals = 0
         self.max_num_row = {}
