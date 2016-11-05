@@ -134,6 +134,7 @@ max_value = 0.70
 # is not wanted
 type = lines
 file_type = bedgraph_matrix
+plot horizontal lines=False
 
 [dendrogram]
 # a dendrogram is saved in a bed file that contains

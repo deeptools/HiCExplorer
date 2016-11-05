@@ -31,8 +31,6 @@ DEFAULT_FIGURE_WIDTH = 40  # in centimeters
 DEFAULT_WIDTH_RATIOS = (0.93, 0.07)
 DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 
-#DEFAULT_WIDTH_RATIOS = (1, 0.00)
-#DEFAULT_MARGINS = {'left': 0, 'right': 1, 'bottom': 0, 'top': 1}
 
 class MultiDict(OrderedDict):
     """
@@ -49,6 +47,7 @@ class MultiDict(OrderedDict):
             self._unique += 1
             key = "{}. [{}]".format(str(self._unique), key)
         OrderedDict.__setitem__(self, key, val)
+
 
 class PlotTracks(object):
 
@@ -137,7 +136,8 @@ class PlotTracks(object):
                 # set for the legends have to be considered
                 # DEFAULT_MARGINS[1] - DEFAULT_MARGINS[0] is the proportion of plotting area
 
-                hic_width = self.fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * DEFAULT_WIDTH_RATIOS[0]
+                hic_width = \
+                    self.fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * DEFAULT_WIDTH_RATIOS[0]
                 scale_factor = 0.6  # the scale factor is to obtain a 'pleasing' result.
                 depth = min(track_dict['depth'], (end - start))
 
@@ -193,6 +193,10 @@ class PlotTracks(object):
         of the last plot at the specified positions.
 
         :param axis_list: list of plotted axis
+        :param chrom_region chromosome name
+        :param start_region start position
+        :param end_region end position
+
         :return: None
         """
         vlines_list = []
@@ -212,9 +216,8 @@ class PlotTracks(object):
 
             axis_list[idx].vlines(vlines_list, ymin, ymax, linestyle='dashed', zorder=10,
                                   linewidth=line_width,
-                                  color=(0, 0, 0, 0.7))
+                                  color=(0, 0, 0, 0.7), alpha=0.5)
 
-            #track.plot_vlines(axis_list[idx], vlines_list)
         return
 
     def parse_tracks(self, tracks_file):
@@ -265,7 +268,6 @@ class PlotTracks(object):
         self.track_list = track_list
         if self.vlines_properties:
             self.vlines_intval_tree, __, __ = file_to_intervaltree(self.vlines_properties['file'])
-
 
     def check_file_exists(self, track_dict):
         """
@@ -322,7 +324,6 @@ class PlotTracks(object):
         else:
             return tuple(i/inch for i in tupl)
 
-
     @staticmethod
     def print_elapsed(start):
         import time
@@ -356,9 +357,6 @@ def file_to_intervaltree(file_name):
         if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
             continue
         fields = line.strip().split('\t')
-        chrom = None
-        start = None
-        end = None
         try:
             chrom, start, end = fields[0:3]
         except Exception as detail:
@@ -459,7 +457,7 @@ class PlotBedGraph(TrackPlot):
             chrom_region = change_chrom_names(chrom_region)
             
         for region in self.interval_tree[chrom_region].find(start_region - 10000,
-                                                           end_region + 10000):
+                                                            end_region + 10000):
             score_list.append(float(region.value[0]))
             pos_list.append(region.start + (region.end - region.start)/2)
 
@@ -504,13 +502,13 @@ class PlotBedGraph(TrackPlot):
         else:
             # by default show the data range
             self.ax.text(start_region-small_x, ymax - ydelta * 0.2,
-                    "[{}-{}]".format(ymin, ymax_print),
-                    horizontalalignment='left', size='small',
-                    verticalalignment='bottom')
+                         "[{}-{}]".format(ymin, ymax_print),
+                         horizontalalignment='left', size='small',
+                         verticalalignment='bottom')
 
         self.label_ax.text(0.15, 0.5, self.properties['title'],
-                      horizontalalignment='left', size='large',
-                      verticalalignment='center', transform=self.label_ax.transAxes)
+                           horizontalalignment='left', size='large',
+                           verticalalignment='center', transform=self.label_ax.transAxes)
 
 
 class PlotBedGraphMatrix(PlotBedGraph):
@@ -560,16 +558,14 @@ class PlotBedGraphMatrix(PlotBedGraph):
                              "[{}-{}]".format(int(ymin), ymax_print),
                              horizontalalignment='left',
                              verticalalignment='bottom')
-            # plot horizontal lines to compare values
-            #self.ax.hlines(np.arange(0, 1.1, 0.1), start_region, end_region, linestyle="--",
-            #               zorder=0, color='grey')
+            if 'plot horizontal lines' in self.properties and self.properties['horizontal lines']:
+                # plot horizontal lines to compare values
+                self.ax.hlines(np.arange(0, 1.1, 0.1), start_region, end_region, linestyle="--",
+                               zorder=0, color='grey')
 
-            # plot vertical lines to identify resolution
-            #self.ax.vlines(start_pos, 0, 1, linestyle="--", linewidth=0.02)
         else:
             x, y = np.meshgrid(start_pos, np.arange(matrix.shape[0]))
             shading = 'gouraud'
-            #shading = 'flat'
             vmax = self.properties['max_value']
             vmin = self.properties['min_value']
 
@@ -582,8 +578,8 @@ class PlotBedGraphMatrix(PlotBedGraph):
         self.ax.axes.get_yaxis().set_visible(False)
         self.properties['title'].replace('\\\\', '\\')
         self.label_ax.text(0.15, 0.5, self.properties['title'],
-                      horizontalalignment='left', size='large',
-                      verticalalignment='center', transform=self.label_ax.transAxes)
+                           horizontalalignment='left', size='large',
+                           verticalalignment='center', transform=self.label_ax.transAxes)
 
 
 class PlotBigWig(TrackPlot):
@@ -620,8 +616,8 @@ class PlotBigWig(TrackPlot):
 
         if chrom_region not in self.bw.chroms().keys():
             sys.stderr.write("Can not read region {} from bigwig file:\n\n"
-                 "{}\n\nPlease check that the chromosome name is part of the bigwig file "
-                 "and that the region is valid".format(formated_region, self.properties['file']))
+                             "{}\n\nPlease check that the chromosome name is part of the bigwig file "
+                             "and that the region is valid".format(formated_region, self.properties['file']))
 
         if end_region - start_region < 2e6:
             scores = self.bw.values(chrom_region, start_region, end_region)

@@ -40,18 +40,18 @@ def parse_arguments(args=None):
                         required=True)
 
     parser.add_argument('--chromosomeOrder',
-                        help='Chromosomes and order in which the '
-                             'chromosomes should be plotted. This option '
-                             'overrides --region and --region2 ',
+                        help='Chromosomes and order in which the chromosomes should be saved. If not all chromosomes '
+                             'are given, those chromosomes are left out. For example, --chromosomeOrder chrX will '
+                             'export a matrix only containing chromosome X',
                         nargs='+')
 
     parser.add_argument('--bplimit', '-b',
                         help='When merging many matrices : maximum limit (in base pairs) after '
-                              'which the matrix will be truncated. i.e. TADs bigger than this '
-                              'size will not be shown. For Matrices with very high resolution, '
-                              'truncating the matrix after a limit helps in saving memory '
-                              'during processing, without much loss of data. You can use '
-                              'bplimit of 2 x size of biggest expected TAD. ',
+                             'which the matrix will be truncated. i.e. TADs bigger than this '
+                             'size will not be shown. For Matrices with very high resolution, '
+                             'truncating the matrix after a limit helps in saving memory '
+                             'during processing, without much loss of data. You can use '
+                             'bplimit of 2 x size of biggest expected TAD. ',
                         type=int,
                         metavar='INT bp',
                         default=None)
@@ -71,7 +71,7 @@ def parse_arguments(args=None):
                              'The GInteractions format is in the form : Bin1, Bin2 , Interaction,'
                              'where Bin1 and Bin2 are intervals (chr,start,end), seperated by tab.',
                         default='dekker',
-                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz','GInteractions'])
+                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz', 'GInteractions'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '

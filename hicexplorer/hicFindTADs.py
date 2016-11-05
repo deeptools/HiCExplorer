@@ -26,7 +26,7 @@ To actually find the TADs, the program  needs to compute first the
 TAD scores at different window sizes. Then, the results of that computation
 are used to call the TADs. An simple example usage is:
 
-$ hicFindTads TAD_score -m hic_matrix.npz -o TAD_score.txt
+$ hicFindTads TAD_score -m hic_matrix.h5 -o TAD_score.txt
 
 $ hicFindTads find_TADs -f TAD_score.txt --outPrefix TADs
 
@@ -48,7 +48,6 @@ For detailed help:
     # define the arguments
     tad_score_subparser.add_argument('--matrix', '-m',
                                      help='Hi-C matrix to use for the computations',
-                                     metavar='.npz file format',
                                      required=True)
 
     tad_score_subparser.add_argument('--outFileName', '-o',
@@ -83,12 +82,10 @@ For detailed help:
                                           'used.',
                                      action='store_true')
 
-
     tad_score_subparser.add_argument('--numberOfProcessors',  '-p',
                                      help='Number of processors to use ',
                                      type=int,
                                      default=1)
-
 
     find_tads_subparser = subparsers.add_parser('find_TADs', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -1041,7 +1038,6 @@ def main(args=None):
             exit("\n*EROR*\nNo boundaries were found. {}".format(msg))
         else:
             sys.stderr.write("Only {} boundaries found. {}".format(len(min_idx), msg))
-
 
     save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args)
 

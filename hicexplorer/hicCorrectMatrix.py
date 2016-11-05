@@ -85,16 +85,15 @@ To get detailed help on each of the options:
                            nargs='+')
 
     plot_mode.add_argument('--xMax',
-                        help='Max value for the x-axis in counts per bin',
-                        default=None,
-                        type=float)
-
+                           help='Max value for the x-axis in counts per bin',
+                           default=None,
+                           type=float)
 
     merge_mode = subparsers.add_parser(
         'merge_failed',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         help="Merges together failed bins to rescue some of the information instead of discarding it. This option "
-             "is mostly useful with processing small restrition fragment size bins",
+             "is mostly useful with processing small restriction fragment size bins.",
         usage='%(prog)s '
               '--matrix hic_matrix.npz '
               '--outMatrixFile hic_matrix_merged_failed.npz '
@@ -233,10 +232,11 @@ def merge_failed_bins(hic_matrix, failed_bins):
     new_bins = []
     bins_to_merge = []
     coverage_list = np.array(coverage_list)
+
     def get_merged_bin(bin_list):
         if len(bin_list) < 2:
             print idx, bin_list, consecutive, ref_name_list[idx - 1], ref_name_list[idx]
-            import ipdb;ipdb.set_trace()
+
         assert len(bin_list) > 1, "Error, bin_list length has less than 2 elements."
         coverage = np.mean(coverage_list[bin_list])
         return ref_name_list[bin_list[0]], start_list[bin_list[0]], end_list[bin_list[-1]], coverage
@@ -279,16 +279,16 @@ def merge_failed_bins(hic_matrix, failed_bins):
             elif idx + 1 == len(ref_name_list):
                 # can only merge to the left bin, but since this should have been
                 # already added, then it is updated
-                new_bins[-1] = get_merged_bin([idx -1, idx])
-                bins_to_merge[-1] = [idx -1, idx]
+                new_bins[-1] = get_merged_bin([idx - 1, idx])
+                bins_to_merge[-1] = [idx - 1, idx]
                 continue
 
             # merge to the shorter neighboring bin
-            prev_bin_len = end_list[idx -1] - start_list[idx -1]
-            next_bin_len = end_list[idx +1] - start_list[idx -+2]
+            prev_bin_len = end_list[idx - 1] - start_list[idx - 1]
+            next_bin_len = end_list[idx + 1] - start_list[idx + 2]
             if prev_bin_len < next_bin_len:
-                new_bins[-1] = get_merged_bin([idx -1, idx])
-                bins_to_merge[-1] = [idx -1, idx]
+                new_bins[-1] = get_merged_bin([idx - 1, idx])
+                bins_to_merge[-1] = [idx - 1, idx]
             else:
                 new_bins.append(get_merged_bin([idx, idx + 1]))
                 bins_to_merge.append([idx, idx + 1])
@@ -296,12 +296,10 @@ def merge_failed_bins(hic_matrix, failed_bins):
         else:
             # skip if the bin was already added in the previous loop
             if idx == 0 or idx not in bins_to_merge[-1]:
-                bins_to_merge.append([idx,])
+                bins_to_merge.append([idx, ])
                 new_bins.append(hic_matrix.cut_intervals[idx])
 
     diff = np.diff(np.concatenate(bins_to_merge))
-    if len(np.flatnonzero(diff > 1)) != 0:
-        import ipdb;ipdb.set_trace()
     assert len(np.flatnonzero(diff > 1)) == 0, "Some indexes are missing"
     hic_matrix.update_matrix(hicexplorer.reduceMatrix.reduce_matrix(hic_matrix.matrix, bins_to_merge, diagonal=True),
                              new_bins)
@@ -452,6 +450,18 @@ class MAD(object):
         diff = value - self.median
         return self.mad_b_value * diff / self.med_abs_deviation
 
+    def mad_to_value(self, mad):
+        """
+        return the numeric value for a given mad score
+        based on the data
+
+        z = b_v * (x - median) / mad
+        z * mad / b_v = x - median
+        (z * mad / b_v) + median = x
+        """
+
+        return (mad * self.med_abs_deviation / self.mad_b_value) + self.median
+
 
 def plot_total_contact_dist(hic_ma, args):
     """
@@ -486,8 +496,7 @@ def plot_total_contact_dist(hic_ma, args):
 
     if args.xMax:
         ax1.set_xlim(ax1.get_xlim()[0], args.xMax)
-        row_sum = row_sum[row_sum <  args.xMax]
-
+        row_sum = row_sum[row_sum < args.xMax]
 
     ax1.set_xlabel("total counts per bin")
     ax1.set_ylabel("frequency")
@@ -626,8 +635,6 @@ def main():
                                                   len(to_remove)))
         ma.maskBins(to_remove)
         """
-
-
 
     if args.transCutoff and 0 < args.transCutoff < 100:
         cutoff = float(args.transCutoff)/100

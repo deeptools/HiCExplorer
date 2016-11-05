@@ -1,7 +1,7 @@
 from __future__ import division
 import argparse
 import numpy as np
-
+import sys
 from hicexplorer import HiCMatrix
 import hicexplorer.parserCommon
 from hicexplorer.utilities import transformMatrix, applyFdr, getPearson
@@ -133,7 +133,9 @@ def main():
         hic_ma.convert_to_obs_exp_matrix()
         new_ma = hic_ma.matrix
     elif args.method == 'pearson':
+        sys.stderr.write("\nComputing observed / expected\n")
         hic_ma.convert_to_obs_exp_matrix()
+        sys.stderr.write("\nComputing pearson\n")
         new_ma = getPearson(hic_ma.matrix)
     elif args.method != 'none':
         # check that the normalized and original matrices
