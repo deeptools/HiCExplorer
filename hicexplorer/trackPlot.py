@@ -1158,7 +1158,7 @@ class PlotBed(TrackPlot):
 
         import readBed
 
-        bed_file_h = readBed.ReadBed(opener(self.properties['file'], 'r'))
+        bed_file_h = readBed.ReadBed(opener(self.properties['file']))
         self.bed_type = bed_file_h.file_type
         valid_intervals = 0
         self.max_num_row = {}
