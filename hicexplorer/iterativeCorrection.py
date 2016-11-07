@@ -7,7 +7,7 @@ log = logging.getLogger("iterative correction")
 log.setLevel(logging.WARN)
 
 
-def iterativeCorrection(matrix, v=None, M=50, diag=-1, tolerance=1e-5, verbose=False):
+def iterativeCorrection(matrix, v=None, M=50, tolerance=1e-5, verbose=False):
     """
     adapted from cytonised version in mirnylab
     original code from: ultracorrectSymmetricWithVector
@@ -40,16 +40,9 @@ def iterativeCorrection(matrix, v=None, M=50, diag=-1, tolerance=1e-5, verbose=F
     for iternum in xrange(M):
         iternum += 1
         s = np.array(W.sum(axis=1)).flatten()
-        for dd in xrange(diag + 1):  # excluding the diagonal
-            if dd == 0:
-                s -= W.diagonal()
-            else:
-                dia = np.diagonal(W.todense(), dd)  # unefficient
-                s[dd:] = s[dd:] - dia
-                s[:-dd] = s[:-dd] - dia
         mask = (s == 0)
         s = s / np.mean(s[~mask])
-        s[mask] = 1
+
         total_bias *= s
         deviation = np.abs(s - 1).max()
 
