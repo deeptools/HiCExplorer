@@ -1,4 +1,3 @@
-
 import argparse, sys
 import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
@@ -14,6 +13,12 @@ from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 
 debug = 1
+
+# check pysam version
+from distutils.version import LooseVersion
+if LooseVersion(pysam.__version__) < LooseVersion("0.8.3"):
+    exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
+
 
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
