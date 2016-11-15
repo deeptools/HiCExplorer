@@ -1,0 +1,33 @@
+# this file is used in combination with hicexplorer.rules
+# usually, this file is located in the folder that you want
+# to download the data while the hicexplorer.rules file
+# is not changed
+
+# location of bwa index file
+INDEX = "/data/repository/organisms/hs37d5_ensembl/BWAindex/genome.fa"
+
+# location of the genome in fasta format (should be the same index used for the bwa index)
+GENOME = '/data/repository/organisms/hs37d5_ensembl/genome_fasta/genome.fa'
+
+# either HindIII.bed or DpnII.bed
+RESTRICTION_FILE = 'HindIII.bed'
+
+# either 'AAGCTT' or 'GATC'
+RESTRICTION_SEQUENCE = "AAGCTT"
+
+# minimum distance to consider between restriction sites. RS that are closer to this
+# distance are merged. This value should be similar to the read length. Larger values
+# will merge more nearby restriction enzyme sites which could be disirable.
+MIN_RS_DISTANCE = 150
+
+# Maximum distance of that a read can be from a restriction site. Reads farther than this distance are discarded
+# This number should be related to the higher end of fragment length distribution.
+MAX_RS_DISTANCE = 1000
+
+# List of SRA identifiers for same experiemtn. All SRA identifers will be downloaded, processed and then merged into one hicexplorer matrix
+# called merge.h5
+SAMPLES = ['SRR4015020', 'SRR4015021']
+
+# path to hicexplorer.rules
+include: "hicexplorer.rules"
+
