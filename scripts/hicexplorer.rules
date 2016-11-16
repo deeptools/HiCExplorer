@@ -18,15 +18,17 @@
 
 # SAMPLES List of SRA identifiers for same experiemtn. All SRA identifers will be downloaded, processed and then merged into one hicexplorer matrix
 
+import os
+from subprocess import CalledProcessError
+
 # bwa mem mapping options:
 #       -A INT        score for a sequence match, which scales options -TdBOELU unless overridden [1]
 #       -B INT        penalty for a mismatch [4]
 #       -O INT[,INT]  gap open penalties for deletions and insertions [6,6]
-#       -E INT[,INT]  gap extension penalty; a gap of size k cost '{-O} + {-E}*k' [1,1] # this is set very high to avoid gaps 
+#       -E INT[,INT]  gap extension penalty; a gap of size k cost '{-O} + {-E}*k' [1,1] # this is set very high to avoid gaps
 #                                  at restriction sites. Setting the gap extension penalty high, produces better results as
 #                                  the sequences left and right of a restriction site are mapped independently.
 #       -L INT[,INT]  penalty for 5'- and 3'-end clipping [5,5] # this is to to no penalty.
-
 # path of bwa
 MAPPER_CMD = "/package/bwa-0.7.12/bin/bwa mem -A1 -B4  -E50 -L0 -t 10"
 
@@ -36,7 +38,8 @@ SAMTOOLS = "/package/samtools-1.2/bin/samtools"
 # path of hicexplorer bin folder
 HICEXPLORER_PATH = "HiCExplorer/bin"
 
-import os
+# path of SRA fastq-dump
+FASTQ_DUMP = "/package/sratoolkit.2.8.0/bin/fastq-dump"
 
 # set PYTHONPATH in case hicexplorer is not installed
 os.environ['PYTHONPATH'] = 'HiCExplorer'
@@ -90,11 +93,12 @@ rule index_bam:
 	shell: "{SAMTOOLS} index {input}"
 
 
-#rule download:
-#	output: "fastq/{sample}_1.fastq.gz", "fastq/{sample}_2.fastq.gz" 
-#	params: sra="{sample}"
-#	shell: "/package/sratoolkit.2.5.0/bin/fastq-dump.2.5.0 --split-files --gzip --outdir fastq {params.sra}"
+rule download_sra:
+    output: "fastq/{sample}_1.fastq.gz", "fastq/{sample}_2.fastq.gz"
+    params: sra ="{sample}"
+    shell: "{FASTQ_DUMP} --split-files --gzip -O fastq {params.sra}"
 
+"""
 def ftp_from_sra(sra):
 	if sra.endswith("_1") or sra.endswith("_2"):
 	   mate = sra[-2:]
@@ -106,12 +110,18 @@ def ftp_from_sra(sra):
         # example:  ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR165/001/SRR1658531/SRR1658531_1.fastq.gz
 	#           ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR165/009/SRR1658529/SRR1658529_1.fastq.gz
 
+
 rule download_ena:
 	params: sra ="{sample}"
 	output: "fastq/{sample}.fastq.gz"
 	run:
 	  ftp = ftp_from_sra(params.sra)
-	  shell("wget -q -P fastq {}".format(ftp))
+	  try:
+	    # try to download from ENA. If it fails, download using SRA tools
+	    shell("wget -q -P fastq {}".format(ftp))
+	  except CalledProcessError as e:
+        print("*ERROR* Can't download from ENA")
+"""
 
 rule merge:
 	input: expand("hic/{sample}.h5", sample=SAMPLES)
