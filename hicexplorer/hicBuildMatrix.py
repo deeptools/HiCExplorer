@@ -5,7 +5,7 @@ import time
 from os import unlink
 import pysam
 # bx python
-from bx.intervals.intersection import IntervalTree, Interval
+from intervaltree import IntervalTree, Interval
 
 # own tools
 from hicexplorer import HiCMatrix as hm
@@ -196,7 +196,7 @@ def parseArguments(args=None):
     return parser
 
 
-def intervalListToIntervalTree(intervalList):
+def intervalListToIntervalTree(interval_list):
     """
     given a dictionary containing tuples of chrom, start, end,
     this is transformed to an interval trees. To each
@@ -207,20 +207,16 @@ def intervalListToIntervalTree(intervalList):
 
     >>> bin_list = [('chrX', 0, 50000), ('chrX', 50000, 100000)]
     >>> res = intervalListToIntervalTree(bin_list)
-    >>> res['chrX'].find(0, 100000)
-    [Interval(0, 50000, value=0), Interval(50000, 100000, value=1)]
+    >>> sorted(res['chrX'])
+    [Interval(0, 50000, 0), Interval(50000, 100000, 1)]
     """
     bin_int_tree = {}
 
-    for intval_id, intval in enumerate(intervalList):
+    for intval_id, intval in enumerate(interval_list):
         chrom, start, end = intval[0:3]
         if chrom not in bin_int_tree:
             bin_int_tree[chrom] = IntervalTree()
-        bin_int_tree[chrom].insert_interval(Interval(start,
-                                                     end,
-                                                     # the value is the
-                                                     # interval id
-                                                     value=intval_id))
+        bin_int_tree[chrom].add(Interval(start, end, intval_id))
 
     return bin_int_tree
 
@@ -699,7 +695,7 @@ def main(args=None):
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen/2)
             try:
-                mate_bin = bin_intval_tree[mate_ref].find(read_middle, read_middle + 1)
+                mate_bin = bin_intval_tree[mate_ref][read_middle, read_middle]
             except KeyError:
                 # for small contigs it can happen that they are not
                 # in the bin_intval_tree keys if no restriction site is found on the contig.
@@ -793,8 +789,7 @@ def main(args=None):
                     frag_start = min(mate1.pos, mate2.pos) + len(args.restrictionSequence)
                     frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(args.restrictionSequence)
                     mate_ref = ref_id2name[mate1.rname]
-                    has_rf = rf_positions[mate_ref].find(frag_start,
-                                                         frag_end)
+                    has_rf = rf_positions[mate_ref][frag_start, frag_end]
 
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:

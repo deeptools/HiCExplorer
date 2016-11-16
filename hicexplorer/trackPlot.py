@@ -207,9 +207,8 @@ class PlotTracks(object):
 
         if chrom_region not in self.vlines_intval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
-        for region in self.vlines_intval_tree[chrom_region].find(start_region - 10000,
-                                                                 end_region + 10000):
-            vlines_list.append(region.start)
+        for region in sorted(self.vlines_intval_tree[chrom_region][start_region - 10000:end_region + 10000]):
+            vlines_list.append(region.begin)
 
         for idx, track in enumerate(self.track_obj_list):
             ymin, ymax = axis_list[idx].get_ylim()
@@ -467,10 +466,9 @@ class PlotBedGraph(TrackPlot):
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
             
-        for region in self.interval_tree[chrom_region].find(start_region - 10000,
-                                                            end_region + 10000):
-            score_list.append(float(region.value[0]))
-            pos_list.append(region.start + (region.end - region.start)/2)
+        for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
+        score_list.append(float(region.data[0]))
+            pos_list.append(region.begin + (region.end - region.begin)/2)
 
         if 'color' not in self.properties:
             self.properties['color'] = DEFAULT_BEDGRAPH_COLOR
@@ -536,10 +534,9 @@ class PlotBedGraphMatrix(PlotBedGraph):
         matrix_rows = []
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
-        for region in self.interval_tree[chrom_region].find(start_region - 10000,
-                                                            end_region + 10000):
-            start_pos.append(region.start)
-            values = map(float, region.value)
+        for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000)]:
+            start_pos.append(region.begin)
+            values = map(float, region.data)
             matrix_rows.append(values)
 
         matrix = np.vstack(matrix_rows).T
@@ -1083,7 +1080,7 @@ class PlotBoundaries(TrackPlot):
             orig = chrom_region
             chrom_region = change_chrom_names(chrom_region)
             print 'changing {} to {}'.format(orig, chrom_region)
-        for region in self.interval_tree[chrom_region].find(start_region, end_region):
+        for region in sorted(self.interval_tree[chrom_region][start_region:end_region]):
             """
                   /\
                  /  \
@@ -1091,11 +1088,11 @@ class PlotBoundaries(TrackPlot):
             _____________________
                x1 x2 x3
             """
-            x1 = region.start
-            x2 = x1 + float(region.end - region.start) / 2
+            x1 = region.begin
+            x2 = x1 + float(region.end - region.begin) / 2
             x3 = region.end
             y1 = 0
-            y2 = (region.end - region.start)
+            y2 = (region.end - region.begin)
             x.extend([x1, x2, x3])
             y.extend([y1, y2, y1])
 
@@ -1270,7 +1267,7 @@ class PlotBed(TrackPlot):
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
 
-        genes_overlap = self.interval_tree[chrom_region].find(start_region, end_region)
+        genes_overlap = sorted(self.interval_tree[chrom_region][start_region:end_region])
 
         # turn labels off when too many intervals are visible.
         if self.properties['labels'] != 'off' and len(genes_overlap) > 60:
@@ -1292,7 +1289,7 @@ class PlotBed(TrackPlot):
             """
             self.counter += 1
             # an namedTuple object is stored in the region.value together with the free value for the gene
-            bed, free_row = region.value
+            bed, free_row = region.data
             if self.colormap:
                 # translate value field (in the example above is 0 or 0.2686...) into a color
                 rgb = self.colormap.to_rgba(bed.score)
@@ -1636,7 +1633,7 @@ class PlotArcs(TrackPlot):
 
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
-        arcs_in_region = self.interval_tree[chrom_region].find(region_start, region_end)
+        arcs_in_region = sorted(self.interval_tree[chrom_region][region_start:region_end])
 
         for idx, interval in enumerate(arcs_in_region):
             # skip arcs whose start and end are outside the ploted region
