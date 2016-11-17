@@ -76,7 +76,7 @@ setup(
         "pysam >= 0.8.3",
         "bx-python >= 0.7.2",
         "biopython >= 1.65",
-        "tables >= 3.2.2",
+        "pytables >= 3.2.2",
         "pyBigWig >=0.2.8"
     ]
 )
