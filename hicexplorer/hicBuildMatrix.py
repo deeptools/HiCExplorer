@@ -607,6 +607,7 @@ def main(args=None):
     data = []
     hic_matrix = None
     # read the sam files line by line
+
     while True:
         iter_num += 1
         if iter_num % 1e6 == 0:
@@ -695,7 +696,7 @@ def main(args=None):
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen/2)
             try:
-                mate_bin = bin_intval_tree[mate_ref][read_middle, read_middle]
+                mate_bin = sorted(bin_intval_tree[mate_ref][read_middle:read_middle + 1])
             except KeyError:
                 # for small contigs it can happen that they are not
                 # in the bin_intval_tree keys if no restriction site is found on the contig.
@@ -711,7 +712,7 @@ def main(args=None):
             # one match
             mate_bin = mate_bin[0]
 
-            mate_bin_id = mate_bin.value
+            mate_bin_id = mate_bin.data
             mate_bins.append(mate_bin_id)
 
         # if a mate is unassigned, it means it is not close
@@ -789,7 +790,7 @@ def main(args=None):
                     frag_start = min(mate1.pos, mate2.pos) + len(args.restrictionSequence)
                     frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(args.restrictionSequence)
                     mate_ref = ref_id2name[mate1.rname]
-                    has_rf = rf_positions[mate_ref][frag_start, frag_end]
+                    has_rf = sorted(rf_positions[mate_ref][frag_start: frag_end])
 
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
@@ -831,7 +832,7 @@ def main(args=None):
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
-            vec_start = max(0, mate.pos - mate_bin.start) / binsize
+            vec_start = max(0, mate.pos - mate_bin.begin) / binsize
             vec_end = min(len(coverage[mate_bin_id]), vec_start +
                           len(mate.seq) / binsize)
             coverage[mate_bin_id][vec_start:vec_end] += 1

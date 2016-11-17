@@ -412,7 +412,7 @@ def file_to_intervaltree(file_name):
 
         assert end > start, "Start position larger or equal than end for line\n{} ".format(line)
 
-        interval_tree[chrom].insert_interval(Interval(start, end, value=value))
+        interval_tree[chrom].add(Interval(start, end, value))
         valid_intervals += 1
 
     if valid_intervals == 0:
@@ -467,14 +467,13 @@ class PlotBedGraph(TrackPlot):
             chrom_region = change_chrom_names(chrom_region)
             
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
-        score_list.append(float(region.data[0]))
+            score_list.append(float(region.data[0]))
             pos_list.append(region.begin + (region.end - region.begin)/2)
 
         if 'color' not in self.properties:
             self.properties['color'] = DEFAULT_BEDGRAPH_COLOR
 
-        if 'extra' in self.properties and \
-                self.properties['extra'][0] == '4C':
+        if 'extra' in self.properties and self.properties['extra'][0] == '4C':
             # draw a vertical line for each fragment region center
             self.ax.fill_between(pos_list, score_list,
                             facecolor=self.properties['color'],
@@ -534,7 +533,7 @@ class PlotBedGraphMatrix(PlotBedGraph):
         matrix_rows = []
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
-        for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000)]:
+        for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             start_pos.append(region.begin)
             values = map(float, region.data)
             matrix_rows.append(values)
@@ -1008,7 +1007,7 @@ class PlotBoundaries(TrackPlot):
         interval_tree = {}
         intervals = []
         prev_chrom = None
-        valid_intervals =0
+        valid_intervals = 0
 
         with open(self.properties['file'], 'r') as file_h:
             for line in file_h.readlines():
@@ -1042,7 +1041,7 @@ class PlotBoundaries(TrackPlot):
                         start_array = start_array[:-1]
                     interval_tree[prev_chrom] = IntervalTree()
                     for idx in range(len(start_array)):
-                        interval_tree[prev_chrom].insert_interval(Interval(start_array[idx], end_array[idx]))
+                        interval_tree[prev_chrom].add(Interval(start_array[idx], end_array[idx]))
                         valid_intervals += 1
                     intervals = []
 
@@ -1061,7 +1060,7 @@ class PlotBoundaries(TrackPlot):
             start = start[:-1]
         interval_tree[chrom] = IntervalTree()
         for idx in range(len(start)):
-            interval_tree[chrom].insert_interval(Interval(start[idx], end[idx]))
+            interval_tree[chrom].add(Interval(start[idx], end[idx]))
             valid_intervals += 1
 
         if valid_intervals == 0:
@@ -1218,7 +1217,7 @@ class PlotBed(TrackPlot):
             if bed.chromosome not in self.interval_tree:
                 self.interval_tree[bed.chromosome] = IntervalTree()
 
-            self.interval_tree[bed.chromosome].insert_interval(Interval(bed.start, bed.end, value=(bed, free_row)))
+            self.interval_tree[bed.chromosome].add(Interval(bed.begin, bed.end, (bed, free_row)))
             valid_intervals += 1
             prev = bed
             if free_row > self.max_num_row[bed.chromosome]:
@@ -1603,7 +1602,7 @@ class PlotArcs(TrackPlot):
                 value = Arc._make([chrom1, start1, end1, start2, end2, score])
 
                 # each interval spans from the smallest start to the largest end
-                interval_tree[chrom1].insert_interval(Interval(start1, end2, value=value))
+                interval_tree[chrom1].add(Interval(start1, end2, value))
                 valid_intervals += 1
 
         if valid_intervals == 0:

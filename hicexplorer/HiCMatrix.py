@@ -7,6 +7,9 @@ from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 from scipy.sparse import triu, tril
 import tables
+from intervaltree import IntervalTree, Interval
+
+import gzip
 
 ## try to import pandas if exists
 try:
@@ -14,10 +17,6 @@ try:
     pandas = True
 except ImportError:
     pandas = False
-
-from intervaltree import IntervalTree, Interval
-#from bx.intervals.intersection import IntervalTree, Interval
-import gzip
 
 
 class hiCMatrix:
@@ -100,7 +99,7 @@ class hiCMatrix:
 
             matrix = csr_matrix(tuple([parts['data'], parts['indices'], parts['indptr']]),
                                 shape=parts['shape'])
-            matrix = hiCMatrixFfillLowerTriangle(matrix)
+            matrix = hiCMatrix.fillLowerTriangle(matrix)
             # get intervals
             intvals = {}
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
