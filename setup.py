@@ -74,9 +74,9 @@ setup(
         "scipy >= 0.17.1",
         "matplotlib >= 1.3.1",
         "pysam >= 0.8.3",
-        "bx-python >= 0.7.2",
+        "intervaltree >= 2.1.0",
         "biopython >= 1.65",
-        "pytables >= 3.2.2",
+        "tables >= 3.2.2",
         "pyBigWig >=0.2.8"
     ]
 )

@@ -15,7 +15,7 @@ import textwrap
 import scipy.sparse
 from collections import OrderedDict
 
-from bx.intervals.intersection import IntervalTree, Interval
+from intervaltree import IntervalTree, Interval
 
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
@@ -207,9 +207,8 @@ class PlotTracks(object):
 
         if chrom_region not in self.vlines_intval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
-        for region in self.vlines_intval_tree[chrom_region].find(start_region - 10000,
-                                                                 end_region + 10000):
-            vlines_list.append(region.start)
+        for region in sorted(self.vlines_intval_tree[chrom_region][start_region - 10000:end_region + 10000]):
+            vlines_list.append(region.begin)
 
         for idx, track in enumerate(self.track_obj_list):
             ymin, ymax = axis_list[idx].get_ylim()
@@ -232,6 +231,9 @@ class PlotTracks(object):
         parser = SafeConfigParser(None, MultiDict)
         parser.readfp(open(tracks_file, 'r'))
 
+        import os.path
+        tracks_file_path = os.path.dirname(tracks_file)
+
         track_list = []
         vlines_file = None
         for section_name in parser.sections():
@@ -247,14 +249,15 @@ class PlotTracks(object):
                     track_options[name] = value
 
             if 'type' in track_options and track_options['type'] == 'vlines':
-                self.vlines_properties = track_options
+                self.vlines_properties = self.check_file_exists(track_options, tracks_file_path)
             else:
                 track_list.append(track_options)
 
+        updated_track_list = []
         for track_dict in track_list:
             warn = None
             if 'file' in track_dict and track_dict['file'] != '':
-                self.check_file_exists(track_dict)
+                track_dict = self.check_file_exists(track_dict, tracks_file_path)
                 if 'file_type' not in track_dict:
                     track_dict['file_type'] = self.guess_filetype(track_dict)
 
@@ -264,31 +267,47 @@ class PlotTracks(object):
                     track_dict['title'] = ''
                 if warn:
                     sys.stderr.write(warn)
-
-        self.track_list = track_list
+            updated_track_list.append(track_dict)
+        self.track_list = updated_track_list
         if self.vlines_properties:
             self.vlines_intval_tree, __, __ = file_to_intervaltree(self.vlines_properties['file'])
 
     @staticmethod
-    def check_file_exists(track_dict):
+    def check_file_exists(track_dict, tracks_path):
         """
-        Checks if a file or list of files exists
+        Checks if a file or list of files exists. If the file does not exists
+        tries to check if the file may be relative to the track_file path, in such case
+        the path is updated.
         :param track_dict: dictionary of track values. Should contain
                             a 'file' key containing the path of the file
                             or files to be checked separated by space
                             For example: file1 file2 file3
+        :param tracks_path: path of the tracks file
         :return: None
         """
-        file_names = [x for x in track_dict['file'].split(" ") if x != '']
-        for file_name in file_names:
-            try:
-                open(file_name, 'r').close()
-            except IOError:
-                sys.stderr.write("\n*ERROR*\nFile in section [{}] "
-                                 "not found:\n{}\n\n".format(track_dict['section_name'],
-                                                             file_name))
-                sys.exit(1)
+        for file_type in ['boundaries_file', 'file']:
+            if file_type in track_dict:
+                file_names = [x for x in track_dict[file_type].split(" ") if x != '']
+                full_path_file_names = []
+                for file_name in file_names:
+                    try:
+                        open(file_name, 'r').close()
+                        full_path_file_names.append(file_name)
+                    except IOError:
+                        try:
+                            # try to find the file in the same path as the
+                            # the path of the
+                            name_with_tracks_path = tracks_path + "/" + file_name
+                            open(name_with_tracks_path, 'r').close()
+                            full_path_file_names.append(name_with_tracks_path)
+                        except IOError:
+                            sys.stderr.write("\n*ERROR*\nFile in section [{}] "
+                                             "not found:\n{}\n\n".format(track_dict['section_name'],
+                                                                         file_name))
+                            sys.exit(1)
 
+                track_dict[file_type] = " ".join(full_path_file_names)
+        return track_dict
     @staticmethod
     def guess_filetype(track_dict):
         """
@@ -413,7 +432,7 @@ def file_to_intervaltree(file_name):
 
         assert end > start, "Start position larger or equal than end for line\n{} ".format(line)
 
-        interval_tree[chrom].insert_interval(Interval(start, end, value=value))
+        interval_tree[chrom].add(Interval(start, end, value))
         valid_intervals += 1
 
     if valid_intervals == 0:
@@ -467,16 +486,14 @@ class PlotBedGraph(TrackPlot):
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
             
-        for region in self.interval_tree[chrom_region].find(start_region - 10000,
-                                                            end_region + 10000):
-            score_list.append(float(region.value[0]))
-            pos_list.append(region.start + (region.end - region.start)/2)
+        for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
+            score_list.append(float(region.data[0]))
+            pos_list.append(region.begin + (region.end - region.begin)/2)
 
         if 'color' not in self.properties:
             self.properties['color'] = DEFAULT_BEDGRAPH_COLOR
 
-        if 'extra' in self.properties and \
-                self.properties['extra'][0] == '4C':
+        if 'extra' in self.properties and self.properties['extra'][0] == '4C':
             # draw a vertical line for each fragment region center
             self.ax.fill_between(pos_list, score_list,
                             facecolor=self.properties['color'],
@@ -536,10 +553,9 @@ class PlotBedGraphMatrix(PlotBedGraph):
         matrix_rows = []
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
-        for region in self.interval_tree[chrom_region].find(start_region - 10000,
-                                                            end_region + 10000):
-            start_pos.append(region.start)
-            values = map(float, region.value)
+        for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
+            start_pos.append(region.begin)
+            values = map(float, region.data)
             matrix_rows.append(values)
 
         matrix = np.vstack(matrix_rows).T
@@ -1011,7 +1027,7 @@ class PlotBoundaries(TrackPlot):
         interval_tree = {}
         intervals = []
         prev_chrom = None
-        valid_intervals =0
+        valid_intervals = 0
 
         with open(self.properties['file'], 'r') as file_h:
             for line in file_h.readlines():
@@ -1045,7 +1061,7 @@ class PlotBoundaries(TrackPlot):
                         start_array = start_array[:-1]
                     interval_tree[prev_chrom] = IntervalTree()
                     for idx in range(len(start_array)):
-                        interval_tree[prev_chrom].insert_interval(Interval(start_array[idx], end_array[idx]))
+                        interval_tree[prev_chrom].add(Interval(start_array[idx], end_array[idx]))
                         valid_intervals += 1
                     intervals = []
 
@@ -1064,7 +1080,7 @@ class PlotBoundaries(TrackPlot):
             start = start[:-1]
         interval_tree[chrom] = IntervalTree()
         for idx in range(len(start)):
-            interval_tree[chrom].insert_interval(Interval(start[idx], end[idx]))
+            interval_tree[chrom].add(Interval(start[idx], end[idx]))
             valid_intervals += 1
 
         if valid_intervals == 0:
@@ -1083,7 +1099,7 @@ class PlotBoundaries(TrackPlot):
             orig = chrom_region
             chrom_region = change_chrom_names(chrom_region)
             print 'changing {} to {}'.format(orig, chrom_region)
-        for region in self.interval_tree[chrom_region].find(start_region, end_region):
+        for region in sorted(self.interval_tree[chrom_region][start_region:end_region]):
             """
                   /\
                  /  \
@@ -1091,11 +1107,11 @@ class PlotBoundaries(TrackPlot):
             _____________________
                x1 x2 x3
             """
-            x1 = region.start
-            x2 = x1 + float(region.end - region.start) / 2
+            x1 = region.begin
+            x2 = x1 + float(region.end - region.begin) / 2
             x3 = region.end
             y1 = 0
-            y2 = (region.end - region.start)
+            y2 = (region.end - region.begin)
             x.extend([x1, x2, x3])
             y.extend([y1, y2, y1])
 
@@ -1221,7 +1237,7 @@ class PlotBed(TrackPlot):
             if bed.chromosome not in self.interval_tree:
                 self.interval_tree[bed.chromosome] = IntervalTree()
 
-            self.interval_tree[bed.chromosome].insert_interval(Interval(bed.start, bed.end, value=(bed, free_row)))
+            self.interval_tree[bed.chromosome].add(Interval(bed.start, bed.end, (bed, free_row)))
             valid_intervals += 1
             prev = bed
             if free_row > self.max_num_row[bed.chromosome]:
@@ -1270,7 +1286,7 @@ class PlotBed(TrackPlot):
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
 
-        genes_overlap = self.interval_tree[chrom_region].find(start_region, end_region)
+        genes_overlap = sorted(self.interval_tree[chrom_region][start_region:end_region])
 
         # turn labels off when too many intervals are visible.
         if self.properties['labels'] != 'off' and len(genes_overlap) > 60:
@@ -1292,7 +1308,7 @@ class PlotBed(TrackPlot):
             """
             self.counter += 1
             # an namedTuple object is stored in the region.value together with the free value for the gene
-            bed, free_row = region.value
+            bed, free_row = region.data
             if self.colormap:
                 # translate value field (in the example above is 0 or 0.2686...) into a color
                 rgb = self.colormap.to_rgba(bed.score)
@@ -1606,7 +1622,7 @@ class PlotArcs(TrackPlot):
                 value = Arc._make([chrom1, start1, end1, start2, end2, score])
 
                 # each interval spans from the smallest start to the largest end
-                interval_tree[chrom1].insert_interval(Interval(start1, end2, value=value))
+                interval_tree[chrom1].add(Interval(start1, end2, value))
                 valid_intervals += 1
 
         if valid_intervals == 0:
@@ -1636,7 +1652,7 @@ class PlotArcs(TrackPlot):
 
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
-        arcs_in_region = self.interval_tree[chrom_region].find(region_start, region_end)
+        arcs_in_region = sorted(self.interval_tree[chrom_region][region_start:region_end])
 
         for idx, interval in enumerate(arcs_in_region):
             # skip arcs whose start and end are outside the ploted region
