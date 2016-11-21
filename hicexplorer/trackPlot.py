@@ -15,7 +15,7 @@ import textwrap
 import scipy.sparse
 from collections import OrderedDict
 
-from bx.intervals.intersection import IntervalTree, Interval
+from intervaltree import IntervalTree, Interval
 
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
@@ -1237,7 +1237,7 @@ class PlotBed(TrackPlot):
             if bed.chromosome not in self.interval_tree:
                 self.interval_tree[bed.chromosome] = IntervalTree()
 
-            self.interval_tree[bed.chromosome].add(Interval(bed.begin, bed.end, (bed, free_row)))
+            self.interval_tree[bed.chromosome].add(Interval(bed.start, bed.end, (bed, free_row)))
             valid_intervals += 1
             prev = bed
             if free_row > self.max_num_row[bed.chromosome]:
