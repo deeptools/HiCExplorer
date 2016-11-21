@@ -186,7 +186,16 @@ def parseArguments(args=None):
 
     parser.add_argument('--doTestRun',
                         help='A test run is useful to test the quality of a Hi-C experiment quickly. It works by '
-                             'testing only 1,000.000 reads',
+                             'testing only 1,000.000 reads. This option is useful to get an idea of quality control'
+                             'values like inter-chromosomal interactins, duplication rates etc.',
+                        action='store_true'
+                        )
+
+
+    parser.add_argument('--skipDuplicationCheck',
+                        help='Identification of duplicated read pairs is memory consuming. Thus, in case of '
+                             'memory errors this check can be skipped. However, consider running a `--doTestRun` '
+                             'first to get an estimation of the duplicated reads. ',
                         action='store_true'
                         )
 
@@ -681,12 +690,13 @@ def main(args=None):
             one_mate_low_quality += 1
             continue
 
-        if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
-                                         mate1.pos,
-                                         ref_id2name[mate2.rname],
-                                         mate2.pos):
-            duplicated_pairs += 1
-            continue
+        if args.skipDuplicationCheck is False:
+            if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
+                                             mate1.pos,
+                                             ref_id2name[mate2.rname],
+                                             mate2.pos):
+                duplicated_pairs += 1
+                continue
 
         # check if reads belong to a bin
         mate_bins = []
