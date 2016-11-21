@@ -232,6 +232,9 @@ class PlotTracks(object):
         parser = SafeConfigParser(None, MultiDict)
         parser.readfp(open(tracks_file, 'r'))
 
+        import os.path
+        tracks_file_path = os.path.dirname(tracks_file)
+
         track_list = []
         vlines_file = None
         for section_name in parser.sections():
@@ -247,14 +250,15 @@ class PlotTracks(object):
                     track_options[name] = value
 
             if 'type' in track_options and track_options['type'] == 'vlines':
-                self.vlines_properties = track_options
+                self.vlines_properties = self.check_file_exists(track_options, tracks_file_path)
             else:
                 track_list.append(track_options)
 
+        updated_track_list = []
         for track_dict in track_list:
             warn = None
             if 'file' in track_dict and track_dict['file'] != '':
-                self.check_file_exists(track_dict)
+                track_dict = self.check_file_exists(track_dict, tracks_file_path)
                 if 'file_type' not in track_dict:
                     track_dict['file_type'] = self.guess_filetype(track_dict)
 
@@ -264,31 +268,47 @@ class PlotTracks(object):
                     track_dict['title'] = ''
                 if warn:
                     sys.stderr.write(warn)
-
-        self.track_list = track_list
+            updated_track_list.append(track_dict)
+        self.track_list = updated_track_list
         if self.vlines_properties:
             self.vlines_intval_tree, __, __ = file_to_intervaltree(self.vlines_properties['file'])
 
     @staticmethod
-    def check_file_exists(track_dict):
+    def check_file_exists(track_dict, tracks_path):
         """
-        Checks if a file or list of files exists
+        Checks if a file or list of files exists. If the file does not exists
+        tries to check if the file may be relative to the track_file path, in such case
+        the path is updated.
         :param track_dict: dictionary of track values. Should contain
                             a 'file' key containing the path of the file
                             or files to be checked separated by space
                             For example: file1 file2 file3
+        :param tracks_path: path of the tracks file
         :return: None
         """
-        file_names = [x for x in track_dict['file'].split(" ") if x != '']
-        for file_name in file_names:
-            try:
-                open(file_name, 'r').close()
-            except IOError:
-                sys.stderr.write("\n*ERROR*\nFile in section [{}] "
-                                 "not found:\n{}\n\n".format(track_dict['section_name'],
-                                                             file_name))
-                sys.exit(1)
+        for file_type in ['boundaries_file', 'file']:
+            if file_type in track_dict:
+                file_names = [x for x in track_dict[file_type].split(" ") if x != '']
+                full_path_file_names = []
+                for file_name in file_names:
+                    try:
+                        open(file_name, 'r').close()
+                        full_path_file_names.append(file_name)
+                    except IOError:
+                        try:
+                            # try to find the file in the same path as the
+                            # the path of the
+                            name_with_tracks_path = tracks_path + "/" + file_name
+                            open(name_with_tracks_path, 'r').close()
+                            full_path_file_names.append(name_with_tracks_path)
+                        except IOError:
+                            sys.stderr.write("\n*ERROR*\nFile in section [{}] "
+                                             "not found:\n{}\n\n".format(track_dict['section_name'],
+                                                                         file_name))
+                            sys.exit(1)
 
+                track_dict[file_type] = " ".join(full_path_file_names)
+        return track_dict
     @staticmethod
     def guess_filetype(track_dict):
         """
