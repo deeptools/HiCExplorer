@@ -6,6 +6,7 @@ import hicexplorer
 import os.path
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
+MATPLOTLIB_VERSION = '1.5.3'
 
 def compare_svg(file1, file2):
     """
@@ -26,20 +27,15 @@ def compare_svg(file1, file2):
 
 
 class TestPlottingPrograms(object):
-    def __init__(self):
-        self.run_image_tests = True
 
     def setUp(self):
         # the tests based on images were done with
-        # matplotlib 1.5.3 and will fail if other
+        # matplotlib under certain version and will fail if other
         # version is used
-        if mpl.__version__ != '1.5.3':
+        if mpl.__version__ != MATPLOTLIB_VERSION:
             sys.stderr.write("\nTests based on images are skipped because of "
-                             "different matplotlib version ({}) != 1.5.0\n".format(mpl.__version__))
+                             "different matplotlib version ({}) != {}\n".format(mpl.__version__, MATPLOTLIB_VERSION))
             exit(1)
-            self.run_image_tests = False
-        if sys.version_info[0] != 2:
-            self.run_image_tests = False
 
     def test_hicPlotTads(self):
         import hicexplorer.hicPlotTADs
