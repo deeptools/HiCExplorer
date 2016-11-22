@@ -47,3 +47,13 @@ class TestPlottingPrograms(object):
         assert compare_svg(ROOT + '/master_TADs_plot.svg', outfile.name) is True
         os.remove(outfile.name) 
 
+    def test_hicPlotMatrix(self):
+        import hicexplorer.hicPlotMatrix
+
+        outfile = NamedTemporaryFile(suffix='.svg', delete=False)
+        args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
+               "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
+        hicexplorer.hicPlotMatrix.main(args)
+        assert compare_svg(ROOT + '/master_matrix_plot.svg', outfile.name) is True
+        os.remove(outfile.name)
+
