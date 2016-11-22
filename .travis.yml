@@ -2,13 +2,12 @@ language: python
 os: linux
 python:
     - 2.7
-    - 2.7.12
 
-matrix:
-  include:
-  - os: osx
-    language: generic
-    env: PYTHON=2.7
+#matrix:
+#  include:
+#  - os: osx
+#    language: generic
+#    env: PYTHON=2.7
 
 
 # Setup anaconda
