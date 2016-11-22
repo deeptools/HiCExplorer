@@ -1,10 +1,13 @@
-language: python
-python:
-    - 2.7
-    - 2.7.12
-os:
-  - linux
-  - osx
+language: generic
+
+matrix:
+  include:
+    - os: osx
+      env: pyv=2.7
+
+    - os: linux
+      env: pyv=2.7
+
 
 # Setup anaconda
 before_install:
@@ -24,8 +27,7 @@ before_install:
 # Install packages
 install:
   - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython
-  - conda install --yes -c https://conda.anaconda.org/bioconda pysam pyBigWig
-  - conda install -c quantopian intervaltree=2.1.0
+  - conda install --yes -c bioconda pysam pyBigWig intervaltree
   - python setup.py install
 
 # command to run tests
