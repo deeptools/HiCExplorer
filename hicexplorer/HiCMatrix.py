@@ -11,7 +11,7 @@ from intervaltree import IntervalTree, Interval
 
 import gzip
 
-## try to import pandas if exists
+# try to import pandas if exists
 try:
     import pandas as pd
     pandas = True
