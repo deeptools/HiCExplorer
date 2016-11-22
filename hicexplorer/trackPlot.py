@@ -11,6 +11,8 @@ import matplotlib.cm
 import mpl_toolkits.axisartist as axisartist
 from matplotlib.patches import Rectangle
 import textwrap
+import os.path
+
 
 import scipy.sparse
 from collections import OrderedDict
@@ -231,7 +233,6 @@ class PlotTracks(object):
         parser = SafeConfigParser(None, MultiDict)
         parser.readfp(open(tracks_file, 'r'))
 
-        import os.path
         tracks_file_path = os.path.dirname(tracks_file)
 
         track_list = []
