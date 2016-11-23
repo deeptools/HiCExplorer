@@ -6,20 +6,34 @@
 ## the following variables are expected
 # INDEX BWA index location
 # GENOME Path to the genome in fasta format (the bwa index should be based on this genome)
-# RESTRICTION_FILE Either HindIII.bed or DpnII.bed
-# RESTRICTION_SEQUENCE either 'AAGCTT' or 'GATC'
-# MIN_RS_DISTANCE minimum distance to consider between restriction sites. RS that are closer to this 
-#		  distance are merged. This value should be similar to the read length
-# MAX_RS_DISTANCE Maximum distance of that a read can be from a restriction site. Reads farther than this distance are discarded
-#                This number should be related to the higher end of fragment length distribution. 
+#
+# Either RESTRICTION_FILE or BIN_SIZE are required
+
+# options are 'HindIII.bed', 'DpnII.bed' or ''
+# RESTRICTION_FILE = ''
+
+# bin size in base pairs
+# BIN_SIZE = 10000
+
+# this is to identify so called dangling ends. Option are 'AAGCTT' or 'GATC'
+# RESTRICTION_SEQUENCE = 'AAGCTT'
+
+# minimum distance to consider between restriction sites. RS that are closer than this
+# distance are merged. This value should be similar to the read length
+# MIN_RS_DISTANCE = 150
+
+# Maximum distance of that a read can be from a restriction site. Reads farther than this distance are discarded.
+# This number should be related to the higher end of fragment length distribution.
+# MAX_RS_DISTANCE = 1000
 
 # the values for MIN_RS_DISTANCE and MAX_RS_DISTANCE do not affect the outcome greatly and standard values like 150 for the min distance
 # and 1000 for the max distance are fine. 
 
-# SAMPLES List of SRA identifiers for same experiemtn. All SRA identifers will be downloaded, processed and then merged into one hicexplorer matrix
+# List of SRA identifiers for same experiment.
+# All SRA identifers will be downloaded, processed and then merged into one hicexplorer matrix
+# SAMPLES = ['SRR00001', 'SRR0002']
 
 import os
-from subprocess import CalledProcessError
 
 # bwa mem mapping options:
 #       -A INT        score for a sequence match, which scales options -TdBOELU unless overridden [1]
@@ -45,7 +59,7 @@ FASTQ_DUMP = "/package/sratoolkit.2.8.0/bin/fastq-dump"
 os.environ['PYTHONPATH'] = 'HiCExplorer'
 
 rule all:
-	input: "hic/merge.h5"
+	input: "hic/merge_diagnostic_plot.pdf"
 
 rule map_fastq_single_end:
 	input: "fastq/{sample}.fastq.gz"
@@ -66,9 +80,10 @@ rule get_DpnII_bed:
 	output: "DpnII.bed"
 	shell: "{HICEXPLORER_PATH}/findRestSite -f {GENOME} --searchPattern GATC -o {output}"
 
-rule make_hic_matrix:
+
+rule make_hic_matrix_rf:
 	input: "bam/{sample}_1.bam", "bam/{sample}_2.bam", RESTRICTION_FILE
-	output: "hic/{sample}.h5", bam="bam/{sample}_R12.bam"
+	output: "hic/{sample}_rf.h5", bam="bam/{sample}_R12.bam"
 	log: "hic/{sample}.log"
 	shell:
 		"""
@@ -78,6 +93,21 @@ rule make_hic_matrix:
 	        --maxDistance {MAX_RS_DISTANCE} \
 	        -b {output.bam} -o {output[0]} &> {log} 
 		"""
+
+
+rule make_hic_matrix_binsize:
+	input: "bam/{sample}_1.bam", "bam/{sample}_2.bam"
+	output: "hic/{sample}_bs.h5", bam="bam/{sample}_R12.bam"
+	log: "hic/{sample}.log"
+	shell:
+		"""
+	        {HICEXPLORER_PATH}/hicBuildMatrix -s {input[0]} {input[1]} -bs {BIN_SIZE} \
+	        --restrictionSequence {RESTRICTION_SEQUENCE} \
+	        --minDistance {MIN_RS_DISTANCE} \
+	        --maxDistance {MAX_RS_DISTANCE} \
+	        -b {output.bam} -o {output[0]} &> {log}
+		"""
+
 rule sort_bam:
 	input: "bam/{sample}.bam"
 	output: "bam/{sample}_sorted.bam"
@@ -123,9 +153,19 @@ rule download_ena:
         print("*ERROR* Can't download from ENA")
 """
 
+def merge_inputs(wildcards):
+    if RESTRICTION_FILE != "":
+        return expand("hic/{sample}_rf.h5", sample=SAMPLES)
+    elif BIN_SIZE > 0:
+        return expand("hic/{sample}_bs.h5", sample=SAMPLES)
+
 rule merge:
-	input: expand("hic/{sample}.h5", sample=SAMPLES)
+	input: merge_inputs
 	output: "hic/merge.h5"
 	shell: "{HICEXPLORER_PATH}/hicSumMatrices -m {input} -o {output}"
 
+rule diagnostic_plot:
+	output: "hic/merge_diagnostic_plot.pdf"
+	input: "hic/merge.h5"
+	shell: "{HICEXPLORER_PATH}/hicCorrectMatrix diagnostic_plot -m {input} -o {output}"
 
