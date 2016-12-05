@@ -72,7 +72,7 @@ setup(
     install_requires=[
         "numpy >= 1.10.4",
         "scipy >= 0.17.1",
-        "matplotlib >= 1.3.1",
+        "matplotlib >= 1.5.3",
         "pysam >= 0.8.3",
         "intervaltree >= 2.1.0",
         "biopython >= 1.65",
