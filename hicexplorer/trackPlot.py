@@ -1143,6 +1143,11 @@ class PlotBed(TrackPlot):
             self.properties['style'] = 'flybase'
         if 'display' not in self.properties:
             self.properties['display'] = 'stacked'
+        if 'interval height' not in self.properties:
+            self.properties['interval_height'] = 100
+
+        # to set the distance between rows
+        self.row_scale = self.properties['interval_height'] * 2.3
 
         self.colormap = None
         # check if the color given is a color map
@@ -1216,8 +1221,8 @@ class PlotBed(TrackPlot):
             # check for overlapping genes including
             # label size (if plotted)
 
-            if self.properties['labels'] == 'on' and bed.end - bed.start < len(bed.name) * self.len_w:
-                bed_extended_end = int(bed.start + (len(bed.name) * self.len_w))
+            if self.properties['labels'] == 'on':
+                bed_extended_end = int(bed.end + (len(bed.name) * self.len_w))
             else:
                 bed_extended_end = (bed.end + 2 * self.small_relative)
 
@@ -1261,22 +1266,13 @@ class PlotBed(TrackPlot):
 
         # if the domain directive is given, ypos simply oscilates between 0 and 100
         if self.properties['display'] == 'interlaced':
-            ypos = 100 if self.counter % 2 == 0 else 1
+            ypos = self.properties['interval_height'] if self.counter % 2 == 0 else 1
 
         elif self.properties['display'] == 'collapsed':
             ypos = 0
 
         else:
-            if self.properties['labels'] == 'off':
-                scale_factor = 230
-            else:
-                #scale_factor = self.len_w * 2
-                scale_factor = 330
-                #scale_factor = 60
-
-            ypos = free_row * scale_factor
-            #if free_row > self.max_num_row[bed.chromosome]:
-            #    self.max_num_row = free_row
+            ypos = free_row * self.row_scale
         return ypos
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
@@ -1334,20 +1330,24 @@ class PlotBed(TrackPlot):
             if free_row > max_num_row_local:
                 max_num_row_local = free_row
 
+            # do not plot if the maximum interval rows to plot is reached
+            if 'gene rows' in self.properties and free_row >= int(self.properties['gene rows']):
+                continue
+
             if self.bed_type == 'bed12':
                 if self.properties['style'] == 'flybase':
                     self.draw_gene_with_introns_flybase_style(ax, bed, ypos, rgb, edgecolor)
                 else:
                     self.draw_gene_with_introns(ax, bed, ypos, rgb, edgecolor)
-
             else:
                 self.draw_gene_simple(ax, bed, ypos, rgb, edgecolor)
 
-            if 'labels' in self.properties and self.properties['labels'] == 'off':
+            if self.properties['labels'] == 'off':
                 pass
             else:
-                ax.text(bed.start, ypos + 125, bed.name, horizontalalignment='left',
-                        verticalalignment='top', fontproperties=self.fp)
+                ax.text(bed.end + self.small_relative,
+                        ypos + (float(self.properties['interval_height']) / 2), bed.name, horizontalalignment='left',
+                        verticalalignment='center', fontproperties=self.fp)
 
         if self.counter == 0:
             sys.stderr.write("*Warning* No intervals were found for file {} \n"
@@ -1356,12 +1356,16 @@ class PlotBed(TrackPlot):
                                        self.properties['section_name'],
                                        chrom_region, start_region, end_region))
 
+        ymax = -1 * self.properties['interval_height']
         if 'global max row' in self.properties and self.properties['global max row'] == 'yes':
-            ax.set_ylim((self.max_num_row[bed.chromosome] + 1) * 330, -25)
+            ymin = self.max_num_row[bed.chromosome] * self.row_scale
+
         elif 'gene rows' in self.properties:
-            ax.set_ylim((int(self.properties['gene rows']) + 1) * 200, -25)
+            ymin = int(self.properties['gene rows']) * self.row_scale
         else:
-            ax.set_ylim((max_num_row_local + 1) * 330, -25)
+            ymin = (max_num_row_local + 1) * self.row_scale
+
+        ax.set_ylim(ymin, ymax)
 
         """
         ax.text(start_region, (self.max_num_row[bed.chromosome] + 1) * 330 * 0.5,
@@ -1378,7 +1382,6 @@ class PlotBed(TrackPlot):
 
         ax.set_xlim(start_region, end_region)
 
-
         label_ax.text(0.15, 1, self.properties['title'],
                       horizontalalignment='left', size='large',
                       verticalalignment='top', transform=label_ax.transAxes)
@@ -1390,8 +1393,8 @@ class PlotBed(TrackPlot):
         from matplotlib.patches import Polygon
 
         if bed.strand not in ['+', '-']:
-            ax.add_patch(Rectangle((bed.start, ypos), bed.end-bed.start, 100, edgecolor=edgecolor,
-                                   facecolor=rgb, linewidth=0.5))
+            ax.add_patch(Rectangle((bed.start, ypos), bed.end-bed.start, self.properties['interval_height'],
+                                   edgecolor=edgecolor, facecolor=rgb, linewidth=0.5))
         else:
             vertices = self._draw_arrow(ax, bed.start, bed.end, bed.strand, ypos)
             ax.add_patch(Polygon(vertices, closed=True, fill=True,
@@ -1407,9 +1410,9 @@ class PlotBed(TrackPlot):
         if bed.block_count == 0 and bed.thick_start == bed.start and bed.thick_end == bed.end:
             self.draw_gene_simple(ax, bed, ypos, rgb, edgecolor)
             return
-
+        half_height = float(self.properties['interval_height']) / 2
         # draw 'backbone', a line from the start until the end of the gene
-        ax.plot([bed.start, bed.end], [ypos+50, ypos+50], 'black', linewidth=0.5, zorder=-1)
+        ax.plot([bed.start, bed.end], [ypos + half_height, ypos + half_height], 'black', linewidth=0.5, zorder=-1)
 
         # get start, end of all the blocks
         positions = []
@@ -1455,16 +1458,13 @@ class PlotBed(TrackPlot):
                 _rgb = 'grey'
             else:
                 _rgb = rgb
-            vertices = [(start_pos, ypos), (start_pos, ypos + 100),
-                        (end_pos, ypos + 100), (end_pos, ypos)]
+            vertices = [(start_pos, ypos), (start_pos, ypos + self.properties['interval_height']),
+                        (end_pos, ypos + self.properties['interval_height']), (end_pos, ypos)]
 
             ax.add_patch(Polygon(vertices, closed=True, fill=True,
                                  edgecolor=edgecolor,
                                  facecolor=_rgb,
                                  linewidth=0.5))
-
-#            ax.add_patch(Rectangle((start_pos, ypos), end_pos-start_pos, 100, edgecolor=edgecolor,
-#                                   facecolor=_rgb, linewidth=0.5))
 
     def _draw_arrow(self, ax, start, end, strand, ypos):
         """
@@ -1477,11 +1477,12 @@ class PlotBed(TrackPlot):
         :param rgb:
         :return: None
         """
+        half_height = float(self.properties['interval_height']) / 2
         if strand == '+':
             x0 = start
             x1 = end #- self.small_relative
             y0 = ypos
-            y1 = ypos + 100
+            y1 = ypos + self.properties['interval_height']
             """
             The vertices correspond to 5 points along the path of a form like the following,
             starting in the lower left corner and progressing in a clock wise manner.
@@ -1491,13 +1492,13 @@ class PlotBed(TrackPlot):
 
             """
 
-            vertices = [(x0, y0), (x0, y1), (x1, y1), (x1 + self.small_relative, y0 + 50), (x1, y0)]
+            vertices = [(x0, y0), (x0, y1), (x1, y1), (x1 + self.small_relative, y0 + half_height), (x1, y0)]
 
         else:
             x0 = start #+ self.small_relative
             x1 = end
             y0 = ypos
-            y1 = ypos + 100
+            y1 = ypos + self.properties['interval_height']
             """
             The vertices correspond to 5 points along the path of a form like the following,
             starting in the lower left corner and progressing in a clock wise manner.
@@ -1505,7 +1506,7 @@ class PlotBed(TrackPlot):
             /-----------------
             \-----------------
             """
-            vertices = [(x0, y0), (x0 - self.small_relative, y0 + 50), (x0, y1), (x1, y1), (x1, y0)]
+            vertices = [(x0, y0), (x0 - self.small_relative, y0 + half_height), (x0, y1), (x1, y1), (x1, y0)]
 
         return vertices
 
@@ -1518,28 +1519,40 @@ class PlotBed(TrackPlot):
             if bed.block_count == 0 and bed.thick_start == bed.start and bed.thick_end == bed.end:
                 self.draw_gene_simple(ax, bed, ypos, rgb, edgecolor)
                 return
+            half_height = float(self.properties['interval_height']) / 2
+            quarter_height = float(self.properties['interval_height']) / 4
+            three_quarter_height = quarter_height * 3
 
             # draw 'backbone', a line from the start until the end of the gene
-            ax.plot([bed.start, bed.end], [ypos+50, ypos+50], 'black', linewidth=0.5, zorder=-1)
+            ax.plot([bed.start, bed.end], [ypos + half_height, ypos + half_height], 'black', linewidth=0.5, zorder=-1)
 
             for idx in range(0, bed.block_count):
                 x0 = bed.start + bed.block_starts[idx]
                 x1 = x0 + bed.block_sizes[idx]
                 if x1 < bed.thick_start or x0 > bed.thick_end:
-                    y0 = ypos + 25
-                    y1 = ypos + 75
+                    y0 = ypos + quarter_height
+                    y1 = ypos + three_quarter_height
                 else:
                     y0 = ypos
-                    y1 = ypos + 100
+                    y1 = ypos + self.properties['interval_height']
 
                 if x0 < bed.thick_start < x1:
-                    vertices = ([(x0, ypos+25), (x0, ypos+75), (bed.thick_start, ypos+75), (bed.thick_start, ypos+100),
-                                 (bed.thick_start, ypos+100), (x1, ypos+100), (x1, ypos),
-                                 (bed.thick_start, ypos), (bed.thick_start, ypos+25)])
+                    vertices = ([(x0, ypos + quarter_height), (x0, ypos + three_quarter_height),
+                                 (bed.thick_start, ypos + three_quarter_height),
+                                 (bed.thick_start, ypos + self.properties['interval_height']),
+                                 (bed.thick_start, ypos + self.properties['interval_height']),
+                                 (x1, ypos + self.properties['interval_height']), (x1, ypos),
+                                 (bed.thick_start, ypos), (bed.thick_start, ypos + quarter_height)])
 
                 elif x0 < bed.thick_end < x1:
-                    vertices = ([(x0, ypos), (x0, ypos+100), (bed.thick_end, ypos+100), (bed.thick_end, ypos+75),
-                                 (x1, ypos+75), (x1, ypos+25), (bed.thick_end, ypos+25), (bed.thick_end, ypos)])
+                    vertices = ([(x0, ypos),
+                                 (x0, ypos + self.properties['interval_height']),
+                                 (bed.thick_end, ypos + self.properties['interval_height']),
+                                 (bed.thick_end, ypos + three_quarter_height),
+                                 (x1, ypos + three_quarter_height),
+                                 (x1, ypos + quarter_height),
+                                 (bed.thick_end, ypos + quarter_height),
+                                 (bed.thick_end, ypos)])
                 else:
                     vertices = ([(x0, y0), (x0, y1), (x1, y1), (x1, y0)])
 
@@ -1550,17 +1563,17 @@ class PlotBed(TrackPlot):
 
                 if idx < bed.block_count - 1:
                     # plot small arrows using the character '<' or '>' over the back bone
-                    intron_length = bed.block_starts[idx+1] - (bed.block_starts[idx] + bed.block_sizes[idx])
+                    intron_length = bed.block_starts[idx + 1] - (bed.block_starts[idx] + bed.block_sizes[idx])
                     marker = 5 if bed.strand == '+' else 4
                     if intron_length > 3 * self.small_relative:
                         pos = np.arange(x1 + 1 * self.small_relative,
                                         x1 + intron_length + self.small_relative, int(2 * self.small_relative))
-                        ax.plot(pos, np.zeros(len(pos)) + ypos + 50, '.', marker=marker,
+                        ax.plot(pos, np.zeros(len(pos)) + ypos + half_height, '.', marker=marker,
                                 fillstyle='none', color='blue', markersize=3)
 
                     elif intron_length > self.small_relative:
-                        intron_center = x1 + int(intron_length)/2
-                        ax.plot([intron_center], [ypos+50], '.', marker=5,
+                        intron_center = x1 + int(intron_length) / 2
+                        ax.plot([intron_center], [ypos + half_height], '.', marker=5,
                                 fillstyle='none', color='blue', markersize=3)
 
 
