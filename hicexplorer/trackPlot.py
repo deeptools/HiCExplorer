@@ -1290,6 +1290,7 @@ class PlotBed(TrackPlot):
             self.properties['labels'] = 'off'
 
         max_num_row_local = 1
+        max_ypos = 0
         for region in genes_overlap:
             """
             BED12 gene format with exon locations at the end
@@ -1327,12 +1328,15 @@ class PlotBed(TrackPlot):
                     pass
 
             ypos = self.get_y_pos(bed, free_row)
-            if free_row > max_num_row_local:
-                max_num_row_local = free_row
 
             # do not plot if the maximum interval rows to plot is reached
             if 'gene rows' in self.properties and free_row >= int(self.properties['gene rows']):
                 continue
+
+            if free_row > max_num_row_local:
+                max_num_row_local = free_row
+            if ypos > max_ypos:
+                max_ypos = ypos
 
             if self.bed_type == 'bed12':
                 if self.properties['style'] == 'flybase':
@@ -1344,9 +1348,9 @@ class PlotBed(TrackPlot):
 
             if self.properties['labels'] == 'off':
                 pass
-            else:
-                ax.text(bed.end + self.small_relative,
-                        ypos + (float(self.properties['interval_height']) / 2), bed.name, horizontalalignment='left',
+            elif bed.start > start_region and bed.end < end_region:
+                ax.text(bed.end + self.small_relative, ypos + (float(self.properties['interval_height']) / 2),
+                        bed.name, horizontalalignment='left',
                         verticalalignment='center', fontproperties=self.fp)
 
         if self.counter == 0:
@@ -1357,14 +1361,17 @@ class PlotBed(TrackPlot):
                                        chrom_region, start_region, end_region))
 
         ymax = -1 * self.properties['interval_height']
+
         if 'global max row' in self.properties and self.properties['global max row'] == 'yes':
             ymin = self.max_num_row[bed.chromosome] * self.row_scale
 
         elif 'gene rows' in self.properties:
             ymin = int(self.properties['gene rows']) * self.row_scale
         else:
-            ymin = (max_num_row_local + 1) * self.row_scale
+            ymin = max_ypos
 
+        print("ylim {},{}".format(ymin, ymax))
+        # the axis is inverted (thus, ymax < ymin)
         ax.set_ylim(ymin, ymax)
 
         """
