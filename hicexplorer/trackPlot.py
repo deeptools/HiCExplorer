@@ -1360,7 +1360,7 @@ class PlotBed(TrackPlot):
                                        self.properties['section_name'],
                                        chrom_region, start_region, end_region))
 
-        ymax = -1 * self.properties['interval_height']
+        ymax = 0
 
         if 'global max row' in self.properties and self.properties['global max row'] == 'yes':
             ymin = self.max_num_row[bed.chromosome] * self.row_scale
@@ -1368,7 +1368,7 @@ class PlotBed(TrackPlot):
         elif 'gene rows' in self.properties:
             ymin = int(self.properties['gene rows']) * self.row_scale
         else:
-            ymin = max_ypos
+            ymin = max_ypos + self.properties['interval_height']
 
         print("ylim {},{}".format(ymin, ymax))
         # the axis is inverted (thus, ymax < ymin)
