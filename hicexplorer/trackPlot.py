@@ -251,6 +251,8 @@ class PlotTracks(object):
 
             if 'type' in track_options and track_options['type'] == 'vlines':
                 self.vlines_properties = self.check_file_exists(track_options, tracks_file_path)
+            elif 'skip' in track_options and track_options['skip'] != 'no':
+                pass
             else:
                 track_list.append(track_options)
 
@@ -1363,7 +1365,7 @@ class PlotBed(TrackPlot):
         ymax = 0
 
         if 'global max row' in self.properties and self.properties['global max row'] == 'yes':
-            ymin = self.max_num_row[bed.chromosome] * self.row_scale
+            ymin = self.max_num_row[chrom_region] * self.row_scale
 
         elif 'gene rows' in self.properties:
             ymin = int(self.properties['gene rows']) * self.row_scale
