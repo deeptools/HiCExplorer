@@ -7,17 +7,16 @@ from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 from scipy.sparse import triu, tril
 import tables
+from intervaltree import IntervalTree, Interval
 
-## try to import pandas if exists
+import gzip
+
+# try to import pandas if exists
 try:
     import pandas as pd
     pandas = True
 except ImportError:
     pandas = False
-
-
-from bx.intervals.intersection import IntervalTree, Interval
-import gzip
 
 
 class hiCMatrix:
@@ -390,10 +389,8 @@ class hiCMatrix:
             exit()
 
         try:
-            startbin = self.interval_trees[chrname].find(
-                startpos, startpos + 1)[0].value
-            endbin = self.interval_trees[chrname].find(
-                endpos, endpos + 1)[0].value
+            startbin = sorted(self.interval_trees[chrname][startpos:startpos + 1])[0].data
+            endbin = sorted(self.interval_trees[chrname][endpos:endpos + 1])[0].data
         except IndexError:
             return None
 
@@ -1499,11 +1496,10 @@ class hiCMatrix:
                 cut_int_tree[chrom] = IntervalTree()
                 previous_chrom = chrom
 
-            cut_int_tree[chrom].insert_interval(
-                Interval(start, end, value=intval_id))
+            cut_int_tree[chrom].add(Interval(start, end, intval_id))
 
             intval_id += 1
 
         chrbin_boundaries[chrom] = (chr_start_id, intval_id)
 
-        return (cut_int_tree, chrbin_boundaries)
+        return cut_int_tree, chrbin_boundaries

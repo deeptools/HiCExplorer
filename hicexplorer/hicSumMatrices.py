@@ -1,6 +1,4 @@
 import sys, argparse
-import numpy as np
-from scipy.sparse import lil_matrix, vstack, triu
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 

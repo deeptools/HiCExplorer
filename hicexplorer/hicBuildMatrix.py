@@ -1,4 +1,3 @@
-
 import argparse, sys
 import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
@@ -6,7 +5,7 @@ import time
 from os import unlink
 import pysam
 # bx python
-from bx.intervals.intersection import IntervalTree, Interval
+from intervaltree import IntervalTree, Interval
 
 # own tools
 from hicexplorer import HiCMatrix as hm
@@ -14,6 +13,12 @@ from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 
 debug = 1
+
+# check pysam version
+from distutils.version import LooseVersion
+if LooseVersion(pysam.__version__) < LooseVersion("0.8.3"):
+    exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
+
 
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
@@ -181,7 +186,16 @@ def parseArguments(args=None):
 
     parser.add_argument('--doTestRun',
                         help='A test run is useful to test the quality of a Hi-C experiment quickly. It works by '
-                             'testing only 1,000.000 reads',
+                             'testing only 1,000.000 reads. This option is useful to get an idea of quality control'
+                             'values like inter-chromosomal interactins, duplication rates etc.',
+                        action='store_true'
+                        )
+
+
+    parser.add_argument('--skipDuplicationCheck',
+                        help='Identification of duplicated read pairs is memory consuming. Thus, in case of '
+                             'memory errors this check can be skipped. However, consider running a `--doTestRun` '
+                             'first to get an estimation of the duplicated reads. ',
                         action='store_true'
                         )
 
@@ -191,7 +205,7 @@ def parseArguments(args=None):
     return parser
 
 
-def intervalListToIntervalTree(intervalList):
+def intervalListToIntervalTree(interval_list):
     """
     given a dictionary containing tuples of chrom, start, end,
     this is transformed to an interval trees. To each
@@ -202,20 +216,16 @@ def intervalListToIntervalTree(intervalList):
 
     >>> bin_list = [('chrX', 0, 50000), ('chrX', 50000, 100000)]
     >>> res = intervalListToIntervalTree(bin_list)
-    >>> res['chrX'].find(0, 100000)
-    [Interval(0, 50000, value=0), Interval(50000, 100000, value=1)]
+    >>> sorted(res['chrX'])
+    [Interval(0, 50000, 0), Interval(50000, 100000, 1)]
     """
     bin_int_tree = {}
 
-    for intval_id, intval in enumerate(intervalList):
+    for intval_id, intval in enumerate(interval_list):
         chrom, start, end = intval[0:3]
         if chrom not in bin_int_tree:
             bin_int_tree[chrom] = IntervalTree()
-        bin_int_tree[chrom].insert_interval(Interval(start,
-                                                     end,
-                                                     # the value is the
-                                                     # interval id
-                                                     value=intval_id))
+        bin_int_tree[chrom].add(Interval(start, end, intval_id))
 
     return bin_int_tree
 
@@ -606,6 +616,7 @@ def main(args=None):
     data = []
     hic_matrix = None
     # read the sam files line by line
+
     while True:
         iter_num += 1
         if iter_num % 1e6 == 0:
@@ -679,12 +690,13 @@ def main(args=None):
             one_mate_low_quality += 1
             continue
 
-        if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
-                                         mate1.pos,
-                                         ref_id2name[mate2.rname],
-                                         mate2.pos):
-            duplicated_pairs += 1
-            continue
+        if args.skipDuplicationCheck is False:
+            if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
+                                             mate1.pos,
+                                             ref_id2name[mate2.rname],
+                                             mate2.pos):
+                duplicated_pairs += 1
+                continue
 
         # check if reads belong to a bin
         mate_bins = []
@@ -694,7 +706,7 @@ def main(args=None):
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen/2)
             try:
-                mate_bin = bin_intval_tree[mate_ref].find(read_middle, read_middle + 1)
+                mate_bin = sorted(bin_intval_tree[mate_ref][read_middle:read_middle + 1])
             except KeyError:
                 # for small contigs it can happen that they are not
                 # in the bin_intval_tree keys if no restriction site is found on the contig.
@@ -710,7 +722,7 @@ def main(args=None):
             # one match
             mate_bin = mate_bin[0]
 
-            mate_bin_id = mate_bin.value
+            mate_bin_id = mate_bin.data
             mate_bins.append(mate_bin_id)
 
         # if a mate is unassigned, it means it is not close
@@ -788,8 +800,7 @@ def main(args=None):
                     frag_start = min(mate1.pos, mate2.pos) + len(args.restrictionSequence)
                     frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(args.restrictionSequence)
                     mate_ref = ref_id2name[mate1.rname]
-                    has_rf = rf_positions[mate_ref].find(frag_start,
-                                                         frag_end)
+                    has_rf = sorted(rf_positions[mate_ref][frag_start: frag_end])
 
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
@@ -831,7 +842,7 @@ def main(args=None):
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
-            vec_start = max(0, mate.pos - mate_bin.start) / binsize
+            vec_start = max(0, mate.pos - mate_bin.begin) / binsize
             vec_end = min(len(coverage[mate_bin_id]), vec_start +
                           len(mate.seq) / binsize)
             coverage[mate_bin_id][vec_start:vec_end] += 1
