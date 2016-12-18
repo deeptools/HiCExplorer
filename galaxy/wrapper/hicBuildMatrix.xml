@@ -4,7 +4,9 @@
         <token name="@BINARY@">hicBuildMatrix</token>
         <import>macros.xml</import>
     </macros>
-    <expand macro="requirements" />
+    <expand macro="requirements" >
+        <requirement type="package" version="0.1.19">samtools</requirement>
+    </expand>
     <command>
 <![CDATA[
 
@@ -57,7 +59,7 @@
             #end if
         &&
 
-        samtools sort ./unsorted.bam -o sorted.bam
+        samtools sort ./unsorted.bam sorted
 
 ]]>
     </command>
