@@ -46,7 +46,7 @@ def parseArguments(args=None):
 
     parser.add_argument('--whatToShow',
                         help='Options are: "heatmap", "3D", and "both". '
-                        'Default is both',
+                        'Default is heatmap',
                         default="heatmap",
                         choices=["heatmap", "3D", "both"])
 
