@@ -15,6 +15,8 @@ before_install:
   - export GALAXY_REPO=https://github.com/galaxyproject/galaxy
   - export GALAXY_RELEASE=release_16.10
   - export PLANEMO_CONDA_PREFIX="$HOME/miniconda"
+  - pip install planemo
+
   #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == 2* ]]; then pip install virtualenv --user ; fi
   #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == 2* ]]; then virtualenv foo; source foo/bin/activate; pip install planemo ; deactivate ; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh ; fi
@@ -32,7 +34,6 @@ before_install:
 install:
   - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython
   - conda install --yes -c bioconda pysam pyBigWig intervaltree
-  - pip install planemo
   - python setup.py install
   - conda create -y -q -c bioconda --name galaxy_conda samtools=0.1.19 bcftools
   - planemo --version
