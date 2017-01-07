@@ -84,6 +84,14 @@
     </outputs>
     <tests>
         <test>
+            <param name="matrix" value="hicBuildMatrix_result1.h5" ftype="h5"/>
+            <param name="mode_selector" value="TAD_score"/>
+            <param name="minDepth" value="20000"/>
+            <param name="maxDepth" value="60000"/>
+            <param name="step" value="10000"/>
+            <output name="outFileName" file="hicFindTADs_TAD_score.tabular" ftype="tabular"/>
+        </test>
+        <test>
             <param name="tadScoreFile" value="hicFindTADs_TAD_score.tabular" ftype="tabular"/>
             <param name="mode_selector" value="find_TADs"/>
             <param name="delta" value="0.002"/>
@@ -93,14 +101,6 @@
             <output name="score" file="hicFindTADs_find_score.bedgraph" ftype="bedgraph"/>
             <output name="domains" file="hicFindTADs_find_domains.bed" ftype="bed"/>
             <output name="boundaries_bin" file="hicFindTADs_find_boundaries_bin.bed" ftype="bed"/>
-        </test>
-        <test>
-            <param name="matrix" value="hicBuildMatrix_result1.npz.h5" ftype="h5"/>
-            <param name="mode_selector" value="TAD_score"/>
-            <param name="minDepth" value="20000"/>
-            <param name="maxDepth" value="60000"/>
-            <param name="step" value="10000"/>
-            <output name="outFileName" file="hicFindTADs_TAD_score.tabular" ftype="tabular"/>
         </test>
     </tests>
     <help><![CDATA[
