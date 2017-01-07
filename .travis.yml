@@ -34,7 +34,6 @@ install:
   - conda install --yes -c bioconda pysam pyBigWig intervaltree
   - python setup.py install
   - conda create -y -q -c bioconda --name galaxy_conda samtools=0.1.19 bcftools
-  - planemo --version
   - conda --version
 
 # command to run tests
@@ -42,6 +41,7 @@ script:
   - nosetests --with-doctest -sv hicexplorer
   - . activate galaxy_conda
   - pip install planemo
+  - planemo --version
   - planemo shed_lint --tools --ensure_metadata --urls --report_level warn --fail_level error --recursive ./galaxy/wrapper
   - planemo conda_install ./galaxy/wrapper
   - planemo test --conda_dependency_resolution --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper
