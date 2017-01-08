@@ -1,26 +1,12 @@
-language: python
-
-os: linux
-
 sudo: false
+language: python
+python: 2.7
 
-python:
-    - 2.7
-
-#matrix:
-#  include:
-#  - os: osx
-#    language: generic
-#    env: PYTHON=2.7
-
-
-# Setup anaconda
 before_install:
   - export GALAXY_REPO=https://github.com/galaxyproject/galaxy
   - export GALAXY_RELEASE=release_16.10
   - export PLANEMO_CONDA_PREFIX="$HOME/conda"
 
-# Install packages
 install:
   - pip install flake8 planemo
   - planemo conda_init
@@ -32,12 +18,10 @@ install:
   - planemo --version
   - conda --version
   - hash -r
-
-  - python setup.py install
+  #- python setup.py install
   # Useful for debugging any issues with conda
   - conda info -a
 
-# command to run tests
 script:
   - nosetests --with-doctest -sv hicexplorer
   - planemo shed_lint --tools --ensure_metadata --urls --report_level warn --fail_level error --recursive ./galaxy/wrapper
