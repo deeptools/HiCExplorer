@@ -11,19 +11,11 @@ install:
   - pip install flake8 planemo
   - planemo --version
   - planemo conda_init
-  #- export PATH="$PLANEMO_CONDA_PREFIX/bin:$PATH"
   - |
     $PLANEMO_CONDA_PREFIX/bin/conda create -y -q --name hic_conda -c bioconda -c conda-forge
       numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython samtools=0.1.19 pysam pyBigWig intervaltree
 
 script:
-  #- . activate hic_conda
-  #- conda --version
-  #- conda info -a
-  #- nosetests --with-doctest -sv hicexplorer
-
-  #- python setup.py install
-  # Useful for debugging any issues with conda
   - |
     planemo shed_lint --tools --ensure_metadata --urls
       --report_level warn --fail_level error
@@ -34,3 +26,9 @@ script:
     planemo test --conda_dependency_resolution --galaxy_branch "$GALAXY_RELEASE"
       --conda_prefix $PLANEMO_CONDA_PREFIX
       --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper
+  - export PATH="$PLANEMO_CONDA_PREFIX/bin:$PATH"
+  - . activate hic_conda
+  - conda --version
+  - conda info -a
+  - python setup.py install
+  - nosetests --with-doctest -sv hicexplorer
