@@ -17,13 +17,12 @@ install:
   - . activate hic_conda
   - planemo --version
   - conda --version
-  - hash -r
   #- python setup.py install
   # Useful for debugging any issues with conda
   - conda info -a
 
 script:
-  - nosetests --with-doctest -sv hicexplorer
+  #- nosetests --with-doctest -sv hicexplorer
   - planemo shed_lint --tools --ensure_metadata --urls --report_level warn --fail_level error --recursive ./galaxy/wrapper
   - planemo conda_install ./galaxy/wrapper
   - planemo test --conda_dependency_resolution --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper
