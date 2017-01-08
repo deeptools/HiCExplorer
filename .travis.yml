@@ -2,6 +2,8 @@ language: c
 sudo: false
 services:
   - postgresql
+env:
+  - TRAVIS_PYTHON_VERSION=2.7
 os:
   - linux
   #- osx
