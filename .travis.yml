@@ -24,11 +24,13 @@ script:
 
   #- python setup.py install
   # Useful for debugging any issues with conda
-  - planemo shed_lint --tools --ensure_metadata --urls \
+  - |
+    planemo shed_lint --tools --ensure_metadata --urls \
       --report_level warn --fail_level error \
       --conda_prefix $PLANEMO_CONDA_PREFIX \
       --recursive ./galaxy/wrapper
   - planemo conda_install --conda_prefix $PLANEMO_CONDA_PREFIX ./galaxy/wrapper
-  - planemo test --conda_dependency_resolution --galaxy_branch "$GALAXY_RELEASE" \
+  - |
+    planemo test --conda_dependency_resolution --galaxy_branch "$GALAXY_RELEASE" \
       --conda_prefix $PLANEMO_CONDA_PREFIX \
       --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper
