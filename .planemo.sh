@@ -1,8 +1,8 @@
 #!/bin/bash
 
 blah=`mktemp -d`
-~/foo/bin/planemo database_create galaxy
-~/foo/bin/planemo conda_init --conda_prefix $blah/conda
+/home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo database_create galaxy
+/home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo conda_init --conda_prefix $blah/conda
 export PATH=$blah/conda/bin:$PATH
 conda create -y -c bioconda --name deeptools_galaxy numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython pysam pyBigWig intervaltree
 source activate deeptools_galaxy
