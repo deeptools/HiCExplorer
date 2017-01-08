@@ -25,15 +25,14 @@ install:
   - pip install flake8 planemo
   - planemo conda_init
   - export PATH="$PLANEMO_CONDA_PREFIX/bin:$PATH"
-  - conda create -y -q -c bioconda --name iuc_conda samtools=0.1.19 bcftools
-  - . activate iuc_conda
-  - planemo --version
-  - conda --version
-  - hash -r
   - |
     conda create -y -q --name hic_conda -c bioconda -c conda-forge \
         numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython samtools=0.1.19 pysam pyBigWig intervaltree
-  - . activate galaxy_conda
+  - . activate hic_conda
+  - planemo --version
+  - conda --version
+  - hash -r
+
   - python setup.py install
   # Useful for debugging any issues with conda
   - conda info -a
