@@ -5,14 +5,9 @@
         <import>macros.xml</import>
     </macros>
     <expand macro="requirements" />
-    <command>
-<![CDATA[
-
-
+    <command detect_errors="aggressive"><![CDATA[
         ln -s '$matrix' input_matrix.npz.h5 &&
-
         @BINARY@
-
             --matrix input_matrix.npz.h5
             $skipDiagonal
             --plotFile plot.png
@@ -25,7 +20,6 @@
             #if $chromosomeExclude:
                 --chromosomeExclude $chroms
             #end if
-
 ]]>
     </command>
     <inputs>
