@@ -1,34 +1,44 @@
-sudo: false
 language: python
-python: 2.7
+os: linux
+python:
+    - 2.7
 
+#matrix:
+#  include:
+#  - os: osx
+#    language: generic
+#    env: PYTHON=2.7
+
+
+# Setup anaconda
 before_install:
-  - export GALAXY_REPO=https://github.com/galaxyproject/galaxy
-  - export GALAXY_RELEASE=release_16.10
-  - export PLANEMO_CONDA_PREFIX="$HOME/conda"
+  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == 2* ]]; then pip install virtualenv --user ; fi
+  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == 2* ]]; then virtualenv foo; source foo/bin/activate; pip install planemo ; deactivate ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
 
-install:
-  - pip install flake8 planemo
-  - planemo --version
-  - planemo conda_init
-  - |
-    $PLANEMO_CONDA_PREFIX/bin/conda create -y -q --name hic_conda -c bioconda -c conda-forge
-      numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython samtools=0.1.19 pysam pyBigWig intervaltree
-
-script:
-  - |
-    planemo shed_lint --tools --ensure_metadata --urls
-      --report_level warn --fail_level error
-      --conda_prefix $PLANEMO_CONDA_PREFIX
-      --recursive ./galaxy/wrapper
-  - planemo conda_install --conda_prefix $PLANEMO_CONDA_PREFIX ./galaxy/wrapper
-  - |
-    planemo test --conda_dependency_resolution --galaxy_branch "$GALAXY_RELEASE"
-      --conda_prefix $PLANEMO_CONDA_PREFIX
-      --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper
-  - export PATH="$PLANEMO_CONDA_PREFIX/bin:$PATH"
-  - . activate hic_conda
-  - conda --version
+  # Useful for debugging any issues with conda
   - conda info -a
+
+# Install packages
+install:
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython
+  - conda install --yes -c bioconda pysam pyBigWig intervaltree
   - python setup.py install
+
+# command to run tests
+script:
   - nosetests --with-doctest -sv hicexplorer
+  #- flake8 . --ignore=E501,F403,E402,F999
+  #- export owd=`pwd`
+  #- cd ~/ && nosetests --with-doctest -sv hicexplorer
+  #- cd ${owd}
+  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then export PATH=`echo $PATH | sed -e 's/\/home\/travis\/miniconda\/bin://'` ; fi
+  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then /home/travis/build/fidelram/deepTools/foo/bin/planemo lint galaxy/wrapper/ ; fi
+  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then ./.planemo.sh ; fi
+sudo: false
