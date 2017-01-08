@@ -16,4 +16,4 @@ cd clone
 cd ..
 conda uninstall -y sqlite
 pip install . 
-~/foo/bin/planemo test --galaxy_root clone --skip_venv --postgres galaxy/wrapper/
+/home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo test --galaxy_root clone --skip_venv --postgres galaxy/wrapper/
