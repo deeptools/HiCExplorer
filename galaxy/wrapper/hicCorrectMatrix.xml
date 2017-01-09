@@ -123,7 +123,7 @@
     </outputs>
     <tests>
         <test>
-            <param name="matrix" value="hicBuildMatrix_result1.npz.h5" ftype="h5"/>
+            <param name="matrix" value="hicBuildMatrix_result1.h5" ftype="h5"/>
             <param name="mode_selector" value="correct"/>
             <repeat name="chromosomes">
                 <param name="chromosome" value="chrUextra"/>
@@ -134,7 +134,7 @@
             <output name="outFileName" file="hicCorrectMatrix_result1.npz.h5" ftype="h5" compare="sim_size"/>
         </test>
         <test>
-            <param name="matrix" ftype="h5" value="hicBuildMatrix_result1.npz.h5"/>
+            <param name="matrix" ftype="h5" value="hicBuildMatrix_result1.h5"/>
             <param name="mode_selector" value="diagnostic_plot"/>
             <repeat name="chromosomes">
                 <param name="chromosome" value="chrUextra"/>
@@ -145,7 +145,7 @@
             <output name="diagnostic_plot" file="diagnostic_plot.png" ftype="png" compare="sim_size"/>
         </test>
         <test>
-            <param name="matrix" ftype="h5" value="hicBuildMatrix_result1.npz.h5"/>
+            <param name="matrix" ftype="h5" value="hicBuildMatrix_result1.h5"/>
             <param name="mode_selector" value="merge_failed"/>
             <repeat name="chromosomes">
                 <param name="chromosome" value="chrUextra"/>

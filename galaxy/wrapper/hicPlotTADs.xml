@@ -5,20 +5,16 @@
         <import>macros.xml</import>
     </macros>
     <expand macro="requirements" />
-    <command>
+    <command detect_errors="aggressive">
 <![CDATA[
+        sed '/^$/d' '$tracks_config' &&
 
         @BINARY@
-
             --tracks '$tracks_config'
             #if $region and $region is not None:
                 --region '$region'
             #end if
-
-
-            #if $outFileName and $outFileName is not None:
-                --outFileName plot.svg
-            #end if
+            --outFileName plot.svg
 
 ]]>
     </command>
@@ -33,44 +29,67 @@
 ## There are two exceptions for this, the [x-axis] and the [spacer] sections
 ## that use the secion label to determine the action.
 
+#if $x_axis.x_axis_select == "yes":
+[x-axis]
+fontsize = $x_axis.fontsize
+where = $x_axis.where
+#else:
+[x-axis]
+#end if
 
 #for $counter, $track in enumerate($tracks):
-
 [hic_section_$counter]
 
 file = $track.track_input
+
+#if $track.title
 title = $track.title
-colormap = $track.colorMap
-depth = 100000
+#end if
+
+#if $track.colormap:
+colormap = $track.colormap
+#end if
+
+#if $track.depth:
+depth = $track.depth
+#end if
+
+#if $track.display:
+display = $track.display
+#end if
 
 ##color = black
-##width = 1.5
 
+#if $track.width
+width = $track.width
+#end if
 
-## auto is possible
-#if not $track.min_value:
-min_value = auto
-#else:
+#if $track.min_value:
+# auto is possible
 min_value = $track.min_value
 #end if
-#if not $track.max_value:
-max_value = auto
-#else:
+
+#if $track.max_value:
 max_value = $track.max_value
 #end if
+
+#if $track.transform
 transform = $track.transform
+#end if
 
+#if $track.boundaries_file:
+boundaries_file = $track.boundaries_file
+#end if
 
-##boundaries_file = conductance_vs_hic/boundaries_all.bed
+#if $track.x_labels == 'yes':
 x labels = yes
-type = arcplot
-type = interaction
-
-##file_type = h5
+#end if
 
 #if $track.track_input.ext == "bedgraph":
 file_type = bedgraph_matrix
-#else:
+#elif $track.track_input.ext == "h5":
+file_type = hic_matrix
+#else
 file_type = $track.track_input.ext
 #end if
 
@@ -78,81 +97,114 @@ file_type = $track.track_input.ext
 ## those bins that were not used during the correction
 ## the default is to extend neighboring bins to
 ## obtain an aesthetically pleasant output
+#if $track.show_masked_bins:
 show_masked_bins = $track.show_masked_bins
-
+#end if
 
 ## to turn off/on printing of labels
-labels = $track.plot_lables
-## options are 'genes' or 'domains'.
-type = $track.type_of_data
+#if str($track.labels) == 'off'
+labels = off
+#end if
+
+#if $track.global_max_row == 'yes':
+global max row = yes
+#end if
+
 ## optional: font size can be given if default are not good
+#if $track.fontsize:
 fontsize = $track.fontsize
+#end if
 
 #if $track.orientation
 orientation = $track.orientation
 #end if
 
-#if $track.plotting_type
-type = lines
+#if $track.type
+type = $track.type
 #end if
 
-#end for
+#if $track.gene_rows
+gene rows = $track.gene_rows
+#end if
 
-[x-axis]
-# optional
-fontsize=20
-# optional, options are top or bottom
-where=top
-
-# to insert a space simple add a
-# section title [spacer]
+#if $track.spacer_width:
 [spacer]
-#optional
-width = 0.1
+width = $track.spacer_width
+#end if
 
 
-        </configfile>
+#end for</configfile>
     </configfiles>
     <inputs>
         <expand macro="region" />
-        <param name="foo" type="data" format="h5,bed,bedgraph,bigwig,tabular" label="Track file"/>
         <repeat name="tracks" min="1" title="Include tracks in your plot"
             help="Tracks can be of different filetypes. E.g BED, HiC-Matrix, BigWig or BedGraph">
 
             <param name="track_input" type="data" format="h5,bed,bedgraph,bigwig,tabular" label="Track file"/>
+            <param name="boundaries_file" type="data" optional="True" format="bed" label="Boundaries file"/>
             <param name="title" type="text" optional="true" label="Plot title"/>
             <expand macro="colormap" />
             <param name="min_value" type="float" value="" optional="True" label="Minimum value"/>
             <param name="max_value" type="float" value="" optional="True" label="Maximum value"/>
 
-            <param name="transform" type="select" label="Plot the transformed value">
+            <param name="width" type="float" value="" optional="True" label="Width"/>
+
+            <param name="transform" type="select" optional="True" label="Plot the transformed value">
                 <option value="log1p">log1p</option>
-                <option selected="True" value="log">log</option>
+                <option value="log">log</option>
             </param>
             <param name="show_masked_bins" type="boolean" truevalue="yes" falsevalue="no" checked="false"
                 label="Show masked bins" />
 
-            <param name="plot_lables" type="boolean" truevalue="on" falsevalue="off" checked="false"
-                label="Plot lables" />
+            <param name="labels" type="boolean" truevalue="on" falsevalue="off" checked="true"
+                label="Plot labels" />
 
-            <param name="type_of_data" type="select" label="Type of data">
-                <option selected="True" value="domains">Domains</option>
-                <option value="genes">Genes</option>
-            </param>
+            <param name="x_labels" type="boolean" truevalue="yes" falsevalue="no" checked="false"
+                label="X labels" />
+
+            <param name="global_max_row" type="boolean" truevalue="yes" falsevalue="no" checked="false"
+                label="Plot lables" />
 
             <param name="orientation" type="select" optional="True" label="Orientation">
                 <option value="inverted">Inverted</option>
             </param>
 
-            <param name="plotting_type" type="select" optional="True" label="Plotting type">
-                <option value="lines">Lines</option>
-                <option value="vlines">vertical dotted lines from the top to the bottom</option>
+            <param name="display" type="select" optional="True" label="Display type">
+                <option value="collapsed">collapsed</option>
+                <option value="domain">domain</option>
+                <option value="interlaced">interlaced</option>
             </param>
 
-            <param name="fontsize" type="integer" value="10" label="Fontsize" />
+            <param name="type" type="select" optional="True" label="Plotting type">
+                <option value="lines">Lines</option>
+                <option value="vlines">vertical dotted lines from the top to the bottom</option>
+                <option value="arcplot">arcplot</option>
+                <option value="interaction">interaction</option>
+            </param>
+
+            <param name="depth" type="integer" value="" optional="True" label="Depth" />
+            <param name="fontsize" type="integer" value="" optional="True" label="Fontsize" />
+            <param name="gene_rows" type="integer" value="" optional="True" label="Gene rows" />
+
+            <param name="spacer_width" type="float" value="" optional="True"
+                label="Include spacer at the end of the track." help="Width of the spacer." />
 
         </repeat>
 
+        <conditional name="x_axis">
+            <param name="x_axis_select" type="select" label="Configure x-axis">
+                <option value="no" selected="True">No</option>
+                <option value="yes">Yes</option>
+            </param>
+            <when value="yes">
+                <param name="fontsize" type="integer" value="" optional="True" label="Fontsize" />
+                <param name="where" type="select" optional="True" label="Where to place the x-axis">
+                    <option value="top">Top</option>
+                    <option value="bottom">Bottom</option>
+                </param>
+            </when>
+            <when value="no" />
+        </conditional>
 
     </inputs>
     <outputs>
@@ -160,17 +212,57 @@ width = 0.1
     </outputs>
     <tests>
         <test>
-            <param name="foo" value="hicCorrectMatrix_result1.npz.h5" ftype="h5" />
-            <param name="region" value="chr3LHet"/>
+            <param name="region" value="chrX:3000000-3500000"/>
             <repeat name="tracks">
-                <param name="tack_input" value="hicCorrectMatrix_result1.npz.h5" ftype="h5" />
-                <param name="title" value="plot_tads_test_1"/>
+                <param name="track_input" value="Li_et_al_2015.h5" ftype="h5" />
+                <param name="title" value="Kc DpnII (Li et al. 2015)"/>
+                <param name="colormap" value="RdYlBu_r"/>
+                <param name="depth" value="200000"/>
+                <param name="transform" value="log1p"/>
+                <param name="boundaries_file" value="domains.bed"/>
+                <param name="spacer_width" value="0.05"/>
             </repeat>
             <repeat name="tracks">
-                <param name="tack_input" value="hicCorrectMatrix_result1.npz.h5" ftype="h5" />
-                <param name="title" value="plot_tads_test_1"/>
+                <param name="track_input" value="tad_classification.bed" ftype="bed" />
+                <param name="title" value="TAD state"/>
+                <param name="width" value="0.5"/>
+                <param name="display" value="collapsed"/>
+                <param name="labels" value="off"/>
             </repeat>
-            <output name="outFileName" file="hicPlotTADs_result1.png" ftype="png" compare="sim_size"/>
+            <repeat name="tracks">
+                <param name="track_input" value="tad_score.gz" ftype="bedgraph" />
+                <param name="title" value="TAD separation score (Ramirez et al.)"/>
+                <param name="width" value="10"/>
+                <param name="type" value="lines"/>
+                <param name="spacer_width" value="1"/>
+            </repeat>
+            <repeat name="tracks">
+                <param name="track_input" value="dm3_genes.bed.gz" ftype="bed" />
+                <param name="title" value="genes"/>
+                <param name="width" value="5"/>
+                <param name="fontsize" value="10"/>
+                <param name="spacer_width" value="1"/>
+            </repeat>
+            <repeat name="tracks">
+                <param name="track_input" value="dm3_genes.bed.gz" ftype="bed" />
+                <param name="title" value="max num rows 3"/>
+                <param name="width" value="3"/>
+                <param name="fontsize" value="8"/>
+                <param name="gene_rows" value="3"/>
+                <param name="spacer_width" value="1"/>
+            </repeat>
+            <repeat name="tracks">
+                <param name="track_input" value="dm3_genes.bed6.gz" ftype="bed" />
+                <param name="title" value="bed6 global max row"/>
+                <param name="width" value="20"/>
+                <param name="fontsize" value="10"/>
+                <param name="global_max_row" value="True"/>
+            </repeat>
+            <repeat name="tracks">
+                <param name="track_input" value="domains.bed" ftype="bed" />
+                <param name="type" value="vlines"/>
+            </repeat>
+            <output name="outFileName" file="hicPlotTADs_result1.svg" ftype="svg" compare="sim_size"/>
         </test>
     </tests>
     <help><![CDATA[

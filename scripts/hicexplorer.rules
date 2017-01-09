@@ -2,7 +2,7 @@
 ## Snakemake file for automatically downloading and processing 
 ## hic data.
 ##
-## See Snakemake file for and example on how to configure the workflow.
+## See Snakemake file for an example on how to configure the workflow.
 ## the following variables are expected
 # INDEX BWA index location
 # GENOME Path to the genome in fasta format (the bwa index should be based on this genome)

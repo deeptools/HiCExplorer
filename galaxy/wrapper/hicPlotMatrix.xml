@@ -7,11 +7,11 @@
     <expand macro="requirements" />
     <command>
 <![CDATA[
-        ln -s '$matrix' input_matrix.npz.h5 &&
+        ln -s '$matrix' input_matrix.h5 &&
 
         @BINARY@
 
-            --matrix input_matrix.npz.h5
+            --matrix input_matrix.h5
 
             #if $title and $title is not None:
                 --title '$title'
@@ -21,13 +21,11 @@
                 --scoreName '$scoreName'
             #end if
 
-            #if $outFileName and $outFileName is not None:
-                --outFileName plot.png
-            #end if
+
+            --outFileName plot.svg
 
             $perChromosome
             $clearMaskedBins
-
 
             --whatToShow $whatToShow.whatToShow_select
 
@@ -35,33 +33,35 @@
             ## special: --chromosomeOrder is optional, but if given needs at least one argument
             #set chroms = '" "'.join([ str($var.chromosome) for $var in $chromosomeOrder ])
             #if chroms
-                --chromosomeOrder "$chroms"
+                --chromosomeOrder '$chroms'
             #end if
 
-            #if $region and $region is not None:
-                --region $region
+            #if $region:
+                --region '$region'
             #end if
 
-            #if $region2 and $region2 is not None:
-                --region2 $region2
+            #if $region2:
+                --region2 '$region2'
             #end if
             $log1p
             $log
 
-            #if $colorMap and $colorMap is not None:
-                --colorMap $colorMap
+            #if $colormap:
+                --colorMap $colormap
             #end if
 
-            #if $vMin and $vMin is not None:
+            #if $vMin:
                 --vMin $vMin
             #end if
 
-            #if $vMax and $vMax is not None:
+            #if $vMax:
                 --vMax $vMax
             #end if
 
             #if $whatToShow.whatToShow_select != 'heatmap':
-                --zMax $zMax
+                #if $whatToShow.zMax:
+                    --zMax $whatToShow.zMax
+                #end if
             #end if
 
 ]]>
@@ -78,8 +78,8 @@
 
         <conditional name="whatToShow">
             <param argument="--whatToShow" name="whatToShow_select" type="select" label="Show heatmap/3D">
-                <option value="both" selected="true">Show both</option>
-                <option value="heatmap">Only heatmap</option>
+                <option value="both">Show both</option>
+                <option value="heatmap" selected="true">Only heatmap</option>
                 <option value="3D">Only 3D</option>
             </param>
             <when value="both">
@@ -91,13 +91,15 @@
             <when value="heatmap"/>
         </conditional>
 
-        <repeat name="chromosomeOrder" min="1" title="Chromosomes to include (and order to plot in):" help="This option overrides --region and --region2">
+        <repeat name="chromosomeOrder" min="1" title="Chromosomes to include (and order to plot in):"
+            help="This option overrides --region and --region2">
             <param name="chromosome" type="text" />
         </repeat>
 
-        <param argument="--region" type="text" label="Plot only this region"
+        <param argument="--region" type="text" optional="True" label="Plot only this region"
             help="The format is chr:start-end The plotted region contains the main diagonal and is symmetric unless  --region2 is given"/>
-        <param argument="--region2" type="text" label="If given then only the region defined by --region and --region2 is given. The format is the same as --region1"/>
+        <param argument="--region2" type="text" optional="True" label="Region two to plot"
+            help="If given then only the region defined by --region and --region2 is plotted. The format is the same as --region"/>
         <param argument="--log1p" type="boolean" truevalue="--log1p" falsevalue="" checked="false" label="Plot the log1p of the matrix values."/>
         <param argument="--log" type="boolean" truevalue="--log" falsevalue="" checked="false" label="Plot the *MINUS* log of the matrix values."/>
 
@@ -105,17 +107,20 @@
 
         <param argument="--vMin" type="float" optional="true" label="vMin"/>
         <param argument="--vMax" type="float" optional="true" label="vMax"/>
-        <param argument="--zMax" type="float" optional="true" label="zMax" help="For 3D plots"/>
 
     </inputs>
     <outputs>
-        <data name="outFileName" from_work_dir="plot.png" format="png" label="${tool.name} on ${on_string}"/>
+        <data name="outFileName" from_work_dir="plot.svg" format="svg" label="${tool.name} on ${on_string}"/>
     </outputs>
     <tests>
         <test>
-            <param name="matrix" ftype="h5" value="hicCorrectMatrix_result1.npz.h5"/>
+            <param name="matrix" ftype="h5" value="Li_et_al_2015.h5"/>
+            <param name="region" value="chrX:3000000-3500000"/>
+            <param name="region2" value="chrX:3100000-3600000"/>
+            <param name="log1p" value="True"/>
+            <param name="clearMaskedBins" value="True"/>
             <param name="whatToShow_select" value="heatmap"/>
-            <output name="outFileName" file="hicPlotMatrix_result1.png" ftype="png" compare="sim_size"/>
+            <output name="outFileName" file="hicPlotMatrix_result1.svg" ftype="svg" compare="sim_size"/>
         </test>
     </tests>
     <help><![CDATA[

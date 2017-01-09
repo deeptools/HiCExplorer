@@ -11,7 +11,7 @@
     </xml>
 
     <token name="@THREADS@">--numberOfProcessors "\${GALAXY_SLOTS:-4}"</token>
-    <token name="@WRAPPER_VERSION@">1.2</token>
+    <token name="@WRAPPER_VERSION@">1.4</token>
     <xml name="requirements">
         <requirements>
             <requirement type="package" version="@WRAPPER_VERSION@">hicexplorer</requirement>
@@ -33,8 +33,8 @@
     </xml>
 
     <xml name="colormap">
-        <param argument="--colorMap" type="select" label="Color map to use for the heatmap" help=" Available color map names can be found here: http://www.astro.lsa.umich.edu/~msshin/science/code/matplotlib_cm/">
-            <option value="RdYlBu" selected="true">RdYlBu</option>
+        <param argument="--colorMap" name="colormap" type="select" optional="True" label="Color map to use for the heatmap" help=" Available color map names can be found here: http://www.astro.lsa.umich.edu/~msshin/science/code/matplotlib_cm/">
+            <option value="RdYlBu">RdYlBu</option>
             <option value="Accent">Accent</option>
             <option value="Spectral">Spectral</option>
             <option value="Set1">Set1</option>
@@ -270,7 +270,7 @@
     </xml>
 
     <xml name="minMappingQuality">
-        <param argument="--minMappingQuality" type="integer" optional="true" value="1" min="1"
+        <param argument="--minMappingQuality" type="integer" optional="true" value="" min="1"
             label="Minimum mapping quality"
             help= "If set, only reads that have a mapping quality score higher than the given value are considered.
                 *Note* Bowtie's Mapping quality is related to uniqueness: the higher the score, the more unique is a read.
