@@ -505,8 +505,10 @@ def find_consensus_minima(matrix, lookahead=3, delta=0, max_threshold=0.3, chrom
     _min = zip(min_idx, value, flatness)
     min_indices = []
     for idx, value, flatness in _min:
-        if ((value <= max_threshold) or
-            (value > max_threshold and flatness > delta)):
+        # keep only local minima that are below the threshold and
+        # make exceptions only if the local minima is quite deep (2 * delta)
+        # with respect to nearby bins mean.
+        if ((value <= max_threshold) or (value > max_threshold and flatness > 2 * delta)):
                 min_indices += [idx]
 
     return np.unique(min_indices)
