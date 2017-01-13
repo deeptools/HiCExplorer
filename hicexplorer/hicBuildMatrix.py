@@ -768,12 +768,12 @@ def main(args=None):
             else:
                 orientation = 'same-strand-right'
 
-            if args.removeSelfCircles:
-                # check self-circles
-                # self circles are defined as pairs within 25kb
-                # with 'outward' orientation (Jin et al. 2013. Nature)
-                if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
-                    self_circle += 1
+            # check self-circles
+            # self circles are defined as pairs within 25kb
+            # with 'outward' orientation (Jin et al. 2013. Nature)
+            if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
+                self_circle += 1
+                if args.removeSelfCircles:
                     continue
 
             # check for dangling ends if the restriction sequence
