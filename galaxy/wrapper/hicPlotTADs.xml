@@ -86,7 +86,12 @@ x labels = yes
 #end if
 
 #if $track.track_input.ext == "bedgraph":
+#set $columns = len(open(str($track.track_input)).readline().split('\t'))
+#if $columns > 5:
 file_type = bedgraph_matrix
+#else:
+file_type = bedgraph
+#end if
 #elif $track.track_input.ext == "h5":
 file_type = hic_matrix
 #else
