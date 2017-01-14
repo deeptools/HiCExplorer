@@ -46,8 +46,12 @@ file = $track.track_input
 title = $track.title
 #end if
 
-#if $track.colormap:
+#if $track.colormap and $track.track_input.ext == "h5"::
 colormap = $track.colormap
+#end if
+
+#if $track.color and $track.track_input.ext != "h5"::
+color = $track.color
 #end if
 
 #if $track.depth:
@@ -161,6 +165,7 @@ width = $track.spacer_width
             <param name="boundaries_file" type="data" optional="True" format="bed" label="Boundaries file"/>
             <param name="title" type="text" optional="true" label="Plot title"/>
             <expand macro="colormap" />
+            <param name="color" type="color" label="Track color" optional="True" />
             <param name="min_value" type="float" value="" optional="True" label="Minimum value"/>
             <param name="max_value" type="float" value="" optional="True" label="Maximum value"/>
 
