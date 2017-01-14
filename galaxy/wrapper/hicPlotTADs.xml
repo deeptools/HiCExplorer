@@ -46,11 +46,11 @@ file = $track.track_input
 title = $track.title
 #end if
 
-#if $track.colormap and $track.track_input.ext == "h5"::
+#if $track.colormap and $track.track_input.ext == "h5":
 colormap = $track.colormap
 #end if
 
-#if $track.color and $track.track_input.ext != "h5"::
+#if $track.color and $track.track_input.ext != "h5":
 color = $track.color
 #end if
 
