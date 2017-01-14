@@ -191,7 +191,7 @@ width = $track.spacer_width
                 label="X labels" />
 
             <param name="global_max_row" type="boolean" truevalue="yes" falsevalue="no" checked="false"
-                label="Plot lables" />
+                label="Global max rows" />
 
             <param name="orientation" type="select" optional="True" label="Orientation">
                 <option value="inverted">Inverted</option>
