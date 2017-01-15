@@ -208,6 +208,7 @@ width = $track.spacer_width
                 <option value="vlines">vertical dotted lines from the top to the bottom</option>
                 <option value="arcplot">arcplot</option>
                 <option value="interaction">interaction</option>
+                <option value="genes">Genes</option>
             </param>
 
             <param name="depth" type="integer" value="" optional="True" label="Depth" />
