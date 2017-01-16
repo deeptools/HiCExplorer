@@ -290,7 +290,7 @@ def translate_region(region_string):
     are set to a 0 and 1e15
     """
 
-    region_string = region_string.translate(None, ",.;|!{}()").replace("-", ":")
+    region_string = region_string.translate(None, ",;!").replace("-", ":")
     fields = region_string.split(":")
     chrom = fields[0]
     try:

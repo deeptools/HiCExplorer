@@ -109,9 +109,12 @@ For detailed help:
                                      )
 
     find_tads_subparser.add_argument('--maxThreshold',
-                                     help='only call boundaries that have an score below this threshold',
-                                     type=float,
-                                     default=0.3
+                                     help='The TAD-separation score maxThreshold attempts to remove spurious local'
+                                          'minima by requiring a 2*delta difference between the minima and the '
+                                          'average TAD-separation score of the surrounding TAD-score values. This is'
+                                          'because on inactive TADs the TAD-separation score is not only high but'
+                                          'also varies little. This condition creates spurious local minima.',
+                                     default='auto'
                                      )
 
     find_tads_subparser.add_argument('--outPrefix',
@@ -463,7 +466,52 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0, chrom=None):
     return [max_peaks, min_peaks]
 
 
-def find_consensus_minima(matrix, lookahead=3, delta=0, max_threshold=0.3, chrom=None):
+def delta_wrt_window_mean(min_idx_list, matrix_avg, chrom, window_len=10):
+    """
+    Computes the local 'delta' for each minima identified. The local
+    delta is defined as the difference between the TAD-separation score at the minimum with respect
+    to the mean TAD-separation scores of the `window_len` to the left, plus the `window_len` to
+    the right of each minimum. The minimum itself is excluded from the mean computation.
+
+    Parameters
+    ----------
+    matrix TAD score matrix for different window sizes
+    chrom list of chrom names for each matrix row
+    window_len the length of the window to look for the local TAD-score average
+
+    Returns
+    -------
+    List of delta values for each minimum. A nan is added in case the delta can not be computed
+
+    """
+
+    # compute the start and end points of the chromosomes
+    # and store it as tuples in chrom_ranges list (e.g. chrom_ranges = [(0, 29254), (29254, 60006), ...]
+    unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
+    chr_start_idx = np.concatenate([chr_start_idx, [len(chrom) - 1]])
+    chr_start_idx = np.sort(chr_start_idx)
+    chrom_ranges = [(chr_start_idx[x], chr_start_idx[x+1]) for x in range(len(chr_start_idx) - 1)]
+
+    delta_list = []
+    for min_idx in min_idx_list:
+        # check that the min_idx is not to close to any of the chromosome boundaries
+        close_to_chrom_border = True
+        for start_range, end_range in chrom_ranges:
+            if start_range < min_idx < end_range:
+                if min_idx - window_len >= start_range and min_idx + window_len < end_range:
+                    close_to_chrom_border = False
+                    continue
+        if close_to_chrom_border is True:
+            delta_list.append(np.nan)
+        else:
+            local_mean = np.mean(np.concatenate([matrix_avg[min_idx - window_len:min_idx],
+                                                 matrix_avg[min_idx + 1: min_idx + window_len]]))
+            delta_list.append(local_mean - matrix_avg[min_idx])
+
+    return delta_list
+
+
+def find_consensus_minima(matrix, lookahead=3, delta=0, max_threshold=None, chrom=None):
     """
     Finds the minimum over the average values per column
     :param matrix:
@@ -471,43 +519,25 @@ def find_consensus_minima(matrix, lookahead=3, delta=0, max_threshold=0.3, chrom
     :return:
     """
 
-
-    # use the matrix transpose such that each row
-    # represents the conductance at each genomic
-    # position
     matrix_avg = matrix.mean(axis=1)
+    # compute local minima for the matrix average
     _max, _min= peakdetect(matrix_avg, lookahead=lookahead, delta=delta, chrom=chrom)
     min_idx, value = zip(*_min)
-    window_len = 10
-    # check diff with neighbor mean
-    unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
-    chr_start_idx = np.concatenate([chr_start_idx, [len(chrom) - 1]])
-    chr_start_idx = np.sort(chr_start_idx)
-    chrom_ranges = [(chr_start_idx[x], chr_start_idx[x+1]) for x in range(len(chr_start_idx) - 1)]
-    larger_mean_list = []
+    if max_threshold is not None:
+        if max_threshold == 'auto':
+            max_threshold = np.mean(matrix_avg)
+            sys.stderr.write("Setting maxThreshold to {}\n".format(max_threshold))
 
-    for start_range, end_range in chrom_ranges:
-        # translate min_idx to new range
-        new_min_idx = np.array([x for x in min_idx if start_range <= x < end_range]) - start_range
-        _avg = matrix_avg[start_range:end_range]
-        # compute avg around the min_idx
-        for new_min in new_min_idx:
-            if 10 < new_min <= len(_avg) - 10:
-                # get the TAD_score mean around the local minimum.
-                larger_mean = np.mean(np.concatenate([_avg[new_min - window_len:new_min-1],
-                                                      _avg[new_min + 2:new_min + window_len - 1]]))
-            else:
-                larger_mean = np.nan
-            larger_mean_list += [larger_mean]
-    # compute difference between larger_mean and min_idx
-    flatness = np.array(larger_mean_list) - matrix_avg[np.array(min_idx)]
+        delta_list = delta_wrt_window_mean(min_idx, matrix_avg, chrom)
 
-    _min = zip(min_idx, value, flatness)
-    min_indices = []
-    for idx, value, flatness in _min:
-        if ((value <= max_threshold) or
-            (value > max_threshold and flatness > delta)):
-                min_indices += [idx]
+        _min = zip(min_idx, value, delta_list)
+        min_indices = []
+        for idx, value, flatness in _min:
+            # keep only local minima that are below the threshold and
+            # make exceptions only if the local minima is quite deep (2 * delta)
+            # with respect to nearby bins mean.
+            if (value <= max_threshold) or (value > max_threshold and flatness > 2 * delta):
+                    min_indices += [idx]
 
     return np.unique(min_indices)
 
