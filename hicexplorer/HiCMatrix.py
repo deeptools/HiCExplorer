@@ -485,7 +485,15 @@ class hiCMatrix:
     def convert_to_obs_exp_matrix(self, maxdepth=None, zscore=False):
         """
         Converts a corrected counts matrix into a
-        obs / expected matrix fast
+        obs / expected matrix or z-scores fast.
+
+        The caveat is that the obs/exp or z-score are only
+        computed for non-zero values, although zero values that
+        are not part of the sparse matrix are considered.
+
+        For each diagonal the mean (and std when computing z-scores) are
+        calculated and then each non-zero value of the sparse matrix is
+        replaced by the obs/exp or z-score.
 
         :param maxdepth:
         :param zscore: if a zscore wants to be returned instead of obs/exp
@@ -523,9 +531,9 @@ class hiCMatrix:
 
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.convert_to_obs_exp_matrix(zscore=True).todense()
-        matrix([[ 0.        , -0.32444284,         nan,         nan,  0.        ],
-                [ 0.        ,  0.8660254 ,  0.81110711,         nan,  0.        ],
-                [ 0.        ,  0.        ,  0.        , -0.48666426,  0.70710678],
+        matrix([[ 0.        , -0.56195149,         nan,         nan,  0.        ],
+                [ 0.        ,  1.93649167,  1.40487872,         nan,  0.        ],
+                [ 0.        ,  0.        ,  0.        , -0.84292723,  1.41421356],
                 [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
                 [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ]])
 
@@ -606,21 +614,25 @@ class hiCMatrix:
                 # idx - 1 because earlier the values where
                 # shifted.
                 diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes if size > (bin_dist_plus_one - 1)])
+
             mu[bin_dist_plus_one] = sum_value / diagonal_length
+
             if np.isnan(sum_value):
                 sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one-1) * binsize))
 
-            # if zscore is needed, compute standard deviation
+            # if zscore is needed, compute standard deviation: std = sqrt(mean(abs(x - x.mean())**2))
             if zscore:
                 values_sqrt_diff = \
-                    np.array((self.matrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
+                    np.abs((self.matrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
                 # the standard deviation is the sum of the differences with mu squared (value variable)
                 # plus all zeros that are not included in the sparse matrix
                 # for which the standard deviation is
                 # (0 - mu)**2 = (mu)**2
                 # The number of zeros is the diagonal length - the length of the non zero values
-                zero_values_sqrt_diff = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
-                std[bin_dist_plus_one] = np.sqrt(values_sqrt_diff.sum() + zero_values_sqrt_diff)
+                zero_values_sqrt_diff_sum = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
+
+                _std = np.sqrt((values_sqrt_diff.sum() + zero_values_sqrt_diff_sum)/diagonal_length)
+                std[bin_dist_plus_one] = _std
 
         # use the expected values to compute obs/exp
         transf_ma = np.zeros(len(self.matrix.data))
