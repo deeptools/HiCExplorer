@@ -3,11 +3,13 @@
 from __future__ import division
 import sys
 import argparse
+import json
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import enlarge_bins
 from scipy import sparse
 import numpy as np
 import multiprocessing
+
 
 
 def parse_arguments(args=None):
@@ -764,7 +766,22 @@ def get_domains(boundary_list):
     return domain_list
 
 
-def save_bedgraph_matrix(outfile, chrom, chr_start, chr_end, score_matrix):
+def toBytes(s):
+    """
+    Like toString, but for functions requiring bytes in python3
+    """
+    if sys.version_info[0] == 2:
+        return s
+    if isinstance(s, bytes):
+        return s
+    if isinstance(s, str):
+        return bytes(s, 'ascii')
+    if isinstance(s, list):
+        return [toBytes(x) for x in s]
+    return s
+
+
+def save_bedgraph_matrix(outfile, chrom, chr_start, chr_end, score_matrix, args):
     """
     Save matrix as chrom, start, end ,row, values separated by tab
     I call this a bedgraph matrix (bm)
@@ -776,7 +793,9 @@ def save_bedgraph_matrix(outfile, chrom, chr_start, chr_end, score_matrix):
     :param score_matrix: list of lists
     :return: None
     """
+    params_str = json.dumps(dict(args._get_kwargs()), separators=(',', ':'))
     with open(outfile, 'w') as f:
+        f.write(toBytes("#" + params_str + "\n"))
         for idx in range(len(chrom)):
             matrix_values = "\t".join(
                     np.char.mod('%f', score_matrix[idx, :]))
@@ -799,7 +818,7 @@ def save_clusters(clusters, file_prefix):
             fileh.write("{}\t{}\t{}\t.\t0\t.\n".format(chrom, start, end))
 
 
-def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args):
+def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, min_pvalues, args):
 
     # a boundary is added to the start and end of each chromosome
     # np.unique return index is used to quickly get
@@ -821,9 +840,17 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
         chr_end_idx[chr_end_idx == 0] = len(chrom)
         chr_end_idx -= 1
 
+    # translate min_pvalues to a dictionary where the index id is the key
+    min_pvalues = dict(zip(min_idx, min_pvalues))
+
     # put all indices together and sort
     min_idx = np.sort(np.concatenate([chr_start_idx, chr_end_idx, min_idx]))
 
+    for idx in min_idx:
+        if idx not in min_pvalues:
+            min_pvalues[idx] = np.nan
+
+    #import ipdb;ipdb.set_trace()
     # the boundary is computed at the interface between two bins.
     # therefore, the extend of the bin boundary is defined to be from the
     # center of the left bin, to the center of the right bin
@@ -855,10 +882,11 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args
                                                                     bin_center + 1,
                                                                     mean_mat[idx]))
             # 2. save the position of the boundary range
-            file_boundary_bin.write("{}\t{}\t{}\tmin\t{}\t.\n".format(chrom_of_boundary[idx],
-                                                                      left_bin_center,
-                                                                      right_bin_center,
-                                                                      mean_mat[idx]))
+            file_boundary_bin.write("{}\t{}\t{}\tpval_{}\t{}\t.\n".format(chrom_of_boundary[idx],
+                                                                          left_bin_center,
+                                                                          right_bin_center,
+                                                                          min_pvalues[min_bin_id],
+                                                                          mean_mat[idx]))
 
             start = boundaries_start_bp[idx]
             end = boundaries_start_bp[idx + 1]
@@ -1019,6 +1047,10 @@ def load_spectrum_matrix(file):
     end_list = []
     with open(file, 'r') as fh:
         for line in fh:
+            if line.startswith("#"):
+                # recover the parameters used to generate the spectrum_matrix
+                parameters = json.loads(line[1:].strip())
+                continue
             fields = line.strip().split('\t')
             chrom, start, end = fields[0:3]
             chrom_list.append(chrom)
@@ -1030,7 +1062,68 @@ def load_spectrum_matrix(file):
     chrom = np.array(chrom_list)
     start = np.array(start_list)
     end = np.array(end_list)
-    return chrom, start, end, matrix
+
+    return chrom, start, end, matrix, parameters
+
+
+def get_pvalue_of_min(min_idx, matrix_file, window_len):
+    """
+    For each min_idx a pvalue is computed by determining if the in-between counts
+    belong to the same distribution as the left and right triangle counts
+
+             /\
+            /  \
+           /  b \
+          /\    /\
+         /  \  /  \
+        / a  \/ c  \
+
+       |-----|
+          w
+
+    For a window length `w`, the distribution of the counts in `b` is compared with the list of counts in a and c
+    using the wilcoxon test.
+
+    Because corrected counts depend on the genomic distance, z-scores are used instead.
+
+    Parameters
+    ----------
+    min_idx  list of bin ids that contain a local minima
+    matrix_file name of the matrix file
+
+    Returns
+    -------
+    list of p-values for each corresponding min_idx
+
+    """
+    from scipy.stats import ranksums
+    hic_ma = hm.hiCMatrix(matrix_file)
+    hic_ma.diagflat(value=0)
+
+    hic_ma.maskBins(hic_ma.nan_bins)
+
+    binsize = hic_ma.getBinSize()
+
+    w_len_in_bins = int(window_len / binsize)
+
+    # get zscore
+    sys.stderr.write("Computing z-scores\n")
+    hic_ma.convert_to_obs_exp_matrix(maxdepth=10 * window_len, zscore=True)
+    sys.stderr.write("Finish computing z-scores\n")
+    hic_ma.save("/tmp/pvalues.h5")
+    p_values = []
+    for idx in min_idx:
+        start = max(0, idx - w_len_in_bins)
+        # same for range [i+1:end] (i is excluded from the range)
+        end = min(hic_ma.matrix.shape[0], idx + w_len_in_bins)
+        inter_edges = hic_ma.matrix[start:idx, idx:end].todense().A1
+        edges_left = hic_ma.matrix[start:idx, :][:, start:idx].todense().A1
+        edges_right = hic_ma.matrix[idx:end, :][:, idx:end].todense().A1
+
+        pval = ranksums(inter_edges, np.concatenate([edges_left, edges_right]))[1]
+        p_values.append(pval)
+
+    return p_values
 
 
 def main(args=None):
@@ -1038,13 +1131,17 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
     if args.command == 'TAD_score':
         chrom, chr_start, chr_end, matrix = compute_spectra_matrix(args)
-        save_bedgraph_matrix(args.outFileName, chrom, chr_start, chr_end, matrix)
+        save_bedgraph_matrix(args.outFileName, chrom, chr_start, chr_end, matrix, args)
         return
 
-    chrom, chr_start, chr_end, matrix = load_spectrum_matrix(args.tadScoreFile)
+    chrom, chr_start, chr_end, matrix, parameters = load_spectrum_matrix(args.tadScoreFile)
 
     min_idx = find_consensus_minima(matrix, lookahead=args.lookahead, delta=args.delta,
                                     max_threshold=args.maxThreshold, chrom=chrom)
+
+    # Get boundary p-value
+    # For the boundary p-value the z-scores are needed
+    min_pvalues = get_pvalue_of_min(min_idx, parameters['matrix'], parameters['maxDepth'])
 
     if len(min_idx) <= 10:
         mat_mean = matrix.mean(axis=1)
@@ -1069,7 +1166,7 @@ def main(args=None):
         else:
             sys.stderr.write("Only {} boundaries found. {}".format(len(min_idx), msg))
 
-    save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, args)
+    save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, min_pvalues, args)
 
     # turn of hierarchical clustering which is apparently not working.
     if 2==1:
