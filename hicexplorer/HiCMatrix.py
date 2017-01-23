@@ -482,7 +482,7 @@ class hiCMatrix:
                              'the bin distance to the median: {}\n'.format(median))
         return cut_intervals
 
-    def convert_to_zscore_matrix(self, maxdepth):
+    def convert_to_zscore_matrix(self, maxdepth=None):
         return self.convert_to_obs_exp_matrix(maxdepth=maxdepth, zscore=True)
 
     def convert_to_obs_exp_matrix(self, maxdepth=None, zscore=False):
@@ -564,12 +564,18 @@ class hiCMatrix:
 
         if zscore is True:
             from scipy.sparse import diags
+            m_size = self.matrix.shape[0]
 
             if max_depth_in_bins is not None:
                 depth = max_depth_in_bins
             else:
-                depth = self.matrix.shape[0]
-            m_size = self.matrix.shape[0]
+                depth = m_size
+                estimated_size_dense_matrix = m_size**2 * 8
+                if estimated_size_dense_matrix > 100e6:
+                    sys.stderr.write("To compute z-scores a dense matrix is required. This will use \n"
+                                     "{} Mb of memory.\n To reduce memory use the maxdeph option."
+                                     "".format(estimated_size_dense_matrix / 1e6))
+
             # to compute zscore the zero values need to be accounted and the matrix
             # need to become dense. This is only practical if only up to certain distance
             # wants to be evaluated, otherwise the dense matrix is too large.
