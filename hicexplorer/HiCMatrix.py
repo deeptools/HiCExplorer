@@ -482,6 +482,9 @@ class hiCMatrix:
                              'the bin distance to the median: {}\n'.format(median))
         return cut_intervals
 
+    def convert_to_zscore_matrix(self, maxdepth):
+        return self.convert_to_obs_exp_matrix(maxdepth=maxdepth, zscore=True)
+
     def convert_to_obs_exp_matrix(self, maxdepth=None, zscore=False):
         """
         Converts a corrected counts matrix into a
@@ -531,16 +534,17 @@ class hiCMatrix:
 
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.convert_to_obs_exp_matrix(zscore=True).todense()
-        matrix([[ 0.        , -0.56195149,         nan,         nan,  0.        ],
+        matrix([[ 0.        , -0.56195149,         nan,         nan, -1.41421356],
                 [ 0.        ,  1.93649167,  1.40487872,         nan,  0.        ],
-                [ 0.        ,  0.        ,  0.        , -0.84292723,  1.41421356],
-                [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
-                [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ]])
+                [ 0.        ,  0.        , -0.64549722, -0.84292723,  1.41421356],
+                [ 0.        ,  0.        ,  0.        , -0.64549722,  0.        ],
+                [ 0.        ,  0.        ,  0.        ,  0.        , -0.64549722]])
 
         nans occur where the standard deviation is zero
         """
 
         binsize = self.getBinSize()
+        max_depth_in_bins = None
         if maxdepth:
             if maxdepth < binsize:
                 exit("Please specify a maxDepth larger than bin size ({})".format(binsize))
@@ -557,7 +561,32 @@ class hiCMatrix:
             self.matrix = triu(self.matrix, k=0, format='csr')
 
         self.matrix.eliminate_zeros()
+
+        if zscore is True:
+            from scipy.sparse import diags
+
+            if max_depth_in_bins is not None:
+                depth = max_depth_in_bins
+            else:
+                depth = self.matrix.shape[0]
+            m_size = self.matrix.shape[0]
+            # to compute zscore the zero values need to be accounted and the matrix
+            # need to become dense. This is only practical if only up to certain distance
+            # wants to be evaluated, otherwise the dense matrix is too large.
+            # To make the matrix dense and keep the same computations as when
+            # the matrix is sparse the following is done:
+            # A sparse diagonal matrix of shape = matrix.shape is created with ones
+            # (only upper triangle contains diagnonals up to maxdeph)
+            # This  sparse matrix is then added to self.matrix
+            # then, -1 is subtracted to the self.matrix.data, thus effectively
+            # adding zeros.
+            diag_mat_ones = diags(np.repeat([1], m_size * depth).reshape(m_size, depth), range(depth))
+            self.matrix += diag_mat_ones
+
         self.matrix = self.matrix.tocoo()
+        if zscore is True:
+            self.matrix.data -= 1
+
         dist_list, chrom_list = self.getDistList(self.matrix.row, self.matrix.col,
                                                  hiCMatrix.fit_cut_intervals(self.cut_intervals))
 
@@ -641,7 +670,7 @@ class hiCMatrix:
                 transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
             else:
                 transf_ma[idx] = value / mu[dist_list[idx]]
-
+                #transf_ma[idx] = value
         self.matrix.data = transf_ma
         self.matrix = self.matrix.tocsr()
         return self.matrix
