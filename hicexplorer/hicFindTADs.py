@@ -132,7 +132,8 @@ For detailed help:
                                           'contains the TADs positions. This is a non-overlapping set of genomic '
                                           'positions. The <prefix>.bedgraph file contains the TAD-separation score '
                                           'measured at each Hi-C bin coordinate. Is useful to visualize in a genome '
-                                          'browser.',
+                                          'browser. For each `--delta` value given, a new _boundaries.bed and '
+                                          '_domains.bed are created and labeled according to the delta threshold.',
                                      required=True)
 
     return parser
