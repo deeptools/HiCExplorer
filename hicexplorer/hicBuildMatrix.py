@@ -110,11 +110,6 @@ def parseArguments(args=None):
                        type=argparse.FileType('r'),
                        metavar='BED file')
 
-    parser.add_argument('--fragmentLength', '-f',
-                        help='Estimated fragment length',
-                        type=int,
-                        default=300)
-
     parser.add_argument('--minDistance',
                         help='Minimum distance between restriction sites. '
                         'Restriction sites that are closer that this '
