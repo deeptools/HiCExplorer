@@ -500,7 +500,7 @@ class hiCMatrix:
 
         :param maxdepth:
         :param zscore: if a zscore wants to be returned instead of obs/exp
-        :return: observer / expected sparse matrix
+        :return: observed / expected sparse matrix
 
         from scipy.sparse import csr_matrix, dia_matrix
         >>> row, col = np.triu_indices(5)
@@ -565,7 +565,7 @@ class hiCMatrix:
         if zscore is True:
             from scipy.sparse import diags
             m_size = self.matrix.shape[0]
-
+            prev_mat_sum = self.matrix.sum()
             if max_depth_in_bins is not None:
                 depth = max_depth_in_bins
             else:
@@ -582,16 +582,17 @@ class hiCMatrix:
             # To make the matrix dense and keep the same computations as when
             # the matrix is sparse the following is done:
             # A sparse diagonal matrix of shape = matrix.shape is created with ones
-            # (only upper triangle contains diagnonals up to maxdeph)
+            # (only upper triangle contains diagonals up to maxdeph)
             # This  sparse matrix is then added to self.matrix
             # then, -1 is subtracted to the self.matrix.data, thus effectively
             # adding zeros.
-            diag_mat_ones = diags(np.repeat([1], m_size * depth).reshape(m_size, depth), range(depth))
+            diag_mat_ones = diags(np.repeat([1], m_size * depth).reshape(depth, m_size), range(depth))
             self.matrix += diag_mat_ones
 
-        self.matrix = self.matrix.tocoo()
-        if zscore is True:
             self.matrix.data -= 1
+            assert prev_mat_sum == self.matrix.sum()
+
+        self.matrix = self.matrix.tocoo()
 
         dist_list, chrom_list = self.getDistList(self.matrix.row, self.matrix.col,
                                                  hiCMatrix.fit_cut_intervals(self.cut_intervals))
@@ -616,8 +617,8 @@ class hiCMatrix:
         mu = {}
         std = {}
         chrom_sizes = np.array([v[1]-v[0] for k, v in self.chrBinBoundaries.iteritems()])
-
         # compute mean value for each distance
+
         for bin_dist_plus_one, sum_value in enumerate(sum_counts):
             if maxdepth and bin_dist_plus_one == 0:  # this is for intra chromosomal counts
                 # when max depth is set, the computation
@@ -649,9 +650,10 @@ class hiCMatrix:
                 # idx - 1 because earlier the values where
                 # shifted.
                 diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes if size > (bin_dist_plus_one - 1)])
-
-            mu[bin_dist_plus_one] = sum_value / diagonal_length
-
+            if diagonal_length == 0:
+                mu[bin_dist_plus_one] = np.nan
+            else:
+                mu[bin_dist_plus_one] = float(sum_value) / diagonal_length
             if np.isnan(sum_value):
                 sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one-1) * binsize))
 
@@ -676,7 +678,7 @@ class hiCMatrix:
                 transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
             else:
                 transf_ma[idx] = value / mu[dist_list[idx]]
-                #transf_ma[idx] = value
+
         self.matrix.data = transf_ma
         self.matrix = self.matrix.tocsr()
         return self.matrix
@@ -910,7 +912,6 @@ class hiCMatrix:
             pass
         self.matrix = mat
         return self.matrix
-
 
     def save_bing_ren(self, fileName):
         """
@@ -1315,7 +1316,6 @@ class hiCMatrix:
 
         self.nan_bins = np.flatnonzero(self.matrix.sum(0).A == 0)
 
-
     def restoreMaskedBins(self):
         """
         Puts backs into the matrix the bins
@@ -1453,8 +1453,7 @@ class hiCMatrix:
                 chr_dict))
         self.maskBins(to_remove)
 
-    def printchrtoremove(self, to_remove,
-                         label="Number of poor regions to remove"):
+    def printchrtoremove(self, to_remove, label="Number of poor regions to remove"):
         """
         prints out the number of bin per chromosomes
         that will be removed
@@ -1487,7 +1486,6 @@ class hiCMatrix:
                 len(to_remove),
                 cnt))
         self.prev_to_remove = to_remove
-
 
     def removeBySequencedCount(self, sequencedFraction=0.5):
         """
