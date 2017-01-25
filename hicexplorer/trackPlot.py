@@ -581,11 +581,17 @@ class PlotBedGraphMatrix(PlotBedGraph):
                     ymax_print = int(ymax)
                 else:
                     ymax_print = "{:.1f}".format(ymax)
+
+                if float(ymin) % 1 == 0:
+                    ymin_print = int(ymin)
+                else:
+                    ymin_print = "{:.1f}".format(ymin)
+
                 ydelta = ymax - ymin
                 small_x = 0.01 * (end_region - start_region)
                 # by default show the data range
                 self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
-                             "[{}-{}]".format(int(ymin), ymax_print),
+                             "[{}-{}]".format(ymin_print, ymax_print),
                              horizontalalignment='left',
                              verticalalignment='bottom')
             if 'plot horizontal lines' in self.properties and self.properties['horizontal lines']:
