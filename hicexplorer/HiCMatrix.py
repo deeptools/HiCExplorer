@@ -350,20 +350,12 @@ class hiCMatrix:
         """
         return self.chrBinBoundaries.keys()
 
-    def getBinPos(self, binIndex, includeBinId=False):
+    def getBinPos(self, binIndex):
         """
         given a bin, it returns the chromosome name,
         start position and end position
         """
-        if includeBinId:
-            chrom, start, end, extra = self.cut_intervals[binIndex]
-            # I dont understand this part. There was
-            # a typo in original implementation?
-            ret = (chrom, start, end, chrom)
-#            ret = (self.nameList[binIndex], self.startList[binIndex], self.endList[binIndex], self.nameList[binIndex] )
-        else:
-            ret = self.cut_intervals[binIndex]
-        return ret
+        return self.cut_intervals[binIndex]
 
     def getRegionBinRange(self, chrname, startpos, endpos):
         """
