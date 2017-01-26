@@ -139,11 +139,14 @@ For detailed help:
     return parser
 
 
-def get_cut_weight_mean(matrix, cut, depth):
+def get_cut_weight_by_bin_id(matrix, cut, depth, return_mean=False):
     """
-    like get_cut_weight but returns the mean and not the sum
-    """
+    like get_cut_weight which is the 'diamond' representing the counts
+    from a region -dept to _depth from the given bin position (cut):
 
+    """
+    if cut < 0 or cut > matrix.shape[0]:
+        return None
     # the range [start:i] should have running window
     # length elements (i is excluded from the range)
     start = max(0, cut - depth)
@@ -154,7 +157,40 @@ def get_cut_weight_mean(matrix, cut, depth):
     # between the upstream neighbors with the
     # down stream neighbors. In other words
     # the inter-domain interactions
-    return matrix[start:cut, cut:end].mean()
+    if return_mean is True:
+        return matrix[start:cut, cut:end].mean()
+    else:
+        return matrix[start:cut, cut:end].todense().A1
+
+
+def get_cut_weight(hic_matrix, cut, window_len, return_mean=False):
+    """
+    like get_cut_weight which is the 'diamond' representing the counts
+    from a region -window_len to +window_len from the given bin position (cut):
+
+    """
+    if cut < 0 or cut > matrix.shape[0]:
+        return None
+
+    # find the bin that is closer to window_len
+    # the range [start:i] should have running window
+    # length elements (i is excluded from the range)
+    chr, cut_start, cut_end, _ = hic_matrix.getBinPos(cut)
+    left_start = max(0, cut_start - window_len)
+    left_idx = hic_matrix.getRegionBinRange(chr, left_start, left_start + 1)[0]
+
+    chr_end_pos = hic_ma.get_chromosome_sizes()[chrom]
+    right_end = min(chr_end_pos, cut_end + window_len)
+    right_idx = hic_matrix.getRegionBinRange(chr, right_end, right_end + 1)[0]
+
+    # the idea is to evaluate the interactions
+    # between the upstream neighbors with the
+    # down stream neighbors. In other words
+    # the inter-domain interactions
+    if return_mean is True:
+        return matrix[left_idx:cut, cut:right_idx].mean()
+    else:
+        return matrix[left_idx:cut, cut:right_idx].todense().A1
 
 
 def compute_matrix_wrapper(args):
@@ -202,9 +238,7 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2, outfi
 
         # get conductance
         # for multiple window lengths at a time
-        mult_matrix = [get_cut_weight_mean(hic_ma.matrix, cut, depth) for depth in incremental_step]
-        #mult_matrix = [get_coverage_norm(hic_ma.matrix, cut, depth) for depth in incremental_step]
-        #mult_matrix = [get_coverage(hic_ma.matrix, cut, x) for x in incremental_step]
+        mult_matrix = [get_cut_weight(hic_ma.matrix, cut, depth, return_mean=True) for depth in incremental_step]
         if np.any(np.isnan(mult_matrix)):
             # skip problematic cases
             continue
@@ -650,7 +684,10 @@ def save_bedgraph_matrix(outfile, chrom, chr_start, chr_end, score_matrix, args)
     :param score_matrix: list of lists
     :return: None
     """
-    params_str = json.dumps(dict(args._get_kwargs()), separators=(',', ':'))
+    params = dict(args._get_kwargs())
+    params['zscore_matrix'] = args.outFileName + "_zscore_matrix.h5"
+    params_str = json.dumps(params, separators=(',', ':'))
+
     with open(outfile, 'w') as f:
         f.write(toBytes("#" + params_str + "\n"))
         for idx in range(len(chrom)):
@@ -675,7 +712,8 @@ def save_clusters(clusters, file_prefix):
             fileh.write("{}\t{}\t{}\t.\t0\t.\n".format(chrom, start, end))
 
 
-def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, delta_of_min, args):
+def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
+                                delta_of_min, pvalue_of_min, args):
 
     # a boundary is added to the start and end of each chromosome
     # np.unique return index is used to quickly get
@@ -734,10 +772,11 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, delt
                     continue
 
                 # 2. save the position of the boundary range
-                file_boundary_bin.write("{}\t{}\t{}\tdelta_{}\t{}\t.\n".format(chrom[min_bin_id],
+                file_boundary_bin.write("{}\t{}\t{}\tdelta_{}_pval_{}\t{}\t.\n".format(chrom[min_bin_id],
                                                                                left_bin_center,
                                                                                right_bin_center,
                                                                                delta_of_min[min_bin_id],
+                                                                               pvalue_of_min[min_bin_id],
                                                                                mean_mat_all[min_bin_id]))
 
                 start = chr_start[min_bin_id]
@@ -783,6 +822,7 @@ def compute_spectra_matrix(args, matrix=None):
         hic_ma = hm.hiCMatrix(args.matrix)
 
     # remove self counts
+    sys.stderr.write('removing diagonal values\n')
     hic_ma.diagflat(value=0)
 
     # mask bins without any information
@@ -793,12 +833,6 @@ def compute_spectra_matrix(args, matrix=None):
     sys.stderr.write("Computing z-score matrix...\n")
     hic_ma.convert_to_zscore_matrix(maxdepth=args.maxDepth)
 
-    sys.stderr.write('removing diagonal values\n')
-    if args.useLogValues is True:
-        # use log values for the computations
-        hic_ma.matrix.data = np.log2(hic_ma.matrix.data)
-        sys.stderr.write('using log2 matrix values\n')
-
     # extend remaining bins to remove gaps in
     # the matrix
     new_intervals = enlarge_bins(hic_ma.cut_intervals)
@@ -808,6 +842,8 @@ def compute_spectra_matrix(args, matrix=None):
     if new_intervals != orig_intervals:
         hic_ma.interval_trees, hic_ma.chrBinBoundaries = \
             hic_ma.intervalListToIntervalTree(new_intervals)
+
+    hic_ma.save(args.outFileName + "zscore_matrix.h5")
 
     if args.minDepth % hic_ma.getBinSize() != 0:
         sys.stderr.write('Warning. specified *depth* is not multiple of the '
@@ -929,6 +965,53 @@ def print_args(args):
         sys.stderr.write("{}:\t{}\n".format(key, value))
 
 
+def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000):
+    """
+    For each putative local minima, find the -window_len diammond and the +window_len diamond
+    and compare with the local minima using wilcoxon rank sum.
+
+    Parameters
+    ----------
+    min_idx list of local minima
+    window_len in base pairs
+
+    Returns
+    -------
+    list of p-values per each local minima
+
+    """
+    from scipy.stats import ranksums
+    hic_ma = hm.hiCMatrix(matrix_file)
+
+    pvalues = {}
+    for idx in min_idx:
+        matrix_idx = hic_ma.getRegionBinRange(chrom[idx], chr_start[idx], chr_end[idx])[0]
+        min_chr, min_start, min_end, _ = hic_ma.cut_intervals[matrix_idx]
+#        if chrom[idx] != min_chr or chr_start[idx] != min_start or \
+#               chr_end[idx] != min_end:
+#            import ipdb;ipdb.set_trace()
+        assert chrom[idx] == min_chr and chr_start[idx] == min_start and \
+               chr_end[idx] == min_end
+
+        left = get_cut_weight(hic_ma.matrix, matrix_idx - window_len, window_len)
+        right = get_cut_weight(hic_ma.matrix, matrix_idx + window_len, window_len)
+        boundary = get_cut_weight(hic_ma.matrix, matrix_idx, window_len)
+        if left is None:
+            left = []
+        if right is None:
+            right = []
+        if len(left) == 0 and len(right) == 0:
+            pvalues[idx] = np.nan
+            continue
+        if boundary is None:
+            pvalues[idx] = [np.nan]
+            continue
+
+        pvalues[idx] = ranksums(boundary, np.concatenate([left, right]))[1]
+
+    return pvalues
+
+
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
@@ -950,6 +1033,7 @@ def main(args=None):
 
     min_idx, delta = find_consensus_minima(matrix, lookahead=lookahead, chrom=chrom)
 
+    pvalues = min_pvalue(parameters['zscore_matrix'], min_idx, chrom, chr_start, chr_end)
     if len(min_idx) <= 10:
         mat_mean = matrix.mean(axis=1)
         m_mean = mat_mean.mean()
@@ -967,11 +1051,11 @@ def main(args=None):
                " 3rd quartile: {:.3f}\n".format(args.delta, args.minBoundaryDistance, m_mean, m_median, m_25, m_75))
 
         if len(min_idx) == 0:
-            exit("\n*EROR*\nNo boundaries were found. {}".format(msg))
+            exit("\n*ERROR*\nNo boundaries were found. {}".format(msg))
         else:
             sys.stderr.write("Only {} boundaries found. {}".format(len(min_idx), msg))
 
-    save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, delta, args)
+    save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, delta, pvalues, args)
 
     # turn of hierarchical clustering which is apparently not working.
     if 2==1:
