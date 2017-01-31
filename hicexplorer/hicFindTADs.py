@@ -163,34 +163,49 @@ def get_cut_weight_by_bin_id(matrix, cut, depth, return_mean=False):
         return matrix[start:cut, cut:end].todense().A1
 
 
+def get_idx_of_bins_at_given_distance(hic_matrix, idx, window_len):
+    """
+    Returns the right and left indices that are at a given distance in bp
+    from `idx`
+    Parameters
+    ----------
+    idx reference index
+    window_len distance in bp
+
+    Returns
+    -------
+    tuple, with left and right bin indices
+    """
+
+    # find the bin that is closer to window_len
+    # the range [start:i] should have running window
+    # length elements (i is excluded from the range)
+    chrom, cut_start, cut_end, _ = hic_matrix.getBinPos(idx)
+    left_start = max(0, cut_start - window_len)
+    left_idx = hic_matrix.getRegionBinRange(chrom, left_start, left_start + 1)[0]
+
+    chr_end_pos = hic_matrix.get_chromosome_sizes()[chrom]
+    right_end = min(chr_end_pos, cut_end + window_len) -1
+    right_idx = hic_matrix.getRegionBinRange(chrom, right_end, right_end)[0]
+
+    return left_idx, right_idx
+
+
 def get_cut_weight(hic_matrix, cut, window_len, return_mean=False):
     """
     like get_cut_weight which is the 'diamond' representing the counts
     from a region -window_len to +window_len from the given bin position (cut):
 
     """
-    if cut < 0 or cut > matrix.shape[0]:
+    if cut < 0 or cut > hic_matrix.matrix.shape[0]:
         return None
 
-    # find the bin that is closer to window_len
-    # the range [start:i] should have running window
-    # length elements (i is excluded from the range)
-    chr, cut_start, cut_end, _ = hic_matrix.getBinPos(cut)
-    left_start = max(0, cut_start - window_len)
-    left_idx = hic_matrix.getRegionBinRange(chr, left_start, left_start + 1)[0]
+    left_idx, right_idx = get_idx_of_bins_at_given_distance(hic_matrix, cut, window_len)
 
-    chr_end_pos = hic_ma.get_chromosome_sizes()[chrom]
-    right_end = min(chr_end_pos, cut_end + window_len)
-    right_idx = hic_matrix.getRegionBinRange(chr, right_end, right_end + 1)[0]
-
-    # the idea is to evaluate the interactions
-    # between the upstream neighbors with the
-    # down stream neighbors. In other words
-    # the inter-domain interactions
     if return_mean is True:
-        return matrix[left_idx:cut, cut:right_idx].mean()
+        return hic_matrix.matrix[left_idx:cut, cut:right_idx].mean()
     else:
-        return matrix[left_idx:cut, cut:right_idx].todense().A1
+        return hic_matrix.matrix[left_idx:cut, cut:right_idx].todense().A1
 
 
 def compute_matrix_wrapper(args):
@@ -219,7 +234,7 @@ def get_incremental_step_size(min_win_size, max_win_size, start_step_len):
     return incremental_step
 
 
-def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2, outfile=None):
+def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
     """
     Iterates over the Hi-C matrix computing at each bin
     interface the conductance at different window lengths
@@ -238,7 +253,7 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2, outfi
 
         # get conductance
         # for multiple window lengths at a time
-        mult_matrix = [get_cut_weight(hic_ma.matrix, cut, depth, return_mean=True) for depth in incremental_step]
+        mult_matrix = [get_cut_weight(hic_ma, cut, depth, return_mean=True) for depth in incremental_step]
         if np.any(np.isnan(mult_matrix)):
             # skip problematic cases
             continue
@@ -831,7 +846,7 @@ def compute_spectra_matrix(args, matrix=None):
 
     # use zscore matrix
     sys.stderr.write("Computing z-score matrix...\n")
-    hic_ma.convert_to_zscore_matrix(maxdepth=args.maxDepth)
+    hic_ma.convert_to_zscore_matrix(maxdepth=args.maxDepth*2.5)
 
     # extend remaining bins to remove gaps in
     # the matrix
@@ -842,8 +857,11 @@ def compute_spectra_matrix(args, matrix=None):
     if new_intervals != orig_intervals:
         hic_ma.interval_trees, hic_ma.chrBinBoundaries = \
             hic_ma.intervalListToIntervalTree(new_intervals)
+        hic_ma.cut_intervals = new_intervals
+        hic_ma.orig_bin_ids = None
+        hic_ma.nan_bins = None
 
-    hic_ma.save(args.outFileName + "zscore_matrix.h5")
+    hic_ma.save(args.outFileName + "_zscore_matrix.h5")
 
     if args.minDepth % hic_ma.getBinSize() != 0:
         sys.stderr.write('Warning. specified *depth* is not multiple of the '
@@ -861,11 +879,7 @@ def compute_spectra_matrix(args, matrix=None):
     if step_in_bins == 0:
         exit("Please select a step size larger than {}".format(binsize))
 
-    step_len = binsize * step_in_bins
-    min_win_size = binsize * min_depth_in_bins
-    max_win_size = binsize * max_depth_in_bins
-
-    incremental_step = get_incremental_step_size(min_win_size, max_win_size, step_len)
+    incremental_step = get_incremental_step_size(args.minDepth, args.maxDepth, args.step)
 
     sys.stderr.write("computing spectrum for window sizes between {} ({} bp)"
                      "and {} ({} bp) at the following window sizes {} {}\n".format(min_depth_in_bins,
@@ -901,7 +915,7 @@ def compute_spectra_matrix(args, matrix=None):
         bins_to_consider.extend(range(*hic_ma.chrBinBoundaries[chrom]))
 
     for idx_array in np.array_split(bins_to_consider, num_processors):
-        TASKS.append((idx_array, min_depth_in_bins, max_depth_in_bins, step_in_bins))
+        TASKS.append((idx_array, args.minDepth, args.maxDepth, args.step))
 
     if num_processors > 1:
         pool = multiprocessing.Pool(num_processors)
@@ -965,7 +979,7 @@ def print_args(args):
         sys.stderr.write("{}:\t{}\n".format(key, value))
 
 
-def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000):
+def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000, delta=None):
     """
     For each putative local minima, find the -window_len diammond and the +window_len diamond
     and compare with the local minima using wilcoxon rank sum.
@@ -980,36 +994,58 @@ def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000
     list of p-values per each local minima
 
     """
-    from scipy.stats import ranksums
     hic_ma = hm.hiCMatrix(matrix_file)
 
-    pvalues = {}
-    for idx in min_idx:
-        matrix_idx = hic_ma.getRegionBinRange(chrom[idx], chr_start[idx], chr_end[idx])[0]
-        min_chr, min_start, min_end, _ = hic_ma.cut_intervals[matrix_idx]
-#        if chrom[idx] != min_chr or chr_start[idx] != min_start or \
-#               chr_end[idx] != min_end:
-#            import ipdb;ipdb.set_trace()
-        assert chrom[idx] == min_chr and chr_start[idx] == min_start and \
-               chr_end[idx] == min_end
+    sys.stderr.write("Computing p-values for window length: {}\n".format(window_len))
+    pvalues = []
 
-        left = get_cut_weight(hic_ma.matrix, matrix_idx - window_len, window_len)
-        right = get_cut_weight(hic_ma.matrix, matrix_idx + window_len, window_len)
-        boundary = get_cut_weight(hic_ma.matrix, matrix_idx, window_len)
+    from scipy.stats import ranksums
+
+    new_min_idx = []
+    for idx in min_idx:
+
+        matrix_idx = hic_ma.getRegionBinRange(chrom[idx], chr_start[idx], chr_end[idx])
+        if matrix_idx is None:
+            continue
+        else:
+            matrix_idx = matrix_idx[0]
+
+        new_min_idx += [idx]
+        min_chr, min_start, min_end, _ = hic_ma.getBinPos(matrix_idx)
+        assert chrom[idx] == min_chr and chr_start[idx] == min_start and chr_end[idx] == min_end
+
+        left_idx, right_idx = get_idx_of_bins_at_given_distance(hic_ma, matrix_idx, window_len)
+
+        left = get_cut_weight(hic_ma, left_idx, window_len)
+        right = get_cut_weight(hic_ma, right_idx, window_len)
+        boundary = get_cut_weight(hic_ma, matrix_idx, window_len)
         if left is None:
             left = []
         if right is None:
             right = []
+
         if len(left) == 0 and len(right) == 0:
-            pvalues[idx] = np.nan
+            pval = np.nan
             continue
-        if boundary is None:
-            pvalues[idx] = [np.nan]
-            continue
+        elif boundary is None or len(boundary) == 0:
+            pval = np.nan
+        else:
+            try:
+                pval = ranksums(boundary, np.concatenate([left, right]))[1]
+            except ValueError:
+                # this condition happens when boundary, left and right are only composed of 'zeros'
+                pval = np.nan
 
-        pvalues[idx] = ranksums(boundary, np.concatenate([left, right]))[1]
+        pvalues += [pval]
+        if delta[idx] > 0.04 and pval > 0.001:
+            import ipdb; ipdb.set_trace()
 
-    return pvalues
+    assert len(pvalues) == len(new_min_idx)
+    # bonferroni correction
+    pvalues = np.array(pvalues) * len(pvalues)
+    pvalues[pvalues > 1] = 1
+
+    return dict(zip(new_min_idx, pvalues))
 
 
 def main(args=None):
@@ -1033,7 +1069,8 @@ def main(args=None):
 
     min_idx, delta = find_consensus_minima(matrix, lookahead=lookahead, chrom=chrom)
 
-    pvalues = min_pvalue(parameters['zscore_matrix'], min_idx, chrom, chr_start, chr_end)
+    pvalues = min_pvalue(parameters['zscore_matrix'], min_idx, chrom, chr_start, chr_end,
+                         window_len=parameters['minDepth'], delta=delta)
     if len(min_idx) <= 10:
         mat_mean = matrix.mean(axis=1)
         m_mean = mat_mean.mean()
