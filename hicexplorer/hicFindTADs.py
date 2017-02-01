@@ -23,7 +23,7 @@ the left and right regions at each Hi-C matrix bin. This is done for a
 running window of different sizes. Then, TADs are called as those
 positions having a local TAD-separation score minimum. The TAD-separation score is
 measured using the z-score of the Hi-C matrix and is defined as the mean zscore of all
-the matrix contacts between the left and right regions.
+the matrix contacts between the left and right regions (diamond).
 
 To find the TADs, the program  needs to compute first the
 TAD scores at different window sizes. Then, the results of that computation
@@ -110,30 +110,42 @@ For detailed help:
                                      default=3000
                                      )
 
+    find_tads_subparser.add_argument('--pvalue',
+                                     help='P-value threshold. The probability of a local minima to be a boundary '
+                                          'is estimated by comparing the distribution (Wilcoxon ranksum) of '
+                                          'the  zscores between the left and right '
+                                          'regions (diamond) at the local minimum with the matrix zscores for a '
+                                          'diamond at --minDepth to the left and a diamond --minDepth to the right. '
+                                          'The reported pvalue is the Bonferroni correction all pvalues. Default is'
+                                          '0.01',
+                                     type=float,
+                                     default=0.01
+                                     )
+
     find_tads_subparser.add_argument('--delta',
                                      help='Minimum threshold of the difference between the TAD-separation score of a '
                                           'putative boundary and the mean of the TAD-sep. score of surrounding bins. '
                                           'The delta value reduces spurious boundaries that are shallow, which usually '
                                           'occur at the center of large TADs when the TAD-sep. score is flat. Higher '
                                           'delta threshold values produce more conservative boundary estimations. By '
-                                          'default, multiple delta thresholds are saved for the following delta '
-                                          'values: "0.001, 0.01, 0.03, 0.05, 0.1". Other single or multiple values '
-                                          'can be given.',
-                                     nargs="+",
+                                          'default a value of 0.01 is used.',
                                      type=float,
-                                     default=[0.001, 0.01, 0.03, 0.05, 0.1]
+                                     default=0.01
                                      )
 
     find_tads_subparser.add_argument('--outPrefix',
-                                     help='File prefix to save the resulting BED files: <prefix>_boundaries.bed, which '
+                                     help='File prefix to save the resulting files: 1. <prefix>_boundaries.bed, which '
                                           'contains the positions of boundaries. The genomic coordinates in this file '
-                                          'per boundary correspond to the resolution used. Thus, for Hi-C bins of '
-                                          '10.000bp the boundary position is 10.000bp long. <prefix>_domains.bed '
+                                          'correspond to the resolution used. Thus, for Hi-C bins of '
+                                          '10.000bp the boundary position is 10.000bp long. For restriction fragment '
+                                          'matrices the boundary position varies depending on the fragment length '
+                                          'at the boundary. 2. <prefix>_domains.bed '
                                           'contains the TADs positions. This is a non-overlapping set of genomic '
-                                          'positions. The <prefix>.bedgraph file contains the TAD-separation score '
+                                          'positions. 3. <prefix>_boundaries.gff Similar to the boundaries bed file '
+                                          'but with extra information (pvalue, delta). 4. <prefix>.bedgraph file '
+                                          'contains the TAD-separation score '
                                           'measured at each Hi-C bin coordinate. Is useful to visualize in a genome '
-                                          'browser. For each `--delta` value given, a new _boundaries.bed and '
-                                          '_domains.bed are created and labeled according to the delta threshold.',
+                                          'browser. The delta and pvalue settings are saved as part of the name.',
                                      required=True)
 
     return parser
@@ -206,6 +218,30 @@ def get_cut_weight(hic_matrix, cut, window_len, return_mean=False):
         return hic_matrix.matrix[left_idx:cut, cut:right_idx].mean()
     else:
         return hic_matrix.matrix[left_idx:cut, cut:right_idx].todense().A1
+
+
+def get_triangle(hic_matrix, cut, window_len, return_mean=False):
+    """
+    like get_cut_weight which is the 'diamond' representing the counts
+    from a region -window_len to +window_len from the given bin position (cut):
+
+    """
+    if cut < 0 or cut > hic_matrix.matrix.shape[0]:
+        return None
+
+    left_idx, right_idx = get_idx_of_bins_at_given_distance(hic_matrix, cut, window_len)
+
+    def remove_lower_triangle(matrix):
+        """
+        remove all values in the lower triangle of a matrix
+        """
+        return matrix[np.triu_indices_from(matrix)].A1
+
+    edges_left = remove_lower_triangle(hic_matrix.matrix[left_idx:cut, :][:, left_idx:cut].todense())
+    edges_right = remove_lower_triangle(hic_matrix.matrix[cut:right_idx, :][:, cut:right_idx].todense())
+#    if cut > 1000:
+#        import ipdb;ipdb.set_trace()
+    return np.concatenate([edges_left, edges_right])
 
 
 def compute_matrix_wrapper(args):
@@ -753,66 +789,73 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
     # put all indices together and sort
     min_idx = np.sort(np.concatenate([chr_start_idx, chr_end_idx, min_idx]))
 
-    boundaries_start_bp = np.array([chr_start[idx] for idx in min_idx])
-
     mean_mat_all = matrix.mean(axis=1)
 
-    for delta_threshold in args.delta:
-        prefix = args.outPrefix + "_delta{}".format(delta_threshold)
-        filtered_min_idx = []
-        for idx in min_idx:
-            # filter by delta threshold value
-            if idx not in delta_of_min:
-                delta_of_min[idx] = np.nan
-            if delta_of_min[idx] >= delta_threshold:
-                filtered_min_idx += [idx]
-        sys.stderr.write("Number of boundaries for delta {}: {}\n".format(delta_threshold, len(filtered_min_idx)))
-        count = 1
-        with open(prefix + '_boundaries.bed', 'w') as file_boundary_bin, open(prefix + '_domains.bed', 'w') as file_domains:
-            for idx, min_bin_id in enumerate(filtered_min_idx):
-                # skip if the start of the boundary
-                # is the end of the chromosome
-                if min_bin_id in chr_end_idx:
-                    continue
+    prefix = args.outPrefix + "_delta{}_pval{}".format(args.delta, args.pvalue)
+    filtered_min_idx = []
+    for idx in min_idx:
+        # filter by delta and pvalue_thresholds
+        if idx not in delta_of_min:
+            delta_of_min[idx] = np.nan
+        if delta_of_min[idx] >= args.delta and pvalue_of_min[idx] <= args.pvalue:
+            filtered_min_idx += [idx]
+    sys.stderr.write("Number of boundaries for delta {} and pval {}: {}\n".format(args.delta, args.pvalue,
+                                                                                  len(filtered_min_idx)))
+    count = 1
+    with open(prefix + '_boundaries.bed', 'w') as file_boundary_bin, open(prefix + '_domains.bed', 'w') as file_domains, open(prefix + '_boundaries.gff', 'w') as gff:
+        for idx, min_bin_id in enumerate(filtered_min_idx):
+            # skip if the start of the boundary
+            # is the end of the chromosome
+            if min_bin_id in chr_end_idx:
+                continue
 
-                if min_bin_id not in delta_of_min:
-                    delta_of_min[min_bin_id] = np.nan
+            if min_bin_id not in delta_of_min:
+                delta_of_min[min_bin_id] = np.nan
 
-                # 1. save boundaries at 1bp position
-                right_bin_center = chr_start[min_bin_id] + int((chr_end[min_bin_id] - chr_start[min_bin_id]) / 2)
+            # 1. save boundaries at 1bp position
+            right_bin_center = chr_start[min_bin_id] + int((chr_end[min_bin_id] - chr_start[min_bin_id]) / 2)
 
-                left_bin_center = chr_start[min_bin_id - 1] + int((chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) / 2)
+            left_bin_center = chr_start[min_bin_id - 1] + int((chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) / 2)
 
-                if chrom[min_bin_id] != chrom[min_bin_id - 1]:
-                    continue
+            if chrom[min_bin_id] != chrom[min_bin_id - 1]:
+                continue
 
-                # 2. save the position of the boundary range
-                file_boundary_bin.write("{}\t{}\t{}\tdelta_{}_pval_{}\t{}\t.\n".format(chrom[min_bin_id],
-                                                                               left_bin_center,
-                                                                               right_bin_center,
-                                                                               delta_of_min[min_bin_id],
-                                                                               pvalue_of_min[min_bin_id],
-                                                                               mean_mat_all[min_bin_id]))
+            # 2. save the position of the boundary range
+            file_boundary_bin.write("{}\t{}\t{}\tB{:05d}\t{}\t.\n".format(chrom[min_bin_id],
+                                                                          left_bin_center,
+                                                                          right_bin_center,
+                                                                          min_bin_id,
+                                                                          mean_mat_all[min_bin_id]))
 
-                start = chr_start[min_bin_id]
-                # check that the next boundary exists and is in the same chromosome
-                if idx + 1 == len(filtered_min_idx) or chrom[min_bin_id] != chrom[filtered_min_idx[idx + 1]]:
-                    continue
+            # safe gff file that can contain more information
+            gff.write("{chrom}\tHiCExplorer\tboundary\t{start}\t{end}\t{score}"
+                      "\t.\t.\tID=B{id:05d};delta={delta};pvalue={pvalue};tad_sep={score}\n".format(chrom=chrom[min_bin_id],
+                                                                                                  start=left_bin_center,
+                                                                                                  end=right_bin_center,
+                                                                                                  delta=delta_of_min[min_bin_id],
+                                                                                                  pvalue=pvalue_of_min[min_bin_id],
+                                                                                                  score=mean_mat_all[min_bin_id],
+                                                                                                  id=min_bin_id))
 
-                end = chr_end[filtered_min_idx[idx + 1]]
+            start = chr_start[min_bin_id]
+            # check that the next boundary exists and is in the same chromosome
+            if idx + 1 == len(filtered_min_idx) or chrom[min_bin_id] != chrom[filtered_min_idx[idx + 1]]:
+                continue
 
-                # 2. save domain intervals
-                if count % 2 == 0:
-                    rgb = '51,160,44'
-                else:
-                    rgb = '31,120,180'
+            end = chr_end[filtered_min_idx[idx + 1]]
 
-                file_domains.write("{0}\t{1}\t{2}\tID_{6}_{3}\t{4}\t.\t{1}\t{2}\t{5}\n".format(chrom[min_bin_id],
-                                                                                               start, end, count,
-                                                                                               mean_mat_all[min_bin_id],
-                                                                                               rgb, delta_threshold))
+            # 2. save domain intervals
+            if count % 2 == 0:
+                rgb = '51,160,44'
+            else:
+                rgb = '31,120,180'
 
-                count += 1
+            file_domains.write("{0}\t{1}\t{2}\tID_{6}_{3}\t{4}\t.\t{1}\t{2}\t{5}\n".format(chrom[min_bin_id],
+                                                                                           start, end, count,
+                                                                                           mean_mat_all[min_bin_id],
+                                                                                           rgb, args.delta))
+
+            count += 1
 
     # save track with mean values in bedgraph format
     with open(args.outPrefix + '_score.bedgraph', 'w') as tad_score:
@@ -1026,7 +1069,7 @@ def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000
 
         if len(left) == 0 and len(right) == 0:
             pval = np.nan
-            continue
+
         elif boundary is None or len(boundary) == 0:
             pval = np.nan
         else:
@@ -1037,8 +1080,65 @@ def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000
                 pval = np.nan
 
         pvalues += [pval]
-        if delta[idx] > 0.04 and pval > 0.001:
-            import ipdb; ipdb.set_trace()
+        #if delta[idx] > 0.04 and pval > 0.001:
+        #    import ipdb; ipdb.set_trace()
+
+    assert len(pvalues) == len(new_min_idx)
+    # bonferroni correction
+    pvalues = np.array(pvalues) * len(pvalues)
+    pvalues[pvalues > 1] = 1
+    return dict(zip(new_min_idx, pvalues))
+
+
+def min_pvalue_diamond_vs_triangle(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000, delta=None):
+    """
+    For each putative local minima, find the -window_len triangle and the +window_len triangle
+    and compare with the local minima dianmond using wilcoxon rank sum.
+
+    Parameters
+    ----------
+    min_idx list of local minima
+    window_len in base pairs
+
+    Returns
+    -------
+    list of p-values per each local minima
+
+    """
+    hic_ma = hm.hiCMatrix(matrix_file)
+
+    sys.stderr.write("Computing p-values for window length: {}\n".format(window_len))
+    pvalues = []
+
+    from scipy.stats import ranksums
+
+    new_min_idx = []
+    for idx in min_idx:
+
+        matrix_idx = hic_ma.getRegionBinRange(chrom[idx], chr_start[idx], chr_end[idx])
+        if matrix_idx is None:
+            continue
+        else:
+            matrix_idx = matrix_idx[0]
+
+        new_min_idx += [idx]
+        min_chr, min_start, min_end, _ = hic_ma.getBinPos(matrix_idx)
+        assert chrom[idx] == min_chr and chr_start[idx] == min_start and chr_end[idx] == min_end
+
+        triangle = get_triangle(hic_ma, matrix_idx, window_len)
+        boundary = get_cut_weight(hic_ma, matrix_idx, window_len)
+        if triangle is None or len(triangle) == 0:
+            pval = np.nan
+        elif boundary is None or len(boundary) == 0:
+            pval = np.nan
+        else:
+            try:
+                pval = ranksums(boundary[boundary.nonzero()], triangle[triangle.nonzero()])[1]
+            except ValueError:
+                # this condition happens when boundary, left and right are only composed of 'zeros'
+                pval = np.nan
+
+        pvalues += [pval]
 
     assert len(pvalues) == len(new_min_idx)
     # bonferroni correction
@@ -1069,8 +1169,12 @@ def main(args=None):
 
     min_idx, delta = find_consensus_minima(matrix, lookahead=lookahead, chrom=chrom)
 
+
     pvalues = min_pvalue(parameters['zscore_matrix'], min_idx, chrom, chr_start, chr_end,
                          window_len=parameters['minDepth'], delta=delta)
+
+    #pvalues = min_pvalue_diamond_vs_triangle(parameters['zscore_matrix'], min_idx, chrom, chr_start, chr_end,
+    #                     window_len=parameters['minDepth'], delta=delta)
     if len(min_idx) <= 10:
         mat_mean = matrix.mean(axis=1)
         m_mean = mat_mean.mean()
