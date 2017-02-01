@@ -526,9 +526,9 @@ class hiCMatrix:
 
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.convert_to_obs_exp_matrix(maxdepth=20).todense()
-        matrix([[ 1. ,  0.8,  0. ,  0. ,  0. ],
-                [ 0. ,  4. ,  1.5,  0. ,  0. ],
-                [ 0. ,  0. ,  0. ,  0.7,  0. ],
+        matrix([[ 1. ,  0.8,  1. ,  0. ,  0. ],
+                [ 0. ,  4. ,  1.5,  1. ,  0. ],
+                [ 0. ,  0. ,  0. ,  0.7,  nan],
                 [ 0. ,  0. ,  0. ,  0. ,  nan],
                 [ 0. ,  0. ,  0. ,  0. ,  0. ]])
 
@@ -545,11 +545,12 @@ class hiCMatrix:
 
         binsize = self.getBinSize()
         max_depth_in_bins = None
+
         if maxdepth:
             if maxdepth < binsize:
                 exit("Please specify a maxDepth larger than bin size ({})".format(binsize))
 
-            max_depth_in_bins = int(maxdepth / binsize)
+            max_depth_in_bins = int(float(maxdepth * 1.5) / binsize)
             # work only with the upper matrix
             # and remove all pixels that are beyond
             # max_depth_in_bis
@@ -561,7 +562,7 @@ class hiCMatrix:
             self.matrix = triu(self.matrix, k=0, format='csr')
 
         self.matrix.eliminate_zeros()
-
+        depth = None
         if zscore is True:
             from scipy.sparse import diags
             m_size = self.matrix.shape[0]
@@ -587,12 +588,15 @@ class hiCMatrix:
             # then, -1 is subtracted to the self.matrix.data, thus effectively
             # adding zeros.
             diag_mat_ones = diags(np.repeat([1], m_size * depth).reshape(depth, m_size), range(depth))
+
             self.matrix += diag_mat_ones
 
+        self.matrix = self.matrix.tocoo()
+
+        if zscore is True:
+            # this step has to be done after tocoo()
             self.matrix.data -= 1
             assert prev_mat_sum == self.matrix.sum()
-
-        self.matrix = self.matrix.tocoo()
 
         dist_list, chrom_list = self.getDistList(self.matrix.row, self.matrix.col,
                                                  hiCMatrix.fit_cut_intervals(self.cut_intervals))
@@ -608,10 +612,11 @@ class hiCMatrix:
 
         dist_list[dist_list == -1] = -binsize
         # divide by binsize to get a list of bin distances and add +1 to remove negative values
-        dist_list = (dist_list / binsize).astype(int) + 1
+        dist_list = (np.array(dist_list).astype(float) / binsize).astype(int) + 1
 
         # for each distance, return the sum of all values
         sum_counts = np.bincount(dist_list, weights=self.matrix.data)
+        distance_len = np.bincount(dist_list)
         # compute the average for each distance
         mat_size = self.matrix.shape[0]
         mu = {}
@@ -650,10 +655,19 @@ class hiCMatrix:
                 # idx - 1 because earlier the values where
                 # shifted.
                 diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes if size > (bin_dist_plus_one - 1)])
+
+            # the diagonal length should contain the number of values at a certain distance.
+            # If the matrix is dense, the distance_len[bin_dist_plus_one] correctly contains the number of values
+            # If the matrix is equally spaced, then, the diagonal_length as computed before is accurate.
+            # But, if the matrix is both sparse and with unequal bins, then none of the above methods is
+            # accurate but the the diagonal_length as computed before will be closer.
+            diagonal_length = max(diagonal_length, distance_len[bin_dist_plus_one])
+
             if diagonal_length == 0:
                 mu[bin_dist_plus_one] = np.nan
             else:
-                mu[bin_dist_plus_one] = float(sum_value) / diagonal_length
+                mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
+
             if np.isnan(sum_value):
                 sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one-1) * binsize))
 
@@ -674,6 +688,8 @@ class hiCMatrix:
         # use the expected values to compute obs/exp
         transf_ma = np.zeros(len(self.matrix.data))
         for idx, value in enumerate(self.matrix.data):
+            if depth is not None and dist_list[idx] > depth + 1:
+                continue
             if zscore:
                 transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
             else:
@@ -681,6 +697,7 @@ class hiCMatrix:
 
         self.matrix.data = transf_ma
         self.matrix = self.matrix.tocsr()
+
         return self.matrix
 
     def getCountsByDistance(self, mean=False, per_chr=False):
