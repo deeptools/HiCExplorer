@@ -16,15 +16,13 @@
             #if $mode.mode_selector == 'find_TADs':
                 --tadScoreFile '$tadScoreFile'
                 --outPrefix galaxy_tad_prefix
-                --maxThreshold $mode.maxThreshold
                 --delta $mode.delta
-                --lookahead $mode.lookahead
+                --minBoundaryDistance $mode.minBoundaryDistance
             #else:
                 --matrix matrix.npz.h5
                 --maxDepth $mode.maxDepth
                 --minDepth $mode.minDepth
                 --outFileName ./tadScoreFile.tabular
-                $mode.useLogValues
                 --step $mode.step
             #end if
 
@@ -38,28 +36,37 @@
             </param>
             <when value="find_TADs">
                 <param argument="--tadScoreFile" type="data" format="tabular" label="TAD score file"/>
-                <param argument="--maxThreshold" type="float" value="0.3" optional="True" label="Only call boundaries that have an score below this threshold"/>
 
-                <param argument="--delta" type="float" value="0.001" optional="True" label="Minimum difference between a peak and followingpoints"/>
+                <param argument="--delta" type="float" value="0.001" optional="True"
+                       label="Minimum threshold of the difference between the TAD-separation score of a putative boundary and the mean of the TAD-sep. score of surrounding bins."
+                        help="The delta value reduces spurious boundaries that are shallow, which usually
+                              occur at the center of large TADs when the TAD-sep. score is flat. Higher
+                              delta threshold values produce more conservative boundary estimations. By
+                              default, multiple delta thresholds are saved for the following delta
+                              values: 0.001, 0.01, 0.03, 0.05, 0.1. Other single or multiple values
+                              can be given."/>
 
-                <param argument="--lookahead" type="integer" value="2" optional="True"
-                    label="Number of bins ahead to look for before deciding if a local minimum is a boundary.points"/>
+                <param argument="--minBoundaryDistance" type="integer" value="2" optional="True"
+                    label="Minimum distance between boundaries (in bp)."
+                    help="Use this parameter to reduce spurious boundaries caused by noise. "/>
 
 
             </when>
             <when value="TAD_score">
 
-                <param argument="--matrix" type="data" format="h5" label="Matrix to use"/>
-                <param argument="--minDepth" type="integer" value="20000"
-                    label="Window length to be considered left and right of the cut point in bp"
-                    help="This number should be at least 2 times as large as the bin size of the Hi-C matrix."/>
-                <param argument="--maxDepth" type="integer" value="60000"
-                    label="Window length to be considered left and right of the cut point in bp"
-                    help="This number should around 6 times as large as the bin size of the Hi-C matrix."/>
+                <param argument="--matrix" type="data" format="h5" label="Corrected Hi-C matrix to use for the computations"/>
+                <param argument="--minDepth" type="integer" value="30000"
+                    label="Minimum window length (in bp) to be considered to the left and to the right of each Hi-C bin."
+                    help="This number should be at least 3 times as large as the bin size of the Hi-C matrix."/>
+                <param argument="--maxDepth" type="integer" value="100000"
+                    label="Maximum window length (in bp) to be considered to the left and to the right of each Hi-C bin."
+                    help="This number should around 6-10 times as large as the bin size of the Hi-C matrix."/>
                 <param argument="--step" type="integer" value="10000"
-                    label="Step size when moving from minDepth to maxDepth"/>
-                <param argument="--useLogValues" type="boolean" truevalue="--useLogValues" falsevalue=""
-                    label="If set, the log of the matrix values areused" />
+                    label="Step size when moving from minDepth to maxDepth"
+                    help="The step size grows exponentially as `maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]`
+                    until  it reaches `maxDepth`. For example, selecting step=10,000, minDepth=20,000
+                    and maxDepth=150,000 will compute TAD-scores for window sizes:
+                    20,000, 30,000, 40,000, 70,000 and 100,000"/>
             </when>
         </conditional>
 
@@ -94,8 +101,8 @@
         <test>
             <param name="tadScoreFile" value="hicFindTADs_TAD_score.tabular" ftype="tabular"/>
             <param name="mode_selector" value="find_TADs"/>
-            <param name="delta" value="0.002"/>
-            <param name="lookahead" value="2"/>
+            <param name="delta" value="0.001 0.01 0.03 0.05 0.1"/>
+            <param name="minBoundaryDistance" value="30000"/>
             <param name="maxThreshold" value="0.2"/>
             <output name="boundaries" file="hicFindTADs_find_boundaries.bed" ftype="bed"/>
             <output name="score" file="hicFindTADs_find_score.bedgraph" ftype="bedgraph"/>

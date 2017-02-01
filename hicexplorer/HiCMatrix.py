@@ -350,20 +350,12 @@ class hiCMatrix:
         """
         return self.chrBinBoundaries.keys()
 
-    def getBinPos(self, binIndex, includeBinId=False):
+    def getBinPos(self, binIndex):
         """
         given a bin, it returns the chromosome name,
         start position and end position
         """
-        if includeBinId:
-            chrom, start, end, extra = self.cut_intervals[binIndex]
-            # I dont understand this part. There was
-            # a typo in original implementation?
-            ret = (chrom, start, end, chrom)
-#            ret = (self.nameList[binIndex], self.startList[binIndex], self.endList[binIndex], self.nameList[binIndex] )
-        else:
-            ret = self.cut_intervals[binIndex]
-        return ret
+        return self.cut_intervals[binIndex]
 
     def getRegionBinRange(self, chrname, startpos, endpos):
         """
@@ -482,14 +474,25 @@ class hiCMatrix:
                              'the bin distance to the median: {}\n'.format(median))
         return cut_intervals
 
+    def convert_to_zscore_matrix(self, maxdepth=None):
+        return self.convert_to_obs_exp_matrix(maxdepth=maxdepth, zscore=True)
+
     def convert_to_obs_exp_matrix(self, maxdepth=None, zscore=False):
         """
         Converts a corrected counts matrix into a
-        obs / expected matrix fast
+        obs / expected matrix or z-scores fast.
+
+        The caveat is that the obs/exp or z-score are only
+        computed for non-zero values, although zero values that
+        are not part of the sparse matrix are considered.
+
+        For each diagonal the mean (and std when computing z-scores) are
+        calculated and then each non-zero value of the sparse matrix is
+        replaced by the obs/exp or z-score.
 
         :param maxdepth:
         :param zscore: if a zscore wants to be returned instead of obs/exp
-        :return: observer / expected sparse matrix
+        :return: observed / expected sparse matrix
 
         from scipy.sparse import csr_matrix, dia_matrix
         >>> row, col = np.triu_indices(5)
@@ -515,29 +518,31 @@ class hiCMatrix:
 
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.convert_to_obs_exp_matrix(maxdepth=20).todense()
-        matrix([[ 1. ,  0.8,  0. ,  0. ,  0. ],
-                [ 0. ,  4. ,  1.5,  0. ,  0. ],
-                [ 0. ,  0. ,  0. ,  0.7,  0. ],
+        matrix([[ 1. ,  0.8,  1. ,  0. ,  0. ],
+                [ 0. ,  4. ,  1.5,  1. ,  0. ],
+                [ 0. ,  0. ,  0. ,  0.7,  nan],
                 [ 0. ,  0. ,  0. ,  0. ,  nan],
                 [ 0. ,  0. ,  0. ,  0. ,  0. ]])
 
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.convert_to_obs_exp_matrix(zscore=True).todense()
-        matrix([[ 0.        , -0.32444284,         nan,         nan,  0.        ],
-                [ 0.        ,  0.8660254 ,  0.81110711,         nan,  0.        ],
-                [ 0.        ,  0.        ,  0.        , -0.48666426,  0.70710678],
-                [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
-                [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ]])
+        matrix([[ 0.        , -0.56195149,         nan,         nan, -1.41421356],
+                [ 0.        ,  1.93649167,  1.40487872,         nan,  0.        ],
+                [ 0.        ,  0.        , -0.64549722, -0.84292723,  1.41421356],
+                [ 0.        ,  0.        ,  0.        , -0.64549722,  0.        ],
+                [ 0.        ,  0.        ,  0.        ,  0.        , -0.64549722]])
 
         nans occur where the standard deviation is zero
         """
 
         binsize = self.getBinSize()
+        max_depth_in_bins = None
+
         if maxdepth:
             if maxdepth < binsize:
                 exit("Please specify a maxDepth larger than bin size ({})".format(binsize))
 
-            max_depth_in_bins = int(maxdepth / binsize)
+            max_depth_in_bins = int(float(maxdepth * 1.5) / binsize)
             # work only with the upper matrix
             # and remove all pixels that are beyond
             # max_depth_in_bis
@@ -549,7 +554,42 @@ class hiCMatrix:
             self.matrix = triu(self.matrix, k=0, format='csr')
 
         self.matrix.eliminate_zeros()
+        depth = None
+        if zscore is True:
+            from scipy.sparse import diags
+            m_size = self.matrix.shape[0]
+            prev_mat_sum = self.matrix.sum()
+            if max_depth_in_bins is not None:
+                depth = max_depth_in_bins
+            else:
+                depth = m_size
+                estimated_size_dense_matrix = m_size**2 * 8
+                if estimated_size_dense_matrix > 100e6:
+                    sys.stderr.write("To compute z-scores a dense matrix is required. This will use \n"
+                                     "{} Mb of memory.\n To reduce memory use the maxdeph option."
+                                     "".format(estimated_size_dense_matrix / 1e6))
+
+            # to compute zscore the zero values need to be accounted and the matrix
+            # need to become dense. This is only practical if only up to certain distance
+            # wants to be evaluated, otherwise the dense matrix is too large.
+            # To make the matrix dense and keep the same computations as when
+            # the matrix is sparse the following is done:
+            # A sparse diagonal matrix of shape = matrix.shape is created with ones
+            # (only upper triangle contains diagonals up to maxdeph)
+            # This  sparse matrix is then added to self.matrix
+            # then, -1 is subtracted to the self.matrix.data, thus effectively
+            # adding zeros.
+            diag_mat_ones = diags(np.repeat([1], m_size * depth).reshape(depth, m_size), range(depth))
+
+            self.matrix += diag_mat_ones
+
         self.matrix = self.matrix.tocoo()
+
+        if zscore is True:
+            # this step has to be done after tocoo()
+            self.matrix.data -= 1
+            assert prev_mat_sum == self.matrix.sum()
+
         dist_list, chrom_list = self.getDistList(self.matrix.row, self.matrix.col,
                                                  hiCMatrix.fit_cut_intervals(self.cut_intervals))
 
@@ -564,17 +604,18 @@ class hiCMatrix:
 
         dist_list[dist_list == -1] = -binsize
         # divide by binsize to get a list of bin distances and add +1 to remove negative values
-        dist_list = (dist_list / binsize).astype(int) + 1
+        dist_list = (np.array(dist_list).astype(float) / binsize).astype(int) + 1
 
         # for each distance, return the sum of all values
         sum_counts = np.bincount(dist_list, weights=self.matrix.data)
+        distance_len = np.bincount(dist_list)
         # compute the average for each distance
         mat_size = self.matrix.shape[0]
         mu = {}
         std = {}
         chrom_sizes = np.array([v[1]-v[0] for k, v in self.chrBinBoundaries.iteritems()])
-
         # compute mean value for each distance
+
         for bin_dist_plus_one, sum_value in enumerate(sum_counts):
             if maxdepth and bin_dist_plus_one == 0:  # this is for intra chromosomal counts
                 # when max depth is set, the computation
@@ -606,25 +647,41 @@ class hiCMatrix:
                 # idx - 1 because earlier the values where
                 # shifted.
                 diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes if size > (bin_dist_plus_one - 1)])
-            mu[bin_dist_plus_one] = sum_value / diagonal_length
+
+            # the diagonal length should contain the number of values at a certain distance.
+            # If the matrix is dense, the distance_len[bin_dist_plus_one] correctly contains the number of values
+            # If the matrix is equally spaced, then, the diagonal_length as computed before is accurate.
+            # But, if the matrix is both sparse and with unequal bins, then none of the above methods is
+            # accurate but the the diagonal_length as computed before will be closer.
+            diagonal_length = max(diagonal_length, distance_len[bin_dist_plus_one])
+
+            if diagonal_length == 0:
+                mu[bin_dist_plus_one] = np.nan
+            else:
+                mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
+
             if np.isnan(sum_value):
                 sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one-1) * binsize))
 
-            # if zscore is needed, compute standard deviation
+            # if zscore is needed, compute standard deviation: std = sqrt(mean(abs(x - x.mean())**2))
             if zscore:
                 values_sqrt_diff = \
-                    np.array((self.matrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
+                    np.abs((self.matrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
                 # the standard deviation is the sum of the differences with mu squared (value variable)
                 # plus all zeros that are not included in the sparse matrix
                 # for which the standard deviation is
                 # (0 - mu)**2 = (mu)**2
                 # The number of zeros is the diagonal length - the length of the non zero values
-                zero_values_sqrt_diff = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
-                std[bin_dist_plus_one] = np.sqrt(values_sqrt_diff.sum() + zero_values_sqrt_diff)
+                zero_values_sqrt_diff_sum = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
+
+                _std = np.sqrt((values_sqrt_diff.sum() + zero_values_sqrt_diff_sum)/diagonal_length)
+                std[bin_dist_plus_one] = _std
 
         # use the expected values to compute obs/exp
         transf_ma = np.zeros(len(self.matrix.data))
         for idx, value in enumerate(self.matrix.data):
+            if depth is not None and dist_list[idx] > depth + 1:
+                continue
             if zscore:
                 transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
             else:
@@ -632,6 +689,7 @@ class hiCMatrix:
 
         self.matrix.data = transf_ma
         self.matrix = self.matrix.tocsr()
+
         return self.matrix
 
     def getCountsByDistance(self, mean=False, per_chr=False):
@@ -863,7 +921,6 @@ class hiCMatrix:
             pass
         self.matrix = mat
         return self.matrix
-
 
     def save_bing_ren(self, fileName):
         """
@@ -1268,7 +1325,6 @@ class hiCMatrix:
 
         self.nan_bins = np.flatnonzero(self.matrix.sum(0).A == 0)
 
-
     def restoreMaskedBins(self):
         """
         Puts backs into the matrix the bins
@@ -1406,8 +1462,7 @@ class hiCMatrix:
                 chr_dict))
         self.maskBins(to_remove)
 
-    def printchrtoremove(self, to_remove,
-                         label="Number of poor regions to remove"):
+    def printchrtoremove(self, to_remove, label="Number of poor regions to remove"):
         """
         prints out the number of bin per chromosomes
         that will be removed
@@ -1440,7 +1495,6 @@ class hiCMatrix:
                 len(to_remove),
                 cnt))
         self.prev_to_remove = to_remove
-
 
     def removeBySequencedCount(self, sequencedFraction=0.5):
         """

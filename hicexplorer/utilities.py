@@ -319,7 +319,8 @@ def _fdr(pvalues):
     i = np.arange(1, len_pvals + 1)[::-1]
     order = np.argsort(pvalues)[::-1]
     rorder = np.argsort(order)
-    # clip values bigger then 1 or smaller than 0
+
+    # clip values bigger than 1 or smaller than 0
     return np.clip(float(len_pvals) / i * pvalues[order], 0, 1)[rorder]
 
 
