@@ -842,7 +842,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
             if idx + 1 == len(filtered_min_idx) or chrom[min_bin_id] != chrom[filtered_min_idx[idx + 1]]:
                 continue
 
-            end = chr_end[filtered_min_idx[idx + 1]]
+            end = chr_start[filtered_min_idx[idx + 1]]
 
             # 2. save domain intervals
             if count % 2 == 0:
@@ -863,7 +863,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
             right_bin_center = chr_start[idx] + int((chr_end[idx] - chr_start[idx]) / 2)
             left_bin_center = chr_start[idx - 1] + int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
             if right_bin_center < left_bin_center:
-                # this contition happens at chromosome borders
+                # this condition happens at chromosome borders
                 continue
             tad_score.write("{}\t{}\t{}\t{}\n".format(chrom[idx], left_bin_center, right_bin_center,
                                                       mean_mat_all[idx]))
@@ -1074,7 +1074,9 @@ def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000
             pval = np.nan
         else:
             try:
-                pval = ranksums(boundary, np.concatenate([left, right]))[1]
+                pval1 = ranksums(boundary, left)[1]
+                pval2 = ranksums(boundary, right)[1]
+                pval = min(pval1, pval2)
             except ValueError:
                 # this condition happens when boundary, left and right are only composed of 'zeros'
                 pval = np.nan
