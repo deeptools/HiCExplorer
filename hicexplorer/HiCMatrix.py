@@ -475,7 +475,7 @@ class hiCMatrix:
         return cut_intervals
 
     def convert_to_zscore_matrix(self, maxdepth=None, perchr=False):
-        return self.convert_to_obs_exp_matrix(maxdepth=maxdepth, zscore=True, perchr)
+        return self.convert_to_obs_exp_matrix(maxdepth=maxdepth, zscore=True, perchr=perchr)
 
     def convert_to_obs_exp_matrix(self, maxdepth=None, zscore=False, perchr=False):
         """

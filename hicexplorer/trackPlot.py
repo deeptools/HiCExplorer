@@ -30,8 +30,7 @@ DEFAULT_MATRIX_COLORMAP = 'RdYlBu_r'
 DEFAULT_TRACK_HEIGHT = 3  # in centimeters
 DEFAULT_FIGURE_WIDTH = 40  # in centimeters
 # proportion of width dedicated to (figure, legends)
-#DEFAULT_WIDTH_RATIOS = (0.90, 0.1)
-DEFAULT_WIDTH_RATIOS = (0.80, 0.2)
+DEFAULT_WIDTH_RATIOS = (0.93, 0.07)
 DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 
 
@@ -55,7 +54,7 @@ class MultiDict(OrderedDict):
 class PlotTracks(object):
 
     def __init__(self, tracks_file, fig_width=DEFAULT_FIGURE_WIDTH,
-                 fig_height=None, fontsize=None, dpi=None):
+                 fig_height=None, fontsize=None, dpi=None, track_label_width=None):
         self.fig_width = fig_width
         self.fig_height = fig_height
         self.dpi = dpi
@@ -67,6 +66,10 @@ class PlotTracks(object):
             fontsize = fontsize
         else:
             fontsize = float(fig_width) * 0.3
+        if track_label_width is None:
+            self.width_ratios = DEFAULT_WIDTH_RATIOS
+        else:
+            self.width_ratios = (1 - track_label_width, track_label_width)
 
         font = {'size': fontsize}
         matplotlib.rc('font', **font)
@@ -102,12 +105,7 @@ class PlotTracks(object):
 
             if 'title' in properties:
                 # adjust titles that are too long
-                try:
-                    text = properties['title'].decode('utf-8')
-                except:
-                    text = properties['title']
-
-                properties['title'] = textwrap.fill(text, 12)
+                properties['title'] = textwrap.fill(properties['title'], 12)
 
         print "time initializing track(s):"
         self.print_elapsed(start)
@@ -145,7 +143,7 @@ class PlotTracks(object):
                 # DEFAULT_MARGINS[1] - DEFAULT_MARGINS[0] is the proportion of plotting area
 
                 hic_width = \
-                    self.fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * DEFAULT_WIDTH_RATIOS[0]
+                    self.fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * self.width_ratios[0]
                 scale_factor = 0.6  # the scale factor is to obtain a 'pleasing' result.
                 depth = min(track_dict['depth'], (end - start))
 
@@ -170,7 +168,7 @@ class PlotTracks(object):
 
         grids = matplotlib.gridspec.GridSpec(len(track_height), 2,
                                              height_ratios=track_height,
-                                             width_ratios=DEFAULT_WIDTH_RATIOS)
+                                             width_ratios=self.width_ratios)
         axis_list = []
         for idx, track in enumerate(self.track_obj_list):
             axis = axisartist.Subplot(fig, grids[idx, 0])

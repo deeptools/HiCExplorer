@@ -167,7 +167,6 @@ from __future__ import division
 import sys
 import argparse
 import matplotlib
-import numpy as np
 matplotlib.use('Agg')
 
 import hicexplorer.trackPlot
@@ -201,14 +200,14 @@ def parse_arguments(args=None):
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument('--region',
-                        help='Region to plot, the format is chr:start-end')
+                       help='Region to plot, the format is chr:start-end')
 
     group.add_argument('--BED',
-                        help='Instead of a region, a file containing the regions to plot, in BED format, '
+                       help='Instead of a region, a file containing the regions to plot, in BED format, '
                              'can be given. If this is the case, multiple files will be created using a prefix '
                              'the value of --outFileName',
-                        type=argparse.FileType('r')
-                        )
+                       type=argparse.FileType('r')
+                       )
 
     parser.add_argument('--width',
                         help='figure width in centimeters',
@@ -259,6 +258,12 @@ def parse_arguments(args=None):
                         default=72
                         )
 
+    parser.add_argument('--trackLabelFraction',
+                        help='By default the space dedicated to the track labels is 0.1 of the'
+                             'plot width. This fraction can be changed with this parameter if needed.',
+                        default=0.5,
+                        type=float)
+
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -291,11 +296,13 @@ def get_region(region_string):
 
         return chrom, region_start, region_end
 
+
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
     trp = hicexplorer.trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
-                                           fontsize=args.fontSize, dpi=args.dpi)
+                                           fontsize=args.fontSize, dpi=args.dpi,
+                                           track_label_width=args.trackLabelFraction)
 
     if args.BED:
         count = 0
