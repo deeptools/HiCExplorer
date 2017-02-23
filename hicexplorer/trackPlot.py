@@ -30,7 +30,8 @@ DEFAULT_MATRIX_COLORMAP = 'RdYlBu_r'
 DEFAULT_TRACK_HEIGHT = 3  # in centimeters
 DEFAULT_FIGURE_WIDTH = 40  # in centimeters
 # proportion of width dedicated to (figure, legends)
-DEFAULT_WIDTH_RATIOS = (0.93, 0.07)
+#DEFAULT_WIDTH_RATIOS = (0.90, 0.1)
+DEFAULT_WIDTH_RATIOS = (0.80, 0.2)
 DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 
 
@@ -101,7 +102,12 @@ class PlotTracks(object):
 
             if 'title' in properties:
                 # adjust titles that are too long
-                properties['title'] = textwrap.fill(properties['title'], 12)
+                try:
+                    text = properties['title'].decode('utf-8')
+                except:
+                    text = properties['title']
+
+                properties['title'] = textwrap.fill(text, 12)
 
         print "time initializing track(s):"
         self.print_elapsed(start)
