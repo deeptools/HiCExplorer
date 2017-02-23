@@ -27,8 +27,8 @@ before_install:
 
 # Install packages
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython
-  - conda install --yes -c bioconda pysam pyBigWig intervaltree
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=1.5.3 nose flake8 pytables
+  - conda install --yes -c bioconda biopython pysam pyBigWig intervaltree
   - python setup.py install
 
 # command to run tests
