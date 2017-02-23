@@ -22,7 +22,7 @@ data like genes, compartments, ChIP-seq coverage tracks (and in general any type
 
 
 
-.. image:: http://hicexplorer.readthedocs.org/en/latest/_images/hicexplorer.png
+.. image:: http://hicexplorer.readthedocs.org/en/latest/_images/hicex2.png
 
 
 For more the complete documentation visit `<http://hicexplorer.readthedocs.org/>`_
