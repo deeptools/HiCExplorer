@@ -791,7 +791,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
 
     mean_mat_all = matrix.mean(axis=1)
 
-    prefix = args.outPrefix + "_delta{}_pval{}".format(args.delta, args.pvalue)
+    prefix = args.outPrefix
     filtered_min_idx = []
     for idx in min_idx:
         # filter by delta and pvalue_thresholds
