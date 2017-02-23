@@ -474,10 +474,10 @@ class hiCMatrix:
                              'the bin distance to the median: {}\n'.format(median))
         return cut_intervals
 
-    def convert_to_zscore_matrix(self, maxdepth=None):
-        return self.convert_to_obs_exp_matrix(maxdepth=maxdepth, zscore=True)
+    def convert_to_zscore_matrix(self, maxdepth=None, perchr=False):
+        return self.convert_to_obs_exp_matrix(maxdepth=maxdepth, zscore=True, perchr)
 
-    def convert_to_obs_exp_matrix(self, maxdepth=None, zscore=False):
+    def convert_to_obs_exp_matrix(self, maxdepth=None, zscore=False, perchr=False):
         """
         Converts a corrected counts matrix into a
         obs / expected matrix or z-scores fast.
@@ -558,7 +558,6 @@ class hiCMatrix:
         if zscore is True:
             from scipy.sparse import diags
             m_size = self.matrix.shape[0]
-            prev_mat_sum = self.matrix.sum()
             if max_depth_in_bins is not None:
                 depth = max_depth_in_bins
             else:
@@ -583,112 +582,132 @@ class hiCMatrix:
 
             self.matrix += diag_mat_ones
 
-        self.matrix = self.matrix.tocoo()
+        from scipy.sparse import lil_matrix
+        trasf_matrix = lil_matrix(self.matrix.shape)
 
-        if zscore is True:
-            # this step has to be done after tocoo()
-            self.matrix.data -= 1
-            assert prev_mat_sum == self.matrix.sum()
+        chr_submatrix = OrderedDict()
+        cut_intervals = OrderedDict()
+        chrom_sizes = OrderedDict()
+        chrom_range = OrderedDict()
+        if perchr:
+            for chrname in self.getChrNames():
+                chr_range = self.getChrBinRange(chrname)
+                chr_submatrix[chrname] = self.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]].tocoo()
+                cut_intervals[chrname] = [self.cut_intervals[x] for x in range(chr_range[0], chr_range[1])]
+                chrom_sizes[chrname] = [chr_submatrix[chrname].shape[0]]
+                chrom_range[chrname] = (chr_range[0], chr_range[1])
 
-        dist_list, chrom_list = self.getDistList(self.matrix.row, self.matrix.col,
-                                                 hiCMatrix.fit_cut_intervals(self.cut_intervals))
+        else:
+            chr_submatrix['all'] = self.matrix.tocoo()
+            cut_intervals['all'] = self.cut_intervals
+            chrom_sizes['all'] = np.array([v[1]-v[0] for k, v in self.chrBinBoundaries.iteritems()])
+            chrom_range['all'] = (0, self.matrix.shape[0])
 
-        # to get the sum of all values at a given distance I use np.bincount which
-        # is quite fast. However, the input of bincount is positive integers. Moreover
-        # it returns the sum for every consecutive integer, even if this is not on the list.
-        # Thus, dist_list, which contains the distance in bp between any two bins is
-        # converted to bin distance.
+        for chrname, submatrix in chr_submatrix.iteritems():
+            sys.stderr.write("processing chromosome {}\n".format(chrname))
+            if zscore is True:
+                # this step has to be done after tocoo()
+                submatrix.data -= 1
 
-        # Because positive integers are needed we add +1 to all bin distances
-        # such that the value of -1 (which means different chromosomes) can now be used
+            dist_list, chrom_list = self.getDistList(submatrix.row, submatrix.col,
+                                                     hiCMatrix.fit_cut_intervals(cut_intervals[chrname]))
 
-        dist_list[dist_list == -1] = -binsize
-        # divide by binsize to get a list of bin distances and add +1 to remove negative values
-        dist_list = (np.array(dist_list).astype(float) / binsize).astype(int) + 1
+            # to get the sum of all values at a given distance I use np.bincount which
+            # is quite fast. However, the input of bincount is positive integers. Moreover
+            # it returns the sum for every consecutive integer, even if this is not on the list.
+            # Thus, dist_list, which contains the distance in bp between any two bins is
+            # converted to bin distance.
 
-        # for each distance, return the sum of all values
-        sum_counts = np.bincount(dist_list, weights=self.matrix.data)
-        distance_len = np.bincount(dist_list)
-        # compute the average for each distance
-        mat_size = self.matrix.shape[0]
-        mu = {}
-        std = {}
-        chrom_sizes = np.array([v[1]-v[0] for k, v in self.chrBinBoundaries.iteritems()])
-        # compute mean value for each distance
+            # Because positive integers are needed we add +1 to all bin distances
+            # such that the value of -1 (which means different chromosomes) can now be used
 
-        for bin_dist_plus_one, sum_value in enumerate(sum_counts):
-            if maxdepth and bin_dist_plus_one == 0:  # this is for intra chromosomal counts
-                # when max depth is set, the computation
-                # of the total_intra is not accurate and is safer to
-                # output np.nan
-                mu[bin_dist_plus_one] = np.nan
-                std[bin_dist_plus_one] = np.nan
-                continue
+            dist_list[dist_list == -1] = -binsize
+            # divide by binsize to get a list of bin distances and add +1 to remove negative values
+            dist_list = (np.array(dist_list).astype(float) / binsize).astype(int) + 1
 
-            if bin_dist_plus_one == 0:
-                total_intra = mat_size ** 2 - sum([size ** 2 for size in chrom_sizes])
-                diagonal_length = total_intra / 2
-            else:
-                # to compute the average counts per distance we take the sum_counts and divide
-                # by the number of values on the respective diagonal
-                # which is equal to the size of each chromosome - the diagonal offset (for those
-                # chromosome larger than the offset)
-                # In the following example with two chromosomes
-                # the first (main) diagonal has a size equal to the matrix (6),
-                # while the next has 1 value less for each chromosome (4) and the last one has only 2 values
+            # for each distance, return the sum of all values
+            sum_counts = np.bincount(dist_list, weights=submatrix.data)
+            distance_len = np.bincount(dist_list)
+            # compute the average for each distance
+            mat_size = submatrix.shape[0]
+            mu = {}
+            std = {}
+            # compute mean value for each distance
 
-                # 0 1 2 . . .
-                # - 0 1 . . .
-                # - - 0 . . .
-                # . . . 0 1 2
-                # . . . - 0 1
-                # . . . - - 0
+            for bin_dist_plus_one, sum_value in enumerate(sum_counts):
+                if maxdepth and bin_dist_plus_one == 0:  # this is for intra chromosomal counts
+                    # when max depth is set, the computation
+                    # of the total_intra is not accurate and is safer to
+                    # output np.nan
+                    mu[bin_dist_plus_one] = np.nan
+                    std[bin_dist_plus_one] = np.nan
+                    continue
 
-                # idx - 1 because earlier the values where
-                # shifted.
-                diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes if size > (bin_dist_plus_one - 1)])
+                if bin_dist_plus_one == 0:
+                    total_intra = mat_size ** 2 - sum([size ** 2 for size in chrom_sizes[chrname]])
+                    diagonal_length = total_intra / 2
+                else:
+                    # to compute the average counts per distance we take the sum_counts and divide
+                    # by the number of values on the respective diagonal
+                    # which is equal to the size of each chromosome - the diagonal offset (for those
+                    # chromosome larger than the offset)
+                    # In the following example with two chromosomes
+                    # the first (main) diagonal has a size equal to the matrix (6),
+                    # while the next has 1 value less for each chromosome (4) and the last one has only 2 values
 
-            # the diagonal length should contain the number of values at a certain distance.
-            # If the matrix is dense, the distance_len[bin_dist_plus_one] correctly contains the number of values
-            # If the matrix is equally spaced, then, the diagonal_length as computed before is accurate.
-            # But, if the matrix is both sparse and with unequal bins, then none of the above methods is
-            # accurate but the the diagonal_length as computed before will be closer.
-            diagonal_length = max(diagonal_length, distance_len[bin_dist_plus_one])
+                    # 0 1 2 . . .
+                    # - 0 1 . . .
+                    # - - 0 . . .
+                    # . . . 0 1 2
+                    # . . . - 0 1
+                    # . . . - - 0
 
-            if diagonal_length == 0:
-                mu[bin_dist_plus_one] = np.nan
-            else:
-                mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
+                    # idx - 1 because earlier the values where
+                    # shifted.
+                    diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes[chrname] if size > (bin_dist_plus_one - 1)])
 
-            if np.isnan(sum_value):
-                sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one-1) * binsize))
+                # the diagonal length should contain the number of values at a certain distance.
+                # If the matrix is dense, the distance_len[bin_dist_plus_one] correctly contains the number of values
+                # If the matrix is equally spaced, then, the diagonal_length as computed before is accurate.
+                # But, if the matrix is both sparse and with unequal bins, then none of the above methods is
+                # accurate but the the diagonal_length as computed before will be closer.
+                diagonal_length = max(diagonal_length, distance_len[bin_dist_plus_one])
 
-            # if zscore is needed, compute standard deviation: std = sqrt(mean(abs(x - x.mean())**2))
-            if zscore:
-                values_sqrt_diff = \
-                    np.abs((self.matrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
-                # the standard deviation is the sum of the differences with mu squared (value variable)
-                # plus all zeros that are not included in the sparse matrix
-                # for which the standard deviation is
-                # (0 - mu)**2 = (mu)**2
-                # The number of zeros is the diagonal length - the length of the non zero values
-                zero_values_sqrt_diff_sum = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
+                if diagonal_length == 0:
+                    mu[bin_dist_plus_one] = np.nan
+                else:
+                    mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
 
-                _std = np.sqrt((values_sqrt_diff.sum() + zero_values_sqrt_diff_sum)/diagonal_length)
-                std[bin_dist_plus_one] = _std
+                if np.isnan(sum_value):
+                    sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one-1) * binsize))
 
-        # use the expected values to compute obs/exp
-        transf_ma = np.zeros(len(self.matrix.data))
-        for idx, value in enumerate(self.matrix.data):
-            if depth is not None and dist_list[idx] > depth + 1:
-                continue
-            if zscore:
-                transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
-            else:
-                transf_ma[idx] = value / mu[dist_list[idx]]
+                # if zscore is needed, compute standard deviation: std = sqrt(mean(abs(x - x.mean())**2))
+                if zscore:
+                    values_sqrt_diff = \
+                        np.abs((submatrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
+                    # the standard deviation is the sum of the differences with mu squared (value variable)
+                    # plus all zeros that are not included in the sparse matrix
+                    # for which the standard deviation is
+                    # (0 - mu)**2 = (mu)**2
+                    # The number of zeros is the diagonal length - the length of the non zero values
+                    zero_values_sqrt_diff_sum = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
 
-        self.matrix.data = transf_ma
-        self.matrix = self.matrix.tocsr()
+                    _std = np.sqrt((values_sqrt_diff.sum() + zero_values_sqrt_diff_sum)/diagonal_length)
+                    std[bin_dist_plus_one] = _std
+
+            # use the expected values to compute obs/exp
+            transf_ma = np.zeros(len(submatrix.data))
+            for idx, value in enumerate(submatrix.data):
+                if depth is not None and dist_list[idx] > depth + 1:
+                    continue
+                if zscore:
+                    transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
+                else:
+                    transf_ma[idx] = value / mu[dist_list[idx]]
+            submatrix.data = transf_ma
+            trasf_matrix[chrom_range[chrname][0]:chrom_range[chrname][1], chrom_range[chrname][0]:chrom_range[chrname][1]] = submatrix.tolil()
+
+        self.matrix = trasf_matrix.tocsr()
 
         return self.matrix
 
@@ -781,7 +800,7 @@ class hiCMatrix:
         after the dist_list computation to get the distances right
         """
         # compute the overlap between rows and self.nan_bins
-        # The row_res vector is boleean and contains 'False'
+        # The row_res vector is boolean and contains 'False'
         # for all row ids that are in self.nan_bin
         row_res = np.invert(np.in1d(rows, self.nan_bins))
         col_res = np.invert(np.in1d(cols, self.nan_bins))
@@ -819,7 +838,7 @@ class hiCMatrix:
         data = data[order]
 
         # having the dist_list sorted, np.split
-        # is used to devide the data into
+        # is used to divide the data into
         # groups that lie at the same distance, for this
         # np.diff together with np.flatnonzero is used to
         # find the indices where the distance changes.
