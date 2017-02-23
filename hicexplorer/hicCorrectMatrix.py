@@ -90,7 +90,9 @@ To get detailed help on each of the options:
                            type=float)
 
     plot_mode.add_argument('--perchr',
-                           help='Compute histogram per chromosome',
+                           help='Compute histogram per chromosome. For samples from cells with uneven number '
+                                'of chromosomes and/or translocations it is advisable to check the histograms '
+                                'per chromosome to find the most conservative `filterThreshold`.',
                            action='store_true')
 
     merge_mode = subparsers.add_parser(
