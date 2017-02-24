@@ -2,6 +2,7 @@
 #-*- coding: utf-8 -*-
 from __future__ import division
 import sys
+import logging
 import argparse
 import json
 from hicexplorer import HiCMatrix as hm
@@ -10,6 +11,9 @@ from scipy import sparse
 import numpy as np
 import multiprocessing
 
+logging.basicConfig()
+log = logging.getLogger("hicFindTADs")
+log.setLevel(logging.INFO)
 
 def parse_arguments(args=None):
     """
@@ -69,16 +73,14 @@ For detailed help:
                                           'of each Hi-C bin. This number should be at least 3 times '
                                           'as large as the bin size of the Hi-C matrix.',
                                      metavar='INT bp',
-                                     type=int,
-                                     default=30000)
+                                     type=int)
 
     tad_score_subparser.add_argument('--maxDepth',
                                      help='Maximum window length to be considered to the left and to the right '
                                           'of the cut point in bp. This number should around 6-10 times '
                                           'as large as the bin size of the Hi-C matrix.',
                                      metavar='INT bp',
-                                     type=int,
-                                     default=100000)
+                                     type=int)
 
     tad_score_subparser.add_argument('--step',
                                      help='Step size when moving from --minDepth to --maxDepth. Note, the step size'
@@ -88,9 +90,7 @@ For detailed help:
                                           'and maxDepth=150,000 will compute TAD-scores for window sizes: '
                                           '20,000, 30,000, 40,000, 70,000 and 100,000',
                                      metavar='INT bp',
-                                     type=int,
-                                     default=10000
-                                     )
+                                     type=int)
 
     tad_score_subparser.add_argument('--numberOfProcessors',  '-p',
                                      help='Number of processors to use ',
@@ -106,9 +106,7 @@ For detailed help:
     find_tads_subparser.add_argument('--minBoundaryDistance',
                                      help='Minimum distance between boundaries (in bp). This parameter can be '
                                           'used to reduce spurious boundaries caused by noise. ',
-                                     type=int,
-                                     default=3000
-                                     )
+                                     type=int)
 
     find_tads_subparser.add_argument('--pvalue',
                                      help='P-value threshold. The probability of a local minima to be a boundary '
@@ -665,7 +663,7 @@ def save_linkage(Z, file_name):
     try:
         file_h = open(file_name, 'w')
     except IOError:
-        sys.stderr.write("Can't save linkage file:\n{}".format(file_name))
+        log.error("Can't save linkage file:\n{}".format(file_name))
         return
 
     count = 0
@@ -799,7 +797,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
             delta_of_min[idx] = np.nan
         if delta_of_min[idx] >= args.delta and pvalue_of_min[idx] <= args.pvalue:
             filtered_min_idx += [idx]
-    sys.stderr.write("Number of boundaries for delta {} and pval {}: {}\n".format(args.delta, args.pvalue,
+    log.info("Number of boundaries for delta {} and pval {}: {}".format(args.delta, args.pvalue,
                                                                                   len(filtered_min_idx)))
     count = 1
     with open(prefix + '_boundaries.bed', 'w') as file_boundary_bin, open(prefix + '_domains.bed', 'w') as file_domains, open(prefix + '_boundaries.gff', 'w') as gff:
@@ -870,7 +868,8 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
 
 
 def compute_spectra_matrix(args, matrix=None):
-    if args.maxDepth <= args.minDepth:
+
+    if args.maxDepth is not None and args.minDepth is not none and args.maxDepth <= args.minDepth:
         exit("Please check that maxDepth is larger than minDepth.")
 
     global hic_ma
@@ -880,16 +879,53 @@ def compute_spectra_matrix(args, matrix=None):
         hic_ma = hm.hiCMatrix(args.matrix)
 
     # remove self counts
-    sys.stderr.write('removing diagonal values\n')
+    log.info('removing diagonal values\n')
     hic_ma.diagflat(value=0)
 
     # mask bins without any information
     hic_ma.maskBins(hic_ma.nan_bins)
     orig_intervals = hic_ma.cut_intervals
 
+    binsize = hic_ma.getBinSize()
+
+    if args.maxDepth is None:
+        if binsize < 1000:
+            args.maxDepth = binsize * 60
+        elif 1000 <= binsize < 20000:
+            args.maxDepth = binsize * 20
+        else:
+            args.maxDepth = binsize * 10
+    elif args.maxDepth < binsize * 5:
+        sys.error("Please specify a --maxDepth that is at least 5 times larger than the matrix bin size")
+        exit(1)
+
+    if args.minDepth is None:
+        if binsize < 1000:
+            args.minDepth = binsize * 30
+        elif 1000 <= binsize < 20000:
+            args.minDepth = binsize * 10
+        else:
+            args.minDepth = binsize * 5
+    elif args.minDepth < binsize * 3:
+        log.error("Please specify a --minDepth that is at least 3 times larger than the matrix bin size")
+        exit(1)
+
+    if args.step is None:
+        if binsize < 1000:
+            args.step = binsize * 4
+        else:
+            args.step = binsize * 2
+
+    elif args.step < binsize:
+        log.error("Please specify a --step that is at least the size of the matrix bin size")
+        exit(1)
+
+    args.binsize = binsize
+    print_args(args)
+
     # use zscore matrix
-    sys.stderr.write("Computing z-score matrix...\n")
-    hic_ma.convert_to_zscore_matrix(maxdepth=args.maxDepth*2.5)
+    log.info("Computing z-score matrix...\n")
+    hic_ma.convert_to_zscore_matrix(maxdepth=args.maxDepth*2.5, perchr=True)
 
     # extend remaining bins to remove gaps in
     # the matrix
@@ -907,15 +943,15 @@ def compute_spectra_matrix(args, matrix=None):
     hic_ma.save(args.outFileName + "_zscore_matrix.h5")
 
     if args.minDepth % hic_ma.getBinSize() != 0:
-        sys.stderr.write('Warning. specified *depth* is not multiple of the '
+        log.warn('Warning. specified *depth* is not multiple of the '
              'hi-c matrix bin size ({})\n'.format(hic_ma.getBinSize()))
     if args.step % hic_ma.getBinSize() != 0:
-        sys.stderr.write('Warning. specified *step* is not multiple of the '
+        log.warn('Warning. specified *step* is not multiple of the '
                          'hi-c matrix bin size ({})\n'.format(hic_ma.getBinSize()))
 
     binsize = hic_ma.getBinSize()
 
-    sys.stderr.write("Computing TAD-separation scores...\n")
+    log.info("Computing TAD-separation scores...\n")
     min_depth_in_bins = int(args.minDepth / binsize)
     max_depth_in_bins = int(args.maxDepth / binsize)
     step_in_bins = int(args.step / binsize)
@@ -924,21 +960,21 @@ def compute_spectra_matrix(args, matrix=None):
 
     incremental_step = get_incremental_step_size(args.minDepth, args.maxDepth, args.step)
 
-    sys.stderr.write("computing spectrum for window sizes between {} ({} bp)"
+    log.info("computing spectrum for window sizes between {} ({} bp)"
                      "and {} ({} bp) at the following window sizes {} {}\n".format(min_depth_in_bins,
                                                                    binsize * min_depth_in_bins,
                                                                    max_depth_in_bins,
                                                                    binsize * max_depth_in_bins,
                                                                    step_in_bins, incremental_step))
     if min_depth_in_bins <= 1:
-        sys.stderr.write('ERROR\nminDepth length too small. Use a value that is at least '
+        log.error('ERROR\nminDepth length too small. Use a value that is at least '
                          'twice as large as the bin size which is: {}\n'.format(binsize))
-        exit()
+        exit(0)
 
     if max_depth_in_bins <= 1:
-        sys.stderr.write('ERROR\nmaxDepth length too small. Use a value that is larger '
+        log.error('ERROR\nmaxDepth length too small. Use a value that is larger '
                          'than the bin size which is: {}\n'.format(binsize))
-        exit()
+        exit(0)
 
     # work only with the upper matrix
     # and remove all pixels that are beyond
@@ -962,7 +998,7 @@ def compute_spectra_matrix(args, matrix=None):
 
     if num_processors > 1:
         pool = multiprocessing.Pool(num_processors)
-        sys.stderr.write("Using {} processors\n".format(num_processors))
+        log.info("Using {} processors\n".format(num_processors))
         res = pool.map_async(func, TASKS).get(9999999)
     else:
         res = map(func, TASKS)
@@ -1039,7 +1075,7 @@ def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000
     """
     hic_ma = hm.hiCMatrix(matrix_file)
 
-    sys.stderr.write("Computing p-values for window length: {}\n".format(window_len))
+    log.info("Computing p-values for window length: {}\n".format(window_len))
     pvalues = []
 
     from scipy.stats import ranksums
@@ -1109,7 +1145,7 @@ def min_pvalue_diamond_vs_triangle(matrix_file, min_idx, chrom, chr_start, chr_e
     """
     hic_ma = hm.hiCMatrix(matrix_file)
 
-    sys.stderr.write("Computing p-values for window length: {}\n".format(window_len))
+    log.info("Computing p-values for window length: {}\n".format(window_len))
     pvalues = []
 
     from scipy.stats import ranksums
@@ -1153,7 +1189,6 @@ def min_pvalue_diamond_vs_triangle(matrix_file, min_idx, chrom, chr_start, chr_e
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-    print_args(args)
     if args.command == 'TAD_score':
         chrom, chr_start, chr_end, matrix = compute_spectra_matrix(args)
         save_bedgraph_matrix(args.outFileName, chrom, chr_start, chr_end, matrix, args)
@@ -1165,6 +1200,10 @@ def main(args=None):
     avg_bin_size = np.median(chr_end - chr_start)
 
     # compute lookahead (in number of bins)
+    if args.minBoundaryDistance is None:
+        args.minBoundaryDistance = avg_bin_size * 4
+    print_args(args)
+
     lookahead = int(args.minBoundaryDistance / avg_bin_size)
     if lookahead < 1:
         raise ValueError, "minBoundaryDistance must be '1' or above in value"
@@ -1196,7 +1235,7 @@ def main(args=None):
         if len(min_idx) == 0:
             exit("\n*ERROR*\nNo boundaries were found. {}".format(msg))
         else:
-            sys.stderr.write("Only {} boundaries found. {}".format(len(min_idx), msg))
+            log.info("Only {} boundaries found. {}".format(len(min_idx), msg))
 
     save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, delta, pvalues, args)
 

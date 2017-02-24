@@ -55,9 +55,9 @@ To get detailed help on each of the options:
         parents=[correct_subparser()],
         help="Run the iterative correction.",
         usage='%(prog)s correct '
-              '--matrix hic_matrix.npz '
+              '--matrix hic_matrix.h5 '
               '--filterThreshold -1.2 5'
-              '-out corrected_matrix.npz \n')
+              '-out corrected_matrix.h5 \n')
 
     plot_mode = subparsers.add_parser(
         'diagnostic_plot',
@@ -67,7 +67,7 @@ To get detailed help on each of the options:
              "Volume 16: How to Detect and Handle Outliers The ASQC Basic References in Quality Control:  "
              "Statistical Techniques, Edward F. Mykytka, Ph.D., Editor. ",
         usage='%(prog)s '
-              '--matrix hic_matrix.npz '
+              '--matrix hic_matrix.h5 '
               '-o file.png')
     plot_mode.add_argument('--matrix', '-m',
                            help='Hi-C matrix.',
@@ -89,14 +89,20 @@ To get detailed help on each of the options:
                            default=None,
                            type=float)
 
+    plot_mode.add_argument('--perchr',
+                           help='Compute histogram per chromosome. For samples from cells with uneven number '
+                                'of chromosomes and/or translocations it is advisable to check the histograms '
+                                'per chromosome to find the most conservative `filterThreshold`.',
+                           action='store_true')
+
     merge_mode = subparsers.add_parser(
         'merge_failed',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         help="Merges together failed bins to rescue some of the information instead of discarding it. This option "
              "is mostly useful with processing small restriction fragment size bins.",
         usage='%(prog)s '
-              '--matrix hic_matrix.npz '
-              '--outMatrixFile hic_matrix_merged_failed.npz '
+              '--matrix hic_matrix.h5 '
+              '--outMatrixFile hic_matrix_merged_failed.h5 '
               '-o file.png')
     merge_mode.add_argument('--matrix', '-m',
                             help='Hi-C matrix.',
@@ -150,7 +156,7 @@ def correct_subparser():
 
     parser.add_argument('--outFileName', '-o',
                         help='File name to save the resulting matrix. The '
-                             'output is a .npz file.',
+                             'output is a .h5 file.',
                         required=True)
 
     parser.add_argument('--filterThreshold', '-t',
@@ -471,68 +477,106 @@ def plot_total_contact_dist(hic_ma, args):
     :param hic_ma: sparse matrix
     :return:
     """
-
-    # replace nan by 0
-    hic_ma.data[np.isnan(hic_ma.data)] = 0
-    row_sum = np.asarray(hic_ma.sum(axis=1)).flatten()
-    row_sum = row_sum - hic_ma.diagonal()
-    mad = MAD(row_sum)
-    modified_z_score = mad.get_motified_zscores()
-
-    # high remove outliers
-    row_sum = row_sum[modified_z_score < 5]
-
     from matplotlib import use
     use('Agg')
     import matplotlib.pyplot as plt
+    import matplotlib.gridspec as gridspec
     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    majorlocator = MultipleLocator(1)
+    majorformatter = FormatStrFormatter('%d')
+    minorlocator = MultipleLocator(0.2)
 
-    majorLocator = MultipleLocator(1)
-    majorFormatter = FormatStrFormatter('%d')
-    minorLocator = MultipleLocator(0.2)
+    def plot_histogram(row_sum_values, mad_values, ax1, title=None):
 
-    fig = plt.figure()
-    ax1 = fig.add_subplot(111)
+        if args.xMax:
+            ax1.set_xlim(ax1.get_xlim()[0], args.xMax)
+            row_sum_values = row_sum_values[row_sum_values < args.xMax]
 
-    if args.xMax:
-        ax1.set_xlim(ax1.get_xlim()[0], args.xMax)
-        row_sum = row_sum[row_sum < args.xMax]
+        ax1.set_xlabel("total counts per bin")
+        ax1.set_ylabel("frequency")
+    #    ax1.xaxis.grid(True)
+        ax1.patch.set_visible(False)
+        dist, bin_s, __ = ax1.hist(row_sum_values, 100, color='green')
 
-    ax1.set_xlabel("total counts per bin")
-    ax1.set_ylabel("frequency")
-#    ax1.xaxis.grid(True)
-    ax1.patch.set_visible(False)
-    dist, bin_s, __ = ax1.hist(row_sum, 100, color='green')
+        # add second axis on top
+        ax2 = ax1.twiny()
+        ax2.set_xlabel("modified z-score")
+        ax2.xaxis.set_major_locator(majorlocator)
+        ax2.xaxis.set_major_formatter(majorformatter)
+        ax2.xaxis.grid(True, which='minor')
+        # for the minor ticks, use no labels; default NullFormatter
+        ax2.xaxis.set_minor_locator(minorlocator)
 
-    # add second axis on top
-    ax2 = ax1.twiny()
-    ax2.set_xlabel("modified z-score")
-    ax2.xaxis.set_major_locator(majorLocator)
-    ax2.xaxis.set_major_formatter(majorFormatter)
-    ax2.xaxis.grid(True, which='minor')
-    # for the minor ticks, use no labels; default NullFormatter
-    ax2.xaxis.set_minor_locator(minorLocator)
+        # update second axis values by mapping the min max
+        # of the main axis to the translated values
+        # into modified z score.
+        ax2.set_xlim(mad_values.value_to_mad(np.array(ax1.get_xlim())))
 
-    # update second axis values by mapping the min max
-    # of the main axis to the translated values
-    # into modified z score.
-    ax2.set_xlim(mad.value_to_mad(np.array(ax1.get_xlim())))
+        # get first local mininum value
+        local_min = [x for x, y in enumerate(dist) if 1 <= x < len(dist) - 1 and
+                     dist[x-1] > y < dist[x+1]]
 
-    # get first local miminum value
-    local_min = [x for x, y in enumerate(dist) if 1 <= x < len(dist) - 1 and
-                 dist[x-1] > y < dist[x+1]]
+        if len(local_min) > 0:
+            threshold = bin_s[local_min[0]]
+        else:
+            threshold = None
 
-    if len(local_min) > 0:
-        threshold = bin_s[local_min[0]]
+        if threshold:
+            mad_threshold = mad_values.value_to_mad(threshold)
+            ymin, ymax = ax2.get_ylim()
+            ax2.vlines(mad_threshold, ymin, ymax)
+            if title:
+                print "{}: mad threshold {}".format(title, mad_threshold)
+            else:
+                print "mad threshold {}".format(mad_threshold)
+
+    # replace nan by 0
+    hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
+
+    if args.perchr:
+        chroms = hic_ma.getChrNames()
+        if len(chroms) > 30:
+            sys.stderr.write("The matrix contains {} chromosomes. It is not practical to plot "
+                             "each. Try using --chromosomes to select some chromosomes or "
+                             "plot a single histogram.")
+        num_rows = int(np.ceil(float(len(chroms)) / 5))
+        num_cols = min(len(chroms), 5)
+        grids = gridspec.GridSpec(num_rows, num_cols)
+        fig = plt.figure(figsize=(6*num_cols, 5*num_rows))
+        ax = {}
+        for plot_num, chrname in enumerate(chroms):
+            logging.info("Plotting chromosome {}".format(chrname))
+
+            chr_range = hic_ma.getChrBinRange(chrname)
+            chr_submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+
+            row_sum = np.asarray(chr_submatrix.sum(axis=1)).flatten()
+            row_sum = row_sum - chr_submatrix.diagonal()
+            mad = MAD(row_sum)
+            modified_z_score = mad.get_motified_zscores()
+
+            # high remove outliers
+            row_sum = row_sum[modified_z_score < 5]
+
+            col = plot_num % num_cols
+            row = int(float(plot_num) / num_cols)
+            ax[chrname] = fig.add_subplot(grids[row, col])
+
+            plot_histogram(row_sum, mad, ax[chrname], title=chrname)
+            ax[chrname].set_title(chrname)
     else:
-        threshold = None
+        fig = plt.figure()
+        row_sum = np.asarray(hic_ma.matrix.sum(axis=1)).flatten()
+        row_sum = row_sum - hic_ma.matrix.diagonal()
+        mad = MAD(row_sum)
+        modified_z_score = mad.get_motified_zscores()
 
-    if threshold:
-        mad_threshold = mad.value_to_mad(threshold)
-        ymin, ymax = ax2.get_ylim()
-        ax2.vlines(mad_threshold, ymin, ymax)
-        print "mad threshold {}".format(mad_threshold)
+        # high remove outliers
+        row_sum = row_sum[modified_z_score < 5]
+        ax = fig.add_subplot(111)
+        plot_histogram(row_sum, mad, ax)
 
+    plt.tight_layout()
     plt.savefig(args.plotName)
     plt.close()
 
@@ -595,7 +639,7 @@ def main():
         exit()
 
     elif 'plotName' in args:
-        plot_total_contact_dist(ma.matrix, args)
+        plot_total_contact_dist(ma, args)
         sys.stderr.write("Saving diagnostic plot {}\n".format(args.plotName))
         exit()
 
