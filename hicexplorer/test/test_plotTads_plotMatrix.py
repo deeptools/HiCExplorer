@@ -44,7 +44,7 @@ class TestPlottingPrograms(object):
         args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000   " \
                "--outFileName  {1}".format(ROOT, outfile.name).split()
         hicexplorer.hicPlotTADs.main(args)
-        assert compare_svg(ROOT + '/master_TADs_plot.svg', outfile.name) is True
+        assert compare_svg(ROOT + '/master_TADs_plot.svg', outfile.name) is True, "Plot is not similar to master. Args: {}".format(" ".join(args))
         os.remove(outfile.name) 
 
     def test_hicPlotMatrix(self):
