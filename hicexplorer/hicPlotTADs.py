@@ -179,7 +179,7 @@ DEFAULT_MATRIX_COLORMAP = 'RdYlBu_r'
 DEFAULT_TRACK_HEIGHT = 3  # in centimeters
 DEFAULT_FIGURE_WIDTH = 40  # in centimeters
 # proportion of width dedicated to (figure, legends)
-DEFAULT_WIDTH_RATIOS = (0.95, 0.05)
+#DEFAULT_WIDTH_RATIOS = (0.95, 0.05)
 DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 
 
@@ -259,9 +259,9 @@ def parse_arguments(args=None):
                         )
 
     parser.add_argument('--trackLabelFraction',
-                        help='By default the space dedicated to the track labels is 0.1 of the'
+                        help='By default the space dedicated to the track labels is 0.05 of the'
                              'plot width. This fraction can be changed with this parameter if needed.',
-                        default=0.5,
+                        default=0.05,
                         type=float)
 
     parser.add_argument('--version', action='version',
