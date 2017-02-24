@@ -30,6 +30,7 @@ install:
   - conda install --yes numpy scipy matplotlib=1.5.3 nose flake8 pytables
   - conda install --yes -c bioconda biopython
   - conda install --yes -c bioconda pysam
+  - pip install pyBigWig
   - conda install --yes -c bioconda intervaltree
   - python setup.py install
 
