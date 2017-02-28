@@ -114,7 +114,7 @@ For detailed help:
                                           'the  zscores between the left and right '
                                           'regions (diamond) at the local minimum with the matrix zscores for a '
                                           'diamond at --minDepth to the left and a diamond --minDepth to the right. '
-                                          'The reported pvalue is the Bonferroni correction all pvalues. Default is'
+                                          'The reported pvalue is the Bonferroni correction all pvalues. Default is '
                                           '0.01',
                                      type=float,
                                      default=0.01
