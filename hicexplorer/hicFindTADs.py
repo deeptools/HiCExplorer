@@ -869,7 +869,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
 
 def compute_spectra_matrix(args, matrix=None):
 
-    if args.maxDepth is not None and args.minDepth is not none and args.maxDepth <= args.minDepth:
+    if args.maxDepth is not None and args.minDepth is not None and args.maxDepth <= args.minDepth:
         exit("Please check that maxDepth is larger than minDepth.")
 
     global hic_ma
