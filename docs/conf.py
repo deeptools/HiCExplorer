@@ -25,11 +25,10 @@ class Mock(MagicMock):
     def __getattr__(cls, name):
             return MagicMock()
 
-MOCK_MODULES = ['numpy', 'scipy', 'scipy.sparse', 'scipy.stats', 'pandas',
-                'matplotlib', 'matplotlib.pyplot', 'matplotlib.gridspec', 'matplotlib.ticker',
-                'matplotlib.textpath', 'matplotlib.patches', 'pyBigWig',
-                'matplotlib.colors', 'matplotlib.cm', 'mpl_toolkits', 'mpl_toolkits.axisartist',
+MOCK_MODULES = ['numpy', 'scipy', 'biopython',
+                'matplotlib', 'pyBigWig',
                 'pysam', 'intervaltree','tables']
+
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 #for mod_name in MOCK_MODULES:
