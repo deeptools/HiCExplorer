@@ -17,22 +17,18 @@ import os
 import shlex
 
 ## to allow readthedocs to compile without installing some dependencies
-#import mock
-from unittest.mock import MagicMock
+import mock
 
-class Mock(MagicMock):
-    @classmethod
-    def __getattr__(cls, name):
-            return MagicMock()
+MOCK_MODULES = ['numpy', 'pandas', 'pysam', 'intervaltree',
+                'scipy', 'scipy.sparse', 'scipy.stats',
+                'matplotlib', 'matplotlib.pyplot', 'matplotlib.gridspec', 'matplotlib.ticker',
+                'matplotlib.textpath', 'matplotlib.patches', 'matplotlib.colors', 'matplotlib.cm',
+                'mpl_toolkits', 'mpl_toolkits.axisartist', 'mpl_toolkits.mplot3d',
+                'pyBigWig',
+                'Bio', 'Bio.Seq', 'Bio.Alphabet', 'pytables']
 
-MOCK_MODULES = ['numpy', 'scipy', 'biopython',
-                'matplotlib', 'pyBigWig',
-                'pysam', 'intervaltree','tables']
-
-sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
-
-#for mod_name in MOCK_MODULES:
-#    sys.modules[mod_name] = mock.Mock()
+for mod_name in MOCK_MODULES:
+    sys.modules[mod_name] = mock.Mock()
 
 
 # If extensions (or modules to document with autodoc) are in another directory,
