@@ -66,8 +66,7 @@ setup(
     package_data={'': ['config/hicexplorer.cfg']},
     url='http://hicexplorer.readthedocs.io',
     license='LICENSE.txt',
-    description='Set of programms to process, analyze and visualize Hi-C data'
-    'BAM format.',
+    description='Set of programs to process, analyze and visualize Hi-C data',
     long_description=open('README.rst').read(),
     install_requires=[
         "numpy >= 1.10.4",
