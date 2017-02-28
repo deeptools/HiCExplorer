@@ -24,8 +24,8 @@ MOCK_MODULES = ['numpy', 'pandas', 'pysam', 'intervaltree',
                 'matplotlib', 'matplotlib.pyplot', 'matplotlib.gridspec', 'matplotlib.ticker',
                 'matplotlib.textpath', 'matplotlib.patches', 'matplotlib.colors', 'matplotlib.cm',
                 'mpl_toolkits', 'mpl_toolkits.axisartist', 'mpl_toolkits.mplot3d',
-                'pyBigWig',
-                'Bio', 'Bio.Seq', 'Bio.Alphabet', 'pytables']
+                'Bio', 'Bio.Seq', 'Bio.Alphabet',
+                'pyBigWig', 'tables', 'pytables']
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
