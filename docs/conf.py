@@ -21,7 +21,7 @@ import mock
 
 MOCK_MODULES = ['numpy', 'scipy', 'scipy.sparse', 'scipy.stats', 'pandas',
                 'matplotlib', 'matplotlib.pyplot', 'matplotlib.gridspec', 'matplotlib.ticker',
-                'matplotlib.textpath', 'matplotlib.patches',
+                'matplotlib.textpath', 'matplotlib.patches', 'pyBigWig' ,
                 'matplotlib.colors', 'matplotlib.cm', 'mpl_toolkits', 'mpl_toolkits.axisartist',
                 'pysam', 'bx', 'bx.intervals', 'bx.intervals.intersection',
                 'Bio', 'Bio.Seq', 'Bio.Alphabet', 'tables', 'mpl_toolkits', 'mpl_toolkits.mplot3d']
