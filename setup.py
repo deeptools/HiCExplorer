@@ -74,10 +74,9 @@ setup(
         "matplotlib >= 1.5.3",
         "pysam >= 0.8.3",
         "intervaltree >= 2.1.0",
-        "biopython >= 1.65",
-        "tables >= 3.2.2"],
+        "biopython >= 1.65"],
     extras_require={
-    'bigwig' : ["pyBigWig >=0.2.8"]
+    'bigwig' : ["tables >= 3.2.2","pyBigWig >=0.2.8"]
     }
 
 )
