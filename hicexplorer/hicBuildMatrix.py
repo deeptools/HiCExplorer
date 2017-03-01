@@ -63,7 +63,7 @@ class ReadPositionMatrix(object):
         return self.chr_start_pos[chrom] + start
 
 
-def parseArguments(args=None):
+def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -526,7 +526,7 @@ def main(args=None):
     is also constructed
     """
 
-    args = parseArguments().parse_args(args)
+    args = parse_arguments().parse_args(args)
 
     sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
                                                                       args.samFiles[1].name))
