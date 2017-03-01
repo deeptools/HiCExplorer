@@ -10,6 +10,7 @@ from hicexplorer.utilities import enlarge_bins
 from scipy import sparse
 import numpy as np
 import multiprocessing
+from hicexplorer._version import __version__
 
 logging.basicConfig()
 log = logging.getLogger("hicFindTADs")
@@ -21,6 +22,7 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        conflict_handler='resolve',
         description="""
 Uses a measure called TAD-separation score to identify the degree of separation between
 the left and right regions at each Hi-C matrix bin. This is done for a
@@ -50,7 +52,13 @@ For detailed help:
 
 """)
 
-    subparsers = parser.add_subparsers(dest='command')
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
+
+    subparsers = parser.add_subparsers(
+        title="commands",
+        dest='command',
+        metavar='')
 
     tad_score_subparser = subparsers.add_parser('TAD_score',
          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -114,7 +122,7 @@ For detailed help:
                                           'the  zscores between the left and right '
                                           'regions (diamond) at the local minimum with the matrix zscores for a '
                                           'diamond at --minDepth to the left and a diamond --minDepth to the right. '
-                                          'The reported pvalue is the Bonferroni correction all pvalues. Default is '
+                                          'The reported pvalue is the Bonferroni correction all pvalues. Default is'
                                           '0.01',
                                      type=float,
                                      default=0.01
