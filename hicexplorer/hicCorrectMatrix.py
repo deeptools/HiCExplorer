@@ -31,13 +31,6 @@ Then, after revising the plot and deciding the threshold values:
     $ hicCorrectMatrix correct --matrix hic_matrix \\
          --filterThreshold <lower threshold> <upper threshold> -o corrected_matrix
 
-
-To get detailed help on each of the options:
-
-    $ hicCorrectMatrix diagnostic_plot -h
-    $ hicCorrectMatrix correct -h
-
-
 """
     )
 
@@ -47,14 +40,23 @@ To get detailed help on each of the options:
     subparsers = parser.add_subparsers(
         title="commands",
         dest='command',
-        metavar='')
+        metavar='',
+        help="""
+        To get detailed help on each of the options:
+
+            $ hicCorrectMatrix diagnostic_plot -h
+
+            $ hicCorrectMatrix correct -h
+
+            $ hicCorrectMatrix merge_failed -h
+            """)
 
     correct_mode = subparsers.add_parser(
         'correct',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[correct_subparser()],
         help="Run the iterative correction.",
-        usage='%(prog)s correct '
+        usage='%(prog)s '
               '--matrix hic_matrix.h5 '
               '--filterThreshold -1.2 5'
               '-out corrected_matrix.h5 \n')

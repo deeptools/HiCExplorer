@@ -10,6 +10,7 @@ from hicexplorer.utilities import enlarge_bins
 from scipy import sparse
 import numpy as np
 import multiprocessing
+from hicexplorer._version import __version__
 
 logging.basicConfig()
 log = logging.getLogger("hicFindTADs")
@@ -21,6 +22,7 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        conflict_handler='resolve',
         description="""
 Uses a measure called TAD-separation score to identify the degree of separation between
 the left and right regions at each Hi-C matrix bin. This is done for a
@@ -50,7 +52,13 @@ For detailed help:
 
 """)
 
-    subparsers = parser.add_subparsers(dest='command')
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
+
+    subparsers = parser.add_subparsers(
+        title="commands",
+        dest='command',
+        metavar='')
 
     tad_score_subparser = subparsers.add_parser('TAD_score',
          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -869,7 +877,7 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
 
 def compute_spectra_matrix(args, matrix=None):
 
-    if args.maxDepth is not None and args.minDepth is not none and args.maxDepth <= args.minDepth:
+    if args.maxDepth is not None and args.minDepth is not None and args.maxDepth <= args.minDepth:
         exit("Please check that maxDepth is larger than minDepth.")
 
     global hic_ma

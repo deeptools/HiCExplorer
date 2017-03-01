@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
 
-def parseArguments(args=None):
+def parse_arguments(args=None):
     parser=argparse.ArgumentParser(description='Creates a Heatmap of a HiC matrix')
 
     # define the arguments
@@ -369,7 +369,7 @@ def plotPerChr(hic_matrix, cmap, args):
     cbar.ax.set_ylabel(args.scoreName, rotation=270, labelpad=20)
 
 def main(args=None):
-    args = parseArguments().parse_args(args)
+    args = parse_arguments().parse_args(args)
 
     ma = HiCMatrix.hiCMatrix(args.matrix)
     if args.perChromosome and args.region:
