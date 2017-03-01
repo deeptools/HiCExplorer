@@ -1,4 +1,4 @@
 # yaml file to configure readthedocs build
 python:
-   setup_py_install: true
+   setup_py_install: False
    pip_install: False
