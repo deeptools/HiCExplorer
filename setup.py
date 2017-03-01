@@ -58,7 +58,7 @@ class sdist(_sdist):
         self.distribution.metadata.version = get_version()
         return _sdist.run(self)
 
-
+# Install class to check for external dependencies from OS environment
 class install(_install):
 
     def run(self):
