@@ -1278,7 +1278,7 @@ class hiCMatrix:
         if len(bin_ids) == 0:
             return
 
-        self.printchrtoremove(bin_ids)
+        self.printchrtoremove(bin_ids, restore_masked_bins=False)
         try:
             # check if a masked bin already exists
             if len(self.orig_bin_ids) > 0:
@@ -1286,9 +1286,7 @@ class hiCMatrix:
                 M = self.matrix.shape[0]
                 previous_bin_ids = self.orig_bin_ids[M:]
                 # merge new and old masked bins
-                bin_ids = np.unique(
-                    np.concatenate(
-                        [previous_bin_ids, self.orig_bin_ids[bin_ids]]))
+                bin_ids = np.unique(np.concatenate([previous_bin_ids, self.orig_bin_ids[bin_ids]]))
                 np.sort(bin_ids)
                 self.restoreMaskedBins()
         except:
@@ -1481,7 +1479,7 @@ class hiCMatrix:
                 chr_dict))
         self.maskBins(to_remove)
 
-    def printchrtoremove(self, to_remove, label="Number of poor regions to remove"):
+    def printchrtoremove(self, to_remove, label="Number of poor regions to remove", restore_masked_bins=True):
         """
         prints out the number of bin per chromosomes
         that will be removed
@@ -1497,22 +1495,21 @@ class hiCMatrix:
         if np.array_equal(self.prev_to_remove, to_remove):
             return
 
-        try:
-            # check if a masked bin already exists
-            if len(self.orig_bin_ids) > 0:
-                print "Masked bins already present"
-                self.restoreMaskedBins()
-        except:
-            pass
+        if restore_masked_bins:
+            try:
+                # check if a masked bin already exists
+                if len(self.orig_bin_ids) > 0:
+                    print "Masked bins already present"
+                    self.restoreMaskedBins()
+            except:
+                pass
         for idx in to_remove:
             chrom = self.cut_intervals[idx][0]
             if chrom not in cnt:
                 cnt[chrom] = 0
             cnt[chrom] += 1
 
-        sys.stderr.write('{}: {}\n{}\n'.format(label,
-                len(to_remove),
-                cnt))
+        sys.stderr.write('{}: {}\n{}\n'.format(label, len(to_remove), cnt))
         self.prev_to_remove = to_remove
 
     def removeBySequencedCount(self, sequencedFraction=0.5):

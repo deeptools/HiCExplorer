@@ -8,6 +8,9 @@ from hicexplorer._version import __version__
 
 import numpy as np
 debug = 0
+logging.basicConfig()
+log = logging.getLogger("hicCorrectMatrix")
+log.setLevel(logging.WARN)
 
 
 def parse_arguments(args=None):
@@ -96,6 +99,11 @@ Then, after revising the plot and deciding the threshold values:
                                 'of chromosomes and/or translocations it is advisable to check the histograms '
                                 'per chromosome to find the most conservative `filterThreshold`.',
                            action='store_true')
+
+    parser.add_argument('--verbose',
+                        help='Print processing status',
+                        action='store_true')
+
 
     merge_mode = subparsers.add_parser(
         'merge_failed',
@@ -326,7 +334,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
                      Otherwise, these cases are skipped
 
     """
-    logging.info("starting fill gaps")
+    log.info("starting fill gaps")
     mat_size = hic_ma.matrix.shape[0]
     fill_ma = hic_ma.matrix.copy().tolil()
     if fill_contiguous is True:
@@ -547,7 +555,7 @@ def plot_total_contact_dist(hic_ma, args):
         fig = plt.figure(figsize=(6*num_cols, 5*num_rows))
         ax = {}
         for plot_num, chrname in enumerate(chroms):
-            logging.info("Plotting chromosome {}".format(chrname))
+            log.info("Plotting chromosome {}".format(chrname))
 
             chr_range = hic_ma.getChrBinRange(chrname)
             chr_submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
@@ -583,56 +591,76 @@ def plot_total_contact_dist(hic_ma, args):
     plt.close()
 
 
-def filter_by_zscore(hic_ma, lower_threshold, upper_threshold):
+def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
     """
     The method defines thresholds per chromosome
     to avoid introducing bias due to different chromosome numbers
 
     """
     to_remove = []
-    for chrname in hic_ma.interval_trees.keys():
-        chr_range = hic_ma.getChrBinRange(chrname)
-        chr_submatrix = hic_ma.matrix[chr_range[0]:chr_range[1],
-                                      chr_range[0]:chr_range[1]]
+    if perchr:
+        for chrname in hic_ma.interval_trees.keys():
+            chr_range = hic_ma.getChrBinRange(chrname)
+            chr_submatrix = hic_ma.matrix[chr_range[0]:chr_range[1],
+                                          chr_range[0]:chr_range[1]]
 
-        # replace nan values by zero
-        chr_submatrix.data[np.isnan(chr_submatrix.data)] = 0
-        row_sum = np.asarray(chr_submatrix.sum(axis=1)).flatten()
+            # replace nan values by zero
+            chr_submatrix.data[np.isnan(chr_submatrix.data)] = 0
+            row_sum = np.asarray(chr_submatrix.sum(axis=1)).flatten()
+            # subtract from row sum, the diagonal
+            # to account for interactions with other bins
+            # and not only self interactions that are the dominant count
+            row_sum = row_sum - chr_submatrix.diagonal()
+            mad = MAD(row_sum)
+            problematic = np.flatnonzero(mad.is_outlier(lower_threshold, upper_threshold))
+
+            # because the problematic indices are specific for the given chromosome
+            # they need to be updated to match the large matrix indices
+            problematic += chr_range[0]
+
+            if len(problematic) == 0:
+                log.warn("Warning. No bins removed for chromosome {} using thresholds {} {}"
+                         "\n".format(chrname, lower_threshold, upper_threshold))
+
+            to_remove.extend(problematic)
+    else:
+        row_sum = np.asarray(hic_ma.matrix.sum(axis=1)).flatten()
         # subtract from row sum, the diagonal
         # to account for interactions with other bins
         # and not only self interactions that are the dominant count
-        row_sum = row_sum - chr_submatrix.diagonal()
+        row_sum = row_sum - hic_ma.matrix.diagonal()
         mad = MAD(row_sum)
-        problematic = np.flatnonzero(mad.is_outlier(lower_threshold, upper_threshold))
+        to_remove = np.flatnonzero(mad.is_outlier(lower_threshold, upper_threshold))
 
-        # because the problematic indices are specific for the given chromosome
-        # they need to be updated to match the large matrix indices
-        problematic += chr_range[0]
-
-        if len(problematic) == 0:
-            sys.stderr.write("Warning. No bins removed for chromosome {} "
-                             "using thresholds {} {}"
-                             "\n".format(chrname, lower_threshold, upper_threshold))
-
-        to_remove.extend(problematic)
 
     return sorted(to_remove)
 
 
 def main():
     args = parse_arguments().parse_args()
+    if args.verbose:
+        log.setLevel(logging.INFO)
+
     ma = hm.hiCMatrix(args.matrix)
 
     if args.chromosomes:
         ma.reorderChromosomes(args.chromosomes)
 
+    # mask all zero value bins
+    row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
+    log.info("Removing {} zero value bins".format(sum(row_sum==0)))
+    ma.maskBins(np.flatnonzero(row_sum==0))
+    matrix_shape = ma.matrix.shape
+
     if 'outMatrixFile' in args:
         # get below threshold outliers by using an extremely high upper threshold
-        outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], 1e6)
-        print len(outlier_regions), ma.matrix.shape
+        outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], 1e6, perchr=args.perchr)
+        log.info("number of below threshold regions: {}.\n"
+                 "Matrix size before removal of low scoring regions: {}".format(len(outlier_regions), ma.matrix.shape))
         # compute and print some statistics
         pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
-        ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%)".format(pct_outlier))
+        ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%)".format(pct_outlier),
+                            restore_masked_bins=False)
         # try to recover some of the outliers by merging them
         ma = merge_failed_bins(ma, outlier_regions)
         ma.save(args.outMatrixFile)
@@ -645,20 +673,21 @@ def main():
         sys.stderr.write("Saving diagnostic plot {}\n".format(args.plotName))
         exit()
 
-    if args.verbose:
-        print "matrix contains {} data points. Sparsity {:.3f}.".format(
-            len(ma.matrix.data),
-            float(len(ma.matrix.data))/(ma.matrix.shape[0]**2))
+    log.info("matrix contains {} data points. Sparsity {:.3f}.".format(
+        len(ma.matrix.data),
+        float(len(ma.matrix.data))/(ma.matrix.shape[0]**2)))
 
     if args.skipDiagonal:
         ma.diagflat(value=0)
 
-    outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1])
+    outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1], perchr=args.perchr)
     # compute and print some statistics
     pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
     ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers after merge ({:.2f}%) "
-                                               "out of".format(pct_outlier, ma.matrix.shape[0]))
+                                               "out of".format(pct_outlier, ma.matrix.shape[0]),
+                        restore_masked_bins=False)
 
+    assert matrix_shape == ma.matrix.shape
     # mask filtered regions
     ma.maskBins(outlier_regions)
     total_filtered_out = set(outlier_regions)
@@ -671,7 +700,7 @@ def main():
         failed_bins = np.flatnonzero(
             np.array(coverage) < args.sequencedCountCutoff)
 
-        ma.printchrtoremove(failed_bins, label="Bins with low coverage")
+        ma.printchrtoremove(failed_bins, label="Bins with low coverage", restore_masked_bins=False)
         ma.maskBins(failed_bins)
         total_filtered_out = set(failed_bins)
         """
@@ -711,12 +740,12 @@ def main():
         to_remove = np.flatnonzero(after_row_sum / pre_row_sum >= args.inflationCutoff)
         ma.printchrtoremove(to_remove,
                             label="inflated >={} "
-                            "regions".format(args.inflationCutoff))
+                            "regions".format(args.inflationCutoff), restore_masked_bins=False)
         total_filtered_out = total_filtered_out.union(to_remove)
 
         ma.maskBins(to_remove)
 
     ma.printchrtoremove(sorted(list(total_filtered_out)),
-                        label="Total regions to be removed")
+                        label="Total regions to be removed", restore_masked_bins=False)
 
     ma.save(args.outFileName)

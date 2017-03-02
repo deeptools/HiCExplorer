@@ -1,6 +1,5 @@
 import sys, argparse
 import numpy as np
-from scipy.sparse import lil_matrix, vstack
 
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
@@ -304,10 +303,12 @@ def merge_bins(hic, num_bins):
     count = 0
     for idx, ref in enumerate(ref_name_list):
         if (count > 0 and count % num_bins == 0) or ref != prev_ref:
-            coverage = np.mean(coverage_list[idx_start:idx])
-            new_bins.append((ref_name_list[idx_start], new_start,
-                             end_list[idx-1], coverage))
-            bins_to_merge.append(range(idx_start, idx))
+            if count < num_bins/2:
+                sys.stderr.write("{} has few bins ({}). Skipping it\n".format(prev_ref, count))
+            else:
+                coverage = np.mean(coverage_list[idx_start:idx])
+                new_bins.append((ref_name_list[idx_start], new_start, end_list[idx - 1], coverage))
+                bins_to_merge.append(range(idx_start, idx))
             idx_start = idx
             new_start = start_list[idx]
             count = 0
