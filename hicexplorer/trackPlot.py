@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import sys
 import numpy as np
 import matplotlib
@@ -22,6 +24,8 @@ from intervaltree import IntervalTree, Interval
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
 
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'
@@ -105,7 +109,11 @@ class PlotTracks(object):
 
             if 'title' in properties:
                 # adjust titles that are too long
-                properties['title'] = textwrap.fill(properties['title'], 12)
+                # if the track label space is small
+                if track_label_width < 0.1:
+                    properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 12)
+                else:
+                    properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 50)
 
         print "time initializing track(s):"
         self.print_elapsed(start)
