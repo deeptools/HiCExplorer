@@ -55,7 +55,7 @@ def iterativeCorrection(matrix, v=None, M=50, tolerance=1e-5, verbose=False):
 
         W.data *= np.take(s, W.row)
         W.data *= np.take(s, W.col)
-        if np.any(W.data > 1e6):
+        if np.any(W.data > 1e100):
             log.error("*Error* matrix correction is producing extremely large values. "
                       "This is often caused by bins of low counts. Use a more stringent "
                       "filtering of bins.")
