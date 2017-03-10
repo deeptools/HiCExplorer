@@ -49,22 +49,15 @@ Contents:
    content/installation
    content/list-of-tools
    content/example_usage
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   content/News
 
 Citation
 ---------
 
 Please cite HiCExplorer as follows:
 
-Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening, Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke
-**"High-resolution TADs reveal DNA sequences underlying genome organization in flies". bioRxiv 115063; doi: https://doi.org/10.1101/115063 **
+Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening,Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke.
+**"High-resolution TADs reveal DNA sequences underlying genome organization in flies". bioRxiv 115063** doi: https://doi.org/10.1101/115063
 
 .. image:: images/logo_mpi-ie.jpg
 
