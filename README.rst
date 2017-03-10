@@ -1,10 +1,13 @@
-.. image:: https://zenodo.org/badge/21196/maxplanck-ie/HiCExplorer.svg
+.. |doi| image:: https://zenodo.org/badge/21196/maxplanck-ie/HiCExplorer.svg
    :target: https://zenodo.org/badge/latestdoi/21196/maxplanck-ie/HiCExplorer
-
-.. image:: https://anaconda.org/bioconda/hicexplorer/badges/installer/conda.svg
+.. |Build Status| image:: https://travis-ci.org/maxplanck-ie/HiCExplorer.svg?branch=master
+   :target: https://travis-ci.org/maxplanck-ie/HiCExplorer
+.. |Documentation Status| image:: https://readthedocs.org/projects/hicexplorer/badge
+   :target: http://hicexplorer.readthedocs.io/?badge=docs
+.. |bioconda-badge| image:: https://anaconda.org/bioconda/hicexplorer/badges/installer/conda.svg
    :target: https://anaconda.org/bioconda/hicexplorer
 
-.. image:: https://quay.io/repository/biocontainers/hicexplorer/status
+.. |docker| image:: https://quay.io/repository/biocontainers/hicexplorer/status
    :target: https://quay.io/repository/biocontainers/hicexplorer
 
 HiCExplorer
@@ -24,10 +27,8 @@ data like genes, compartments, ChIP-seq coverage tracks (and in general any type
 Citation:
 ^^^^^^^^^
 
-Please cite HiCExplorer as follows:
-
 Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening, Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke
-**"High-resolution TADs reveal DNA sequences underlying genome organization in flies". bioRxiv 115063; doi: https://doi.org/10.1101/115063 **
+**"High-resolution TADs reveal DNA sequences underlying genome organization in flies"**. bioRxiv 115063; doi: https://doi.org/10.1101/115063
 
 .. image:: ./docs/images/hicex2.png
 
