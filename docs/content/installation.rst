@@ -8,12 +8,14 @@ Requirements
 -------------
 
 * Python 2.7
-* numpy >= 1.8.1
-* scipy >= 0.14.0
+* numpy >= 1.10.4
+* scipy >= 0.17.1
+* matplotlib >= 1.5.3
 * pysam >= 0.8.3
-* matplotlib >= 1.3.1
-* bx-python >= 0.7.1
+* intervaltree >= 2.1.0
 * biopython >= 1.65
+* tables >= 3.2.2
+* pyBigWig >=0.2.8
 
 The fastet way to obtain **Python 2.7 together with numpy and scipy** is
 via the `Anaconda Scientific Python
@@ -54,8 +56,34 @@ You are highly recommended to use `pip` rather than these more complicated steps
 
 	$ git clone https://github.com/maxplanck-ie/HiCExplorer.git
 
+or if you want a particular release, choose one from https://github.com/maxplanck-ie/HiCExplorer/releases:
+::
+
+	$ wget https://github.com/maxplanck-ie/HiCExplorer/archive/1.5.12.tar.gz
+	$ tar -xzvf
+
 3. To install the source code (if you don't have root permission, you can set
 a specific folder using the ``--prefix`` option)
 ::
 
 	$ python setup.py install --prefix /User/Tools/hicexplorer
+
+
+Galaxy installation
+--------------------
+
+HiCExplorer can be easily integrated into a local `Galaxy <http://galaxyproject.org>`_.
+
+Installation with Docker
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The HiCExplorer Galaxy instance is also available as a docker container, for those wishing to use the Galaxy
+framework but who also prefer a virtualized solution. This container is quite simple to install:
+
+::
+
+    $ sudo docker pull quay.io/bgruening/galaxy-hicexplorer
+
+To start and otherwise modify this container, please see the instructions on `the docker-galaxy-stable github repository <https://github.com/bgruening/docker-galaxy-stable>`__. Note that you must use `bgruening/galaxy-deeptools` in place of `bgruening/galaxy-stable` in the examples, as the deepTools Galaxy container is built on top of the galaxy-stable container.
+
+.. tip:: For support, or feature requests contact: deeptools@googlegroups.com
