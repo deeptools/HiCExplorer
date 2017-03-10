@@ -1,13 +1,12 @@
-.. |doi| image:: https://zenodo.org/badge/21196/maxplanck-ie/HiCExplorer.svg
+.. image:: https://zenodo.org/badge/21196/maxplanck-ie/HiCExplorer.svg
    :target: https://zenodo.org/badge/latestdoi/21196/maxplanck-ie/HiCExplorer
-.. |Build Status| image:: https://travis-ci.org/maxplanck-ie/HiCExplorer.svg?branch=master
+.. image:: https://travis-ci.org/maxplanck-ie/HiCExplorer.svg?branch=master
    :target: https://travis-ci.org/maxplanck-ie/HiCExplorer
-.. |Documentation Status| image:: https://readthedocs.org/projects/hicexplorer/badge
+.. image:: https://readthedocs.org/projects/hicexplorer/badge/?version=docs
    :target: http://hicexplorer.readthedocs.io/?badge=docs
-.. |bioconda-badge| image:: https://anaconda.org/bioconda/hicexplorer/badges/installer/conda.svg
+.. image:: https://anaconda.org/bioconda/hicexplorer/badges/installer/conda.svg
    :target: https://anaconda.org/bioconda/hicexplorer
-
-.. |docker| image:: https://quay.io/repository/biocontainers/hicexplorer/status
+.. image:: https://quay.io/repository/biocontainers/hicexplorer/status
    :target: https://quay.io/repository/biocontainers/hicexplorer
 
 HiCExplorer
