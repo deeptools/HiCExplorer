@@ -54,7 +54,7 @@ You are highly recommended to use `pip` rather than these more complicated steps
 
 	$ git clone https://github.com/maxplanck-ie/HiCExplorer.git
 
-3. install the source code (if you don't have root permission, you can set
+3. To install the source code (if you don't have root permission, you can set
 a specific folder using the ``--prefix`` option)
 ::
 
