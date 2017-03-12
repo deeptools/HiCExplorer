@@ -154,7 +154,6 @@
                 <param name="chromosome" value="chr3LHet"/>
             </repeat> 
             <output name="diagnostic_plot" file="diagnostic_plot.png" ftype="png" compare="sim_size"/>
-            <output name="outMatrixFile" file="merged_matrix.npz.h5" ftype="h5" compare="sim_size"/>
         </test>
     </tests>
     <help><![CDATA[
