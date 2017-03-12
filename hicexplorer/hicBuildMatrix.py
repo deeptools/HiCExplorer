@@ -14,12 +14,6 @@ from hicexplorer._version import __version__
 
 debug = 1
 
-# check pysam version
-from distutils.version import LooseVersion
-if LooseVersion(pysam.__version__) < LooseVersion("0.8.3"):
-    exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
-
-
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
     A sparse matrix having as bins all possible
@@ -69,7 +63,7 @@ class ReadPositionMatrix(object):
         return self.chr_start_pos[chrom] + start
 
 
-def parseArguments(args=None):
+def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -109,11 +103,6 @@ def parseArguments(args=None):
                              'the next).'),
                        type=argparse.FileType('r'),
                        metavar='BED file')
-
-    parser.add_argument('--fragmentLength', '-f',
-                        help='Estimated fragment length',
-                        type=int,
-                        default=300)
 
     parser.add_argument('--minDistance',
                         help='Minimum distance between restriction sites. '
@@ -537,7 +526,12 @@ def main(args=None):
     is also constructed
     """
 
-    args = parseArguments().parse_args(args)
+    # check pysam version
+    from distutils.version import LooseVersion
+    if LooseVersion(pysam.__version__) < LooseVersion("0.8.3"):
+        exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
+
+    args = parse_arguments().parse_args(args)
 
     sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
                                                                       args.samFiles[1].name))

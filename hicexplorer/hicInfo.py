@@ -33,6 +33,8 @@ def main():
         sum_elements = hic_ma.matrix.sum()/2
         bin_length = hic_ma.getBinSize()
         num_nan_bins = len(hic_ma.nan_bins)
+        min_non_zero = hic_ma.matrix.min()
+        max_non_zero = hic_ma.matrix.max()
         chromosomes = hic_ma.chrBinBoundaries.keys()
 
         print("Size:\t{:,}".format(size))
@@ -40,6 +42,8 @@ def main():
         print("Bin_length:\t{}".format(bin_length))
         print("Chromosomes:\t{}".format(", ".join(chromosomes)))
         print("Non-zero elements:\t{:,}".format(num_non_zero))
+        print("Minimum (non zero):\t{}".format(min_non_zero))
+        print("Maximum:\t{}".format(max_non_zero))
         print("NaN bins:\t{}".format(num_nan_bins))
         print("")
 

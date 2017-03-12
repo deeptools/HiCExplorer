@@ -21,10 +21,6 @@
                 --binSize $binSize
             #end if
 
-            #if $fragmentLength:
-                --fragmentLength $fragmentLength
-            #end if
-
             #if $restrictionCutFile:
                 --restrictionCutFile '$restrictionCutFile'
             #end if
@@ -75,9 +71,7 @@
         <param name="binSize" type="integer" value="" optional="true" label="Bin size in bp"
             help="If used, the restriction cut places (if given) are used to only consider reads that are in the vicinity of the resctriction sites.
             Otherwise all reads in the interval are considered. " argument="--binSize"/>
-
-        <param name="fragmentLength" type="integer" value="" optional="true" label="Estimated fragment length" argument="--fragmentLength" />
-
+        
         <param name="restrictionCutFile" type="data" format="bed" optional="true" label="BED file with all restriction cut places"
             help="Should contaion only  mappable restriction sites. If given, the bins are set to match the restriction fragments
             (i.e. the region between one restriction site and the next)." argument="--restrictionCutFile"/>

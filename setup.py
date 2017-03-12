@@ -51,12 +51,49 @@ def get_version():
             return ver
     return None
 
+class sdist(_sdist):
+
+    def run(self):
+        update_version_py()
+        self.distribution.metadata.version = get_version()
+        return _sdist.run(self)
+
+# Install class to check for external dependencies from OS environment
+class install(_install):
+
+    def run(self):
+        update_version_py()
+        self.distribution.metadata.version = get_version()
+        _install.run(self)
+        return
+
+    def checkProgramIsInstalled(self, program, args, where_to_download,
+                                affected_tools):
+        try:
+            subprocess.Popen([program, args],
+                             stderr=subprocess.PIPE,
+                             stdout=subprocess.PIPE)
+            return True
+        except EnvironmentError:
+            # handle file not found error.
+            # the config file is installed in:
+            msg = "\n**{0} not found. This " \
+                  "program is needed for the following "\
+                  "tools to work properly:\n"\
+                  " {1}\n"\
+                  "{0} can be downloaded from here:\n " \
+                  " {2}\n".format(program, affected_tools,
+                                  where_to_download)
+            sys.stderr.write(msg)
+
+        except Exception as e:
+            sys.stderr.write("Error: {}".format(e))
 
 setup(
     name='HiCExplorer',
     version=get_version(),
-    author='Fidel Ramirez',
-    author_email='ramirez@ie-freiburg.mpg.de',
+    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning',
+    author_email='deeptools@googlegroups.com',
     packages=['hicexplorer'],
     scripts=['bin/findRestSite', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindEnrichedContacts', 'bin/hicFindTADs',
@@ -66,8 +103,7 @@ setup(
     package_data={'': ['config/hicexplorer.cfg']},
     url='http://hicexplorer.readthedocs.io',
     license='LICENSE.txt',
-    description='Set of programms to process, analyze and visualize Hi-C data'
-    'BAM format.',
+    description='Set of programms to process, analyze and visualize Hi-C data',
     long_description=open('README.rst').read(),
     install_requires=[
         "numpy >= 1.10.4",
@@ -77,6 +113,7 @@ setup(
         "intervaltree >= 2.1.0",
         "biopython >= 1.65",
         "tables >= 3.2.2",
-        "pyBigWig >=0.2.8"
-    ]
+        "pyBigWig >=0.2.8"],
+    zip_safe=False,
+    cmdclass={'sdist': sdist, 'install': install}
 )
