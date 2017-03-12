@@ -14,6 +14,7 @@
     <token name="@WRAPPER_VERSION@">1.4</token>
     <xml name="requirements">
         <requirements>
+            <requirement type="package" version="2.7.13">python</requirement>
             <requirement type="package" version="@WRAPPER_VERSION@">hicexplorer</requirement>
             <yield />
         </requirements>
