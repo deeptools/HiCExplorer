@@ -15,4 +15,4 @@ source activate deeptools_galaxy
 #cd ..
 #conda uninstall -y sqlite
 pip install . 
-/home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo test --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
+/home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
