@@ -10,21 +10,28 @@
             ln -s '$mode.matrix' matrix.npz.h5 &&
         #end if
 
+        #if $mode.mode_selector == 'find_TADs':
+            ln -s '$tad_score_zscore_matrix' ./tadScoreFile.tabular_zscore_matrix.h5 &&
+        #end if
+
         hicFindTADs
             $mode.mode_selector
 
             #if $mode.mode_selector == 'find_TADs':
                 --tadScoreFile '$tadScoreFile'
                 --outPrefix galaxy_tad_prefix
-                --maxThreshold $mode.maxThreshold
+                ##--maxThreshold $mode.maxThreshold
                 --delta $mode.delta
-                --lookahead $mode.lookahead
+                --pvalue $mode.pvalue
+                #if $mode.minBoundaryDistance:
+                    --minBoundaryDistance $mode.minBoundaryDistance
+                #end if
             #else:
                 --matrix matrix.npz.h5
                 --maxDepth $mode.maxDepth
                 --minDepth $mode.minDepth
                 --outFileName ./tadScoreFile.tabular
-                $mode.useLogValues
+                ##$mode.useLogValues
                 --step $mode.step
             #end if
 
@@ -38,13 +45,18 @@
             </param>
             <when value="find_TADs">
                 <param argument="--tadScoreFile" type="data" format="tabular" label="TAD score file"/>
-                <param argument="--maxThreshold" type="float" value="0.3" optional="True" label="Only call boundaries that have an score below this threshold"/>
+                <param name="tad_score_zscore_matrix" type="data" format="h5" label="TAD score Matrix file"/>
 
                 <param argument="--delta" type="float" value="0.001" optional="True" label="Minimum difference between a peak and followingpoints"/>
-
-                <param argument="--lookahead" type="integer" value="2" optional="True"
-                    label="Number of bins ahead to look for before deciding if a local minimum is a boundary.points"/>
-
+                <param argument="--pvalue" type="float" value="0.01" 
+                    label="P-value threshold"
+                    help="The probability of a local minima to be a boundary is estimated by comparing the distribution (Wilcoxon ranksum) of the
+                            zscores between the left and right regions (diamond) at the local minimum with the matrix zscores for a diamond at
+                            --minDepth to the left and a diamond --minDepth to the right.
+                            The reported pvalue is the Bonferroni correction all pvalues."/>
+                <param argument="--minBoundaryDistance" type="integer" value="" optional="True"
+                    label="Minimum distance between boundaries (in bp)."
+                    help="This parameter can be used to reduce spurious boundaries caused by noise. "/>
 
             </when>
             <when value="TAD_score">
@@ -58,8 +70,6 @@
                     help="This number should around 6 times as large as the bin size of the Hi-C matrix."/>
                 <param argument="--step" type="integer" value="10000"
                     label="Step size when moving from minDepth to maxDepth"/>
-                <param argument="--useLogValues" type="boolean" truevalue="--useLogValues" falsevalue=""
-                    label="If set, the log of the matrix values areused" />
             </when>
         </conditional>
 
@@ -69,39 +79,47 @@
         <data name="outFileName" from_work_dir="tadScoreFile.tabular" format="tabular">
             <filter>mode['mode_selector'] == "TAD_score"</filter>
         </data>
-        <data name="boundaries" from_work_dir="galaxy_tad_prefix_boundaries.bed" format="bed" label="${tool.name} on ${on_string}: Boundary positions">
+        <data name="tad_score_zscore_matrix" from_work_dir="tadScoreFile.tabular_zscore_matrix.h5" format="h5">
+            <filter>mode['mode_selector'] == "TAD_score"</filter>
+        </data>
+        <data name="boundaries" from_work_dir="galaxy_tad_prefix_boundaries.bed" format="bed"
+            label="${tool.name} on ${on_string}: Boundary positions">
             <filter>mode['mode_selector'] == "find_TADs"</filter>
         </data>
-        <data name="score" from_work_dir="galaxy_tad_prefix_score.bedgraph" format="bedgraph" label="${tool.name} on ${on_string}: Matrix with multi-scale TAD scores">
+        <data name="score" from_work_dir="galaxy_tad_prefix_score.bedgraph" format="bedgraph"
+            label="${tool.name} on ${on_string}: Matrix with multi-scale TAD scores">
             <filter>mode['mode_selector'] == "find_TADs"</filter>
         </data>
-        <data name="domains" from_work_dir="galaxy_tad_prefix_domains.bed" format="bed" label="${tool.name} on ${on_string}: TAD domains">
+        <data name="domains" from_work_dir="galaxy_tad_prefix_domains.bed" format="bed"
+            label="${tool.name} on ${on_string}: TAD domains">
             <filter>mode['mode_selector'] == "find_TADs"</filter>
         </data>
-        <data name="boundaries_bin" from_work_dir="galaxy_tad_prefix_boundaries_bin.bed" format="bed" label="${tool.name} on ${on_string}: Linkage information">
+        <data name="boundaries_bin" from_work_dir="galaxy_tad_prefix_boundaries.gff"
+            format="bed" label="${tool.name} on ${on_string}: Boundary information plus score">
             <filter>mode['mode_selector'] == "find_TADs"</filter>
         </data>
     </outputs>
     <tests>
-        <test>
+        <!--test>
             <param name="matrix" value="hicBuildMatrix_result1.h5" ftype="h5"/>
             <param name="mode_selector" value="TAD_score"/>
             <param name="minDepth" value="20000"/>
             <param name="maxDepth" value="60000"/>
-            <param name="step" value="10000"/>
+            <param name="step" value="100000"/>
             <output name="outFileName" file="hicFindTADs_TAD_score.tabular" ftype="tabular"/>
+            <output name="tad_score_zscore_matrix" file="tadScoreFile.tabular_zscore_matrix.h5" ftype="h5" compare="sim_size"/>
         </test>
         <test>
             <param name="tadScoreFile" value="hicFindTADs_TAD_score.tabular" ftype="tabular"/>
+            <param name="tad_score_zscore_matrix" value="tadScoreFile.tabular_zscore_matrix.h5" ftype="h5"/>
             <param name="mode_selector" value="find_TADs"/>
             <param name="delta" value="0.002"/>
-            <param name="lookahead" value="2"/>
-            <param name="maxThreshold" value="0.2"/>
+            <param name="pvale" value="0.01"/>
             <output name="boundaries" file="hicFindTADs_find_boundaries.bed" ftype="bed"/>
             <output name="score" file="hicFindTADs_find_score.bedgraph" ftype="bedgraph"/>
             <output name="domains" file="hicFindTADs_find_domains.bed" ftype="bed"/>
-            <output name="boundaries_bin" file="hicFindTADs_find_boundaries_bin.bed" ftype="bed"/>
-        </test>
+            <output name="boundaries_bin" file="hicFindTADs_find_boundaries.gff" ftype="gff"/>
+        </test-->
     </tests>
     <help><![CDATA[
 

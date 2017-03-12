@@ -11,7 +11,7 @@
     </xml>
 
     <token name="@THREADS@">--numberOfProcessors "\${GALAXY_SLOTS:-4}"</token>
-    <token name="@WRAPPER_VERSION@">1.4</token>
+    <token name="@WRAPPER_VERSION@">1.6.1</token>
     <xml name="requirements">
         <requirements>
             <requirement type="package" version="2.7.13">python</requirement>
