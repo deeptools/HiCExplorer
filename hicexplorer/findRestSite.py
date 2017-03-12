@@ -11,9 +11,9 @@ from Bio.Alphabet import generic_dna
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(description='Identifies the genomic locations of restriction sites. ',
-                                     usage='An example usage is: %(prog)s --fasta mm10.fa '
+                                     usage='%(prog)s --fasta mm10.fa '
                                            '--searchPattern AAGCTT -o rest_site_positions.bed')
-    
+
     # define the arguments
     parser.add_argument('--fasta', '-f',
                         help='Path to fasta file for the organism genome.',

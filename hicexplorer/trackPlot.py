@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import sys
 import numpy as np
 import matplotlib
@@ -22,6 +24,8 @@ from intervaltree import IntervalTree, Interval
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
 
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'
@@ -54,7 +58,7 @@ class MultiDict(OrderedDict):
 class PlotTracks(object):
 
     def __init__(self, tracks_file, fig_width=DEFAULT_FIGURE_WIDTH,
-                 fig_height=None, fontsize=None, dpi=None):
+                 fig_height=None, fontsize=None, dpi=None, track_label_width=None):
         self.fig_width = fig_width
         self.fig_height = fig_height
         self.dpi = dpi
@@ -66,6 +70,10 @@ class PlotTracks(object):
             fontsize = fontsize
         else:
             fontsize = float(fig_width) * 0.3
+        if track_label_width is None:
+            self.width_ratios = DEFAULT_WIDTH_RATIOS
+        else:
+            self.width_ratios = (1 - track_label_width, track_label_width)
 
         font = {'size': fontsize}
         matplotlib.rc('font', **font)
@@ -101,7 +109,11 @@ class PlotTracks(object):
 
             if 'title' in properties:
                 # adjust titles that are too long
-                properties['title'] = textwrap.fill(properties['title'], 12)
+                # if the track label space is small
+                if track_label_width < 0.1:
+                    properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 12)
+                else:
+                    properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 50)
 
         print "time initializing track(s):"
         self.print_elapsed(start)
@@ -139,7 +151,7 @@ class PlotTracks(object):
                 # DEFAULT_MARGINS[1] - DEFAULT_MARGINS[0] is the proportion of plotting area
 
                 hic_width = \
-                    self.fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * DEFAULT_WIDTH_RATIOS[0]
+                    self.fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * self.width_ratios[0]
                 scale_factor = 0.6  # the scale factor is to obtain a 'pleasing' result.
                 depth = min(track_dict['depth'], (end - start))
 
@@ -164,7 +176,7 @@ class PlotTracks(object):
 
         grids = matplotlib.gridspec.GridSpec(len(track_height), 2,
                                              height_ratios=track_height,
-                                             width_ratios=DEFAULT_WIDTH_RATIOS)
+                                             width_ratios=self.width_ratios)
         axis_list = []
         for idx, track in enumerate(self.track_obj_list):
             axis = axisartist.Subplot(fig, grids[idx, 0])
@@ -581,11 +593,17 @@ class PlotBedGraphMatrix(PlotBedGraph):
                     ymax_print = int(ymax)
                 else:
                     ymax_print = "{:.1f}".format(ymax)
+
+                if float(ymin) % 1 == 0:
+                    ymin_print = int(ymin)
+                else:
+                    ymin_print = "{:.1f}".format(ymin)
+
                 ydelta = ymax - ymin
                 small_x = 0.01 * (end_region - start_region)
                 # by default show the data range
                 self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
-                             "[{}-{}]".format(int(ymin), ymax_print),
+                             "[{}-{}]".format(ymin_print, ymax_print),
                              horizontalalignment='left',
                              verticalalignment='bottom')
             if 'plot horizontal lines' in self.properties and self.properties['horizontal lines']:

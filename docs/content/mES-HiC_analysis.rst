@@ -116,10 +116,10 @@ alignments) [-b] .
 
     mkdir hiCmatrix
 
-    for SRR in SRR1956527 SRR1956528 SRR1956529; 
+    for SRR in SRR1956527 SRR1956528 SRR1956529;
     do hicBuildMatrix \
     -s mapped_files/${SRR}_1.bam mapped_files/${SRR}_2.bam \
-    -bs 10000 \#-rs dpnII_positions_GRCm37-sorted.bed -seq GATC 
+    -bs 10000 \#-rs dpnII_positions_GRCm37-sorted.bed -seq GATC
     -b ${SRR}_ref.bam -o hiCmatrix/${SRR}.matrix & done
 
 The output bam files show that we have around 34M, 54M and 58M selected
@@ -204,6 +204,7 @@ resolution
    :alt: corrected\_100kb\_plot
 
    corrected\_100kb\_plot
+
 Remove outliers from hic-Matrix
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -227,6 +228,7 @@ distribution.
    :alt: diagplot
 
    diagplot
+
 Correct matrix removing outliers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -259,6 +261,7 @@ corrected matrix.
    :alt: correctMatrixPlot
 
    correctMatrixPlot
+
 Find and plot TADs
 ------------------
 
@@ -336,6 +339,7 @@ and GRCm37\_genes.bed file (from ensembl).
    :alt: TADplot
 
    TADplot
+   
 Comparing Marks et. al. and Dixon et. al.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -356,4 +360,3 @@ genes.bed file from ensembl.
    :alt: TADplot2
 
    TADplot2
-

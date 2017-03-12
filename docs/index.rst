@@ -6,7 +6,7 @@ Set of programs to process, normalize, analyze and visualize Hi-C data
 
 HiCexplorer addresses the common tasks of Hi-C analysis from processing to visualization.
 
-.. image:: ./images/hicexplorer.png
+.. image:: ./images/hicex2.png
 
 
 The following is the list of tools available in HiCExplorer
@@ -32,16 +32,12 @@ tool                            description
 =============================== ===========================================================================================
 
 
-Mailing list
+Getting Help
 ------------
 
-If you have questions, requests, or bugs to report, please email the
-`deepTools mailing list <https://groups.google.com/forum/#!forum/deeptools>`_
-
-
-
-This tool suite is developed by the `Bioinformatics Unit <http://www.ie-freiburg.mpg.de/bioinformaticsfac>`_
-at the `Max Planck Institute for Immunobiology and Epigenetics <http://www.ie-freiburg.mpg.de/>`_, Freiburg.
+* For general questions, please use Biostars with Tag `hicexplorer` : `Biostars <https://www.biostars.org/t/hicexplorer/>`_
+* For specific questions and feature requests, use the `deepTools mailing list <https://groups.google.com/forum/#!forum/deeptools>`_
+* For suggesting changes/enhancements and to report bugs, please create an issue on `our GitHub repository <https://github.com/maxplanck-ie/HiCExplorer>`_
 
 
 Contents:
@@ -53,11 +49,17 @@ Contents:
    content/installation
    content/list-of-tools
    content/example_usage
+   content/News
 
+Citation
+---------
 
-Indices and tables
-==================
+Please cite HiCExplorer as follows:
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening,Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke.
+**"High-resolution TADs reveal DNA sequences underlying genome organization in flies". bioRxiv 115063** doi: https://doi.org/10.1101/115063
+
+.. image:: images/logo_mpi-ie.jpg
+
+This tool suite is developed by the `Bioinformatics Unit <http://www.ie-freiburg.mpg.de/bioinformaticsfac>`_
+at the `Max Planck Institute for Immunobiology and Epigenetics <http://www.ie-freiburg.mpg.de/>`_, Freiburg.

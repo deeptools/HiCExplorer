@@ -26,12 +26,13 @@
                 #if $mode.minBoundaryDistance:
                     --minBoundaryDistance $mode.minBoundaryDistance
                 #end if
+
             #else:
                 --matrix matrix.npz.h5
                 --maxDepth $mode.maxDepth
                 --minDepth $mode.minDepth
                 --outFileName ./tadScoreFile.tabular
-                ##$mode.useLogValues
+
                 --step $mode.step
             #end if
 
@@ -47,8 +48,14 @@
                 <param argument="--tadScoreFile" type="data" format="tabular" label="TAD score file"/>
                 <param name="tad_score_zscore_matrix" type="data" format="h5" label="TAD score Matrix file"/>
 
-                <param argument="--delta" type="float" value="0.001" optional="True" label="Minimum difference between a peak and followingpoints"/>
-                <param argument="--pvalue" type="float" value="0.01" 
+                <param argument="--delta" type="float" value="0.001" optional="True"
+                       label="Minimum threshold of the difference between the TAD-separation score of a putative boundary and the mean of the TAD-sep. score of surrounding bins."
+                        help="The delta value reduces spurious boundaries that are shallow, which usually
+                              occur at the center of large TADs when the TAD-sep. score is flat. Higher
+                              delta threshold values produce more conservative boundary estimations. By
+                              default, multiple delta thresholds are saved for the following delta
+                              values: 0.001, 0.01, 0.03, 0.05, 0.1. Other single or multiple values
+                              can be given."/>                <param argument="--pvalue" type="float" value="0.01" 
                     label="P-value threshold"
                     help="The probability of a local minima to be a boundary is estimated by comparing the distribution (Wilcoxon ranksum) of the
                             zscores between the left and right regions (diamond) at the local minimum with the matrix zscores for a diamond at
@@ -61,15 +68,19 @@
             </when>
             <when value="TAD_score">
 
-                <param argument="--matrix" type="data" format="h5" label="Matrix to use"/>
-                <param argument="--minDepth" type="integer" value="20000"
-                    label="Window length to be considered left and right of the cut point in bp"
-                    help="This number should be at least 2 times as large as the bin size of the Hi-C matrix."/>
-                <param argument="--maxDepth" type="integer" value="60000"
-                    label="Window length to be considered left and right of the cut point in bp"
-                    help="This number should around 6 times as large as the bin size of the Hi-C matrix."/>
+                <param argument="--matrix" type="data" format="h5" label="Corrected Hi-C matrix to use for the computations"/>
+                <param argument="--minDepth" type="integer" value="30000"
+                    label="Minimum window length (in bp) to be considered to the left and to the right of each Hi-C bin."
+                    help="This number should be at least 3 times as large as the bin size of the Hi-C matrix."/>
+                <param argument="--maxDepth" type="integer" value="100000"
+                    label="Maximum window length (in bp) to be considered to the left and to the right of each Hi-C bin."
+                    help="This number should around 6-10 times as large as the bin size of the Hi-C matrix."/>
                 <param argument="--step" type="integer" value="10000"
-                    label="Step size when moving from minDepth to maxDepth"/>
+                    label="Step size when moving from minDepth to maxDepth"
+                    help="The step size grows exponentially as `maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]`
+                    until  it reaches `maxDepth`. For example, selecting step=10,000, minDepth=20,000
+                    and maxDepth=150,000 will compute TAD-scores for window sizes:
+                    20,000, 30,000, 40,000, 70,000 and 100,000"/>
             </when>
         </conditional>
 
@@ -115,6 +126,7 @@
             <param name="mode_selector" value="find_TADs"/>
             <param name="delta" value="0.002"/>
             <param name="pvale" value="0.01"/>
+
             <output name="boundaries" file="hicFindTADs_find_boundaries.bed" ftype="bed"/>
             <output name="score" file="hicFindTADs_find_score.bedgraph" ftype="bedgraph"/>
             <output name="domains" file="hicFindTADs_find_domains.bed" ftype="bed"/>

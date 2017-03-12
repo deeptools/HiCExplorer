@@ -4,6 +4,6 @@ hicBuildMatrix
 ==============
 
 .. argparse::
-   :ref: hicexplorer.hicBuildMatrix.parseArguments
+   :ref: hicexplorer.hicBuildMatrix.parse_arguments
    :prog: hicBuildMatrix
 
