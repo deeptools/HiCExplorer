@@ -77,7 +77,7 @@ author = u'Fidel Ramírez'
 def get_version():
     import re
     try:
-        f = open("../deeptools/_version.py")
+        f = open("../hicexplorer/_version.py")
     except EnvironmentError:
         return None
     for line in f.readlines():
