@@ -293,7 +293,7 @@ width = $track.spacer_width
                 <param name="track_input" value="domains.bed" ftype="bed" />
                 <param name="type" value="vlines"/>
             </repeat>
-            <output name="outFileName" file="hicPlotTADs_result1.svg" ftype="svg" compare="sim_size"/>
+            <output name="outFileName" file="hicPlotTADs_result1.svg" ftype="svg" compare="sim_size" delta="35000"/>
         </test>
     </tests>
     <help><![CDATA[
