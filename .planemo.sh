@@ -4,9 +4,8 @@ blah=`mktemp -d`
 /home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo database_create galaxy
 /home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo conda_init --conda_prefix $blah/conda
 export PATH=$blah/conda/bin:$PATH
-conda create -y -c bioconda --name deeptools_galaxy numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython pysam pyBigWig intervaltree
+conda create -y -c bioconda --name deeptools_galaxy samtools python=2.7.13 numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython pysam pybigwig intervaltree
 source activate deeptools_galaxy
-conda install -c bioconda samtools
 #git clone --depth 1 https://github.com/galaxyproject/galaxy.git clone
 #cd clone
 #Add the custom data types
