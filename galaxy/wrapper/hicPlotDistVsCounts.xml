@@ -37,12 +37,12 @@
     </outputs>
     <tests>
         <test>
-            <param name="matrix" ftype="h5" value="Li_et_al_2015.h5"/>
+            <param name="matrix" ftype="h5" value="small_test_matrix_50kb_res.h5"/>
             <param name="skipDiagonal" value="False"/>
             <output name="plotFile" file="hicPlotDistVsCounts_result1.png" ftype="png" compare="sim_size"/>
         </test>
         <test>
-            <param name="matrix" ftype="h5" value="Li_et_al_2015.h5"/>
+            <param name="matrix" ftype="h5" value="small_test_matrix_50kb_res.h5"/>
             <param name="skipDiagonal" value="False"/>
             <param name="plotTitle" value="Excluded chrUextra"/>
             <repeat name="chromosomeExclude">
