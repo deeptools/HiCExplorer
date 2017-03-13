@@ -97,6 +97,6 @@ InteractionSet objects can be used for packages like
 `**diffHic** <https://www.bioconductor.org/packages/release/bioc/html/diffHic.html>`__,
 for differential Hi-C analysis.
 
--  For more information on working with GInteraction ans InteractionSet
+-  For more information on working with GInteraction and InteractionSet
    objects in bioconductor check out `this
    vingette <https://bioconductor.org/packages/devel/bioc/vignettes/InteractionSet/inst/doc/interactions.html>`__.

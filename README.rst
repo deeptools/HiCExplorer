@@ -45,7 +45,7 @@ There are many easy ways to install HiCExplorer. Details can be found
 **Install by cloning this repository:**
 
 You can install any one of the HiCExplorer branches on command line
-(linux/mac) by cloning this git repository:
+(linux/mac) by cloning this git repository :
 
 ::
 
