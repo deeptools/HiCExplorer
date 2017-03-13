@@ -1,11 +1,10 @@
-import sys
 from scipy.sparse import coo_matrix, dia_matrix, triu
 import numpy as np
 import time
 import logging
 
 
-def reduce_matrix(matrix, bins_to_merge, diagonal=False):
+def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     """
     This function sums the rows and columns corresponding
     to the bins_to_merge, returning a new sparse
@@ -14,10 +13,9 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     The function uses sparse matrices tricks to work very fast.
     The idea is that all the cells in the new reduced matrix
     whose sum needs to be computed are expressed as a vector
-    of bins.  Using the bincount function the sum of each bin
+    of bins.  Using the numpy bincount function the sum of each bin
     is obtained. Then this sum vector is converted to a
     sparse matrix.
-
 
     Parameters
     ----------
@@ -25,7 +23,17 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     bins_to_merge : A list of lists. The values of the lists should
         correspond to the indices of the matrix.
 
-    diagonal : If set to true, then the main diagonal is preserved (not deleted)
+    use_triu : use only the upper triangle of the matrix. This is to avoid double
+               counting values close to the diagonal.
+               E.g. the matrix [[1, 2],
+                                 2, 1]]
+
+               when merging the two bins, should be reduced to [4] and not [6], because
+               the number '2' should be counted only once.
+               When this option is used, the result is converted to a symmetric matrix
+
+    diagonal : If set to true, then the main diagonal is preserved (not deleted). Only works
+               when use_triu is set
 
     Returns
     -------
@@ -36,91 +44,107 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     >>> A = csr_matrix(np.array([[1,0],[0,1]]))
     >>> reduce_matrix(A, [(0,1)], diagonal=True).todense()
     matrix([[2]])
-    >>> A = csr_matrix(np.array([[1,0,0],[0,1,0],[0,0,0]]))
-    >>> reduce_matrix(A, [(0,1), (2,)], diagonal=True).todense()
-    matrix([[2, 0],
-            [0, 0]])
-    >>> A = csr_matrix(np.array([[12,5,3,2,0],[0,11,4,1,1],
-    ... [0,0,9,6,0], [0,0,0,10,0], [0,0,0,0,0]]))
+    >>> A = csr_matrix(np.array([[5,5,2,2,0],[0,5,2,2,1],
+    ... [0,0,1,1,0], [0,0,0,1,0], [0,0,0,0,0]]))
     >>> A.todense()
-    matrix([[12,  5,  3,  2,  0],
-            [ 0, 11,  4,  1,  1],
-            [ 0,  0,  9,  6,  0],
-            [ 0,  0,  0, 10,  0],
-            [ 0,  0,  0,  0,  0]])
-    >>> ll = [(0,2), (1,3), (4,)]
-    >>> reduce_matrix(A, ll, diagonal=True).todense()
-    matrix([[24, 17,  0],
-            [17, 22,  1],
-            [ 0,  1,  0]])
-    >>> ll = [(0,2,4), (1,3)]
-    >>> reduce_matrix(A, ll, diagonal=True).todense()
-    matrix([[24, 18],
-            [18, 22]])
+    matrix([[5, 5, 2, 2, 0],
+            [0, 5, 2, 2, 1],
+            [0, 0, 1, 1, 0],
+            [0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0]])
+    >>> ll = [(0,1), (2,3), (4,)]
+    >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
+    matrix([[15,  8,  1],
+            [ 0,  3,  0],
+            [ 0,  0,  0]])
+
+    >>> ll = [(0,1,2), (3,4)]
+    >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
+    matrix([[20,  6],
+            [ 0,  1]])
+
+    >>> ll = [(0,1), (2,3), (4,)]
+    >>> reduce_matrix(A, ll, diagonal=True, use_triu=True).todense()
+    matrix([[15,  8,  1],
+            [ 8,  3,  0],
+            [ 1,  0,  0]])
 
     Test symmetric matrix
-    >>> A = csr_matrix(np.array([[12,5,3,2,0],[0,11,4,1,1],
-    ... [0,0,9,6,0], [0,0,0,10,0], [0,0,0,0,0]]))
+    >>> A = csr_matrix(np.array([[2,2,1,1,1,1],[2,2,1,1,1,1],
+    ... [1,1,1,1,1,1], [1,1,1,1,1,1], [1,1,1,1,1,1], [1,1,1,1,1,1]]))
+    >>> A.todense()
+    matrix([[2, 2, 1, 1, 1, 1],
+            [2, 2, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1]])
+    >>> ll = [(0,1), (2,3), (4,5)]
+    >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
+    matrix([[8, 4, 4],
+            [4, 4, 4],
+            [4, 4, 4]])
+
+    >>> reduce_matrix(A, ll, diagonal=True, use_triu=True).todense()
+    matrix([[6, 4, 4],
+            [4, 3, 4],
+            [4, 4, 3]])
+
+    >>> ll = [(0,1,2), (3,4,5)]
+    >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
+    matrix([[13,  9],
+            [ 9,  9]])
+
+    Test symmetric matrix non consecutive
+    >>> A = csr_matrix(np.array([[5,1,5,1,0],[0,1,2,1,1],
+    ... [0,0,5,1,0], [0,0,0,1,0], [0,0,0,0,0]]))
     >>> dia = dia_matrix(([A.diagonal()], [0]), shape=A.shape)
     >>> A= csr_matrix(A + A.T - dia)
     >>> A.todense()
-    matrix([[12,  5,  3,  2,  0],
-            [ 5, 11,  4,  1,  1],
-            [ 3,  4,  9,  6,  0],
-            [ 2,  1,  6, 10,  0],
-            [ 0,  1,  0,  0,  0]])
+    matrix([[5, 1, 5, 1, 0],
+            [1, 1, 2, 1, 1],
+            [5, 2, 5, 1, 0],
+            [1, 1, 1, 1, 0],
+            [0, 1, 0, 0, 0]])
     >>> ll = [(0,2), (1,3), (4,)]
-    >>> reduce_matrix(A, ll, diagonal=True).todense()
-    matrix([[24, 17,  0],
-            [17, 22,  1],
+    >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
+    matrix([[20,  5,  0],
+            [ 5,  4,  1],
             [ 0,  1,  0]])
-
 
     Test removal of row/columns when the scaffold list does
     not contains all indices
     >>> ll = [(1,2), (3,)]
-    >>> reduce_matrix(A, ll, diagonal=True).todense()
-    matrix([[24,  7],
-            [ 7, 10]])
+    >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
+    matrix([[10,  2],
+            [ 2,  1]])
 
     Test with float and nan
-    >>> A = csr_matrix(np.array([[12.4,5.3,3.1,2.2,np.nan],
-    ... [0,11.4,4.4,1.1,1.1],
-    ... [0,0,9,6,0], [0,0,0,10,0], [0,0,0,0,0]]))
+    >>> A = csr_matrix(np.array([[0.1,0.1,0.2,0.2,np.nan],
+    ... [0,0.1,0.2,0.2,1.1],
+    ... [0,0,0.2,0.2,0], [0,0,0,0.1,0], [0,0,0,0,0]]))
+    >>> dia = dia_matrix(([A.diagonal()], [0]), shape=A.shape)
+    >>> A= csr_matrix(A + A.T - dia)
     >>> A.todense()
-    matrix([[ 12.4,   5.3,   3.1,   2.2,   nan],
-            [  0. ,  11.4,   4.4,   1.1,   1.1],
-            [  0. ,   0. ,   9. ,   6. ,   0. ],
-            [  0. ,   0. ,   0. ,  10. ,   0. ],
-            [  0. ,   0. ,   0. ,   0. ,   0. ]])
+    matrix([[ 0.1,  0.1,  0.2,  0.2,  nan],
+            [ 0.1,  0.1,  0.2,  0.2,  1.1],
+            [ 0.2,  0.2,  0.2,  0.2,  0. ],
+            [ 0.2,  0.2,  0.2,  0.1,  0. ],
+            [ nan,  1.1,  0. ,  0. ,  0. ]])
 
-    >>> ll = [(0,2), (1,3), (4,)]
-    >>> reduce_matrix(A, ll, diagonal=True).todense()
-    matrix([[ 24.5,  17.9,   nan],
-            [ 17.9,  22.5,   1.1],
-            [  nan,   1.1,   0. ]])
+    >>> ll = [(0,1), (2,3), (4,)]
+    >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
+    matrix([[ 0.4,  0.8,  nan],
+            [ 0.8,  0.7,  0. ],
+            [ nan,  0. ,  0. ]])
     """
 
-    #use only the upper triangle of the matrix
-    # and convert to coo
-    #logging.info("reducing matrix")
-    """
-    try:
-        if sum([len(x) for x in bins_to_merge]) != matrix.shape[0]:
-            raise Exception("bins_to_merge length different than "
-                        "matrix length")
-    except:
-        import ipdb;ipdb.set_trace()
-    """
-
-    start_time = time.time()
-    ma = triu(matrix, k=0, format='coo')
+    if use_triu:
+        ma = triu(matrix, k=0, format='coo')
+    else:
+        ma = matrix.tocoo()
     M = len(bins_to_merge)
-    elapsed_time = time.time() - start_time
     start_time = time.time()
-    #logging.debug("time triu: {:.5f}".format(elapsed_time))
-    # place holder for the new row and col
-    # vectors
 
     if M == ma.shape[0]:
         return matrix
@@ -129,8 +153,7 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     # present
     num_nan = len(np.flatnonzero(np.isnan(np.array(ma.data))))
     if num_nan > 0:
-        sys.stderr.write(
-            "\n*Warning*\nmatrix contains {} NaN values.\n".format(num_nan))
+        logging.warn("*Warning*\nmatrix contains {} NaN values.".format(num_nan))
 
     # each original col and row index is converted
     # to a new index based on the bins_to_merge.
@@ -138,13 +161,9 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     # then all rows whose value is 1 or 10 are given
     # as new value the index in the bins_to_merge list.
 
-    map_ = np.zeros(ma.shape[0], dtype=int) -1 # -1 such that all 
-                                               # cases not replaced
-                                               # by the next loop
-                                               # can be identified later.
-                                               # Those cases that remain as -1
-                                               # are for the rows/cols not
-                                               # appearing in the bins_to_merge
+    map_ = np.zeros(ma.shape[0], dtype=int) - 1     # -1 such that all cases not replaced by the next loop
+                                                    # can be identified later. Those cases that remain as -1
+                                                    # are for the rows/cols not appearing in the bins_to_merge
     for k, v in enumerate(bins_to_merge):
         for x in v:
             map_[x] = k
@@ -152,21 +171,13 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     new_row = np.take(map_, ma.row)
     new_col = np.take(map_, ma.col)
 
-    elapsed_time = time.time() - start_time
-    start_time = time.time()
-    # logging.debug("time mapping: {:.5f}".format(elapsed_time))
-
     # remove rows and cols with -1. Those
     # correspond to regions that are not part of
     # the bins_to_merge to be merged
-    keep = (new_row > -1) & (new_col >-1)
+    keep = (new_row > -1) & (new_col > -1)
     ma.data = ma.data[keep]
     new_row = new_row[keep]
     new_col = new_col[keep]
-
-    elapsed_time = time.time() - start_time
-    start_time = time.time()
-    # logging.debug( "time removing unused: {:.5f}".format(elapsed_time))
 
     # The following line converts each combination
     # of row and col into a list of bins. For example,
@@ -185,9 +196,6 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     # to the bin members are added. Those values are in
     # the ma.data array.
     sum_array = np.bincount(bin_array, weights=ma.data)
-    elapsed_time = time.time() - start_time
-    start_time = time.time()
-    # logging.debug( "time bincount: {:.5f}".format(elapsed_time))
 
     # To reconstruct the new matrix the row and col
     # positions need to be obtained. They correspond
@@ -196,34 +204,25 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     new_row_ = new_row[ind]
     new_col_ = new_col[ind]
 
-    elapsed_time = time.time() - start_time
-    start_time = time.time()
-
-    # logging.debug( "time rebuild matrix guts: {:.5f}".format(elapsed_time))
     result = coo_matrix((sum_array, (new_row_, new_col_)),
-                        shape=(M,M), dtype=ma.dtype)
+                        shape=(M, M), dtype=ma.dtype)
     elapsed_time = time.time() - start_time
-    start_time = time.time()
-    logging.debug( "time create sparse matrix: {:.5f}".format(elapsed_time))
 
-    diagmatrix = dia_matrix(([result.diagonal()], [0]),
-                            shape=(M, M), dtype=ma.dtype)
+    logging.debug("time create sparse matrix: {:.5f}".format(elapsed_time))
 
-    # to make set the main diagonal to zero I
-    # multiply the diagonal by 2
-    if diagonal is False:
-        diagmatrix *= 2
+    if use_triu:
+        diagmatrix = dia_matrix(([result.diagonal()], [0]),
+                                shape=(M, M), dtype=ma.dtype)
 
-    elapsed_time = time.time() - start_time
-    start_time = time.time()
-    #logging.debug( "time make diagonal: {:.5f}".format(elapsed_time))
-    # make result symmetric
-    matrix = result + result.T - diagmatrix 
+        # to make set the main diagonal to zero I
+        # multiply the diagonal by 2
+        if diagonal is False:
+            diagmatrix *= 2
+        # make result symmetric
+        matrix = result + result.T - diagmatrix
+    else:
+        matrix = result
     matrix.eliminate_zeros()
-
-    elapsed_time = time.time() - start_time
-    start_time = time.time()
-    #logging.debug( "time final matrix: {:.5f}".format(elapsed_time))
 
     return matrix
 
