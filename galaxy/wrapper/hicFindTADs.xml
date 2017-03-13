@@ -125,7 +125,7 @@
             <param name="tad_score_zscore_matrix" value="tadScoreFile.tabular_zscore_matrix.h5" ftype="h5"/>
             <param name="mode_selector" value="find_TADs"/>
             <param name="delta" value="0.002"/>
-            <param name="pvale" value="0.01"/>
+            <param name="pvalue" value="0.01"/>
 
             <output name="boundaries" file="hicFindTADs_find_boundaries.bed" ftype="bed"/>
             <output name="score" file="hicFindTADs_find_score.bedgraph" ftype="bedgraph"/>
