@@ -87,8 +87,8 @@ follows.
     counts <- matrix(0, ncol = 2, nrow=length(combined)) # counts for unmatched bins set to zero
 
     # fill in the counts for matched bins
-    counts[matched$hic.gi1,1] <- hic.gi$hic.gi1$norm.freq
-    counts[matched$hic.gi1,2] <- hic.gi$hic.gi2$norm.freq
+    counts[matched$hic.gi[[1]],1] <- hic.gi$hic.gi1$norm.freq
+    counts[matched$hic.gi[[1]],2] <- hic.gi$hic.gi2$norm.freq
 
     # Finally, create the InteractionSet object
     iset <- InteractionSet(counts, combined)
