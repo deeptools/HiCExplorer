@@ -50,8 +50,6 @@ Then, after revising the plot and deciding the threshold values:
             $ hicCorrectMatrix diagnostic_plot -h
 
             $ hicCorrectMatrix correct -h
-
-            $ hicCorrectMatrix merge_failed -h
             """)
 
     correct_mode = subparsers.add_parser(
@@ -105,49 +103,6 @@ Then, after revising the plot and deciding the threshold values:
                         action='store_true')
 
 
-    merge_mode = subparsers.add_parser(
-        'merge_failed',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        help="Merges together failed bins to rescue some of the information instead of discarding it. This option "
-             "is mostly useful with processing small restriction fragment size bins.",
-        usage='%(prog)s '
-              '--matrix hic_matrix.h5 '
-              '--outMatrixFile hic_matrix_merged_failed.h5 '
-              '-o file.png')
-    merge_mode.add_argument('--matrix', '-m',
-                            help='Hi-C matrix.',
-                            required=True)
-
-    merge_mode.add_argument('--outMatrixFile',
-                            help='Name to save the resulting matrix.',
-                            required=True)
-
-    merge_mode.add_argument('--plotName', '-o',
-                            help='File name to save the diagnostic plot.',
-                            required=True)
-
-    merge_mode.add_argument('--filterThreshold', '-t',
-                        help='Bins of low coverage or large coverage need to be removed. '
-                             'Usually they do not contain valid Hi-C data of represent '
-                             'regions that accumulate reads. Use hicCorrectMatrix diagnostic_plot '
-                             'to identify the modified z-value thresholds. A lower and upper '
-                             'threshold are required separated by space. Eg. --filterThreshold '
-                             '-1.5 5',
-                        type=float,
-                        nargs=2,
-                        required=True)
-
-    merge_mode.add_argument('--chromosomes',
-                            help='List of chromosomes to be included in the iterative '
-                            'correction. The order of the given chromosomes will be then '
-                            'kept for the resulting corrected matrix',
-                            default=None,
-                            nargs='+')
-
-    merge_mode.add_argument('--xMax',
-                            help='Max value for the X field in counts per bin',
-                            default=None,
-                            type=float)
     return parser
 
 
@@ -231,95 +186,6 @@ def iterative_correction(matrix, args):
                                                                verbose=args.verbose)
 
     return corrected_matrix, correction_factors
-
-
-def merge_failed_bins(hic_matrix, failed_bins):
-    """
-    Merges the failed bins instead of removing them
-    :param hic_matrix: hicMatrix object
-    :param failed_bins: list of failed bins
-    :return: hicMatrix object
-    """
-
-    import hicexplorer.reduceMatrix
-    hic_matrix.restoreMaskedBins()
-    # get the bins to merge
-    ref_name_list, start_list, end_list, coverage_list = zip(*hic_matrix.cut_intervals)
-    new_bins = []
-    bins_to_merge = []
-    coverage_list = np.array(coverage_list)
-
-    def get_merged_bin(bin_list):
-        if len(bin_list) < 2:
-            print idx, bin_list, consecutive, ref_name_list[idx - 1], ref_name_list[idx]
-
-        assert len(bin_list) > 1, "Error, bin_list length has less than 2 elements."
-        coverage = np.mean(coverage_list[bin_list])
-        return ref_name_list[bin_list[0]], start_list[bin_list[0]], end_list[bin_list[-1]], coverage
-
-    # if consecutive failed bins are found
-    # merge them together
-    # otherwise, merge them to the smallest neighboring bin
-    consecutive = []
-    for idx in range(len(ref_name_list)):
-        if idx in failed_bins:
-            # chromosome name change
-            if idx > 1 and ref_name_list[idx - 1] != ref_name_list[idx]:
-                if consecutive:
-                    if len(consecutive) == 1:
-                        new_bins.append(hic_matrix.cut_intervals[consecutive[0]])
-                        bins_to_merge.append([consecutive[0]])
-                    else:
-                        new_bins.append(get_merged_bin(consecutive))
-                        bins_to_merge.append(consecutive)
-                    consecutive = []
-                if idx + 1 in failed_bins:
-                    consecutive.append(idx)
-                    continue
-
-            elif idx + 1 in failed_bins:
-                consecutive.append(idx)
-                continue
-            elif len(consecutive):
-                consecutive.append(idx)
-                new_bins.append(get_merged_bin(consecutive))
-                bins_to_merge.append(consecutive)
-                consecutive = []
-                continue
-
-            if idx == 0 or ref_name_list[idx - 1] != ref_name_list[idx]:
-                # can only merge to the right bin
-                new_bins.append(get_merged_bin([idx, idx + 1]))
-                bins_to_merge.append([idx, idx + 1])
-                continue
-            elif idx + 1 == len(ref_name_list):
-                # can only merge to the left bin, but since this should have been
-                # already added, then it is updated
-                new_bins[-1] = get_merged_bin([idx - 1, idx])
-                bins_to_merge[-1] = [idx - 1, idx]
-                continue
-
-            # merge to the shorter neighboring bin
-            prev_bin_len = end_list[idx - 1] - start_list[idx - 1]
-            next_bin_len = end_list[idx + 1] - start_list[idx + 2]
-            if prev_bin_len < next_bin_len:
-                new_bins[-1] = get_merged_bin([idx - 1, idx])
-                bins_to_merge[-1] = [idx - 1, idx]
-            else:
-                new_bins.append(get_merged_bin([idx, idx + 1]))
-                bins_to_merge.append([idx, idx + 1])
-
-        else:
-            # skip if the bin was already added in the previous loop
-            if idx == 0 or idx not in bins_to_merge[-1]:
-                bins_to_merge.append([idx, ])
-                new_bins.append(hic_matrix.cut_intervals[idx])
-
-    diff = np.diff(np.concatenate(bins_to_merge))
-    assert len(np.flatnonzero(diff > 1)) == 0, "Some indexes are missing"
-    hic_matrix.update_matrix(hicexplorer.reduceMatrix.reduce_matrix(hic_matrix.matrix, bins_to_merge, diagonal=True),
-                             new_bins)
-    return hic_matrix
 
 
 def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
@@ -649,26 +515,10 @@ def main():
     # mask all zero value bins
     row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
     log.info("Removing {} zero value bins".format(sum(row_sum==0)))
-    ma.maskBins(np.flatnonzero(row_sum==0))
+    ma.maskBins(np.flatnonzero(row_sum == 0))
     matrix_shape = ma.matrix.shape
 
-    if 'outMatrixFile' in args:
-        # get below threshold outliers by using an extremely high upper threshold
-        outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], 1e6, perchr=args.perchr)
-        log.info("number of below threshold regions: {}.\n"
-                 "Matrix size before removal of low scoring regions: {}".format(len(outlier_regions), ma.matrix.shape))
-        # compute and print some statistics
-        pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
-        ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%)".format(pct_outlier),
-                            restore_masked_bins=False)
-        # try to recover some of the outliers by merging them
-        ma = merge_failed_bins(ma, outlier_regions)
-        ma.save(args.outMatrixFile)
-        plot_total_contact_dist(ma.matrix, args)
-        sys.stderr.write("Saving diagnostic plot {}\n".format(args.plotName))
-        exit()
-
-    elif 'plotName' in args:
+    if 'plotName' in args:
         plot_total_contact_dist(ma, args)
         sys.stderr.write("Saving diagnostic plot {}\n".format(args.plotName))
         exit()
@@ -683,7 +533,7 @@ def main():
     outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1], perchr=args.perchr)
     # compute and print some statistics
     pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
-    ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers after merge ({:.2f}%) "
+    ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%) "
                                                "out of".format(pct_outlier, ma.matrix.shape[0]),
                         restore_masked_bins=False)
 
