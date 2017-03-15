@@ -14,7 +14,7 @@ is an example.
 .. code:: bash
 
     ## Assuming HiCExplorer is installed in ~/programs
-    hicExport --inFile ~/programs/HiCExplorer/galaxy/wrapper/test-data/Li_et_al_2015.h5 \
+    hicExport --inFile ~/programs/HiCExplorer/test/test_data/Li_et_al_2015.h5 \
     -o GInteration_example --outputFormat GInteractions
 
 The output file is in tsv format. It looks like this :
@@ -90,10 +90,9 @@ follows.
     iset <- InteractionSet(counts, combined)
 
 InteractionSet objects can be used for packages like
-`**diffHic** <https://www.bioconductor.org/packages/release/bioc/html/diffHic.html>`__,
+`diffHic <https://www.bioconductor.org/packages/release/bioc/html/diffHic.html>`__,
 for differential Hi-C analysis.
 
 -  For more information on working with GInteraction and InteractionSet
    objects in bioconductor check out `this
    vingette <https://bioconductor.org/packages/devel/bioc/vignettes/InteractionSet/inst/doc/interactions.html>`__.
-
