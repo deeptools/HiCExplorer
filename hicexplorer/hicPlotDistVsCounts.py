@@ -55,8 +55,7 @@ def chr_diagonals(matrix_file_name, chromosome_exclude):
     if chromosome_exclude is None:
         chromosome_exclude = []
 
-    chrtokeep = [x for x in hic_ma.interval_trees.keys()
-                 if x not in chromosome_exclude]
+    chrtokeep = [x for x in hic_ma.interval_trees.keys() if x not in chromosome_exclude]
     print "Number of contacts {}".format(hic_ma.matrix.sum())
     hic_ma.keepOnlyTheseChr(chrtokeep)
     diagonal_dict = hic_ma.getCountsByDistance(per_chr=True)
@@ -89,8 +88,7 @@ def main(args=None):
     """
     args = parse_arguments().parse_args(args)
 
-    diagonals_dict, chrom_list, common_dist, max_dist = \
-        chr_diagonals(args.matrix, args.chromosomeExclude)
+    diagonals_dict, chrom_list, common_dist, max_dist = chr_diagonals(args.matrix, args.chromosomeExclude)
 
     fig = plt.figure(figsize=(5, 4))
     max_mean = 0
@@ -98,20 +96,17 @@ def main(args=None):
     dist_list = np.sort(common_dist)
     for chrom in chrom_list:
         values = diagonals_dict[chrom]
-        mean_values = [remove_outliers(values[dist]).mean()
-                       for dist in dist_list]
-        prc_values_90 = [np.percentile(
-                remove_outliers(values[dist]), 90)
-                         for dist in dist_list]
-        prc_values_10 = [np.percentile(
-                remove_outliers(values[dist]), 10)
-                         for dist in dist_list]
-        if max(prc_values_90) > max_mean:
-            max_mean = max(prc_values_90)
-        if min(mean_values) < min_mean:
-            min_mean = min(mean_values)
-        label = chrom
-        plt.plot(dist_list, mean_values, label=label)
+        if len(values):
+            mean_values = [remove_outliers(values[dist]).mean() for dist in dist_list]
+            prc_values_90 = [np.percentile(remove_outliers(values[dist]), 90) for dist in dist_list]
+
+            if max(prc_values_90) > max_mean:
+                max_mean = max(prc_values_90)
+            if min(mean_values) < min_mean:
+                min_mean = min(mean_values)
+            label = chrom
+            plt.plot(dist_list, mean_values, label=label)
+
     plt.yscale('log')
     plt.xscale('log')
     plt.legend(prop={'size':'small'})

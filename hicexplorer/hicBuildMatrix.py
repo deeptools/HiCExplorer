@@ -984,5 +984,9 @@ Max rest. site distance\t{}\t\t
 class Tester(object):
     def __init__(self):
         import os
-        self.root = os.path.dirname(os.path.abspath(__file__)) + "/test/test_data/"
+        hic_test_data_dir = os.environ.get('HIC_TEST_DATA_DIR', False)
+        if hic_test_data_dir:
+            self.root = hic_test_data_dir
+        else:
+            self.root = os.path.dirname(os.path.abspath(__file__)) + "/test/test_data/"
         self.bam_file_1 = self.root + "hic.bam"

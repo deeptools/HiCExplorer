@@ -19,24 +19,24 @@ __version__ = '%s'
 
 def update_version_py():
     if not os.path.isdir(".git"):
-        print "This does not appear to be a Git repository."
+        print("This does not appear to be a Git repository.")
         return
     try:
         p = subprocess.Popen(["git", "describe",
                               "--tags", "--always"],
                              stdout=subprocess.PIPE)
     except EnvironmentError:
-        print "unable to run git, leaving hicexplorer/_version.py alone"
+        print("unable to run git, leaving hicexplorer/_version.py alone")
         return
     stdout = p.communicate()[0]
     if p.returncode != 0:
-        print "unable to run git, leaving hicexplorer/_version.py alone"
+        print("unable to run git, leaving hicexplorer/_version.py alone")
         return
     ver = stdout.strip()
     f = open("hicexplorer/_version.py", "w")
     f.write(VERSION_PY % ver)
     f.close()
-    print "set hicexplorer/_version.py to '%s'" % ver
+    print("set hicexplorer/_version.py to '%s'" % ver)
 
 
 def get_version():
