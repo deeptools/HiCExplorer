@@ -106,7 +106,10 @@ class PlotTracks(object):
 
             elif properties['file_type'] == 'boundaries':
                 self.track_obj_list.append(PlotBoundaries(properties))
-
+            elif properties['file_type'] == 'mtx':
+                self.track_obj_list.append(PlotExtension(properties))
+            elif properties['file_type'] == 'npy':
+                self.track_obj_list.append(PlotExtensionNpy(properties))
             if 'title' in properties:
                 # adjust titles that are too long
                 # if the track label space is small
@@ -157,28 +160,30 @@ class PlotTracks(object):
 
                 height = scale_factor * depth * hic_width / (end - start)
             track_height.append(height)
-
+ 
         return track_height
 
     def plot(self, file_name, chrom, start, end, title=None):
         track_height = self.get_tracks_height(start, end)
-
+        print len(track_height)
         if self.fig_height:
             fig_height = self.fig_height
         else:
             fig_height = sum(track_height)
-
+        print fig_height
         sys.stderr.write("Figure size in cm is {} x {}. Dpi is set to {}\n".format(self.fig_width,
                                                                                    fig_height, self.dpi))
         fig = plt.figure(figsize=self.cm2inch(self.fig_width, fig_height))
         if title:
             fig.suptitle(title)
-
+            
         grids = matplotlib.gridspec.GridSpec(len(track_height), 2,
                                              height_ratios=track_height,
                                              width_ratios=self.width_ratios)
         axis_list = []
+        print "grids: ", grids
         for idx, track in enumerate(self.track_obj_list):
+            print "gridsinnerloop: ", grids[idx, 0]
             axis = axisartist.Subplot(fig, grids[idx, 0])
             fig.add_subplot(axis)
             axis.axis[:].set_visible(False)
@@ -187,6 +192,7 @@ class PlotTracks(object):
             label_axis = plt.subplot(grids[idx, 1])
             label_axis.set_axis_off()
             track.plot(axis, label_axis, chrom, start, end)
+            # print track
             axis_list.append(axis)
 
         if self.vlines_intval_tree:
@@ -1038,7 +1044,47 @@ class PlotXAxis(TrackPlot):
         if 'where' in self.properties and self.properties['where'] == 'top':
             ax.axis["x"].set_axis_direction("top")
 
+class PlotExtension(TrackPlot):
 
+    def __init__(self, *args, **kwargs):
+        super(PlotExtension, self).__init__(*args, **kwargs)
+        if 'fontsize' not in self.properties:
+            self.properties['fontsize'] = 15
+
+    def plot(self, ax, label_axis, chrom_region, region_start, region_end):
+        # ax.set_xlim(region_start, region_end)
+
+        # from  scipy.io import mmwrite
+        from  scipy.io import mmread
+        matrix = mmread(self.properties['file'])
+        ax.set_xlim(0, 1176)
+        # ax.set_ylim(0, 100)
+        # ax.height(5)
+        
+        ax.matshow(matrix, cmap = 'gray')
+class PlotExtensionNpy(TrackPlot):
+
+    def __init__(self, *args, **kwargs):
+        super(PlotExtensionNpy, self).__init__(*args, **kwargs)
+        if 'fontsize' not in self.properties:
+            self.properties['fontsize'] = 15
+
+    def plot(self, ax, label_axis, chrom_region, region_start, region_end):
+        # ax.set_xlim(region_start, region_end)
+
+        # from  scipy.io import mmwrite
+        # from  scipy.io import mmread
+        # array_load = np.load(self.properties['file'])
+        ax.set_xlim(0, 1176)
+        
+        array_load = np.load(self.properties['file'])
+        x = range(0, len(array_load))
+        
+        ax.fill_between(x, 0, array_load)
+        # ax.set_ylim(0, 100)
+        # ax.height(5)
+        
+        # ax.matshow(matrix, cmap = 'gray')      
 class PlotBoundaries(TrackPlot):
 
     def __init__(self, *args, **kwargs):
