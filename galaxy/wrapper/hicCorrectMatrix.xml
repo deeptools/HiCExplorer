@@ -69,7 +69,6 @@
             <param name="mode_selector" type="select" label="Range restriction (in bp)" argument="--range">
                 <option value="diagnostic_plot">Diagnostic plot</option>
                 <option value="correct">Correct matrix</option>
-                <option value="merge_failed">Merges together failed bins</option>
             </param>
             <when value="diagnostic_plot">
                 <expand macro="xMax" />
@@ -100,10 +99,6 @@
                 <expand macro="filterThreshold" />
 
             </when>
-            <when value="merge_failed">
-                <expand macro="filterThreshold" />
-                <expand macro="xMax" />
-            </when>
         </conditional>
 
         <repeat name="chromosomes" min="1"
@@ -115,10 +110,10 @@
     </inputs>
     <outputs>
         <data name="outFileName"  from_work_dir="corrected_matrix.npz.h5" format="h5">
-            <filter>mode['mode_selector'] == "correct" or mode['mode_selector'] == "merge_failed"</filter>
+            <filter>mode['mode_selector'] == "correct"</filter>
         </data>
         <data name="diagnostic_plot" from_work_dir="diagnostic_plot.png" format="png">
-            <filter>mode['mode_selector'] == "diagnostic_plot" or mode['mode_selector'] == "merge_failed"</filter>
+            <filter>mode['mode_selector'] == "diagnostic_plot"</filter>
         </data>
     </outputs>
     <tests>
@@ -144,17 +139,6 @@
             </repeat> 
             <output name="diagnostic_plot" file="diagnostic_plot.png" ftype="png" compare="sim_size"/>
         </test>
-        <test>
-            <param name="matrix" ftype="h5" value="hicBuildMatrix_result1.h5"/>
-            <param name="mode_selector" value="merge_failed"/>
-            <repeat name="chromosomes">
-                <param name="chromosome" value="chrUextra"/>
-            </repeat>
-            <repeat name="chromosomes">
-                <param name="chromosome" value="chr3LHet"/>
-            </repeat> 
-            <output name="diagnostic_plot" file="diagnostic_plot.png" ftype="png" compare="sim_size"/>
-        </test>
     </tests>
     <help><![CDATA[
 
@@ -171,10 +155,6 @@ Runs Dekker's iterative correction over a hic matrix.
                    16: How to Detect and Handle Outliers The ASQC Basic
                    References in Quality Control: Statistical Techniques,
                    Edward F. Mykytka, Ph.D., Editor.
-    merge_failed   Merges together failed bins to rescue some of the
-                   information instead of discarding it. This option is mostly
-                   useful with processing small restrition fragment size bins
-
 
 
 ]]></help>
