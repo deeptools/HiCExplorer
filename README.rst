@@ -1,5 +1,3 @@
-.. image:: https://zenodo.org/badge/21196/maxplanck-ie/HiCExplorer.svg
-   :target: https://zenodo.org/badge/latestdoi/21196/maxplanck-ie/HiCExplorer
 .. image:: https://travis-ci.org/maxplanck-ie/HiCExplorer.svg?branch=master
    :target: https://travis-ci.org/maxplanck-ie/HiCExplorer
 .. image:: https://readthedocs.org/projects/hicexplorer/badge/?version=docs
