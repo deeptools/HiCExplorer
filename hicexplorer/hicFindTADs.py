@@ -148,7 +148,7 @@ For detailed help:
                                           'at the boundary. 2. <prefix>_domains.bed '
                                           'contains the TADs positions. This is a non-overlapping set of genomic '
                                           'positions. 3. <prefix>_boundaries.gff Similar to the boundaries bed file '
-                                          'but with extra information (pvalue, delta). 4. <prefix>.bedgraph file '
+                                          'but with extra information (pvalue, delta). 4. <prefix>_score.bedgraph file '
                                           'contains the TAD-separation score '
                                           'measured at each Hi-C bin coordinate. Is useful to visualize in a genome '
                                           'browser. The delta and pvalue settings are saved as part of the name.',
