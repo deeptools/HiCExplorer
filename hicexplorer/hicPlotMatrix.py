@@ -311,12 +311,16 @@ def plotPerChr(hic_matrix, cmap, args):
     in one row. scale bar is added at the end
     """
     chromosomes = hic_matrix.getChrNames()
-    width_ratios = [1] * len(chromosomes) + [0.05]
-    grids = gridspec.GridSpec(1, len(chromosomes) + 1,
-                              width_ratios=width_ratios)
+    chrom_per_row = 5
+    num_rows = len(chromosomes) / chrom_per_row
+    num_cols = min(chrom_per_row, len(chromosomes))
+    width_ratios = [1] * num_cols + [0.05]
+    grids = gridspec.GridSpec(num_rows, num_cols + 1,
+                              width_ratios=width_ratios,
+                              height_ratios=[1] * num_rows)
 
-    fig_height = 6
-    fig_width = sum((np.array(width_ratios)+0.95) * fig_height)
+    fig_height = 6 * num_rows
+    fig_width = sum((np.array(width_ratios)+0.05) * 6)
 
     fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
@@ -326,7 +330,9 @@ def plotPerChr(hic_matrix, cmap, args):
     chrom, start, end, _ = zip(*hic_matrix.cut_intervals)
 
     for idx, chrname in enumerate(chromosomes):
-        axis = plt.subplot(grids[idx])
+        row = idx / chrom_per_row
+        col = idx % chrom_per_row
+        axis = plt.subplot(grids[row, col])
         axis.set_title(chrname)
         chrom_range = hic_matrix.getChrBinRange(chrname)
         mat = hic_matrix.matrix[chrom_range[0]:chrom_range[1],
@@ -336,7 +342,6 @@ def plotPerChr(hic_matrix, cmap, args):
             mat += 1
         img = axis.imshow(mat, aspect='auto',
                           interpolation='spline16',
-#                          interpolation='nearest',
                           vmax=args.vMax, vmin=args.vMin, cmap=cmap,
                           norm=norm,
                           extent=[start[chrom_range[0]], end[chrom_range[1] - 1],
@@ -367,6 +372,7 @@ def plotPerChr(hic_matrix, cmap, args):
     cbar.solids.set_edgecolor("face") # to avoid white lines in
                                       # the color bar in pdf plots
     cbar.ax.set_ylabel(args.scoreName, rotation=270, labelpad=20)
+
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
