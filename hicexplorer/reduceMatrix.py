@@ -101,9 +101,9 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
             [  nan,   1.1,   0. ]])
     """
 
-    #use only the upper triangle of the matrix
+    # use only the upper triangle of the matrix
     # and convert to coo
-    #logging.info("reducing matrix")
+    # logging.info("reducing matrix")
     """
     try:
         if sum([len(x) for x in bins_to_merge]) != matrix.shape[0]:
@@ -118,7 +118,7 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     M = len(bins_to_merge)
     elapsed_time = time.time() - start_time
     start_time = time.time()
-    #logging.debug("time triu: {:.5f}".format(elapsed_time))
+    # logging.debug("time triu: {:.5f}".format(elapsed_time))
     # place holder for the new row and col
     # vectors
 
@@ -138,13 +138,13 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     # then all rows whose value is 1 or 10 are given
     # as new value the index in the bins_to_merge list.
 
-    map_ = np.zeros(ma.shape[0], dtype=int) -1 # -1 such that all 
-                                               # cases not replaced
-                                               # by the next loop
-                                               # can be identified later.
-                                               # Those cases that remain as -1
-                                               # are for the rows/cols not
-                                               # appearing in the bins_to_merge
+    map_ = np.zeros(ma.shape[0], dtype=int) - 1  # -1 such that all
+    # cases not replaced
+    # by the next loop
+    # can be identified later.
+    # Those cases that remain as -1
+    # are for the rows/cols not
+    # appearing in the bins_to_merge
     for k, v in enumerate(bins_to_merge):
         for x in v:
             map_[x] = k
@@ -159,7 +159,7 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
     # remove rows and cols with -1. Those
     # correspond to regions that are not part of
     # the bins_to_merge to be merged
-    keep = (new_row > -1) & (new_col >-1)
+    keep = (new_row > -1) & (new_col > -1)
     ma.data = ma.data[keep]
     new_row = new_row[keep]
     new_col = new_col[keep]
@@ -201,10 +201,10 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
 
     # logging.debug( "time rebuild matrix guts: {:.5f}".format(elapsed_time))
     result = coo_matrix((sum_array, (new_row_, new_col_)),
-                        shape=(M,M), dtype=ma.dtype)
+                        shape=(M, M), dtype=ma.dtype)
     elapsed_time = time.time() - start_time
     start_time = time.time()
-    logging.debug( "time create sparse matrix: {:.5f}".format(elapsed_time))
+    logging.debug("time create sparse matrix: {:.5f}".format(elapsed_time))
 
     diagmatrix = dia_matrix(([result.diagonal()], [0]),
                             shape=(M, M), dtype=ma.dtype)
@@ -216,14 +216,13 @@ def reduce_matrix(matrix, bins_to_merge, diagonal=False):
 
     elapsed_time = time.time() - start_time
     start_time = time.time()
-    #logging.debug( "time make diagonal: {:.5f}".format(elapsed_time))
+    # logging.debug( "time make diagonal: {:.5f}".format(elapsed_time))
     # make result symmetric
-    matrix = result + result.T - diagmatrix 
+    matrix = result + result.T - diagmatrix
     matrix.eliminate_zeros()
 
     elapsed_time = time.time() - start_time
     start_time = time.time()
-    #logging.debug( "time final matrix: {:.5f}".format(elapsed_time))
+    # logging.debug( "time final matrix: {:.5f}".format(elapsed_time))
 
     return matrix
-
