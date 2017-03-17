@@ -62,7 +62,7 @@ def main():
     """
     assert hic_t.matrix.shape == hic_c.matrix.shape, "Matrices have different shapes."
 
-    assert (hic_t.matrix - hic_c.matrix).sum() != 0 , "Matrices are identical."
+    assert (hic_t.matrix - hic_c.matrix).sum() != 0, "Matrices are identical."
 
     # create a new matrix that is the sum of the two
     # matrices to compare. The goal is to have

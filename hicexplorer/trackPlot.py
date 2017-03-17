@@ -3,13 +3,13 @@
 import sys
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib
 import matplotlib.textpath
 import matplotlib.colors
 import matplotlib.gridspec
 import matplotlib.cm
+from matplotlib.patches import Arc
+
 import mpl_toolkits.axisartist as axisartist
 from matplotlib.patches import Rectangle
 import textwrap
@@ -23,6 +23,8 @@ from intervaltree import IntervalTree, Interval
 
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
+
+matplotlib.use('Agg')
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -106,14 +108,19 @@ class PlotTracks(object):
 
             elif properties['file_type'] == 'boundaries':
                 self.track_obj_list.append(PlotBoundaries(properties))
-
+            # elif properties['file_type'] == 'mtx':
+            #     self.track_obj_list.append(PlotExtension(properties))
+            # elif properties['file_type'] == 'npy':
+            #     self.track_obj_list.append(PlotExtensionNpy(properties))
             if 'title' in properties:
                 # adjust titles that are too long
                 # if the track label space is small
                 if track_label_width < 0.1:
-                    properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 12)
+                    properties['title'] = textwrap.fill(
+                        properties['title'].encode("UTF-8"), 12)
                 else:
-                    properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 50)
+                    properties['title'] = textwrap.fill(
+                        properties['title'].encode("UTF-8"), 50)
 
         print "time initializing track(s):"
         self.print_elapsed(start)
@@ -148,11 +155,15 @@ class PlotTracks(object):
             elif 'depth' in track_dict and track_dict['file_type'] == 'hic_matrix':
                 # to compute the actual width of the figure the margins and the region
                 # set for the legends have to be considered
-                # DEFAULT_MARGINS[1] - DEFAULT_MARGINS[0] is the proportion of plotting area
+                # DEFAULT_MARGINS[1] - DEFAULT_MARGINS[0] is the proportion of
+                # plotting area
 
                 hic_width = \
-                    self.fig_width * (DEFAULT_MARGINS['right'] - DEFAULT_MARGINS['left']) * self.width_ratios[0]
-                scale_factor = 0.6  # the scale factor is to obtain a 'pleasing' result.
+                    self.fig_width * \
+                    (DEFAULT_MARGINS['right'] -
+                     DEFAULT_MARGINS['left']) * self.width_ratios[0]
+                # the scale factor is to obtain a 'pleasing' result.
+                scale_factor = 0.6
                 depth = min(track_dict['depth'], (end - start))
 
                 height = scale_factor * depth * hic_width / (end - start)
@@ -162,12 +173,12 @@ class PlotTracks(object):
 
     def plot(self, file_name, chrom, start, end, title=None):
         track_height = self.get_tracks_height(start, end)
-
+        print len(track_height)
         if self.fig_height:
             fig_height = self.fig_height
         else:
             fig_height = sum(track_height)
-
+        print fig_height
         sys.stderr.write("Figure size in cm is {} x {}. Dpi is set to {}\n".format(self.fig_width,
                                                                                    fig_height, self.dpi))
         fig = plt.figure(figsize=self.cm2inch(self.fig_width, fig_height))
@@ -178,7 +189,9 @@ class PlotTracks(object):
                                              height_ratios=track_height,
                                              width_ratios=self.width_ratios)
         axis_list = []
+        print "grids: ", grids
         for idx, track in enumerate(self.track_obj_list):
+            print "gridsinnerloop: ", grids[idx, 0]
             axis = axisartist.Subplot(fig, grids[idx, 0])
             fig.add_subplot(axis)
             axis.axis[:].set_visible(False)
@@ -187,6 +200,7 @@ class PlotTracks(object):
             label_axis = plt.subplot(grids[idx, 1])
             label_axis.set_axis_off()
             track.plot(axis, label_axis, chrom, start, end)
+            # print track
             axis_list.append(axis)
 
         if self.vlines_intval_tree:
@@ -248,7 +262,7 @@ class PlotTracks(object):
         tracks_file_path = os.path.dirname(tracks_file)
 
         track_list = []
-        vlines_file = None
+        # vlines_file = None
         for section_name in parser.sections():
             track_options = dict({"section_name": section_name})
             if section_name.endswith('[spacer]'):
@@ -262,7 +276,8 @@ class PlotTracks(object):
                     track_options[name] = value
 
             if 'type' in track_options and track_options['type'] == 'vlines':
-                self.vlines_properties = self.check_file_exists(track_options, tracks_file_path)
+                self.vlines_properties = self.check_file_exists(
+                    track_options, tracks_file_path)
             elif 'skip' in track_options and track_options['skip'] != 'no':
                 pass
             else:
@@ -272,20 +287,23 @@ class PlotTracks(object):
         for track_dict in track_list:
             warn = None
             if 'file' in track_dict and track_dict['file'] != '':
-                track_dict = self.check_file_exists(track_dict, tracks_file_path)
+                track_dict = self.check_file_exists(
+                    track_dict, tracks_file_path)
                 if 'file_type' not in track_dict:
                     track_dict['file_type'] = self.guess_filetype(track_dict)
 
                 #  set some default values
                 if 'title' not in track_dict:
-                    warn = "\ntitle not set for 'section {}'\n".format(track_dict['section_name'])
+                    warn = "\ntitle not set for 'section {}'\n".format(
+                        track_dict['section_name'])
                     track_dict['title'] = ''
                 if warn:
                     sys.stderr.write(warn)
             updated_track_list.append(track_dict)
         self.track_list = updated_track_list
         if self.vlines_properties:
-            self.vlines_intval_tree, __, __ = file_to_intervaltree(self.vlines_properties['file'])
+            self.vlines_intval_tree, __, __ = file_to_intervaltree(
+                self.vlines_properties['file'])
 
     @staticmethod
     def check_file_exists(track_dict, tracks_path):
@@ -302,7 +320,8 @@ class PlotTracks(object):
         """
         for file_type in ['boundaries_file', 'file']:
             if file_type in track_dict:
-                file_names = [x for x in track_dict[file_type].split(" ") if x != '']
+                file_names = [
+                    x for x in track_dict[file_type].split(" ") if x != '']
                 full_path_file_names = []
                 for file_name in file_names:
                     try:
@@ -323,6 +342,7 @@ class PlotTracks(object):
 
                 track_dict[file_type] = " ".join(full_path_file_names)
         return track_dict
+
     @staticmethod
     def guess_filetype(track_dict):
         """
@@ -352,9 +372,9 @@ class PlotTracks(object):
     def cm2inch(*tupl):
         inch = 2.54
         if isinstance(tupl[0], tuple):
-            return tuple(i/inch for i in tupl[0])
+            return tuple(i / inch for i in tupl[0])
         else:
-            return tuple(i/inch for i in tupl)
+            return tuple(i / inch for i in tupl)
 
     @staticmethod
     def print_elapsed(start):
@@ -406,7 +426,8 @@ def file_to_intervaltree(file_name):
         try:
             chrom, start, end = fields[0:3]
         except Exception as detail:
-            msg = "Error reading line: {}\nError message: {}".format(line_number, detail)
+            msg = "Error reading line: {}\nError message: {}".format(
+                line_number, detail)
             sys.exit(msg)
 
         try:
@@ -425,7 +446,8 @@ def file_to_intervaltree(file_name):
 
         if prev_chrom == chrom:
             assert prev_start <= start, \
-                "Bed file not sorted. Please use a sorted bed file.\n{}{} ".format(prev_line, line)
+                "Bed file not sorted. Please use a sorted bed file.\n{}{} ".format(
+                    prev_line, line)
 
         if chrom not in interval_tree:
             interval_tree[chrom] = IntervalTree()
@@ -445,13 +467,15 @@ def file_to_intervaltree(file_name):
             except ValueError:
                 pass
 
-        assert end > start, "Start position larger or equal than end for line\n{} ".format(line)
+        assert end > start, "Start position larger or equal than end for line\n{} ".format(
+            line)
 
         interval_tree[chrom].add(Interval(start, end, value))
         valid_intervals += 1
 
     if valid_intervals == 0:
-        sys.stderr.write("No valid intervals were found in file {}".format(file_name))
+        sys.stderr.write(
+            "No valid intervals were found in file {}".format(file_name))
     file_h.close()
 
     return interval_tree, min_value, max_value
@@ -466,6 +490,7 @@ class TrackPlot(object):
     It is expected that all TrackPlot objects have a plot method.
 
     """
+
     def __init__(self, properties_dict):
         self.properties = properties_dict
 
@@ -480,11 +505,12 @@ class PlotSpacer(TrackPlot):
 class PlotBedGraph(TrackPlot):
 
     def __init__(self, properties_dict):
-        #super(self.__class__, self).__init__(*args, **kwargs)
+        # super(self.__class__, self).__init__(*args, **kwargs)
         self.properties = properties_dict
         if 'color' not in self.properties:
             self.properties['color'] = DEFAULT_BEDGRAPH_COLOR
-        self.interval_tree, ymin, ymax = file_to_intervaltree(self.properties['file'])
+        self.interval_tree, ymin, ymax = file_to_intervaltree(
+            self.properties['file'])
 
         if 'max_value' not in self.properties or self.properties['max_value'] == 'auto':
             self.properties['max_value'] = ymax
@@ -500,10 +526,10 @@ class PlotBedGraph(TrackPlot):
 
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
-            
+
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             score_list.append(float(region.data[0]))
-            pos_list.append(region.begin + (region.end - region.begin)/2)
+            pos_list.append(region.begin + (region.end - region.begin) / 2)
 
         if 'color' not in self.properties:
             self.properties['color'] = DEFAULT_BEDGRAPH_COLOR
@@ -511,13 +537,16 @@ class PlotBedGraph(TrackPlot):
         if 'extra' in self.properties and self.properties['extra'][0] == '4C':
             # draw a vertical line for each fragment region center
             self.ax.fill_between(pos_list, score_list,
-                            facecolor=self.properties['color'],
-                            edgecolor='none')
-            self.ax.vlines(pos_list, [0], score_list, color='olive', linewidth=0.5)
-            self.ax.plot(pos_list, score_list, '-', color='slateblue', linewidth=0.7)
+                                 facecolor=self.properties['color'],
+                                 edgecolor='none')
+            self.ax.vlines(pos_list, [0], score_list,
+                           color='olive', linewidth=0.5)
+            self.ax.plot(pos_list, score_list, '-',
+                         color='slateblue', linewidth=0.7)
         else:
             try:
-                self.ax.fill_between(pos_list, score_list, facecolor=self.properties['color'])
+                self.ax.fill_between(pos_list, score_list,
+                                     facecolor=self.properties['color'])
             except ValueError:
                 sys.stderr.write("Invalid color {} for {}. "
                                  "Using gray instead.".format(self.properties['color'], self.properties['file']))
@@ -544,7 +573,7 @@ class PlotBedGraph(TrackPlot):
             pass
         else:
             # by default show the data range
-            self.ax.text(start_region-small_x, ymax - ydelta * 0.2,
+            self.ax.text(start_region - small_x, ymax - ydelta * 0.2,
                          "[{}-{}]".format(ymin, ymax_print),
                          horizontalalignment='left', size='small',
                          verticalalignment='bottom')
@@ -581,7 +610,8 @@ class PlotBedGraphMatrix(PlotBedGraph):
             for row in matrix:
                 self.ax.plot(start_pos, row, color='grey', linewidth=0.5)
 
-            self.ax.plot(start_pos, matrix.mean(axis=0), linestyle="--", marker="|")
+            self.ax.plot(start_pos, matrix.mean(
+                axis=0), linestyle="--", marker="|")
             ymax = self.properties['max_value']
             ymin = self.properties['min_value']
             self.ax.set_ylim(ymin, ymax)
@@ -617,7 +647,8 @@ class PlotBedGraphMatrix(PlotBedGraph):
             vmax = self.properties['max_value']
             vmin = self.properties['min_value']
 
-            img = self.ax.pcolormesh(x, y, matrix, vmin=vmin, vmax=vmax, shading=shading)
+            img = self.ax.pcolormesh(
+                x, y, matrix, vmin=vmin, vmax=vmax, shading=shading)
             img.set_rasterized(True)
 
         self.ax.set_xlim(start_region, end_region)
@@ -639,11 +670,11 @@ class PlotBigWig(TrackPlot):
         if 'color' not in self.properties:
             self.properties['color'] = DEFAULT_BIGWIG_COLOR
 
-
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
         self.ax = ax
         self.label_ax = label_ax
-        formated_region = "{}:{}-{}".format(chrom_region, start_region, end_region)
+        formated_region = "{}:{}-{}".format(chrom_region,
+                                            start_region, end_region)
         print "plotting {}".format(self.properties['file'])
         # compute the score in bins of 10000 SLOW
     #    score = np.array([self.bw.query(region[0], x, x+10000,1)[0]['mean']
@@ -657,7 +688,7 @@ class PlotBigWig(TrackPlot):
                 num_bins = 700
                 sys.stderr.write("'number of bins' value: {} for bigwig file {} "
                                  "is not valid. Using default value (700)".format(self.properties['number of bins'],
-                                            self.properties['file']))
+                                                                                  self.properties['file']))
 
         if chrom_region not in self.bw.chroms().keys():
             chrom_region = change_chrom_names(chrom_region)
@@ -676,9 +707,11 @@ class PlotBigWig(TrackPlot):
             scores = np.ma.masked_invalid(scores)
 
             lins = np.linspace(0, len(scores), num_bins).astype(int)
-            scores_per_bin = [np.mean(scores[lins[x]:lins[x+1]]) for x in range(len(lins)-1)]
+            scores_per_bin = [np.mean(scores[lins[x]:lins[x + 1]])
+                              for x in range(len(lins) - 1)]
             _x = lins + start_region
-            x_values = [float(_x[x] + _x[x+1])/2 for x in range(len(lins)-1)]
+            x_values = [float(_x[x] + _x[x + 1]) /
+                        2 for x in range(len(lins) - 1)]
             self.ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
                                  color=self.properties['color'],
                                  facecolor=self.properties['color'])
@@ -691,7 +724,8 @@ class PlotBigWig(TrackPlot):
             while num_tries < 5:
                 num_tries += 1
                 try:
-                    scores = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
+                    scores = np.array(self.bw.stats(
+                        chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
                 except Exception as e:
                     import pyBigWig
                     self.bw = pyBigWig.open(self.properties['file'])
@@ -770,7 +804,7 @@ class PlotHiCMatrix(TrackPlot):
         # check that the matrix can be log transformed
         if 'transform' in self.properties:
             if self.properties['transform'] == 'log1p':
-                if self.hic_ma.matrix.data.min() + 1< 0:
+                if self.hic_ma.matrix.data.min() + 1 < 0:
                     exit("\n*ERROR*\nMatrix contains negative values.\n"
                          "log1p transformation can not be applied to \n"
                          "values in matrix: {}".format(self.properties['file']))
@@ -787,7 +821,8 @@ class PlotHiCMatrix(TrackPlot):
                          "log transformation can not be applied to \n"
                          "values in matrix: {}".format(self.properties['file']))
 
-        new_intervals = hicexplorer.utilities.enlarge_bins(self.hic_ma.cut_intervals)
+        new_intervals = hicexplorer.utilities.enlarge_bins(
+            self.hic_ma.cut_intervals)
         self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = \
             self.hic_ma.intervalListToIntervalTree(new_intervals)
 
@@ -802,7 +837,7 @@ class PlotHiCMatrix(TrackPlot):
         # that contains only the lower matrix that wants to be removed.
         limit = 2 * max_depth_in_bins
         self.hic_ma.matrix = scipy.sparse.triu(self.hic_ma.matrix, k=0, format='csr') - \
-                             scipy.sparse.triu(self.hic_ma.matrix, k=limit, format='csr')
+            scipy.sparse.triu(self.hic_ma.matrix, k=limit, format='csr')
         self.hic_ma.matrix.eliminate_zeros()
 
         # fill the main diagonal, otherwise it looks
@@ -810,10 +845,10 @@ class PlotHiCMatrix(TrackPlot):
         # with an array containing the max value found
         # in the matrix
         if sum(self.hic_ma.matrix.diagonal()) == 0:
-            sys.stderr.write("Filling main diagonal because is empty and " \
-                "otherwise it looks bad...\n")
+            sys.stderr.write("Filling main diagonal because is empty and "
+                             "otherwise it looks bad...\n")
             max_value = self.hic_ma.matrix.data.max()
-            main_diagonal = scipy.sparse.dia_matrix(([max_value]*self.hic_ma.matrix.shape[0], [0]),
+            main_diagonal = scipy.sparse.dia_matrix(([max_value] * self.hic_ma.matrix.shape[0], [0]),
                                                     shape=self.hic_ma.matrix.shape)
             self.hic_ma.matrix = self.hic_ma.matrix + main_diagonal
 
@@ -832,7 +867,12 @@ class PlotHiCMatrix(TrackPlot):
         self.cmap.set_bad('black')
 
         if 'boundaries_file' in self.properties:
-            self.boundaries_obj = PlotBoundaries({'file':self.properties['boundaries_file']})
+            self.boundaries_obj = PlotBoundaries(
+                {'file': self.properties['boundaries_file']})
+
+        # if 'boundaries_file_cluster' in self.properties:
+        #     self.boundaries_obj_cluster = PlotBoundariesCluster(
+        #         {'file': self.properties['boundaries_file']})
 
     def plot(self, ax, label_ax, chrom, region_start, region_end):
         import copy
@@ -845,7 +885,8 @@ class PlotHiCMatrix(TrackPlot):
         if chrom not in chrom_sizes.keys():
             chrom = change_chrom_names(chrom)
         if region_end > chrom_sizes[chrom]:
-            sys.stderr.write("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
+            sys.stderr.write(
+                "*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
             sys.stderr.write("{} size: {}. Region to plot {}-{}\n".format(chrom, chrom_sizes[chrom],
                                                                           region_start, region_end))
 
@@ -855,7 +896,7 @@ class PlotHiCMatrix(TrackPlot):
         # get bin id of start and end of region in given chromosome
         chr_start_id, chr_end_id = self.hic_ma.getChrBinRange(chrom)
         chr_start = self.hic_ma.cut_intervals[chr_start_id][1]
-        chr_end = self.hic_ma.cut_intervals[chr_end_id-1][1]
+        chr_end = self.hic_ma.cut_intervals[chr_end_id - 1][1]
         start_bp = max(chr_start, region_start - self.properties['depth'])
         end_bp = min(chr_end, region_end + self.properties['depth'])
 
@@ -874,7 +915,8 @@ class PlotHiCMatrix(TrackPlot):
 
         if depth < self.properties['depth']:
             # remove from matrix all data points that are not visible.
-            matrix = matrix - scipy.sparse.triu(matrix, k=depth_in_bins, format='csr')
+            matrix = matrix - \
+                scipy.sparse.triu(matrix, k=depth_in_bins, format='csr')
         matrix = np.asarray(matrix.todense().astype(float))
 
         if 'transform' in self.properties:
@@ -884,12 +926,12 @@ class PlotHiCMatrix(TrackPlot):
 
             elif self.properties['transform'] == '-log':
                 mask = matrix == 0
-                matrix[mask] = matrix[mask == False].min()
+                matrix[mask] = matrix[mask is False].min()
                 matrix = -1 * np.log(matrix)
 
             elif self.properties['transform'] == 'log':
                 mask = matrix == 0
-                matrix[mask] = matrix[mask == False].min()
+                matrix[mask] = matrix[mask is False].min()
                 matrix = np.log(matrix)
 
         if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
@@ -904,7 +946,8 @@ class PlotHiCMatrix(TrackPlot):
         else:
             if depth_in_bins > matrix.shape[0]:
                 depth_in_bins = matrix.shape[0] - 5
-            vmin = np.median(matrix.diagonal(int(region_len / self.hic_ma.getBinSize())))
+            vmin = np.median(matrix.diagonal(
+                int(region_len / self.hic_ma.getBinSize())))
 
         sys.stderr.write("setting min, max values for track {} to: {}, {}\n".format(self.properties['section_name'],
                                                                                     vmin, vmax))
@@ -919,7 +962,11 @@ class PlotHiCMatrix(TrackPlot):
         # if a boundaries file is given, plot the
         # tad boundaries as line delineating the TAD triangles
         if 'boundaries_file' in self.properties:
-            self.boundaries_obj.plot(ax, label_ax, chrom, region_start, region_end)
+            self.boundaries_obj.plot(
+                ax, label_ax, chrom, region_start, region_end)
+        if 'boundaries_file_cluster' in self.properties:
+            self.boundaries_obj_cluster.plot(
+                ax, label_ax, chrom, region_start, region_end)
 
         self.ax.set_xlim(region_start, region_end)
         if 'x labels' in self.properties and self.properties['x labels'] != 'no':
@@ -947,19 +994,19 @@ class PlotHiCMatrix(TrackPlot):
         self.cbar_ax.patch.set_alpha(0.0)
         try:
             if 'transform' in self.properties and \
-                            self.properties['transform'] in ['log', 'log1p']:
+                    self.properties['transform'] in ['log', 'log1p']:
                 from matplotlib.ticker import LogFormatter
                 formatter = LogFormatter(10, labelOnlyBase=False)
                 # get a useful log scale
                 # that looks like [1, 2, 5, 10, 20, 50, 100, ... etc]
                 aa = np.array([1, 2, 5])
                 tick_values = np.concatenate([aa * 10**x for x in range(10)])
-                cobar = plt.colorbar(img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
+                cobar = plt.colorbar(
+                    img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
             else:
                 cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
             cobar.solids.set_edgecolor("face")
             cobar.ax.set_ylabel(self.properties['title'])
-
 
             # adjust the labels of the colorbar
             labels = cobar.ax.get_yticklabels()
@@ -975,12 +1022,11 @@ class PlotHiCMatrix(TrackPlot):
                 labels[-1].set_verticalalignment('top')
             cobar.ax.set_yticklabels(labels)
 
-
         except ValueError:
             pass
-        #self.label_ax.text(0.3, 0.0, self.properties['title'], rotation=90,
+        # self.label_ax.text(0.3, 0.0, self.properties['title'], rotation=90,
         #                   horizontalalignment='left', size='large',
-        #                   verticalalignment='bottom', transform=self.label_ax.transAxes)
+        # verticalalignment='bottom', transform=self.label_ax.transAxes)
 
     def pcolormesh_45deg(self, matrix_c, start_pos_vector, vmin=None,
                          vmax=None):
@@ -998,8 +1044,8 @@ class PlotHiCMatrix(TrackPlot):
                                     for i in itertools.product(start_pos_vector[::-1],
                                                                start_pos_vector)]), t)
         # this is to convert the indices into bp ranges
-        x = matrix_a[:, 1].reshape(n+1, n+1)
-        y = matrix_a[:, 0].reshape(n+1, n+1)
+        x = matrix_a[:, 1].reshape(n + 1, n + 1)
+        y = matrix_a[:, 0].reshape(n + 1, n + 1)
         # plot
         im = self.ax.pcolormesh(x, y, np.flipud(matrix_c),
                                 vmin=vmin, vmax=vmax, cmap=self.cmap, norm=self.norm)
@@ -1033,10 +1079,90 @@ class PlotXAxis(TrackPlot):
         ax.axis["x"].axis.set_ticklabels(labels)
         ax.axis['x'].axis.set_tick_params(which='minor', bottom='on')
 
-        ax.axis["x"].major_ticklabels.set(size=int(self.properties['fontsize']))
+        ax.axis["x"].major_ticklabels.set(
+            size=int(self.properties['fontsize']))
 
         if 'where' in self.properties and self.properties['where'] == 'top':
             ax.axis["x"].set_axis_direction("top")
+
+
+# class PlotExtension(TrackPlot):
+
+#     def __init__(self, *args, **kwargs):
+#         super(PlotExtension, self).__init__(*args, **kwargs)
+#         if 'fontsize' not in self.properties:
+#             self.properties['fontsize'] = 15
+
+#     def plot(self, ax, label_axis, chrom_region, region_start, region_end):
+#         # pass
+#         # ax.set_xlim(region_start, region_end)
+
+#         # from  scipy.io import mmwrite
+#         from scipy.io import mmread
+#         matrix = mmread(self.properties['file'])
+#         ax.set_xlim(0, len(matrix[0]))
+#         # ax.set_ylim(0, 100)
+#         # ax.height(5)
+
+#         ax.matshow(matrix, cmap='gray')
+
+
+# class PlotExtensionNpy(TrackPlot):
+
+#     def __init__(self, *args, **kwargs):
+#         super(PlotExtensionNpy, self).__init__(*args, **kwargs)
+#         if 'fontsize' not in self.properties:
+#             self.properties['fontsize'] = 15
+
+#     def plot(self, ax, label_axis, chrom_region, region_start, region_end):
+#         array_load = np.load(self.properties['file'])
+#         x_values = range(0, len(array_load))
+#         ax.set_xlim(0, len(array_load))
+
+#         ax.fill_between(x_values, 0, array_load * 10)
+#         if 'boundaries_file_cluster' in self.properties:
+
+#             x = []
+#             y = []
+#             cluster_boundaries = np.load(
+#                 self.properties['boundaries_file_cluster'])
+#             for i, cluster in enumerate(cluster_boundaries):
+#                 # c = colors[i % 3]
+#                 x1 = cluster[0]
+#                 x3 = cluster[1]
+#                 x2 = x1 + float(x3 - x1) / 2
+#                 y1 = 0
+#                 y2 = x3 - x1
+#                 x.extend([x1, x2, x3])
+#                 y.extend([y1, y2, y1])
+
+#             ax.plot(x, y, color='black')
+
+
+# class PlotBoundariesCluster(TrackPlot):
+#     def __init__(self, *args, **kwargs):
+#         super(PlotBoundariesCluster, self).__init__(*args, **kwargs)
+#         if 'fontsize' not in self.properties:
+#             self.properties['fontsize'] = 15
+
+#     def plot(self, ax, label_axis, chrom_region, region_start, region_end):
+#         if 'boundaries_file_cluster' in self.properties:
+
+#             x = []
+#             y = []
+#             cluster_boundaries = np.load(
+#                 self.properties['boundaries_file_cluster'])
+#             for i, cluster in enumerate(cluster_boundaries):
+#                 # c = colors[i % 3]
+#                 x1 = cluster[0]
+#                 x3 = cluster[1]
+#                 x2 = x1 + float(x3 - x1) / 2
+#                 y1 = 0
+#                 y2 = x3 - x1
+#                 x.extend([x1, x2, x3])
+#                 y.extend([y1, y2, y1])
+
+#             ax.plot(x, y, color='black')
 
 
 class PlotBoundaries(TrackPlot):
@@ -1066,35 +1192,41 @@ class PlotBoundaries(TrackPlot):
                     end = int(end)
                 except ValueError as detail:
                     msg = "Error reading line: {}. One of the fields is not " \
-                          "an integer.\nError message: {}".format(line_number, detail)
+                          "an integer.\nError message: {}".format(
+                              line_number, detail)
                     sys.exit(msg)
 
-                assert start <= end, "Error in line #{}, end1 larger than start1 in {}".format(line_number, line)
+                assert start <= end, "Error in line #{}, end1 larger than start1 in {}".format(
+                    line_number, line)
 
                 if prev_chrom and chrom != prev_chrom:
                     start_array, end_array = zip(*intervals)
                     start_array = np.array(start_array)
                     end_array = np.array(end_array)
-                    # check if intervals are consecutive or 1bp positions demarcating the boundaries
+                    # check if intervals are consecutive or 1bp positions
+                    # demarcating the boundaries
                     if np.any(end_array - start_array == 1):
                         # The file contains only boundaries at 1bp position.
                         end_array = start_array[1:]
                         start_array = start_array[:-1]
                     interval_tree[prev_chrom] = IntervalTree()
                     for idx in range(len(start_array)):
-                        interval_tree[prev_chrom].add(Interval(start_array[idx], end_array[idx]))
+                        interval_tree[prev_chrom].add(
+                            Interval(start_array[idx], end_array[idx]))
                         valid_intervals += 1
                     intervals = []
 
                 intervals.append((start, end))
 
-                # each interval spans from the smallest start to the largest end
+                # each interval spans from the smallest start to the largest
+                # end
                 prev_chrom = chrom
 
         start, end = zip(*intervals)
         start = np.array(start)
         end = np.array(end)
-        # check if intervals are consecutive or 1bp positions demarcating the boundaries
+        # check if intervals are consecutive or 1bp positions demarcating the
+        # boundaries
         if np.any(end - start == 1):
             # The file contains only boundaries at 1bp position.
             end = start[1:]
@@ -1105,7 +1237,8 @@ class PlotBoundaries(TrackPlot):
             valid_intervals += 1
 
         if valid_intervals == 0:
-            sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file']))
+            sys.stderr.write("No valid intervals were found in file {}".format(
+                self.properties['file']))
 
         file_h.close()
         self.interval_tree = interval_tree
@@ -1136,7 +1269,7 @@ class PlotBoundaries(TrackPlot):
             x.extend([x1, x2, x3])
             y.extend([y1, y2, y1])
 
-        ax.plot(x, y,  color='black')
+        ax.plot(x, y, color='black')
         ax.set_xlim(start_region, end_region)
 
 
@@ -1178,7 +1311,7 @@ class PlotBed(TrackPlot):
             cmap = matplotlib.cm.get_cmap(self.properties['color'])
             self.colormap = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
 
-        #self.process_bed()
+        # self.process_bed()
 
     def process_bed(self, fig_width, region_start, region_end):
 
@@ -1187,7 +1320,8 @@ class PlotBed(TrackPlot):
         # length. In the following code I try to get
         # the length of a 'W'.
         if self.properties['labels'] == 'on':
-            # from http://scipy-cookbook.readthedocs.org/items/Matplotlib_LaTeX_Examples.html
+            # from
+            # http://scipy-cookbook.readthedocs.org/items/Matplotlib_LaTeX_Examples.html
             inches_per_pt = 1.0 / 72.27
             font_in_inches = self.properties['fontsize'] * inches_per_pt
             region_len = region_end - region_start
@@ -1219,17 +1353,18 @@ class PlotBed(TrackPlot):
         # for 3 row_last_position = [9, 14, 19]
         # for 4 row_last_position = [26, 14, 19]
 
-        row_last_position = [] # each entry in this list contains the end position
-                               # of genomic interval. The list index is the row
-                               # in which the genomic interval was plotted.
-                               # Any new genomic interval that wants to be plotted,
-                               # knows the row to use by finding the list index that
-                               # is larger than its start
+        row_last_position = []  # each entry in this list contains the end position
+        # of genomic interval. The list index is the row
+        # in which the genomic interval was plotted.
+        # Any new genomic interval that wants to be plotted,
+        # knows the row to use by finding the list index that
+        # is larger than its start
         for bed in bed_file_h:
             if prev is not None:
                 if prev.chromosome == bed.chromosome:
                     if bed.start < prev.start:
-                        import ipdb;ipdb.set_trace()
+                        import ipdb
+                        ipdb.set_trace()
                     assert bed.start >= prev.start, "*Error* Bed file not sorted. Please sort using sort -k1,1 -k2,2n"
                 if prev.chromosome != bed.chromosome:
                     # init var
@@ -1251,8 +1386,10 @@ class PlotBed(TrackPlot):
                 free_row = 0
                 row_last_position.append(bed_extended_end)
             else:
-                # get list of rows that are less than bed.start, then take the min
-                idx_list = [idx for idx, value in enumerate(row_last_position) if value < bed.start]
+                # get list of rows that are less than bed.start, then take the
+                # min
+                idx_list = [idx for idx, value in enumerate(
+                    row_last_position) if value < bed.start]
                 if len(idx_list):
                     free_row = min(idx_list)
                     row_last_position[free_row] = bed_extended_end
@@ -1263,7 +1400,8 @@ class PlotBed(TrackPlot):
             if bed.chromosome not in self.interval_tree:
                 self.interval_tree[bed.chromosome] = IntervalTree()
 
-            self.interval_tree[bed.chromosome].add(Interval(bed.start, bed.end, (bed, free_row)))
+            self.interval_tree[bed.chromosome].add(
+                Interval(bed.start, bed.end, (bed, free_row)))
             valid_intervals += 1
             prev = bed
             if free_row > self.max_num_row[bed.chromosome]:
@@ -1272,7 +1410,8 @@ class PlotBed(TrackPlot):
         print self.max_num_row
 
         if valid_intervals == 0:
-            sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file_name']))
+            sys.stderr.write("No valid intervals were found in file {}".format(
+                self.properties['file_name']))
 
     def get_y_pos(self, bed, free_row):
         """
@@ -1284,7 +1423,8 @@ class PlotBed(TrackPlot):
         :return: int y position
         """
 
-        # if the domain directive is given, ypos simply oscilates between 0 and 100
+        # if the domain directive is given, ypos simply oscilates between 0 and
+        # 100
         if self.properties['display'] == 'interlaced':
             ypos = self.properties['interval_height'] if self.counter % 2 == 0 else 1
 
@@ -1297,13 +1437,15 @@ class PlotBed(TrackPlot):
 
     def plot(self, ax, label_ax, chrom_region, start_region, end_region):
         self.counter = 0
-        self.small_relative = 0.004 * (end_region-start_region)
-        self.process_bed(ax.get_figure().get_figwidth(), start_region, end_region)
+        self.small_relative = 0.004 * (end_region - start_region)
+        self.process_bed(ax.get_figure().get_figwidth(),
+                         start_region, end_region)
 
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
 
-        genes_overlap = sorted(self.interval_tree[chrom_region][start_region:end_region])
+        genes_overlap = sorted(
+            self.interval_tree[chrom_region][start_region:end_region])
 
         # turn labels off when too many intervals are visible.
         if self.properties['labels'] != 'off' and len(genes_overlap) > 60:
@@ -1325,10 +1467,12 @@ class PlotBed(TrackPlot):
             chr2L   0       70000   ID_5    0.26864549832   .
             """
             self.counter += 1
-            # an namedTuple object is stored in the region.value together with the free value for the gene
+            # an namedTuple object is stored in the region.value together with
+            # the free value for the gene
             bed, free_row = region.data
             if self.colormap:
-                # translate value field (in the example above is 0 or 0.2686...) into a color
+                # translate value field (in the example above is 0 or
+                # 0.2686...) into a color
                 rgb = self.colormap.to_rgba(bed.score)
                 edgecolor = self.colormap.to_rgba(bed.score)
             else:
@@ -1339,7 +1483,7 @@ class PlotBed(TrackPlot):
             # defined colormap
             if self.bed_type in ['bed9', 'bed12'] and len(bed.rgb) == 3:
                 try:
-                    rgb = [float(x)/255 for x in bed.rgb]
+                    rgb = [float(x) / 255 for x in bed.rgb]
                     if 'border_color' in self.properties:
                         edgecolor = self.properties['border_color']
                     else:
@@ -1360,7 +1504,8 @@ class PlotBed(TrackPlot):
 
             if self.bed_type == 'bed12':
                 if self.properties['style'] == 'flybase':
-                    self.draw_gene_with_introns_flybase_style(ax, bed, ypos, rgb, edgecolor)
+                    self.draw_gene_with_introns_flybase_style(
+                        ax, bed, ypos, rgb, edgecolor)
                 else:
                     self.draw_gene_with_introns(ax, bed, ypos, rgb, edgecolor)
             else:
@@ -1420,10 +1565,11 @@ class PlotBed(TrackPlot):
         from matplotlib.patches import Polygon
 
         if bed.strand not in ['+', '-']:
-            ax.add_patch(Rectangle((bed.start, ypos), bed.end-bed.start, self.properties['interval_height'],
+            ax.add_patch(Rectangle((bed.start, ypos), bed.end - bed.start, self.properties['interval_height'],
                                    edgecolor=edgecolor, facecolor=rgb, linewidth=0.5))
         else:
-            vertices = self._draw_arrow(ax, bed.start, bed.end, bed.strand, ypos)
+            vertices = self._draw_arrow(
+                ax, bed.start, bed.end, bed.strand, ypos)
             ax.add_patch(Polygon(vertices, closed=True, fill=True,
                                  edgecolor=edgecolor,
                                  facecolor=rgb,
@@ -1439,7 +1585,8 @@ class PlotBed(TrackPlot):
             return
         half_height = float(self.properties['interval_height']) / 2
         # draw 'backbone', a line from the start until the end of the gene
-        ax.plot([bed.start, bed.end], [ypos + half_height, ypos + half_height], 'black', linewidth=0.5, zorder=-1)
+        ax.plot([bed.start, bed.end], [ypos + half_height, ypos +
+                                       half_height], 'black', linewidth=0.5, zorder=-1)
 
         # get start, end of all the blocks
         positions = []
@@ -1473,7 +1620,8 @@ class PlotBed(TrackPlot):
         else:
             _rgb = rgb
 
-        vertices = self._draw_arrow(ax, first_pos[0], first_pos[1], bed.strand, ypos)
+        vertices = self._draw_arrow(
+            ax, first_pos[0], first_pos[1], bed.strand, ypos)
 
         ax.add_patch(Polygon(vertices, closed=True, fill=True,
                              edgecolor=edgecolor,
@@ -1507,7 +1655,7 @@ class PlotBed(TrackPlot):
         half_height = float(self.properties['interval_height']) / 2
         if strand == '+':
             x0 = start
-            x1 = end #- self.small_relative
+            x1 = end  # - self.small_relative
             y0 = ypos
             y1 = ypos + self.properties['interval_height']
             """
@@ -1519,10 +1667,11 @@ class PlotBed(TrackPlot):
 
             """
 
-            vertices = [(x0, y0), (x0, y1), (x1, y1), (x1 + self.small_relative, y0 + half_height), (x1, y0)]
+            vertices = [(x0, y0), (x0, y1), (x1, y1),
+                        (x1 + self.small_relative, y0 + half_height), (x1, y0)]
 
         else:
-            x0 = start #+ self.small_relative
+            x0 = start  # + self.small_relative
             x1 = end
             y0 = ypos
             y1 = ypos + self.properties['interval_height']
@@ -1533,75 +1682,83 @@ class PlotBed(TrackPlot):
             /-----------------
             \-----------------
             """
-            vertices = [(x0, y0), (x0 - self.small_relative, y0 + half_height), (x0, y1), (x1, y1), (x1, y0)]
+            vertices = [(x0, y0), (x0 - self.small_relative, y0 +
+                                   half_height), (x0, y1), (x1, y1), (x1, y0)]
 
         return vertices
 
     def draw_gene_with_introns(self, ax, bed, ypos, rgb, edgecolor):
-            """
-            draws a gene like in flybase gbrowse.
-            """
-            from matplotlib.patches import Polygon
+        """
+        draws a gene like in flybase gbrowse.
+        """
+        from matplotlib.patches import Polygon
 
-            if bed.block_count == 0 and bed.thick_start == bed.start and bed.thick_end == bed.end:
-                self.draw_gene_simple(ax, bed, ypos, rgb, edgecolor)
-                return
-            half_height = float(self.properties['interval_height']) / 2
-            quarter_height = float(self.properties['interval_height']) / 4
-            three_quarter_height = quarter_height * 3
+        if bed.block_count == 0 and bed.thick_start == bed.start and bed.thick_end == bed.end:
+            self.draw_gene_simple(ax, bed, ypos, rgb, edgecolor)
+            return
+        half_height = float(self.properties['interval_height']) / 2
+        quarter_height = float(self.properties['interval_height']) / 4
+        three_quarter_height = quarter_height * 3
 
-            # draw 'backbone', a line from the start until the end of the gene
-            ax.plot([bed.start, bed.end], [ypos + half_height, ypos + half_height], 'black', linewidth=0.5, zorder=-1)
+        # draw 'backbone', a line from the start until the end of the gene
+        ax.plot([bed.start, bed.end], [ypos + half_height, ypos +
+                                       half_height], 'black', linewidth=0.5, zorder=-1)
 
-            for idx in range(0, bed.block_count):
-                x0 = bed.start + bed.block_starts[idx]
-                x1 = x0 + bed.block_sizes[idx]
-                if x1 < bed.thick_start or x0 > bed.thick_end:
-                    y0 = ypos + quarter_height
-                    y1 = ypos + three_quarter_height
-                else:
-                    y0 = ypos
-                    y1 = ypos + self.properties['interval_height']
+        for idx in range(0, bed.block_count):
+            x0 = bed.start + bed.block_starts[idx]
+            x1 = x0 + bed.block_sizes[idx]
+            if x1 < bed.thick_start or x0 > bed.thick_end:
+                y0 = ypos + quarter_height
+                y1 = ypos + three_quarter_height
+            else:
+                y0 = ypos
+                y1 = ypos + self.properties['interval_height']
 
-                if x0 < bed.thick_start < x1:
-                    vertices = ([(x0, ypos + quarter_height), (x0, ypos + three_quarter_height),
-                                 (bed.thick_start, ypos + three_quarter_height),
-                                 (bed.thick_start, ypos + self.properties['interval_height']),
-                                 (bed.thick_start, ypos + self.properties['interval_height']),
-                                 (x1, ypos + self.properties['interval_height']), (x1, ypos),
-                                 (bed.thick_start, ypos), (bed.thick_start, ypos + quarter_height)])
+            if x0 < bed.thick_start < x1:
+                vertices = ([(x0, ypos + quarter_height), (x0, ypos + three_quarter_height),
+                             (bed.thick_start, ypos + three_quarter_height),
+                             (bed.thick_start, ypos +
+                              self.properties['interval_height']),
+                             (bed.thick_start, ypos +
+                              self.properties['interval_height']),
+                             (x1, ypos +
+                              self.properties['interval_height']), (x1, ypos),
+                             (bed.thick_start, ypos), (bed.thick_start, ypos + quarter_height)])
 
-                elif x0 < bed.thick_end < x1:
-                    vertices = ([(x0, ypos),
-                                 (x0, ypos + self.properties['interval_height']),
-                                 (bed.thick_end, ypos + self.properties['interval_height']),
-                                 (bed.thick_end, ypos + three_quarter_height),
-                                 (x1, ypos + three_quarter_height),
-                                 (x1, ypos + quarter_height),
-                                 (bed.thick_end, ypos + quarter_height),
-                                 (bed.thick_end, ypos)])
-                else:
-                    vertices = ([(x0, y0), (x0, y1), (x1, y1), (x1, y0)])
+            elif x0 < bed.thick_end < x1:
+                vertices = ([(x0, ypos),
+                             (x0, ypos + self.properties['interval_height']),
+                             (bed.thick_end, ypos +
+                              self.properties['interval_height']),
+                             (bed.thick_end, ypos + three_quarter_height),
+                             (x1, ypos + three_quarter_height),
+                             (x1, ypos + quarter_height),
+                             (bed.thick_end, ypos + quarter_height),
+                             (bed.thick_end, ypos)])
+            else:
+                vertices = ([(x0, y0), (x0, y1), (x1, y1), (x1, y0)])
 
-                ax.add_patch(Polygon(vertices, closed=True, fill=True,
-                                     linewidth=0.1,
-                                     edgecolor='none',
-                                     facecolor=rgb))
+            ax.add_patch(Polygon(vertices, closed=True, fill=True,
+                                 linewidth=0.1,
+                                 edgecolor='none',
+                                 facecolor=rgb))
 
-                if idx < bed.block_count - 1:
-                    # plot small arrows using the character '<' or '>' over the back bone
-                    intron_length = bed.block_starts[idx + 1] - (bed.block_starts[idx] + bed.block_sizes[idx])
-                    marker = 5 if bed.strand == '+' else 4
-                    if intron_length > 3 * self.small_relative:
-                        pos = np.arange(x1 + 1 * self.small_relative,
-                                        x1 + intron_length + self.small_relative, int(2 * self.small_relative))
-                        ax.plot(pos, np.zeros(len(pos)) + ypos + half_height, '.', marker=marker,
-                                fillstyle='none', color='blue', markersize=3)
+            if idx < bed.block_count - 1:
+                # plot small arrows using the character '<' or '>' over the
+                # back bone
+                intron_length = bed.block_starts[idx + 1] - \
+                    (bed.block_starts[idx] + bed.block_sizes[idx])
+                marker = 5 if bed.strand == '+' else 4
+                if intron_length > 3 * self.small_relative:
+                    pos = np.arange(x1 + 1 * self.small_relative,
+                                    x1 + intron_length + self.small_relative, int(2 * self.small_relative))
+                    ax.plot(pos, np.zeros(len(pos)) + ypos + half_height, '.', marker=marker,
+                            fillstyle='none', color='blue', markersize=3)
 
-                    elif intron_length > self.small_relative:
-                        intron_center = x1 + int(intron_length) / 2
-                        ax.plot([intron_center], [ypos + half_height], '.', marker=5,
-                                fillstyle='none', color='blue', markersize=3)
+                elif intron_length > self.small_relative:
+                    intron_center = x1 + int(intron_length) / 2
+                    ax.plot([intron_center], [ypos + half_height], '.', marker=5,
+                            fillstyle='none', color='blue', markersize=3)
 
 
 class PlotArcs(TrackPlot):
@@ -1617,7 +1774,8 @@ class PlotArcs(TrackPlot):
         valid_intervals = 0
         interval_tree = {}
         line_number = 0
-        Arc = collections.namedtuple("Arc", ['chrom1', 'start1', 'end1', 'start2', 'end2', 'score'])
+        Arc = collections.namedtuple(
+            "Arc", ['chrom1', 'start1', 'end1', 'start2', 'end2', 'score'])
         with open(self.properties['file'], 'r') as file_h:
             for line in file_h.readlines():
                 line_number += 1
@@ -1627,7 +1785,8 @@ class PlotArcs(TrackPlot):
                     chrom1, start1, end1, chrom2, start2, end2, score = line.strip().split('\t')
                 except Exception as detail:
                     msg = 'File not valid. The format is chrom1 start1, end1, ' \
-                          'chrom2, start2, end2, score\nError: {}\n in line\n {}'.format(detail, line)
+                          'chrom2, start2, end2, score\nError: {}\n in line\n {}'.format(
+                              detail, line)
                     sys.exit(msg)
 
                 try:
@@ -1637,11 +1796,14 @@ class PlotArcs(TrackPlot):
                     end2 = int(end2)
                 except ValueError as detail:
                     msg = "Error reading line: {}. One of the fields is not " \
-                          "an integer.\nError message: {}".format(line_number, detail)
+                          "an integer.\nError message: {}".format(
+                              line_number, detail)
                     sys.exit(msg)
 
-                assert start1 <= end1, "Error in line #{}, end1 larger than start1 in {}".format(line_number, line)
-                assert start2 <= end2, "Error in line #{}, end2 larger than start2 in {}".format(line_number, line)
+                assert start1 <= end1, "Error in line #{}, end1 larger than start1 in {}".format(
+                    line_number, line)
+                assert start2 <= end2, "Error in line #{}, end2 larger than start2 in {}".format(
+                    line_number, line)
                 try:
                     score = float(score)
                 except ValueError as detail:
@@ -1650,7 +1812,8 @@ class PlotArcs(TrackPlot):
                     sys.exit(msg)
 
                 if chrom1 != chrom2:
-                    sys.stderr.write("Only links in same chromosome are considere. Skipping line\n{}\n".format(line))
+                    sys.stderr.write(
+                        "Only links in same chromosome are considere. Skipping line\n{}\n".format(line))
                     continue
 
                 if chrom1 not in interval_tree:
@@ -1662,12 +1825,14 @@ class PlotArcs(TrackPlot):
 
                 value = Arc._make([chrom1, start1, end1, start2, end2, score])
 
-                # each interval spans from the smallest start to the largest end
+                # each interval spans from the smallest start to the largest
+                # end
                 interval_tree[chrom1].add(Interval(start1, end2, value))
                 valid_intervals += 1
 
         if valid_intervals == 0:
-            sys.stderr.write("No valid intervals were found in file {}".format(file_name))
+            sys.stderr.write(
+                "No valid intervals were found in file {}".format(self.properties['file']))
 
         file_h.close()
         self.interval_tree = interval_tree
@@ -1679,21 +1844,20 @@ class PlotArcs(TrackPlot):
             self.properties['alpha'] = 0.8
 
     def plot(self, ax, label_ax, chrom_region, region_start, region_end):
-
         """
         Makes and arc connecting two points on a linear scale representing
         interactions between Hi-C bins.
         :param ax: matplotlib axis
         :param label_ax: matplotlib axis for labels
         """
-        from matplotlib.colors import colorConverter
-        from matplotlib.patches import Arc
+        # from matplotlib.colors import colorConverter
         max_diameter = 0
         count = 0
 
         if chrom_region not in self.interval_tree.keys():
             chrom_region = change_chrom_names(chrom_region)
-        arcs_in_region = sorted(self.interval_tree[chrom_region][region_start:region_end])
+        arcs_in_region = sorted(
+            self.interval_tree[chrom_region][region_start:region_end])
 
         for idx, interval in enumerate(arcs_in_region):
             # skip arcs whose start and end are outside the ploted region
@@ -1709,9 +1873,9 @@ class PlotArcs(TrackPlot):
             if 'line width' in self.properties:
                 line_width = float(self.properties['line width'])
             else:
-                line_width = 0.5*np.sqrt(interval.value.score)
+                line_width = 0.5 * np.sqrt(interval.value.score)
             ax.add_patch(Arc((center, 0), diameter,
-                             diameter*2, 0, 0, 180, color=self.properties['color'], lw=line_width))
+                             diameter * 2, 0, 0, 180, color=self.properties['color'], lw=line_width))
 
         print "{} arcs plotted".format(count)
         if 'orientation' in self.properties and self.properties['orientation'] == 'inverted':

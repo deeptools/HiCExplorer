@@ -112,7 +112,8 @@ def combine_matrices(matrix_list, bplimit=None):
         # trim matrix if bplimit given
         if bplimit is not None:
             limit = int(bplimit / hic.getBinSize())
-            matrix = (triu(hic.matrix, k=-limit) - triu(hic.matrix, k=limit)).tocoo()
+            matrix = (triu(hic.matrix, k=-limit) -
+                      triu(hic.matrix, k=limit)).tocoo()
         else:
             matrix = hic.matrix.tocoo()
 
@@ -126,14 +127,17 @@ def combine_matrices(matrix_list, bplimit=None):
 
         # also add correction_factors
         if hic.correction_factors is not None:
-            new_correction_factors = np.append(new_correction_factors, hic.correction_factors)
+            new_correction_factors = np.append(
+                new_correction_factors, hic.correction_factors)
         else:
             # add an array with NaNs
             arr = np.empty(matrix.shape[0])
             arr[:] = np.NAN
-            new_correction_factors = np.concatenate([new_correction_factors, arr])
+            new_correction_factors = np.concatenate(
+                [new_correction_factors, arr])
         if hic.distance_counts is not None:
-            new_distance_counts = np.concatenate([new_distance_counts, hic.distance_counts])
+            new_distance_counts = np.concatenate(
+                [new_distance_counts, hic.distance_counts])
 
     final_mat = coo_matrix((values, (row, col)), shape=(size, size)).tocsr()
 
@@ -158,11 +162,14 @@ def main():
         if args.chrNameList is None:
             exit("Error: --chrNameList is required when the input format is lieberman. ")
         else:
-            hic_ma = hm.hiCMatrix(matrixFile=args.inFile, file_format='lieberman', chrnameList=args.chrNameList)
+            hic_ma = hm.hiCMatrix(
+                matrixFile=args.inFile, file_format='lieberman', chrnameList=args.chrNameList)
 
-    elif args.inputFormat == 'npz' and len(args.inFile) > 1:  # assume hicexplorer_multi format
+    # assume hicexplorer_multi format
+    elif args.inputFormat == 'npz' and len(args.inFile) > 1:
         if args.bplimit:
-            sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
+            sys.stderr.write(
+                "\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
         matrix, cut_intervals, nan_bins, corrections_factors, distance_counts = \
             combine_matrices(args.inFile, bplimit=args.bplimit)
@@ -177,13 +184,16 @@ def main():
             hic_ma.distance_counts = distance_counts
 
     else:
-        hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
+        hic_ma = hm.hiCMatrix(
+            matrixFile=args.inFile[0], file_format=args.inputFormat)
         if args.bplimit:
             from scipy.sparse import triu
-            sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
+            sys.stderr.write(
+                "\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
             limit = int(args.bplimit / hic_ma.getBinSize())
-            hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
+            hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) -
+                             triu(hic_ma.matrix, k=limit)).tocsr()
             hic_ma.matrix.eliminate_zeros()
 
     if args.chromosomeOrder:

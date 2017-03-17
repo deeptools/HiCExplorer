@@ -1,4 +1,5 @@
-import sys, argparse
+import sys
+import argparse
 from scipy.sparse import lil_matrix
 import logging
 
@@ -50,9 +51,11 @@ Then, after revising the plot and deciding the threshold values:
             $ hicCorrectMatrix diagnostic_plot -h
 
             $ hicCorrectMatrix correct -h
+
+            $ hicCorrectMatrix merge_failed -h
             """)
 
-    correct_mode = subparsers.add_parser(
+    subparsers.add_parser(
         'correct',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[correct_subparser()],
@@ -101,8 +104,6 @@ Then, after revising the plot and deciding the threshold values:
     parser.add_argument('--verbose',
                         help='Print processing status',
                         action='store_true')
-
-
     return parser
 
 
@@ -214,15 +215,22 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
         # for [1,2,5,10] the np.diff is [1,3,5]. The consecutive id list
         # is [0], for '1', in the original list, but we are missing the '2'
         # thats where the consecutive_failed_idx+1 comes.
-        consecutive_failed_idx = np.unique(np.sort(
-                np.concatenate([consecutive_failed_idx,
-                                consecutive_failed_idx+1])))
+        consecutive_failed_idx = np.unique(
+            np.sort(
+                np.concatenate(
+                    [
+                        consecutive_failed_idx,
+                        consecutive_failed_idx + 1
+                    ]
+                )
+            )
+        )
         # find the failed regions that are not consecutive
         discontinuous_failed = [x for idx, x in enumerate(failed_bins)
                                 if idx not in consecutive_failed_idx]
 
     sys.stderr.write("Filling {} failed bins\n".format(
-            len(discontinuous_failed)))
+        len(discontinuous_failed)))
 
     """
     for missing_bin in discontinuous_failed:
@@ -246,13 +254,13 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
         if 0 < missing_bin < mat_size - 1:
             # the new row value is the mean between the upper
             # and lower rows
-            fill_ma[missing_bin, 1:mat_size-1] = \
-                (hic_ma.matrix[missing_bin - 1, :mat_size-2] +
+            fill_ma[missing_bin, 1:mat_size - 1] = \
+                (hic_ma.matrix[missing_bin - 1, :mat_size - 2] +
                  hic_ma.matrix[missing_bin + 1, 2:]) / 2
 
             # same for cols
-            fill_ma[1:mat_size-1, missing_bin] = \
-                (hic_ma.matrix[:mat_size-2, missing_bin - 1] +
+            fill_ma[1:mat_size - 1, missing_bin] = \
+                (hic_ma.matrix[:mat_size - 2, missing_bin - 1] +
                  hic_ma.matrix[2:, missing_bin + 1]) / 2
 
     # identify the intersection points of the failed regions because they
@@ -265,16 +273,16 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
                 # neighbors that do have a value
 
                 fill_value = np.mean([
-                        hic_ma.matrix[bin_a-1, bin_b-1],
-                        hic_ma.matrix[bin_a-1, bin_b+1],
-                        hic_ma.matrix[bin_a+1, bin_b-1],
-                        hic_ma.matrix[bin_a+1, bin_b+1],
-                        ])
+                    hic_ma.matrix[bin_a - 1, bin_b - 1],
+                    hic_ma.matrix[bin_a - 1, bin_b + 1],
+                    hic_ma.matrix[bin_a + 1, bin_b - 1],
+                    hic_ma.matrix[bin_a + 1, bin_b + 1],
+                ])
 
-                fill_ma[bin_a-1, bin_b] = fill_value
-                fill_ma[bin_a+1, bin_b] = fill_value
-                fill_ma[bin_a, bin_b-1] = fill_value
-                fill_ma[bin_a, bin_b+1] = fill_value
+                fill_ma[bin_a - 1, bin_b] = fill_value
+                fill_ma[bin_a + 1, bin_b] = fill_value
+                fill_ma[bin_a, bin_b - 1] = fill_value
+                fill_ma[bin_a, bin_b + 1] = fill_value
 
     # return the matrix and the bins that continue to be failed regions
     return fill_ma.tocsr(), np.sort(failed_bins[consecutive_failed_idx])
@@ -390,7 +398,7 @@ def plot_total_contact_dist(hic_ma, args):
 
         # get first local mininum value
         local_min = [x for x, y in enumerate(dist) if 1 <= x < len(dist) - 1 and
-                     dist[x-1] > y < dist[x+1]]
+                     dist[x - 1] > y < dist[x + 1]]
 
         if len(local_min) > 0:
             threshold = bin_s[local_min[0]]
@@ -418,7 +426,7 @@ def plot_total_contact_dist(hic_ma, args):
         num_rows = int(np.ceil(float(len(chroms)) / 5))
         num_cols = min(len(chroms), 5)
         grids = gridspec.GridSpec(num_rows, num_cols)
-        fig = plt.figure(figsize=(6*num_cols, 5*num_rows))
+        fig = plt.figure(figsize=(6 * num_cols, 5 * num_rows))
         ax = {}
         for plot_num, chrname in enumerate(chroms):
             log.info("Plotting chromosome {}".format(chrname))
@@ -478,7 +486,8 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
             # and not only self interactions that are the dominant count
             row_sum = row_sum - chr_submatrix.diagonal()
             mad = MAD(row_sum)
-            problematic = np.flatnonzero(mad.is_outlier(lower_threshold, upper_threshold))
+            problematic = np.flatnonzero(
+                mad.is_outlier(lower_threshold, upper_threshold))
 
             # because the problematic indices are specific for the given chromosome
             # they need to be updated to match the large matrix indices
@@ -496,8 +505,8 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
         # and not only self interactions that are the dominant count
         row_sum = row_sum - hic_ma.matrix.diagonal()
         mad = MAD(row_sum)
-        to_remove = np.flatnonzero(mad.is_outlier(lower_threshold, upper_threshold))
-
+        to_remove = np.flatnonzero(mad.is_outlier(
+            lower_threshold, upper_threshold))
 
     return sorted(to_remove)
 
@@ -514,7 +523,7 @@ def main():
 
     # mask all zero value bins
     row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
-    log.info("Removing {} zero value bins".format(sum(row_sum==0)))
+    log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
     ma.maskBins(np.flatnonzero(row_sum == 0))
     matrix_shape = ma.matrix.shape
 
@@ -525,16 +534,18 @@ def main():
 
     log.info("matrix contains {} data points. Sparsity {:.3f}.".format(
         len(ma.matrix.data),
-        float(len(ma.matrix.data))/(ma.matrix.shape[0]**2)))
+        float(len(ma.matrix.data)) / (ma.matrix.shape[0]**2)))
 
     if args.skipDiagonal:
         ma.diagflat(value=0)
 
-    outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1], perchr=args.perchr)
+    outlier_regions = filter_by_zscore(
+        ma, args.filterThreshold[0], args.filterThreshold[1], perchr=args.perchr)
     # compute and print some statistics
     pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
-    ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%) "
-                                               "out of".format(pct_outlier, ma.matrix.shape[0]),
+    ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers after merge ({:.2f}%) "
+                                               "out of".format(
+                                                   pct_outlier, ma.matrix.shape[0]),
                         restore_masked_bins=False)
 
     assert matrix_shape == ma.matrix.shape
@@ -550,7 +561,8 @@ def main():
         failed_bins = np.flatnonzero(
             np.array(coverage) < args.sequencedCountCutoff)
 
-        ma.printchrtoremove(failed_bins, label="Bins with low coverage", restore_masked_bins=False)
+        ma.printchrtoremove(
+            failed_bins, label="Bins with low coverage", restore_masked_bins=False)
         ma.maskBins(failed_bins)
         total_filtered_out = set(failed_bins)
         """
@@ -562,7 +574,7 @@ def main():
         """
 
     if args.transCutoff and 0 < args.transCutoff < 100:
-        cutoff = float(args.transCutoff)/100
+        cutoff = float(args.transCutoff) / 100
         # a usual cutoff is 0.05
         ma.truncTrans(high=cutoff)
 
@@ -575,19 +587,22 @@ def main():
             chr_range = ma.getChrBinRange(chrname)
             chr_submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
             _matrix, _corr_factors = iterative_correction(chr_submatrix, args)
-            corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = _matrix
+            corrected_matrix[chr_range[0]:chr_range[1],
+                             chr_range[0]:chr_range[1]] = _matrix
             correction_factors.append(_corr_factors)
         correction_factors = np.concatenate(correction_factors)
 
     else:
-        corrected_matrix, correction_factors = iterative_correction(ma.matrix, args)
+        corrected_matrix, correction_factors = iterative_correction(
+            ma.matrix, args)
 
     ma.setMatrixValues(corrected_matrix)
     ma.setCorrectionFactors(correction_factors)
     if args.inflationCutoff and args.inflationCutoff > 0:
         after_row_sum = np.asarray(corrected_matrix.sum(axis=1)).flatten()
         # identify rows that were expanded more than args.inflationCutoff times
-        to_remove = np.flatnonzero(after_row_sum / pre_row_sum >= args.inflationCutoff)
+        to_remove = np.flatnonzero(
+            after_row_sum / pre_row_sum >= args.inflationCutoff)
         ma.printchrtoremove(to_remove,
                             label="inflated >={} "
                             "regions".format(args.inflationCutoff), restore_masked_bins=False)
