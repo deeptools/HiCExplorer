@@ -108,10 +108,10 @@ class PlotTracks(object):
 
             elif properties['file_type'] == 'boundaries':
                 self.track_obj_list.append(PlotBoundaries(properties))
-            elif properties['file_type'] == 'mtx':
-                self.track_obj_list.append(PlotExtension(properties))
-            elif properties['file_type'] == 'npy':
-                self.track_obj_list.append(PlotExtensionNpy(properties))
+            # elif properties['file_type'] == 'mtx':
+            #     self.track_obj_list.append(PlotExtension(properties))
+            # elif properties['file_type'] == 'npy':
+            #     self.track_obj_list.append(PlotExtensionNpy(properties))
             if 'title' in properties:
                 # adjust titles that are too long
                 # if the track label space is small
@@ -870,9 +870,9 @@ class PlotHiCMatrix(TrackPlot):
             self.boundaries_obj = PlotBoundaries(
                 {'file': self.properties['boundaries_file']})
 
-        if 'boundaries_file_cluster' in self.properties:
-            self.boundaries_obj_cluster = PlotBoundariesCluster(
-                {'file': self.properties['boundaries_file']})
+        # if 'boundaries_file_cluster' in self.properties:
+        #     self.boundaries_obj_cluster = PlotBoundariesCluster(
+        #         {'file': self.properties['boundaries_file']})
 
     def plot(self, ax, label_ax, chrom, region_start, region_end):
         import copy
@@ -1086,83 +1086,83 @@ class PlotXAxis(TrackPlot):
             ax.axis["x"].set_axis_direction("top")
 
 
-class PlotExtension(TrackPlot):
+# class PlotExtension(TrackPlot):
 
-    def __init__(self, *args, **kwargs):
-        super(PlotExtension, self).__init__(*args, **kwargs)
-        if 'fontsize' not in self.properties:
-            self.properties['fontsize'] = 15
+#     def __init__(self, *args, **kwargs):
+#         super(PlotExtension, self).__init__(*args, **kwargs)
+#         if 'fontsize' not in self.properties:
+#             self.properties['fontsize'] = 15
 
-    def plot(self, ax, label_axis, chrom_region, region_start, region_end):
-        # pass
-        # ax.set_xlim(region_start, region_end)
+#     def plot(self, ax, label_axis, chrom_region, region_start, region_end):
+#         # pass
+#         # ax.set_xlim(region_start, region_end)
 
-        # from  scipy.io import mmwrite
-        from scipy.io import mmread
-        matrix = mmread(self.properties['file'])
-        ax.set_xlim(0, len(matrix[0]))
-        # ax.set_ylim(0, 100)
-        # ax.height(5)
+#         # from  scipy.io import mmwrite
+#         from scipy.io import mmread
+#         matrix = mmread(self.properties['file'])
+#         ax.set_xlim(0, len(matrix[0]))
+#         # ax.set_ylim(0, 100)
+#         # ax.height(5)
 
-        ax.matshow(matrix, cmap='gray')
-
-
-class PlotExtensionNpy(TrackPlot):
-
-    def __init__(self, *args, **kwargs):
-        super(PlotExtensionNpy, self).__init__(*args, **kwargs)
-        if 'fontsize' not in self.properties:
-            self.properties['fontsize'] = 15
-
-    def plot(self, ax, label_axis, chrom_region, region_start, region_end):
-        array_load = np.load(self.properties['file'])
-        x_values = range(0, len(array_load))
-        ax.set_xlim(0, len(array_load))
-
-        ax.fill_between(x_values, 0, array_load * 10)
-        if 'boundaries_file_cluster' in self.properties:
-
-            x = []
-            y = []
-            cluster_boundaries = np.load(
-                self.properties['boundaries_file_cluster'])
-            for i, cluster in enumerate(cluster_boundaries):
-                # c = colors[i % 3]
-                x1 = cluster[0]
-                x3 = cluster[1]
-                x2 = x1 + float(x3 - x1) / 2
-                y1 = 0
-                y2 = x3 - x1
-                x.extend([x1, x2, x3])
-                y.extend([y1, y2, y1])
-
-            ax.plot(x, y, color='black')
+#         ax.matshow(matrix, cmap='gray')
 
 
-class PlotBoundariesCluster(TrackPlot):
-    def __init__(self, *args, **kwargs):
-        super(PlotBoundariesCluster, self).__init__(*args, **kwargs)
-        if 'fontsize' not in self.properties:
-            self.properties['fontsize'] = 15
+# class PlotExtensionNpy(TrackPlot):
 
-    def plot(self, ax, label_axis, chrom_region, region_start, region_end):
-        if 'boundaries_file_cluster' in self.properties:
+#     def __init__(self, *args, **kwargs):
+#         super(PlotExtensionNpy, self).__init__(*args, **kwargs)
+#         if 'fontsize' not in self.properties:
+#             self.properties['fontsize'] = 15
 
-            x = []
-            y = []
-            cluster_boundaries = np.load(
-                self.properties['boundaries_file_cluster'])
-            for i, cluster in enumerate(cluster_boundaries):
-                # c = colors[i % 3]
-                x1 = cluster[0]
-                x3 = cluster[1]
-                x2 = x1 + float(x3 - x1) / 2
-                y1 = 0
-                y2 = x3 - x1
-                x.extend([x1, x2, x3])
-                y.extend([y1, y2, y1])
+#     def plot(self, ax, label_axis, chrom_region, region_start, region_end):
+#         array_load = np.load(self.properties['file'])
+#         x_values = range(0, len(array_load))
+#         ax.set_xlim(0, len(array_load))
 
-            ax.plot(x, y, color='black')
+#         ax.fill_between(x_values, 0, array_load * 10)
+#         if 'boundaries_file_cluster' in self.properties:
+
+#             x = []
+#             y = []
+#             cluster_boundaries = np.load(
+#                 self.properties['boundaries_file_cluster'])
+#             for i, cluster in enumerate(cluster_boundaries):
+#                 # c = colors[i % 3]
+#                 x1 = cluster[0]
+#                 x3 = cluster[1]
+#                 x2 = x1 + float(x3 - x1) / 2
+#                 y1 = 0
+#                 y2 = x3 - x1
+#                 x.extend([x1, x2, x3])
+#                 y.extend([y1, y2, y1])
+
+#             ax.plot(x, y, color='black')
+
+
+# class PlotBoundariesCluster(TrackPlot):
+#     def __init__(self, *args, **kwargs):
+#         super(PlotBoundariesCluster, self).__init__(*args, **kwargs)
+#         if 'fontsize' not in self.properties:
+#             self.properties['fontsize'] = 15
+
+#     def plot(self, ax, label_axis, chrom_region, region_start, region_end):
+#         if 'boundaries_file_cluster' in self.properties:
+
+#             x = []
+#             y = []
+#             cluster_boundaries = np.load(
+#                 self.properties['boundaries_file_cluster'])
+#             for i, cluster in enumerate(cluster_boundaries):
+#                 # c = colors[i % 3]
+#                 x1 = cluster[0]
+#                 x3 = cluster[1]
+#                 x2 = x1 + float(x3 - x1) / 2
+#                 y1 = 0
+#                 y2 = x3 - x1
+#                 x.extend([x1, x2, x3])
+#                 y.extend([y1, y2, y1])
+
+#             ax.plot(x, y, color='black')
 
 
 class PlotBoundaries(TrackPlot):
