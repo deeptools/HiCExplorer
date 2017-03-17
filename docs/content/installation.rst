@@ -84,6 +84,6 @@ framework but who also prefer a virtualized solution. This container is quite si
 
     $ sudo docker pull quay.io/bgruening/galaxy-hicexplorer
 
-To start and otherwise modify this container, please see the instructions on `the docker-galaxy-stable github repository <https://github.com/bgruening/docker-galaxy-stable>`__. Note that you must use `bgruening/galaxy-deeptools` in place of `bgruening/galaxy-stable` in the examples, as the deepTools Galaxy container is built on top of the galaxy-stable container.
+To start and otherwise modify this container, please see the instructions on `the docker-galaxy-stable github repository <https://github.com/bgruening/docker-galaxy-stable>`__. Note that you must use `bgruening/galaxy-hicexplorer` in place of `bgruening/galaxy-stable` in the examples, as the HiCExplorer Galaxy container is built on top of the galaxy-stable container.
 
 .. tip:: For support, or feature requests contact: deeptools@googlegroups.com

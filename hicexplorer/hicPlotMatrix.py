@@ -8,6 +8,7 @@ import numpy as np
 import argparse
 # from mpl_toolkits.mplot3d import Axes3D
 import matplotlib
+matplotlib.use('Agg')
 
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
@@ -318,13 +319,18 @@ def plotPerChr(hic_matrix, cmap, args):
     plots each chromosome individually, one after the other
     in one row. scale bar is added at the end
     """
+    from math import ceil
     chromosomes = hic_matrix.getChrNames()
-    width_ratios = [1] * len(chromosomes) + [0.05]
-    grids = gridspec.GridSpec(1, len(chromosomes) + 1,
-                              width_ratios=width_ratios)
+    chrom_per_row = 5
+    num_rows = int(ceil(float(len(chromosomes)) / chrom_per_row))
+    num_cols = min(chrom_per_row, len(chromosomes))
+    width_ratios = [1] * num_cols + [0.05]
+    grids = gridspec.GridSpec(num_rows, num_cols + 1,
+                              width_ratios=width_ratios,
+                              height_ratios=[1] * num_rows)
 
-    fig_height = 6
-    fig_width = sum((np.array(width_ratios) + 0.95) * fig_height)
+    fig_height = 6 * num_rows
+    fig_width = sum((np.array(width_ratios) + 0.05) * 6)
 
     fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
@@ -334,7 +340,10 @@ def plotPerChr(hic_matrix, cmap, args):
     chrom, start, end, _ = zip(*hic_matrix.cut_intervals)
 
     for idx, chrname in enumerate(chromosomes):
-        axis = plt.subplot(grids[idx])
+        row = idx / chrom_per_row
+        col = idx % chrom_per_row
+
+        axis = plt.subplot(grids[row, col])
         axis.set_title(chrname)
         chrom_range = hic_matrix.getChrBinRange(chrname)
         mat = hic_matrix.matrix[chrom_range[0]:chrom_range[1],
@@ -344,7 +353,6 @@ def plotPerChr(hic_matrix, cmap, args):
             mat += 1
         img = axis.imshow(mat, aspect='auto',
                           interpolation='spline16',
-                          #                          interpolation='nearest',
                           vmax=args.vMax, vmin=args.vMin, cmap=cmap,
                           norm=norm,
                           extent=[start[chrom_range[0]], end[chrom_range[1] - 1],
@@ -353,22 +361,27 @@ def plotPerChr(hic_matrix, cmap, args):
         img.set_rasterized(True)
 
         xticks = axis.get_xticks()
-        xlabels = ["{:.0f}".format(int(x) / 1e6)
-                   for x in xticks]
-        print xlabels
+        if xticks[1] < 1e6:
+            xlabels = ["{:.0f}".format(int(x) / 1e3)
+                      for x in xticks]
+            xlabels[-2] = "{} Kb".format(xlabels[-2])
+        else:
+            xlabels = ["{:.0f}".format(int(x) / 1e6)
+                      for x in xticks]
+            xlabels[-2] = "{} Mb".format(xlabels[-2])
 
         axis.set_xticklabels(xlabels, size='small')
-        yticks = axis.get_yticks()
+        # yticks = axis.get_yticks()
 
-        ylabels = ["{:.0f}".format(int(x) / 1e6)
-                   for x in yticks]
+        # ylabels = ["{:.0f}".format(int(x) / 1e6)
+        #          for x in yticks]
 
         axis.get_xaxis().set_tick_params(
             which='both',
             bottom='on',
             direction='out')
 
-        axis.set_yticklabels(ylabels, size='small')
+        axis.set_yticklabels(xlabels, size='small')
 
     cbar3 = plt.subplot(grids[-1])
     cbar = fig.colorbar(img, cax=cbar3)
