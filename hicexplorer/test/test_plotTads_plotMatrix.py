@@ -2,11 +2,12 @@ import filecmp
 import sys
 import matplotlib as mpl
 from tempfile import NamedTemporaryFile
-import hicexplorer
+# import hicexplorer
 import os.path
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 MATPLOTLIB_VERSION = '1.5.3'
+
 
 def compare_svg(file1, file2):
     """
@@ -44,16 +45,18 @@ class TestPlottingPrograms(object):
         args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000   " \
                "--outFileName  {1}".format(ROOT, outfile.name).split()
         hicexplorer.hicPlotTADs.main(args)
-        assert compare_svg(ROOT + '/master_TADs_plot.svg', outfile.name) is True, "Plot is not similar to master. Args: {}".format(" ".join(args))
-        os.remove(outfile.name) 
+        assert compare_svg(ROOT + '/master_TADs_plot.svg',
+                           outfile.name) is True, "Plot is not similar to master. Args: {}".format(" ".join(args))
+        os.remove(outfile.name)
 
     def test_hicPlotMatrix(self):
         import hicexplorer.hicPlotMatrix
 
         outfile = NamedTemporaryFile(suffix='.svg', delete=False)
         args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
-               "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
+               "--outFileName  {1} --log1p --clearMaskedBins".format(
+                   ROOT, outfile.name).split()
         hicexplorer.hicPlotMatrix.main(args)
-        assert compare_svg(ROOT + '/master_matrix_plot.svg', outfile.name) is True
+        assert compare_svg(ROOT + '/master_matrix_plot.svg',
+                           outfile.name) is True
         os.remove(outfile.name)
-
