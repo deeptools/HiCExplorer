@@ -1,4 +1,5 @@
-import sys, argparse
+import sys
+import argparse
 import numpy as np
 
 from hicexplorer import HiCMatrix as hm
@@ -124,13 +125,13 @@ def running_window_merge(hic_matrix):
         chrom, start, end, coverage = interval
         if idx + 1 >= total_intervals:
             continue
-        if chrom != hic_matrix.cut_intervals[idx+1][0]:
+        if chrom != hic_matrix.cut_intervals[idx + 1][0]:
             # the next interval is for a different
             # chromosome. That means, this region has
             # to be removed
             continue
         to_keep.append(idx)
-        coverage = np.mean([coverage, hic_matrix.cut_intervals[idx+1][-1]])
+        coverage = np.mean([coverage, hic_matrix.cut_intervals[idx + 1][-1]])
         new_intervals.append((chrom, start + bin_size_half,
                               end + bin_size_half, coverage))
 
@@ -197,7 +198,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
         return hic_matrix
 
     assert num_bins % 2 == 1, "num_bins has to be an odd number"
-    half_num_bins = int((num_bins-1) / 2)
+    half_num_bins = int((num_bins - 1) / 2)
     from scipy.sparse import coo_matrix, dia_matrix, triu
     M = hic_matrix.matrix.shape[0]
     ma = triu(hic_matrix.matrix, k=0, format='coo')
@@ -208,7 +209,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
     idx_list = []
     for i in range(num_bins):
         for j in range(num_bins):
-            idx_list.append((j-half_num_bins, i-half_num_bins))
+            idx_list.append((j - half_num_bins, i - half_num_bins))
 
     new_row = row
     new_col = col
@@ -292,7 +293,8 @@ def merge_bins(hic, num_bins):
             [  1,   4, 100]])
     """
     # get the bins to merge
-    ref_name_list, start_list, end_list, coverage_list = zip(*hic.cut_intervals)
+    ref_name_list, start_list, end_list, coverage_list = zip(
+        *hic.cut_intervals)
     new_bins = []
     bins_to_merge = []
     prev_ref = ref_name_list[0]
@@ -303,11 +305,13 @@ def merge_bins(hic, num_bins):
     count = 0
     for idx, ref in enumerate(ref_name_list):
         if (count > 0 and count % num_bins == 0) or ref != prev_ref:
-            if count < num_bins/2:
-                sys.stderr.write("{} has few bins ({}). Skipping it\n".format(prev_ref, count))
+            if count < num_bins / 2:
+                sys.stderr.write(
+                    "{} has few bins ({}). Skipping it\n".format(prev_ref, count))
             else:
                 coverage = np.mean(coverage_list[idx_start:idx])
-                new_bins.append((ref_name_list[idx_start], new_start, end_list[idx - 1], coverage))
+                new_bins.append(
+                    (ref_name_list[idx_start], new_start, end_list[idx - 1], coverage))
                 bins_to_merge.append(range(idx_start, idx))
             idx_start = idx
             new_start = start_list[idx]
@@ -317,7 +321,7 @@ def merge_bins(hic, num_bins):
         count += 1
     coverage = np.mean(coverage_list[idx_start:])
     new_bins.append((ref, new_start, end_list[idx], coverage))
-    bins_to_merge.append(range(idx_start, idx+1))
+    bins_to_merge.append(range(idx_start, idx + 1))
 
     hic.matrix = reduce_matrix(hic.matrix, bins_to_merge, diagonal=True)
     hic.cut_intervals = new_bins
@@ -345,7 +349,8 @@ def main():
     """
     merged_matrix.matrix.eliminate_zeros()
     if merged_matrix.correction_factors is not None:
-        sys.stderr.write("*WARNING*: The corrections factors are not merged and are set to None\n")
+        sys.stderr.write(
+            "*WARNING*: The corrections factors are not merged and are set to None\n")
         merged_matrix.correction_factors = None
 
     merged_matrix.save(args.outFileName)
