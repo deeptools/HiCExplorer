@@ -45,7 +45,8 @@ def merge_tad_bins(hic, boundary_id_list, filename):
 
     from hicexplorer.reduceMatrix import reduce_matrix
     hic.restoreMaskedBins()
-    ref_name_list, start_list, end_list, coverage_list = zip(*hic.cut_intervals)
+    ref_name_list, start_list, end_list, coverage_list = zip(
+        *hic.cut_intervals)
     new_bins = []
     bins_to_merge = []
     prev_ref = ref_name_list[0]
@@ -58,7 +59,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
         if (count > 0 and idx in boundary_id_list) or ref != prev_ref:
             coverage = np.mean(coverage_list[idx_start:idx])
             new_bins.append((ref_name_list[idx_start], new_start,
-                             end_list[idx-1], coverage))
+                             end_list[idx - 1], coverage))
             bins_to_merge.append(range(idx_start, idx))
             idx_start = idx
             new_start = start_list[idx]
@@ -71,7 +72,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
     if len(bins_to_merge) > 0:
         coverage = np.mean(coverage_list[idx_start:])
         new_bins.append((ref, new_start, end_list[idx], coverage))
-        bins_to_merge.append(range(idx_start, idx+1))
+        bins_to_merge.append(range(idx_start, idx + 1))
         # remove correction factors otherwise they are
         # saved but they no longer correspond to the
         # size of the matrix.
@@ -111,13 +112,14 @@ def get_boundary_bin_id(hic, bed_fh):
                   "an integer.\nError message: {}".format(line_number, detail)
             sys.exit(msg)
 
-        assert start <= end, "Error in line #{}, end1 larger than start1 in {}".format(line_number, line)
+        assert start <= end, "Error in line #{}, end1 larger than start1 in {}".format(
+            line_number, line)
 
         # check the overlap of the region with the hic matrix bins
         start_bin, end_bin = hic.getRegionBinRange(chrom, start, end)
         boundaries.add(start_bin)
         boundaries.add(end_bin)
-    
+
     return np.sort(list(boundaries))
 
 
