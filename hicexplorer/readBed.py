@@ -202,7 +202,9 @@ class ReadBed(object):
             else:
                 try:
                     tmp = float(r)
-                except ValueError, TypeError:
+                except ValueError:
+                    tmp = r
+                except TypeError:
                     tmp = r
                 line_values.append(tmp)
 
