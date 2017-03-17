@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from __future__ import division
 
 import numpy as np
 import argparse
 from matplotlib import use as mplt_use
-mplt_use('Agg')
+
 import matplotlib.pyplot as plt
 
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import remove_outliers
+mplt_use('Agg')
 
 
 def parse_arguments(args=None):
@@ -26,21 +27,21 @@ def parse_arguments(args=None):
                         action='store_true')
 
     parser.add_argument('--plotFile', '-o',
-                       help='File name to save the file. The given file '
+                        help='File name to save the file. The given file '
                         'ending will be used '
                         'to determine the image format. '
                         'The available options are: .png, .emf, '
                         '.eps, .pdf and .svg.',
-                       type=argparse.FileType('w'),
-                       metavar='file name',
-                       required=True)
+                        type=argparse.FileType('w'),
+                        metavar='file name',
+                        required=True)
 
     parser.add_argument('--chromosomeExclude',
                         help='Exclude the given list of chrosomes from ',
                         nargs='+')
 
     parser.add_argument('--plotTitle', '-t',
-                       help='Plot title')
+                        help='Plot title')
 
     return parser
 
@@ -55,7 +56,8 @@ def chr_diagonals(matrix_file_name, chromosome_exclude):
     if chromosome_exclude is None:
         chromosome_exclude = []
 
-    chrtokeep = [x for x in hic_ma.interval_trees.keys() if x not in chromosome_exclude]
+    chrtokeep = [x for x in hic_ma.interval_trees.keys()
+                 if x not in chromosome_exclude]
     print "Number of contacts {}".format(hic_ma.matrix.sum())
     hic_ma.keepOnlyTheseChr(chrtokeep)
     diagonal_dict = hic_ma.getCountsByDistance(per_chr=True)
@@ -88,17 +90,20 @@ def main(args=None):
     """
     args = parse_arguments().parse_args(args)
 
-    diagonals_dict, chrom_list, common_dist, max_dist = chr_diagonals(args.matrix, args.chromosomeExclude)
+    diagonals_dict, chrom_list, common_dist, max_dist = chr_diagonals(
+        args.matrix, args.chromosomeExclude)
 
-    fig = plt.figure(figsize=(5, 4))
+    plt.figure(figsize=(5, 4))
     max_mean = 0
     min_mean = 1e6
     dist_list = np.sort(common_dist)
     for chrom in chrom_list:
         values = diagonals_dict[chrom]
         if len(values):
-            mean_values = [remove_outliers(values[dist]).mean() for dist in dist_list]
-            prc_values_90 = [np.percentile(remove_outliers(values[dist]), 90) for dist in dist_list]
+            mean_values = [remove_outliers(values[dist]).mean()
+                           for dist in dist_list]
+            prc_values_90 = [np.percentile(remove_outliers(
+                values[dist]), 90) for dist in dist_list]
 
             if max(prc_values_90) > max_mean:
                 max_mean = max(prc_values_90)
@@ -109,7 +114,7 @@ def main(args=None):
 
     plt.yscale('log')
     plt.xscale('log')
-    plt.legend(prop={'size':'small'})
+    plt.legend(prop={'size': 'small'})
     plt.suptitle(args.plotTitle)
     plt.xlabel('genomic distance')
     plt.ylabel('corrected Hi-C counts')
