@@ -351,10 +351,11 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     assert len(new_end) == len(new_start), "error"
 
     intervals = zip(new_chrom, new_start, new_end)
-    intervals = [(chromosome, start_position, end_position) for chromosome, start_position, end_position in intervals if end_position - start_position >= min_distance]
+    intervals = [(chromosome, start_position, end_position) for chromosome, start_position,
+                 end_position in intervals if end_position - start_position >= min_distance]
     return intervals
 
- 
+
 def get_chrom_sizes(bam_handle):
     """
     return the list of chromosome names and their
@@ -407,7 +408,8 @@ def get_supplementary_alignment(read, pysam_obj):
     # the SA field contains a list of other alignments as a ';' delimited list in the format
     # rname,pos,strand,CIGAR,mapQ,NM;
     if read.has_tag('SA'):
-        # field always ends in ';' thus last element after split is always empty, hence [0:-1]
+        # field always ends in ';' thus last element after split is always
+        # empty, hence [0:-1]
         other_alignments = read.get_tag('SA').split(";")[0:-1]
         supplementary_alignment = []
         for i in range(len(other_alignments)):
@@ -456,8 +458,8 @@ def get_correct_map(primary, supplement_list):
 
     for supplement in supplement_list:
         assert primary.qname == supplement.qname, "ERROR, primary " \
-           "and supplementary reads do not have the same id. The ids " \
-                "are as follows\n{}\n{}".format(primary.qname, supplement.qname)
+            "and supplementary reads do not have the same id. The ids " \
+            "are as follows\n{}\n{}".format(primary.qname, supplement.qname)
     read_list = [primary] + supplement_list
     first_mapped = []
     for idx, read in enumerate(read_list):
@@ -466,8 +468,10 @@ def get_correct_map(primary, supplement_list):
         else:
             cigartuples = read.cigartuples[:]
 
-        first_mapped.append([x for x, cig in enumerate(cigartuples) if cig[0] == 0][0])
-    # find which read has a cigar string that maps first than any of the others.
+        first_mapped.append(
+            [x for x, cig in enumerate(cigartuples) if cig[0] == 0][0])
+    # find which read has a cigar string that maps first than any of the
+    # others.
     idx_min = first_mapped.index(min(first_mapped))
 
     return read_list[idx_min]
@@ -623,7 +627,8 @@ def main(args=None):
             sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
                              "\n".format(pair_added, float(100 * pair_added) / iter_num))
         if args.doTestRun and iter_num > 1e5:
-            sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
+            sys.stderr.write(
+                "\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
             break
         try:
             mate1 = str1.next()
@@ -633,10 +638,10 @@ def main(args=None):
 
         # skip 'not primary' alignments
         while mate1.flag & 256 == 256:
-                mate1 = str1.next()
+            mate1 = str1.next()
 
         while mate2.flag & 256 == 256:
-                mate2 = str2.next()
+            mate2 = str2.next()
 
         assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
             "Be sure that the sam files have the same read order " \
@@ -697,13 +702,16 @@ def main(args=None):
         mate_is_unasigned = False
         for mate in [mate1, mate2]:
             mate_ref = ref_id2name[mate.rname]
-            # find the middle genomic position of the read. This is used to find the bin it belongs to.
+            # find the middle genomic position of the read. This is used to
+            # find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen / 2)
             try:
-                mate_bin = sorted(bin_intval_tree[mate_ref][read_middle:read_middle + 1])
+                mate_bin = sorted(
+                    bin_intval_tree[mate_ref][read_middle:read_middle + 1])
             except KeyError:
                 # for small contigs it can happen that they are not
-                # in the bin_intval_tree keys if no restriction site is found on the contig.
+                # in the bin_intval_tree keys if no restriction site is found
+                # on the contig.
                 mate_is_unasigned = True
                 break
 
@@ -791,12 +799,16 @@ def main(args=None):
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + len(args.restrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(args.restrictionSequence)
+                    frag_start = min(mate1.pos, mate2.pos) + \
+                        len(args.restrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos +
+                                   mate2.qlen) - len(args.restrictionSequence)
                     mate_ref = ref_id2name[mate1.rname]
-                    has_rf = sorted(rf_positions[mate_ref][frag_start: frag_end])
+                    has_rf = sorted(
+                        rf_positions[mate_ref][frag_start: frag_end])
 
-                # case when there is no restriction fragment site between the mates
+                # case when there is no restriction fragment site between the
+                # mates
                 if len(has_rf) == 0:
                     same_fragment += 1
                     continue
@@ -873,17 +885,21 @@ def main(args=None):
             # otherwise the row, col and data vectors continue growing and
             # for a large dataset the system could run out of memory
             if hic_matrix is None:
-                hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+                hic_matrix = coo_matrix(
+                    (data, (row, col)), shape=(matrix_size, matrix_size))
             else:
-                hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size)) 
+                hic_matrix += coo_matrix((data, (row, col)),
+                                         shape=(matrix_size, matrix_size))
             row = []
             col = []
             data = []
 
     if hic_matrix is None:
-        hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+        hic_matrix = coo_matrix(
+            (data, (row, col)), shape=(matrix_size, matrix_size))
     else:
-        hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+        hic_matrix += coo_matrix((data, (row, col)),
+                                 shape=(matrix_size, matrix_size))
 
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
@@ -956,30 +972,37 @@ Max rest. site distance\t{}\t\t
     print("dangling end\t{}\t({:.2f})\t({:.2f})".format(dangling_end, 100 * float(dangling_end) / iter_num,
                                                         100 * float(dangling_end) / mappable_pairs))
     print("self ligation{}\t{}\t({:.2f})\t({:.2f})".format(msg, self_ligation, 100 * float(self_ligation) / iter_num,
-                                                        100 * float(self_ligation) / mappable_pairs))
+                                                           100 * float(self_ligation) / mappable_pairs))
     print("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})".format(mate_not_close_to_rf, 100 * float(mate_not_close_to_rf) / iter_num,
                                                                            100 * float(mate_not_close_to_rf) / mappable_pairs))
     print("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})".format(same_fragment, 100 * float(same_fragment) / iter_num,
                                                                   100 * float(same_fragment) / mappable_pairs))
     print("self circle\t{}\t({:.2f})\t({:.2f})".format(self_circle, 100 * float(self_circle) / iter_num,
-                                                            100 * float(self_circle) / mappable_pairs))
+                                                       100 * float(self_circle) / mappable_pairs))
     print("duplicated pairs\t{}\t({:.2f})\t({:.2f})".format(duplicated_pairs, 100 * float(duplicated_pairs) / iter_num,
                                                             100 * float(duplicated_pairs) / mappable_pairs))
     if pair_added > 0:
         print("Of pairs used:")
-        print("inter chromosomal\t{}\t({:.2f})".format(inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
+        print("inter chromosomal\t{}\t({:.2f})".format(
+            inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
 
-        print("short range < 20kb\t{}\t({:.2f})".format(short_range, 100 * float(short_range) / pair_added))
+        print("short range < 20kb\t{}\t({:.2f})".format(
+            short_range, 100 * float(short_range) / pair_added))
 
-        print("long range\t{}\t({:.2f})".format(long_range, 100 * float(long_range) / pair_added))
+        print("long range\t{}\t({:.2f})".format(
+            long_range, 100 * float(long_range) / pair_added))
 
-        print("inward pairs\t{}\t({:.2f})".format(count_inward, 100 * float(count_inward) / pair_added))
+        print("inward pairs\t{}\t({:.2f})".format(
+            count_inward, 100 * float(count_inward) / pair_added))
 
-        print("outward pairs\t{}\t({:.2f})".format(count_outward, 100 * float(count_outward) / pair_added))
+        print("outward pairs\t{}\t({:.2f})".format(
+            count_outward, 100 * float(count_outward) / pair_added))
 
-        print("left pairs\t{}\t({:.2f})".format(count_left, 100 * float(count_left) / pair_added))
+        print("left pairs\t{}\t({:.2f})".format(
+            count_left, 100 * float(count_left) / pair_added))
 
-        print("right pairs\t{}\t({:.2f})".format(count_right, 100 * float(count_right) / pair_added))
+        print("right pairs\t{}\t({:.2f})".format(
+            count_right, 100 * float(count_right) / pair_added))
 
 
 class Tester(object):
@@ -989,5 +1012,6 @@ class Tester(object):
         if hic_test_data_dir:
             self.root = hic_test_data_dir
         else:
-            self.root = os.path.dirname(os.path.abspath(__file__)) + "/test/test_data/"
+            self.root = os.path.dirname(
+                os.path.abspath(__file__)) + "/test/test_data/"
         self.bam_file_1 = self.root + "hic.bam"
