@@ -2,21 +2,24 @@ import sys
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import writableFile
 from hicexplorer._version import __version__
-from scipy.sparse import tril
+# from scipy.sparse import tril
 import numpy as np
 
 import argparse
-from mpl_toolkits.mplot3d import Axes3D
+# from mpl_toolkits.mplot3d import Axes3D
 import matplotlib
-matplotlib.use('Agg')
 
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
 
+matplotlib.use('Agg')
+
+
 def parse_arguments(args=None):
-    parser=argparse.ArgumentParser(description='Creates a Heatmap of a HiC matrix')
+    parser = argparse.ArgumentParser(
+        description='Creates a Heatmap of a HiC matrix')
 
     # define the arguments
     parser.add_argument('--matrix', '-m',
@@ -111,15 +114,15 @@ def parse_arguments(args=None):
 
 
 def plotHeatmap3D(ma, fig, position, args, cmap):
-    axHeat1 = fig.add_axes( position, projection='3d' )
+    axHeat1 = fig.add_axes(position, projection='3d')
     axHeat1.view_init(50, -45)
     axHeat1.margins(0)
 
     X, Y = np.meshgrid(range(ma.shape[0]), range(ma.shape[0]))
-    ma = np.ma.array( ma, mask=np.isnan(ma) )
+    ma = np.ma.array(ma, mask=np.isnan(ma))
     Z = ma.copy()
 
-    Z[np.where(np.tril(Z)==0)] = np.nan
+    Z[np.where(np.tril(Z) == 0)] = np.nan
 
     axHeat1.plot_surface(X, Y, Z, rstride=1, cstride=1, linewidth=0, cmap=cmap,
                          vmax=args.vMax, vmin=args.vMin)
@@ -155,7 +158,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
 
     img3 = axHeat2.imshow(ma,
                           interpolation='nearest',
-#                          interpolation='spline16',
+                          #                          interpolation='spline16',
                           vmax=args.vMax, vmin=args.vMin, cmap=cmap,
                           norm=norm
                           )
@@ -165,7 +168,8 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
     divider = make_axes_locatable(axHeat2)
     cax = divider.append_axes("right", size="2.5%", pad=0.09)
     cbar = fig.colorbar(img3, cax=cax)
-    cbar.solids.set_edgecolor("face") # to avoid white lines in the color bar in pdf plots
+    # to avoid white lines in the color bar in pdf plots
+    cbar.solids.set_edgecolor("face")
     if args.scoreName:
         cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
 
@@ -181,17 +185,18 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
         """
 
         axHeat2.set_xticks([0, ma.shape[0]])
-        axHeat2.set_xticklabels([args.region[1], args.region[2]], size=4, rotation=90)
+        axHeat2.set_xticklabels(
+            [args.region[1], args.region[2]], size=4, rotation=90)
         axHeat2.set_axis_off()
     else:
-        ticks = [ int(pos[0] + (pos[1]-pos[0]) /2 ) for pos in chrBinBoundaries.values()]
+        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2)
+                 for pos in chrBinBoundaries.values()]
         labels = chrBinBoundaries.keys()
         axHeat2.set_xticks(ticks)
-        if len(labels)> 20:
+        if len(labels) > 20:
             axHeat2.set_xticklabels(labels, size=4, rotation=90)
         else:
             axHeat2.set_xticklabels(labels, size=8)
-
 
     axHeat2.get_yaxis().set_visible(False)
 
@@ -213,7 +218,8 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         start_pos2 = start_pos
 
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-    img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=norm)
+    img3 = axHeat2.pcolormesh(
+        xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=norm)
 
     img3.set_rasterized(True)
 
@@ -244,10 +250,11 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         axHeat2.set_axis_off()
         """
     else:
-        ticks = [int(pos[0] + (pos[1]-pos[0]) /2 ) for pos in chrBinBoundaries.values()]
+        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2)
+                 for pos in chrBinBoundaries.values()]
         labels = chrBinBoundaries.keys()
         axHeat2.set_xticks(ticks)
-        if len(labels)> 20:
+        if len(labels) > 20:
             axHeat2.set_xticklabels(labels, size=4, rotation=90)
         else:
             axHeat2.set_xticklabels(labels, size=8)
@@ -266,7 +273,8 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     else:
         cbar = fig.colorbar(img3, cax=cax)
 
-    cbar.solids.set_edgecolor("face")  # to avoid white lines in the color bar in pdf plots
+    # to avoid white lines in the color bar in pdf plots
+    cbar.solids.set_edgecolor("face")
     if args.scoreName:
         cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
     axHeat2.set_ylim(start_pos2[0], start_pos2[-1])
@@ -300,7 +308,7 @@ def translate_region(region_string):
     try:
         region_end = int(fields[2])
     except IndexError:
-        region_end = 1e15 # vert large number
+        region_end = 1e15  # vert large number
 
     return chrom, region_start, region_end
 
@@ -316,7 +324,7 @@ def plotPerChr(hic_matrix, cmap, args):
                               width_ratios=width_ratios)
 
     fig_height = 6
-    fig_width = sum((np.array(width_ratios)+0.95) * fig_height)
+    fig_width = sum((np.array(width_ratios) + 0.95) * fig_height)
 
     fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
@@ -336,24 +344,24 @@ def plotPerChr(hic_matrix, cmap, args):
             mat += 1
         img = axis.imshow(mat, aspect='auto',
                           interpolation='spline16',
-#                          interpolation='nearest',
+                          #                          interpolation='nearest',
                           vmax=args.vMax, vmin=args.vMin, cmap=cmap,
                           norm=norm,
                           extent=[start[chrom_range[0]], end[chrom_range[1] - 1],
-                                  end[chrom_range[1]-1], start[chrom_range[0]]])
+                                  end[chrom_range[1] - 1], start[chrom_range[0]]])
 
         img.set_rasterized(True)
 
         xticks = axis.get_xticks()
         xlabels = ["{:.0f}".format(int(x) / 1e6)
-                  for x in xticks]
+                   for x in xticks]
         print xlabels
 
         axis.set_xticklabels(xlabels, size='small')
         yticks = axis.get_yticks()
 
         ylabels = ["{:.0f}".format(int(x) / 1e6)
-                  for x in yticks]
+                   for x in yticks]
 
         axis.get_xaxis().set_tick_params(
             which='both',
@@ -364,9 +372,10 @@ def plotPerChr(hic_matrix, cmap, args):
 
     cbar3 = plt.subplot(grids[-1])
     cbar = fig.colorbar(img, cax=cbar3)
-    cbar.solids.set_edgecolor("face") # to avoid white lines in
-                                      # the color bar in pdf plots
+    cbar.solids.set_edgecolor("face")  # to avoid white lines in
+    # the color bar in pdf plots
     cbar.ax.set_ylabel(args.scoreName, rotation=270, labelpad=20)
+
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -388,31 +397,35 @@ def main(args=None):
     if args.clearMaskedBins:
         ma.maskBins(ma.nan_bins)
 
-    sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
+    sys.stderr.write("min: {}, max: {}\n".format(
+        ma.matrix.data.min(), ma.matrix.data.max()))
     if args.region:
         chrom, region_start, region_end = translate_region(args.region)
         if chrom not in ma.interval_trees.keys():
             chrom = change_chrom_names(chrom)
             if chrom not in ma.interval_trees.keys():
-                exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
+                exit(
+                    "Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 
         args.region = [chrom, region_start, region_end]
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
-                x[1] >= region_start and x[2] < region_end])
+                                 x[1] >= region_start and x[2] < region_end])
         if args.region2:
             chrom2, region_start2, region_end2 = translate_region(args.region2)
             if chrom2 not in ma.interval_trees.keys():
                 chrom2 = change_chrom_names(chrom2)
                 if chrom2 not in ma.interval_trees.keys():
-                    exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
+                    exit(
+                        "Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
             idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
-                    x[1] >= region_start2 and x[2] < region_end2])
+                                     x[1] >= region_start2 and x[2] < region_end2])
         else:
             idx2 = idx1
             chrom2 = chrom
             start_pos2 = start_pos1
         # select only relevant part
-        matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
+        matrix = np.asarray(
+            ma.matrix[idx1, :][:, idx2].todense().astype(float))
 
     else:
         # TODO make start_pos1
@@ -433,34 +446,34 @@ def main(args=None):
         # set as nan regions the nan bins
 
         fig_height = 6
-        height = 5.0/fig_height
+        height = 5.0 / fig_height
         if args.whatToShow == 'both':
             fig_width = 11
-            width = 4.9/fig_width
-            left_margin = (1.0-2*width) * 0.35
+            width = 4.9 / fig_width
+            left_margin = (1.0 - 2 * width) * 0.35
         else:
             fig_width = 7
-            width = 4.4/fig_width
-            left_margin = (1.0-width) * 0.35
+            width = 4.4 / fig_width
+            left_margin = (1.0 - width) * 0.35
 
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
         bottom = 0.7 / fig_height
 
         if args.log:
             mask = matrix == 0
-            matrix[mask] = matrix[mask == False].min()
+            matrix[mask] = matrix[mask is False].min()
     #        matrix = -1 *  np.log(matrix)
             matrix = np.log(matrix)
 
         if args.whatToShow == '3D':
-            position = [left_margin, bottom, width*1.2, height*1.2]
+            position = [left_margin, bottom, width * 1.2, height * 1.2]
             plotHeatmap3D(matrix, fig, position, args, cmap)
 
         if args.whatToShow == 'both':
-            position = [left_margin, bottom, width*1.2, height*1.2]
+            position = [left_margin, bottom, width * 1.2, height * 1.2]
             plotHeatmap3D(matrix, fig, position, args, cmap)
 
-            left_margin2 = 5.5/fig_width + left_margin
+            left_margin2 = 5.5 / fig_width + left_margin
             position = [left_margin2, bottom, width, height]
             plotHeatmap(matrix, ma.chrBinBoundaries, fig, position, args,
                         fig_width, cmap)
