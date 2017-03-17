@@ -6,8 +6,7 @@ import scipy.stats
 import scipy.sparse
 import argparse
 from matplotlib import use as mplt_use
-import pyRserve
-from pyRserve import 
+# from pyRserve import 
 from hicexplorer.HiCMatrix import hiCMatrix
 
 mplt_use('Agg')
@@ -552,6 +551,8 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
     bad = 0
     good_nb = 0
     bad_nb = 0
+    import pyRserve
+    
     try:
         conn = pyRserve.connect()
         conn.r('library("MASS")')
@@ -777,7 +778,7 @@ def convertNansToZeros(ma):
 
 def myAverage(valuesArray, avgType='mean'):
 
-    valuesArray = valuesArray[logical_not(np.isnan(valuesArray))]
+    valuesArray = valuesArray[np.logical_not(np.isnan(valuesArray))]
     if avgType == 'mean':
         mean = np.mean(valuesArray)
     else:
