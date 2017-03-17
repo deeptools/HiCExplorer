@@ -1,4 +1,5 @@
-import argparse, sys
+import argparse
+import sys
 import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
 import time
@@ -13,6 +14,7 @@ from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 
 debug = 1
+
 
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
@@ -144,15 +146,14 @@ def parse_arguments(args=None):
                         )
 
     parser.add_argument('--removeSelfLigation',
-                        #help='If set, inward facing reads less than 1000 bp apart and having a restriction'
+                        # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
                         #     'site in between are removed. Although this reads do not contribute to '
                         #     'any distant contact, they are useful to account for bias in the data.',
                         help=argparse.SUPPRESS,
                         required=False,
                         default=True
-                        #action='store_true'
+                        # action='store_true'
                         )
-
 
     parser.add_argument('--removeSelfCircles',
                         help='If set, outward facing reads, at a distance of less thatn 25kbs are removed.',
@@ -179,7 +180,6 @@ def parse_arguments(args=None):
                              'values like inter-chromosomal interactins, duplication rates etc.',
                         action='store_true'
                         )
-
 
     parser.add_argument('--skipDuplicationCheck',
                         help='Identification of duplicated read pairs is memory consuming. Thus, in case of '
@@ -325,9 +325,9 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     new_chrom = [chrom[0]]
     for idx in range(1, len(start)):
         # identify end of chromosome
-        if chrom[idx] != chrom[idx-1]:
+        if chrom[idx] != chrom[idx - 1]:
             new_start.append(max(0, start[idx]))
-            new_end.append(end[idx-1])
+            new_end.append(end[idx - 1])
             new_chrom.append(chrom[idx])
             merge_idx += 1
             continue
@@ -337,13 +337,13 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
             continue
 
         # identify overlapping bins
-        if chrom[idx] == chrom[idx-1] and end[idx-1] > start[idx]:
-            middle = start[idx] + int((end[idx-1]-start[idx])/2)
+        if chrom[idx] == chrom[idx - 1] and end[idx - 1] > start[idx]:
+            middle = start[idx] + int((end[idx - 1] - start[idx]) / 2)
             new_start.append(middle)
             new_end.append(middle)
         else:
             new_start.append(start[idx])
-            new_end.append(end[idx-1])
+            new_end.append(end[idx - 1])
         new_chrom.append(chrom[idx])
 
     new_end.append(end[-1])
@@ -351,10 +351,10 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     assert len(new_end) == len(new_start), "error"
 
     intervals = zip(new_chrom, new_start, new_end)
-    intervals = [(chrom, start, end) for chrom, start, end in intervals if end - start >= min_distance]
+    intervals = [(chromosome, start_position, end_position) for chromosome, start_position, end_position in intervals if end - start >= min_distance]
     return intervals
 
-
+ 
 def get_chrom_sizes(bam_handle):
     """
     return the list of chromosome names and their
@@ -457,7 +457,7 @@ def get_correct_map(primary, supplement_list):
     for supplement in supplement_list:
         assert primary.qname == supplement.qname, "ERROR, primary " \
            "and supplementary reads do not have the same id. The ids " \
-           "are as follows\n{}\n{}".format(primary.qname, supplement.qname)
+                "are as follows\n{}\n{}".format(primary.qname, supplement.qname)
     read_list = [primary] + supplement_list
     first_mapped = []
     for idx, read in enumerate(read_list):
@@ -490,7 +490,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     # enlarge remaining bins
     chr_start = True
     chrom_sizes_dict = dict(chrom_sizes)
-    for idx in range(len(bin_intervals)-1):
+    for idx in range(len(bin_intervals) - 1):
         chrom, start, end = bin_intervals[idx]
         chrom_next, start_next, end_next = bin_intervals[idx + 1]
         if chr_start is True:
@@ -500,10 +500,10 @@ def enlarge_bins(bin_intervals, chrom_sizes):
                 end != start_next:
             middle = start_next - (start_next - end) / 2
             bin_intervals[idx] = (chrom, start, middle)
-            bin_intervals[idx+1] = (chrom, middle, end_next)
+            bin_intervals[idx + 1] = (chrom, middle, end_next)
         if chrom != chrom_next:
             bin_intervals[idx] = (chrom, start, chrom_sizes_dict[chrom])
-            bin_intervals[idx+1] = (chrom_next, 0, end_next)
+            bin_intervals[idx + 1] = (chrom_next, 0, end_next)
 
     chrom, start, end = bin_intervals[-1]
     bin_intervals[-1] = (chrom, start, chrom_sizes_dict[chrom])
@@ -619,9 +619,9 @@ def main(args=None):
                              "secs ({:.1f} lines per "
                              "second)\n".format(iter_num,
                                                 elapsed_time,
-                                                iter_num/elapsed_time))
+                                                iter_num / elapsed_time))
             sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
-                             "\n".format(pair_added, float(100 * pair_added)/iter_num))
+                             "\n".format(pair_added, float(100 * pair_added) / iter_num))
         if args.doTestRun and iter_num > 1e5:
             sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
             break
@@ -698,7 +698,7 @@ def main(args=None):
         for mate in [mate1, mate2]:
             mate_ref = ref_id2name[mate.rname]
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
-            read_middle = mate.pos + int(mate.qlen/2)
+            read_middle = mate.pos + int(mate.qlen / 2)
             try:
                 mate_bin = sorted(bin_intval_tree[mate_ref][read_middle:read_middle + 1])
             except KeyError:
@@ -875,7 +875,7 @@ def main(args=None):
             if hic_matrix is None:
                 hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
             else:
-                hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+                hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size)) 
             row = []
             col = []
             data = []
@@ -944,42 +944,43 @@ Max rest. site distance\t{}\t\t
 """.format(args.outFileName.name, iter_num, args.minDistance,
            args.maxDistance))
 
-    print("Pairs used\t{}\t({:.2f})\t({:.2f})".format(pair_added, 100*float(pair_added)/iter_num,
-                                                      100*float(pair_added)/mappable_pairs))
-    print("One mate unmapped\t{}\t({:.2f})\t({:.2f})".format(one_mate_unmapped, 100*float(one_mate_unmapped)/iter_num,
-                                                             100*float(one_mate_unmapped)/mappable_pairs))
+    print("Pairs used\t{}\t({:.2f})\t({:.2f})".format(pair_added, 100 * float(pair_added) / iter_num,
+                                                      100 * float(pair_added) / mappable_pairs))
+    print("One mate unmapped\t{}\t({:.2f})\t({:.2f})".format(one_mate_unmapped, 100 * float(one_mate_unmapped) / iter_num,
+                                                             100 * float(one_mate_unmapped) / mappable_pairs))
 
-    print("One mate not unique\t{}\t({:.2f})\t({:.2f})".format(one_mate_not_unique, 100*float(one_mate_not_unique)/iter_num,
-                                                               100*float(one_mate_not_unique)/mappable_pairs))
-    print("One mate low quality\t{}\t({:.2f})\t({:.2f})".format(one_mate_low_quality, 100*float(one_mate_low_quality)/iter_num,
-                                                                100*float(one_mate_low_quality)/mappable_pairs))
-    print("dangling end\t{}\t({:.2f})\t({:.2f})".format(dangling_end, 100*float(dangling_end)/iter_num,
-                                                        100*float(dangling_end)/mappable_pairs))
-    print("self ligation{}\t{}\t({:.2f})\t({:.2f})".format(msg, self_ligation, 100*float(self_ligation)/iter_num,
-                                                                           100*float(self_ligation)/mappable_pairs))
-    print("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})".format(mate_not_close_to_rf, 100*float(mate_not_close_to_rf)/iter_num,
-                                                                           100*float(mate_not_close_to_rf)/mappable_pairs))
-    print("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})".format(same_fragment, 100*float(same_fragment)/iter_num,
-                                                                  100*float(same_fragment)/mappable_pairs))
-    print("self circle\t{}\t({:.2f})\t({:.2f})".format(self_circle, 100*float(self_circle)/iter_num,
-                                                      100*float(self_circle)/mappable_pairs))
-    print("duplicated pairs\t{}\t({:.2f})\t({:.2f})".format(duplicated_pairs, 100*float(duplicated_pairs)/iter_num,
-                                                            100*float(duplicated_pairs)/mappable_pairs))
+    print("One mate not unique\t{}\t({:.2f})\t({:.2f})".format(one_mate_not_unique, 100 * float(one_mate_not_unique) / iter_num,
+                                                               100 * float(one_mate_not_unique) / mappable_pairs))
+    print("One mate low quality\t{}\t({:.2f})\t({:.2f})".format(one_mate_low_quality, 100 * float(one_mate_low_quality) / iter_num,
+                                                                100 * float(one_mate_low_quality) / mappable_pairs))
+    print("dangling end\t{}\t({:.2f})\t({:.2f})".format(dangling_end, 100 * float(dangling_end) / iter_num,
+                                                        100 * float(dangling_end) / mappable_pairs))
+    print("self ligation{}\t{}\t({:.2f})\t({:.2f})".format(msg, self_ligation, 100 * float(self_ligation) / iter_num,
+                                                        100 * float(self_ligation) / mappable_pairs))
+    print("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})".format(mate_not_close_to_rf, 100 * float(mate_not_close_to_rf) / iter_num,
+                                                                           100 * float(mate_not_close_to_rf) / mappable_pairs))
+    print("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})".format(same_fragment, 100 * float(same_fragment) / iter_num,
+                                                                  100 * float(same_fragment) / mappable_pairs))
+    print("self circle\t{}\t({:.2f})\t({:.2f})".format(self_circle, 100 * float(self_circle) / iter_num,
+                                                            100 * float(self_circle) / mappable_pairs))
+    print("duplicated pairs\t{}\t({:.2f})\t({:.2f})".format(duplicated_pairs, 100 * float(duplicated_pairs) / iter_num,
+                                                            100 * float(duplicated_pairs) / mappable_pairs))
     if pair_added > 0:
         print("Of pairs used:")
-        print("inter chromosomal\t{}\t({:.2f})".format(inter_chromosomal, 100*float(inter_chromosomal)/pair_added))
+        print("inter chromosomal\t{}\t({:.2f})".format(inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
 
-        print("short range < 20kb\t{}\t({:.2f})".format(short_range, 100*float(short_range)/pair_added))
+        print("short range < 20kb\t{}\t({:.2f})".format(short_range, 100 * float(short_range) / pair_added))
 
-        print("long range\t{}\t({:.2f})".format(long_range, 100*float(long_range)/pair_added))
+        print("long range\t{}\t({:.2f})".format(long_range, 100 * float(long_range) / pair_added))
 
-        print("inward pairs\t{}\t({:.2f})".format(count_inward, 100*float(count_inward)/pair_added))
+        print("inward pairs\t{}\t({:.2f})".format(count_inward, 100 * float(count_inward) / pair_added))
 
-        print("outward pairs\t{}\t({:.2f})".format(count_outward, 100*float(count_outward)/pair_added))
+        print("outward pairs\t{}\t({:.2f})".format(count_outward, 100 * float(count_outward) / pair_added))
 
-        print("left pairs\t{}\t({:.2f})".format(count_left, 100*float(count_left)/pair_added))
+        print("left pairs\t{}\t({:.2f})".format(count_left, 100 * float(count_left) / pair_added))
 
-        print("right pairs\t{}\t({:.2f})".format(count_right, 100*float(count_right)/pair_added))
+        print("right pairs\t{}\t({:.2f})".format(count_right, 100 * float(count_right) / pair_added))
+
 
 class Tester(object):
     def __init__(self):
