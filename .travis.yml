@@ -42,5 +42,5 @@ script:
   - cd ${owd}
   - echo ${owd}
   #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then export PATH=`echo $PATH | sed -e 's/\/home\/travis\/miniconda\/bin://'` ; fi
-  # - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then /home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo lint galaxy/wrapper/ ; fi
-  # - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then bash /home/travis/build/maxplanck-ie/HiCExplorer/.planemo.sh ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then /home/travis/build/joachimwolff/HiCExplorer/foo/bin/planemo lint galaxy/wrapper/ ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then bash /home/travis/build/joachimwolff/HiCExplorer/.planemo.sh ; fi
