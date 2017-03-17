@@ -351,7 +351,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     assert len(new_end) == len(new_start), "error"
 
     intervals = zip(new_chrom, new_start, new_end)
-    intervals = [(chromosome, start_position, end_position) for chromosome, start_position, end_position in intervals if end - start >= min_distance]
+    intervals = [(chromosome, start_position, end_position) for chromosome, start_position, end_position in intervals if end_position - start_position >= min_distance]
     return intervals
 
  
