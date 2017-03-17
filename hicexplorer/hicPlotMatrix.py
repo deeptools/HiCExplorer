@@ -8,7 +8,6 @@ import numpy as np
 import argparse
 # from mpl_toolkits.mplot3d import Axes3D
 import matplotlib
-matplotlib.use('Agg')
 
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
@@ -363,11 +362,11 @@ def plotPerChr(hic_matrix, cmap, args):
         xticks = axis.get_xticks()
         if xticks[1] < 1e6:
             xlabels = ["{:.0f}".format(int(x) / 1e3)
-                      for x in xticks]
+                       for x in xticks]
             xlabels[-2] = "{} Kb".format(xlabels[-2])
         else:
             xlabels = ["{:.0f}".format(int(x) / 1e6)
-                      for x in xticks]
+                       for x in xticks]
             xlabels[-2] = "{} Mb".format(xlabels[-2])
 
         axis.set_xticklabels(xlabels, size='small')
