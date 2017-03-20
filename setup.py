@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import os
 import sys
@@ -51,6 +51,7 @@ def get_version():
             return ver
     return None
 
+
 class sdist(_sdist):
 
     def run(self):
@@ -59,6 +60,8 @@ class sdist(_sdist):
         return _sdist.run(self)
 
 # Install class to check for external dependencies from OS environment
+
+
 class install(_install):
 
     def run(self):
@@ -88,6 +91,7 @@ class install(_install):
 
         except Exception as e:
             sys.stderr.write("Error: {}".format(e))
+
 
 setup(
     name='HiCExplorer',
