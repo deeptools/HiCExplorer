@@ -739,7 +739,7 @@ def _pvalue(value, mu, sigma, n):
 
 
 def _lognormPvalue(value, mu, sigma, n):
-    """ 
+    """
     n is not used, but is generic
     to other calls (see _pvalue).
     """
@@ -747,7 +747,7 @@ def _lognormPvalue(value, mu, sigma, n):
 
 
 def _chi2Pvalue(value, shape, loc, scale):
-    """ 
+    """
     n is not used, but is generic
     to other calls (see _pvalue).
     """
