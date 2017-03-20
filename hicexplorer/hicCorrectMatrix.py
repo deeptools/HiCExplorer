@@ -52,7 +52,7 @@ Then, after revising the plot and deciding the threshold values:
 
             $ hicCorrectMatrix correct -h
             """)
-    # wolffj: 'correct_mode' is assigned but never used.         
+    # wolffj: 'correct_mode' is assigned but never used.
     # correct_mode = subparsers.add_parser(
     subparsers.add_parser(
         'correct',
