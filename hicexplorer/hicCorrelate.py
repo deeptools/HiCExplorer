@@ -20,7 +20,7 @@ from matplotlib.ticker import FixedLocator
 def parse_arguments(args=None):
 
     heatmap_parser = heatmap_options()
-    
+
     parser = argparse.ArgumentParser(
         parents=[heatmap_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -35,7 +35,7 @@ def parse_arguments(args=None):
                         required=True)
 
     # define the arguments
-    parser.add_argument('--method', 
+    parser.add_argument('--method',
                         help='Correlation method to use.',
                         choices=['pearson', 'spearman'],
                         default='pearson')
@@ -65,7 +65,7 @@ def parse_arguments(args=None):
                         help='File name to save the resulting scatter plot',
                         required=True)
 
-    parser.add_argument('--chromosomes', 
+    parser.add_argument('--chromosomes',
                         help='List of chromosomes to be included in the '
                         'correlation.',
                         default=None,
@@ -91,7 +91,6 @@ def heatmap_options():
                          default=None,
                          help='Maximum value for the heat map intensities.'
                               'If not specified the value is set automatically')
-
 
     heatmap.add_argument(
         '--colorMap', default='jet',
@@ -154,11 +153,11 @@ def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
                                cmap=cmap, extent=(0, num_rows, 0, num_rows),
                                vmax=vmax, vmin=vmin)
     axmatrix.yaxis.tick_right()
-    axmatrix.set_yticks(np.arange(corr_matrix.shape[0])+0.5)
+    axmatrix.set_yticks(np.arange(corr_matrix.shape[0]) + 0.5)
     axmatrix.set_yticklabels(np.array(labels).astype('str')[index],
                              fontsize=14)
 
-    axmatrix.set_xticks(np.arange(corr_matrix.shape[0])+0.5)
+    axmatrix.set_xticks(np.arange(corr_matrix.shape[0]) + 0.5)
     axmatrix.set_xticklabels(np.array(labels).astype('str')[index],
                              fontsize=14,
                              rotation=45,
@@ -170,7 +169,7 @@ def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
     plt.colorbar(img_mat, cax=axcolor, orientation='horizontal')
     for row in range(num_rows):
         for col in range(num_rows):
-            axmatrix.text(row+0.5, col+0.5,
+            axmatrix.text(row + 0.5, col + 0.5,
                           "{:.2f}".format(corr_matrix[row, col]),
                           ha='center', va='center')
 
@@ -221,8 +220,9 @@ def main():
         args.labels = map(lambda x: os.path.basename(x), args.matrices)
 
     num_files = len(args.matrices)
-    labels = map(lambda x: os.path.basename(x), args.matrices)
-
+    # wolffj: 'local variable 'labels' is assigned but never used'
+    # labels = map(lambda x: os.path.basename(x), args.matrices)
+    map(lambda x: os.path.basename(x), args.matrices)
     # initialize results matrix
     results = np.zeros((num_files, num_files), dtype='float')
 
@@ -301,7 +301,7 @@ def main():
 
     grids = gridspec.GridSpec(num_files, num_files)
     grids.update(wspace=0, hspace=0)
-    fig = plt.figure(figsize=(2*num_files, 2*num_files))
+    fig = plt.figure(figsize=(2 * num_files, 2 * num_files))
     plt.rcParams['font.size'] = 8.0
 
     min_value = int(big_mat.min())
@@ -321,14 +321,14 @@ def main():
         if row == col:
             results[row, col] = 1
 
-            # add titles as 
+            # add titles as
             # empty plot in the diagonal
             ax = fig.add_subplot(grids[row, col])
             ax.text(0.6, 0.6, args.labels[row],
                     verticalalignment='center',
                     horizontalalignment='center',
                     fontsize=10, fontweight='bold',
-                    transform=ax.transAxes) 
+                    transform=ax.transAxes)
             ax.set_axis_off()
             continue
 
@@ -344,7 +344,7 @@ def main():
 
         results[row, col] = correlation_opts[args.method](vector1, vector2)[0]
 
-        ##### scatter plots
+        # scatter plots
         ax = fig.add_subplot(grids[row, col])
         if args.log1p:
             ax.xaxis.set_major_locator(major_locator)

@@ -1,6 +1,7 @@
 import sys
 import collections
 
+
 class ReadBed(object):
     """
     Reads a bed file. Based on the number of fields
@@ -15,7 +16,6 @@ class ReadBed(object):
     """
 
     def __init__(self, file_handle):
-
         """
         :param file_handle: file handle
         :return:
@@ -136,11 +136,11 @@ class ReadBed(object):
 
         elif self.file_handle == 'bed3':
             assert len(line_data) == 3, "File type detected is bed3 but line {}: {} does " \
-                                         "not have 3 fields.".format(self.line_number, bed_line)
+                "not have 3 fields.".format(self.line_number, bed_line)
 
         elif self.file_handle == 'bed6':
             assert len(line_data) == 6, "File type detected is bed6 but line {}: {} does " \
-                                         "not have 3 fields.".format(self.line_number, bed_line)
+                "not have 3 fields.".format(self.line_number, bed_line)
         line_values = []
         for idx, r in enumerate(line_data):
             # first field is always chromosome/contig name
@@ -167,7 +167,7 @@ class ReadBed(object):
                 try:
                     line_values.append(int(r))
                 except ValueError:
-                    sys.stderr.write("Value: {} in field {} at line {} is not an integer\n".format(r, idx+1,
+                    sys.stderr.write("Value: {} in field {} at line {} is not an integer\n".format(r, idx + 1,
                                                                                                    self.line_number))
                     return dict()
             # check item rgb
@@ -192,9 +192,17 @@ class ReadBed(object):
                 line_values.append(r)
 
             else:
+                # wolffj: changed from ValueError, TypeError to fulfill F841 "assigned but never used".
+                # wolffj: Using try/catch is bad code style. Better would be to check the value and the type
+                # wolffj: before trying to cast instead of using try/catch like an if/else construct.
+                # wolffj: Furthermore, the usage of the variable name 'tmp' is inexpressive. Please rename it
+                # wolffj: to something meaningful. 
+                # wolffj: Additonal: In line 168 'r' is casted to an integer. Here to a float. Why?
                 try:
                     tmp = float(r)
-                except ValueError, TypeError:
+                except ValueError:
+                    tmp = r
+                except TypeError:
                     tmp = r
                 line_values.append(tmp)
 
@@ -208,6 +216,6 @@ class ReadBed(object):
             # values are added as ".", 0, "." respectively
             line_values.extend([".", 0, "."])
         elif self.file_type == 'bed6':
-                line_values = line_values[0:6]
+            line_values = line_values[0:6]
 
         return self.BedInterval._make(line_values)

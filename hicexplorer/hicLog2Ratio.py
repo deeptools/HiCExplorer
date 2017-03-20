@@ -1,5 +1,6 @@
 from __future__ import division
-import sys
+# wolffj: outcommented because it is never used
+# import sys
 import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
@@ -62,7 +63,7 @@ def main():
     """
     assert hic_t.matrix.shape == hic_c.matrix.shape, "Matrices have different shapes."
 
-    assert (hic_t.matrix - hic_c.matrix).sum() != 0 , "Matrices are identical."
+    assert (hic_t.matrix - hic_c.matrix).sum() != 0, "Matrices are identical."
 
     # create a new matrix that is the sum of the two
     # matrices to compare. The goal is to have

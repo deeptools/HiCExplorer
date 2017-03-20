@@ -179,7 +179,7 @@ DEFAULT_MATRIX_COLORMAP = 'RdYlBu_r'
 DEFAULT_TRACK_HEIGHT = 3  # in centimeters
 DEFAULT_FIGURE_WIDTH = 40  # in centimeters
 # proportion of width dedicated to (figure, legends)
-#DEFAULT_WIDTH_RATIOS = (0.95, 0.05)
+# DEFAULT_WIDTH_RATIOS = (0.95, 0.05)
 DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 
 
@@ -204,8 +204,8 @@ def parse_arguments(args=None):
 
     group.add_argument('--BED',
                        help='Instead of a region, a file containing the regions to plot, in BED format, '
-                             'can be given. If this is the case, multiple files will be created using a prefix '
-                             'the value of --outFileName',
+                       'can be given. If this is the case, multiple files will be created using a prefix '
+                       'the value of --outFileName',
                        type=argparse.FileType('r')
                        )
 

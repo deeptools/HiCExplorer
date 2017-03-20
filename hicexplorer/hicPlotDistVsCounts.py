@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from __future__ import division
 
 import numpy as np
@@ -26,21 +26,21 @@ def parse_arguments(args=None):
                         action='store_true')
 
     parser.add_argument('--plotFile', '-o',
-                       help='File name to save the file. The given file '
+                        help='File name to save the file. The given file '
                         'ending will be used '
                         'to determine the image format. '
                         'The available options are: .png, .emf, '
                         '.eps, .pdf and .svg.',
-                       type=argparse.FileType('w'),
-                       metavar='file name',
-                       required=True)
+                        type=argparse.FileType('w'),
+                        metavar='file name',
+                        required=True)
 
     parser.add_argument('--chromosomeExclude',
                         help='Exclude the given list of chrosomes from ',
                         nargs='+')
 
     parser.add_argument('--plotTitle', '-t',
-                       help='Plot title')
+                        help='Plot title')
 
     return parser
 
@@ -89,8 +89,10 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     diagonals_dict, chrom_list, common_dist, max_dist = chr_diagonals(args.matrix, args.chromosomeExclude)
+    # wolffj: fig is assigend but never used
+    # fig = plt.figure(figsize=(5, 4))
+    plt.figure(figsize=(5, 4))
 
-    fig = plt.figure(figsize=(5, 4))
     max_mean = 0
     min_mean = 1e6
     dist_list = np.sort(common_dist)
@@ -109,7 +111,7 @@ def main(args=None):
 
     plt.yscale('log')
     plt.xscale('log')
-    plt.legend(prop={'size':'small'})
+    plt.legend(prop={'size': 'small'})
     plt.suptitle(args.plotTitle)
     plt.xlabel('genomic distance')
     plt.ylabel('corrected Hi-C counts')

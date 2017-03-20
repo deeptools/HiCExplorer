@@ -1,11 +1,12 @@
 import argparse
 
+
 def getParentArgParse(args=None):
     parser = argparse.ArgumentParser(add_help=False)
 
     parser.add_argument('--matrix', '-m',
-                        help = 'path of the  Hi-C matrix.',
-                        required = True)
+                        help='path of the  Hi-C matrix.',
+                        required=True)
 
     return parser
 

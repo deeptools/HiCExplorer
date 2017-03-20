@@ -162,8 +162,8 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     # as new value the index in the bins_to_merge list.
 
     map_ = np.zeros(ma.shape[0], dtype=int) - 1     # -1 such that all cases not replaced by the next loop
-                                                    # can be identified later. Those cases that remain as -1
-                                                    # are for the rows/cols not appearing in the bins_to_merge
+    # can be identified later. Those cases that remain as -1
+    # are for the rows/cols not appearing in the bins_to_merge
     for k, v in enumerate(bins_to_merge):
         for x in v:
             map_[x] = k
@@ -225,4 +225,3 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     matrix.eliminate_zeros()
 
     return matrix
-
