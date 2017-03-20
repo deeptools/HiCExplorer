@@ -1322,8 +1322,8 @@ class PlotBed(TrackPlot):
             chrX    20850   23076   CG17636-RA      0       -       20850   23017   0       3       946,765,64,     0,1031,2162,
 
             BED9
-            bed with rbg at end 
-            chr2L   0       70000   ID_5    0.26864549832   .       0       70000   51,160,44            
+            bed with rbg at end
+            chr2L   0       70000   ID_5    0.26864549832   .       0       70000   51,160,44
 
             BED6
             bed with rbg at end
