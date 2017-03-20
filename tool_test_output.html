@@ -1,0 +1,323 @@
+
+<html>
+<head>
+<style>
+
+body
+{
+  font: 12px verdana, "Bitstream Vera Sans", geneva, arial, helvetica, helve, sans-serif;
+  line-height: 160%;
+}
+
+div.test
+{
+  margin: 5px;
+  padding: 5px;
+  border: solid black 1px;
+  background: lightgray;
+}
+
+div.success
+{
+  background: #CCFFCC;
+  border: solid #66AA66 1px;
+}
+
+div.error, div.failure
+{
+  background: #FFCCCC;
+  border: solid #AA6666 1px;
+}
+
+span.label
+{
+  font-weight: bold;
+}
+
+pre
+{
+  background: white;
+  padding: 5px;
+  border:  solid black 1px;
+  display: block;
+  overflow: auto;
+}
+</style>
+
+<script>
+function toggle(name){
+	var elem = document.getElementById(name)
+	if (elem) {
+		if (elem.style.display=="none"){
+			elem.style.display="block"
+		} else {
+			elem.style.display="none"
+		}
+	}
+}
+</script>
+</head>
+<body>
+
+<div class='test error'>
+<div><span class='label'>ID:</span> functional.test_toolbox.TestForTool_hicexplorer_hicbuildmatrix.test_tool_000000</div>
+<div><span class='label'>Description:</span> hicBuildMatrix ( hicexplorer_hicbuildmatrix ) > Test-1</div>
+<div><span class='label'>Status:</span> error</div>
+<div><span class='label'>Output:</span> <a href="javascript:toggle('capture_1')">...</a></div>
+<div id='capture_1' style='display: none'><pre class='capture'>Executing git clone 'https://github.com/galaxyproject/galaxy-test-data.git' 'test-data-cache/ad1daf4e1504da1acd42c088c6f49be6'
+Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+</pre></div>
+<div><span class='label'>Exception:</span> <a href="javascript:toggle('exception_1')">...</a></div>
+<div id='exception_1' style='display: none'><pre class='exception'>Traceback (most recent call last):
+
+  File "/home/wolffj/miniconda2/lib/python2.7/unittest/case.py", line 329, in run
+    testMethod()
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 302, in test_tool
+    self.do_it( td )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 43, in do_it
+    stage_data_in_history( galaxy_interactor, testdef.test_data(), test_history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 43, in stage_data_in_history
+    upload_wait = galaxy_interactor.stage_data_async( test_data, history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 208, in stage_data_async
+    "files_0|file_data": open( file_name, 'rb')
+
+IOError: [Errno 2] No such file or directory: '/tmp/tmpjnUznf/galaxy-dev/test-data/small_test_R1_unsorted.bam'
+-------------------- &gt;&gt; begin captured stdout &lt;&lt; ---------------------
+Executing git clone 'https://github.com/galaxyproject/galaxy-test-data.git' 'test-data-cache/ad1daf4e1504da1acd42c088c6f49be6'
+Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+
+--------------------- &gt;&gt; end captured stdout &lt;&lt; ----------------------
+</pre></div>
+</div>
+<div class='test error'>
+<div><span class='label'>ID:</span> functional.test_toolbox.TestForTool_hicexplorer_hiccorrectmatrix.test_tool_000000</div>
+<div><span class='label'>Description:</span> hicCorrectMatrix ( hicexplorer_hiccorrectmatrix ) > Test-1</div>
+<div><span class='label'>Status:</span> error</div>
+<div><span class='label'>Output:</span> <a href="javascript:toggle('capture_2')">...</a></div>
+<div id='capture_2' style='display: none'><pre class='capture'>Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+</pre></div>
+<div><span class='label'>Exception:</span> <a href="javascript:toggle('exception_2')">...</a></div>
+<div id='exception_2' style='display: none'><pre class='exception'>Traceback (most recent call last):
+
+  File "/home/wolffj/miniconda2/lib/python2.7/unittest/case.py", line 329, in run
+    testMethod()
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 302, in test_tool
+    self.do_it( td )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 43, in do_it
+    stage_data_in_history( galaxy_interactor, testdef.test_data(), test_history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 43, in stage_data_in_history
+    upload_wait = galaxy_interactor.stage_data_async( test_data, history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 208, in stage_data_async
+    "files_0|file_data": open( file_name, 'rb')
+
+IOError: [Errno 2] No such file or directory: '/tmp/tmpjnUznf/galaxy-dev/test-data/hicBuildMatrix_result1.h5'
+-------------------- &gt;&gt; begin captured stdout &lt;&lt; ---------------------
+Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+
+--------------------- &gt;&gt; end captured stdout &lt;&lt; ----------------------
+</pre></div>
+</div>
+<div class='test error'>
+<div><span class='label'>ID:</span> functional.test_toolbox.TestForTool_hicexplorer_hiccorrectmatrix.test_tool_000001</div>
+<div><span class='label'>Description:</span> hicCorrectMatrix ( hicexplorer_hiccorrectmatrix ) > Test-2</div>
+<div><span class='label'>Status:</span> error</div>
+<div><span class='label'>Output:</span> <a href="javascript:toggle('capture_3')">...</a></div>
+<div id='capture_3' style='display: none'><pre class='capture'>Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+</pre></div>
+<div><span class='label'>Exception:</span> <a href="javascript:toggle('exception_3')">...</a></div>
+<div id='exception_3' style='display: none'><pre class='exception'>Traceback (most recent call last):
+
+  File "/home/wolffj/miniconda2/lib/python2.7/unittest/case.py", line 329, in run
+    testMethod()
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 302, in test_tool
+    self.do_it( td )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 43, in do_it
+    stage_data_in_history( galaxy_interactor, testdef.test_data(), test_history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 43, in stage_data_in_history
+    upload_wait = galaxy_interactor.stage_data_async( test_data, history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 208, in stage_data_async
+    "files_0|file_data": open( file_name, 'rb')
+
+IOError: [Errno 2] No such file or directory: '/tmp/tmpjnUznf/galaxy-dev/test-data/hicBuildMatrix_result1.h5'
+-------------------- &gt;&gt; begin captured stdout &lt;&lt; ---------------------
+Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+
+--------------------- &gt;&gt; end captured stdout &lt;&lt; ----------------------
+</pre></div>
+</div>
+<div class='test error'>
+<div><span class='label'>ID:</span> functional.test_toolbox.TestForTool_hicexplorer_hiccorrectmatrix.test_tool_000002</div>
+<div><span class='label'>Description:</span> hicCorrectMatrix ( hicexplorer_hiccorrectmatrix ) > Test-3</div>
+<div><span class='label'>Status:</span> error</div>
+<div><span class='label'>Output:</span> <a href="javascript:toggle('capture_4')">...</a></div>
+<div id='capture_4' style='display: none'><pre class='capture'>Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+</pre></div>
+<div><span class='label'>Exception:</span> <a href="javascript:toggle('exception_4')">...</a></div>
+<div id='exception_4' style='display: none'><pre class='exception'>Traceback (most recent call last):
+
+  File "/home/wolffj/miniconda2/lib/python2.7/unittest/case.py", line 329, in run
+    testMethod()
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 302, in test_tool
+    self.do_it( td )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 43, in do_it
+    stage_data_in_history( galaxy_interactor, testdef.test_data(), test_history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 43, in stage_data_in_history
+    upload_wait = galaxy_interactor.stage_data_async( test_data, history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 208, in stage_data_async
+    "files_0|file_data": open( file_name, 'rb')
+
+IOError: [Errno 2] No such file or directory: '/tmp/tmpjnUznf/galaxy-dev/test-data/hicBuildMatrix_result1.h5'
+-------------------- &gt;&gt; begin captured stdout &lt;&lt; ---------------------
+Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+
+--------------------- &gt;&gt; end captured stdout &lt;&lt; ----------------------
+</pre></div>
+</div>
+<div class='test error'>
+<div><span class='label'>ID:</span> functional.test_toolbox.TestForTool_hicexplorer_hiccorrelate.test_tool_000000</div>
+<div><span class='label'>Description:</span> hicCorrelate ( hicexplorer_hiccorrelate ) > Test-1</div>
+<div><span class='label'>Status:</span> error</div>
+<div><span class='label'>Output:</span> <a href="javascript:toggle('capture_5')">...</a></div>
+<div id='capture_5' style='display: none'><pre class='capture'>Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+</pre></div>
+<div><span class='label'>Exception:</span> <a href="javascript:toggle('exception_5')">...</a></div>
+<div id='exception_5' style='display: none'><pre class='exception'>Traceback (most recent call last):
+
+  File "/home/wolffj/miniconda2/lib/python2.7/unittest/case.py", line 329, in run
+    testMethod()
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 302, in test_tool
+    self.do_it( td )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 43, in do_it
+    stage_data_in_history( galaxy_interactor, testdef.test_data(), test_history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 43, in stage_data_in_history
+    upload_wait = galaxy_interactor.stage_data_async( test_data, history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 208, in stage_data_async
+    "files_0|file_data": open( file_name, 'rb')
+
+IOError: [Errno 2] No such file or directory: '/tmp/tmpjnUznf/galaxy-dev/test-data/hicCorrectMatrix_result1.npz.h5'
+-------------------- &gt;&gt; begin captured stdout &lt;&lt; ---------------------
+Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+
+--------------------- &gt;&gt; end captured stdout &lt;&lt; ----------------------
+</pre></div>
+</div>
+<div class='test error'>
+<div><span class='label'>ID:</span> functional.test_toolbox.TestForTool_hicexplorer_hicfindtads.test_tool_000000</div>
+<div><span class='label'>Description:</span> hicFindTADs ( hicexplorer_hicfindtads ) > Test-1</div>
+<div><span class='label'>Status:</span> error</div>
+<div><span class='label'>Output:</span> <a href="javascript:toggle('capture_6')">...</a></div>
+<div id='capture_6' style='display: none'><pre class='capture'>Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+</pre></div>
+<div><span class='label'>Exception:</span> <a href="javascript:toggle('exception_6')">...</a></div>
+<div id='exception_6' style='display: none'><pre class='exception'>Traceback (most recent call last):
+
+  File "/home/wolffj/miniconda2/lib/python2.7/unittest/case.py", line 329, in run
+    testMethod()
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 302, in test_tool
+    self.do_it( td )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 43, in do_it
+    stage_data_in_history( galaxy_interactor, testdef.test_data(), test_history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 43, in stage_data_in_history
+    upload_wait = galaxy_interactor.stage_data_async( test_data, history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 208, in stage_data_async
+    "files_0|file_data": open( file_name, 'rb')
+
+IOError: [Errno 2] No such file or directory: '/tmp/tmpjnUznf/galaxy-dev/test-data/hicBuildMatrix_result1.h5'
+-------------------- &gt;&gt; begin captured stdout &lt;&lt; ---------------------
+Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+
+--------------------- &gt;&gt; end captured stdout &lt;&lt; ----------------------
+</pre></div>
+</div>
+<div class='test error'>
+<div><span class='label'>ID:</span> functional.test_toolbox.TestForTool_hicexplorer_hicfindtads.test_tool_000001</div>
+<div><span class='label'>Description:</span> hicFindTADs ( hicexplorer_hicfindtads ) > Test-2</div>
+<div><span class='label'>Status:</span> error</div>
+<div><span class='label'>Output:</span> <a href="javascript:toggle('capture_7')">...</a></div>
+<div id='capture_7' style='display: none'><pre class='capture'>Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+</pre></div>
+<div><span class='label'>Exception:</span> <a href="javascript:toggle('exception_7')">...</a></div>
+<div id='exception_7' style='display: none'><pre class='exception'>Traceback (most recent call last):
+
+  File "/home/wolffj/miniconda2/lib/python2.7/unittest/case.py", line 329, in run
+    testMethod()
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 302, in test_tool
+    self.do_it( td )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 43, in do_it
+    stage_data_in_history( galaxy_interactor, testdef.test_data(), test_history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 43, in stage_data_in_history
+    upload_wait = galaxy_interactor.stage_data_async( test_data, history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 208, in stage_data_async
+    "files_0|file_data": open( file_name, 'rb')
+
+IOError: [Errno 2] No such file or directory: '/tmp/tmpjnUznf/galaxy-dev/test-data/hicFindTADs_TAD_score.tabular'
+-------------------- &gt;&gt; begin captured stdout &lt;&lt; ---------------------
+Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+
+--------------------- &gt;&gt; end captured stdout &lt;&lt; ----------------------
+</pre></div>
+</div>
+<div class='test error'>
+<div><span class='label'>ID:</span> functional.test_toolbox.TestForTool_hicexplorer_hicplotdistvscounts.test_tool_000000</div>
+<div><span class='label'>Description:</span> hicPlotDistVsCounts ( hicexplorer_hicplotdistvscounts ) > Test-1</div>
+<div><span class='label'>Status:</span> error</div>
+<div><span class='label'>Output:</span> <a href="javascript:toggle('capture_8')">...</a></div>
+<div id='capture_8' style='display: none'><pre class='capture'>Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+</pre></div>
+<div><span class='label'>Exception:</span> <a href="javascript:toggle('exception_8')">...</a></div>
+<div id='exception_8' style='display: none'><pre class='exception'>Traceback (most recent call last):
+
+  File "/home/wolffj/miniconda2/lib/python2.7/unittest/case.py", line 329, in run
+    testMethod()
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 302, in test_tool
+    self.do_it( td )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/functional/test_toolbox.py", line 43, in do_it
+    stage_data_in_history( galaxy_interactor, testdef.test_data(), test_history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 43, in stage_data_in_history
+    upload_wait = galaxy_interactor.stage_data_async( test_data, history, shed_tool_id )
+
+  File "/tmp/tmpjnUznf/galaxy-dev/test/base/interactor.py", line 208, in stage_data_async
+    "files_0|file_data": open( file_name, 'rb')
+
+IOError: [Errno 2] No such file or directory: '/tmp/tmpjnUznf/galaxy-dev/test-data/Li_et_al_2015.h5'
+-------------------- &gt;&gt; begin captured stdout &lt;&lt; ---------------------
+Executing git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git fetch &amp;&amp; git --work-tree test-data-cache/ad1daf4e1504da1acd42c088c6f49be6 --git-dir test-data-cache/ad1daf4e1504da1acd42c088c6f49be6/.git merge origin/master
+
+--------------------- &gt;&gt; end captured stdout &lt;&lt; ----------------------
+</pre></div>
+</div>
+
+</body>
+</html>
+
