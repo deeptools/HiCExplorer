@@ -2,11 +2,13 @@ import filecmp
 import sys
 import matplotlib as mpl
 from tempfile import NamedTemporaryFile
-import hicexplorer
+# wolffj: imported but unused
+# import hicexplorer
 import os.path
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 MATPLOTLIB_VERSION = '1.5.3'
+
 
 def compare_svg(file1, file2):
     """
@@ -45,7 +47,7 @@ class TestPlottingPrograms(object):
                "--outFileName  {1}".format(ROOT, outfile.name).split()
         hicexplorer.hicPlotTADs.main(args)
         assert compare_svg(ROOT + '/master_TADs_plot.svg', outfile.name) is True, "Plot is not similar to master. Args: {}".format(" ".join(args))
-        os.remove(outfile.name) 
+        os.remove(outfile.name)
 
     def test_hicPlotMatrix(self):
         import hicexplorer.hicPlotMatrix
@@ -56,4 +58,3 @@ class TestPlottingPrograms(object):
         hicexplorer.hicPlotMatrix.main(args)
         assert compare_svg(ROOT + '/master_matrix_plot.svg', outfile.name) is True
         os.remove(outfile.name)
-
