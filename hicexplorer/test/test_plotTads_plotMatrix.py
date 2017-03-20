@@ -2,8 +2,6 @@ import filecmp
 import sys
 import matplotlib as mpl
 from tempfile import NamedTemporaryFile
-# wolffj: imported but unused
-# import hicexplorer
 import os.path
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"

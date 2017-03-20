@@ -381,8 +381,6 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
         if sum(countsByDistance[dist]) == 0.0:
             print "no counts for bins at distance {}".format(dist)
             continue
-        # wolffj: E712
-        # if np.any(np.isnan(countsByDistance[dist])) == True:
         if np.any(np.isnan(countsByDistance[dist])) is True:
             exit("ERROR: matrix contains NaN values\n")
 
@@ -550,8 +548,6 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
     try:
         conn = pyRserve.connect()
         conn.r('library("MASS")')
-    # wolffj: F821: undefined name 'RConnectionRefused'
-    # except RConnectionRefused:
     except:
         print "Could not connect to Rserve. Check that Rserve is up and running"
         exit(1)
@@ -772,8 +768,6 @@ def convertNansToZeros(ma):
 
 def myAverage(valuesArray, avgType='mean'):
 
-    # wolffj: F821: undefined name 'logical_not'
-    # wolffj: Should it be numpy.logical_not?
     valuesArray = valuesArray[np.logical_not(np.isnan(valuesArray))]
     if avgType == 'mean':
         mean = np.mean(valuesArray)

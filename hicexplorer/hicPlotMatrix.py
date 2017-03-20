@@ -2,13 +2,9 @@ import sys
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import writableFile
 from hicexplorer._version import __version__
-# wolffj: imported but never used
-# from scipy.sparse import tril
 import numpy as np
 
 import argparse
-# wolffj: imported but never used
-# from mpl_toolkits.mplot3d import Axes3D
 import matplotlib
 matplotlib.use('Agg')
 
@@ -463,7 +459,6 @@ def main(args=None):
 
         if args.log:
             mask = matrix == 0
-            # wolffj: mask == False to mask is False
             matrix[mask] = matrix[mask is False].min()
     #        matrix = -1 *  np.log(matrix)
             matrix = np.log(matrix)

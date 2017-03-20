@@ -89,8 +89,6 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     diagonals_dict, chrom_list, common_dist, max_dist = chr_diagonals(args.matrix, args.chromosomeExclude)
-    # wolffj: fig is assigend but never used
-    # fig = plt.figure(figsize=(5, 4))
     plt.figure(figsize=(5, 4))
 
     max_mean = 0

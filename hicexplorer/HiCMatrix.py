@@ -292,7 +292,6 @@ class hiCMatrix:
         dim = 0
         # for each chr, append the row, col, value to the first one. Extend the dim
         for i in range(0, len(filenameList)):
-            # wolffj: changed from 'pandas == True' to fulfill E712
             if pandas is True:
                 chrd = pd.read_csv(filenameList[i], sep="\t", header=None)
                 chrdata = chrd.as_matrix()

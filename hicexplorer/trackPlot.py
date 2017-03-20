@@ -248,8 +248,6 @@ class PlotTracks(object):
         tracks_file_path = os.path.dirname(tracks_file)
 
         track_list = []
-        # wolffj: assigned but never used
-        # vlines_file = None
         for section_name in parser.sections():
             track_options = dict({"section_name": section_name})
             if section_name.endswith('[spacer]'):
@@ -886,15 +884,11 @@ class PlotHiCMatrix(TrackPlot):
 
             elif self.properties['transform'] == '-log':
                 mask = matrix == 0
-                # wolffj: E712
-                # matrix[mask] = matrix[mask == False].min()
                 matrix[mask] = matrix[mask is False].min()
                 matrix = -1 * np.log(matrix)
 
             elif self.properties['transform'] == 'log':
                 mask = matrix == 0
-                # wolffj: E712
-                # matrix[mask] = matrix[mask == False].min()
                 matrix[mask] = matrix[mask is False].min()
                 matrix = np.log(matrix)
 
@@ -1672,9 +1666,6 @@ class PlotArcs(TrackPlot):
                 valid_intervals += 1
 
         if valid_intervals == 0:
-            # wolffj: variable 'file_name' is not defined!
-            # wolffj: should be 'self.properties['file']'?
-            # sys.stderr.write("No valid intervals were found in file {}".format(file_name))
             sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file']))
 
         file_h.close()
@@ -1693,8 +1684,6 @@ class PlotArcs(TrackPlot):
         :param ax: matplotlib axis
         :param label_ax: matplotlib axis for labels
         """
-        # wolffj: Imported but never used
-        # from matplotlib.colors import colorConverter
         from matplotlib.patches import Arc
         max_diameter = 0
         count = 0

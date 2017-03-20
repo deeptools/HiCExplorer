@@ -356,11 +356,8 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0, chrom=None):
         raise (ValueError, 'Input vectors y_axis and x_axis must have same length')
 
     # store data length for later use
-    # wolffj: assigned but never used
-    # length = len(y_axis)
 
     if not (np.isscalar(delta) and delta >= 0):
-        # wolffj: Fixing W602:deprecated form of raising exception
         raise (ValueError, "delta must be a positive number")
 
     # maximum and minimum candidates are temporarily stored in
@@ -622,8 +619,6 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
                    0               1                2
          """
         values = value_per_chr[chrom_idx][1:-1]  # remove flanking values that do not join TADs
-        # wolffj: assigned but never used
-        # start_trimmed = start_per_chr[chrom_idx][1:-1]
 
         # from highest to lowest merge neighboring domains
         order = np.argsort(values)[::-1]
@@ -1220,7 +1215,6 @@ def main(args=None):
 
     lookahead = int(args.minBoundaryDistance / avg_bin_size)
     if lookahead < 1:
-        # wolffj: Fixing W602:deprecated form of raising exception
         raise (ValueError, "minBoundaryDistance must be '1' or above in value")
 
     min_idx, delta = find_consensus_minima(matrix, lookahead=lookahead, chrom=chrom)
@@ -1255,7 +1249,6 @@ def main(args=None):
 
     # turn of hierarchical clustering which is apparently not working.
 
-    # wolffj: Outcommented because if clause will never be true and variable 'mean_mat' is not defined
     # if 2 == 1:
     #     boundary_list = [(hic_ma.cut_intervals[min_][0], hic_ma.cut_intervals[min_][2], mean_mat[min_]) for min_ in min_idx]
 

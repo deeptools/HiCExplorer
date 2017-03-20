@@ -14,8 +14,6 @@
 
 import sys
 import os
-# wolffj: Unused import. Does it need to be there for some possible configuration?
-# import shlex
 
 # to allow readthedocs to compile without installing some dependencies
 import mock

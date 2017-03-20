@@ -1,5 +1,3 @@
-# wolffj: imported but never used
-# import sys
 import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__

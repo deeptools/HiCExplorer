@@ -220,8 +220,6 @@ def main():
         args.labels = map(lambda x: os.path.basename(x), args.matrices)
 
     num_files = len(args.matrices)
-    # wolffj: 'local variable 'labels' is assigned but never used'
-    # labels = map(lambda x: os.path.basename(x), args.matrices)
     map(lambda x: os.path.basename(x), args.matrices)
     # initialize results matrix
     results = np.zeros((num_files, num_files), dtype='float')

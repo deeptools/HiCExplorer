@@ -192,12 +192,6 @@ class ReadBed(object):
                 line_values.append(r)
 
             else:
-                # wolffj: changed from ValueError, TypeError to fulfill F841 "assigned but never used".
-                # wolffj: Using try/catch is bad code style. Better would be to check the value and the type
-                # wolffj: before trying to cast instead of using try/catch like an if/else construct.
-                # wolffj: Furthermore, the usage of the variable name 'tmp' is inexpressive. Please rename it
-                # wolffj: to something meaningful.
-                # wolffj: Additonal: In line 168 'r' is casted to an integer. Here to a float. Why?
                 try:
                     tmp = float(r)
                 except ValueError:

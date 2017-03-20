@@ -351,8 +351,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     assert len(new_end) == len(new_start), "error"
 
     intervals = zip(new_chrom, new_start, new_end)
-    # wolffj: Redefinition: variables 'chrom', 'start' and 'end' are already defined in line 313.
-    intervals = [(chrom_, start_, end_) for chrom_, start_, end_ in intervals if end_ - start_ >= min_distance]
+    intervals = [(_chrom, _start, _end) for _chrom, _start, _end in intervals if _end - _start >= min_distance]
     return intervals
 
 
