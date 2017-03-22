@@ -523,8 +523,11 @@ def enlarge_bins(bin_intervals, chrom_sizes):
 
 def readBamFiles(pFileOneIterator, pFileTwoIterator, pBufferMate1, pBufferMate2, pNumberOfItemsPerBuffer, pEnd):
     """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer with n = number of processes """
+   
     for i in xrange(len(pBufferMate1)):
         j = 0
+        pBufferMate1[i].clear()
+        pBufferMate2[i].clear()
         while j < pNumberOfItemsPerBuffer:
             try:
                 mate1 = pFileOneIterator.next()
