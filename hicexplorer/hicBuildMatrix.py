@@ -511,6 +511,319 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     return bin_intervals
 
 
+def fillBuffer(pFileOneIterator, pFileTwoIterator, pDoTestRun):
+    iter_num = 0
+    start_time = time.time()
+    pair_added = 0
+    mate1_buffer = []
+    mate2_buffer = []
+    while iter_num < 1e6:
+        iter_num += 1
+        if iter_num % 1e6 == 0:
+            elapsed_time = time.time() - start_time
+            sys.stderr.write("processing {} lines took {:.2f} "
+                             "secs ({:.1f} lines per "
+                             "second)\n".format(iter_num,
+                                                elapsed_time,
+                                                iter_num / elapsed_time))
+            sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
+                             "\n".format(pair_added, float(100 * pair_added) / iter_num))
+        if pDoTestRun and iter_num > 1e5:
+            sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
+            break
+        try:
+            mate1 = pFileOneIterator.next()
+            mate2 = pFileTwoIterator.next()
+        except StopIteration:
+            break
+
+        # skip 'not primary' alignments
+        # print "mate1.flag", mate1.flag
+        # print type(mate1.flag)
+        # while bitwise_and(mate1.flag, 256) == 256:
+        while mate1.flag & 256 == 256:
+            mate1 = pFileOneIterator.next()
+
+        while mate2.flag & 256 == 256:
+            # while bitwise_and(mate2.flag, 256) == 256:
+            mate2 = pFileTwoIterator.next()
+
+        assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
+            "Be sure that the sam files have the same read order " \
+            "If using Bowtie2 or Hisat2 add " \
+            "the --reorder option".format(mate1.qname, mate2.qname)
+
+        # check for supplementary alignments
+        # (needs to be done before skipping any unmapped reads
+        # to keep the order of the two bam files in sync)
+        mate1_supplementary_list = get_supplementary_alignment(mate1, pFileOneIterator)
+        mate2_supplementary_list = get_supplementary_alignment(mate2, pFileTwoIterator)
+
+        if mate1_supplementary_list:
+            mate1 = get_correct_map(mate1, mate1_supplementary_list)
+
+        if mate2_supplementary_list:
+            mate2 = get_correct_map(mate2, mate2_supplementary_list)
+
+        mate1_buffer.append(mate1)
+        mate2_buffer.append(mate2)
+    if len(mate1_buffer) == 0 or len(mate2_buffer) == 0:
+        return None, None, pair_added, iter_num
+    return mate1_buffer, mate2_buffer, pair_added, iter_num
+
+
+def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
+                 pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
+                 pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
+                 pDanglingSequences, pBinsize, pCoverage):
+    if pMateBuffer1 is None or pMateBuffer2 is None:
+        return None, None
+    one_mate_unmapped = 0
+    one_mate_low_quality = 0
+    one_mate_not_unique = 0
+    dangling_end = 0
+    self_circle = 0
+    self_ligation = 0
+    same_fragment = 0
+    mate_not_close_to_rf = 0
+    duplicated_pairs = 0
+
+    count_inward = 0
+    count_outward = 0
+    count_left = 0
+    count_right = 0
+    inter_chromosomal = 0
+    short_range = 0
+    long_range = 0
+
+    pair_added = 0
+
+    row = []
+    col = []
+    data = []
+    # hic_matrix = None
+    for i in xrange(len(pMateBuffer1)):
+        mate1 = pMateBuffer1[i]
+        mate2 = pMateBuffer2[i]
+        # skip if any of the reads is not mapped
+        # if bitwise_and(mate1.flag, 0x4) == 4 or bitwise_and(mate2.flag, 0x4) == 4:
+        if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
+            one_mate_unmapped += 1
+            continue
+
+        # skip if the read quality is low
+        if mate1.mapq < pMinMappingQuality or mate2.mapq < pMinMappingQuality:
+            # for bwa other way to test
+            # for multi-mapping reads is with a mapq = 0
+            # the XS flag is not reliable.
+            if mate1.mapq == 0 & mate2.mapq == 0:
+                one_mate_not_unique += 1
+                continue
+
+            """
+            # check if low quality is because of
+            # read being repetitive
+            # by reading the XS flag.
+            # The XS:i field is set by bowtie when a read is
+            # multi read and it contains the mapping score of the next
+            # best match
+            if 'XS' in dict(mate1.tags) or 'XS' in dict(mate2.tags):
+                one_mate_not_unique += 1
+                continue
+            """
+
+            one_mate_low_quality += 1
+            continue
+# pRfPositions,  pBinIntvalTree, pRefId2name
+        if pSkipDuplicationCheck is False:
+            if pReadPosMatrix.is_duplicated(pRefId2name[mate1.rname],
+                                            mate1.pos,
+                                            pRefId2name[mate2.rname],
+                                            mate2.pos):
+                duplicated_pairs += 1
+                continue
+
+        # check if reads belong to a bin
+        mate_bins = []
+        mate_is_unasigned = False
+        for mate in [mate1, mate2]:
+            mate_ref = pRefId2name[mate.rname]
+            # find the middle genomic position of the read. This is used to find the bin it belongs to.
+            read_middle = mate.pos + int(mate.qlen / 2)
+            try:
+                mate_bin = sorted(pBinIntvalTree[mate_ref][read_middle:read_middle + 1])
+            except KeyError:
+                # for small contigs it can happen that they are not
+                # in the bin_intval_tree keys if no restriction site is found on the contig.
+                mate_is_unasigned = True
+                break
+
+            # report no match case
+            if len(mate_bin) == 0:
+                mate_is_unasigned = True
+                break
+            # take by default only the first match
+            # (although always there should be only
+            # one match
+            mate_bin = mate_bin[0]
+
+            mate_bin_id = mate_bin.data
+            mate_bins.append(mate_bin_id)
+
+        # if a mate is unassigned, it means it is not close
+        # to a restriction sites
+        if mate_is_unasigned is True:
+            mate_not_close_to_rf += 1
+            continue
+
+        # check if mates are in the same chromosome
+        if mate1.reference_id != mate2.reference_id:
+            orientation = 'diff_chromosome'
+        else:
+            # to identify 'inward' and 'outward' orientations
+            # the order or the mates in the genome has to be
+            # known.
+            if mate1.pos < mate2.pos:
+                first_mate = mate1
+                second_mate = mate2
+            else:
+                first_mate = mate2
+                second_mate = mate1
+
+            """
+            outward
+            <---------------              ---------------->
+
+            inward
+            --------------->              <----------------
+
+            same-strand-right
+            --------------->              ---------------->
+
+            same-strand-left
+            <---------------              <----------------
+            """
+
+            if not first_mate.is_reverse and second_mate.is_reverse:
+                orientation = 'inward'
+            elif first_mate.is_reverse and not second_mate.is_reverse:
+                orientation = 'outward'
+            elif first_mate.is_reverse and second_mate.is_reverse:
+                orientation = 'same-strand-left'
+            else:
+                orientation = 'same-strand-right'
+
+            # check self-circles
+            # self circles are defined as pairs within 25kb
+            # with 'outward' orientation (Jin et al. 2013. Nature)
+            if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
+                self_circle += 1
+                if pRemoveSelfCircles:
+                    continue
+
+            # check for dangling ends if the restriction sequence
+            # is known:
+            if pRestrictionSequence:
+                if check_dangling_end(mate1, pDanglingSequences) or \
+                        check_dangling_end(mate2, pDanglingSequences):
+                    dangling_end += 1
+                    continue
+
+            if abs(mate2.pos - mate1.pos) < 1000 and orientation == 'inward':
+                has_rf = []
+
+                if pRfPositions and pRestrictionSequence:
+                    # check if in between the two mate
+                    # ends the restriction fragment is found.
+
+                    # the interval used is:
+                    # start of fragment + length of restriction sequence
+                    # end of fragment - length of restriction sequence
+                    # the restriction sequence length is subtracted
+                    # such that only fragments internally containing
+                    # the restriction site are identified
+                    frag_start = min(mate1.pos, mate2.pos) + len(pRestrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
+                    mate_ref = pRefId2name[mate1.rname]
+                    has_rf = sorted(pRfPositions[mate_ref][frag_start: frag_end])
+
+                # case when there is no restriction fragment site between the mates
+                if len(has_rf) == 0:
+                    same_fragment += 1
+                    continue
+
+                self_ligation += 1
+                if pRemoveSelfLigation:
+                    # skip self ligations
+                    continue
+
+            # set insert size to save bam
+            mate1.isize = mate2.pos - mate1.pos
+            mate2.isize = mate1.pos - mate2.pos
+
+        # if mate_bins, which is set in the previous section
+        # does not have size=2, it means that one
+        # of the exceptions happened
+        if len(mate_bins) != 2:
+            continue
+
+        # count type of pair (distance, orientation)
+        if mate1.reference_id != mate2.reference_id:
+            inter_chromosomal += 1
+
+        elif abs(mate2.pos - mate1.pos) < 20000:
+            short_range += 1
+        else:
+            long_range += 1
+
+        if orientation == 'inward':
+            count_inward += 1
+        elif orientation == 'outward':
+            count_outward += 1
+        elif orientation == 'same-strand-left':
+            count_left += 1
+        elif orientation == 'same-strand-right':
+            count_right += 1
+
+        for mate in [mate1, mate2]:
+            # fill in coverage vector
+            vec_start = max(0, mate.pos - mate_bin.begin) / pBinsize
+            vec_end = min(len(pCoverage[mate_bin_id]), vec_start +
+                          len(mate.seq) / pBinsize)
+            pCoverage[mate_bin_id][vec_start:vec_end] += 1
+
+        row.append(mate_bins[0])
+        col.append(mate_bins[1])
+        data.append(1)
+
+        pair_added += 1
+
+        # prepare data for bam output
+        # set the flag to point that this data is paired
+        mate1.flag |= 0x1
+        mate2.flag |= 0x1
+
+        # set one read as the first in pair and the
+        # other as second
+        mate1.flag |= 0x40
+        mate2.flag |= 0x80
+
+        # set chrom of mate
+        mate1.mrnm = mate2.rname
+        mate2.mrnm = mate1.rname
+
+        # set position of mate
+        mate1.mpos = mate2.pos
+        mate2.mpos = mate1.pos
+
+        # out_bam.write(mate1)
+        # out_bam.write(mate2)
+
+    return coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize)), [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+                                                                              mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
+                                                                              count_left, count_right, inter_chromosomal, short_range, long_range, pair_added]
+
+
 def main(args=None):
     """
     Reads line by line two bam files that are not sorted.
@@ -578,14 +891,24 @@ def main(args=None):
     # a bin.
     # To save memory, coverage is not measured by bp
     # but by bins of length 10bp
-    coverage = np.empty(len(bin_intervals), dtype=np.ndarray, order='C')
+    # coverage = np.empty(len(bin_intervals), dtype=np.ndarray, order='C')
+    cov_start = time.time()
+    coverage = []
     binsize = 10
-    for i, value in enumerate(bin_intervals):
+    for value in bin_intervals:
         chrom, start, end = value
-        coverage[i] = np.zeros((end - start) / binsize, dtype='uint16')
-
+        # coverage[i] = np.zeros((end - start) / binsize, dtype='uint16')
+        coverage.append(np.zeros((end - start) / binsize, dtype='int'))
+    print "Coverage: ", time.time() - cov_start
     start_time = time.time()
+
+    # read the sam files line by line
+    mate1_buffer = []
+    mate2_buffer = []
+    iter_num = 0
     pair_added = 0
+    hic_matrix = None
+
     one_mate_unmapped = 0
     one_mate_low_quality = 0
     one_mate_not_unique = 0
@@ -604,291 +927,49 @@ def main(args=None):
     short_range = 0
     long_range = 0
 
-    iter_num = 0
-    row = []
-    col = []
-    data = []
-    hic_matrix = None
-    # read the sam files line by line
-    # mate1_buffer = [None] * 1e6
-    # mate2_buffer = [None] * 1e6
-    
-    while True:
-        iter_num += 1
-        if iter_num % 1e6 == 0:
-            elapsed_time = time.time() - start_time
-            sys.stderr.write("processing {} lines took {:.2f} "
-                             "secs ({:.1f} lines per "
-                             "second)\n".format(iter_num,
-                                                elapsed_time,
-                                                iter_num / elapsed_time))
-            sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
-                             "\n".format(pair_added, float(100 * pair_added) / iter_num))
-        if args.doTestRun and iter_num > 1e5:
-            sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
-            break
-        try:
-            mate1 = str1.next()
-            mate2 = str2.next()
-        except StopIteration:
-            break
+    pair_added = 0
+    while mate1_buffer is not None or mate2_buffer is not None:
+        mate1_buffer, mate2_buffer, pair_added_, iter_num_ = fillBuffer(str1, str2, args.doTestRun)
+        iter_num += iter_num_
+        pair_added += pair_added_
+        hic_matrix_, measurement_values = process_data(mate1_buffer, mate2_buffer, args.minMappingQuality, args.skipDuplicationCheck,
+                                                       args.removeSelfCircles, args.restrictionSequence, args.removeSelfLigation, matrix_size,
+                                                       read_pos_matrix, rf_positions, bin_intval_tree, ref_id2name,
+                                                       dangling_sequences, binsize, coverage)
 
-        # skip 'not primary' alignments
-        # print "mate1.flag", mate1.flag
-        # print type(mate1.flag)
-        while np.bitwise_and(mate1.flag, 256) == 256:
-            mate1 = str1.next()
+        if hic_matrix is None:
+            hic_matrix = hic_matrix_
+        elif hic_matrix_ is not None:
+            hic_matrix += hic_matrix_
+        if measurement_values is not None:
+            one_mate_unmapped += measurement_values[0]
+            one_mate_low_quality += measurement_values[0]
+            one_mate_not_unique += measurement_values[0]
+            dangling_end += measurement_values[0]
+            self_circle += measurement_values[0]
+            self_ligation += measurement_values[0]
+            same_fragment += measurement_values[0]
+            mate_not_close_to_rf += measurement_values[0]
+            duplicated_pairs += measurement_values[0]
 
-        while np.bitwise_and(mate2.flag, 256) == 256:
-            mate2 = str2.next()
+            count_inward += measurement_values[0]
+            count_outward += measurement_values[0]
+            count_left += measurement_values[0]
+            count_right += measurement_values[0]
+            inter_chromosomal += measurement_values[0]
+            short_range += measurement_values[0]
+            long_range += measurement_values[0]
 
-        assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
-            "Be sure that the sam files have the same read order " \
-            "If using Bowtie2 or Hisat2 add " \
-            "the --reorder option".format(mate1.qname, mate2.qname)
+            pair_added += measurement_values[0]
 
-        # check for supplementary alignments
-        # (needs to be done before skipping any unmapped reads
-        # to keep the order of the two bam files in sync)
-        mate1_supplementary_list = get_supplementary_alignment(mate1, str1)
-        mate2_supplementary_list = get_supplementary_alignment(mate2, str2)
+        # bitwise_and = np.bitwise_and
 
-        if mate1_supplementary_list:
-            mate1 = get_correct_map(mate1, mate1_supplementary_list)
+    ###########################################
 
-        if mate2_supplementary_list:
-            mate2 = get_correct_map(mate2, mate2_supplementary_list)
-
-        
-        # skip if any of the reads is not mapped
-        if np.bitwise_and(mate1.flag, 0x4) == 4 or np.bitwise_and(mate2.flag, 0x4) == 4:
-            one_mate_unmapped += 1
-            continue
-
-        # skip if the read quality is low
-        if mate1.mapq < args.minMappingQuality or mate2.mapq < args.minMappingQuality:
-            # for bwa other way to test
-            # for multi-mapping reads is with a mapq = 0
-            # the XS flag is not reliable.
-            if mate1.mapq == 0 & mate2.mapq == 0:
-                one_mate_not_unique += 1
-                continue
-
-            """
-            # check if low quality is because of
-            # read being repetitive
-            # by reading the XS flag.
-            # The XS:i field is set by bowtie when a read is
-            # multi read and it contains the mapping score of the next
-            # best match
-            if 'XS' in dict(mate1.tags) or 'XS' in dict(mate2.tags):
-                one_mate_not_unique += 1
-                continue
-            """
-
-            one_mate_low_quality += 1
-            continue
-
-        if args.skipDuplicationCheck is False:
-            if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
-                                             mate1.pos,
-                                             ref_id2name[mate2.rname],
-                                             mate2.pos):
-                duplicated_pairs += 1
-                continue
-
-        # check if reads belong to a bin
-        mate_bins = []
-        mate_is_unasigned = False
-        for mate in [mate1, mate2]:
-            mate_ref = ref_id2name[mate.rname]
-            # find the middle genomic position of the read. This is used to find the bin it belongs to.
-            read_middle = mate.pos + int(mate.qlen / 2)
-            try:
-                mate_bin = sorted(bin_intval_tree[mate_ref][read_middle:read_middle + 1])
-            except KeyError:
-                # for small contigs it can happen that they are not
-                # in the bin_intval_tree keys if no restriction site is found on the contig.
-                mate_is_unasigned = True
-                break
-
-            # report no match case
-            if len(mate_bin) == 0:
-                mate_is_unasigned = True
-                break
-            # take by default only the first match
-            # (although always there should be only
-            # one match
-            mate_bin = mate_bin[0]
-
-            mate_bin_id = mate_bin.data
-            mate_bins.append(mate_bin_id)
-
-        # if a mate is unassigned, it means it is not close
-        # to a restriction sites
-        if mate_is_unasigned is True:
-            mate_not_close_to_rf += 1
-            continue
-
-        # check if mates are in the same chromosome
-        if mate1.reference_id != mate2.reference_id:
-            orientation = 'diff_chromosome'
-        else:
-            # to identify 'inward' and 'outward' orientations
-            # the order or the mates in the genome has to be
-            # known.
-            if mate1.pos < mate2.pos:
-                first_mate = mate1
-                second_mate = mate2
-            else:
-                first_mate = mate2
-                second_mate = mate1
-
-            """
-            outward
-            <---------------              ---------------->
-
-            inward
-            --------------->              <----------------
-
-            same-strand-right
-            --------------->              ---------------->
-
-            same-strand-left
-            <---------------              <----------------
-            """
-
-            if not first_mate.is_reverse and second_mate.is_reverse:
-                orientation = 'inward'
-            elif first_mate.is_reverse and not second_mate.is_reverse:
-                orientation = 'outward'
-            elif first_mate.is_reverse and second_mate.is_reverse:
-                orientation = 'same-strand-left'
-            else:
-                orientation = 'same-strand-right'
-
-            # check self-circles
-            # self circles are defined as pairs within 25kb
-            # with 'outward' orientation (Jin et al. 2013. Nature)
-            if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
-                self_circle += 1
-                if args.removeSelfCircles:
-                    continue
-
-            # check for dangling ends if the restriction sequence
-            # is known:
-            if args.restrictionSequence:
-                if check_dangling_end(mate1, dangling_sequences) or \
-                        check_dangling_end(mate2, dangling_sequences):
-                    dangling_end += 1
-                    continue
-
-            if abs(mate2.pos - mate1.pos) < 1000 and orientation == 'inward':
-                has_rf = []
-
-                if rf_positions and args.restrictionSequence:
-                    # check if in between the two mate
-                    # ends the restriction fragment is found.
-
-                    # the interval used is:
-                    # start of fragment + length of restriction sequence
-                    # end of fragment - length of restriction sequence
-                    # the restriction sequence length is subtracted
-                    # such that only fragments internally containing
-                    # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + len(args.restrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(args.restrictionSequence)
-                    mate_ref = ref_id2name[mate1.rname]
-                    has_rf = sorted(rf_positions[mate_ref][frag_start: frag_end])
-
-                # case when there is no restriction fragment site between the mates
-                if len(has_rf) == 0:
-                    same_fragment += 1
-                    continue
-
-                self_ligation += 1
-                if args.removeSelfLigation:
-                    # skip self ligations
-                    continue
-
-            # set insert size to save bam
-            mate1.isize = mate2.pos - mate1.pos
-            mate2.isize = mate1.pos - mate2.pos
-
-        # if mate_bins, which is set in the previous section
-        # does not have size=2, it means that one
-        # of the exceptions happened
-        if len(mate_bins) != 2:
-            continue
-
-        # count type of pair (distance, orientation)
-        if mate1.reference_id != mate2.reference_id:
-            inter_chromosomal += 1
-
-        elif abs(mate2.pos - mate1.pos) < 20000:
-            short_range += 1
-        else:
-            long_range += 1
-
-        if orientation == 'inward':
-            count_inward += 1
-        elif orientation == 'outward':
-            count_outward += 1
-        elif orientation == 'same-strand-left':
-            count_left += 1
-        elif orientation == 'same-strand-right':
-            count_right += 1
-
-        for mate in [mate1, mate2]:
-            # fill in coverage vector
-            vec_start = max(0, mate.pos - mate_bin.begin) / binsize
-            vec_end = min(len(coverage[mate_bin_id]), vec_start +
-                          len(mate.seq) / binsize)
-            coverage[mate_bin_id][vec_start:vec_end] += 1
-
-        row.append(mate_bins[0])
-        col.append(mate_bins[1])
-        data.append(1)
-
-        pair_added += 1
-
-        # prepare data for bam output
-        # set the flag to point that this data is paired
-        mate1.flag |= 0x1
-        mate2.flag |= 0x1
-
-        # set one read as the first in pair and the
-        # other as second
-        mate1.flag |= 0x40
-        mate2.flag |= 0x80
-
-        # set chrom of mate
-        mate1.mrnm = mate2.rname
-        mate2.mrnm = mate1.rname
-
-        # set position of mate
-        mate1.mpos = mate2.pos
-        mate2.mpos = mate1.pos
-
-        out_bam.write(mate1)
-        out_bam.write(mate2)
-
-        if iter_num % 5e6 == 0:
-            # every 5 million iterations append to the matrix
-            # otherwise the row, col and data vectors continue growing and
-            # for a large dataset the system could run out of memory
-            if hic_matrix is None:
-                hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
-            else:
-                hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
-            row = []
-            col = []
-            data = []
-
-    if hic_matrix is None:
-        hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
-    else:
-        hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+    # if hic_matrix is None:
+    #     hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+    # else:
+    #     hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
 
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
