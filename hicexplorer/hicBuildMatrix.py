@@ -578,11 +578,11 @@ def main(args=None):
     # a bin.
     # To save memory, coverage is not measured by bp
     # but by bins of length 10bp
-    coverage = []
+    coverage = np.empty(len(bin_intervals), dtype=np.ndarray, order='C')
     binsize = 10
-    for value in bin_intervals:
+    for i, value in enumerate(bin_intervals):
         chrom, start, end = value
-        coverage.append(np.zeros((end - start) / binsize, dtype='int'))
+        coverage[i] = np.zeros((end - start) / binsize, dtype='uint16')
 
     start_time = time.time()
     pair_added = 0
@@ -610,7 +610,9 @@ def main(args=None):
     data = []
     hic_matrix = None
     # read the sam files line by line
-
+    # mate1_buffer = [None] * 1e6
+    # mate2_buffer = [None] * 1e6
+    
     while True:
         iter_num += 1
         if iter_num % 1e6 == 0:
@@ -632,10 +634,12 @@ def main(args=None):
             break
 
         # skip 'not primary' alignments
-        while mate1.flag & 256 == 256:
+        # print "mate1.flag", mate1.flag
+        # print type(mate1.flag)
+        while np.bitwise_and(mate1.flag, 256) == 256:
             mate1 = str1.next()
 
-        while mate2.flag & 256 == 256:
+        while np.bitwise_and(mate2.flag, 256) == 256:
             mate2 = str2.next()
 
         assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
@@ -655,8 +659,9 @@ def main(args=None):
         if mate2_supplementary_list:
             mate2 = get_correct_map(mate2, mate2_supplementary_list)
 
+        
         # skip if any of the reads is not mapped
-        if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
+        if np.bitwise_and(mate1.flag, 0x4) == 4 or np.bitwise_and(mate2.flag, 0x4) == 4:
             one_mate_unmapped += 1
             continue
 
