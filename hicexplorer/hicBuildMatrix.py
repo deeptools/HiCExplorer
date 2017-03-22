@@ -177,7 +177,12 @@ def parse_arguments(args=None):
                         default=15,
                         type=int
                         )
-
+    parser.add_argument('--threads',
+                        help='Number of threads. Minimum is three',  
+                        required=True,
+                        default=3,
+                        type=int
+                        )
     parser.add_argument('--doTestRun',
                         help='A test run is useful to test the quality of a Hi-C experiment quickly. It works by '
                              'testing only 1,000.000 reads. This option is useful to get an idea of quality control'
