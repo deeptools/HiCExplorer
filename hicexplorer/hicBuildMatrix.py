@@ -1086,7 +1086,7 @@ def main(args=None):
             p.join()
         for p in process:
             p.terminate()
-        p = []
+        process = []
         print "Merging done!"
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
