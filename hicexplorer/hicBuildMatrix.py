@@ -523,7 +523,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
 
 def readBamFiles(pFileOneIterator, pFileTwoIterator, pBufferMate1, pBufferMate2, pNumberOfItemsPerBuffer, pEnd):
     """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer with n = number of processes """
-   
+
     for i in xrange(len(pBufferMate1)):
         j = 0
         pBufferMate1[i].clear()
@@ -535,6 +535,8 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pBufferMate1, pBufferMate2,
             except StopIteration:
                 # pTerminateSignal.set()
                 pEnd = True
+                print "all_data_processed: ", pEnd
+
                 break
 
             # skip 'not primary' alignments
@@ -563,6 +565,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pBufferMate1, pBufferMate2,
             pBufferMate1[i].appendleft(mate1)
             pBufferMate2[i].appendleft(mate2)
             j += 1
+    return pBufferMate1, pBufferMate1, pEnd
 
 
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
@@ -1018,12 +1021,15 @@ def main(args=None):
     while not all_data_processed:
         print "Read data to the buffer"
         # read input files into the buffer
-        readBamFiles(pFileOneIterator=str1,
-                     pFileTwoIterator=str2,
-                     pBufferMate1=buffer_workers1,
-                     pBufferMate2=buffer_workers2,
-                     pNumberOfItemsPerBuffer=1e5,
-                     pEnd=all_data_processed)
+        print "all_data_processed: ", all_data_processed
+        buffer_workers1, buffer_workers2, all_data_processed = readBamFiles(pFileOneIterator=str1,
+                                                                            pFileTwoIterator=str2,
+                                                                            pBufferMate1=buffer_workers1,
+                                                                            pBufferMate2=buffer_workers2,
+                                                                            pNumberOfItemsPerBuffer=1e5,
+                                                                            pEnd=all_data_processed)
+        print "all_data_processed: ", all_data_processed
+
         print "Start processng."
         out_q = multiprocessing.Queue()
         # create n processes to compute hic matrix
@@ -1056,7 +1062,7 @@ def main(args=None):
         # start processes
         for p in process:
             p.start()
-       
+
         print "Processing done. Merging!"
         # join result data
         for i in xrange(args.threads):
