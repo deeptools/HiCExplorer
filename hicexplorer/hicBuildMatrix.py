@@ -556,7 +556,8 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pBufferMate1, pBufferMate2,
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
-                 pDanglingSequences, pBinsize, pCoverage, pBufferOutputBam, pLock, pTerminateInput, pTerminateOutput):
+                 pDanglingSequences, pBinsize, pCoverage, pBufferOutputBam, pLock,
+                 pTerminateInput, pTerminateOutput, pResult, pResultIndex):
     if pMateBuffer1 is None or pMateBuffer2 is None:
         return None, None
     one_mate_unmapped = 0
@@ -822,20 +823,22 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
             # otherwise the row, col and data vectors continue growing and
             # for a large dataset the system could run out of memory
             if hic_matrix is None:
-                hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+                hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize))
             else:
-                hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+                hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize))
             row = []
             col = []
             data = []
 
     pTerminateOutput.set()
-    return hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-                        mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
-                        count_left, count_right, inter_chromosomal, short_range, long_range, pair_added]
+    pLock.acquire()
+    pResult[pResultIndex] = [hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+                                          mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
+                                          count_left, count_right, inter_chromosomal, short_range, long_range, pair_added]]
+    pLock.release()
 
 
-def write_output_bam(pOutputFilename, pTemplate, pBufferOutBam, pTerminateSignal):
+def write_output_bam(pOutputFilename, pTemplate, pBufferOutBam, pTerminateSignal, pTerminateSignalOutput):
     out_bam = pysam.Samfile(pOutputFilename, 'wb', template=pTemplate)
     worker_threads_done = True
     for terminateSignal in pTerminateSignal:
@@ -852,6 +855,7 @@ def write_output_bam(pOutputFilename, pTemplate, pBufferOutBam, pTerminateSignal
         for terminateSignal in pTerminateSignal:
             if not terminateSignal.is_set():
                 worker_threads_done = False
+    pTerminateSignalOutput.set()
 
 
 def main(args=None):
@@ -938,7 +942,7 @@ def main(args=None):
         # coverage[i] = np.zeros((end - start) / binsize, dtype='uint16')
         coverage.append(np.zeros((end - start) / binsize, dtype='int'))
     print "Coverage: ", time.time() - cov_start
-    start_time = time.time()
+    # start_time = time.time()
 
     # read the sam files line by line
     # mate1_buffer = []
@@ -973,6 +977,8 @@ def main(args=None):
     terminate_signal_workers = []
     for i in xrange(int(args.threads) - 2):
         terminate_signal_workers.append(threading.Event())
+    result_workers = [None] * (int(args.threads) - 2)
+
     threads = [
         threading.Thread(target=readBamFiles, kwargs=dict(
             pFileOneIterator=str1,
@@ -985,7 +991,8 @@ def main(args=None):
             pOutputFilename=args.outBam.name,
             pTemplate=str1,
             pBufferOutBam=buffer_output_bam,
-            pTerminateSignal=terminate_signal_workers
+            pTerminateSignal=terminate_signal_workers,
+            pTerminateSignalOutput=terminate_signal_output
         ))
     ]
     for i in xrange(int(args.threads) - 2):
@@ -1008,56 +1015,40 @@ def main(args=None):
             pBufferOutputBam=buffer_output_bam,
             pLock=lock,
             pTerminateInput=terminate_signal_input,
-            pTerminateOutput=terminate_signal_workers[i]
+            pTerminateOutput=terminate_signal_workers[i],
+            pResult=result_workers,
+            pResultIndex=i
         )))
-    
+
     for t in threads:
         t.start()
     for t in threads:
         t.join()
-    
+    hic_matrix = None
+    for result in result_workers:
+        if hic_matrix is None:
+            hic_matrix = result[0]  # hicmatrix
+        else:
+            hic_matrix += result[0]
+        one_mate_unmapped += result[1][0]
+        one_mate_low_quality += result[1][1]
+        one_mate_not_unique += result[1][2]
+        dangling_end += result[1][3]
+        self_circle += result[1][4]
+        self_ligation += result[1][4]
+        same_fragment += result[1][6]
+        mate_not_close_to_rf += result[1][7]
+        duplicated_pairs += result[1][8]
 
-    # readBamFiles(str1, str2, buffer_mate1, buffer_mate2, terminate_signal)
-    # # iter_num += iter_num_
-    # # pair_added += pair_added_
-    # hic_matrix_, measurement_values = process_data(mate1_buffer, mate2_buffer, args.minMappingQuality, args.skipDuplicationCheck,
-    #                                                args.removeSelfCircles, args.restrictionSequence, args.removeSelfLigation, matrix_size,
-    #                                                read_pos_matrix, rf_positions, bin_intval_tree, ref_id2name,
-    #                                                dangling_sequences, binsize, coverage)
+        count_inward += result[1][9]
+        count_outward += result[1][10]
+        count_left += result[1][11]
+        count_right += result[1][12]
+        inter_chromosomal += result[1][13]
+        short_range += result[1][14]
+        long_range += result[1][15]
 
-    if hic_matrix is None:
-        hic_matrix = hic_matrix_
-    elif hic_matrix_ is not None:
-        hic_matrix += hic_matrix_
-    if measurement_values is not None:
-        one_mate_unmapped += measurement_values[0]
-        one_mate_low_quality += measurement_values[0]
-        one_mate_not_unique += measurement_values[0]
-        dangling_end += measurement_values[0]
-        self_circle += measurement_values[0]
-        self_ligation += measurement_values[0]
-        same_fragment += measurement_values[0]
-        mate_not_close_to_rf += measurement_values[0]
-        duplicated_pairs += measurement_values[0]
-
-        count_inward += measurement_values[0]
-        count_outward += measurement_values[0]
-        count_left += measurement_values[0]
-        count_right += measurement_values[0]
-        inter_chromosomal += measurement_values[0]
-        short_range += measurement_values[0]
-        long_range += measurement_values[0]
-
-        pair_added += measurement_values[0]
-
-        # bitwise_and = np.bitwise_and
-
-    ###########################################
-
-    # if hic_matrix is None:
-    #     hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
-    # else:
-    #     hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+        pair_added += result[1][16]
 
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
