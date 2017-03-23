@@ -1,7 +1,7 @@
 import argparse
 import sys
 import numpy as np
-from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
+from scipy.sparse import coo_matrix, dia_matrix, dok_matrix, csr_matrix
 import time
 from os import unlink
 import pysam
@@ -179,9 +179,16 @@ def parse_arguments(args=None):
                         type=int
                         )
     parser.add_argument('--threads',
-                        help='Number of threads. Minimum is three',
+                        help='Number of threads. Using the python multiprocessing module.',
                         required=True,
-                        default=3,
+                        default=4,
+                        type=int
+                        )
+    parser.add_argument('--inputBufferSize',
+                        help='Size of the input buffer of each thread. One million elements per input file per thread is the default value.'
+                             ' Reduce value to decrease memory usage.',
+                        required=False,
+                        default=1e6,
                         type=int
                         )
     parser.add_argument('--doTestRun',
@@ -523,12 +530,13 @@ def enlarge_bins(bin_intervals, chrom_sizes):
 
 def readBamFiles(pFileOneIterator, pFileTwoIterator, pBufferMate1, pBufferMate2, pNumberOfItemsPerBuffer, pEnd):
     """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer with n = number of processes """
-
+    iter_num = 0
     for i in xrange(len(pBufferMate1)):
         j = 0
         pBufferMate1[i].clear()
         pBufferMate2[i].clear()
         while j < pNumberOfItemsPerBuffer:
+            iter_num += 1
             try:
                 mate1 = pFileOneIterator.next()
                 mate2 = pFileTwoIterator.next()
@@ -536,7 +544,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pBufferMate1, pBufferMate2,
                 # pTerminateSignal.set()
                 pEnd = True
                 print "all_data_processed: ", pEnd
-
                 break
 
             # skip 'not primary' alignments
@@ -565,17 +572,17 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pBufferMate1, pBufferMate2,
             pBufferMate1[i].appendleft(mate1)
             pBufferMate2[i].appendleft(mate2)
             j += 1
-    return pBufferMate1, pBufferMate1, pEnd
+    return pBufferMate1, pBufferMate1, pEnd, iter_num
 
 
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
-                 pDanglingSequences, pBinsize, pBufferOutputBam, pLock,
-                 pTerminateInput, pTerminateOutput, pResult, pResultIndex, pBinIntervals,
+                 pDanglingSequences, pBinsize, pLock, pResult, pResultIndex, pBinIntervals,
                  pQueueOut):
     if pMateBuffer1 is None or pMateBuffer2 is None:
-        return None, None
+        return None, None, None, None
+    bufferOutputBam = collections.deque()
     one_mate_unmapped = 0
     one_mate_low_quality = 0
     one_mate_not_unique = 0
@@ -833,22 +840,18 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
         # set position of mate
         mate1.mpos = mate2.pos
         mate2.mpos = mate1.pos
-
-        # out_bam.write(mate1)
-        # out_bam.write(mate2)
-        # pLock.acquire()
-        # pBufferOutputBam.appendleft(mate1)
-        # pBufferOutputBam.appendleft(mate2)
-        # pLock.release()
+        # import copy
+        # bufferOutputBam.appendleft(copy.deepcopy(mate1))
+        # bufferOutputBam.appendleft(copy.deepcopy(mate2))
 
         if iter_num % 5e6 == 0:
             # every 5 million iterations append to the matrix
             # otherwise the row, col and data vectors continue growing and
             # for a large dataset the system could run out of memory
             if hic_matrix is None:
-                hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize))
+                hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
             else:
-                hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize))
+                hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
             row = []
             col = []
             data = []
@@ -865,30 +868,30 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
     # pLock.acquire()
     pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                                 mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
-                                count_left, count_right, inter_chromosomal, short_range, long_range, pair_added], coverage])
+                                count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex], coverage, bufferOutputBam])
     # pLock.release()
     return
 
 
-def write_output_bam(pOutputFilename, pTemplate, pBufferOutBam):
-    out_bam = pysam.Samfile(pOutputFilename, 'wb', template=pTemplate)
-    # worker_threads_done = True
-    # for terminateSignal in pTerminateSignal:
-    #     if not terminateSignal.is_set():
-    #         worker_threads_done = False
-    while pBufferOutBam:  # go on until end is signaled
+def write_output_bam(pOutputBam, pBufferOutBam):
+    print "write output bam"
+    # print "pBufferOutBam", pBufferOutBam
+    # for i, buffer in enumerate(pBufferOutBam):
+    # print buffer
+    # print "buffer x: ", i
+    print "type buffer:", type(pBufferOutBam)
+    print "type file: ", type(pOutputBam)
+    while pBufferOutBam:
         try:
             data = pBufferOutBam.pop()  # pop from RIGHT end of buffer
         except IndexError:
-            time.sleep(0.5)  # wait for new data
-        else:
-            out_bam.write(data)
-        # worker_threads_done = True
-        # for terminateSignal in pTerminateSignal:
-        #     if not terminateSignal.is_set():
-        #         worker_threads_done = False
-    # pTerminateSignalOutput.set()
-    out_bam.close()
+            break
+        print "typedata: ", type(data)
+        print "write data"
+        pOutputBam.write(data)
+        print "wrote data"
+    pBufferOutBam.clear()
+    # out_bam.close()
 
 
 def main(args=None):
@@ -924,12 +927,12 @@ def main(args=None):
 
     # buffer_mate1 = collections.deque()
     # buffer_mate2 = collections.deque()
-    buffer_output_bam = collections.deque()
-    terminate_signal_input = threading.Event()
+    # buffer_output_bam = collections.deque()
+    # terminate_signal_input = threading.Event()
     # terminate_signal_output = threading.Event()
 
     lock = threading.Lock()
-    # out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
+    out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
 
     chrom_sizes = get_chrom_sizes(str1)
     # initialize read start positions matrix
@@ -967,15 +970,15 @@ def main(args=None):
     # To save memory, coverage is not measured by bp
     # but by bins of length 10bp
     # coverage = np.empty(len(bin_intervals), dtype=np.ndarray, order='C')
-    cov_start = time.time()
+    # cov_start = time.time()
     coverage = []
     binsize = 10
     for value in bin_intervals:
         chrom, start, end = value
         # coverage[i] = np.zeros((end - start) / binsize, dtype='uint16')
-        coverage.append(np.zeros((end - start) / binsize, dtype='int'))
-    print "Coverage: ", time.time() - cov_start
-    # start_time = time.time()
+        coverage.append(np.zeros((end - start) / binsize, dtype='uint16'))
+    # print "Coverage: ", time.time() - cov_start
+    start_time = time.time()
 
     # read the sam files line by line
     # mate1_buffer = []
@@ -1007,13 +1010,14 @@ def main(args=None):
     if args.threads < 3:
         sys.stderr.write("At least three threads are required")
         return
-    terminate_signal_workers = []
-    for i in xrange(args.threads):
-        terminate_signal_workers.append(threading.Event())
+    # terminate_signal_workers = []
+    # for i in xrange(args.threads):
+    #     terminate_signal_workers.append(threading.Event())
     result_workers = [None] * args.threads
     buffer_workers1 = [collections.deque()] * args.threads
     buffer_workers2 = [collections.deque()] * args.threads
 
+    buffer_workers_out = [None] * args.threads
     process = []
     all_data_processed = False
     hic_matrix = None
@@ -1022,12 +1026,13 @@ def main(args=None):
         print "Read data to the buffer"
         # read input files into the buffer
         print "all_data_processed: ", all_data_processed
-        buffer_workers1, buffer_workers2, all_data_processed = readBamFiles(pFileOneIterator=str1,
-                                                                            pFileTwoIterator=str2,
-                                                                            pBufferMate1=buffer_workers1,
-                                                                            pBufferMate2=buffer_workers2,
-                                                                            pNumberOfItemsPerBuffer=1e5,
-                                                                            pEnd=all_data_processed)
+        buffer_workers1, buffer_workers2, all_data_processed, iter_num_ = readBamFiles(pFileOneIterator=str1,
+                                                                                       pFileTwoIterator=str2,
+                                                                                       pBufferMate1=buffer_workers1,
+                                                                                       pBufferMate2=buffer_workers2,
+                                                                                       pNumberOfItemsPerBuffer=args.inputBufferSize,
+                                                                                       pEnd=all_data_processed)
+        iter_num += iter_num_
         print "all_data_processed: ", all_data_processed
 
         print "Start processng."
@@ -1050,10 +1055,8 @@ def main(args=None):
                 pDanglingSequences=dangling_sequences,
                 pBinsize=binsize,
                 # pCoverage=coverage,
-                pBufferOutputBam=buffer_output_bam,
+                # pBufferOutputBam=buffer_workers_out[i],
                 pLock=lock,
-                pTerminateInput=terminate_signal_input,
-                pTerminateOutput=terminate_signal_workers[i],
                 pResult=result_workers,
                 pResultIndex=i,
                 pBinIntervals=bin_intervals,
@@ -1063,7 +1066,7 @@ def main(args=None):
         for p in process:
             p.start()
 
-        print "Processing done. Merging!"
+        # print "Processing done. Merging!"
         # join result data
         for i in xrange(args.threads):
             result = out_q.get()
@@ -1090,13 +1093,39 @@ def main(args=None):
             long_range += result[1][15]
 
             pair_added += result[1][16]
-            # coverage += result[2]
+            # iter_num += result[1][17]
+            result_index = result[1][18]
+
+            if result[2] is not None:
+                coverage = np.add(coverage, result[2])
+            if result[3] is not None:
+                buffer_workers_out[result_index] = result[3]
+
         for p in process:
             p.join()
         for p in process:
             p.terminate()
         process = []
-        print "Merging done!"
+
+        if iter_num % 1e6 == 0:
+            elapsed_time = time.time() - start_time
+            sys.stderr.write("processing {} lines took {:.2f} "
+                             "secs ({:.1f} lines per "
+                             "second)\n".format(iter_num,
+                                                elapsed_time,
+                                                iter_num / elapsed_time))
+            sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
+                             "\n".format(pair_added, float(100 * pair_added) / iter_num))
+        if args.doTestRun and iter_num > 1e5:
+            sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
+            break
+
+        # for result_buffer in buffer_workers_out:
+        #     write_output_bam(out_bam, result_buffer)
+
+        # print "Merging done!"
+    # out_bam.close()
+    # print
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
     # the definite matrix I add the values from the upper and lower triangles
@@ -1111,6 +1140,7 @@ def main(args=None):
 
     # compute max bin coverage
     bin_max = []
+
     for cov in coverage:
         # bin_coverage.append(round(float(len(cov[cov > 0])) / len(cov), 3))
         if len(cov) == 0:
@@ -1118,6 +1148,7 @@ def main(args=None):
         else:
             bin_max.append(max(cov))
 
+    print "max coverage value: ", max(bin_max)
     chr_name_list, start_list, end_list = zip(*bin_intervals)
     bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
     hic_ma = hm.hiCMatrix()
