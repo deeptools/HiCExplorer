@@ -29,6 +29,7 @@ tool                            description
 :ref:`hicSumMatrices`            Adds Hi-C matrices of the same size
 :ref:`hicPlotDistVsCounts`       Plots distance vs. Hi-C counts of corrected data
 :ref:`hicExport`                 Export matrix to text formats
+:ref:`hicInfo`                   Shows information about a Hi-C matrix file (no. of bins, bin length, sum, max, min, etc)
 =============================== ===========================================================================================
 
 
