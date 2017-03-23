@@ -286,10 +286,11 @@ minima. Noise can be reduced by increasing the default *--delta* value.
     -o TADs/marks_et-al_TADs_20kb-Bins
 
     hicFindTADs find_TADs -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
-    --lookahead 4 \
+    --minBoundaryDistance 80000 \ # reduce noise by looking at min 80kb steps
+    --pvalue 0.05 \
     --outPrefix TADs/marks_et-al_TADs_20kb-Bins
 
-As an output we get the boundries and domains as seperate bed files.
+As an output we get the boundaries and domains as separate bed files.
 
 Plot TADs
 ~~~~~~~~~
@@ -339,7 +340,7 @@ and GRCm37\_genes.bed file (from ensembl).
    :alt: TADplot
 
    TADplot
-   
+
 Comparing Marks et. al. and Dixon et. al.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
