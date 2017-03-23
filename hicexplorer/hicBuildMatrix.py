@@ -578,7 +578,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pBufferMate1, pBufferMate2,
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
-                 pDanglingSequences, pBinsize, pLock, pResult, pResultIndex, pBinIntervals,
+                 pDanglingSequences, pBinsize, pLock, pResultIndex, pBinIntervals,
                  pQueueOut):
     if pMateBuffer1 is None or pMateBuffer2 is None:
         return None, None, None, None
@@ -925,14 +925,8 @@ def main(args=None):
     args.samFiles[1].close()
     args.outBam.close()
 
-    # buffer_mate1 = collections.deque()
-    # buffer_mate2 = collections.deque()
-    # buffer_output_bam = collections.deque()
-    # terminate_signal_input = threading.Event()
-    # terminate_signal_output = threading.Event()
-
     lock = threading.Lock()
-    out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
+    # out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
 
     chrom_sizes = get_chrom_sizes(str1)
     # initialize read start positions matrix
@@ -969,20 +963,13 @@ def main(args=None):
     # a bin.
     # To save memory, coverage is not measured by bp
     # but by bins of length 10bp
-    # coverage = np.empty(len(bin_intervals), dtype=np.ndarray, order='C')
-    # cov_start = time.time()
     coverage = []
     binsize = 10
     for value in bin_intervals:
         chrom, start, end = value
-        # coverage[i] = np.zeros((end - start) / binsize, dtype='uint16')
         coverage.append(np.zeros((end - start) / binsize, dtype='uint16'))
-    # print "Coverage: ", time.time() - cov_start
     start_time = time.time()
 
-    # read the sam files line by line
-    # mate1_buffer = []
-    # mate2_buffer = []
     iter_num = 0
     pair_added = 0
     hic_matrix = None
@@ -1007,25 +994,17 @@ def main(args=None):
 
     pair_added = 0
 
-    if args.threads < 3:
-        sys.stderr.write("At least three threads are required")
-        return
-    # terminate_signal_workers = []
-    # for i in xrange(args.threads):
-    #     terminate_signal_workers.append(threading.Event())
-    result_workers = [None] * args.threads
+    # input buffer for bam files
     buffer_workers1 = [collections.deque()] * args.threads
     buffer_workers2 = [collections.deque()] * args.threads
 
+    # output buffer to write bam with mate1 and mate2 pairs
     buffer_workers_out = [None] * args.threads
     process = []
     all_data_processed = False
     hic_matrix = None
 
     while not all_data_processed:
-        print "Read data to the buffer"
-        # read input files into the buffer
-        print "all_data_processed: ", all_data_processed
         buffer_workers1, buffer_workers2, all_data_processed, iter_num_ = readBamFiles(pFileOneIterator=str1,
                                                                                        pFileTwoIterator=str2,
                                                                                        pBufferMate1=buffer_workers1,
@@ -1033,9 +1012,6 @@ def main(args=None):
                                                                                        pNumberOfItemsPerBuffer=args.inputBufferSize,
                                                                                        pEnd=all_data_processed)
         iter_num += iter_num_
-        print "all_data_processed: ", all_data_processed
-
-        print "Start processng."
         out_q = multiprocessing.Queue()
         # create n processes to compute hic matrix
         for i in xrange(args.threads):
@@ -1054,10 +1030,7 @@ def main(args=None):
                 pRefId2name=ref_id2name,
                 pDanglingSequences=dangling_sequences,
                 pBinsize=binsize,
-                # pCoverage=coverage,
-                # pBufferOutputBam=buffer_workers_out[i],
                 pLock=lock,
-                pResult=result_workers,
                 pResultIndex=i,
                 pBinIntervals=bin_intervals,
                 pQueueOut=out_q
@@ -1066,7 +1039,6 @@ def main(args=None):
         for p in process:
             p.start()
 
-        # print "Processing done. Merging!"
         # join result data
         for i in xrange(args.threads):
             result = out_q.get()
@@ -1123,18 +1095,13 @@ def main(args=None):
         # for result_buffer in buffer_workers_out:
         #     write_output_bam(out_bam, result_buffer)
 
-        # print "Merging done!"
-    # out_bam.close()
-    # print
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
-    print "FInalizing matrix..."
     dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
     hic_matrix = hic_matrix + hic_matrix.T - dia
-    print "FInalizing matrix... Done!"
     # extend bins such that they are next to each other
     bin_intervals = enlarge_bins(bin_intervals[:], chrom_sizes)
 
@@ -1148,7 +1115,7 @@ def main(args=None):
         else:
             bin_max.append(max(cov))
 
-    print "max coverage value: ", max(bin_max)
+    # print "max coverage value: ", max(bin_max)
     chr_name_list, start_list, end_list = zip(*bin_intervals)
     bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
     hic_ma = hm.hiCMatrix()
