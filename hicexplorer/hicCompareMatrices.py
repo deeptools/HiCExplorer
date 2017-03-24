@@ -46,7 +46,7 @@ def main():
         exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
              "{}: {}\n"
              "{}: {}".format(args.matrices[0], hic1.chrBinBoundaries.keys(),
-                                 args.matrices[1], hic2.chrBinBoundaries.keys()))
+                             args.matrices[1], hic2.chrBinBoundaries.keys()))
 
     nan_bins = set(hic1.nan_bins)
     nan_bins = nan_bins.union(hic2.nan_bins)
