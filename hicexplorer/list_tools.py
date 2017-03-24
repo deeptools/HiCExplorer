@@ -26,6 +26,7 @@ The following is the list of tools:
 
    findRestSites            Identifies the genomic locations of restriction sites
    hicBuildMatrix           Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
+   hicQC                    Plots QC measures from the output of hicBuildMatrix
    hicCorrectMatrix         Uses iterative correction to remove biases from a Hi-C matrix
    hicFindEnrichedContacts  Identifies enriched Hi-C contacts
    hicCorrelate             Computes and visualises the correlation of Hi-C matrices
