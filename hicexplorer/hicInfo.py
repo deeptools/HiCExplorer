@@ -30,7 +30,7 @@ def main():
         hic_ma = hm.hiCMatrix(matrix)
         size = hic_ma.matrix.shape[0]
         num_non_zero = hic_ma.matrix.nnz
-        sum_elements = hic_ma.matrix.sum()/2
+        sum_elements = hic_ma.matrix.sum() / 2
         bin_length = hic_ma.getBinSize()
         num_nan_bins = len(hic_ma.nan_bins)
         min_non_zero = hic_ma.matrix.min()
@@ -46,4 +46,3 @@ def main():
         print("Maximum:\t{}".format(max_non_zero))
         print("NaN bins:\t{}".format(num_nan_bins))
         print("")
-

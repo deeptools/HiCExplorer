@@ -183,7 +183,6 @@ def parse_arguments(args=None):
                         action='store_true'
                         )
 
-
     parser.add_argument('--skipDuplicationCheck',
                         help='Identification of duplicated read pairs is memory consuming. Thus, in case of '
                              'memory errors this check can be skipped. However, consider running a `--doTestRun` '
@@ -988,7 +987,7 @@ Max rest. site distance\t{}\t\t
         log_file.write("left pairs\t{}\t({:.2f})\n".format(count_left, 100*float(count_left)/pair_added))
 
         log_file.write("right pairs\t{}\t({:.2f})\n".format(count_right, 100*float(count_right)/pair_added))
-
+        
 
 class Tester(object):
     def __init__(self):

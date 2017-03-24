@@ -103,7 +103,7 @@ def find_pattern(pattern, fasta_file, out_file):
     # sort bed file using system tools
     cmd = 'sort -k1,1 -k2,2n -u {}'.format(tmpfile_name)
     # LC_ALL=C is to set the appropriate collation order
-    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL':' C'})
+    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL': ' C'})
     stdout, _ = proc.communicate()
 
     out_file.write(stdout)

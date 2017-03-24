@@ -73,7 +73,6 @@ def parse_arguments(args=None):
         type=int,
         default=None)
 
-
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -126,7 +125,7 @@ def main():
         # (this is done by subtracting a second sparse matrix
         # that contains only the upper matrix that wants to be removed.
         hic_ma.matrix = scipy.sparse.triu(hic_ma.matrix, k=0, format='csr') - \
-                        scipy.sparse.triu(hic_ma.matrix, k=max_depth_in_bins, format='csr')
+            scipy.sparse.triu(hic_ma.matrix, k=max_depth_in_bins, format='csr')
         hic_ma.matrix.eliminate_zeros()
 
     if args.method == 'obs/exp':
