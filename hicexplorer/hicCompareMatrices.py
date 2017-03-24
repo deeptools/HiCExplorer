@@ -48,6 +48,10 @@ def main():
              "{}: {}".format(args.matrices[0], hic1.chrBinBoundaries.keys(),
                              args.matrices[1], hic2.chrBinBoundaries.keys()))
 
+    # normalize by total matrix sum
+    hic1.matrix.data = hic1.matrix.data.astype(float) / hic1.matrix.data.sum()
+    hic2.matrix.data = hic2.matrix.data.astype(float) / hic2.matrix.data.sum()
+
     nan_bins = set(hic1.nan_bins)
     nan_bins = nan_bins.union(hic2.nan_bins)
 
