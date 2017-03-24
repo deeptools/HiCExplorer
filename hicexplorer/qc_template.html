@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>HiCExplorer QC report</title>
+		<style type="text/css">
+		
+			body{
+				margin:0;
+				padding:0;
+				font-family: Sans-Serif;
+				line-height: 1.5em;
+			}
+			
+			main {
+				padding-bottom: 10010px;
+				margin-bottom: -10000px;
+				float: left;
+				width: 100%;
+			}
+			
+			#nav {
+				float: left;
+				width: 230px;
+				background: #eee;
+                position: fixed;
+                height: 100%;
+			}
+			
+			#wrapper {
+				overflow: hidden;
+			}
+			
+			#content {
+				margin-left: 230px;
+			}
+			
+			.sidebar{
+				margin: 15px;
+				margin-top: 0;
+                #position: fixed;
+
+			}
+
+	        dt {
+                font-weight: bold;
+            }
+
+		</style>
+        
+	
+</head>
+
+<body>
+        <nav id="nav">
+            <div class="sidebar">
+                <h3><a href="#considered">Pairs considered</a></h3>
+                <h3><a href="#used">Pairs used & filtered</a></h3>
+                <h3><a href="#distance">Contact distance</a></h3>
+                <h3><a href="#readorientation">Read orientation</a></h3>
+                <h3><a href="#table">Number of reads table</a></h3>
+            </div>
+        </nav>
+        <main>
+            <div id="content">
+                <div class="sidebar">
+                    <h1>HiCExplorer QC report</h1>
+                    <br/>
+
+                    <h2 id="considered">Pairs considered</h2>
+                    <img src="pairs_considered.png" alt="Pairs considered" />
+
+                    <h2 id="used">Pairs used & filtered</h2>
+                    <img src="pairs_used.png" alt="Pairs used" />
+                    <p>This figure contains the number of reads that were finally
+                    used to build the Hi-C matrix along with the reads that where filtered out. </p>
+                    <dl>
+                      <dt>Dangling ends</dt>
+                      <dd>These are reads that start with the restriction site and constitute reads that were digested but no ligated.</dd>
+                      <dt>Same fragment</dt>
+                      <dd>These are read mates, facing inward, separated by up to 800 bp that do not have a restriction enzyme in
+                      between. These read pairs are not valid Hi-C pairs</dd>
+                      <dt>Self circle</dt>
+                      <dd>self circles are defined as pairs within 25kb with 'outward' read orientation</dd>
+                      <dt>Self ligation</dt>
+                      <dd>These are read pairs with a restriction site in between that are within 800 bp.</dd>
+                    </dl>
+                    <h2 id="distance">Contact distance </h2>
+                        <img src="distance.png" alt="Contact distance" />
+
+                    <h2 id="readorientation">Read orientation</h2>
+                        <img src="read_orientation.png" alt="Contact distance" />
+
+                    <h2 id="table">Number of reads table</h2>
+                    %%TABLE%%
+                </div>
+            </div>
+        </main>
+	</body>
+</html>
