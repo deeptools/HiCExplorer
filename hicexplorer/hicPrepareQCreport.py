@@ -7,6 +7,7 @@ import errno
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from hicexplorer._version import __version__
 
 
 def parse_arguments():
@@ -31,6 +32,9 @@ def parse_arguments():
                         help='Several files with be saved under this folder: A table containing the results and '
                              'a html file with several images.',
                         required=True)
+
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
 
     return parser
 
