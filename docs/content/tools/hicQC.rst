@@ -4,6 +4,6 @@ hicQC
 =====
 
 .. argparse::
-   :ref: hicexplorer.hicPrepareQCReport.parse_arguments
+   :ref: hicexplorer.hicPrepareQCreport.parse_arguments
    :prog: hicQC
 

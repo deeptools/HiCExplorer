@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import argparse
 import os
 import errno
 import matplotlib
 matplotlib.use('Agg')
-
 import matplotlib.pyplot as plt
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Tabulates and plots QC measures from  '
@@ -59,9 +59,9 @@ def make_figure_pairs_considered(table, filename):
     ax = fig.add_subplot(111)
     table['Pairs considered'].plot.barh(ax=ax, color='#999999')
     xticks = ax.get_xticks()
-    labels = ["{:.0f}".format(float(x)/1e6) for x in xticks]
+    labels = ["{:.0f}".format(float(x) / 1e6) for x in xticks]
     labels[-1] += 'M'
-    _ = ax.set_xticklabels(labels)
+    ax.set_xticklabels(labels)
     ax.set_ylabel("")
     ax.set_xlabel("Number of reads")
     plt.tight_layout()
@@ -70,7 +70,7 @@ def make_figure_pairs_considered(table, filename):
 
 def make_figure_pairs_used(table, filename):
     prc_table = table[['Pairs used', 'One mate low quality', 'One mate not unique',
-                       'One mate not close to rest site', 'One mate unmapped', 'dangling end',  'duplicated pairs',
+                       'One mate not close to rest site', 'One mate unmapped', 'dangling end', 'duplicated pairs',
                        'same fragment (800 bp)', 'self circle',
                        'self ligation (removed)']].T / table['Pairs considered']
 
@@ -78,9 +78,9 @@ def make_figure_pairs_used(table, filename):
     ax = fig.add_subplot(111)
     prc_table.plot.bar(ax=ax)
     labels = ax.get_xticklabels()
-    _ = ax.set_xticklabels(labels, rotation=45, ha='right')
+    ax.set_xticklabels(labels, rotation=45, ha='right')
     handles, labels = ax.get_legend_handles_labels()
-    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1,0.5))
+    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_ylabel("fraction")
     plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
 
@@ -92,9 +92,9 @@ def make_figure_distance(table, filename):
     ax = fig.add_subplot(111)
     prc_table2.plot.bar(ax=ax)
     labels = ax.get_xticklabels()
-    _ = ax.set_xticklabels(labels, rotation=45, ha='right')
+    ax.set_xticklabels(labels, rotation=45, ha='right')
     handles, labels = ax.get_legend_handles_labels()
-    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1,0.5))
+    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_ylabel("fraction")
 
     plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
@@ -103,20 +103,20 @@ def make_figure_distance(table, filename):
 def make_figure_read_orientation(table, filename):
     _t = table[[u'inward pairs', u'outward pairs', u'left pairs', u'right pairs']].T
     prc_table3 = _t / _t.sum(axis=0)
-    fig=plt.figure(figsize=(4,3))
+    fig = plt.figure(figsize=(4, 3))
     ax = fig.add_subplot(111)
     prc_table3.plot.bar(ax=ax)
     handles, labels = ax.get_legend_handles_labels()
-    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1,0.5))
+    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_ylabel("fraction")
     plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
+
 
 def main():
 
     """
-
-    Returns
-    -------
+    The structure of the log file is as follows:
+    --------------------------------------------
 
     File    hic/Beaf32_KD_repA_rf.h5
     Pairs considered        102449560
@@ -183,5 +183,4 @@ def main():
     make_figure_read_orientation(table, args.outputFolder + "/read_orientation.png")
 
     save_html(args.outputFolder + "/hicQC.html", table.T.to_html())
-
 
