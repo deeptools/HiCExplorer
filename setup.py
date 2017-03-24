@@ -108,7 +108,7 @@ setup(
     package_data={'': ['config/hicexplorer.cfg']},
     url='http://hicexplorer.readthedocs.io',
     license='LICENSE.txt',
-    description='Set of programms to process, analyze and visualize Hi-C data',
+    description='Set of programs to process, analyze and visualize Hi-C data',
     long_description=open('README.rst').read(),
     install_requires=[
         "numpy >= 1.10.4",
@@ -118,6 +118,7 @@ setup(
         "intervaltree >= 2.1.0",
         "biopython >= 1.65",
         "tables >= 3.2.2",
+        "pandas >= 0.19.2",
         "pyBigWig >=0.2.8"],
     zip_safe=False,
     cmdclass={'sdist': sdist, 'install': install}
