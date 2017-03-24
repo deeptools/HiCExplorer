@@ -183,4 +183,3 @@ def main():
     make_figure_read_orientation(table, args.outputFolder + "/read_orientation.png")
 
     save_html(args.outputFolder + "/hicQC.html", table.T.to_html())
-
