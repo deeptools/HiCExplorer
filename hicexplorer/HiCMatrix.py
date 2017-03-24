@@ -31,7 +31,7 @@ class hiCMatrix:
         self.non_homogeneous_warning_already_printed = False
         self.distance_counts = None  # only defined when getCountsByDistance is called
         self.bin_size = None
-        self.bin_size_homogeneous = None # track if the bins are equally spaced or not
+        self.bin_size_homogeneous = None  # track if the bins are equally spaced or not
 
         if matrixFile:
             self.nan_bins = np.array([])
@@ -74,7 +74,7 @@ class hiCMatrix:
                 self.maskBins(np.flatnonzero(row_sum==0))
                 """
             elif file_format == 'lieberman':  # lieberman format needs additional arguments : chrnameList
-                lieberman_data = self.getLiebermanBins(filenameList = matrixFile, chrnameList = chrnameList)
+                lieberman_data = self.getLiebermanBins(filenameList=matrixFile, chrnameList=chrnameList)
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
 
@@ -83,7 +83,6 @@ class hiCMatrix:
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
-
 
     @staticmethod
     def load_h5(matrix_filename):
@@ -132,7 +131,6 @@ class hiCMatrix:
 
             return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
-
     @staticmethod
     def load_npz(matrixFile):
         _ma = np.load(matrixFile)
@@ -143,11 +141,11 @@ class hiCMatrix:
             distance_counts = _ma['dist_counts'].tolist()
 
         cut_intervals = zip(_ma['chrNameList'], _ma['startList'],
-                                 _ma['endList'], _ma['extraList'])
+                            _ma['endList'], _ma['extraList'])
 
         assert len(cut_intervals) == matrix.shape[0], \
-               "Corrupted matrix file. Matrix size and " \
-               "matrix bin definitions do not correspond"
+            "Corrupted matrix file. Matrix size and " \
+            "matrix bin definitions do not correspond"
         if 'nan_bins' in _ma.keys():
             nan_bins = _ma['nan_bins']
         else:
@@ -161,8 +159,8 @@ class hiCMatrix:
                 # Thus, to get the original None value
                 # the first item of the array is taken.
                 _ma['correction_factors'][0]
-                assert len(_ma['correction_factors'])==matrix.shape[0], \
-                          "length of correction factors and length of matrix are different."
+                assert len(_ma['correction_factors']) == matrix.shape[0], \
+                    "length of correction factors and length of matrix are different."
                 correction_factors = _ma['correction_factors']
             except IndexError:
                 correction_factors = None
@@ -278,24 +276,24 @@ class hiCMatrix:
 
         return zip(nameList, startList, endList, binIdList)
 
-    def getLiebermanBins(self, filenameList, chrnameList, pandas = pandas):
+    def getLiebermanBins(self, filenameList, chrnameList, pandas=pandas):
         """
         Reads a list of txt file in liberman's format and returns
         cut intervals and matrix. Each file is seperated by chr name
         and contains: locus1,locus2,and contact score seperated by tab.
         """
 
-        ## Create empty row, col, value for the matrix
+        # Create empty row, col, value for the matrix
 
         row = np.array([]).astype("int")
         col = np.array([]).astype("int")
         value = np.array([])
         cut_intervals = []
         dim = 0
-        ## for each chr, append the row, col, value to the first one. Extend the dim
+        # for each chr, append the row, col, value to the first one. Extend the dim
         for i in range(0, len(filenameList)):
-            if pandas == True:
-                chrd = pd.read_csv(filenameList[i], sep = "\t", header=None)
+            if pandas is True:
+                chrd = pd.read_csv(filenameList[i], sep="\t", header=None)
                 chrdata = chrd.as_matrix()
             else:
                 print "Pandas unavailable. Reading files using numpy (slower).."
@@ -304,7 +302,7 @@ class hiCMatrix:
             # define resolution as the median of the difference of the rows
             # in the data table.
 
-            resolution = np.median(np.diff(np.unique(np.sort(chrdata[:,1]))))
+            resolution = np.median(np.diff(np.unique(np.sort(chrdata[:, 1]))))
 
             chrcol = (chrdata[:, 1] / resolution).astype(int)
             chrrow = (chrdata[:, 0] / resolution).astype(int)
@@ -316,10 +314,10 @@ class hiCMatrix:
             dim += chrdim
 
             for _bin in range(chrdim):
-                cut_intervals.append((chrnameList[i], _bin * resolution, (_bin + 1) * resolution,0))
+                cut_intervals.append((chrnameList[i], _bin * resolution, (_bin + 1) * resolution, 0))
 
-        final_mat = coo_matrix((value, (row, col)), shape=(dim,dim))
-        lieberman_data = dict(cut_intervals = cut_intervals, matrix = final_mat)
+        final_mat = coo_matrix((value, (row, col)), shape=(dim, dim))
+        lieberman_data = dict(cut_intervals=cut_intervals, matrix=final_mat)
         return lieberman_data
 
     def getMatrix(self):
@@ -464,7 +462,7 @@ class hiCMatrix:
             # set the start position of a bin to the closest multiple
             # of the median
             def snap_nearest_multiple(start_x, m):
-                resi = [-1*(start_x % m), -start_x % m]
+                resi = [-1 * (start_x % m), -start_x % m]
                 return start_x + resi[np.argmin(np.abs(resi))]
             start = [snap_nearest_multiple(x, median) for x in start]
             end = [snap_nearest_multiple(x, median) for x in end]
@@ -549,7 +547,7 @@ class hiCMatrix:
             # (this is done by subtracting a second sparse matrix
             # that contains only the upper matrix that wants to be removed.
             self.matrix = triu(self.matrix, k=0, format='csr') - \
-                          triu(self.matrix, k=max_depth_in_bins, format='csr')
+                triu(self.matrix, k=max_depth_in_bins, format='csr')
         else:
             self.matrix = triu(self.matrix, k=0, format='csr')
 
@@ -600,7 +598,7 @@ class hiCMatrix:
         else:
             chr_submatrix['all'] = self.matrix.tocoo()
             cut_intervals['all'] = self.cut_intervals
-            chrom_sizes['all'] = np.array([v[1]-v[0] for k, v in self.chrBinBoundaries.iteritems()])
+            chrom_sizes['all'] = np.array([v[1] - v[0] for k, v in self.chrBinBoundaries.iteritems()])
             chrom_range['all'] = (0, self.matrix.shape[0])
 
         for chrname, submatrix in chr_submatrix.iteritems():
@@ -679,7 +677,7 @@ class hiCMatrix:
                     mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
 
                 if np.isnan(sum_value):
-                    sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one-1) * binsize))
+                    sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
 
                 # if zscore is needed, compute standard deviation: std = sqrt(mean(abs(x - x.mean())**2))
                 if zscore:
@@ -692,7 +690,7 @@ class hiCMatrix:
                     # The number of zeros is the diagonal length - the length of the non zero values
                     zero_values_sqrt_diff_sum = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
 
-                    _std = np.sqrt((values_sqrt_diff.sum() + zero_values_sqrt_diff_sum)/diagonal_length)
+                    _std = np.sqrt((values_sqrt_diff.sum() + zero_values_sqrt_diff_sum) / diagonal_length)
                     std[bin_dist_plus_one] = _std
 
             # use the expected values to compute obs/exp
@@ -787,7 +785,7 @@ class hiCMatrix:
             num_nan = len(np.flatnonzero(np.isnan(data)))
             sys.stderr.write("converting {} ({:.2f}) nans "
                              "to zeros".format(num_nan,
-                                               float(num_nan)/len(data)))
+                                               float(num_nan) / len(data)))
             data[np.isnan(data)] = 0
 
         # get a vector of all distances. The order is the same
@@ -965,7 +963,7 @@ class hiCMatrix:
 
         for row in range(self.matrix.shape[0]):
             values = [str(x) for x in self.matrix[row, :].toarray().flatten()]
-            fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values) ) )
+            fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values)))
 
         fileh.close()
 
@@ -988,13 +986,13 @@ class hiCMatrix:
         colNames = []
         for x in range(self.matrix.shape[0]):
             chrom, start, end = self.cut_intervals[x][0:3]
-            colNames.append("{}|--|{}:{}-{}".format(x, chrom, start, end)) # adds dm3 to the end (?problem..)
+            colNames.append("{}|--|{}:{}-{}".format(x, chrom, start, end))  # adds dm3 to the end (?problem..)
 
         fileh.write("#converted from hicexplorer\n")
         fileh.write("\t" + "\t".join(colNames) + "\n")
         for row in range(self.matrix.shape[0]):
             values = [str(x) for x in self.matrix[row, :].toarray().flatten()]
-            fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values) ) )
+            fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values)))
 
         fileh.close()
 
@@ -1069,7 +1067,7 @@ class hiCMatrix:
         # save only the upper triangle of the
         # symmetric matrix
         matrix = triu(self.matrix, k=0, format='csr')
-        with tables.open_file(filename, mode="w", title = "HiCExplorer matrix") as h5file:
+        with tables.open_file(filename, mode="w", title="HiCExplorer matrix") as h5file:
             matrix_group = h5file.create_group("/", "matrix", )
             # save the parts of the csr matrix
             for matrix_part in ('data', 'indices', 'indptr', 'shape'):
@@ -1098,14 +1096,14 @@ class hiCMatrix:
                 self.correction_factors = np.array(self.correction_factors)
                 atom = tables.Atom.from_dtype(self.correction_factors.dtype)
                 ds = h5file.create_carray(h5file.root, 'correction_factors', atom,
-                                             self.correction_factors.shape)
+                                          self.correction_factors.shape)
                 ds[:] = np.array(self.correction_factors)
 
             # save distance counts
             if self.distance_counts is not None and len(self.distance_counts):
                 atom = tables.Atom.from_dtype(self.distance_counts.dtype)
                 ds = h5file.create_carray(h5file.root, 'distance_counts', atom,
-                                             self.distance_counts.shape)
+                                          self.distance_counts.shape)
                 ds[:] = np.array(self.distance_counts)
 
     def save_npz(self, filename):
@@ -1207,7 +1205,7 @@ class hiCMatrix:
         self.matrix = csr_matrix(newMatrix)
 
     def setCorrectionFactors(self, correction_factors):
-        assert len(correction_factors)==self.matrix.shape[0], \
+        assert len(correction_factors) == self.matrix.shape[0], \
             "length of correction factors and length of matrix are different."
         self.correction_factors = correction_factors
 
@@ -1471,12 +1469,12 @@ class hiCMatrix:
         chrom, start, end, cov = zip(*self.cut_intervals)
         chrom = np.sort(np.array(chrom)[to_remove])
         chr_count = np.diff(np.concatenate(
-                [np.unique(np.sort(chrom), return_index=True)[1],
-                 [len(chrom)]]))
+            [np.unique(np.sort(chrom), return_index=True)[1],
+             [len(chrom)]]))
         chr_dict = dict(zip(chrom[chr_count], chr_count))
         sys.stderr.write('num poor regions to remove {}\n{}\n'.format(
-                len(to_remove),
-                chr_dict))
+            len(to_remove),
+            chr_dict))
         self.maskBins(to_remove)
 
     def printchrtoremove(self, to_remove, label="Number of poor regions to remove", restore_masked_bins=True):

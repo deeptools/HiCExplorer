@@ -21,4 +21,3 @@ def test_build_matrix():
     nt.assert_equal(test.matrix.data, new.matrix.data)
     assert test.cut_intervals == new.cut_intervals
     unlink(outfile)
-
