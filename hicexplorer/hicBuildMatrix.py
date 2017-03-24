@@ -3,8 +3,8 @@ import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
 import time
 from os import unlink
+from os import path
 import pysam
-# bx python
 from intervaltree import IntervalTree, Interval
 
 # own tools
@@ -133,6 +133,12 @@ def parse_arguments(args=None):
                         metavar='FILENAME',
                         type=argparse.FileType('w'),
                         required=True)
+
+    parser.add_argument('--outFileNameLog', '-o',
+                        help='Output file name for the log file. If not given, a file with the same name as'
+                             'the matrix, ending in .log will be saved',
+                        metavar='FILENAME',
+                        type=argparse.FileType('w')
 
     parser.add_argument('--region', '-r',
                         help='Region of the genome to limit the operation. '
@@ -935,7 +941,12 @@ def main(args=None):
         msg = " (not removed)"
 
     mappable_pairs = iter_num - one_mate_unmapped
-    print("""
+    if args.outFileNameLog is None:
+        log_file = open(os.path.splitext(args.outFileName.name)[0], "w")
+    else:
+        log_file = args.outFileNameLog
+
+    log_file.write(("""
 File\t{}\t\t
 Pairs considered\t{}\t\t
 Min rest. site distance\t{}\t\t
@@ -944,42 +955,42 @@ Max rest. site distance\t{}\t\t
 """.format(args.outFileName.name, iter_num, args.minDistance,
            args.maxDistance))
 
-    print("Pairs used\t{}\t({:.2f})\t({:.2f})".format(pair_added, 100*float(pair_added)/iter_num,
+    log_file.write("Pairs used\t{}\t({:.2f})\t({:.2f})\n".format(pair_added, 100*float(pair_added)/iter_num,
                                                       100*float(pair_added)/mappable_pairs))
-    print("One mate unmapped\t{}\t({:.2f})\t({:.2f})".format(one_mate_unmapped, 100*float(one_mate_unmapped)/iter_num,
+    log_file.write("One mate unmapped\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_unmapped, 100*float(one_mate_unmapped)/iter_num,
                                                              100*float(one_mate_unmapped)/mappable_pairs))
 
-    print("One mate not unique\t{}\t({:.2f})\t({:.2f})".format(one_mate_not_unique, 100*float(one_mate_not_unique)/iter_num,
+    log_file.write("One mate not unique\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_not_unique, 100*float(one_mate_not_unique)/iter_num,
                                                                100*float(one_mate_not_unique)/mappable_pairs))
-    print("One mate low quality\t{}\t({:.2f})\t({:.2f})".format(one_mate_low_quality, 100*float(one_mate_low_quality)/iter_num,
+    log_file.write("One mate low quality\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_low_quality, 100*float(one_mate_low_quality)/iter_num,
                                                                 100*float(one_mate_low_quality)/mappable_pairs))
-    print("dangling end\t{}\t({:.2f})\t({:.2f})".format(dangling_end, 100*float(dangling_end)/iter_num,
+    log_file.write("dangling end\t{}\t({:.2f})\t({:.2f})\n".format(dangling_end, 100*float(dangling_end)/iter_num,
                                                         100*float(dangling_end)/mappable_pairs))
-    print("self ligation{}\t{}\t({:.2f})\t({:.2f})".format(msg, self_ligation, 100*float(self_ligation)/iter_num,
+    log_file.write("self ligation{}\t{}\t({:.2f})\t({:.2f})\n".format(msg, self_ligation, 100*float(self_ligation)/iter_num,
                                                                            100*float(self_ligation)/mappable_pairs))
-    print("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})".format(mate_not_close_to_rf, 100*float(mate_not_close_to_rf)/iter_num,
+    log_file.write("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})\n".format(mate_not_close_to_rf, 100*float(mate_not_close_to_rf)/iter_num,
                                                                            100*float(mate_not_close_to_rf)/mappable_pairs))
-    print("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})".format(same_fragment, 100*float(same_fragment)/iter_num,
+    log_file.write("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})\n".format(same_fragment, 100*float(same_fragment)/iter_num,
                                                                   100*float(same_fragment)/mappable_pairs))
-    print("self circle\t{}\t({:.2f})\t({:.2f})".format(self_circle, 100*float(self_circle)/iter_num,
+    log_file.write("self circle\t{}\t({:.2f})\t({:.2f})\n".format(self_circle, 100*float(self_circle)/iter_num,
                                                       100*float(self_circle)/mappable_pairs))
-    print("duplicated pairs\t{}\t({:.2f})\t({:.2f})".format(duplicated_pairs, 100*float(duplicated_pairs)/iter_num,
+    log_file.write("duplicated pairs\t{}\t({:.2f})\t({:.2f})\n".format(duplicated_pairs, 100*float(duplicated_pairs)/iter_num,
                                                             100*float(duplicated_pairs)/mappable_pairs))
     if pair_added > 0:
-        print("Of pairs used:")
-        print("inter chromosomal\t{}\t({:.2f})".format(inter_chromosomal, 100*float(inter_chromosomal)/pair_added))
+        log_file.write("Of pairs used:\n")
+        log_file.write("inter chromosomal\t{}\t({:.2f})\n".format(inter_chromosomal, 100*float(inter_chromosomal)/pair_added))
 
-        print("short range < 20kb\t{}\t({:.2f})".format(short_range, 100*float(short_range)/pair_added))
+        log_file.write("short range < 20kb\t{}\t({:.2f})\n".format(short_range, 100*float(short_range)/pair_added))
 
-        print("long range\t{}\t({:.2f})".format(long_range, 100*float(long_range)/pair_added))
+        log_file.write("long range\t{}\t({:.2f})\n".format(long_range, 100*float(long_range)/pair_added))
 
-        print("inward pairs\t{}\t({:.2f})".format(count_inward, 100*float(count_inward)/pair_added))
+        log_file.write("inward pairs\t{}\t({:.2f})\n".format(count_inward, 100*float(count_inward)/pair_added))
 
-        print("outward pairs\t{}\t({:.2f})".format(count_outward, 100*float(count_outward)/pair_added))
+        log_file.write("outward pairs\t{}\t({:.2f})\n".format(count_outward, 100*float(count_outward)/pair_added))
 
-        print("left pairs\t{}\t({:.2f})".format(count_left, 100*float(count_left)/pair_added))
+        log_file.write("left pairs\t{}\t({:.2f})\n".format(count_left, 100*float(count_left)/pair_added))
 
-        print("right pairs\t{}\t({:.2f})".format(count_right, 100*float(count_right)/pair_added))
+        log_file.write("right pairs\t{}\t({:.2f})\n".format(count_right, 100*float(count_right)/pair_added))
 
 class Tester(object):
     def __init__(self):
