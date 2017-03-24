@@ -103,7 +103,7 @@ setup(
              'bin/hicCorrelate', 'bin/hicFindEnrichedContacts', 'bin/hicFindTADs',
              'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport', 'bin/hicInfo', 'bin/hicexplorer',
-             'bin/hicQC'],
+             'bin/hicQC', 'bin/hicCompareMatrices'],
     include_package_data=True,
     package_data={'': ['config/hicexplorer.cfg']},
     url='http://hicexplorer.readthedocs.io',

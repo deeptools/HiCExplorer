@@ -39,7 +39,7 @@ The following is the list of tools:
    hicPlotDistVsCounts	    Plots distance vs. Hi-C counts of corrected data
    hicExport	            Export matrix to text formats
    hicInfo                  Shows information about a hicMatrix (no. of bins, bin length, sum, max, min, etc)
-
+   hicCompareMatrices       Computes difference or ratio between two matrices
 
 For more information visit: http://hicexplorer.readthedocs.org
 """)
