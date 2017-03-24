@@ -1,4 +1,5 @@
-import argparse, sys
+import argparse
+import sys
 import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
 import time
@@ -13,6 +14,7 @@ from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 
 debug = 1
+
 
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
@@ -134,11 +136,11 @@ def parse_arguments(args=None):
                         type=argparse.FileType('w'),
                         required=True)
 
-    parser.add_argument('--outFileNameLog', '-o',
+    parser.add_argument('--outFileNameLog',
                         help='Output file name for the log file. If not given, a file with the same name as'
                              'the matrix, ending in .log will be saved',
                         metavar='FILENAME',
-                        type=argparse.FileType('w')
+                        type=argparse.FileType('w'))
 
     parser.add_argument('--region', '-r',
                         help='Region of the genome to limit the operation. '
@@ -150,15 +152,10 @@ def parse_arguments(args=None):
                         )
 
     parser.add_argument('--removeSelfLigation',
-                        #help='If set, inward facing reads less than 1000 bp apart and having a restriction'
-                        #     'site in between are removed. Although this reads do not contribute to '
-                        #     'any distant contact, they are useful to account for bias in the data.',
                         help=argparse.SUPPRESS,
                         required=False,
                         default=True
-                        #action='store_true'
                         )
-
 
     parser.add_argument('--removeSelfCircles',
                         help='If set, outward facing reads, at a distance of less thatn 25kbs are removed.',
@@ -331,9 +328,9 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     new_chrom = [chrom[0]]
     for idx in range(1, len(start)):
         # identify end of chromosome
-        if chrom[idx] != chrom[idx-1]:
+        if chrom[idx] != chrom[idx - 1]:
             new_start.append(max(0, start[idx]))
-            new_end.append(end[idx-1])
+            new_end.append(end[idx - 1])
             new_chrom.append(chrom[idx])
             merge_idx += 1
             continue
@@ -343,13 +340,13 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
             continue
 
         # identify overlapping bins
-        if chrom[idx] == chrom[idx-1] and end[idx-1] > start[idx]:
-            middle = start[idx] + int((end[idx-1]-start[idx])/2)
+        if chrom[idx] == chrom[idx - 1] and end[idx - 1] > start[idx]:
+            middle = start[idx] + int((end[idx - 1] - start[idx]) / 2)
             new_start.append(middle)
             new_end.append(middle)
         else:
             new_start.append(start[idx])
-            new_end.append(end[idx-1])
+            new_end.append(end[idx - 1])
         new_chrom.append(chrom[idx])
 
     new_end.append(end[-1])
@@ -357,7 +354,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     assert len(new_end) == len(new_start), "error"
 
     intervals = zip(new_chrom, new_start, new_end)
-    intervals = [(chrom, start, end) for chrom, start, end in intervals if end - start >= min_distance]
+    intervals = [(_chrom, _start, _end) for _chrom, _start, _end in intervals if _end - _start >= min_distance]
     return intervals
 
 
@@ -462,8 +459,8 @@ def get_correct_map(primary, supplement_list):
 
     for supplement in supplement_list:
         assert primary.qname == supplement.qname, "ERROR, primary " \
-           "and supplementary reads do not have the same id. The ids " \
-           "are as follows\n{}\n{}".format(primary.qname, supplement.qname)
+            "and supplementary reads do not have the same id. The ids " \
+            "are as follows\n{}\n{}".format(primary.qname, supplement.qname)
     read_list = [primary] + supplement_list
     first_mapped = []
     for idx, read in enumerate(read_list):
@@ -496,7 +493,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     # enlarge remaining bins
     chr_start = True
     chrom_sizes_dict = dict(chrom_sizes)
-    for idx in range(len(bin_intervals)-1):
+    for idx in range(len(bin_intervals) - 1):
         chrom, start, end = bin_intervals[idx]
         chrom_next, start_next, end_next = bin_intervals[idx + 1]
         if chr_start is True:
@@ -506,10 +503,10 @@ def enlarge_bins(bin_intervals, chrom_sizes):
                 end != start_next:
             middle = start_next - (start_next - end) / 2
             bin_intervals[idx] = (chrom, start, middle)
-            bin_intervals[idx+1] = (chrom, middle, end_next)
+            bin_intervals[idx + 1] = (chrom, middle, end_next)
         if chrom != chrom_next:
             bin_intervals[idx] = (chrom, start, chrom_sizes_dict[chrom])
-            bin_intervals[idx+1] = (chrom_next, 0, end_next)
+            bin_intervals[idx + 1] = (chrom_next, 0, end_next)
 
     chrom, start, end = bin_intervals[-1]
     bin_intervals[-1] = (chrom, start, chrom_sizes_dict[chrom])
@@ -625,9 +622,9 @@ def main(args=None):
                              "secs ({:.1f} lines per "
                              "second)\n".format(iter_num,
                                                 elapsed_time,
-                                                iter_num/elapsed_time))
+                                                iter_num / elapsed_time))
             sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
-                             "\n".format(pair_added, float(100 * pair_added)/iter_num))
+                             "\n".format(pair_added, float(100 * pair_added) / iter_num))
         if args.doTestRun and iter_num > 1e5:
             sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
             break
@@ -639,10 +636,10 @@ def main(args=None):
 
         # skip 'not primary' alignments
         while mate1.flag & 256 == 256:
-                mate1 = str1.next()
+            mate1 = str1.next()
 
         while mate2.flag & 256 == 256:
-                mate2 = str2.next()
+            mate2 = str2.next()
 
         assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
             "Be sure that the sam files have the same read order " \
@@ -704,7 +701,7 @@ def main(args=None):
         for mate in [mate1, mate2]:
             mate_ref = ref_id2name[mate.rname]
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
-            read_middle = mate.pos + int(mate.qlen/2)
+            read_middle = mate.pos + int(mate.qlen / 2)
             try:
                 mate_bin = sorted(bin_intval_tree[mate_ref][read_middle:read_middle + 1])
             except KeyError:
@@ -942,11 +939,11 @@ def main(args=None):
 
     mappable_pairs = iter_num - one_mate_unmapped
     if args.outFileNameLog is None:
-        log_file = open(os.path.splitext(args.outFileName.name)[0], "w")
+        log_file = open(path.splitext(args.outFileName.name)[0] + ".log", "w")
     else:
         log_file = args.outFileNameLog
 
-    log_file.write(("""
+    log_file.write("""
 File\t{}\t\t
 Pairs considered\t{}\t\t
 Min rest. site distance\t{}\t\t
@@ -991,6 +988,7 @@ Max rest. site distance\t{}\t\t
         log_file.write("left pairs\t{}\t({:.2f})\n".format(count_left, 100*float(count_left)/pair_added))
 
         log_file.write("right pairs\t{}\t({:.2f})\n".format(count_right, 100*float(count_right)/pair_added))
+
 
 class Tester(object):
     def __init__(self):
