@@ -944,7 +944,7 @@ def main(args=None):
 
     mappable_pairs = iter_num - one_mate_unmapped
 
-    log_file_name = args.QCfolder + "QC.log"
+    log_file_name = args.QCfolder + "/QC.log"
     log_file = open(log_file_name, 'w')
     log_file.write("""
 File\t{}\t\t
