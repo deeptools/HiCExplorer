@@ -4,6 +4,8 @@ import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix, dok_matrix, csr_matrix
 import time
 from os import unlink
+import os
+
 import pysam
 # bx python
 from intervaltree import IntervalTree, Interval
@@ -180,7 +182,7 @@ def parse_arguments(args=None):
                         )
     parser.add_argument('--threads',
                         help='Number of threads. Using the python multiprocessing module.',
-                        required=True,
+                        required=False,
                         default=4,
                         type=int
                         )
@@ -528,61 +530,64 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     return bin_intervals
 
 
-def readBamFiles(pFileOneIterator, pFileTwoIterator, pBufferMate1, pBufferMate2, pNumberOfItemsPerBuffer, pEnd):
+def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
     """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer with n = number of processes """
+    buffer_mate1 = collections.deque()
+    buffer_mate2 = collections.deque()
     iter_num = 0
-    for i in xrange(len(pBufferMate1)):
-        j = 0
-        pBufferMate1[i].clear()
-        pBufferMate2[i].clear()
-        while j < pNumberOfItemsPerBuffer:
-            iter_num += 1
-            try:
-                mate1 = pFileOneIterator.next()
-                mate2 = pFileTwoIterator.next()
-            except StopIteration:
-                # pTerminateSignal.set()
-                pEnd = True
-                print "all_data_processed: ", pEnd
-                break
+    all_data_read = False
+    # for i in xrange(len(pBufferMate1)):
+    j = 0
+    # pBufferMate1.clear()
+    # pBufferMate2.clear()
+    while j < pNumberOfItemsPerBuffer:
+        iter_num += 1
+        try:
+            mate1 = pFileOneIterator.next()
+            mate2 = pFileTwoIterator.next()
+        except StopIteration:
+            # pTerminateSignal.set()
+            all_data_read = True
+            print "all_data_processed: ", all_data_read
+            break
 
-            # skip 'not primary' alignments
-            while mate1.flag & 256 == 256:
-                mate1 = pFileOneIterator.next()
-            while mate2.flag & 256 == 256:
-                mate2 = pFileTwoIterator.next()
+        # skip 'not primary' alignments
+        while mate1.flag & 256 == 256:
+            mate1 = pFileOneIterator.next()
+        while mate2.flag & 256 == 256:
+            mate2 = pFileTwoIterator.next()
 
-            assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
-                "Be sure that the sam files have the same read order " \
-                "If using Bowtie2 or Hisat2 add " \
-                "the --reorder option".format(mate1.qname, mate2.qname)
+        assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
+            "Be sure that the sam files have the same read order " \
+            "If using Bowtie2 or Hisat2 add " \
+            "the --reorder option".format(mate1.qname, mate2.qname)
 
-            # check for supplementary alignments
-            # (needs to be done before skipping any unmapped reads
-            # to keep the order of the two bam files in sync)
-            mate1_supplementary_list = get_supplementary_alignment(mate1, pFileOneIterator)
-            mate2_supplementary_list = get_supplementary_alignment(mate2, pFileTwoIterator)
+        # check for supplementary alignments
+        # (needs to be done before skipping any unmapped reads
+        # to keep the order of the two bam files in sync)
+        mate1_supplementary_list = get_supplementary_alignment(mate1, pFileOneIterator)
+        mate2_supplementary_list = get_supplementary_alignment(mate2, pFileTwoIterator)
 
-            if mate1_supplementary_list:
-                mate1 = get_correct_map(mate1, mate1_supplementary_list)
+        if mate1_supplementary_list:
+            mate1 = get_correct_map(mate1, mate1_supplementary_list)
 
-            if mate2_supplementary_list:
-                mate2 = get_correct_map(mate2, mate2_supplementary_list)
+        if mate2_supplementary_list:
+            mate2 = get_correct_map(mate2, mate2_supplementary_list)
 
-            pBufferMate1[i].appendleft(mate1)
-            pBufferMate2[i].appendleft(mate2)
-            j += 1
-    return pBufferMate1, pBufferMate1, pEnd, iter_num
+        buffer_mate1.appendleft(mate1)
+        buffer_mate2.appendleft(mate2)
+        j += 1
+    return buffer_mate1, buffer_mate2, all_data_read, iter_num
 
 
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
                  pDanglingSequences, pBinsize, pLock, pResultIndex, pBinIntervals,
-                 pQueueOut):
+                 pQueueOut, pTemplate, pOutputName):
     if pMateBuffer1 is None or pMateBuffer2 is None:
         return None, None, None, None
-    bufferOutputBam = collections.deque()
+    bufferOutputBam = []
     one_mate_unmapped = 0
     one_mate_low_quality = 0
     one_mate_not_unique = 0
@@ -609,9 +614,12 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
 
     iter_num = 0
     hic_matrix = None
+    out_bam = pysam.Samfile(pOutputName, 'wb', template=pTemplate)
 
     coverage = []
     binsize = 10
+    print len(pBinIntervals)
+
     for value in pBinIntervals:
         chrom, start, end = value
         # coverage[i] = np.zeros((end - start) / binsize, dtype='uint16')
@@ -619,13 +627,9 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
     while pMateBuffer1:
         iter_num += 1
         try:
-            # pLock.acquire()
             mate1 = pMateBuffer1.pop()
             mate2 = pMateBuffer2.pop()
-            # pLock.release()
         except IndexError:
-            # time.sleep(0.5)
-            # pLock.release()
             break
 
         # skip if any of the reads is not mapped
@@ -813,9 +817,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
             vec_start = max(0, mate.pos - mate_bin.begin) / pBinsize
             vec_end = min(len(coverage[mate_bin_id]), vec_start +
                           len(mate.seq) / pBinsize)
-            # pLock.acquire()
             coverage[mate_bin_id][vec_start:vec_end] += 1
-            # pLock.release()
 
         row.append(mate_bins[0])
         col.append(mate_bins[1])
@@ -840,9 +842,12 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
         # set position of mate
         mate1.mpos = mate2.pos
         mate2.mpos = mate1.pos
+        out_bam.write(mate1)
+        out_bam.write(mate2)
+
         # import copy
-        # bufferOutputBam.appendleft(copy.deepcopy(mate1))
-        # bufferOutputBam.appendleft(copy.deepcopy(mate2))
+        bufferOutputBam.append(mate1)
+        bufferOutputBam.append(mate2)
 
         if iter_num % 5e6 == 0:
             # every 5 million iterations append to the matrix
@@ -857,41 +862,45 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
             data = []
 
     if hic_matrix is None:
-        hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize))
+        hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
     else:
-        hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize))
+        hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
     row = []
     col = []
     data = []
     print "Process x: ", pResultIndex, " DONE!"
+    # print(bufferOutputBam.pop().flag)
     # pTerminateOutput.set()
     # pLock.acquire()
     pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                                 mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
                                 count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex], coverage, bufferOutputBam])
+    out_bam.close()
     # pLock.release()
     return
 
 
-def write_output_bam(pOutputBam, pBufferOutBam):
+def write_output_bam(pOutputBamName, pBufferOutBam, pTemplate):
     print "write output bam"
     # print "pBufferOutBam", pBufferOutBam
     # for i, buffer in enumerate(pBufferOutBam):
     # print buffer
     # print "buffer x: ", i
-    print "type buffer:", type(pBufferOutBam)
-    print "type file: ", type(pOutputBam)
+    # print "type buffer:", type(pBufferOutBam)
+    # print "type file: ", type(pOutputBam)
+    out_bam = pysam.Samfile(pOutputBamName, 'wb', template=pTemplate)
     while pBufferOutBam:
         try:
             data = pBufferOutBam.pop()  # pop from RIGHT end of buffer
         except IndexError:
             break
         print "typedata: ", type(data)
-        print "write data"
-        pOutputBam.write(data)
-        print "wrote data"
+        print(data.flag)
+        # print "write data"
+        #out_bam.write(data)
+        # print "wrote data"
     pBufferOutBam.clear()
-    # out_bam.close()
+    out_bam.close()
 
 
 def main(args=None):
@@ -926,7 +935,7 @@ def main(args=None):
     args.outBam.close()
 
     lock = threading.Lock()
-    # out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
+    out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
 
     chrom_sizes = get_chrom_sizes(str1)
     # initialize read start positions matrix
@@ -999,98 +1008,113 @@ def main(args=None):
     buffer_workers2 = [collections.deque()] * args.threads
 
     # output buffer to write bam with mate1 and mate2 pairs
-    buffer_workers_out = [None] * args.threads
-    process = []
+    process = [None] * args.threads
     all_data_processed = False
     hic_matrix = None
+    queue = [None] * args.threads
+    all_threads_done = False
+    thread_done = [False] * args.threads
+    count_output = 0
 
-    while not all_data_processed:
-        buffer_workers1, buffer_workers2, all_data_processed, iter_num_ = readBamFiles(pFileOneIterator=str1,
-                                                                                       pFileTwoIterator=str2,
-                                                                                       pBufferMate1=buffer_workers1,
-                                                                                       pBufferMate2=buffer_workers2,
-                                                                                       pNumberOfItemsPerBuffer=args.inputBufferSize,
-                                                                                       pEnd=all_data_processed)
-        iter_num += iter_num_
-        out_q = multiprocessing.Queue()
-        # create n processes to compute hic matrix
+    while not all_data_processed or not all_threads_done:
+        # out_q = multiprocessing.Queue()
+
         for i in xrange(args.threads):
-            process.append(multiprocessing.Process(target=process_data, kwargs=dict(
-                pMateBuffer1=buffer_workers1[i],
-                pMateBuffer2=buffer_workers2[i],
-                pMinMappingQuality=args.minMappingQuality,
-                pSkipDuplicationCheck=args.skipDuplicationCheck,
-                pRemoveSelfCircles=args.removeSelfCircles,
-                pRestrictionSequence=args.restrictionSequence,
-                pRemoveSelfLigation=args.removeSelfLigation,
-                pMatrixSize=matrix_size,
-                pReadPosMatrix=read_pos_matrix,
-                pRfPositions=rf_positions,
-                pBinIntvalTree=bin_intval_tree,
-                pRefId2name=ref_id2name,
-                pDanglingSequences=dangling_sequences,
-                pBinsize=binsize,
-                pLock=lock,
-                pResultIndex=i,
-                pBinIntervals=bin_intervals,
-                pQueueOut=out_q
-            )))
-        # start processes
-        for p in process:
-            p.start()
+            if queue[i] is None and not all_data_processed:
+                buffer_workers1[i], buffer_workers2[i], all_data_processed, iter_num_ = readBamFiles(pFileOneIterator=str1,
+                                                                                                     pFileTwoIterator=str2,
+                                                                                                     pNumberOfItemsPerBuffer=args.inputBufferSize)
+                iter_num += iter_num_
+                queue[i] = multiprocessing.Queue()
+                thread_done[i] = False
 
-        # join result data
-        for i in xrange(args.threads):
-            result = out_q.get()
-            if hic_matrix is None:
-                hic_matrix = result[0]  # hicmatrix
-            else:
-                hic_matrix += result[0]
-            one_mate_unmapped += result[1][0]
-            one_mate_low_quality += result[1][1]
-            one_mate_not_unique += result[1][2]
-            dangling_end += result[1][3]
-            self_circle += result[1][4]
-            self_ligation += result[1][4]
-            same_fragment += result[1][6]
-            mate_not_close_to_rf += result[1][7]
-            duplicated_pairs += result[1][8]
+                # create n processes to compute hic matrix
+                # for i in xrange(args.threads):
+                process[i] = multiprocessing.Process(target=process_data, kwargs=dict(
+                    pMateBuffer1=buffer_workers1[i],
+                    pMateBuffer2=buffer_workers2[i],
+                    pMinMappingQuality=args.minMappingQuality,
+                    pSkipDuplicationCheck=args.skipDuplicationCheck,
+                    pRemoveSelfCircles=args.removeSelfCircles,
+                    pRestrictionSequence=args.restrictionSequence,
+                    pRemoveSelfLigation=args.removeSelfLigation,
+                    pMatrixSize=matrix_size,
+                    pReadPosMatrix=read_pos_matrix,
+                    pRfPositions=rf_positions,
+                    pBinIntvalTree=bin_intval_tree,
+                    pRefId2name=ref_id2name,
+                    pDanglingSequences=dangling_sequences,
+                    pBinsize=binsize,
+                    pLock=lock,
+                    pResultIndex=i,
+                    pBinIntervals=bin_intervals,
+                    pQueueOut=queue[i],
+                    pTemplate=str1,
+                    pOutputName=str(count_output) + '.bam'
+                ))
+                process[i].start()
+                print "Start thread: ", i
+                count_output += 1
 
-            count_inward += result[1][9]
-            count_outward += result[1][10]
-            count_left += result[1][11]
-            count_right += result[1][12]
-            inter_chromosomal += result[1][13]
-            short_range += result[1][14]
-            long_range += result[1][15]
+            elif queue[i] is not None and not queue[i].empty():
+                result = queue[i].get()
+                print "Get result from process: ", i
+                if hic_matrix is None:
+                    hic_matrix = result[0]  # hicmatrix
+                else:
+                    hic_matrix += result[0]
+                one_mate_unmapped += result[1][0]
+                one_mate_low_quality += result[1][1]
+                one_mate_not_unique += result[1][2]
+                dangling_end += result[1][3]
+                self_circle += result[1][4]
+                self_ligation += result[1][4]
+                same_fragment += result[1][6]
+                mate_not_close_to_rf += result[1][7]
+                duplicated_pairs += result[1][8]
 
-            pair_added += result[1][16]
-            # iter_num += result[1][17]
-            result_index = result[1][18]
+                count_inward += result[1][9]
+                count_outward += result[1][10]
+                count_left += result[1][11]
+                count_right += result[1][12]
+                inter_chromosomal += result[1][13]
+                short_range += result[1][14]
+                long_range += result[1][15]
 
-            if result[2] is not None:
-                coverage = np.add(coverage, result[2])
-            if result[3] is not None:
-                buffer_workers_out[result_index] = result[3]
+                pair_added += result[1][16]
+                # iter_num += result[1][17]
 
-        for p in process:
-            p.join()
-        for p in process:
-            p.terminate()
-        process = []
+                if result[2] is not None:
+                    coverage = np.add(coverage, result[2])
+                
+                if result[3] is not None:
+                    print result[3][0].flag
+                buffer_workers1[i].clear()
+                buffer_workers2[i].clear()
+                queue[i] = None
+                process[i].join()
+                process[i].terminate()
+                process[i] = None
+                thread_done[i] = True
+                print "Get result from process: ", i, " DONE!"
+        if all_data_processed:
+            all_threads_done = True
+            for thread in thread_done:
+                if not thread:
+                    all_threads_done = False
 
-        if iter_num % 1e6 == 0:
-            elapsed_time = time.time() - start_time
-            sys.stderr.write("processing {} lines took {:.2f} "
-                             "secs ({:.1f} lines per "
-                             "second)\n".format(iter_num,
-                                                elapsed_time,
-                                                iter_num / elapsed_time))
-            sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
-                             "\n".format(pair_added, float(100 * pair_added) / iter_num))
-        if args.doTestRun and iter_num > 1e5:
-            sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
-            break
+        # if iter_num % 1e6 == 0:
+        #     elapsed_time = time.time() - start_time
+        #     sys.stderr.write("processing {} lines took {:.2f} "
+        #                      "secs ({:.1f} lines per "
+        #                      "second)\n".format(iter_num,
+        #                                         elapsed_time,
+        #                                         iter_num / elapsed_time))
+        #     sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
+        #                      "\n".format(pair_added, float(100 * pair_added) / iter_num))
+        # if args.doTestRun and iter_num > 1e5:
+        #     sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
+        #     break
 
         # for result_buffer in buffer_workers_out:
         #     write_output_bam(out_bam, result_buffer)
@@ -1127,6 +1151,17 @@ def main(args=None):
     unlink(args.outFileName.name)
 
     hic_ma.save(args.outFileName.name)
+    for i in xrange(count_output):
+        out_put_threads = pysam.Samfile(str(i) + '.bam', 'rb')
+        while True:
+            try:
+                data = out_put_threads.next()
+            except StopIteration:
+                break
+            out_bam.write(data)
+        out_put_threads.close()
+        os.remove(str(i) + '.bam')
+    out_bam.close()
 
     """
     if args.restrictionCutFile:
