@@ -36,11 +36,11 @@ class hiCMatrix:
         if matrixFile:
             self.nan_bins = np.array([])
             if not file_format:
-                if matrixFile[-4:] == ".npz":
+                if matrixFile.endswith(".npz"):
                     file_format = 'npz'
-                elif matrixFile[-3:] == ".h5":
+                elif matrixFile.endswith(".h5"):
                     file_format = 'h5'
-                elif matrixFile[-3:] == '.gz':
+                elif matrixFile.endswith('.gz'):
                     file_format = 'dekker'
                 # by default assume that the matrix file_format is hd5
                 else:
