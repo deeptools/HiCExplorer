@@ -488,11 +488,18 @@ class hiCMatrix:
         calculated and then each non-zero value of the sparse matrix is
         replaced by the obs/exp or z-score.
 
-        :param maxdepth:
-        :param zscore: if a zscore wants to be returned instead of obs/exp
-        :return: observed / expected sparse matrix
+        Parameters
+        ----------
+        maxdepth: maximum distance from the diagonal to consider. All contacts beyond this distance will not
+                         be considered.
+        zscore: if a zscore wants to be returned instead of obs/exp
 
-        from scipy.sparse import csr_matrix, dia_matrix
+
+        Returns
+        -------
+        observed / expected sparse matrix
+
+        >>> from scipy.sparse import csr_matrix, dia_matrix
         >>> row, col = np.triu_indices(5)
         >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
         ... ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
@@ -714,10 +721,22 @@ class hiCMatrix:
         computes counts for each intrachromosomal distance.
         better used with a corrected matrix
 
+
+        Parameters
+        ----------
+        mean : if set to true (default) the mean of the distance value is returned instead of a list with each of the
+                elements
+        per_chr: set to true if the computation should be done per chromosome
+
+        Returns
+        -------
         returns a dictionary having as key the distance
         and as value an array containing the matrix values
         corresponding to that distance
 
+
+        Examples
+        --------
         >>> from scipy.sparse import coo_matrix
         >>> row, col = np.triu_indices(5)
         >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
