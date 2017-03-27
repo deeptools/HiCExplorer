@@ -1009,6 +1009,7 @@ Max rest. site distance\t{}\t\t
     log_file.close()
     QC.main("-l {} -o {}".format(log_file_name, args.QCfolder).split())
 
+
 class Tester(object):
     def __init__(self):
         import os
@@ -1018,4 +1019,3 @@ class Tester(object):
         else:
             self.root = os.path.dirname(os.path.abspath(__file__)) + "/test/test_data/"
         self.bam_file_1 = self.root + "hic.bam"
-
