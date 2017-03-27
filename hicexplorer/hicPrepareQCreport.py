@@ -63,8 +63,12 @@ def make_figure_pairs_considered(table, filename):
     ax = fig.add_subplot(111)
     table['Pairs considered'].plot.barh(ax=ax, color='#999999')
     xticks = ax.get_xticks()
-    labels = ["{:.0f}".format(float(x) / 1e6) for x in xticks]
-    labels[-1] += 'M'
+    if xticks[-1] > 1e6:
+        labels = ["{:.0f}".format(float(x) / 1e6) for x in xticks]
+        labels[-1] += 'M'
+    else:
+        labels = ["{:,}".format(int(x)) for x in xticks]
+
     ax.set_xticklabels(labels)
     ax.set_ylabel("")
     ax.set_xlabel("Number of reads")
@@ -116,7 +120,7 @@ def make_figure_read_orientation(table, filename):
     plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
 
 
-def main():
+def main(args=None):
 
     """
     The structure of the log file is as follows:
@@ -148,8 +152,8 @@ def main():
     right pairs     3600005 (24.76)
 
     """
-    args = parse_arguments().parse_args()
 
+    args = parse_arguments().parse_args(args)
     params = dict()
     make_sure_path_exists(args.outputFolder)
     for fh in args.logfiles:

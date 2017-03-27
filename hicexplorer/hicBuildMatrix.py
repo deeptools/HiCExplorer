@@ -12,6 +12,7 @@ from intervaltree import IntervalTree, Interval
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
+import hicexplorer.hicPrepareQCreport as QC
 
 debug = 1
 
@@ -136,11 +137,10 @@ def parse_arguments(args=None):
                         type=argparse.FileType('w'),
                         required=True)
 
-    parser.add_argument('--outFileNameLog',
-                        help='Output file name for the log file. If not given, a file with the same name as'
-                             'the matrix, ending in .log will be saved',
-                        metavar='FILENAME',
-                        type=argparse.FileType('w'))
+    parser.add_argument('--QCfolder',
+                        help='Path of folder to save the quality control data for the matrix',
+                        metavar='FOLDER',
+                        required=True)
 
     parser.add_argument('--region', '-r',
                         help='Region of the genome to limit the operation. '
@@ -534,6 +534,12 @@ def main(args=None):
         exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
 
     args = parse_arguments().parse_args(args)
+
+    # check that the log folder is valid
+    try:
+        QC.make_sure_path_exists(args.QCfolder)
+    except OSError:
+        exit("Can't open/create QC folder path: {}. Please check".format(args.QCfolder))
 
     sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
                                                                       args.samFiles[1].name))
@@ -937,11 +943,9 @@ def main(args=None):
         msg = " (not removed)"
 
     mappable_pairs = iter_num - one_mate_unmapped
-    if args.outFileNameLog is None:
-        log_file = open(path.splitext(args.outFileName.name)[0] + ".log", "w")
-    else:
-        log_file = args.outFileNameLog
 
+    log_file_name = args.QCfolder + "QC.log"
+    log_file = open(log_file_name, 'w')
     log_file.write("""
 File\t{}\t\t
 Pairs considered\t{}\t\t
@@ -1003,6 +1007,8 @@ Max rest. site distance\t{}\t\t
 
         log_file.write("right pairs\t{}\t({:.2f})\n".format(count_right, 100 * float(count_right) / pair_added))
 
+    log_file.close()
+    QC.main("-l {} -o {}".format(log_file_name, args.QCfolder).split())
 
 class Tester(object):
     def __init__(self):
