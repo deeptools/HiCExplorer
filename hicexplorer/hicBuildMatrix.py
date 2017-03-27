@@ -4,7 +4,6 @@ import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
 import time
 from os import unlink
-from os import path
 import pysam
 from intervaltree import IntervalTree, Interval
 
@@ -1019,3 +1018,4 @@ class Tester(object):
         else:
             self.root = os.path.dirname(os.path.abspath(__file__)) + "/test/test_data/"
         self.bam_file_1 = self.root + "hic.bam"
+
