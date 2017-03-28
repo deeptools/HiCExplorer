@@ -577,6 +577,9 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
         buffer_mate1.appendleft(mate1)
         buffer_mate2.appendleft(mate2)
         j += 1
+    print "buffer_mate1: ", len(buffer_mate1)
+    print "buffer_mate2: ", len(buffer_mate2)
+    
     return buffer_mate1, buffer_mate2, all_data_read, iter_num
 
 
@@ -773,14 +776,21 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
                     frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
                     has_rf = sorted(pRfPositions[mate_ref][frag_start: frag_end])
+                    # print 
 
+                
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
+                    print "foo781"
+                    
                     same_fragment += 1
                     continue
 
                 self_ligation += 1
+                print "pRemoveSelfLigation: ", pRemoveSelfLigation
+                
                 if pRemoveSelfLigation:
+                    print "foo"
                     # skip self ligations
                     continue
 
@@ -842,12 +852,12 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
         # set position of mate
         mate1.mpos = mate2.pos
         mate2.mpos = mate1.pos
-        out_bam.write(mate1)
-        out_bam.write(mate2)
+        # out_bam.write(mate1)
+        # out_bam.write(mate2)
 
         # import copy
-        bufferOutputBam.append(mate1)
-        bufferOutputBam.append(mate2)
+        # bufferOutputBam.append(mate1)
+        # bufferOutputBam.append(mate2)
 
         if iter_num % 5e6 == 0:
             # every 5 million iterations append to the matrix
@@ -1015,7 +1025,7 @@ def main(args=None):
     all_threads_done = False
     thread_done = [False] * args.threads
     count_output = 0
-
+    print "args.removeSelfLigation: ", args.removeSelfLigation
     while not all_data_processed or not all_threads_done:
         # out_q = multiprocessing.Queue()
 
@@ -1151,17 +1161,17 @@ def main(args=None):
     unlink(args.outFileName.name)
 
     hic_ma.save(args.outFileName.name)
-    for i in xrange(count_output):
-        out_put_threads = pysam.Samfile(str(i) + '.bam', 'rb')
-        while True:
-            try:
-                data = out_put_threads.next()
-            except StopIteration:
-                break
-            out_bam.write(data)
-        out_put_threads.close()
-        os.remove(str(i) + '.bam')
-    out_bam.close()
+    # for i in xrange(count_output):
+    #     out_put_threads = pysam.Samfile(str(i) + '.bam', 'rb')
+    #     while True:
+    #         try:
+    #             data = out_put_threads.next()
+    #         except StopIteration:
+    #             break
+    #         out_bam.write(data)
+    #     out_put_threads.close()
+    #     os.remove(str(i) + '.bam')
+    # out_bam.close()
 
     """
     if args.restrictionCutFile:
