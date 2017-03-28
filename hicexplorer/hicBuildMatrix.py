@@ -1087,8 +1087,8 @@ def main(args=None):
                 if result[2] is not None:
                     coverage = np.add(coverage, result[2])
                 
-                if result[3] is not None:
-                    print result[3][0].flag
+                # if result[3] is not None:
+                #     print result[3][0].flag
                 buffer_workers1[i].clear()
                 buffer_workers2[i].clear()
                 queue[i] = None
