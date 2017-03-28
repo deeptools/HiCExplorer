@@ -59,8 +59,7 @@
 
             --QCfolder ./QCfolder
         &&
-
-        mv ./QCfolder/* && $qc.files_path/
+        mv ./QCfolder/* $qc.files_path/
         &&
         mv $qc.files_path/hicQC.html $qc
         &&
