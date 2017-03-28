@@ -10,6 +10,10 @@
     <command>
 <![CDATA[
 
+        mkdir ./QCfolder &&
+        mkdir $qc.files_path
+        &&
+
         hicBuildMatrix
 
             --samFiles
@@ -53,8 +57,13 @@
             #if $minMappingQuality and $minMappingQuality is not None:
                 --minMappingQuality $minMappingQuality
             #end if
-        &&
 
+            --QCfolder ./QCfolder
+        &&
+        mv ./QCfolder/* $qc.files_path/
+        &&
+        mv $qc.files_path/hicQC.html $qc
+        &&
         samtools sort ./unsorted.bam -o sorted.bam
 
 ]]>
@@ -98,6 +107,7 @@
     <outputs>
         <data name="outBam" from_work_dir="sorted.bam" format="bam" label="${tool.name} BAM file on ${on_string}"/>
         <data name="outFileName" from_work_dir="matrix.h5" format="h5" label="${tool.name} MATRIX on ${on_string}"/>
+        <data name="qc" format="html" label="${tool.name} QC"/>
     </outputs>
     <tests>
         <test>
