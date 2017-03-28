@@ -153,7 +153,7 @@
             <option value="RdPu_r">RdPu reversed</option>
             <option value="YlGn_r">YlGn reversed</option>
             <option value="PuBuGn_r">PuBuGn reversed</option>
-            <option value="RdYlBu_r">RdYlBu reversed</option>
+            <option value="RdYlBu_r" selected="True">RdYlBu reversed</option>
             <option value="RdYlGn_r">RdYlGn reversed</option>
             <option value="YlGnBu_r">YlGnBu reversed</option>
             <option value="YlOrBr_r">YlOrBr reversed</option>
