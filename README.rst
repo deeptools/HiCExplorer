@@ -6,6 +6,8 @@
    :target: https://anaconda.org/bioconda/hicexplorer
 .. image:: https://quay.io/repository/biocontainers/hicexplorer/status
    :target: https://quay.io/repository/biocontainers/hicexplorer
+.. image:: https://badge.fury.io/py/HiCExplorer.svg
+       :target: https://badge.fury.io/py/HiCExplorer
 
 HiCExplorer
 ===========
@@ -40,7 +42,25 @@ HiCExplorer is available for:
 There are many easy ways to install HiCExplorer. Details can be found
 `here <https://http://hicexplorer.readthedocs.io/content/installation.html>`__
 
-**Install by cloning this repository:**
+
+Install with conda
+++++++++++++++++++
+
+The easiest way to install HiCExplorer is using `BioConda <http://bioconda.github.io/>`_
+::
+
+   $ conda install -c bioconda hicexplorer
+
+
+
+Install with pip
+++++++++++++++++
+::
+
+   $ pip install HiCExplorer
+
+Install by cloning this repository
+++++++++++++++++++++++++++++++++++
 
 You can install any one of the HiCExplorer branches on command line
 (linux/mac) by cloning this git repository :
