@@ -943,7 +943,7 @@ def main(args=None):
 
     mappable_pairs = iter_num - one_mate_unmapped
 
-    log_file_name = args.QCfolder + "/QC.log"
+    log_file_name = os.path.join(args.QCfolder, "QC.log")
     log_file = open(log_file_name, 'w')
     log_file.write("""
 File\t{}\t\t
@@ -1018,4 +1018,4 @@ class Tester(object):
             self.root = hic_test_data_dir
         else:
             self.root = os.path.dirname(os.path.abspath(__file__)) + "/test/test_data/"
-        self.bam_file_1 = self.root + "hic.bam"
+        self.bam_file_1 = os.path.join(self.root, "hic.bam")
