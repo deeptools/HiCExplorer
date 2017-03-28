@@ -10,7 +10,8 @@
     <command>
 <![CDATA[
 
-        mkdir ./QCfolder
+        mkdir ./QCfolder &&
+        mkdir $qc.files_path
         &&
 
         hicBuildMatrix
