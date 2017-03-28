@@ -38,6 +38,8 @@ min_value = 0
 width = 1.5
 number of bins = 500
 nans to zeros = True
+# optional. If type is not specified, then a fill curve is plotted.
+type = line
 #optional in case it can not be guessed by the file ending
 file_type = bigwig
 

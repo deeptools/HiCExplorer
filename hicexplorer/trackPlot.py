@@ -679,9 +679,13 @@ class PlotBigWig(TrackPlot):
             scores_per_bin = [np.mean(scores[lins[x]:lins[x + 1]]) for x in range(len(lins) - 1)]
             _x = lins + start_region
             x_values = [float(_x[x] + _x[x + 1]) / 2 for x in range(len(lins) - 1)]
-            self.ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
-                                 color=self.properties['color'],
-                                 facecolor=self.properties['color'])
+            if 'type' in self.properties and self.properties['type'] == 'line':
+                self.ax.plot(x_values, scores_per_bin, linewidth=0.1, color=self.properties['color'])
+
+            else:
+                self.ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
+                                     color=self.properties['color'],
+                                     facecolor=self.properties['color'])
 
         else:
             # on rare occasions pyBigWig may throw an error, apparently caused by a corruption
