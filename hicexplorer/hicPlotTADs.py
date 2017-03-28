@@ -46,7 +46,9 @@ file_type = bigwig
 [simple bed]
 file = file.bed
 title = peaks
-color = read
+color = red
+# optional boder color. Set to none for no border color
+border_color = black
 width = 0.5
 # optional. If not given is guessed from the file ending
 file_type = bed
@@ -103,6 +105,8 @@ title = chromatin states
 # color is replaced by the color in the bed file
 # in this case
 color = black
+# optional boder color. Set to none for no border color
+border_color = black
 # default behaviour when plotting intervals from a
 # bed file is to 'expand' them such that they
 # do not overlap. The display = collapsed
