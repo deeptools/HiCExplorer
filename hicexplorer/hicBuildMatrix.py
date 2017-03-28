@@ -781,16 +781,16 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
                 
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
-                    print "foo781"
+                    # print "foo781"
                     
                     same_fragment += 1
                     continue
 
                 self_ligation += 1
-                print "pRemoveSelfLigation: ", pRemoveSelfLigation
+                # print "pRemoveSelfLigation: ", pRemoveSelfLigation
                 
                 if pRemoveSelfLigation:
-                    print "foo"
+                    # print "foo"
                     # skip self ligations
                     continue
 
@@ -1073,12 +1073,18 @@ def main(args=None):
                     hic_matrix = result[0]  # hicmatrix
                 else:
                     hic_matrix += result[0]
+
+
+
+                # one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+                # mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
+                # count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex
                 one_mate_unmapped += result[1][0]
                 one_mate_low_quality += result[1][1]
                 one_mate_not_unique += result[1][2]
                 dangling_end += result[1][3]
                 self_circle += result[1][4]
-                self_ligation += result[1][4]
+                self_ligation += result[1][5]
                 same_fragment += result[1][6]
                 mate_not_close_to_rf += result[1][7]
                 duplicated_pairs += result[1][8]
