@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from scipy.sparse import triu
 
 import hicexplorer.HiCMatrix as HiCMatrix
-from hicexplorer.utilities import remove_outliers
+from hicexplorer._version import __version__
 
 
 def parse_arguments(args=None):
@@ -71,6 +71,16 @@ def parse_arguments(args=None):
                         help='If given, the data underlying the plots is saved on this file',
                         type=argparse.FileType('w'),
                         )
+
+    parser.add_argument('--plotsize',
+                        help='width and height of the plot (in inches). Default is 6*number of cols, 4 * number of '
+                             'rows. The maximum number of rows is 4. Example --plotsize 6 5',
+                        nargs=2,
+                        type=float
+                        )
+
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
 
     return parser
 
@@ -307,7 +317,12 @@ def main(args=None):
     else:
         num_cols = num_rows = 1
 
-    plt.figure(figsize=(6 * num_cols, 4 * num_rows))
+    if args.plotsize is None:
+        width = 6
+        height = 4
+    else:
+        width, height = args.plotsize
+    plt.figure(figsize=(width * num_cols, height * num_rows))
 
     axs = np.empty((num_rows, num_cols), dtype='object')
     for matrix_file in args.matrices:
