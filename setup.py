@@ -99,7 +99,6 @@ setup(
     author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning',
     author_email='deeptools@googlegroups.com',
     packages=['hicexplorer'],
-    package_data={'': ['config/deeptools.cfg']},
     scripts=['bin/findRestSite', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindEnrichedContacts', 'bin/hicFindTADs',
              'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
