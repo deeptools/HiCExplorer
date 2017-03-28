@@ -4,6 +4,7 @@ import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
 import time
 from os import unlink
+import os
 import pysam
 from intervaltree import IntervalTree, Interval
 
