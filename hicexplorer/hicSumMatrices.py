@@ -34,6 +34,11 @@ def main():
     nan_bins = set(hic.nan_bins)
     for matrix in args.matrices[1:]:
         hic_to_append = hm.hiCMatrix(matrix)
+        if hic.chrBinBoundaries != hic_to_append.chrBinBoundaries:
+            exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
+                 "{}: {}\n"
+                 "{}: {}".format(args.matrices[0], hic.chrBinBoundaries.keys(),
+                                 matrix, hic_to_append.chrBinBoundaries.keys()))
 
         try:
             summed_matrix = summed_matrix + hic_to_append.matrix
