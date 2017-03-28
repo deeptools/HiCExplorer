@@ -94,6 +94,8 @@ section as `color`, `title`, etc.
    # of 1000000/500 = 2000 bp
    number of bins = 500
    nans to zeros = True
+   # optional. If type is not specified, then a fill curve is plotted.
+   type = line
    # Default is yes, set to no to turn off the visualization of
    # text showing the data range (eg. 0 - 100) for the track
    show data range = yes
