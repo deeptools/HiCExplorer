@@ -269,8 +269,6 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
     axHeat2.set_ylim(start_pos2[0], start_pos2[-1])
     axHeat2.set_xlim(start_pos[0], start_pos[-1])
-    axHeat2.spines['top'].set_visible(False)
-    axHeat2.spines['right'].set_visible(False)
 
     if ylabel is not None:
         axHeat2.set_ylabel(ylabel)
@@ -441,21 +439,19 @@ def main(args=None):
         plotPerChr(ma, cmap, args)
 
     else:
-        # set as nan regions the nan bins
-
         fig_height = 6
-        height = 5.0 / fig_height
+        height = 4.8 / fig_height
         if args.whatToShow == 'both':
             fig_width = 11
             width = 4.9 / fig_width
             left_margin = (1.0 - 2 * width) * 0.35
         else:
             fig_width = 7
-            width = 4.4 / fig_width
-            left_margin = (1.0 - width) * 0.35
+            width = 5.0 / fig_width
+            left_margin = (1.0 - width) * 0.4
 
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
-        bottom = 0.7 / fig_height
+        bottom = 0.8 / fig_height
 
         if args.log:
             mask = matrix == 0
