@@ -553,7 +553,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
     #     #         if not (mate2.flag & 256 == 256):
     #     #             break
 
-
     #     while mate1.flag & 256 == 256:
     #         try:
     #             mate1 = pFileOneIterator.next()
@@ -647,10 +646,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
         buffer_mate2.append(mate2)
         j += 1
 
-    # print "buffer_mate1: ", len(buffer_mate1)
-    # print "buffer_mate2: ", len(buffer_mate2)
-    # if iter_num < pNumberOfItemsPerBuffer and len(buffer_mate1) != 0:
-    #     return buffer_mate1, buffer_mate2, True, iter_num
     if all_data_read and len(buffer_mate1) != 0 and len(buffer_mate2) != 0:
         return buffer_mate1, buffer_mate2, True, iter_num
     if all_data_read and len(buffer_mate1) == 0 or len(buffer_mate2) == 0:
@@ -661,7 +656,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
-                 pDanglingSequences, pBinsize, pLock, pResultIndex, pBinIntervals,
+                 pDanglingSequences, pBinsize, pResultIndex, pBinIntervals,
                  pQueueOut, pTemplate, pOutputName):
 
     bufferOutputBam = []
@@ -708,14 +703,11 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
                                     mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
                                     count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex], coverage, bufferOutputBam])
         return
-    while iter_num < len(pMateBuffer1):
-        try:
-            mate1 = pMateBuffer1[iter_num]
-            mate2 = pMateBuffer2[iter_num]
-            iter_num += 1
-        except IndexError:
-            
-            break
+    while iter_num < len(pMateBuffer1) and iter_num < len(pMateBuffer2):
+        # try:
+        mate1 = pMateBuffer1[iter_num]
+        mate2 = pMateBuffer2[iter_num]
+        iter_num += 1
 
         # skip if any of the reads is not mapped
         # if bitwise_and(mate1.flag, 0x4) == 4 or bitwise_and(mate2.flag, 0x4) == 4:
@@ -1108,6 +1100,7 @@ def main(args=None):
     thread_done = [False] * args.threads
     count_output = 0
     count_call_of_read_input = 0
+    computed_pairs = 0
     print "args.removeSelfLigation: ", args.removeSelfLigation
     while not all_data_processed or not all_threads_done:
         # out_q = multiprocessing.Queue()
@@ -1122,7 +1115,7 @@ def main(args=None):
                 iter_num += iter_num_
                 queue[i] = multiprocessing.Queue()
                 thread_done[i] = False
-
+                computed_pairs += len(buffer_workers1[i])
                 # create n processes to compute hic matrix
                 # for i in xrange(args.threads):
                 process[i] = multiprocessing.Process(target=process_data, kwargs=dict(
@@ -1140,7 +1133,6 @@ def main(args=None):
                     pRefId2name=ref_id2name,
                     pDanglingSequences=dangling_sequences,
                     pBinsize=binsize,
-                    pLock=lock,
                     pResultIndex=i,
                     pBinIntervals=bin_intervals,
                     pQueueOut=queue[i],
@@ -1227,6 +1219,7 @@ def main(args=None):
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
+    print "computed_pairs: ", computed_pairs
     dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
     hic_matrix = hic_matrix + hic_matrix.T - dia
     # extend bins such that they are next to each other
