@@ -6,6 +6,7 @@ import time
 from os import unlink
 import os
 
+from itertools import izip
 import pysam
 # bx python
 from intervaltree import IntervalTree, Interval
@@ -429,13 +430,13 @@ def get_supplementary_alignment(read, pysam_obj):
         # field always ends in ';' thus last element after split is always empty, hence [0:-1]
         other_alignments = read.get_tag('SA').split(";")[0:-1]
         supplementary_alignment = []
-        for i in range(len(other_alignments)):
-            _sup = pysam_obj.next()
+
+        for i, _sup in enumerate(pysam_obj):
+            if i > len(other_alignments):
+                break
             if _sup.is_supplementary and _sup.qname == read.qname:
                 supplementary_alignment.append(_sup)
-
         return supplementary_alignment
-
     else:
         return None
 
@@ -509,7 +510,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     # enlarge remaining bins
     chr_start = True
     chrom_sizes_dict = dict(chrom_sizes)
-    for idx in range(len(bin_intervals) - 1):
+    for idx in xrange(len(bin_intervals) - 1):
         chrom, start, end = bin_intervals[idx]
         chrom_next, start_next, end_next = bin_intervals[idx + 1]
         if chr_start is True:
@@ -532,14 +533,70 @@ def enlarge_bins(bin_intervals, chrom_sizes):
 
 def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
     """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer with n = number of processes """
-    buffer_mate1 = collections.deque()
-    buffer_mate2 = collections.deque()
+    buffer_mate1 = []
+    buffer_mate2 = []
+
     iter_num = 0
     all_data_read = False
-    # for i in xrange(len(pBufferMate1)):
     j = 0
-    # pBufferMate1.clear()
-    # pBufferMate2.clear()
+    # print pFileOneIterator
+    # print pFileTwoIterator
+    # for mate1, mate2 in izip(pFileOneIterator, pFileTwoIterator):
+    #     if iter_num >= pNumberOfItemsPerBuffer:
+    #         break
+    #     # if mate1.flag & 256 == 256:
+    #     #     for mate1 in pFileOneIterator:
+    #     #         if not (mate1.flag & 256 == 256):
+    #     #             break
+    #     # if mate2.flag & 256 == 256:
+    #     #     for mate2 in pFileTwoIterator:
+    #     #         if not (mate2.flag & 256 == 256):
+    #     #             break
+
+
+    #     while mate1.flag & 256 == 256:
+    #         try:
+    #             mate1 = pFileOneIterator.next()
+    #         except StopIteration:
+    #             # pTerminateSignal.set()
+    #             all_data_read = True
+    #             print "all_data_processed: ", all_data_read
+    #             break
+    #     while mate2.flag & 256 == 256:
+    #         try:
+    #             mate2 = pFileTwoIterator.next()
+    #         except StopIteration:
+    #             # pTerminateSignal.set()
+    #             all_data_read = True
+    #             print "all_data_processed: ", all_data_read
+    #             break
+    #     assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
+    #         "Be sure that the sam files have the same read order " \
+    #         "If using Bowtie2 or Hisat2 add " \
+    #         "the --reorder option".format(mate1.qname, mate2.qname)
+
+    #     # check for supplementary alignments
+    #     # (needs to be done before skipping any unmapped reads
+    #     # to keep the order of the two bam files in sync)
+    #     mate1_supplementary_list = get_supplementary_alignment(mate1, pFileOneIterator)
+    #     mate2_supplementary_list = get_supplementary_alignment(mate2, pFileTwoIterator)
+
+    #     if mate1_supplementary_list:
+    #         mate1 = get_correct_map(mate1, mate1_supplementary_list)
+
+    #     if mate2_supplementary_list:
+    #         mate2 = get_correct_map(mate2, mate2_supplementary_list)
+
+    #     buffer_mate1.append(mate1)
+    #     buffer_mate2.append(mate2)
+    #     iter_num += 1
+    # print "iter_num: ", iter_num
+    # print "pNumberOfItemsPerBuffer: ", pNumberOfItemsPerBuffer
+    # if iter_num < pNumberOfItemsPerBuffer and len(buffer_mate1) != 0:
+    #     return buffer_mate1, buffer_mate2, True, iter_num
+    # if iter_num == 0:
+    #     return None, None, True, 0
+    # return buffer_mate1, buffer_mate2, False, iter_num
     while j < pNumberOfItemsPerBuffer:
         iter_num += 1
         try:
@@ -553,9 +610,21 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
 
         # skip 'not primary' alignments
         while mate1.flag & 256 == 256:
-            mate1 = pFileOneIterator.next()
+            try:
+                mate1 = pFileOneIterator.next()
+            except StopIteration:
+                # pTerminateSignal.set()
+                all_data_read = True
+                print "all_data_processed: ", all_data_read
+                break
         while mate2.flag & 256 == 256:
-            mate2 = pFileTwoIterator.next()
+            try:
+                mate2 = pFileTwoIterator.next()
+            except StopIteration:
+                # pTerminateSignal.set()
+                all_data_read = True
+                print "all_data_processed: ", all_data_read
+                break
 
         assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
             "Be sure that the sam files have the same read order " \
@@ -574,13 +643,19 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
         if mate2_supplementary_list:
             mate2 = get_correct_map(mate2, mate2_supplementary_list)
 
-        buffer_mate1.appendleft(mate1)
-        buffer_mate2.appendleft(mate2)
+        buffer_mate1.append(mate1)
+        buffer_mate2.append(mate2)
         j += 1
-    print "buffer_mate1: ", len(buffer_mate1)
-    print "buffer_mate2: ", len(buffer_mate2)
-    
-    return buffer_mate1, buffer_mate2, all_data_read, iter_num
+
+    # print "buffer_mate1: ", len(buffer_mate1)
+    # print "buffer_mate2: ", len(buffer_mate2)
+    # if iter_num < pNumberOfItemsPerBuffer and len(buffer_mate1) != 0:
+    #     return buffer_mate1, buffer_mate2, True, iter_num
+    if all_data_read and len(buffer_mate1) != 0 and len(buffer_mate2) != 0:
+        return buffer_mate1, buffer_mate2, True, iter_num
+    if all_data_read and len(buffer_mate1) == 0 or len(buffer_mate2) == 0:
+        return None, None, True, 0
+    return buffer_mate1, buffer_mate2, False, iter_num
 
 
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
@@ -588,8 +663,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
                  pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
                  pDanglingSequences, pBinsize, pLock, pResultIndex, pBinIntervals,
                  pQueueOut, pTemplate, pOutputName):
-    if pMateBuffer1 is None or pMateBuffer2 is None:
-        return None, None, None, None
+
     bufferOutputBam = []
     one_mate_unmapped = 0
     one_mate_low_quality = 0
@@ -622,17 +696,25 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
     coverage = []
     binsize = 10
     print len(pBinIntervals)
+    # out_bam_buffer = []
 
     for value in pBinIntervals:
         chrom, start, end = value
         # coverage[i] = np.zeros((end - start) / binsize, dtype='uint16')
         coverage.append(np.zeros((end - start) / binsize, dtype='uint16'))
-    while pMateBuffer1:
-        iter_num += 1
+    if pMateBuffer1 is None or pMateBuffer2 is None:
+
+        pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+                                    mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
+                                    count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex], coverage, bufferOutputBam])
+        return
+    while iter_num < len(pMateBuffer1):
         try:
-            mate1 = pMateBuffer1.pop()
-            mate2 = pMateBuffer2.pop()
+            mate1 = pMateBuffer1[iter_num]
+            mate2 = pMateBuffer2[iter_num]
+            iter_num += 1
         except IndexError:
+            
             break
 
         # skip if any of the reads is not mapped
@@ -776,19 +858,18 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
                     frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
                     has_rf = sorted(pRfPositions[mate_ref][frag_start: frag_end])
-                    # print 
+                    # print
 
-                
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
                     # print "foo781"
-                    
+
                     same_fragment += 1
                     continue
 
                 self_ligation += 1
                 # print "pRemoveSelfLigation: ", pRemoveSelfLigation
-                
+
                 if pRemoveSelfLigation:
                     # print "foo"
                     # skip self ligations
@@ -856,20 +937,21 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
         # out_bam.write(mate2)
 
         # import copy
-        # bufferOutputBam.append(mate1)
-        # bufferOutputBam.append(mate2)
+        bufferOutputBam.append(mate1)
+        bufferOutputBam.append(mate2)
 
-        if iter_num % 5e6 == 0:
-            # every 5 million iterations append to the matrix
-            # otherwise the row, col and data vectors continue growing and
-            # for a large dataset the system could run out of memory
-            if hic_matrix is None:
-                hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
-            else:
-                hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
-            row = []
-            col = []
-            data = []
+        # if iter_num % 5e6 == 0:
+        #     # every 5 million iterations append to the matrix
+        #     # otherwise the row, col and data vectors continue growing and
+        #     # for a large dataset the system could run out of memory
+        #     if hic_matrix is None:
+        #         hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
+        #     else:
+        #         hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
+        #     row = []
+        #     col = []
+        #     data = []
+        # iter_num += 1
 
     if hic_matrix is None:
         hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
@@ -907,7 +989,7 @@ def write_output_bam(pOutputBamName, pBufferOutBam, pTemplate):
         print "typedata: ", type(data)
         print(data.flag)
         # print "write data"
-        #out_bam.write(data)
+        # out_bam.write(data)
         # print "wrote data"
     pBufferOutBam.clear()
     out_bam.close()
@@ -1025,12 +1107,15 @@ def main(args=None):
     all_threads_done = False
     thread_done = [False] * args.threads
     count_output = 0
+    count_call_of_read_input = 0
     print "args.removeSelfLigation: ", args.removeSelfLigation
     while not all_data_processed or not all_threads_done:
         # out_q = multiprocessing.Queue()
 
         for i in xrange(args.threads):
             if queue[i] is None and not all_data_processed:
+                count_call_of_read_input += 1
+
                 buffer_workers1[i], buffer_workers2[i], all_data_processed, iter_num_ = readBamFiles(pFileOneIterator=str1,
                                                                                                      pFileTwoIterator=str2,
                                                                                                      pNumberOfItemsPerBuffer=args.inputBufferSize)
@@ -1068,45 +1153,47 @@ def main(args=None):
 
             elif queue[i] is not None and not queue[i].empty():
                 result = queue[i].get()
+
                 print "Get result from process: ", i
-                if hic_matrix is None:
-                    hic_matrix = result[0]  # hicmatrix
-                else:
-                    hic_matrix += result[0]
+                if result[0] is not None:
+                    if hic_matrix is None:
+                        hic_matrix = result[0]  # hicmatrix
+                    else:
+                        hic_matrix += result[0]
 
+                    # one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+                    # mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
+                    # count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex
+                    one_mate_unmapped += result[1][0]
+                    one_mate_low_quality += result[1][1]
+                    one_mate_not_unique += result[1][2]
+                    dangling_end += result[1][3]
+                    self_circle += result[1][4]
+                    self_ligation += result[1][5]
+                    same_fragment += result[1][6]
+                    mate_not_close_to_rf += result[1][7]
+                    duplicated_pairs += result[1][8]
 
+                    count_inward += result[1][9]
+                    count_outward += result[1][10]
+                    count_left += result[1][11]
+                    count_right += result[1][12]
+                    inter_chromosomal += result[1][13]
+                    short_range += result[1][14]
+                    long_range += result[1][15]
 
-                # one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-                # mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
-                # count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex
-                one_mate_unmapped += result[1][0]
-                one_mate_low_quality += result[1][1]
-                one_mate_not_unique += result[1][2]
-                dangling_end += result[1][3]
-                self_circle += result[1][4]
-                self_ligation += result[1][5]
-                same_fragment += result[1][6]
-                mate_not_close_to_rf += result[1][7]
-                duplicated_pairs += result[1][8]
+                    pair_added += result[1][16]
+                    # iter_num += result[1][17]
 
-                count_inward += result[1][9]
-                count_outward += result[1][10]
-                count_left += result[1][11]
-                count_right += result[1][12]
-                inter_chromosomal += result[1][13]
-                short_range += result[1][14]
-                long_range += result[1][15]
+                    if result[2] is not None:
+                        coverage = np.add(coverage, result[2])
 
-                pair_added += result[1][16]
-                # iter_num += result[1][17]
-
-                if result[2] is not None:
-                    coverage = np.add(coverage, result[2])
-                
                 # if result[3] is not None:
-                #     print result[3][0].flag
-                buffer_workers1[i].clear()
-                buffer_workers2[i].clear()
+                    # print type(result[3][0])
+                    # print result[3][0].flag
+                    
+                # buffer_workers1[i] = []
+                # buffer_workers2[i] = []
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -1144,7 +1231,7 @@ def main(args=None):
     hic_matrix = hic_matrix + hic_matrix.T - dia
     # extend bins such that they are next to each other
     bin_intervals = enlarge_bins(bin_intervals[:], chrom_sizes)
-
+    print "count_call_of_read_input: ", count_call_of_read_input
     # compute max bin coverage
     bin_max = []
 
