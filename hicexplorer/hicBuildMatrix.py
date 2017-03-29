@@ -703,6 +703,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
                                     mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
                                     count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex], coverage, bufferOutputBam])
         return
+        
     while iter_num < len(pMateBuffer1) and iter_num < len(pMateBuffer2):
         # try:
         mate1 = pMateBuffer1[iter_num]
