@@ -703,7 +703,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
                                     mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
                                     count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex], coverage, bufferOutputBam])
         return
-        
+
     while iter_num < len(pMateBuffer1) and iter_num < len(pMateBuffer2):
         # try:
         mate1 = pMateBuffer1[iter_num]
@@ -1113,7 +1113,7 @@ def main(args=None):
                 buffer_workers1[i], buffer_workers2[i], all_data_processed, iter_num_ = readBamFiles(pFileOneIterator=str1,
                                                                                                      pFileTwoIterator=str2,
                                                                                                      pNumberOfItemsPerBuffer=args.inputBufferSize)
-                iter_num += iter_num_
+                # iter_num += iter_num_
                 queue[i] = multiprocessing.Queue()
                 thread_done[i] = False
                 computed_pairs += len(buffer_workers1[i])
@@ -1176,7 +1176,7 @@ def main(args=None):
                     long_range += result[1][15]
 
                     pair_added += result[1][16]
-                    # iter_num += result[1][17]
+                    iter_num += result[1][17]
 
                     if result[2] is not None:
                         coverage = np.add(coverage, result[2])
@@ -1220,6 +1220,7 @@ def main(args=None):
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
+    print "iter_num: ", iter_num
     print "computed_pairs: ", computed_pairs
     dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
     hic_matrix = hic_matrix + hic_matrix.T - dia
