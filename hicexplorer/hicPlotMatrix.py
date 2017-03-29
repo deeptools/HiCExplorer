@@ -259,7 +259,7 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         # get a useful log scale
         # that looks like [1, 2, 5, 10, 20, 50, 100, ... etc]
         aa = np.array([1, 2, 5])
-        tick_values = np.concatenate([aa * 10**x for x in range(10)])
+        tick_values = np.concatenate([aa * 10 ** x for x in range(10)])
         cbar = fig.colorbar(img3, ticks=tick_values, format=formatter, cax=cax)
     else:
         cbar = fig.colorbar(img3, cax=cax)
@@ -311,7 +311,7 @@ def plotPerChr(hic_matrix, cmap, args):
     chrom_per_row = 5
     num_rows = int(ceil(float(len(chromosomes)) / chrom_per_row))
     num_cols = min(chrom_per_row, len(chromosomes))
-    width_ratios = [1] * num_cols + [0.05]
+    width_ratios = [1.0] * num_cols + [0.05]
     grids = gridspec.GridSpec(num_rows, num_cols + 1,
                               width_ratios=width_ratios,
                               height_ratios=[1] * num_rows)

@@ -305,7 +305,7 @@ def main(args=None):
 
     # compute scale factors such that values are comparable
     min_sum = min(matrix_sum.values())
-    scale_factor = dict([(matrix_file, float(min_sum)/mat_sum) for matrix_file, mat_sum in matrix_sum.iteritems()])
+    scale_factor = dict([(matrix_file, float(min_sum) / mat_sum) for matrix_file, mat_sum in matrix_sum.iteritems()])
 
     if len(args.matrices) > 1 and args.perchr:
         # in this case, for each chromosome a plot is made that combines the data from the
