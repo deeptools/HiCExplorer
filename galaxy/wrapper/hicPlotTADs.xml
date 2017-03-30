@@ -31,8 +31,12 @@
 
 #if $x_axis.x_axis_select == "yes":
 [x-axis]
+#if $x_axis.fontsize:
 fontsize = $x_axis.fontsize
+#end if
+#if $x_axis.where:     
 where = $x_axis.where
+#end if
 #else:
 [x-axis]
 #end if
