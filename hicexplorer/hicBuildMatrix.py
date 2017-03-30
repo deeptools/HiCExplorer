@@ -58,15 +58,19 @@ class ReadPositionMatrix(object):
             total_size += size
 
         self.pos_matrix = dok_matrix((total_size, total_size), dtype=bool)
+        print self.pos_matrix
 
     def is_duplicated(self, chrom1, start1, chrom2, start2):
         pos1 = self.pos2matrix_bin(chrom1, start1)
         pos2 = self.pos2matrix_bin(chrom2, start2)
         if self.pos_matrix[pos1, pos2] == 1:
+            # print "pos_matrix: ", self.pos_matrix
             return True
         else:
             self.pos_matrix[pos1, pos2] = 1
             self.pos_matrix[pos2, pos1] = 1
+            # print "pos_matrix: ", self.pos_matrix
+            
             return False
 
     def pos2matrix_bin(self, chrom, start):
@@ -692,9 +696,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
     binsize = 10
     print len(pBinIntervals)
     # out_bam_buffer = []
-
+    print pBinIntvalTree
     for value in pBinIntervals:
         chrom, start, end = value
+        # print value
         # coverage[i] = np.zeros((end - start) / binsize, dtype='uint16')
         coverage.append(np.zeros((end - start) / binsize, dtype='uint16'))
     if pMateBuffer1 is None or pMateBuffer2 is None:
@@ -1023,9 +1028,10 @@ def main(args=None):
     out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
 
     chrom_sizes = get_chrom_sizes(str1)
+    print chrom_sizes
     # initialize read start positions matrix
     read_pos_matrix = ReadPositionMatrix(chrom_sizes)
-
+    print "read_pos_matrix: ", read_pos_matrix.pos_matrix
     # define bins
     rf_positions = None
     if args.restrictionCutFile:
