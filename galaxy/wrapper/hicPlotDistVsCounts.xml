@@ -6,15 +6,28 @@
     </macros>
     <expand macro="requirements" />
     <command detect_errors="aggressive"><![CDATA[
-        ln -s '$matrix' input_matrix.npz.h5 &&
+        #set matrices=[]
+        #set matrices_labels=[]
+        #for $counter, $m, in enumerate($matrix):
+            #set identifier = re.sub('[^\s\w\-]', '_', str($m.element_identifier))
+            ln -f -s '${m}' '${identifier}_${counter}.npz.h5' &&
+            #silent $matrices.append('%s_%s.npz.h5' % ($identifier, $counter))
+            #silent $matrices_label.append('%s' % ($identifier))
+        #end for
+
         @BINARY@
-            --matrix input_matrix.npz.h5
+            --matrix #echo ' '.join($matrices)#
+            --lebels #echo ' '.join($matrices_labels)#
             $skipDiagonal
             --plotFile plot.png
             #if $plotTitle and $plotTitle is not None:
                 --plotTitle '$plotTitle'
             #end if
-
+            #if $plotsize:
+            --plotsize $plotsize
+            #end if
+            --maxdepth $maxdepth
+            $perchr
             ## special: --chromosomeExclude is optional, but if given needs at least one argument
             #set chroms = '" "'.join([ str($var.chromosomeExclude) for $var in $chromosomeExclude ])
             #if $chromosomeExclude:
@@ -23,11 +36,18 @@
 ]]>
     </command>
     <inputs>
-        <param argument="--matrix" type="data" format="h5" label="Hi-C normalized/corrected matrix"/>
+        <param argument="--matrix" type="data" format="h5" multiple="True" label="HiC normalized (corrected) matrices"/>
 
         <param argument="--skipDiagonal" type="boolean" truevalue="--skipDiagonal" falsevalue="" label="Exclude diagonal counts" />
+        <param argument="--perchr" type="boolean" truevalue="--perchr" falsevalue="" label="Generate plots per chromosome"
+            help="If more than one HiC matrix is given for each chromosome a new plot is made. Otherewise, a single plot with one line per chromosome is created." />
+        <param argument="--maxdepth" type="integer" value="3000000" label="Max Depth"
+            help="Maximum distance from diagonal to use. In other words, distances up to maxDeph are computed." />
+        <param argument="--plotsize" type="text" optional="True" label="Plot size"
+            help="Width and height of the plot (in inches). Default is 6*number of cols, 4 * number of rows. The maximum number of rows is 4. Example --plotsize 6 5." />
         <param argument="--plotTitle" type="text" optional="true" label="Plot title"/>
-        <repeat name="chromosomeExclude" min="0" title="Chromosomes to exclude">
+        <repeat name="chromosomeExclude" min="0" title="Chromosomes to exclude"
+            help="This is useful for example to exclude the Y chromosome.">
             <param argument="--chromosomeExclude" type="text" value="" />
         </repeat>
 
@@ -42,8 +62,9 @@
             <output name="plotFile" file="hicPlotDistVsCounts_result1.png" ftype="png" compare="sim_size"/>
         </test>
         <test>
-            <param name="matrix" ftype="h5" value="small_test_matrix_50kb_res.h5"/>
+            <param name="matrix" ftype="h5" value="small_test_matrix_50kb_res.h5,small_test_matrix_50kb_res.h5"/>
             <param name="skipDiagonal" value="False"/>
+            <param name="perchr" value="True" />
             <param name="plotTitle" value="Excluded chrUextra"/>
             <repeat name="chromosomeExclude">
                 <param name="chromosomeExclude" value="chrUextra"/>
@@ -55,7 +76,10 @@
 
 **What it does**
 
-This program makes a distance vs. hi-c counts plot per chromosome.
+This program makes a distance vs. hi-c counts plots. It can use several matrix files to compare
+them. If the `--perchr` option is given, each chromosome is plotted independently. In the case
+of more than one matrix, multiple plots are created, one per chromosome. When plotting multiple
+matrices denser matrices are scaled down to match the sum of the smaller matrix.
 
 
 ]]></help>
