@@ -6,37 +6,34 @@
     </macros>
     <expand macro="requirements" />
     <command detect_errors="aggressive"><![CDATA[
-        #set matrices=[]
+        #import re
+        #set matrices_path=[]
         #set matrices_labels=[]
-        #for $counter, $m, in enumerate($matrix):
+        #for $counter, $m, in enumerate($matrices):
             #set identifier = re.sub('[^\s\w\-]', '_', str($m.element_identifier))
             ln -f -s '${m}' '${identifier}_${counter}.npz.h5' &&
-            #silent $matrices.append('%s_%s.npz.h5' % ($identifier, $counter))
-            #silent $matrices_label.append('%s' % ($identifier))
+            #silent $matrices_path.append("'%s_%s.npz.h5'" % ($identifier, $counter))
+            #silent $matrices_labels.append("'%s'" % ($identifier))
         #end for
 
         @BINARY@
-            --matrix #echo ' '.join($matrices)#
-            --lebels #echo ' '.join($matrices_labels)#
+            --matrices #echo " ".join($matrices_path)#
+            --labels #echo " ".join($matrices_labels)#
             $skipDiagonal
             --plotFile plot.png
-            #if $plotTitle and $plotTitle is not None:
-                --plotTitle '$plotTitle'
-            #end if
             #if $plotsize:
-            --plotsize $plotsize
+                --plotsize $plotsize
             #end if
             --maxdepth $maxdepth
             $perchr
-            ## special: --chromosomeExclude is optional, but if given needs at least one argument
-            #set chroms = '" "'.join([ str($var.chromosomeExclude) for $var in $chromosomeExclude ])
+            #set chroms = " ".join([ "'%s'" % $var.chromosomeExclude for $var in $chromosomeExclude ])
             #if $chromosomeExclude:
                 --chromosomeExclude $chroms
             #end if
 ]]>
     </command>
     <inputs>
-        <param argument="--matrix" type="data" format="h5" multiple="True" label="HiC normalized (corrected) matrices"/>
+        <param argument="--matrices" type="data" format="h5" multiple="True" label="HiC normalized (corrected) matrices"/>
 
         <param argument="--skipDiagonal" type="boolean" truevalue="--skipDiagonal" falsevalue="" label="Exclude diagonal counts" />
         <param argument="--perchr" type="boolean" truevalue="--perchr" falsevalue="" label="Generate plots per chromosome"
@@ -45,7 +42,6 @@
             help="Maximum distance from diagonal to use. In other words, distances up to maxDeph are computed." />
         <param argument="--plotsize" type="text" optional="True" label="Plot size"
             help="Width and height of the plot (in inches). Default is 6*number of cols, 4 * number of rows. The maximum number of rows is 4. Example --plotsize 6 5." />
-        <param argument="--plotTitle" type="text" optional="true" label="Plot title"/>
         <repeat name="chromosomeExclude" min="0" title="Chromosomes to exclude"
             help="This is useful for example to exclude the Y chromosome.">
             <param argument="--chromosomeExclude" type="text" value="" />
@@ -57,17 +53,22 @@
     </outputs>
     <tests>
         <test>
-            <param name="matrix" ftype="h5" value="small_test_matrix_50kb_res.h5"/>
+            <param name="matrices" ftype="h5" value="small_test_matrix_50kb_res.h5"/>
             <param name="skipDiagonal" value="False"/>
             <output name="plotFile" file="hicPlotDistVsCounts_result1.png" ftype="png" compare="sim_size"/>
         </test>
         <test>
-            <param name="matrix" ftype="h5" value="small_test_matrix_50kb_res.h5,small_test_matrix_50kb_res.h5"/>
+            <param name="matrices" ftype="h5" value="small_test_matrix_50kb_res.h5,small_test_matrix_50kb_res.h5"/>
             <param name="skipDiagonal" value="False"/>
             <param name="perchr" value="True" />
-            <param name="plotTitle" value="Excluded chrUextra"/>
             <repeat name="chromosomeExclude">
                 <param name="chromosomeExclude" value="chrUextra"/>
+            </repeat>
+            <repeat name="chromosomeExclude">
+                <param name="chromosomeExclude" value="chrM"/>
+            </repeat>
+            <repeat name="chromosomeExclude">
+                <param name="chromosomeExclude" value="chr3LHet"/>
             </repeat>
             <output name="plotFile" file="hicPlotDistVsCounts_result1.png" ftype="png" compare="sim_size"/>
         </test>
