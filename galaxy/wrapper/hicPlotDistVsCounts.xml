@@ -70,7 +70,7 @@
             <repeat name="chromosomeExclude">
                 <param name="chromosomeExclude" value="chr3LHet"/>
             </repeat>
-            <output name="plotFile" file="hicPlotDistVsCounts_result2.png" ftype="png" compare="sim_size"/>
+            <output name="plotFile" file="hicPlotDistVsCounts_result2.png" ftype="png" compare="sim_size" delta="15000"/>
         </test>
     </tests>
     <help><![CDATA[
