@@ -169,11 +169,11 @@ width = $track.spacer_width
             <param name="boundaries_file" type="data" optional="True" format="bed" label="Boundaries file"/>
             <param name="title" type="text" optional="true" label="Plot title"/>
             <expand macro="colormap" />
-            <param name="color" type="color" label="Track color" optional="True" />
+            <param name="color" type="color" value="#000000" label="Track color" optional="True" />
             <param name="min_value" type="float" value="" optional="True" label="Minimum value"/>
             <param name="max_value" type="float" value="" optional="True" label="Maximum value"/>
 
-            <param name="width" type="float" value="" optional="True" label="Width"/>
+            <param name="width" type="float" value="1.5" optional="True" label="Width"/>
 
             <param name="transform" type="select" optional="True" label="Plot the transformed value">
                 <option value="log1p">log1p</option>
@@ -215,7 +215,7 @@ width = $track.spacer_width
                 <option value="genes">Genes</option>
             </param>
 
-            <param name="depth" type="integer" value="" optional="True" label="Depth" />
+            <param name="depth" type="integer" value="8000000" optional="True" label="Depth" />
             <param name="number_of_bins" type="integer" value="" optional="True" label="Number of bins" />
 
             <param name="fontsize" type="integer" value="" optional="True" label="Fontsize" />
@@ -255,7 +255,7 @@ width = $track.spacer_width
                 <param name="depth" value="200000"/>
                 <param name="transform" value="log1p"/>
                 <param name="boundaries_file" value="domains.bed"/>
-                <param name="spacer_width" value="0.05"/>
+                <param name="spacer_width" value="0.5"/>
             </repeat>
             <repeat name="tracks">
                 <param name="track_input" value="tad_classification.bed" ftype="bed" />
