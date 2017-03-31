@@ -34,7 +34,7 @@
 #if $x_axis.fontsize:
 fontsize = $x_axis.fontsize
 #end if
-#if $x_axis.where:     
+#if $x_axis.where:
 where = $x_axis.where
 #end if
 #else:
@@ -58,6 +58,10 @@ colormap = $track.colormap
 color = $track.color
 #end if
 
+#if $track.border_color:
+color = $track.border_color
+#end if
+
 #if $track.depth:
 depth = $track.depth
 #end if
@@ -65,8 +69,6 @@ depth = $track.depth
 #if $track.display:
 display = $track.display
 #end if
-
-##color = black
 
 #if $track.width
 width = $track.width
@@ -170,6 +172,7 @@ width = $track.spacer_width
             <param name="title" type="text" optional="true" label="Plot title"/>
             <expand macro="colormap" />
             <param name="color" type="color" value="#000000" label="Track color" optional="True" />
+            <param name="border_color" type="color" value="#000000" label="Border color" optional="True" />
             <param name="min_value" type="float" value="" optional="True" label="Minimum value"/>
             <param name="max_value" type="float" value="" optional="True" label="Maximum value"/>
 
@@ -209,6 +212,7 @@ width = $track.spacer_width
 
             <param name="type" type="select" optional="True" label="Plotting type">
                 <option value="lines">Lines</option>
+                <option value="line">Line</option>
                 <option value="vlines">vertical dotted lines from the top to the bottom</option>
                 <option value="arcplot">arcplot</option>
                 <option value="interaction">interaction</option>
