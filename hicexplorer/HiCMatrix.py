@@ -453,6 +453,9 @@ class hiCMatrix:
         # check that the matrix has bins of same size
         # otherwise try to adjust the bins to
         # to match a regular binning
+        if len(cut_intervals) <= 1:
+            # do nothing if there is only one interval
+            return cut_intervals
         chrom, start, end, extra = zip(*cut_intervals)
 
         median = int(np.median(np.diff(start)))
