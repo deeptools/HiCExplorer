@@ -1174,7 +1174,8 @@ class PlotBed(TrackPlot):
         self.colormap = None
         # check if the color given is a color map
         color_options = [m for m in matplotlib.cm.datad]
-        if self.properties['color'] in color_options:
+        if self.properties['color'] in color_options and 'min_value' in self.properties and \
+                        'max_value' in self.properties:
             norm = matplotlib.colors.Normalize(vmin=self.properties['min_value'],
                                                vmax=self.properties['max_value'])
             cmap = matplotlib.cm.get_cmap(self.properties['color'])
