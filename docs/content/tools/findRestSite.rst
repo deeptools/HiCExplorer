@@ -1,4 +1,4 @@
-.. _findRestSites:
+.. _findRestSite:
 
 findRestSites
 =============

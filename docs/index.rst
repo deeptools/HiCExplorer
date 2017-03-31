@@ -16,7 +16,7 @@ The following is the list of tools available in HiCExplorer
 =============================== ===========================================================================================
 tool                            description
 =============================== ===========================================================================================
-:ref:`findRestSites`             Identifies the genomic locations of restriction sites
+:ref:`findRestSite`              Identifies the genomic locations of restriction sites
 :ref:`hicBuildMatrix`            Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
 :ref:`hicQC`                     Plots QC measures from the output of hicBuildMatrix
 :ref:`hicCorrectMatrix`          Uses iterative correction to remove biases from a Hi-C matrix

@@ -1,3 +1,5 @@
+.. _example_usage:
+
 Example usage
 =============
 
@@ -52,10 +54,10 @@ We have used the HiCExplorer sucessfuly with `bwa`, `bowtie2` and `hisat2`. Howe
    #       -L INT[,INT]  penalty for 5'- and 3'-end clipping [5,5] # this is set to no penalty.
 
    $ bwa mem -A1 -B4  -E50 -L0  index_path \
-       -U mate_R1.fastq.gz ) 2>>mate_R1.log | samtools view -Shb - > mate_R1.bam
+       -U mate_R1.fastq.gz 2>>mate_R1.log | samtools view -Shb - > mate_R1.bam
 
    $ bwa mem -A1 -B4  -E50 -L0  index_path \
-       -U mate_R2.fastq.gz ) 2>>mate_R2.log | samtools view -Shb - > mate_R2.bam
+       -U mate_R2.fastq.gz 2>>mate_R2.log | samtools view -Shb - > mate_R2.bam
 
 
 Creation of a Hi-C matrix
@@ -64,10 +66,12 @@ Creation of a Hi-C matrix
 Once the reads have been mapped the Hi-C matrix can be built. For this, the minimal
 extra information required is the `binSize` used for the matrix. Is it best
 to enter a low number like 10.000 because lower
-resolution matrices (larget bins) can be easily constructed using `hicMergeMatrixBins`. Matrices
+resolution matrices (larger bins) can be easily constructed using :ref:`hicMergeMatrixBins`. Matrices
 at restriction fragment resolution can be created by providing a file
-containing the restriction sites, this file can be created with the tool
-`findRestSite` that is part of HiCExplorer.
+containing the restriction sites, this file can be created with the tool :ref:`findRestSite`
+
+:ref:`findRestSite`
+that is part of HiCExplorer.
 
 .. code-block:: bash
 
@@ -100,7 +104,7 @@ Correction of Hi-C matrix
 The Hi-C matrix has to be corrected to remove GC, open chromatin biases and, most importantly,
 to normalize the number of restriction sites per bin. Because a fraction of bins from repetitive regions
 contain few contacts it is necessary to filter those regions first. Also, in mammalian genomes some regions
-enriched by reads should be discarded. To aid in the filtering of regions `hicCorrectMatrix` generates a
+enriched by reads should be discarded. To aid in the filtering of regions :ref:`hicCorrectMatrix` generates a
 diagnostic plot as follows:
 
 .. code-block:: bash
@@ -134,8 +138,8 @@ Once the thresholds have been decided, the matrix can be corrected
 Visualization of results
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-There are two ways to see the resulting matrix, one using `hicPlotMatrix` and the
-other is using `hicPlotTADs`. The first one allows the visualization over large regions
+There are two ways to see the resulting matrix, one using :ref:`hicPlotMatrix` and the
+other is using :ref:`hicPlotTADs`. The first one allows the visualization over large regions
 while the second one is preferred to see specific parts together with other information,
 for example genes or bigwig tracks.
 
