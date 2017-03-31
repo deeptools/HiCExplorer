@@ -216,7 +216,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
         mat_size = submatrix.shape[0]
         # compute mean value for each distance
         mu = {}
-
+        zero_value_bins = []
         for bin_dist_plus_one, sum_value in enumerate(sum_counts):
             if maxdepth and bin_dist_plus_one == 0:  # this is for intra chromosomal counts
                 # when max depth is set, the computation
@@ -261,8 +261,15 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
             else:
                 mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
                 if sum_value == 0:
+                    zero_value_bins.append(bin_dist_plus_one)
                     sys.stderr.write("zero value for {}, diagonal len: {}\n".format(bin_dist_plus_one, diagonal_length))
-
+                if len(zero_value_bins) > 10:
+                    diff = np.diff(zero_value_bins)
+                    if len(diff[diff == 1]) > 10:
+                        # if too many consecutive bins with zero are found that means that probably no
+                        # further counts will be found
+                        sys.stderr.write("skipping rest of chromosome {}. Too many emtpy diagonals\n".format(chrname))
+                        break
             if np.isnan(sum_value):
                 sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
 
@@ -291,6 +298,7 @@ def main(args=None):
     else:
         labels = OrderedDict(zip(args.matrices, args.labels))
 
+    chroms = set()
     for matrix_file in args.matrices:
         hic_ma = HiCMatrix.hiCMatrix(matrix_file)
         matrix_sum[matrix_file] = hic_ma.matrix.sum()
@@ -301,7 +309,7 @@ def main(args=None):
         hic_ma.keepOnlyTheseChr(chrtokeep)
 
         mean_dict[matrix_file] = compute_distance_mean(hic_ma, maxdepth=args.maxdepth, perchr=args.perchr)
-        chroms = mean_dict[matrix_file].keys()
+        chroms = chroms.union([k for k in mean_dict[matrix_file].keys() if len(mean_dict[matrix_file][k]) > 1])
 
     # compute scale factors such that values are comparable
     min_sum = min(matrix_sum.values())
@@ -328,13 +336,19 @@ def main(args=None):
     for matrix_file in args.matrices:
         idx = 0
         for chrom, mean_values in mean_dict[matrix_file].iteritems():
-            # compute x and y values from the dict
+            if len(mean_values) <= 1:
+                sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
+                continue
             x, y = zip(*[(k, v) for k, v in mean_values.iteritems() if v > 0])
             if len(x) <= 1:
                 sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
-            col = idx % num_cols
-            row = int(idx / num_cols)
+            if args.perchr and len(args.matrices) == 1:
+                col = 0
+                row = 0
+            else:
+                col = idx % num_cols
+                row = idx // num_cols
             if axs[row, col] is None:
                 ax = plt.subplot2grid((num_rows, num_cols), (row, col))
                 ax.set_xlabel('genomic distance')
