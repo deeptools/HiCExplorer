@@ -78,18 +78,21 @@ containing the restriction sites, this file can be created with the tool
                     --binSize 10000 \
                     --restrictionSequence GATC \
                     --outBam hic.bam \
-                    -o hic_matrix.npz > build_matrix.log
+                    -o hic_matrix.npz
+                    --QCfolder ./hicQC
 
 
 `hicBuildMatrix` creates two files, a bam file containing only the valid Hi-C read pairs and a matrix containing the
 Hi-C contacts at the given resolution. The bam file is useful to check the quality of the
 Hi-C library on the genome browser. A good Hi-C library should contain piles of reads near
-the restriction fragment sites. The log output contains the number of valid pairs, duplicated pairs and
-other useful information. Usually, only 25%-40% of the reads are valid and used to build the Hi-C matrix mostly
+the restriction fragment sites. In the `QCfolder` a html file is saved with plots containing
+useful information for the quality control of the Hi-C sample like the number of valid pairs, duplicated pairs,
+self-ligations etc. Usually, only 25%-40% of the reads are valid and used to build the Hi-C matrix mostly
 because of the reads that are on repetitive regions that need to be discarded.
 
 An important quality control measurement to check is the `inter chromosomal` fraction of reads as this is an indirect
- measure of random Hi-C contacts. Good Hi-C libraries have lower than 10%  inter chromosomal contacts.
+measure of random Hi-C contacts. Good Hi-C libraries have lower than 10%  inter chromosomal contacts. The `hicQC`
+module can be used to compare the QC measures from different samples.
 
 Correction of Hi-C matrix
 ^^^^^^^^^^^^^^^^^^^^^^^^^
