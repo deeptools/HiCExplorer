@@ -453,6 +453,9 @@ class hiCMatrix:
         # check that the matrix has bins of same size
         # otherwise try to adjust the bins to
         # to match a regular binning
+        if len(cut_intervals) <= 1:
+            # do nothing if there is only one interval
+            return cut_intervals
         chrom, start, end, extra = zip(*cut_intervals)
 
         median = int(np.median(np.diff(start)))
@@ -1086,13 +1089,16 @@ class hiCMatrix:
         # save only the upper triangle of the
         # symmetric matrix
         matrix = triu(self.matrix, k=0, format='csr')
+        filters = tables.Filters(complevel=5, complib='blosc')
         with tables.open_file(filename, mode="w", title="HiCExplorer matrix") as h5file:
             matrix_group = h5file.create_group("/", "matrix", )
             # save the parts of the csr matrix
             for matrix_part in ('data', 'indices', 'indptr', 'shape'):
                 arr = np.array(getattr(matrix, matrix_part))
                 atom = tables.Atom.from_dtype(arr.dtype)
-                ds = h5file.create_carray(matrix_group, matrix_part, atom, arr.shape)
+                ds = h5file.create_carray(matrix_group, matrix_part, atom,
+                                          shape=arr.shape,
+                                          filters=filters)
                 ds[:] = arr
 
             # save the matrix intervals
@@ -1101,13 +1107,17 @@ class hiCMatrix:
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
                 arr = np.array(eval(interval_part))
                 atom = tables.Atom.from_dtype(arr.dtype)
-                ds = h5file.create_carray(intervals_group, interval_part, atom, arr.shape)
+                ds = h5file.create_carray(intervals_group, interval_part, atom,
+                                          shape=arr.shape,
+                                          filters=filters)
                 ds[:] = arr
 
             # save nan bins
             if len(nan_bins):
                 atom = tables.Atom.from_dtype(nan_bins.dtype)
-                ds = h5file.create_carray(h5file.root, 'nan_bins', atom, nan_bins.shape)
+                ds = h5file.create_carray(h5file.root, 'nan_bins', atom,
+                                          shape=nan_bins.shape,
+                                          filters=filters)
                 ds[:] = nan_bins
 
             # save corrections factors
@@ -1115,14 +1125,16 @@ class hiCMatrix:
                 self.correction_factors = np.array(self.correction_factors)
                 atom = tables.Atom.from_dtype(self.correction_factors.dtype)
                 ds = h5file.create_carray(h5file.root, 'correction_factors', atom,
-                                          self.correction_factors.shape)
+                                          shape=self.correction_factors.shape,
+                                          filters=filters)
                 ds[:] = np.array(self.correction_factors)
 
             # save distance counts
             if self.distance_counts is not None and len(self.distance_counts):
                 atom = tables.Atom.from_dtype(self.distance_counts.dtype)
                 ds = h5file.create_carray(h5file.root, 'distance_counts', atom,
-                                          self.distance_counts.shape)
+                                          shape=self.distance_counts.shape,
+                                          filters=filters)
                 ds[:] = np.array(self.distance_counts)
 
     def save_npz(self, filename):
