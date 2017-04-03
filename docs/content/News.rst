@@ -1,6 +1,18 @@
 News and Developments
 =====================
 
+Release 1.7.2
+-----------
+**April 3, 2017**
+
+ * Added option to plot bigwig files as a line hicPlotTADs
+ * Updated documentation
+ * Improved hicPlotMatrix --region output
+ * Added compressed matrices. In our tests the compressed matrices are significantly smaller.
+
+
+**March 28, 2017**
+
 Release 1.7
 -----------
 
