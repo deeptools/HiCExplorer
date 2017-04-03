@@ -113,10 +113,7 @@ setup(
     long_description=open('README.rst').read(),
     classifiers=[
         'Intended Audience :: Science/Research',
-        'Topic :: Scientific/Engineering :: Bioinformatics',
-        'Topic :: Scientific/Engineering :: Genomics',
-        'Topic :: Scientific/Engineering :: Chromosome-conformation-capture',
-        'Topic :: Scientific/Engineering :: Genome architecture'],
+        'Topic :: Scientific/Engineering :: Bio-Informatics'],
     install_requires=[
         "numpy >= 1.10.4",
         "scipy >= 0.17.1",

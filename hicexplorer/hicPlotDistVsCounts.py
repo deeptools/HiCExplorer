@@ -291,7 +291,6 @@ def main(args=None):
 
     args = parse_arguments().parse_args(args)
     mean_dict = OrderedDict()
-    chroms = []
     matrix_sum = {}
     if args.labels is None:
         labels = OrderedDict([(x, os.path.basename(x)) for x in args.matrices])

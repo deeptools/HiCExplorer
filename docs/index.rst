@@ -23,7 +23,7 @@ tool                            description
 :ref:`hicFindEnrichedContacts`   Identifies enriched Hi-C contacts
 :ref:`hicCorrelate`              Computes and visualises the correlation of Hi-C matrices
 :ref:`hicFindTADs`               Identifies Topologically Associating Domains (TADs)
-:ref:`hicMergeMatrixBins`        Merges consecutives bins on a Hi-C matrix to reduce resolution
+:ref:`hicMergeMatrixBins`        Merges consecutive bins on a Hi-C matrix to reduce resolution
 :ref:`hicPlotDistVsCounts`       Plot the decay in interaction frequency with distance
 :ref:`hicPlotMatrix`             Plots a Hi-C matrix as a heatmap
 :ref:`hicPlotTADs`               Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
