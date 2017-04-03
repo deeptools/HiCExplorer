@@ -1,14 +1,11 @@
 import argparse
 import sys
 import numpy as np
-from scipy.sparse import coo_matrix, dia_matrix, dok_matrix, csr_matrix
+from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
 import time
 from os import unlink
 import os
-# from fs.memoryfs import MemoryFS
 
-# fs.memoryfs.MemoryFS
-from itertools import izip
 import pysam
 # bx python
 from intervaltree import IntervalTree, Interval
@@ -19,15 +16,9 @@ from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 
 
-import collections  # for the buffer
-# import time  # to ease polling
-# import threading
+# import collections  # for the buffer
 import multiprocessing
-from multiprocessing import Lock
-from multiprocessing.sharedctypes import Array
-from ctypes import Structure, c_int, c_bool
 
-# from pyhashxx import hashxx
 debug = 1
 from multiprocessing.managers import SyncManager
 
@@ -669,6 +660,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
 
     coverage = []
     binsize = 10
+    if pOutputBamSet:
+        out_bam = pysam.Samfile(pOutputName, 'wb', template=pTemplate)
 
     for value in pBinIntervals:
         chrom, start, end = value
@@ -880,7 +873,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
 
         pair_added += 1
         if pOutputBamSet:
-            out_bam = pysam.Samfile(pOutputName, 'wb', template=pTemplate)
+            # out_bam = pysam.Samfile(pOutputName, 'wb', template=pTemplate)
             # prepare data for bam output
             # set the flag to point that this data is paired
             mate1.flag |= 0x1
@@ -900,7 +893,6 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
             mate2.mpos = mate1.pos
             out_bam.write(mate1)
             out_bam.write(mate2)
-            out_bam.close()
 
     if hic_matrix is None:
         hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
@@ -909,6 +901,9 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
     row = []
     col = []
     data = []
+    if pOutputBamSet:
+        out_bam.close()
+
     pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                                 mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
                                 count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex],
@@ -1026,8 +1021,8 @@ def main(args=None):
     pair_added = 0
 
     # input buffer for bam files
-    buffer_workers1 = [collections.deque()] * args.threads
-    buffer_workers2 = [collections.deque()] * args.threads
+    buffer_workers1 = [None] * args.threads
+    buffer_workers2 = [None] * args.threads
 
     # output buffer to write bam with mate1 and mate2 pairs
     process = [None] * args.threads
@@ -1137,8 +1132,6 @@ def main(args=None):
                 if not thread:
                     all_threads_done = False
 
-        # for result_buffer in buffer_workers_out:
-        #     write_output_bam(out_bam, result_buffer)
 
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
