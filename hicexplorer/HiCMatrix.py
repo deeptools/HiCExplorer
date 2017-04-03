@@ -709,9 +709,13 @@ class hiCMatrix:
                 if depth is not None and dist_list[idx] > depth + 1:
                     continue
                 if zscore:
-                    transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
+                    if std[dist_list[idx]] == 0:
+                        transf_ma[idx] = np.nan
+                    else:
+                        transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
                 else:
                     transf_ma[idx] = value / mu[dist_list[idx]]
+
             submatrix.data = transf_ma
             trasf_matrix[chrom_range[chrname][0]:chrom_range[chrname][1], chrom_range[chrname][0]:chrom_range[chrname][1]] = submatrix.tolil()
 
