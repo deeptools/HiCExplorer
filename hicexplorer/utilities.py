@@ -72,7 +72,7 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
                      'log-norm': _lognormPvalue,
                      'chi-squared': _chi2Pvalue}
 
-    counts_by_distance, cut_intervals = hicma.getCountsByDistance(per_chr=per_chr, depth_in_bins=depth_in_bins)
+    counts_by_distance, cut_intervals = hicma.getCountsByDistance(per_chr=per_chr)
     if method in ['nbinom-p-value', 'nbinom-expected', 'nbinom-est-dist']:
         size, prob = fitNegBinom_Rserve(counts_by_distance, per_chr=per_chr,
                                         plot_distribution=True)
