@@ -5,7 +5,7 @@ from scipy.sparse import coo_matrix, dia_matrix, dok_matrix, csr_matrix
 import time
 from os import unlink
 import os
-from fs.memoryfs import MemoryFS
+# from fs.memoryfs import MemoryFS
 
 # fs.memoryfs.MemoryFS
 from itertools import izip
@@ -27,7 +27,7 @@ from multiprocessing import Lock
 from multiprocessing.sharedctypes import Array
 from ctypes import Structure, c_int, c_bool
 
-from pyhashxx import hashxx
+# from pyhashxx import hashxx
 debug = 1
 from multiprocessing.managers import SyncManager
 
@@ -40,7 +40,7 @@ BaseSetProxy = MakeProxyType('BaseSetProxy', [
     'difference_update', 'discard', 'intersection', 'intersection_update', 'isdisjoint',
     'issubset', 'issuperset', 'pop', 'remove', 'symmetric_difference',
     'symmetric_difference_update', 'union', 'update']
-    )
+)
 
 
 class SetProxy(BaseSetProxy):
@@ -48,20 +48,18 @@ class SetProxy(BaseSetProxy):
     def __iand__(self, value):
         self._callmethod('__iand__', (value,))
         return self
+
     def __ior__(self, value):
         self._callmethod('__ior__', (value,))
         return self
+
     def __isub__(self, value):
         self._callmethod('__isub__', (value,))
         return self
+
     def __ixor__(self, value):
         self._callmethod('__ixor__', (value,))
         return self
-
-
-
-
-
 
 
 # class Duplicate(Structure):
@@ -92,152 +90,50 @@ class ReadPositionMatrix(object):
         >>> rp.is_duplicated('1', 0, '2', 0)
         True
         """
-        # determine number of bins
-        # total_size = 0
-        # m = multiprocessing.Manager()
-        # m.
-        # self.chr_start_pos = pManager.dict()
-        # for chrom, size in chrom_sizes:
-        #     self.chr_start_pos[chrom] = total_size
-        #     total_size += size
 
         self.pos_matrix = pManager.set()
-        # self.pos_matrix = dok_matrix((total_size, total_size), dtype=bool)
-        # print self.pos_matrix
 
     def is_duplicated(self, chrom1, start1, chrom2, start2):
-       
-        # pos1 = hashxx(chrom1, seed=start1)
-        # pos2 = hashxx(chrom2, seed=start2)
-        
-        # chrom = chrom1 if chrom1 < chrom2 else chrom2
-        # pos = start1 if start1 < start2 else start2
-        # pos3 = hashxx(int(pos1))
-        # pos4 = hashxx(int(pos2))
-        # pos = pos1 + pos2
-        # pos = hashxx(), seed=)
-        # hash(start1)
-        # hash(start2)
+
         id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
-        # chrom1 + str(start1) + '-' + str(chrom2) + str(start2)
         if id_string in self.pos_matrix:
             return True
         else:
             self.pos_matrix.add(id_string)
             self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
-            # self.pos_matrix.add(hash(pos2) + pos1)
-            
-            # self.pos_matrix.add(hashxx(hashxx(chrom2, seed=start2), seed=hashxx(chrom1, seed=start1)))
-            
-        # pos1 = self.pos2matrix_bin(chrom1, start1)
-        # pos2 = self.pos2matrix_bin(chrom2, start2)
-
-        # if str(pos1) + '-' + str(pos2) in self.pos_matrix:
-        #     return True
-        # else:
-        #     self.pos_matrix[str(pos1) + '-' + str(pos2)] = True
-        #     self.pos_matrix[str(pos2) + '-' + str(pos1)] = True
-        #     return False
 
     def pos2matrix_bin(self, chrom, start):
         return self.chr_start_pos[chrom] + start
 
     def add_matrix(self, pReadPosMatrix):
         self.pos_matrix += pReadPosMatrix.pos_matrix
-    # def to_coo(self):
-    #     self.pos_matrix = self.pos_matrix.tocoo()
-    # def to_dok(self):
-    #     self.pos_matrix = self.pos_matrix.todok()
-
-
-# class ReadPositionMatrix(object):
-#     """ class to check for PCR duplicates.
-#     A sparse matrix having as bins all possible
-#     start sites (single bp resolution)
-#     is created. PCR duplicates
-#     are determined by checking if the matrix
-#     cell is already filled.
-
-#     """
-
-#     def __init__(self, chrom_sizes):
-#         """
-#         >>> rp = ReadPositionMatrix([('1', 10), ('2', 10)])
-#         >>> rp.pos2matrix_bin('1', 0)
-#         0
-#         >>> rp.pos2matrix_bin('2', 0)
-#         10
-#         >>> rp.is_duplicated('1', 0, '2', 0)
-#         False
-#         >>> rp.pos_matrix[0,10]
-#         True
-#         >>> rp.pos_matrix[10,0]
-#         True
-#         >>> rp.is_duplicated('1', 0, '2', 0)
-#         True
-#         """
-#         # determine number of bins
-#         total_size = 0
-
-#         self.chr_start_pos = {}
-#         for chrom, size in chrom_sizes:
-#             self.chr_start_pos[chrom] = total_size
-#             total_size += size
-
-#         # self.pos_matrix = pManager.dict()
-#         self.pos_matrix = dok_matrix((total_size, total_size), dtype=bool)
-#         # print self.pos_matrix
-
-#     def is_duplicated(self, chrom1, start1, chrom2, start2):
-#         pos1 = self.pos2matrix_bin(chrom1, start1)
-#         pos2 = self.pos2matrix_bin(chrom2, start2)
-
-#         if self.pos_matrix[pos1, pos2]:
-#             return True
-#         else:
-#             self.pos_matrix[pos1, pos2] = True
-#             self.pos_matrix[pos2, pos1] = True
-#             return False
-
-#     def pos2matrix_bin(self, chrom, start):
-#         return self.chr_start_pos[chrom] + start
-
-#     def add_matrix(self, pReadPosMatrix):
-#         self.pos_matrix += pReadPosMatrix.pos_matrix
-
-#     def init_matrix_shared(self, pData, pIndices, pIndptr, pShape):
-#         self.pos_matrix = dok_matrix((pData, pIndices, pIndptr), shape=pShape, copy=False)
-#     def get_arrays(self):
-#         return self.pos_matrix.data, self.pos_matrix.indices, self.pos_matrix.indptr
-#     # def to_dok(self):
-#     #     self.pos_matrix = self.pos_matrix.todok()
 
 
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
-        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
-        description = ('Using an alignment from Bowtie2 where both '
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=('Using an alignment from Bowtie2 where both '
                      'PE reads are mapped using  the --local '
                      'option, this program reads such file and '
                      'creates a matrix of interactions.'))
 
     # define the arguments
     parser.add_argument('--samFiles', '-s',
-                        help = 'The two sam files to process',
-                        metavar = 'two sam files',
-                        nargs = 2,
-                        type = argparse.FileType('r'),
-                        required = True)
+                        help='The two sam files to process',
+                        metavar='two sam files',
+                        nargs=2,
+                        type=argparse.FileType('r'),
+                        required=True)
 
     # define the arguments
     parser.add_argument('--outBam', '-b',
-                        help = 'Bam file to process',
-                        metavar = 'bam file',
-                        type = argparse.FileType('w'),
-                        required = True)
+                        help='Bam file to process. Optional parameter. Computation will be significant longer if this option is set.',
+                        metavar='bam file',
+                        type=argparse.FileType('w'),
+                        required=False)
 
-    group=parser.add_mutually_exclusive_group(required = True)
+    group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument('--binSize', '-bs',
                        help='Size in bp for the bins.',
@@ -679,63 +575,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
     iter_num = 0
     all_data_read = False
     j = 0
-    # print pFileOneIterator
-    # print pFileTwoIterator
-    # for mate1, mate2 in izip(pFileOneIterator, pFileTwoIterator):
-    #     if iter_num >= pNumberOfItemsPerBuffer:
-    #         break
-    #     # if mate1.flag & 256 == 256:
-    #     #     for mate1 in pFileOneIterator:
-    #     #         if not (mate1.flag & 256 == 256):
-    #     #             break
-    #     # if mate2.flag & 256 == 256:
-    #     #     for mate2 in pFileTwoIterator:
-    #     #         if not (mate2.flag & 256 == 256):
-    #     #             break
 
-    #     while mate1.flag & 256 == 256:
-    #         try:
-    #             mate1 = pFileOneIterator.next()
-    #         except StopIteration:
-    #             # pTerminateSignal.set()
-    #             all_data_read = True
-    #             print "all_data_processed: ", all_data_read
-    #             break
-    #     while mate2.flag & 256 == 256:
-    #         try:
-    #             mate2 = pFileTwoIterator.next()
-    #         except StopIteration:
-    #             # pTerminateSignal.set()
-    #             all_data_read = True
-    #             print "all_data_processed: ", all_data_read
-    #             break
-    #     assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
-    #         "Be sure that the sam files have the same read order " \
-    #         "If using Bowtie2 or Hisat2 add " \
-    #         "the --reorder option".format(mate1.qname, mate2.qname)
-
-    #     # check for supplementary alignments
-    #     # (needs to be done before skipping any unmapped reads
-    #     # to keep the order of the two bam files in sync)
-    #     mate1_supplementary_list = get_supplementary_alignment(mate1, pFileOneIterator)
-    #     mate2_supplementary_list = get_supplementary_alignment(mate2, pFileTwoIterator)
-
-    #     if mate1_supplementary_list:
-    #         mate1 = get_correct_map(mate1, mate1_supplementary_list)
-
-    #     if mate2_supplementary_list:
-    #         mate2 = get_correct_map(mate2, mate2_supplementary_list)
-
-    #     buffer_mate1.append(mate1)
-    #     buffer_mate2.append(mate2)
-    #     iter_num += 1
-    # print "iter_num: ", iter_num
-    # print "pNumberOfItemsPerBuffer: ", pNumberOfItemsPerBuffer
-    # if iter_num < pNumberOfItemsPerBuffer and len(buffer_mate1) != 0:
-    #     return buffer_mate1, buffer_mate2, True, iter_num
-    # if iter_num == 0:
-    #     return None, None, True, 0
-    # return buffer_mate1, buffer_mate2, False, iter_num
     while j < pNumberOfItemsPerBuffer:
         iter_num += 1
         try:
@@ -796,14 +636,9 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
-                #  pRfPositions, pBinIntvalTree, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex, pBinIntervals,
-                 pQueueOut, pTemplate, pOutputName):
+                 pQueueOut, pTemplate, pOutputBamSet, pOutputName):
 
-                 
-                 #, p
-                #  ReadPosMatrixData, pReadPosMatrixIndices, pReadPosMatrixIndptr, pShape):
-    # pReadPosMatrix = 
     bufferOutputBam = []
     one_mate_unmapped = 0
     one_mate_low_quality = 0
@@ -831,19 +666,12 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
 
     iter_num = 0
     hic_matrix = None
-    # mem_fs = MemoryFS()
-    # output_bam_memory = mem_fs.createfile(pOutputName)
-    # out_bam = pysam.Samfile(output_bam_memory, 'wb', template=pTemplate)
 
     coverage = []
     binsize = 10
-    # print len(pBinIntervals)
-    # out_bam_buffer = []
-    # print pBinIntvalTree
+
     for value in pBinIntervals:
         chrom, start, end = value
-        # print value
-        # coverage[i] = np.zeros((end - start) / binsize, dtype='uint16')
         coverage.append(np.zeros((end - start) / binsize, dtype='uint16'))
     if pMateBuffer1 is None or pMateBuffer2 is None:
 
@@ -1006,10 +834,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
                     continue
 
                 self_ligation += 1
-                # print "pRemoveSelfLigation: ", pRemoveSelfLigation
 
                 if pRemoveSelfLigation:
-                    # print "foo"
                     # skip self ligations
                     continue
 
@@ -1053,43 +879,28 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
         data.append(1)
 
         pair_added += 1
+        if pOutputBamSet:
+            out_bam = pysam.Samfile(pOutputName, 'wb', template=pTemplate)
+            # prepare data for bam output
+            # set the flag to point that this data is paired
+            mate1.flag |= 0x1
+            mate2.flag |= 0x1
 
-        # prepare data for bam output
-        # set the flag to point that this data is paired
-        mate1.flag |= 0x1
-        mate2.flag |= 0x1
+            # set one read as the first in pair and the
+            # other as second
+            mate1.flag |= 0x40
+            mate2.flag |= 0x80
 
-        # set one read as the first in pair and the
-        # other as second
-        mate1.flag |= 0x40
-        mate2.flag |= 0x80
+            # set chrom of mate
+            mate1.mrnm = mate2.rname
+            mate2.mrnm = mate1.rname
 
-        # set chrom of mate
-        mate1.mrnm = mate2.rname
-        mate2.mrnm = mate1.rname
-
-        # set position of mate
-        mate1.mpos = mate2.pos
-        mate2.mpos = mate1.pos
-        # out_bam.write(mate1)
-        # out_bam.write(mate2)
-
-        # import copy
-        # bufferOutputBam.append(mate1)
-        # bufferOutputBam.append(mate2)
-
-        # if iter_num % 5e6 == 0:
-        #     # every 5 million iterations append to the matrix
-        #     # otherwise the row, col and data vectors continue growing and
-        #     # for a large dataset the system could run out of memory
-        #     if hic_matrix is None:
-        #         hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
-        #     else:
-        #         hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
-        #     row = []
-        #     col = []
-        #     data = []
-        # iter_num += 1
+            # set position of mate
+            mate1.mpos = mate2.pos
+            mate2.mpos = mate1.pos
+            out_bam.write(mate1)
+            out_bam.write(mate2)
+            out_bam.close()
 
     if hic_matrix is None:
         hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
@@ -1098,41 +909,11 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
     row = []
     col = []
     data = []
-    print "Process x: ", pResultIndex, " DONE!"
-    # print(bufferOutputBam.pop().flag)
-    # pTerminateOutput.set()
-    # pLock.acquire()
-    # pReadPosMatrix.to_coo()
     pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                                 mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
                                 count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex],
                    coverage])
-    # out_bam.close()
-    # pLock.release()
     return
-
-
-def write_output_bam(pOutputBamName, pBufferOutBam, pTemplate):
-    print "write output bam"
-    # print "pBufferOutBam", pBufferOutBam
-    # for i, buffer in enumerate(pBufferOutBam):
-    # print buffer
-    # print "buffer x: ", i
-    # print "type buffer:", type(pBufferOutBam)
-    # print "type file: ", type(pOutputBam)
-    out_bam = pysam.Samfile(pOutputBamName, 'wb', template=pTemplate)
-    while pBufferOutBam:
-        try:
-            data = pBufferOutBam.pop()  # pop from RIGHT end of buffer
-        except IndexError:
-            break
-        print "typedata: ", type(data)
-        print(data.flag)
-        # print "write data"
-        # out_bam.write(data)
-        # print "wrote data"
-    pBufferOutBam.clear()
-    out_bam.close()
 
 
 def main(args=None):
@@ -1164,21 +945,21 @@ def main(args=None):
 
     args.samFiles[0].close()
     args.samFiles[1].close()
-    args.outBam.close()
 
-    # lock = threading.Lock()
-    out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
+    if args.outBam:
+        args.outBam.close()
+        out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
     manager = SyncManager()
     manager.start()
     SyncManager.register('set', set, SetProxy)
-    
+
     lock = multiprocessing.Lock()
 
     chrom_sizes = get_chrom_sizes(str1)
     # print chrom_sizes
     # initialize read start positions matrix
     manager_multiprocessing = multiprocessing.Manager()
-    read_pos_matrix = ReadPositionMatrix( manager_multiprocessing)
+    read_pos_matrix = ReadPositionMatrix(manager_multiprocessing)
     # read_pos_matrix_data, read_pos_matrix_indices, read_pos_matrix_indptr = read_pos_matrix.get_arrays()
     # read_pos_matrix.to_coo()
     # print "read_pos_matrix: ", read_pos_matrix.pos_matrix
@@ -1258,8 +1039,6 @@ def main(args=None):
     count_output = 0
     count_call_of_read_input = 0
     computed_pairs = 0
-    out_bam_in_memory = []
-    print "args.removeSelfLigation: ", args.removeSelfLigation
     while not all_data_processed or not all_threads_done:
         # out_q = multiprocessing.Queue()
 
@@ -1270,7 +1049,6 @@ def main(args=None):
                 buffer_workers1[i], buffer_workers2[i], all_data_processed, iter_num_ = readBamFiles(pFileOneIterator=str1,
                                                                                                      pFileTwoIterator=str2,
                                                                                                      pNumberOfItemsPerBuffer=args.inputBufferSize)
-                # iter_num += iter_num_
                 queue[i] = multiprocessing.Queue()
                 thread_done[i] = False
                 computed_pairs += len(buffer_workers1[i])
@@ -1295,25 +1073,21 @@ def main(args=None):
                     pBinIntervals=bin_intervals,
                     pQueueOut=queue[i],
                     pTemplate=str1,
+                    pOutputBamSet=args.outBam,
                     pOutputName=str(count_output) + '.bam'
                 ))
                 process[i].start()
-                print "Start thread: ", i
                 count_output += 1
 
             elif queue[i] is not None and not queue[i].empty():
                 result = queue[i].get()
 
-                print "Get result from process: ", i
                 if result[0] is not None:
                     if hic_matrix is None:
                         hic_matrix = result[0]  # hicmatrix
                     else:
                         hic_matrix += result[0]
 
-                    # one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-                    # mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
-                    # count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex
                     one_mate_unmapped += result[1][0]
                     one_mate_low_quality += result[1][1]
                     one_mate_not_unique += result[1][2]
@@ -1338,38 +1112,30 @@ def main(args=None):
                     if result[2] is not None:
                         coverage = np.add(coverage, result[2])
 
-                    # out_bam_in_memory.append(result[3])
-                    # read_pos_matrix.add_matrix(result[4])
-                # if result[3] is not None:
-                    # print type(result[3][0])
-                    # print result[3][0].flag
-
-                # buffer_workers1[i] = []
-                # buffer_workers2[i] = []
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
                 process[i] = None
                 thread_done[i] = True
-                print "Get result from process: ", i, " DONE!"
+
+                if iter_num % 1e6 == 0:
+                    elapsed_time = time.time() - start_time
+                    sys.stderr.write("processing {} lines took {:.2f} "
+                                     "secs ({:.1f} lines per "
+                                     "second)\n".format(iter_num,
+                                                        elapsed_time,
+                                                        iter_num / elapsed_time))
+                    sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
+                                     "\n".format(pair_added, float(100 * pair_added) / iter_num))
+                if args.doTestRun and iter_num > 1e5:
+                    sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
+                    break
+
         if all_data_processed:
             all_threads_done = True
             for thread in thread_done:
                 if not thread:
                     all_threads_done = False
-
-        # if iter_num % 1e6 == 0:
-        #     elapsed_time = time.time() - start_time
-        #     sys.stderr.write("processing {} lines took {:.2f} "
-        #                      "secs ({:.1f} lines per "
-        #                      "second)\n".format(iter_num,
-        #                                         elapsed_time,
-        #                                         iter_num / elapsed_time))
-        #     sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
-        #                      "\n".format(pair_added, float(100 * pair_added) / iter_num))
-        # if args.doTestRun and iter_num > 1e5:
-        #     sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
-        #     break
 
         # for result_buffer in buffer_workers_out:
         #     write_output_bam(out_bam, result_buffer)
@@ -1379,24 +1145,19 @@ def main(args=None):
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
-    print "iter_num: ", iter_num
-    print "computed_pairs: ", computed_pairs
     dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
     hic_matrix = hic_matrix + hic_matrix.T - dia
     # extend bins such that they are next to each other
     bin_intervals = enlarge_bins(bin_intervals[:], chrom_sizes)
-    print "count_call_of_read_input: ", count_call_of_read_input
     # compute max bin coverage
     bin_max = []
 
     for cov in coverage:
-        # bin_coverage.append(round(float(len(cov[cov > 0])) / len(cov), 3))
         if len(cov) == 0:
             bin_max.append(np.nan)
         else:
             bin_max.append(max(cov))
 
-    # print "max coverage value: ", max(bin_max)
     chr_name_list, start_list, end_list = zip(*bin_intervals)
     bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
     hic_ma = hm.hiCMatrix()
@@ -1408,18 +1169,18 @@ def main(args=None):
     unlink(args.outFileName.name)
 
     hic_ma.save(args.outFileName.name)
-    # for memory_file in out_bam_in_memory:
-    #     out_put_threads = pysam.Samfile(memory_file, 'rb')
-    #     while True:
-    #         try:
-    #             data = out_put_threads.next()
-    #         except StopIteration:
-    #             break
-    #         out_bam.write(data)
-    #     out_put_threads.close()
-    #     # os.remove(str(i) + '.bam')
-    #     memory_file.
-    # out_bam.close()
+    if args.outBam:
+        for i in xrange(count_output):
+            out_put_threads = pysam.Samfile(str(i) + '.bam', 'rb')
+            while True:
+                try:
+                    data = out_put_threads.next()
+                except StopIteration:
+                    break
+                out_bam.write(data)
+            out_put_threads.close()
+            os.remove(str(i) + '.bam')
+        out_bam.close()
 
     """
     if args.restrictionCutFile:
