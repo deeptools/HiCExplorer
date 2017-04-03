@@ -24,7 +24,7 @@ def parse_arguments(args=None):
     parser.add_argument(
         '--method',
         help='Method to transform the matrix values',
-        choices=['z-score',  'obs/exp'],
+        choices=['z-score', 'obs/exp'],
         required=True)
 
     parser.add_argument(
