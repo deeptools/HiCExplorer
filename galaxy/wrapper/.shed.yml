@@ -22,7 +22,7 @@ remote_repository_url: https://github.com/maxplanck-ie/HiCExplorer/tree/master/g
 type: unrestricted
 auto_tool_repositories:
   name_template: "{{ tool_id }}"
-  description_template: "Wrapper for the deepTools: {{ tool_name }}"
+  description_template: "Wrapper for HiCExplorer: {{ tool_name }}"
 suite:
   name: "suite_hicexplorer"
   description: "HiCExplorer: Set of programs to process, analyze and visualize Hi-C data."
