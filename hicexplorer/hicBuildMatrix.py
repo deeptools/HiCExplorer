@@ -5,8 +5,9 @@ from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
 import time
 from os import unlink
 import os
-
+import shutil
 import pysam
+import glob
 # bx python
 from intervaltree import IntervalTree, Interval
 
@@ -563,17 +564,14 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
     buffer_mate1 = []
     buffer_mate2 = []
 
-    iter_num = 0
     all_data_read = False
     j = 0
 
     while j < pNumberOfItemsPerBuffer:
-        iter_num += 1
         try:
             mate1 = pFileOneIterator.next()
             mate2 = pFileTwoIterator.next()
         except StopIteration:
-            # pTerminateSignal.set()
             all_data_read = True
             print "all_data_processed: ", all_data_read
             break
@@ -583,7 +581,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
             try:
                 mate1 = pFileOneIterator.next()
             except StopIteration:
-                # pTerminateSignal.set()
                 all_data_read = True
                 print "all_data_processed: ", all_data_read
                 break
@@ -618,17 +615,17 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
         j += 1
 
     if all_data_read and len(buffer_mate1) != 0 and len(buffer_mate2) != 0:
-        return buffer_mate1, buffer_mate2, True, iter_num
+        return buffer_mate1, buffer_mate2, True
     if all_data_read and len(buffer_mate1) == 0 or len(buffer_mate2) == 0:
-        return None, None, True, 0
-    return buffer_mate1, buffer_mate2, False, iter_num
+        return None, None, True
+    return buffer_mate1, buffer_mate2, False
 
 
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex, pBinIntervals,
-                 pQueueOut, pTemplate, pOutputBamSet, pOutputName):
+                 pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter):
 
     bufferOutputBam = []
     one_mate_unmapped = 0
@@ -661,7 +658,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
     coverage = []
     binsize = 10
     if pOutputBamSet:
-        out_bam = pysam.Samfile(pOutputName, 'wb', template=pTemplate)
+        out_bam = pysam.Samfile('/dev/shm/' + pOutputName, 'wb', template=pTemplate)
 
     for value in pBinIntervals:
         chrom, start, end = value
@@ -906,9 +903,34 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
 
     pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                                 mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
-                                count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex],
+                                count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter],
                    coverage])
     return
+
+
+def write_bam(pOutputBam, pTemplate):
+
+    out_bam = pysam.Samfile('/dev/shm/' + pOutputBam, 'wb', template=pTemplate)
+
+    counter = 0
+    while not os.path.isfile('/dev/shm/done_processing') or os.path.isfile('/dev/shm/' + str(counter) + '.bam_done'):
+        if os.path.isfile('/dev/shm/' + str(counter) + '.bam_done'):
+            out_put_threads = pysam.Samfile('/dev/shm/' + str(counter) + '.bam', 'rb')
+            while True:
+                try:
+                    data = out_put_threads.next()
+                except StopIteration:
+                    break
+                out_bam.write(data)
+            out_put_threads.close()
+            os.remove('/dev/shm/' + str(counter) + '.bam')
+            os.remove('/dev/shm/' + str(counter) + '.bam_done')
+            counter += 1
+        else:
+            time.sleep(3)
+
+    out_bam.close()
+    os.remove('/dev/shm/done_processing')
 
 
 def main(args=None):
@@ -943,21 +965,15 @@ def main(args=None):
 
     if args.outBam:
         args.outBam.close()
-        out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
     manager = SyncManager()
     manager.start()
     SyncManager.register('set', set, SetProxy)
-
-    lock = multiprocessing.Lock()
 
     chrom_sizes = get_chrom_sizes(str1)
     # print chrom_sizes
     # initialize read start positions matrix
     manager_multiprocessing = multiprocessing.Manager()
     read_pos_matrix = ReadPositionMatrix(manager_multiprocessing)
-    # read_pos_matrix_data, read_pos_matrix_indices, read_pos_matrix_indptr = read_pos_matrix.get_arrays()
-    # read_pos_matrix.to_coo()
-    # print "read_pos_matrix: ", read_pos_matrix.pos_matrix
     # define bins
     rf_positions = None
     if args.restrictionCutFile:
@@ -993,7 +1009,7 @@ def main(args=None):
     binsize = 10
     for value in bin_intervals:
         chrom, start, end = value
-        coverage.append(np.zeros((end - start) / binsize, dtype='uint16'))
+        coverage.append(np.zeros((end - start) / binsize, dtype='uint32'))
     start_time = time.time()
 
     iter_num = 0
@@ -1027,13 +1043,15 @@ def main(args=None):
     # output buffer to write bam with mate1 and mate2 pairs
     process = [None] * args.threads
     all_data_processed = False
-    hic_matrix = None
+    hic_matrix = coo_matrix((matrix_size, matrix_size), dtype='uint32')
     queue = [None] * args.threads
     all_threads_done = False
     thread_done = [False] * args.threads
     count_output = 0
     count_call_of_read_input = 0
     computed_pairs = 0
+    process_write_bam_file = multiprocessing.Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1))
+    process_write_bam_file.start()
     while not all_data_processed or not all_threads_done:
         # out_q = multiprocessing.Queue()
 
@@ -1041,9 +1059,9 @@ def main(args=None):
             if queue[i] is None and not all_data_processed:
                 count_call_of_read_input += 1
 
-                buffer_workers1[i], buffer_workers2[i], all_data_processed, iter_num_ = readBamFiles(pFileOneIterator=str1,
-                                                                                                     pFileTwoIterator=str2,
-                                                                                                     pNumberOfItemsPerBuffer=args.inputBufferSize)
+                buffer_workers1[i], buffer_workers2[i], all_data_processed = readBamFiles(pFileOneIterator=str1,
+                                                                                          pFileTwoIterator=str2,
+                                                                                          pNumberOfItemsPerBuffer=args.inputBufferSize)
                 queue[i] = multiprocessing.Queue()
                 thread_done[i] = False
                 computed_pairs += len(buffer_workers1[i])
@@ -1069,9 +1087,11 @@ def main(args=None):
                     pQueueOut=queue[i],
                     pTemplate=str1,
                     pOutputBamSet=args.outBam,
-                    pOutputName=str(count_output) + '.bam'
+                    pOutputName=str(count_output) + '.bam',
+                    pCounter=count_output
                 ))
                 process[i].start()
+                print "count_output: ", count_output
                 count_output += 1
 
             elif queue[i] is not None and not queue[i].empty():
@@ -1112,7 +1132,8 @@ def main(args=None):
                 process[i].terminate()
                 process[i] = None
                 thread_done[i] = True
-
+                print '/dev/shm/' + str(result[1][19]) + '.bam_done'
+                open('/dev/shm/' + str(result[1][19]) + '.bam_done', 'a').close()
                 if iter_num % 1e6 == 0:
                     elapsed_time = time.time() - start_time
                     sys.stderr.write("processing {} lines took {:.2f} "
@@ -1132,12 +1153,16 @@ def main(args=None):
                 if not thread:
                     all_threads_done = False
 
-
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
+    open('/dev/shm/done_processing', 'a').close()
+    print "wait for bam merging process to finish"
+    process_write_bam_file.join()
+    print "wait for bam merging process to finish...DONE!"
+
     dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
     hic_matrix = hic_matrix + hic_matrix.T - dia
     # extend bins such that they are next to each other
@@ -1162,18 +1187,31 @@ def main(args=None):
     unlink(args.outFileName.name)
 
     hic_ma.save(args.outFileName.name)
+
     if args.outBam:
-        for i in xrange(count_output):
-            out_put_threads = pysam.Samfile(str(i) + '.bam', 'rb')
-            while True:
-                try:
-                    data = out_put_threads.next()
-                except StopIteration:
-                    break
-                out_bam.write(data)
-            out_put_threads.close()
-            os.remove(str(i) + '.bam')
-        out_bam.close()
+        print "move output bam from ram to disk"
+        # input_bam_string = ""
+        # for i in xrange(count_output):
+        #     input_bam_string += '/dev/shm/' + str(i) + '.bam '
+
+        # os.system("samtools merge " + '/dev/shm/' + args.outBam.name + " " + input_bam_string)
+
+        # for i in xrange(count_output):
+        #     os.remove('/dev/shm/' + str(i) + '.bam')
+        # out_bam = pysam.Samfile('/dev/shm/' + args.outBam.name, 'wb', template=str1)
+
+        # for i in xrange(count_output):
+        #     out_put_threads = pysam.Samfile('/dev/shm/' + str(i) + '.bam', 'rb')
+        #     while True:
+        #         try:
+        #             data = out_put_threads.next()
+        #         except StopIteration:
+        #             break
+        #         out_bam.write(data)
+        #     out_put_threads.close()
+        #     os.remove('/dev/shm/' + str(i) + '.bam')
+        # out_bam.close()
+        shutil.move('/dev/shm/' + args.outBam.name, args.outBam.name)
 
     """
     if args.restrictionCutFile:
