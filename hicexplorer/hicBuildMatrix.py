@@ -26,7 +26,7 @@ class ReadPositionMatrix(object):
 
     """
 
-    def __init__(self, chrom_sizes):
+    def __init__(self):
         """
         >>> rp = ReadPositionMatrix([('1', 10), ('2', 10)])
         >>> rp.pos2matrix_bin('1', 0)
@@ -42,27 +42,22 @@ class ReadPositionMatrix(object):
         >>> rp.is_duplicated('1', 0, '2', 0)
         True
         """
-        # determine number of bins
-        total_size = 0
-        self.chr_start_pos = {}
-        for chrom, size in chrom_sizes:
-            self.chr_start_pos[chrom] = total_size
-            total_size += size
-
-        self.pos_matrix = dok_matrix((total_size, total_size), dtype=bool)
+        self.pos_matrix = set()
 
     def is_duplicated(self, chrom1, start1, chrom2, start2):
-        pos1 = self.pos2matrix_bin(chrom1, start1)
-        pos2 = self.pos2matrix_bin(chrom2, start2)
-        if self.pos_matrix[pos1, pos2] == 1:
+
+        id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
+        if id_string in self.pos_matrix:
             return True
         else:
-            self.pos_matrix[pos1, pos2] = 1
-            self.pos_matrix[pos2, pos1] = 1
-            return False
+            self.pos_matrix.add(id_string)
+            self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
 
     def pos2matrix_bin(self, chrom, start):
         return self.chr_start_pos[chrom] + start
+
+    def add_matrix(self, pReadPosMatrix):
+        self.pos_matrix += pReadPosMatrix.pos_matrix
 
 
 def parse_arguments(args=None):
@@ -545,7 +540,8 @@ def main(args=None):
 
     chrom_sizes = get_chrom_sizes(str1)
     # initialize read start positions matrix
-    read_pos_matrix = ReadPositionMatrix(chrom_sizes)
+    # read_pos_matrix = ReadPositionMatrix(chrom_sizes)
+    read_pos_matrix = ReadPositionMatrix()
 
     # define bins
     rf_positions = None
