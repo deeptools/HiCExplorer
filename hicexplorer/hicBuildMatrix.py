@@ -36,7 +36,6 @@ class ReadPositionMatrix(object):
             self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
 
 
-
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
