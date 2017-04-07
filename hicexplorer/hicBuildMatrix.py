@@ -541,7 +541,8 @@ def main(args=None):
     chrom_sizes = get_chrom_sizes(str1)
     # initialize read start positions matrix
     # read_pos_matrix = ReadPositionMatrix(chrom_sizes)
-    read_pos_matrix = ReadPositionMatrix()
+    if args.skipDuplicationCheck is False:
+        read_pos_matrix = ReadPositionMatrix()
 
     # define bins
     rf_positions = None
@@ -680,13 +681,13 @@ def main(args=None):
             one_mate_low_quality += 1
             continue
 
-        # if args.skipDuplicationCheck is False:
-        #     if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
-        #                                      mate1.pos,
-        #                                      ref_id2name[mate2.rname],
-        #                                      mate2.pos):
-        #         duplicated_pairs += 1
-        #         continue
+        if args.skipDuplicationCheck is False:
+            if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
+                                             mate1.pos,
+                                             ref_id2name[mate2.rname],
+                                             mate2.pos):
+                duplicated_pairs += 1
+                continue
 
         # check if reads belong to a bin
         mate_bins = []
