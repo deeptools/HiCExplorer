@@ -23,6 +23,11 @@ class ReadPositionMatrix(object):
 
     def __init__(self):
         """
+        >>> rp = ReadPositionMatrix()
+        >>> rp.is_duplicated('1', 0, '2', 0)
+        False
+        >>> rp.is_duplicated('1', 0, '2', 0)
+        True
         """
         self.pos_matrix = set()
 
