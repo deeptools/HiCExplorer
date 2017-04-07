@@ -1,13 +1,13 @@
 import argparse
 import sys
 import numpy as np
-from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
+from scipy.sparse import coo_matrix, dia_matrix
 import time
 from os import unlink
 import os
 import shutil
 import pysam
-import glob
+# import glob
 # bx python
 from intervaltree import IntervalTree, Interval
 
@@ -68,17 +68,9 @@ class ReadPositionMatrix(object):
 
     def __init__(self, pManager):
         """
-        >>> rp = ReadPositionMatrix([('1', 10), ('2', 10)])
-        >>> rp.pos2matrix_bin('1', 0)
-        0
-        >>> rp.pos2matrix_bin('2', 0)
-        10
+        >>> rp = ReadPositionMatrix()
         >>> rp.is_duplicated('1', 0, '2', 0)
         False
-        >>> rp.pos_matrix[0,10]
-        True
-        >>> rp.pos_matrix[10,0]
-        True
         >>> rp.is_duplicated('1', 0, '2', 0)
         True
         """
@@ -93,12 +85,6 @@ class ReadPositionMatrix(object):
         else:
             self.pos_matrix.add(id_string)
             self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
-
-    def pos2matrix_bin(self, chrom, start):
-        return self.chr_start_pos[chrom] + start
-
-    def add_matrix(self, pReadPosMatrix):
-        self.pos_matrix += pReadPosMatrix.pos_matrix
 
 
 def parse_arguments(args=None):
