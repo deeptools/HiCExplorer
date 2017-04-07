@@ -1,7 +1,7 @@
 import argparse
 import sys
 import numpy as np
-from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
+from scipy.sparse import coo_matrix, dia_matrix
 import time
 from os import unlink
 import pysam
@@ -18,29 +18,11 @@ debug = 1
 
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
-    A sparse matrix having as bins all possible
-    start sites (single bp resolution)
-    is created. PCR duplicates
-    are determined by checking if the matrix
-    cell is already filled.
-
+    A set with all seen reads is used to check for duplicates.
     """
 
     def __init__(self):
         """
-        >>> rp = ReadPositionMatrix([('1', 10), ('2', 10)])
-        >>> rp.pos2matrix_bin('1', 0)
-        0
-        >>> rp.pos2matrix_bin('2', 0)
-        10
-        >>> rp.is_duplicated('1', 0, '2', 0)
-        False
-        >>> rp.pos_matrix[0,10]
-        True
-        >>> rp.pos_matrix[10,0]
-        True
-        >>> rp.is_duplicated('1', 0, '2', 0)
-        True
         """
         self.pos_matrix = set()
 
@@ -53,11 +35,6 @@ class ReadPositionMatrix(object):
             self.pos_matrix.add(id_string)
             self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
 
-    def pos2matrix_bin(self, chrom, start):
-        return self.chr_start_pos[chrom] + start
-
-    def add_matrix(self, pReadPosMatrix):
-        self.pos_matrix += pReadPosMatrix.pos_matrix
 
 
 def parse_arguments(args=None):
@@ -540,7 +517,6 @@ def main(args=None):
 
     chrom_sizes = get_chrom_sizes(str1)
     # initialize read start positions matrix
-    # read_pos_matrix = ReadPositionMatrix(chrom_sizes)
     if args.skipDuplicationCheck is False:
         read_pos_matrix = ReadPositionMatrix()
 
