@@ -611,7 +611,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex, pBinIntervals,
-                 pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter):
+                 pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter, pLocalDuplicationCheck):
 
     bufferOutputBam = []
     one_mate_unmapped = 0
@@ -655,7 +655,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
                                     mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
                                     count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex], coverage, bufferOutputBam])
         return
-
+    
     while iter_num < len(pMateBuffer1) and iter_num < len(pMateBuffer2):
         mate1 = pMateBuffer1[iter_num]
         mate2 = pMateBuffer2[iter_num]
@@ -690,6 +690,17 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
             one_mate_low_quality += 1
             continue
         if pSkipDuplicationCheck is False:
+            chrom1 = pRefId2name[mate1.rname]
+            start1 = mate1.pos
+            chrom2 = pRefId2name[mate2.rname]
+            start2 = mate2.pos
+            id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
+            if id_string in pLocalDuplicationCheck:
+                duplicated_pairs += 1
+                continue
+            else:
+                pLocalDuplicationCheck.add(id_string)
+                pLocalDuplicationCheck.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
             if pReadPosMatrix.is_duplicated(pRefId2name[mate1.rname],
                                             mate1.pos,
                                             pRefId2name[mate2.rname],
@@ -890,7 +901,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
     pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                                 mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
                                 count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter],
-                   coverage])
+                   coverage,
+                   pLocalDuplicationCheck])
     return
 
 
@@ -960,6 +972,7 @@ def main(args=None):
     # initialize read start positions matrix
     manager_multiprocessing = multiprocessing.Manager()
     read_pos_matrix = ReadPositionMatrix(manager_multiprocessing)
+    local_duplication_check = set()
     # define bins
     rf_positions = None
     if args.restrictionCutFile:
@@ -1074,7 +1087,8 @@ def main(args=None):
                     pTemplate=str1,
                     pOutputBamSet=args.outBam,
                     pOutputName=str(count_output) + '.bam',
-                    pCounter=count_output
+                    pCounter=count_output,
+                    pLocalDuplicationCheck=local_duplication_check
                 ))
                 process[i].start()
                 print "count_output: ", count_output
@@ -1118,6 +1132,7 @@ def main(args=None):
                 process[i].terminate()
                 process[i] = None
                 thread_done[i] = True
+                local_duplication_check = local_duplication_check.union(result[3])
                 print '/dev/shm/' + str(result[1][19]) + '.bam_done'
                 open('/dev/shm/' + str(result[1][19]) + '.bam_done', 'a').close()
                 if iter_num % 1e6 == 0:
