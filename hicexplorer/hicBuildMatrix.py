@@ -680,13 +680,13 @@ def main(args=None):
             one_mate_low_quality += 1
             continue
 
-        if args.skipDuplicationCheck is False:
-            if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
-                                             mate1.pos,
-                                             ref_id2name[mate2.rname],
-                                             mate2.pos):
-                duplicated_pairs += 1
-                continue
+        # if args.skipDuplicationCheck is False:
+        #     if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
+        #                                      mate1.pos,
+        #                                      ref_id2name[mate2.rname],
+        #                                      mate2.pos):
+        #         duplicated_pairs += 1
+        #         continue
 
         # check if reads belong to a bin
         mate_bins = []
