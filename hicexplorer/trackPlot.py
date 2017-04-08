@@ -888,12 +888,12 @@ class PlotHiCMatrix(TrackPlot):
 
             elif self.properties['transform'] == '-log':
                 mask = matrix == 0
-                matrix[mask] = matrix[mask == False].min()#viv
+                matrix[mask] = matrix[mask == False].min()
                 matrix = -1 * np.log(matrix)
 
             elif self.properties['transform'] == 'log':
                 mask = matrix == 0
-                matrix[mask] = matrix[mask == False].min()#viv
+                matrix[mask] = matrix[mask == False].min()
                 matrix = np.log(matrix)
 
         if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
@@ -956,10 +956,10 @@ class PlotHiCMatrix(TrackPlot):
                 formatter = LogFormatter(10, labelOnlyBase=False)
                 # get a useful log scale
                 # that looks like [1, 2, 5, 10, 20, 50, 100, ... etc]
-                aa = np.array([1, 2, 5])
-                tick_values = np.concatenate([aa * 10**x for x in range(10)])
-                cobar = plt.colorbar(img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
-                #cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
+                aa = np.array([0, 1, 2, 3, 4, 5])
+                tick_values = set(np.concatenate([aa * 10**x for x in range(10)]))
+                cobar = plt.colorbar(img, ticks=list(tick_values), ax=self.cbar_ax, fraction=0.95)
+                #cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95) format=formatter,
             else:
                 cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
             cobar.solids.set_edgecolor("face")
