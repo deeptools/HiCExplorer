@@ -36,7 +36,7 @@ install:
 
 # command to run tests
 script:
-  - flake8 . --exclude=.venv,.build,foo,build,deeptoolsintervals/__init__.py --ignore=E501,F403,E402,F999,F405
+  - flake8 . --exclude=.venv,.build,foo,build --ignore=E501,F403,E402,F999,F405
   - export owd=`pwd`
   - cd ~/ && nosetests --with-doctest -sv hicexplorer
   - cd ${owd}
