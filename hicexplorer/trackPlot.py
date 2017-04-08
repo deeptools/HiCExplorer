@@ -814,8 +814,8 @@ class PlotHiCMatrix(TrackPlot):
         # with an array containing the max value found
         # in the matrix
         if sum(self.hic_ma.matrix.diagonal()) == 0:
-            sys.stderr.write("Filling main diagonal because is empty and "
-                             "otherwise it looks bad...\n")
+            sys.stderr.write("Filling main diagonal with max value "
+                             "because it empty and looks bad...\n")
             max_value = self.hic_ma.matrix.data.max()
             main_diagonal = scipy.sparse.dia_matrix(([max_value] * self.hic_ma.matrix.shape[0], [0]),
                                                     shape=self.hic_ma.matrix.shape)
@@ -888,12 +888,12 @@ class PlotHiCMatrix(TrackPlot):
 
             elif self.properties['transform'] == '-log':
                 mask = matrix == 0
-                matrix[mask] = matrix[mask is False].min()
+                matrix[mask] = matrix[mask == False].min()#viv
                 matrix = -1 * np.log(matrix)
 
             elif self.properties['transform'] == 'log':
                 mask = matrix == 0
-                matrix[mask] = matrix[mask is False].min()
+                matrix[mask] = matrix[mask == False].min()#viv
                 matrix = np.log(matrix)
 
         if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
@@ -956,9 +956,10 @@ class PlotHiCMatrix(TrackPlot):
                 formatter = LogFormatter(10, labelOnlyBase=False)
                 # get a useful log scale
                 # that looks like [1, 2, 5, 10, 20, 50, 100, ... etc]
-                aa = np.array([1, 2, 5])
-                tick_values = np.concatenate([aa * 10**x for x in range(10)])
-                cobar = plt.colorbar(img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
+                #aa = np.array([1, 2, 5])
+                #tick_values = np.concatenate([aa * 10**x for x in range(10)])
+                #cobar = plt.colorbar(img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
+                cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
             else:
                 cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
             cobar.solids.set_edgecolor("face")
