@@ -1,7 +1,7 @@
 import argparse
 import sys
 import numpy as np
-from scipy.sparse import coo_matrix, dia_matrix, dok_matrix
+from scipy.sparse import coo_matrix, dia_matrix
 import time
 from os import unlink
 import os
@@ -19,51 +19,28 @@ debug = 1
 
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
-    A sparse matrix having as bins all possible
-    start sites (single bp resolution)
-    is created. PCR duplicates
-    are determined by checking if the matrix
-    cell is already filled.
-
+    A set with all seen reads is used to check for duplicates.
     """
 
-    def __init__(self, chrom_sizes):
+    def __init__(self):
         """
-        >>> rp = ReadPositionMatrix([('1', 10), ('2', 10)])
-        >>> rp.pos2matrix_bin('1', 0)
-        0
-        >>> rp.pos2matrix_bin('2', 0)
-        10
+        >>> rp = ReadPositionMatrix()
         >>> rp.is_duplicated('1', 0, '2', 0)
         False
-        >>> rp.pos_matrix[0,10]
-        True
-        >>> rp.pos_matrix[10,0]
-        True
         >>> rp.is_duplicated('1', 0, '2', 0)
         True
         """
-        # determine number of bins
-        total_size = 0
-        self.chr_start_pos = {}
-        for chrom, size in chrom_sizes:
-            self.chr_start_pos[chrom] = total_size
-            total_size += size
-
-        self.pos_matrix = dok_matrix((total_size, total_size), dtype=bool)
+        self.pos_matrix = set()
 
     def is_duplicated(self, chrom1, start1, chrom2, start2):
-        pos1 = self.pos2matrix_bin(chrom1, start1)
-        pos2 = self.pos2matrix_bin(chrom2, start2)
-        if self.pos_matrix[pos1, pos2] == 1:
+
+        id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
+        if id_string in self.pos_matrix:
             return True
         else:
-            self.pos_matrix[pos1, pos2] = 1
-            self.pos_matrix[pos2, pos1] = 1
+            self.pos_matrix.add(id_string)
+            self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
             return False
-
-    def pos2matrix_bin(self, chrom, start):
-        return self.chr_start_pos[chrom] + start
 
 
 def parse_arguments(args=None):
@@ -553,7 +530,8 @@ def main(args=None):
 
     chrom_sizes = get_chrom_sizes(str1)
     # initialize read start positions matrix
-    read_pos_matrix = ReadPositionMatrix(chrom_sizes)
+    if args.skipDuplicationCheck is False:
+        read_pos_matrix = ReadPositionMatrix()
 
     # define bins
     rf_positions = None
