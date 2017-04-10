@@ -61,7 +61,7 @@ def make_figure_pairs_considered(table, filename):
 
     fig = plt.figure(figsize=(8, 3))
     ax = fig.add_subplot(111)
-    table['Pairs considered'].plot.bar(ax=ax, color='#999999')
+    table['Pairs considered'].plot.barh(ax=ax, color='#999999')
     xticks = ax.get_xticks()
     if xticks[-1] > 1e6:
         labels = ["{:.0f}".format(float(x) / 1e6) for x in xticks]
@@ -175,7 +175,7 @@ def main(args=None):
                 except ValueError:
                     params[fields[0]].append(fields[1])
 
-    import pandas as pd
+    import pandas as pd# importing pandas but not listed in requirements
     table = pd.DataFrame(params)
     if args.labels and len(args.labels) == len(args.logfiles):
             table['Labels'] = args.labels
