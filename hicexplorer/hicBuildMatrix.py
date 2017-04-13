@@ -7,6 +7,7 @@ from os import unlink
 import os
 import shutil
 import pysam
+# import cPickle as pickle
 # import glob
 # bx python
 from intervaltree import IntervalTree, Interval
@@ -21,41 +22,71 @@ from hicexplorer._version import __version__
 import multiprocessing
 
 debug = 1
-from multiprocessing.managers import SyncManager
+# from multiprocessing.managers import SyncManager
 
-from multiprocessing.managers import MakeProxyType
+# from multiprocessing.managers import MakeProxyType
 
-BaseSetProxy = MakeProxyType('BaseSetProxy', [
-    '__and__', '__contains__', '__iand__', '__ior__',
-    '__isub__', '__ixor__', '__len__', '__or__', '__rand__', '__ror__', '__rsub__',
-    '__rxor__', '__sub__', '__xor__', 'add', 'clear', 'copy', 'difference',
-    'difference_update', 'discard', 'intersection', 'intersection_update', 'isdisjoint',
-    'issubset', 'issuperset', 'pop', 'remove', 'symmetric_difference',
-    'symmetric_difference_update', 'union', 'update']
-)
+# BaseSetProxy = MakeProxyType('BaseSetProxy', [
+#     '__and__', '__contains__', '__iand__', '__ior__',
+#     '__isub__', '__ixor__', '__len__', '__or__', '__rand__', '__ror__', '__rsub__',
+#     '__rxor__', '__sub__', '__xor__', 'add', 'clear', 'copy', 'difference',
+#     'difference_update', 'discard', 'intersection', 'intersection_update', 'isdisjoint',
+#     'issubset', 'issuperset', 'pop', 'remove', 'symmetric_difference',
+#     'symmetric_difference_update', 'union', 'update']
+# )
 
 
-class SetProxy(BaseSetProxy):
-    # in-place hooks need to return `self`, specify these manually
-    def __iand__(self, value):
-        self._callmethod('__iand__', (value,))
-        return self
+# class SetProxy(BaseSetProxy):
+#     # in-place hooks need to return `self`, specify these manually
+#     def __iand__(self, value):
+#         self._callmethod('__iand__', (value,))
+#         return self
 
-    def __ior__(self, value):
-        self._callmethod('__ior__', (value,))
-        return self
+#     def __ior__(self, value):
+#         self._callmethod('__ior__', (value,))
+#         return self
 
-    def __isub__(self, value):
-        self._callmethod('__isub__', (value,))
-        return self
+#     def __isub__(self, value):
+#         self._callmethod('__isub__', (value,))
+#         return self
 
-    def __ixor__(self, value):
-        self._callmethod('__ixor__', (value,))
-        return self
+#     def __ixor__(self, value):
+#         self._callmethod('__ixor__', (value,))
+#         return self
 
 
 # class Duplicate(Structure):
 #     _fields_ = [('hash', c_int), ('value', c_bool)]
+# class ReadPositionMatrix(object):
+#     """ class to check for PCR duplicates.
+#     A sparse matrix having as bins all possible
+#     start sites (single bp resolution)
+#     is created. PCR duplicates
+#     are determined by checking if the matrix
+#     cell is already filled.
+
+#     """
+
+#     def __init__(self, pManager):
+#         """
+#         >>> rp = ReadPositionMatrix()
+#         >>> rp.is_duplicated('1', 0, '2', 0)
+#         False
+#         >>> rp.is_duplicated('1', 0, '2', 0)
+#         True
+#         """
+
+#         self.pos_matrix = pManager.set()
+
+#     def is_duplicated(self, chrom1, start1, chrom2, start2):
+
+#         id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
+#         if id_string in self.pos_matrix:
+#             return True
+#         else:
+#             self.pos_matrix.add(id_string)
+#             self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
+
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
     A sparse matrix having as bins all possible
@@ -66,7 +97,7 @@ class ReadPositionMatrix(object):
 
     """
 
-    def __init__(self, pManager):
+    def __init__(self):
         """
         >>> rp = ReadPositionMatrix()
         >>> rp.is_duplicated('1', 0, '2', 0)
@@ -75,16 +106,16 @@ class ReadPositionMatrix(object):
         True
         """
 
-        self.pos_matrix = pManager.set()
+        self.pos_matrix = set()
 
     def is_duplicated(self, chrom1, start1, chrom2, start2):
-
         id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
         if id_string in self.pos_matrix:
             return True
         else:
             self.pos_matrix.add(id_string)
             self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
+            return False
 
 
 def parse_arguments(args=None):
@@ -545,14 +576,18 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     return bin_intervals
 
 
-def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
+def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pSkipDuplicationCheck, pReadPosMatrix, pRefId2name, pMinMappingQuality):
     """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer with n = number of processes """
     buffer_mate1 = []
     buffer_mate2 = []
+    duplicated_pairs = 0
+    one_mate_unmapped = 0
+    one_mate_not_unique = 0
+    one_mate_low_quality = 0
 
     all_data_read = False
     j = 0
-
+    iter_num = 0
     while j < pNumberOfItemsPerBuffer:
         try:
             mate1 = pFileOneIterator.next()
@@ -561,6 +596,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
             all_data_read = True
             print "all_data_processed: ", all_data_read
             break
+        iter_num += 1
 
         # skip 'not primary' alignments
         while mate1.flag & 256 == 256:
@@ -596,22 +632,69 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer):
         if mate2_supplementary_list:
             mate2 = get_correct_map(mate2, mate2_supplementary_list)
 
+        # skip if any of the reads is not mapped
+        if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
+            one_mate_unmapped += 1
+            continue
+
+        # skip if the read quality is low
+        if mate1.mapq < pMinMappingQuality or mate2.mapq < pMinMappingQuality:
+            # for bwa other way to test
+            # for multi-mapping reads is with a mapq = 0
+            # the XS flag is not reliable.
+            if mate1.mapq == 0 & mate2.mapq == 0:
+                one_mate_not_unique += 1
+                continue
+
+            """
+            # check if low quality is because of
+            # read being repetitive
+            # by reading the XS flag.
+            # The XS:i field is set by bowtie when a read is
+            # multi read and it contains the mapping score of the next
+            # best match
+            if 'XS' in dict(mate1.tags) or 'XS' in dict(mate2.tags):
+                one_mate_not_unique += 1
+                continue
+            """
+
+            one_mate_low_quality += 1
+            continue
+
+        if pSkipDuplicationCheck is False:
+            # chrom1 = pRefId2name[mate1.rname]
+            # start1 = mate1.pos
+            # chrom2 = pRefId2name[mate2.rname]
+            # start2 = mate2.pos
+            # id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
+            # if id_string in pLocalDuplicationCheck:
+            #     duplicated_pairs += 1
+            #     continue
+            # else:
+            #     pLocalDuplicationCheck.add(id_string)
+            #     pLocalDuplicationCheck.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
+            if pReadPosMatrix.is_duplicated(pRefId2name[mate1.rname],
+                                            mate1.pos,
+                                            pRefId2name[mate2.rname],
+                                            mate2.pos):
+                duplicated_pairs += 1
+                continue
         buffer_mate1.append(mate1)
         buffer_mate2.append(mate2)
         j += 1
 
     if all_data_read and len(buffer_mate1) != 0 and len(buffer_mate2) != 0:
-        return buffer_mate1, buffer_mate2, True
+        return buffer_mate1, buffer_mate2, True, duplicated_pairs, one_mate_unmapped, one_mate_not_unique, one_mate_low_quality, iter_num - len(buffer_mate1)
     if all_data_read and len(buffer_mate1) == 0 or len(buffer_mate2) == 0:
-        return None, None, True
-    return buffer_mate1, buffer_mate2, False
+        return None, None, True, duplicated_pairs, one_mate_unmapped, one_mate_not_unique, one_mate_low_quality, iter_num - len(buffer_mate1)
+    return buffer_mate1, buffer_mate2, False, duplicated_pairs, one_mate_unmapped, one_mate_not_unique, one_mate_low_quality, iter_num - len(buffer_mate1)
 
 
-def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicationCheck,
+def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex, pBinIntervals,
-                 pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter, pLocalDuplicationCheck):
+                 pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter):
 
     bufferOutputBam = []
     one_mate_unmapped = 0
@@ -622,7 +705,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
     self_ligation = 0
     same_fragment = 0
     mate_not_close_to_rf = 0
-    duplicated_pairs = 0
+    # duplicated_pairs = 0
 
     count_inward = 0
     count_outward = 0
@@ -652,61 +735,61 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
     if pMateBuffer1 is None or pMateBuffer2 is None:
 
         pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-                                    mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
+                                    mate_not_close_to_rf, count_inward, count_outward,
                                     count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex], coverage, bufferOutputBam])
         return
-    
+
     while iter_num < len(pMateBuffer1) and iter_num < len(pMateBuffer2):
         mate1 = pMateBuffer1[iter_num]
         mate2 = pMateBuffer2[iter_num]
         iter_num += 1
 
-        # skip if any of the reads is not mapped
-        if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
-            one_mate_unmapped += 1
-            continue
+        # # skip if any of the reads is not mapped
+        # if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
+        #     one_mate_unmapped += 1
+        #     continue
 
-        # skip if the read quality is low
-        if mate1.mapq < pMinMappingQuality or mate2.mapq < pMinMappingQuality:
-            # for bwa other way to test
-            # for multi-mapping reads is with a mapq = 0
-            # the XS flag is not reliable.
-            if mate1.mapq == 0 & mate2.mapq == 0:
-                one_mate_not_unique += 1
-                continue
+        # # skip if the read quality is low
+        # if mate1.mapq < pMinMappingQuality or mate2.mapq < pMinMappingQuality:
+        #     # for bwa other way to test
+        #     # for multi-mapping reads is with a mapq = 0
+        #     # the XS flag is not reliable.
+        #     if mate1.mapq == 0 & mate2.mapq == 0:
+        #         one_mate_not_unique += 1
+        #         continue
 
-            """
-            # check if low quality is because of
-            # read being repetitive
-            # by reading the XS flag.
-            # The XS:i field is set by bowtie when a read is
-            # multi read and it contains the mapping score of the next
-            # best match
-            if 'XS' in dict(mate1.tags) or 'XS' in dict(mate2.tags):
-                one_mate_not_unique += 1
-                continue
-            """
+        #     """
+        #     # check if low quality is because of
+        #     # read being repetitive
+        #     # by reading the XS flag.
+        #     # The XS:i field is set by bowtie when a read is
+        #     # multi read and it contains the mapping score of the next
+        #     # best match
+        #     if 'XS' in dict(mate1.tags) or 'XS' in dict(mate2.tags):
+        #         one_mate_not_unique += 1
+        #         continue
+        #     """
 
-            one_mate_low_quality += 1
-            continue
-        if pSkipDuplicationCheck is False:
-            chrom1 = pRefId2name[mate1.rname]
-            start1 = mate1.pos
-            chrom2 = pRefId2name[mate2.rname]
-            start2 = mate2.pos
-            id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
-            if id_string in pLocalDuplicationCheck:
-                duplicated_pairs += 1
-                continue
-            else:
-                pLocalDuplicationCheck.add(id_string)
-                pLocalDuplicationCheck.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
-            if pReadPosMatrix.is_duplicated(pRefId2name[mate1.rname],
-                                            mate1.pos,
-                                            pRefId2name[mate2.rname],
-                                            mate2.pos):
-                duplicated_pairs += 1
-                continue
+        #     one_mate_low_quality += 1
+        #     continue
+        # if pSkipDuplicationCheck is False:
+        #     # chrom1 = pRefId2name[mate1.rname]
+        #     # start1 = mate1.pos
+        #     # chrom2 = pRefId2name[mate2.rname]
+        #     # start2 = mate2.pos
+        #     # id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
+        #     # if id_string in pLocalDuplicationCheck:
+        #     #     duplicated_pairs += 1
+        #     #     continue
+        #     # else:
+        #     #     pLocalDuplicationCheck.add(id_string)
+        #     #     pLocalDuplicationCheck.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
+        #     if pReadPosMatrix.is_duplicated(pRefId2name[mate1.rname],
+        #                                     mate1.pos,
+        #                                     pRefId2name[mate2.rname],
+        #                                     mate2.pos, pResultIndex):
+        #         duplicated_pairs += 1
+        #         continue
 
         # check if reads belong to a bin
         mate_bins = []
@@ -899,10 +982,9 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pSkipDuplicatio
         out_bam.close()
 
     pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-                                mate_not_close_to_rf, duplicated_pairs, count_inward, count_outward,
+                                mate_not_close_to_rf, count_inward, count_outward,
                                 count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter],
-                   coverage,
-                   pLocalDuplicationCheck])
+                   coverage])
     return
 
 
@@ -930,6 +1012,27 @@ def write_bam(pOutputBam, pTemplate):
     out_bam.close()
     os.remove('/dev/shm/done_processing')
 
+
+# def handle_duplication(pPipeInputList, pPipeOutputList, pThreads):
+#     # id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
+#     #     if id_string in self.pos_matrix:
+#     #         return True
+#     #     else:
+#     #         self.pos_matrix.add(id_string)
+#     #         self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
+#     #         # return False
+#     duplications = set()
+#     i = 0
+#     while True:
+#         while i < pThreads:
+#             try:
+#                 request = pPipeInputList[i].recv()
+#                 id_string = "%s%s-%s%s" % (request[0], start1, chrom2, start2)
+#                 if request in duplications:
+#                     pPipeOutputList[i].send(True)
+#                 else:
+#                     duplications
+#                     pPipeOutputList[i].send(False)
 
 def main(args=None):
     """
@@ -963,16 +1066,17 @@ def main(args=None):
 
     if args.outBam:
         args.outBam.close()
-    manager = SyncManager()
-    manager.start()
-    SyncManager.register('set', set, SetProxy)
+    # manager = SyncManager()
+    # manager.start()
+    # SyncManager.register('set', set, SetProxy)
 
     chrom_sizes = get_chrom_sizes(str1)
     # print chrom_sizes
     # initialize read start positions matrix
-    manager_multiprocessing = multiprocessing.Manager()
-    read_pos_matrix = ReadPositionMatrix(manager_multiprocessing)
-    local_duplication_check = set()
+    # manager_multiprocessing = multiprocessing.Manager()
+    read_pos_matrix = ReadPositionMatrix()
+    # read_pos_matrix = ReadPositionMatrix(manager_multiprocessing)
+    # local_duplication_check = set()
     # define bins
     rf_positions = None
     if args.restrictionCutFile:
@@ -1044,11 +1148,15 @@ def main(args=None):
     all_data_processed = False
     hic_matrix = coo_matrix((matrix_size, matrix_size), dtype='uint32')
     queue = [None] * args.threads
+    # duplication_pipe_input = [multiprocessing.Pipe()] * args.threads
+    # duplication_pipe_output = [multiprocessing.Pipe()] * args.threads
+
     all_threads_done = False
     thread_done = [False] * args.threads
     count_output = 0
     count_call_of_read_input = 0
     computed_pairs = 0
+    # process_handle_duplication = multiprocessing.Process(target=handle_duplication, kwargs=dict(pPipeInputList=duplication_pipe_input, pPipeOutputList=duplication_pipe_output))
     process_write_bam_file = multiprocessing.Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1))
     process_write_bam_file.start()
     while not all_data_processed or not all_threads_done:
@@ -1058,9 +1166,21 @@ def main(args=None):
             if queue[i] is None and not all_data_processed:
                 count_call_of_read_input += 1
 
-                buffer_workers1[i], buffer_workers2[i], all_data_processed = readBamFiles(pFileOneIterator=str1,
-                                                                                          pFileTwoIterator=str2,
-                                                                                          pNumberOfItemsPerBuffer=args.inputBufferSize)
+                buffer_workers1[i], buffer_workers2[i], all_data_processed, \
+                    duplicated_pairs_, one_mate_unmapped_, one_mate_not_unique_, \
+                    one_mate_low_quality_, iter_num_ = readBamFiles(pFileOneIterator=str1,
+                                                                    pFileTwoIterator=str2,
+                                                                    pNumberOfItemsPerBuffer=args.inputBufferSize,
+                                                                    pSkipDuplicationCheck=args.skipDuplicationCheck,
+                                                                    pReadPosMatrix=read_pos_matrix,
+                                                                    pRefId2name=ref_id2name,
+                                                                    pMinMappingQuality=args.minMappingQuality
+                                                                    )
+                duplicated_pairs += duplicated_pairs_
+                one_mate_unmapped += one_mate_unmapped_
+                one_mate_not_unique += one_mate_not_unique_
+                one_mate_low_quality += one_mate_low_quality_
+                iter_num += iter_num_
                 queue[i] = multiprocessing.Queue()
                 thread_done[i] = False
                 computed_pairs += len(buffer_workers1[i])
@@ -1069,8 +1189,10 @@ def main(args=None):
                 process[i] = multiprocessing.Process(target=process_data, kwargs=dict(
                     pMateBuffer1=buffer_workers1[i],
                     pMateBuffer2=buffer_workers2[i],
+                    # pDuplicationPipeInput=duplication_pipe_input[i],
+                    # pDuplicationPipeOutput=duplication_pipe_output[i],
                     pMinMappingQuality=args.minMappingQuality,
-                    pSkipDuplicationCheck=args.skipDuplicationCheck,
+
                     pRemoveSelfCircles=args.removeSelfCircles,
                     pRestrictionSequence=args.restrictionSequence,
                     pRemoveSelfLigation=args.removeSelfLigation,
@@ -1087,11 +1209,11 @@ def main(args=None):
                     pTemplate=str1,
                     pOutputBamSet=args.outBam,
                     pOutputName=str(count_output) + '.bam',
-                    pCounter=count_output,
-                    pLocalDuplicationCheck=local_duplication_check
+                    pCounter=count_output
+                    # pLocalDuplicationCheck=local_duplication_check
                 ))
                 process[i].start()
-                print "count_output: ", count_output
+                # print "count_output: ", count_output
                 count_output += 1
 
             elif queue[i] is not None and not queue[i].empty():
@@ -1103,26 +1225,26 @@ def main(args=None):
                     else:
                         hic_matrix += result[0]
 
-                    one_mate_unmapped += result[1][0]
-                    one_mate_low_quality += result[1][1]
-                    one_mate_not_unique += result[1][2]
+                    # one_mate_unmapped += result[1][0]
+                    # one_mate_low_quality += result[1][1]
+                    # one_mate_not_unique += result[1][2]
                     dangling_end += result[1][3]
                     self_circle += result[1][4]
                     self_ligation += result[1][5]
                     same_fragment += result[1][6]
                     mate_not_close_to_rf += result[1][7]
-                    duplicated_pairs += result[1][8]
+                    # duplicated_pairs += result[1][8]
 
-                    count_inward += result[1][9]
-                    count_outward += result[1][10]
-                    count_left += result[1][11]
-                    count_right += result[1][12]
-                    inter_chromosomal += result[1][13]
-                    short_range += result[1][14]
-                    long_range += result[1][15]
+                    count_inward += result[1][8]
+                    count_outward += result[1][9]
+                    count_left += result[1][10]
+                    count_right += result[1][11]
+                    inter_chromosomal += result[1][12]
+                    short_range += result[1][13]
+                    long_range += result[1][14]
 
-                    pair_added += result[1][16]
-                    iter_num += result[1][17]
+                    pair_added += result[1][15]
+                    iter_num += result[1][16]
 
                     if result[2] is not None:
                         coverage = np.add(coverage, result[2])
@@ -1132,10 +1254,10 @@ def main(args=None):
                 process[i].terminate()
                 process[i] = None
                 thread_done[i] = True
-                local_duplication_check = local_duplication_check.union(result[3])
-                print '/dev/shm/' + str(result[1][19]) + '.bam_done'
-                open('/dev/shm/' + str(result[1][19]) + '.bam_done', 'a').close()
-                if iter_num % 1e6 == 0:
+                # local_duplication_check = local_duplication_check.union(result[3])
+                # print '/dev/shm/' + str(result[1][-1]) + '.bam_done'
+                open('/dev/shm/' + str(result[1][-1]) + '.bam_done', 'a').close()
+                if iter_num % 1e6 < 100000:
                     elapsed_time = time.time() - start_time
                     sys.stderr.write("processing {} lines took {:.2f} "
                                      "secs ({:.1f} lines per "
@@ -1147,6 +1269,8 @@ def main(args=None):
                 if args.doTestRun and iter_num > 1e5:
                     sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
                     break
+            else:
+                time.sleep(1)
 
         if all_data_processed:
             all_threads_done = True
