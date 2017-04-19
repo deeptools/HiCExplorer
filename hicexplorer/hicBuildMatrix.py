@@ -7,6 +7,8 @@ from os import unlink
 import os
 import shutil
 import pysam
+from ctypes import Structure, c_int
+from multiprocessing.sharedctypes import Value, Array, RawArray
 # import cPickle as pickle
 # import glob
 # bx python
@@ -22,6 +24,13 @@ from hicexplorer._version import __version__
 import multiprocessing
 
 debug = 1
+
+class C_Interval(Structure):
+    _fields_ = [("begin", c_int),
+                ("end", c_int),
+                ("data", c_int)]
+
+
 # from multiprocessing.managers import SyncManager
 
 # from multiprocessing.managers import MakeProxyType
@@ -692,10 +701,20 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
 
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
-                 pReadPosMatrix, pRfPositions, pBinIntvalTree, pRefId2name,
+                 pReadPosMatrix, pRfPositions, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex, pBinIntervals,
-                 pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter):
+                 pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter, 
+                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex):
 
+    # i = 0
+    # for bla in pBinIntvalTree:
+    #     print pBinIntvalTree[bla]
+    #     print type(pBinIntvalTree[bla])
+    #     if i == 100:
+    #         break
+    #     i += 1
+    # i = 0
+    # print pBinIntvalTree
     bufferOutputBam = []
     one_mate_unmapped = 0
     one_mate_low_quality = 0
@@ -799,22 +818,52 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen / 2)
             try:
-                mate_bin = sorted(pBinIntvalTree[mate_ref][read_middle:read_middle + 1])
-            except KeyError:
+                start, end = pDictBinIntervalTreeIndex[mate_ref]
+                middle_pos = int((start + end) / 2) 
+                # print "start: ", start, " end: ", end , " middle_pos: ", middle_pos
+                if end > len(pSharedBinIntvalTree):
+                    end = len(pSharedBinIntvalTree) - 1
+                while not middle_pos > end and not middle_pos < start:
+
+                    if pSharedBinIntvalTree[middle_pos].begin >= read_middle and read_middle <= pSharedBinIntvalTree[middle_pos].end:
+                        mate_bin = pSharedBinIntvalTree[middle_pos]
+                        mate_is_unasigned = False
+                        # print "Found bin: ", mate_bin
+                        break
+                    elif pSharedBinIntvalTree[middle_pos].begin < read_middle:
+                        start = middle_pos + 1
+                        middle_pos = int((start + end) / 2)
+                        mate_is_unasigned = True
+                        
+                    else:
+                        end = middle_pos - 1
+                        middle_pos = int((start + end) / 2)
+                        mate_is_unasigned = True
+
+                # mate_bin = "bla"
+                # mate_bin = sorted(pBinIntvalTree[mate_ref][read_middle:read_middle + 1])
+            except:
                 # for small contigs it can happen that they are not
                 # in the bin_intval_tree keys if no restriction site is found on the contig.
+                start, end = pDictBinIntervalTreeIndex[mate_ref]
+                middle_pos = int((start + end) / 2)
+                print "FAIL"
+                print "start: ", start, " end: ", end , " middle_pos: ", middle_pos
+                print "len: ", len(pSharedBinIntvalTree)
+                
                 mate_is_unasigned = True
                 break
 
             # report no match case
-            if len(mate_bin) == 0:
-                mate_is_unasigned = True
+            if mate_is_unasigned:
+                # mate_is_unasigned = True
                 break
             # take by default only the first match
             # (although always there should be only
             # one match
-            mate_bin = mate_bin[0]
-
+            # mate_bin = mate_bin.begin
+            # print "mate_bin: ", mate_bin
+            # print "mate_bin.data ", mate_bin.data
             mate_bin_id = mate_bin.data
             mate_bins.append(mate_bin_id)
 
@@ -1093,7 +1142,25 @@ def main(args=None):
     matrix_size = len(bin_intervals)
     bin_intval_tree = intervalListToIntervalTree(bin_intervals)
     ref_id2name = str1.references
-
+    print "len interval tree", len(bin_intval_tree)
+    # build_shared_bin_intval_tree = []
+    shared_array_list = []
+    index_dict = {}
+    j = 0
+    interval_list = []
+    
+    for i, seq in enumerate(bin_intval_tree):
+        start = j
+        j += 1
+        for interval in bin_intval_tree[seq]:
+            interval_list.append((interval.begin, interval.end, interval.data))
+            j += 1
+        end = j - 1  
+        index_dict[seq] = (start, end)
+        
+    # print shared_array_list
+    shared_build_intval_tree = RawArray(C_Interval, interval_list)
+    bin_intval_tree = None
     dangling_sequences = dict()
     if args.restrictionSequence:
         # build a list of dangling sequences
@@ -1199,7 +1266,7 @@ def main(args=None):
                     pMatrixSize=matrix_size,
                     pReadPosMatrix=read_pos_matrix,
                     pRfPositions=rf_positions,
-                    pBinIntvalTree=bin_intval_tree,
+                    # pBinIntvalTree=bin_intval_tree,
                     pRefId2name=ref_id2name,
                     pDanglingSequences=dangling_sequences,
                     pBinsize=binsize,
@@ -1209,7 +1276,9 @@ def main(args=None):
                     pTemplate=str1,
                     pOutputBamSet=args.outBam,
                     pOutputName=str(count_output) + '.bam',
-                    pCounter=count_output
+                    pCounter=count_output,
+                    pSharedBinIntvalTree=shared_build_intval_tree,
+                    pDictBinIntervalTreeIndex=index_dict
                     # pLocalDuplicationCheck=local_duplication_check
                 ))
                 process[i].start()
