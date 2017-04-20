@@ -189,8 +189,8 @@ def parse_arguments(args=None):
                         )
     parser.add_argument('--outputFileBufferDir',
                         help='The location of the output file buffer. Per default /dev/shm/ is used which is in the most Linux systems a RAM disk. '
-                            'Please make sure no other instance of hicBuildMatrix is accessing this directory at the same time or that old tmp files, maybe from '
-                            'an interupted run of hicBuildMatrix, are stored there. It could cause some non expected behaviour and or results.' ,
+                        'Please make sure no other instance of hicBuildMatrix is accessing this directory at the same time or that old tmp files, maybe from '
+                        'an interupted run of hicBuildMatrix, are stored there. It could cause some non expected behaviour and or results.',
                         required=False,
                         default='/dev/shm/',
                         type=str
