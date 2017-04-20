@@ -550,7 +550,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
             mate2 = pFileTwoIterator.next()
         except StopIteration:
             all_data_read = True
-            print "all_data_processed: ", all_data_read
             break
         iter_num += 1
 
@@ -560,7 +559,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
                 mate1 = pFileOneIterator.next()
             except StopIteration:
                 all_data_read = True
-                print "all_data_processed: ", all_data_read
                 break
         while mate2.flag & 256 == 256:
             try:
@@ -568,7 +566,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
             except StopIteration:
                 # pTerminateSignal.set()
                 all_data_read = True
-                print "all_data_processed: ", all_data_read
                 break
 
         assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
@@ -693,7 +690,6 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen / 2)
             try:
-                # print "mate_ref: ", mate_ref
                 start, end = pDictBinIntervalTreeIndex[mate_ref]
                 middle_pos = int((start + end) / 2)
                 mate_bin = None
@@ -800,12 +796,9 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
                     has_rf = sorted(pRfPositions[mate_ref][frag_start: frag_end])
-                    # print
 
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
-                    # print "foo781"
-
                     same_fragment += 1
                     continue
 
@@ -881,10 +874,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             out_bam.write(mate1)
             out_bam.write(mate2)
 
-    if hic_matrix is None:
-        hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
-    else:
-        hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
+    hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
     row = []
     col = []
     data = []
@@ -972,7 +962,6 @@ def main(args=None):
     else:
         bin_intervals = get_bins(args.binSize, chrom_sizes, args.region)
 
-    sys.stderr.write("Matrix size: {}\n".format(len(bin_intervals)))
     matrix_size = len(bin_intervals)
     bin_intval_tree = intervalListToIntervalTree(bin_intervals)
     ref_id2name = str1.references
