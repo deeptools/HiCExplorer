@@ -7,11 +7,9 @@ from os import unlink
 import os
 import shutil
 import pysam
-from ctypes import Structure, c_int, c_uint
-from multiprocessing.sharedctypes import Value, Array, RawArray
-# import cPickle as pickle
-# import glob
-# bx python
+from ctypes import Structure, c_uint
+from multiprocessing.sharedctypes import Array, RawArray
+
 from intervaltree import IntervalTree, Interval
 
 # own tools
@@ -19,8 +17,6 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 
-
-# import collections  # for the buffer
 import multiprocessing
 
 debug = 1
@@ -36,70 +32,6 @@ class C_Coverage(Structure):
     _fields_ = [("begin", c_uint),
                 ("end", c_uint)]
 
-# from multiprocessing.managers import SyncManager
-
-# from multiprocessing.managers import MakeProxyType
-
-# BaseSetProxy = MakeProxyType('BaseSetProxy', [
-#     '__and__', '__contains__', '__iand__', '__ior__',
-#     '__isub__', '__ixor__', '__len__', '__or__', '__rand__', '__ror__', '__rsub__',
-#     '__rxor__', '__sub__', '__xor__', 'add', 'clear', 'copy', 'difference',
-#     'difference_update', 'discard', 'intersection', 'intersection_update', 'isdisjoint',
-#     'issubset', 'issuperset', 'pop', 'remove', 'symmetric_difference',
-#     'symmetric_difference_update', 'union', 'update']
-# )
-
-
-# class SetProxy(BaseSetProxy):
-#     # in-place hooks need to return `self`, specify these manually
-#     def __iand__(self, value):
-#         self._callmethod('__iand__', (value,))
-#         return self
-
-#     def __ior__(self, value):
-#         self._callmethod('__ior__', (value,))
-#         return self
-
-#     def __isub__(self, value):
-#         self._callmethod('__isub__', (value,))
-#         return self
-
-#     def __ixor__(self, value):
-#         self._callmethod('__ixor__', (value,))
-#         return self
-
-
-# class Duplicate(Structure):
-#     _fields_ = [('hash', c_int), ('value', c_bool)]
-# class ReadPositionMatrix(object):
-#     """ class to check for PCR duplicates.
-#     A sparse matrix having as bins all possible
-#     start sites (single bp resolution)
-#     is created. PCR duplicates
-#     are determined by checking if the matrix
-#     cell is already filled.
-
-#     """
-
-#     def __init__(self, pManager):
-#         """
-#         >>> rp = ReadPositionMatrix()
-#         >>> rp.is_duplicated('1', 0, '2', 0)
-#         False
-#         >>> rp.is_duplicated('1', 0, '2', 0)
-#         True
-#         """
-
-#         self.pos_matrix = pManager.set()
-
-#     def is_duplicated(self, chrom1, start1, chrom2, start2):
-
-#         id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
-#         if id_string in self.pos_matrix:
-#             return True
-#         else:
-#             self.pos_matrix.add(id_string)
-#             self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
 
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
@@ -241,17 +173,25 @@ def parse_arguments(args=None):
                         type=int
                         )
     parser.add_argument('--threads',
-                        help='Number of threads. Using the python multiprocessing module.',
+                        help='Number of threads. Using the python multiprocessing module. Please notice that in total \'threads\' + 2 processes '
+                        'are running. One master process which is used to read the input file into the buffer and one process which is merging '
+                        'the output bam files of the processes into one output bam file.',
                         required=False,
                         default=4,
                         type=int
                         )
     parser.add_argument('--inputBufferSize',
-                        help='Size of the input buffer of each thread. One million elements per input file per thread is the default value.'
+                        help='Size of the input buffer of each thread. 100,000 elements per input file per thread is the default value.'
                              ' Reduce value to decrease memory usage.',
                         required=False,
-                        default=1e6,
+                        default=1e5,
                         type=int
+                        )
+    parser.add_argument('--outputFileBufferDir',
+                        help='The location of the output file buffer. Per default /dev/shm/ is used which is in the most Linux systems a RAM disk.',
+                        required=False,
+                        default='/dev/shm/',
+                        type=str
                         )
     parser.add_argument('--doTestRun',
                         help='A test run is useful to test the quality of a Hi-C experiment quickly. It works by '
@@ -676,17 +616,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
             continue
 
         if pSkipDuplicationCheck is False:
-            # chrom1 = pRefId2name[mate1.rname]
-            # start1 = mate1.pos
-            # chrom2 = pRefId2name[mate2.rname]
-            # start2 = mate2.pos
-            # id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
-            # if id_string in pLocalDuplicationCheck:
-            #     duplicated_pairs += 1
-            #     continue
-            # else:
-            #     pLocalDuplicationCheck.add(id_string)
-            #     pLocalDuplicationCheck.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
             if pReadPosMatrix.is_duplicated(pRefId2name[mate1.rname],
                                             mate1.pos,
                                             pRefId2name[mate2.rname],
@@ -707,20 +636,10 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pRefId2name,
-                 pDanglingSequences, pBinsize, pResultIndex, pBinIntervals,
+                 pDanglingSequences, pBinsize, pResultIndex,
                  pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter,
-                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex):
+                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex, pOutputFileBufferDir):
 
-    # i = 0
-    # for bla in pBinIntvalTree:
-    #     print pBinIntvalTree[bla]
-    #     print type(pBinIntvalTree[bla])
-    #     if i == 100:
-    #         break
-    #     i += 1
-    # i = 0
-    # print pBinIntvalTree
-    bufferOutputBam = []
     one_mate_unmapped = 0
     one_mate_low_quality = 0
     one_mate_not_unique = 0
@@ -729,7 +648,6 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     self_ligation = 0
     same_fragment = 0
     mate_not_close_to_rf = 0
-    # duplicated_pairs = 0
 
     count_inward = 0
     count_outward = 0
@@ -747,24 +665,15 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
     iter_num = 0
     hic_matrix = None
-
-    # coverage = []
-    binsize = 10
     if pOutputBamSet:
-        out_bam = pysam.Samfile('/dev/shm/' + pOutputName, 'wb', template=pTemplate)
+        out_bam = pysam.Samfile(pOutputFileBufferDir + pOutputName, 'wb', template=pTemplate)
 
-    # for value in pBinIntervals:
-    #     chrom, start, end = value
-    #     coverage.append(np.zeros((end - start) / binsize, dtype='uint16'))
     if pMateBuffer1 is None or pMateBuffer2 is None:
 
         pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                                     mate_not_close_to_rf, count_inward, count_outward,
-                                    count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex], coverage, bufferOutputBam])
+                                    count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex]])
         return
-
-    # for i in pSharedBinIntvalTree:
-    #     print i.begin, i.end, i.data
 
     while iter_num < len(pMateBuffer1) and iter_num < len(pMateBuffer2):
         mate1 = pMateBuffer1[iter_num]
@@ -935,8 +844,6 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
         for mate in [mate1, mate2]:
             # fill in coverage vector
             vec_start = max(0, mate.pos - mate_bin.begin) / pBinsize
-            # print "mate_bin_id: ", mate_bin_id
-            # print "len(pCoverageIndex): ", len(pCoverageIndex)
             length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
             vec_end = min(length_coverage, vec_start +
                           len(mate.seq) / pBinsize)
@@ -944,7 +851,6 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
             for i in xrange(coverage_index, coverage_end, 1):
                 pCoverage[i] += 1
-            # coverage[mate_bin_id][vec_start:vec_end] += 1
 
         row.append(mate_bins[0])
         col.append(mate_bins[1])
@@ -989,14 +895,14 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     return
 
 
-def write_bam(pOutputBam, pTemplate):
+def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
 
-    out_bam = pysam.Samfile('/dev/shm/' + pOutputBam, 'wb', template=pTemplate)
+    out_bam = pysam.Samfile(pOutputFileBufferDir + pOutputBam, 'wb', template=pTemplate)
 
     counter = 0
-    while not os.path.isfile('/dev/shm/done_processing') or os.path.isfile('/dev/shm/' + str(counter) + '.bam_done'):
-        if os.path.isfile('/dev/shm/' + str(counter) + '.bam_done'):
-            out_put_threads = pysam.Samfile('/dev/shm/' + str(counter) + '.bam', 'rb')
+    while not os.path.isfile(pOutputFileBufferDir + 'done_processing') or os.path.isfile(pOutputFileBufferDir + str(counter) + '.bam_done'):
+        if os.path.isfile(pOutputFileBufferDir + str(counter) + '.bam_done'):
+            out_put_threads = pysam.Samfile(pOutputFileBufferDir + str(counter) + '.bam', 'rb')
             while True:
                 try:
                     data = out_put_threads.next()
@@ -1004,36 +910,15 @@ def write_bam(pOutputBam, pTemplate):
                     break
                 out_bam.write(data)
             out_put_threads.close()
-            os.remove('/dev/shm/' + str(counter) + '.bam')
-            os.remove('/dev/shm/' + str(counter) + '.bam_done')
+            os.remove(pOutputFileBufferDir + str(counter) + '.bam')
+            os.remove(pOutputFileBufferDir + str(counter) + '.bam_done')
             counter += 1
         else:
             time.sleep(3)
 
     out_bam.close()
-    os.remove('/dev/shm/done_processing')
+    os.remove(pOutputFileBufferDir + 'done_processing')
 
-
-# def handle_duplication(pPipeInputList, pPipeOutputList, pThreads):
-#     # id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
-#     #     if id_string in self.pos_matrix:
-#     #         return True
-#     #     else:
-#     #         self.pos_matrix.add(id_string)
-#     #         self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
-#     #         # return False
-#     duplications = set()
-#     i = 0
-#     while True:
-#         while i < pThreads:
-#             try:
-#                 request = pPipeInputList[i].recv()
-#                 id_string = "%s%s-%s%s" % (request[0], start1, chrom2, start2)
-#                 if request in duplications:
-#                     pPipeOutputList[i].send(True)
-#                 else:
-#                     duplications
-#                     pPipeOutputList[i].send(False)
 
 def main(args=None):
     """
@@ -1064,20 +949,16 @@ def main(args=None):
 
     args.samFiles[0].close()
     args.samFiles[1].close()
-
+    outputFileBufferDir = args.outputFileBufferDir
+    if not outputFileBufferDir[:-1] == '/':
+        outputFileBufferDir += '/'
     if args.outBam:
         args.outBam.close()
-    # manager = SyncManager()
-    # manager.start()
-    # SyncManager.register('set', set, SetProxy)
 
     chrom_sizes = get_chrom_sizes(str1)
-    # print chrom_sizes
-    # initialize read start positions matrix
-    # manager_multiprocessing = multiprocessing.Manager()
+
     read_pos_matrix = ReadPositionMatrix()
-    # read_pos_matrix = ReadPositionMatrix(manager_multiprocessing)
-    # local_duplication_check = set()
+
     # define bins
     rf_positions = None
     if args.restrictionCutFile:
@@ -1090,11 +971,11 @@ def main(args=None):
     else:
         bin_intervals = get_bins(args.binSize, chrom_sizes, args.region)
 
+    # print bin_intervals
     sys.stderr.write("Matrix size: {}\n".format(len(bin_intervals)))
     matrix_size = len(bin_intervals)
     bin_intval_tree = intervalListToIntervalTree(bin_intervals)
     ref_id2name = str1.references
-    print "len interval tree", len(bin_intval_tree)
 
     # build c_type shared memory for the interval tree
     shared_array_list = []
@@ -1111,7 +992,6 @@ def main(args=None):
         index_dict[seq] = (start, end)
         interval_list = sorted(interval_list)
         shared_array_list.extend(interval_list)
-    # print shared_array_list
     shared_build_intval_tree = RawArray(C_Interval, shared_array_list)
     bin_intval_tree = None
     dangling_sequences = dict()
@@ -1128,7 +1008,6 @@ def main(args=None):
     # a bin.
     # To save memory, coverage is not measured by bp
     # but by bins of length 10bp
-    # coverage = []
     binsize = 10
     number_of_elements_coverage = 0
     start_pos_coverage = []
@@ -1140,14 +1019,13 @@ def main(args=None):
 
         number_of_elements_coverage += (end - start) / binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
-        # coverage.append(np.zeros((end - start) / binsize, dtype='uint32'))
     pos_coverage_ = zip(start_pos_coverage, end_pos_coverage)
-    # print pos_coverage_
     pos_coverage = RawArray(C_Coverage, pos_coverage_)
     pos_coverage_ = None
     start_pos_coverage = None
     end_pos_coverage = None
     coverage = Array(c_uint, number_of_elements_coverage)
+
     start_time = time.time()
 
     iter_num = 0
@@ -1183,19 +1061,15 @@ def main(args=None):
     all_data_processed = False
     hic_matrix = coo_matrix((matrix_size, matrix_size), dtype='uint32')
     queue = [None] * args.threads
-    # duplication_pipe_input = [multiprocessing.Pipe()] * args.threads
-    # duplication_pipe_output = [multiprocessing.Pipe()] * args.threads
 
     all_threads_done = False
     thread_done = [False] * args.threads
     count_output = 0
     count_call_of_read_input = 0
     computed_pairs = 0
-    # process_handle_duplication = multiprocessing.Process(target=handle_duplication, kwargs=dict(pPipeInputList=duplication_pipe_input, pPipeOutputList=duplication_pipe_output))
-    process_write_bam_file = multiprocessing.Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1))
+    process_write_bam_file = multiprocessing.Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir))
     process_write_bam_file.start()
     while not all_data_processed or not all_threads_done:
-        # out_q = multiprocessing.Queue()
 
         for i in xrange(args.threads):
             if queue[i] is None and not all_data_processed:
@@ -1219,27 +1093,21 @@ def main(args=None):
                 queue[i] = multiprocessing.Queue()
                 thread_done[i] = False
                 computed_pairs += len(buffer_workers1[i])
-                # create n processes to compute hic matrix
-                # for i in xrange(args.threads):
+                # create process to compute hic matrix for this buffer
                 process[i] = multiprocessing.Process(target=process_data, kwargs=dict(
                     pMateBuffer1=buffer_workers1[i],
                     pMateBuffer2=buffer_workers2[i],
-                    # pDuplicationPipeInput=duplication_pipe_input[i],
-                    # pDuplicationPipeOutput=duplication_pipe_output[i],
                     pMinMappingQuality=args.minMappingQuality,
-
                     pRemoveSelfCircles=args.removeSelfCircles,
                     pRestrictionSequence=args.restrictionSequence,
                     pRemoveSelfLigation=args.removeSelfLigation,
                     pMatrixSize=matrix_size,
                     pReadPosMatrix=read_pos_matrix,
                     pRfPositions=rf_positions,
-                    # pBinIntvalTree=bin_intval_tree,
                     pRefId2name=ref_id2name,
                     pDanglingSequences=dangling_sequences,
                     pBinsize=binsize,
                     pResultIndex=i,
-                    pBinIntervals=bin_intervals,
                     pQueueOut=queue[i],
                     pTemplate=str1,
                     pOutputBamSet=args.outBam,
@@ -1248,31 +1116,28 @@ def main(args=None):
                     pSharedBinIntvalTree=shared_build_intval_tree,
                     pDictBinIntervalTreeIndex=index_dict,
                     pCoverage=coverage,
-                    pCoverageIndex=pos_coverage
-                    # pLocalDuplicationCheck=local_duplication_check
+                    pCoverageIndex=pos_coverage,
+                    pOutputFileBufferDir=outputFileBufferDir
                 ))
                 process[i].start()
-                # print "count_output: ", count_output
                 count_output += 1
+                buffer_workers1[i] = None
+                buffer_workers2[i] = None
 
             elif queue[i] is not None and not queue[i].empty():
                 result = queue[i].get()
 
                 if result[0] is not None:
                     if hic_matrix is None:
-                        hic_matrix = result[0]  # hicmatrix
+                        hic_matrix = result[0]
                     else:
                         hic_matrix += result[0]
 
-                    # one_mate_unmapped += result[1][0]
-                    # one_mate_low_quality += result[1][1]
-                    # one_mate_not_unique += result[1][2]
                     dangling_end += result[1][3]
                     self_circle += result[1][4]
                     self_ligation += result[1][5]
                     same_fragment += result[1][6]
                     mate_not_close_to_rf += result[1][7]
-                    # duplicated_pairs += result[1][8]
 
                     count_inward += result[1][8]
                     count_outward += result[1][9]
@@ -1285,17 +1150,13 @@ def main(args=None):
                     pair_added += result[1][15]
                     iter_num += result[1][16]
 
-                    # if result[2] is not None:
-                    #     coverage = np.add(coverage, result[2])
-
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
                 process[i] = None
                 thread_done[i] = True
-                # local_duplication_check = local_duplication_check.union(result[3])
-                # print '/dev/shm/' + str(result[1][-1]) + '.bam_done'
-                open('/dev/shm/' + str(result[1][-1]) + '.bam_done', 'a').close()
+
+                open(outputFileBufferDir + str(result[1][-1]) + '.bam_done', 'a').close()
                 if iter_num % 1e6 < 100000:
                     elapsed_time = time.time() - start_time
                     sys.stderr.write("processing {} lines took {:.2f} "
@@ -1322,7 +1183,7 @@ def main(args=None):
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
-    open('/dev/shm/done_processing', 'a').close()
+    open(outputFileBufferDir + 'done_processing', 'a').close()
     print "wait for bam merging process to finish"
     process_write_bam_file.join()
     print "wait for bam merging process to finish...DONE!"
@@ -1343,12 +1204,6 @@ def main(args=None):
             bin_max.append(np.nan)
         else:
             bin_max.append(max_element)
-            
-    # for cov in coverage:
-    #     if len(cov) == 0:
-    #         bin_max.append(np.nan)
-    #     else:
-    #         bin_max.append(max(cov))
 
     chr_name_list, start_list, end_list = zip(*bin_intervals)
     bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
@@ -1363,29 +1218,7 @@ def main(args=None):
     hic_ma.save(args.outFileName.name)
 
     if args.outBam:
-        print "move output bam from ram to disk"
-        # input_bam_string = ""
-        # for i in xrange(count_output):
-        #     input_bam_string += '/dev/shm/' + str(i) + '.bam '
-
-        # os.system("samtools merge " + '/dev/shm/' + args.outBam.name + " " + input_bam_string)
-
-        # for i in xrange(count_output):
-        #     os.remove('/dev/shm/' + str(i) + '.bam')
-        # out_bam = pysam.Samfile('/dev/shm/' + args.outBam.name, 'wb', template=str1)
-
-        # for i in xrange(count_output):
-        #     out_put_threads = pysam.Samfile('/dev/shm/' + str(i) + '.bam', 'rb')
-        #     while True:
-        #         try:
-        #             data = out_put_threads.next()
-        #         except StopIteration:
-        #             break
-        #         out_bam.write(data)
-        #     out_put_threads.close()
-        #     os.remove('/dev/shm/' + str(i) + '.bam')
-        # out_bam.close()
-        shutil.move('/dev/shm/' + args.outBam.name, args.outBam.name)
+        shutil.move(outputFileBufferDir + args.outBam.name, args.outBam.name)
 
     """
     if args.restrictionCutFile:
