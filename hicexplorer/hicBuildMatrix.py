@@ -874,7 +874,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             out_bam.write(mate1)
             out_bam.write(mate2)
 
-    hic_matrix += coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
+    hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
     row = []
     col = []
     data = []
