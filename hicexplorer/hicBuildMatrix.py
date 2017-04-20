@@ -7,7 +7,11 @@ from os import unlink
 import os
 import shutil
 import pysam
+from distutils.version import LooseVersion
+
+
 from ctypes import Structure, c_uint
+from multiprocessing import Process, Queue
 from multiprocessing.sharedctypes import Array, RawArray
 
 from intervaltree import IntervalTree, Interval
@@ -16,10 +20,6 @@ from intervaltree import IntervalTree, Interval
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
-
-import multiprocessing
-
-debug = 1
 
 
 class C_Interval(Structure):
@@ -938,7 +938,6 @@ def main(args=None):
     """
 
     # check pysam version
-    from distutils.version import LooseVersion
     if LooseVersion(pysam.__version__) < LooseVersion("0.8.3"):
         exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
 
@@ -973,7 +972,6 @@ def main(args=None):
     else:
         bin_intervals = get_bins(args.binSize, chrom_sizes, args.region)
 
-    # print bin_intervals
     sys.stderr.write("Matrix size: {}\n".format(len(bin_intervals)))
     matrix_size = len(bin_intervals)
     bin_intval_tree = intervalListToIntervalTree(bin_intervals)
@@ -1069,7 +1067,7 @@ def main(args=None):
     count_output = 0
     count_call_of_read_input = 0
     computed_pairs = 0
-    process_write_bam_file = multiprocessing.Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir))
+    process_write_bam_file = Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir))
     process_write_bam_file.start()
     while not all_data_processed or not all_threads_done:
 
@@ -1092,11 +1090,11 @@ def main(args=None):
                 one_mate_not_unique += one_mate_not_unique_
                 one_mate_low_quality += one_mate_low_quality_
                 iter_num += iter_num_
-                queue[i] = multiprocessing.Queue()
+                queue[i] = Queue()
                 thread_done[i] = False
                 computed_pairs += len(buffer_workers1[i])
                 # create process to compute hic matrix for this buffer
-                process[i] = multiprocessing.Process(target=process_data, kwargs=dict(
+                process[i] = Process(target=process_data, kwargs=dict(
                     pMateBuffer1=buffer_workers1[i],
                     pMateBuffer2=buffer_workers2[i],
                     pMinMappingQuality=args.minMappingQuality,
@@ -1159,6 +1157,8 @@ def main(args=None):
                 thread_done[i] = True
 
                 open(outputFileBufferDir + str(result[1][-1]) + '.bam_done', 'a').close()
+
+                # caused by the architecture I try to display this output information after +-1e5 of 1e6 reads.
                 if iter_num % 1e6 < 100000:
                     elapsed_time = time.time() - start_time
                     sys.stderr.write("processing {} lines took {:.2f} "
