@@ -36,11 +36,11 @@ class hiCMatrix:
         if matrixFile:
             self.nan_bins = np.array([])
             if not file_format:
-                if matrixFile[-4:] == ".npz":
+                if matrixFile.endswith(".npz"):
                     file_format = 'npz'
-                elif matrixFile[-3:] == ".h5":
+                elif matrixFile.endswith(".h5"):
                     file_format = 'h5'
-                elif matrixFile[-3:] == '.gz':
+                elif matrixFile.endswith('.gz'):
                     file_format = 'dekker'
                 # by default assume that the matrix file_format is hd5
                 else:
@@ -453,6 +453,9 @@ class hiCMatrix:
         # check that the matrix has bins of same size
         # otherwise try to adjust the bins to
         # to match a regular binning
+        if len(cut_intervals) <= 1:
+            # do nothing if there is only one interval
+            return cut_intervals
         chrom, start, end, extra = zip(*cut_intervals)
 
         median = int(np.median(np.diff(start)))
@@ -488,11 +491,18 @@ class hiCMatrix:
         calculated and then each non-zero value of the sparse matrix is
         replaced by the obs/exp or z-score.
 
-        :param maxdepth:
-        :param zscore: if a zscore wants to be returned instead of obs/exp
-        :return: observed / expected sparse matrix
+        Parameters
+        ----------
+        maxdepth: maximum distance from the diagonal to consider. All contacts beyond this distance will not
+                         be considered.
+        zscore: if a zscore wants to be returned instead of obs/exp
 
-        from scipy.sparse import csr_matrix, dia_matrix
+
+        Returns
+        -------
+        observed / expected sparse matrix
+
+        >>> from scipy.sparse import csr_matrix, dia_matrix
         >>> row, col = np.triu_indices(5)
         >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
         ... ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
@@ -699,9 +709,13 @@ class hiCMatrix:
                 if depth is not None and dist_list[idx] > depth + 1:
                     continue
                 if zscore:
-                    transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
+                    if std[dist_list[idx]] == 0:
+                        transf_ma[idx] = np.nan
+                    else:
+                        transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
                 else:
                     transf_ma[idx] = value / mu[dist_list[idx]]
+
             submatrix.data = transf_ma
             trasf_matrix[chrom_range[chrname][0]:chrom_range[chrname][1], chrom_range[chrname][0]:chrom_range[chrname][1]] = submatrix.tolil()
 
@@ -714,10 +728,22 @@ class hiCMatrix:
         computes counts for each intrachromosomal distance.
         better used with a corrected matrix
 
+
+        Parameters
+        ----------
+        mean : if set to true (default) the mean of the distance value is returned instead of a list with each of the
+                elements
+        per_chr: set to true if the computation should be done per chromosome
+
+        Returns
+        -------
         returns a dictionary having as key the distance
         and as value an array containing the matrix values
         corresponding to that distance
 
+
+        Examples
+        --------
         >>> from scipy.sparse import coo_matrix
         >>> row, col = np.triu_indices(5)
         >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
@@ -1067,13 +1093,16 @@ class hiCMatrix:
         # save only the upper triangle of the
         # symmetric matrix
         matrix = triu(self.matrix, k=0, format='csr')
+        filters = tables.Filters(complevel=5, complib='blosc')
         with tables.open_file(filename, mode="w", title="HiCExplorer matrix") as h5file:
             matrix_group = h5file.create_group("/", "matrix", )
             # save the parts of the csr matrix
             for matrix_part in ('data', 'indices', 'indptr', 'shape'):
                 arr = np.array(getattr(matrix, matrix_part))
                 atom = tables.Atom.from_dtype(arr.dtype)
-                ds = h5file.create_carray(matrix_group, matrix_part, atom, arr.shape)
+                ds = h5file.create_carray(matrix_group, matrix_part, atom,
+                                          shape=arr.shape,
+                                          filters=filters)
                 ds[:] = arr
 
             # save the matrix intervals
@@ -1082,13 +1111,17 @@ class hiCMatrix:
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
                 arr = np.array(eval(interval_part))
                 atom = tables.Atom.from_dtype(arr.dtype)
-                ds = h5file.create_carray(intervals_group, interval_part, atom, arr.shape)
+                ds = h5file.create_carray(intervals_group, interval_part, atom,
+                                          shape=arr.shape,
+                                          filters=filters)
                 ds[:] = arr
 
             # save nan bins
             if len(nan_bins):
                 atom = tables.Atom.from_dtype(nan_bins.dtype)
-                ds = h5file.create_carray(h5file.root, 'nan_bins', atom, nan_bins.shape)
+                ds = h5file.create_carray(h5file.root, 'nan_bins', atom,
+                                          shape=nan_bins.shape,
+                                          filters=filters)
                 ds[:] = nan_bins
 
             # save corrections factors
@@ -1096,14 +1129,16 @@ class hiCMatrix:
                 self.correction_factors = np.array(self.correction_factors)
                 atom = tables.Atom.from_dtype(self.correction_factors.dtype)
                 ds = h5file.create_carray(h5file.root, 'correction_factors', atom,
-                                          self.correction_factors.shape)
+                                          shape=self.correction_factors.shape,
+                                          filters=filters)
                 ds[:] = np.array(self.correction_factors)
 
             # save distance counts
             if self.distance_counts is not None and len(self.distance_counts):
                 atom = tables.Atom.from_dtype(self.distance_counts.dtype)
                 ds = h5file.create_carray(h5file.root, 'distance_counts', atom,
-                                          self.distance_counts.shape)
+                                          shape=self.distance_counts.shape,
+                                          filters=filters)
                 ds[:] = np.array(self.distance_counts)
 
     def save_npz(self, filename):

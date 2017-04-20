@@ -434,7 +434,7 @@ def plot_total_contact_dist(hic_ma, args):
             row_sum = row_sum[modified_z_score < 5]
 
             col = plot_num % num_cols
-            row = int(float(plot_num) / num_cols)
+            row = plot_num // num_cols
             ax[chrname] = fig.add_subplot(grids[row, col])
 
             plot_histogram(row_sum, mad, ax[chrname], title=chrname)

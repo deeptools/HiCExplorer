@@ -1,6 +1,31 @@
 News and Developments
 =====================
 
+Release 1.7.2
+-----------
+**April 3, 2017**
+
+ * Added option to plot bigwig files as a line hicPlotTADs
+ * Updated documentation
+ * Improved hicPlotMatrix --region output
+ * Added compressed matrices. In our tests the compressed matrices are significantly smaller.
+
+
+**March 28, 2017**
+
+Release 1.7
+-----------
+
+**March 28, 2017**
+
+This release adds a quality control module to check the results from hicBuildMatrix. By default, now hicBuildMatrix
+generates a HTML page containing the plots from the QC measures. The results from several runs of hicBuildMatrix can
+be combined in one page using the new tool hicQC.
+
+Also, this release added a module called hicCompareMatrices that takes two Hi-C matrices and computes
+the difference, the ratio or the log2 ratio. The resulting matrix can be plotted with hicPlotMatrix
+to visualize the changes.
+
 
 Preprint introducing HiCExplorer is now online
 ----------------------------------------------

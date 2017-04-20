@@ -1,13 +1,13 @@
-.. image:: https://zenodo.org/badge/21196/maxplanck-ie/HiCExplorer.svg
-   :target: https://zenodo.org/badge/latestdoi/21196/maxplanck-ie/HiCExplorer
 .. image:: https://travis-ci.org/maxplanck-ie/HiCExplorer.svg?branch=master
    :target: https://travis-ci.org/maxplanck-ie/HiCExplorer
-.. image:: https://readthedocs.org/projects/hicexplorer/badge/?version=docs
-   :target: http://hicexplorer.readthedocs.io/?badge=docs
+.. image:: https://readthedocs.org/projects/hicexplorer/badge/?version=latest
+   :target: http://hicexplorer.readthedocs.io/?badge=latest
 .. image:: https://anaconda.org/bioconda/hicexplorer/badges/installer/conda.svg
    :target: https://anaconda.org/bioconda/hicexplorer
 .. image:: https://quay.io/repository/biocontainers/hicexplorer/status
    :target: https://quay.io/repository/biocontainers/hicexplorer
+.. image:: https://badge.fury.io/py/HiCExplorer.svg
+       :target: https://badge.fury.io/py/HiCExplorer
 
 HiCExplorer
 ===========
@@ -42,7 +42,25 @@ HiCExplorer is available for:
 There are many easy ways to install HiCExplorer. Details can be found
 `here <https://http://hicexplorer.readthedocs.io/content/installation.html>`__
 
-**Install by cloning this repository:**
+
+Install with conda
+++++++++++++++++++
+
+The easiest way to install HiCExplorer is using `BioConda <http://bioconda.github.io/>`_
+::
+
+   $ conda install hicexplorer -c bioconda -c conda-forge
+
+
+
+Install with pip
+++++++++++++++++
+::
+
+   $ pip install HiCExplorer
+
+Install by cloning this repository
+++++++++++++++++++++++++++++++++++
 
 You can install any one of the HiCExplorer branches on command line
 (linux/mac) by cloning this git repository :

@@ -16,19 +16,22 @@ The following is the list of tools available in HiCExplorer
 =============================== ===========================================================================================
 tool                            description
 =============================== ===========================================================================================
-:ref:`findRestSites`             Identifies the genomic locations of restriction sites
+:ref:`findRestSite`              Identifies the genomic locations of restriction sites
 :ref:`hicBuildMatrix`            Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
+:ref:`hicQC`                     Plots QC measures from the output of hicBuildMatrix
 :ref:`hicCorrectMatrix`          Uses iterative correction to remove biases from a Hi-C matrix
 :ref:`hicFindEnrichedContacts`   Identifies enriched Hi-C contacts
 :ref:`hicCorrelate`              Computes and visualises the correlation of Hi-C matrices
 :ref:`hicFindTADs`               Identifies Topologically Associating Domains (TADs)
-:ref:`hicMergeMatrixBins`        Merges consecutives bins on a Hi-C matrix to reduce resolution
+:ref:`hicMergeMatrixBins`        Merges consecutive bins on a Hi-C matrix to reduce resolution
 :ref:`hicPlotDistVsCounts`       Plot the decay in interaction frequency with distance
 :ref:`hicPlotMatrix`             Plots a Hi-C matrix as a heatmap
 :ref:`hicPlotTADs`               Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
 :ref:`hicSumMatrices`            Adds Hi-C matrices of the same size
 :ref:`hicPlotDistVsCounts`       Plots distance vs. Hi-C counts of corrected data
 :ref:`hicExport`                 Export matrix to text formats
+:ref:`hicInfo`                   Shows information about a Hi-C matrix file (no. of bins, bin length, sum, max, min, etc)
+:ref:`hicCompareMatrices`        Computes difference or ratio between two matrices
 =============================== ===========================================================================================
 
 

@@ -123,7 +123,7 @@ For detailed help:
                                           'the  zscores between the left and right '
                                           'regions (diamond) at the local minimum with the matrix zscores for a '
                                           'diamond at --minDepth to the left and a diamond --minDepth to the right. '
-                                          'The reported pvalue is the Bonferroni correction all pvalues. Default is'
+                                          'The reported pvalue is the Bonferroni correction all pvalues. Default is '
                                           '0.01',
                                      type=float,
                                      default=0.01
@@ -161,7 +161,7 @@ For detailed help:
 def get_cut_weight_by_bin_id(matrix, cut, depth, return_mean=False):
     """
     like get_cut_weight which is the 'diamond' representing the counts
-    from a region -dept to _depth from the given bin position (cut):
+    from a region -dept to +depth from the given bin position (cut):
 
     """
     if cut < 0 or cut > matrix.shape[0]:

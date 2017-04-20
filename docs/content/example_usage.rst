@@ -1,3 +1,5 @@
+.. _example_usage:
+
 Example usage
 =============
 
@@ -7,7 +9,7 @@ Example usage
    :maxdepth: 1
 
    mES-HiC_analysis
-   HiC_export
+   HiCExport
 
 How we use HiCExplorer
 ----------------------
@@ -52,10 +54,10 @@ We have used the HiCExplorer sucessfuly with `bwa`, `bowtie2` and `hisat2`. Howe
    #       -L INT[,INT]  penalty for 5'- and 3'-end clipping [5,5] # this is set to no penalty.
 
    $ bwa mem -A1 -B4  -E50 -L0  index_path \
-       -U mate_R1.fastq.gz ) 2>>mate_R1.log | samtools view -Shb - > mate_R1.bam
+       -U mate_R1.fastq.gz 2>>mate_R1.log | samtools view -Shb - > mate_R1.bam
 
    $ bwa mem -A1 -B4  -E50 -L0  index_path \
-       -U mate_R2.fastq.gz ) 2>>mate_R2.log | samtools view -Shb - > mate_R2.bam
+       -U mate_R2.fastq.gz 2>>mate_R2.log | samtools view -Shb - > mate_R2.bam
 
 
 Creation of a Hi-C matrix
@@ -64,10 +66,12 @@ Creation of a Hi-C matrix
 Once the reads have been mapped the Hi-C matrix can be built. For this, the minimal
 extra information required is the `binSize` used for the matrix. Is it best
 to enter a low number like 10.000 because lower
-resolution matrices (larget bins) can be easily constructed using `hicMergeMatrixBins`. Matrices
+resolution matrices (larger bins) can be easily constructed using :ref:`hicMergeMatrixBins`. Matrices
 at restriction fragment resolution can be created by providing a file
-containing the restriction sites, this file can be created with the tool
-`findRestSite` that is part of HiCExplorer.
+containing the restriction sites, this file can be created with the tool :ref:`findRestSite`
+
+:ref:`findRestSite`
+that is part of HiCExplorer.
 
 .. code-block:: bash
 
@@ -78,18 +82,21 @@ containing the restriction sites, this file can be created with the tool
                     --binSize 10000 \
                     --restrictionSequence GATC \
                     --outBam hic.bam \
-                    -o hic_matrix.npz > build_matrix.log
+                    -o hic_matrix.npz
+                    --QCfolder ./hicQC
 
 
 `hicBuildMatrix` creates two files, a bam file containing only the valid Hi-C read pairs and a matrix containing the
 Hi-C contacts at the given resolution. The bam file is useful to check the quality of the
 Hi-C library on the genome browser. A good Hi-C library should contain piles of reads near
-the restriction fragment sites. The log output contains the number of valid pairs, duplicated pairs and
-other useful information. Usually, only 25%-40% of the reads are valid and used to build the Hi-C matrix mostly
+the restriction fragment sites. In the `QCfolder` a html file is saved with plots containing
+useful information for the quality control of the Hi-C sample like the number of valid pairs, duplicated pairs,
+self-ligations etc. Usually, only 25%-40% of the reads are valid and used to build the Hi-C matrix mostly
 because of the reads that are on repetitive regions that need to be discarded.
 
 An important quality control measurement to check is the `inter chromosomal` fraction of reads as this is an indirect
- measure of random Hi-C contacts. Good Hi-C libraries have lower than 10%  inter chromosomal contacts.
+measure of random Hi-C contacts. Good Hi-C libraries have lower than 10%  inter chromosomal contacts. The `hicQC`
+module can be used to compare the QC measures from different samples.
 
 Correction of Hi-C matrix
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -97,7 +104,7 @@ Correction of Hi-C matrix
 The Hi-C matrix has to be corrected to remove GC, open chromatin biases and, most importantly,
 to normalize the number of restriction sites per bin. Because a fraction of bins from repetitive regions
 contain few contacts it is necessary to filter those regions first. Also, in mammalian genomes some regions
-enriched by reads should be discarded. To aid in the filtering of regions `hicCorrectMatrix` generates a
+enriched by reads should be discarded. To aid in the filtering of regions :ref:`hicCorrectMatrix` generates a
 diagnostic plot as follows:
 
 .. code-block:: bash
@@ -131,8 +138,8 @@ Once the thresholds have been decided, the matrix can be corrected
 Visualization of results
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-There are two ways to see the resulting matrix, one using `hicPlotMatrix` and the
-other is using `hicPlotTADs`. The first one allows the visualization over large regions
+There are two ways to see the resulting matrix, one using :ref:`hicPlotMatrix` and the
+other is using :ref:`hicPlotTADs`. The first one allows the visualization over large regions
 while the second one is preferred to see specific parts together with other information,
 for example genes or bigwig tracks.
 
