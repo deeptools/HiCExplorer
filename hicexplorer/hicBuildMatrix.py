@@ -7,7 +7,7 @@ from os import unlink
 import os
 import shutil
 import pysam
-from ctypes import Structure, c_int
+from ctypes import Structure, c_int, c_uint
 from multiprocessing.sharedctypes import Value, Array, RawArray
 # import cPickle as pickle
 # import glob
@@ -25,11 +25,16 @@ import multiprocessing
 
 debug = 1
 
-class C_Interval(Structure):
-    _fields_ = [("begin", c_int),
-                ("end", c_int),
-                ("data", c_int)]
 
+class C_Interval(Structure):
+    _fields_ = [("begin", c_uint),
+                ("end", c_uint),
+                ("data", c_uint)]
+
+
+class C_Coverage(Structure):
+    _fields_ = [("begin", c_uint),
+                ("end", c_uint)]
 
 # from multiprocessing.managers import SyncManager
 
@@ -703,8 +708,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pReadPosMatrix, pRfPositions, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex, pBinIntervals,
-                 pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter, 
-                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex):
+                 pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter,
+                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex):
 
     # i = 0
     # for bla in pBinIntvalTree:
@@ -743,14 +748,14 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     iter_num = 0
     hic_matrix = None
 
-    coverage = []
+    # coverage = []
     binsize = 10
     if pOutputBamSet:
         out_bam = pysam.Samfile('/dev/shm/' + pOutputName, 'wb', template=pTemplate)
 
-    for value in pBinIntervals:
-        chrom, start, end = value
-        coverage.append(np.zeros((end - start) / binsize, dtype='uint16'))
+    # for value in pBinIntervals:
+    #     chrom, start, end = value
+    #     coverage.append(np.zeros((end - start) / binsize, dtype='uint16'))
     if pMateBuffer1 is None or pMateBuffer2 is None:
 
         pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
@@ -758,59 +763,18 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                                     count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex], coverage, bufferOutputBam])
         return
 
+    # for i in pSharedBinIntvalTree:
+    #     print i.begin, i.end, i.data
+
     while iter_num < len(pMateBuffer1) and iter_num < len(pMateBuffer2):
         mate1 = pMateBuffer1[iter_num]
         mate2 = pMateBuffer2[iter_num]
         iter_num += 1
 
-        # # skip if any of the reads is not mapped
-        # if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
-        #     one_mate_unmapped += 1
-        #     continue
-
-        # # skip if the read quality is low
-        # if mate1.mapq < pMinMappingQuality or mate2.mapq < pMinMappingQuality:
-        #     # for bwa other way to test
-        #     # for multi-mapping reads is with a mapq = 0
-        #     # the XS flag is not reliable.
-        #     if mate1.mapq == 0 & mate2.mapq == 0:
-        #         one_mate_not_unique += 1
-        #         continue
-
-        #     """
-        #     # check if low quality is because of
-        #     # read being repetitive
-        #     # by reading the XS flag.
-        #     # The XS:i field is set by bowtie when a read is
-        #     # multi read and it contains the mapping score of the next
-        #     # best match
-        #     if 'XS' in dict(mate1.tags) or 'XS' in dict(mate2.tags):
-        #         one_mate_not_unique += 1
-        #         continue
-        #     """
-
-        #     one_mate_low_quality += 1
-        #     continue
-        # if pSkipDuplicationCheck is False:
-        #     # chrom1 = pRefId2name[mate1.rname]
-        #     # start1 = mate1.pos
-        #     # chrom2 = pRefId2name[mate2.rname]
-        #     # start2 = mate2.pos
-        #     # id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
-        #     # if id_string in pLocalDuplicationCheck:
-        #     #     duplicated_pairs += 1
-        #     #     continue
-        #     # else:
-        #     #     pLocalDuplicationCheck.add(id_string)
-        #     #     pLocalDuplicationCheck.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
-        #     if pReadPosMatrix.is_duplicated(pRefId2name[mate1.rname],
-        #                                     mate1.pos,
-        #                                     pRefId2name[mate2.rname],
-        #                                     mate2.pos, pResultIndex):
-        #         duplicated_pairs += 1
-        #         continue
-
         # check if reads belong to a bin
+        #
+        # pDictBinInterval stores the start and end position for each chromsome in the array 'pSharedBinIntvalTree'
+        # To get to the right interval a binary search is used.
         mate_bins = []
         mate_is_unasigned = False
         for mate in [mate1, mate2]:
@@ -818,52 +782,34 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen / 2)
             try:
+                # print "mate_ref: ", mate_ref
                 start, end = pDictBinIntervalTreeIndex[mate_ref]
-                middle_pos = int((start + end) / 2) 
-                # print "start: ", start, " end: ", end , " middle_pos: ", middle_pos
-                if end > len(pSharedBinIntvalTree):
-                    end = len(pSharedBinIntvalTree) - 1
-                while not middle_pos > end and not middle_pos < start:
-
-                    if pSharedBinIntvalTree[middle_pos].begin >= read_middle and read_middle <= pSharedBinIntvalTree[middle_pos].end:
+                middle_pos = int((start + end) / 2)
+                mate_bin = None
+                while not start > end:
+                    if pSharedBinIntvalTree[middle_pos].begin <= read_middle and read_middle <= pSharedBinIntvalTree[middle_pos].end:
                         mate_bin = pSharedBinIntvalTree[middle_pos]
                         mate_is_unasigned = False
-                        # print "Found bin: ", mate_bin
                         break
-                    elif pSharedBinIntvalTree[middle_pos].begin < read_middle:
-                        start = middle_pos + 1
-                        middle_pos = int((start + end) / 2)
-                        mate_is_unasigned = True
-                        
-                    else:
+                    elif pSharedBinIntvalTree[middle_pos].begin > read_middle:
                         end = middle_pos - 1
                         middle_pos = int((start + end) / 2)
                         mate_is_unasigned = True
+                    else:
+                        start = middle_pos + 1
+                        middle_pos = int((start + end) / 2)
+                        mate_is_unasigned = True
 
-                # mate_bin = "bla"
-                # mate_bin = sorted(pBinIntvalTree[mate_ref][read_middle:read_middle + 1])
             except:
                 # for small contigs it can happen that they are not
                 # in the bin_intval_tree keys if no restriction site is found on the contig.
-                start, end = pDictBinIntervalTreeIndex[mate_ref]
-                middle_pos = int((start + end) / 2)
-                print "FAIL"
-                print "start: ", start, " end: ", end , " middle_pos: ", middle_pos
-                print "len: ", len(pSharedBinIntvalTree)
-                
                 mate_is_unasigned = True
                 break
 
             # report no match case
-            if mate_is_unasigned:
-                # mate_is_unasigned = True
+            if mate_bin is None:
+                mate_is_unasigned = True
                 break
-            # take by default only the first match
-            # (although always there should be only
-            # one match
-            # mate_bin = mate_bin.begin
-            # print "mate_bin: ", mate_bin
-            # print "mate_bin.data ", mate_bin.data
             mate_bin_id = mate_bin.data
             mate_bins.append(mate_bin_id)
 
@@ -989,9 +935,14 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
         for mate in [mate1, mate2]:
             # fill in coverage vector
             vec_start = max(0, mate.pos - mate_bin.begin) / pBinsize
-            vec_end = min(len(coverage[mate_bin_id]), vec_start +
+            length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
+            vec_end = min(length_coverage, vec_start +
                           len(mate.seq) / pBinsize)
-            coverage[mate_bin_id][vec_start:vec_end] += 1
+            coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
+            coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
+            for i in xrange(coverage_index, coverage_end, 1):
+                pCoverage[i] += 1
+            # coverage[mate_bin_id][vec_start:vec_end] += 1
 
         row.append(mate_bins[0])
         col.append(mate_bins[1])
@@ -1032,8 +983,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
     pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                                 mate_not_close_to_rf, count_inward, count_outward,
-                                count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter],
-                   coverage])
+                                count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter]])
     return
 
 
@@ -1143,23 +1093,24 @@ def main(args=None):
     bin_intval_tree = intervalListToIntervalTree(bin_intervals)
     ref_id2name = str1.references
     print "len interval tree", len(bin_intval_tree)
-    # build_shared_bin_intval_tree = []
+
+    # build c_type shared memory for the interval tree
     shared_array_list = []
     index_dict = {}
     j = 0
     interval_list = []
-    
     for i, seq in enumerate(bin_intval_tree):
         start = j
-        j += 1
+        interval_list = []
         for interval in bin_intval_tree[seq]:
             interval_list.append((interval.begin, interval.end, interval.data))
             j += 1
-        end = j - 1  
+        end = j - 1
         index_dict[seq] = (start, end)
-        
+        interval_list = sorted(interval_list)
+        shared_array_list.extend(interval_list)
     # print shared_array_list
-    shared_build_intval_tree = RawArray(C_Interval, interval_list)
+    shared_build_intval_tree = RawArray(C_Interval, shared_array_list)
     bin_intval_tree = None
     dangling_sequences = dict()
     if args.restrictionSequence:
@@ -1175,11 +1126,24 @@ def main(args=None):
     # a bin.
     # To save memory, coverage is not measured by bp
     # but by bins of length 10bp
-    coverage = []
+    # coverage = []
     binsize = 10
+    number_of_elements_coverage = 0
+    start_pos_coverage = []
+    end_pos_coverage = []
+
     for value in bin_intervals:
         chrom, start, end = value
-        coverage.append(np.zeros((end - start) / binsize, dtype='uint32'))
+        start_pos_coverage.append(number_of_elements_coverage)
+
+        number_of_elements_coverage += (end - start) / binsize
+        # coverage.append(np.zeros((end - start) / binsize, dtype='uint32'))
+    pos_coverage_ = zip(start_pos_coverage, end_pos_coverage)
+    pos_coverage = RawArray(C_Coverage, pos_coverage_)
+    pos_coverage_ = None
+    start_pos_coverage = None
+    end_pos_coverage = None
+    coverage = Array(c_uint, number_of_elements_coverage)
     start_time = time.time()
 
     iter_num = 0
@@ -1278,7 +1242,9 @@ def main(args=None):
                     pOutputName=str(count_output) + '.bam',
                     pCounter=count_output,
                     pSharedBinIntvalTree=shared_build_intval_tree,
-                    pDictBinIntervalTreeIndex=index_dict
+                    pDictBinIntervalTreeIndex=index_dict,
+                    pCoverage=coverage,
+                    pCoverageIndex=pos_coverage
                     # pLocalDuplicationCheck=local_duplication_check
                 ))
                 process[i].start()
@@ -1315,8 +1281,8 @@ def main(args=None):
                     pair_added += result[1][15]
                     iter_num += result[1][16]
 
-                    if result[2] is not None:
-                        coverage = np.add(coverage, result[2])
+                    # if result[2] is not None:
+                    #     coverage = np.add(coverage, result[2])
 
                 queue[i] = None
                 process[i].join()
