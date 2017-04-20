@@ -935,6 +935,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
         for mate in [mate1, mate2]:
             # fill in coverage vector
             vec_start = max(0, mate.pos - mate_bin.begin) / pBinsize
+            # print "mate_bin_id: ", mate_bin_id
+            # print "len(pCoverageIndex): ", len(pCoverageIndex)
             length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
             vec_end = min(length_coverage, vec_start +
                           len(mate.seq) / pBinsize)
@@ -1137,8 +1139,10 @@ def main(args=None):
         start_pos_coverage.append(number_of_elements_coverage)
 
         number_of_elements_coverage += (end - start) / binsize
+        end_pos_coverage.append(number_of_elements_coverage - 1)
         # coverage.append(np.zeros((end - start) / binsize, dtype='uint32'))
     pos_coverage_ = zip(start_pos_coverage, end_pos_coverage)
+    # print pos_coverage_
     pos_coverage = RawArray(C_Coverage, pos_coverage_)
     pos_coverage_ = None
     start_pos_coverage = None
@@ -1330,11 +1334,21 @@ def main(args=None):
     # compute max bin coverage
     bin_max = []
 
-    for cov in coverage:
-        if len(cov) == 0:
+    for cover in pos_coverage:
+        max_element = 0
+        for i in xrange(cover.begin, cover.end, 1):
+            if coverage[i] > max_element:
+                max_element = coverage[i]
+        if max_element == 0:
             bin_max.append(np.nan)
         else:
-            bin_max.append(max(cov))
+            bin_max.append(max_element)
+            
+    # for cov in coverage:
+    #     if len(cov) == 0:
+    #         bin_max.append(np.nan)
+    #     else:
+    #         bin_max.append(max(cov))
 
     chr_name_list, start_list, end_list = zip(*bin_intervals)
     bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
