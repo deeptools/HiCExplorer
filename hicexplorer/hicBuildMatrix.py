@@ -10,7 +10,7 @@ import pysam
 from distutils.version import LooseVersion
 
 
-from ctypes import Structure, c_uint
+from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
 from multiprocessing.sharedctypes import Array, RawArray
 
@@ -651,7 +651,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pReadPosMatrix, pRfPositions, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex,
                  pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter,
-                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex, pOutputFileBufferDir):
+                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex, pOutputFileBufferDir,
+                 pRow, pCol, pData):
 
     one_mate_unmapped = 0
     one_mate_low_quality = 0
@@ -672,9 +673,9 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
     pair_added = 0
 
-    row = []
-    col = []
-    data = []
+    # row = np.empty(len(pMateBuffer1), dtype=np.uint32)
+    # col = np.empty(len(pMateBuffer1), dtype=np.uint32)
+    # data = np.empty(len(pMateBuffer1), dtype=np.uint8)
 
     iter_num = 0
     hic_matrix = None
@@ -861,9 +862,9 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             for i in xrange(coverage_index, coverage_end, 1):
                 pCoverage[i] += 1
 
-        row.append(mate_bins[0])
-        col.append(mate_bins[1])
-        data.append(1)
+        pRow[pair_added] = mate_bins[0]
+        pCol[pair_added] = mate_bins[1]
+        pData[pair_added] = np.uint8(1)
 
         pair_added += 1
         if pOutputBamSet:
@@ -888,14 +889,14 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             out_bam.write(mate1)
             out_bam.write(mate2)
 
-    hic_matrix = coo_matrix((data, (row, col)), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
-    row = []
-    col = []
-    data = []
+    # hic_matrix = coo_matrix((data[:pair_added], (row[:pair_added], col[:pair_added])), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
+    # row = None
+    # col = None
+    # data = None
     if pOutputBamSet:
         out_bam.close()
 
-    pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+    pQueueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                                 mate_not_close_to_rf, count_inward, count_outward,
                                 count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter]])
     return
@@ -1029,6 +1030,16 @@ def main(args=None):
     end_pos_coverage = None
     coverage = Array(c_uint, number_of_elements_coverage)
 
+
+    # define global shared ctypes arrays for row, col and data
+    row = [None] * args.threads
+    col = [None] * args.threads
+    data = [None] * args.threads
+    for i in xrange(args.threads):
+        row[i] = RawArray(c_uint, args.inputBufferSize)
+        col[i] = RawArray(c_uint, args.inputBufferSize)
+        data[i] = RawArray(c_ushort, args.inputBufferSize)
+        
     start_time = time.time()
 
     iter_num = 0
@@ -1120,7 +1131,10 @@ def main(args=None):
                     pDictBinIntervalTreeIndex=index_dict,
                     pCoverage=coverage,
                     pCoverageIndex=pos_coverage,
-                    pOutputFileBufferDir=outputFileBufferDir
+                    pOutputFileBufferDir=outputFileBufferDir,
+                    pRow=row[i],
+                    pCol=col[i],
+                    pData=data[i]
                 ))
                 process[i].start()
                 count_output += 1
@@ -1131,27 +1145,29 @@ def main(args=None):
                 result = queue[i].get()
 
                 if result[0] is not None:
+                    elements = result[0][15]
                     if hic_matrix is None:
-                        hic_matrix = result[0]
+                        hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
                     else:
-                        hic_matrix += result[0]
+                        hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
+                        # hic_matrix += result[0]
 
-                    dangling_end += result[1][3]
-                    self_circle += result[1][4]
-                    self_ligation += result[1][5]
-                    same_fragment += result[1][6]
-                    mate_not_close_to_rf += result[1][7]
+                    dangling_end += result[0][3]
+                    self_circle += result[0][4]
+                    self_ligation += result[0][5]
+                    same_fragment += result[0][6]
+                    mate_not_close_to_rf += result[0][7]
 
-                    count_inward += result[1][8]
-                    count_outward += result[1][9]
-                    count_left += result[1][10]
-                    count_right += result[1][11]
-                    inter_chromosomal += result[1][12]
-                    short_range += result[1][13]
-                    long_range += result[1][14]
+                    count_inward += result[0][8]
+                    count_outward += result[0][9]
+                    count_left += result[0][10]
+                    count_right += result[0][11]
+                    inter_chromosomal += result[0][12]
+                    short_range += result[0][13]
+                    long_range += result[0][14]
 
-                    pair_added += result[1][15]
-                    iter_num += result[1][16]
+                    pair_added += result[0][15]
+                    iter_num += result[0][16]
 
                 queue[i] = None
                 process[i].join()
@@ -1159,7 +1175,7 @@ def main(args=None):
                 process[i] = None
                 thread_done[i] = True
 
-                open(outputFileBufferDir + str(result[1][-1]) + '.bam_done', 'a').close()
+                open(outputFileBufferDir + str(result[0][-1]) + '.bam_done', 'a').close()
 
                 # caused by the architecture I try to display this output information after +-1e5 of 1e6 reads.
                 if iter_num % 1e6 < 100000:
