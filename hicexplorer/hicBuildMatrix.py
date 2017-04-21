@@ -187,9 +187,10 @@ def parse_arguments(args=None):
                         type=int
                         )
     parser.add_argument('--threads',
-                        help='Number of threads. Using the python multiprocessing module. Please notice that in total \'threads\' + 2 processes '
-                        'are running. One master process which is used to read the input file into the buffer and one process which is merging '
-                        'the output bam files of the processes into one output bam file.',
+                        help='Number of threads. Using the python multiprocessing module.'
+                        ' One master process which is used to read the input file into the buffer and one process which is merging '
+                        'the output bam files of the processes into one output bam file.'
+                        ' This means that two processes less as defined do the computation. Minimum value is 3.',
                         required=False,
                         default=4,
                         type=int
@@ -947,6 +948,8 @@ def main(args=None):
         exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
 
     args = parse_arguments().parse_args(args)
+    if args.threads < 3:
+        exit("\nAt least three threads need to be defined.\n")
 
     sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
                                                                       args.samFiles[1].name))
@@ -1032,6 +1035,7 @@ def main(args=None):
 
 
     # define global shared ctypes arrays for row, col and data
+    args.threads = args.threads - 2
     row = [None] * args.threads
     col = [None] * args.threads
     data = [None] * args.threads
