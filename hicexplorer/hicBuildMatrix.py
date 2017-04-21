@@ -34,6 +34,39 @@ class C_Coverage(Structure):
                 ("end", c_uint)]
 
 
+class MultiprocessingData():
+
+    def __init__(self, pMateBuffer1, pMateBuffer2, pMinMappingQuality, pRemoveSelfCircles,
+                 pRestrictionSequence, pRemoveSelfLigation, pReadPosMatrix, pRfPositions,
+                 pRefId2name, pDanglingSequences, pBinsize, pResultIndex, pQueueOut, pTemplate,
+                 pOutputName, pCounter, pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage,
+                 pCoverageIndex, pOutputFileBufferDir, pRow, pCol, pData):
+        self.mate_buffer1 = pMateBuffer1
+        self.mate_buffer2 = pMateBuffer2
+        self.min_mapping_quality = pMinMappingQuality
+        self.removeSelfCircles = pRemoveSelfCircles
+        self.restrictionSequence = pRestrictionSequence
+        self.removeSelfLigation = pRemoveSelfLigation
+        self.readPosMatrix = pReadPosMatrix
+        self.rfPositions = pRfPositions
+        self.refId2name = pRefId2name
+        self.danglingSequences = pDanglingSequences
+        self.binsize = pBinsize
+        self.resultIndex = pResultIndex
+        self.queueOut = pQueueOut
+        self.template = pTemplate
+        self.outputName = pOutputName
+        self.counter = pCounter
+        self.sharedBinIntvalTree = pSharedBinIntvalTree
+        self.dictBinIntervalTreeIndex = pDictBinIntervalTreeIndex
+        self.coverage = pCoverage
+        self.coverageIndex = pCoverageIndex
+        self.outputFileBufferDir = pOutputFileBufferDir
+        self.row = pRow
+        self.col = pCol
+        self.data = pData
+
+
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
     A sparse matrix having as bins all possible
@@ -604,7 +637,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
         if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
             one_mate_unmapped += 1
             continue
-
         # skip if the read quality is low
         if mate1.mapq < pMinMappingQuality or mate2.mapq < pMinMappingQuality:
             # for bwa other way to test
@@ -647,13 +679,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
     return buffer_mate1, buffer_mate2, False, duplicated_pairs, one_mate_unmapped, one_mate_not_unique, one_mate_low_quality, iter_num - len(buffer_mate1)
 
 
-def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
-                 pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
-                 pReadPosMatrix, pRfPositions, pRefId2name,
-                 pDanglingSequences, pBinsize, pResultIndex,
-                 pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter,
-                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex, pOutputFileBufferDir,
-                 pRow, pCol, pData):
+def process_data(pData):
 
     one_mate_unmapped = 0
     one_mate_low_quality = 0
@@ -679,20 +705,19 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     # data = np.empty(len(pMateBuffer1), dtype=np.uint8)
 
     iter_num = 0
-    hic_matrix = None
-    if pOutputBamSet:
-        out_bam = pysam.Samfile(pOutputFileBufferDir + pOutputName, 'wb', template=pTemplate)
+    # hic_matrix = None
+    out_bam = pysam.Samfile(pData.outputFileBufferDir + pData.outputName, 'wb', template=pData.template)
 
-    if pMateBuffer1 is None or pMateBuffer2 is None:
+    if pData.mate_buffer1 is None or pData.mate_buffer2 is None:
 
-        pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-                                    mate_not_close_to_rf, count_inward, count_outward,
-                                    count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex]])
+        pData.queueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+                             mate_not_close_to_rf, count_inward, count_outward,
+                             count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pData.resultIndex]])
         return
 
-    while iter_num < len(pMateBuffer1) and iter_num < len(pMateBuffer2):
-        mate1 = pMateBuffer1[iter_num]
-        mate2 = pMateBuffer2[iter_num]
+    while iter_num < len(pData.mate_buffer1) and iter_num < len(pData.mate_buffer2):
+        mate1 = pData.mate_buffer1[iter_num]
+        mate2 = pData.mate_buffer2[iter_num]
         iter_num += 1
 
         # check if reads belong to a bin
@@ -702,19 +727,19 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
         mate_bins = []
         mate_is_unasigned = False
         for mate in [mate1, mate2]:
-            mate_ref = pRefId2name[mate.rname]
+            mate_ref = pData.refId2name[mate.rname]
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen / 2)
             try:
-                start, end = pDictBinIntervalTreeIndex[mate_ref]
+                start, end = pData.dictBinIntervalTreeIndex[mate_ref]
                 middle_pos = int((start + end) / 2)
                 mate_bin = None
                 while not start > end:
-                    if pSharedBinIntvalTree[middle_pos].begin <= read_middle and read_middle <= pSharedBinIntvalTree[middle_pos].end:
-                        mate_bin = pSharedBinIntvalTree[middle_pos]
+                    if pData.sharedBinIntvalTree[middle_pos].begin <= read_middle and read_middle <= pData.sharedBinIntvalTree[middle_pos].end:
+                        mate_bin = pData.sharedBinIntvalTree[middle_pos]
                         mate_is_unasigned = False
                         break
-                    elif pSharedBinIntvalTree[middle_pos].begin > read_middle:
+                    elif pData.sharedBinIntvalTree[middle_pos].begin > read_middle:
                         end = middle_pos - 1
                         middle_pos = int((start + end) / 2)
                         mate_is_unasigned = True
@@ -784,21 +809,21 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             # with 'outward' orientation (Jin et al. 2013. Nature)
             if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
                 self_circle += 1
-                if pRemoveSelfCircles:
+                if pData.removeSelfCircles:
                     continue
 
             # check for dangling ends if the restriction sequence
             # is known:
-            if pRestrictionSequence:
-                if check_dangling_end(mate1, pDanglingSequences) or \
-                        check_dangling_end(mate2, pDanglingSequences):
+            if pData.restrictionSequence:
+                if check_dangling_end(mate1, pData.danglingSequences) or \
+                        check_dangling_end(mate2, pData.danglingSequences):
                     dangling_end += 1
                     continue
 
             if abs(mate2.pos - mate1.pos) < 1000 and orientation == 'inward':
                 has_rf = []
 
-                if pRfPositions and pRestrictionSequence:
+                if pData.rfPositions and pData.restrictionSequence:
                     # check if in between the two mate
                     # ends the restriction fragment is found.
 
@@ -808,10 +833,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + len(pRestrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
-                    mate_ref = pRefId2name[mate1.rname]
-                    has_rf = sorted(pRfPositions[mate_ref][frag_start: frag_end])
+                    frag_start = min(mate1.pos, mate2.pos) + len(pData.restrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pData.restrictionSequence)
+                    mate_ref = pData.refId2name[mate1.rname]
+                    has_rf = sorted(pData.rfPositions[mate_ref][frag_start: frag_end])
 
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
@@ -820,7 +845,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
                 self_ligation += 1
 
-                if pRemoveSelfLigation:
+                if pData.removeSelfLigation:
                     # skip self ligations
                     continue
 
@@ -854,52 +879,46 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
-            vec_start = max(0, mate.pos - mate_bin.begin) / pBinsize
-            length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
+            vec_start = max(0, mate.pos - mate_bin.begin) / pData.binsize
+            length_coverage = pData.coverageIndex[mate_bin_id].end - pData.coverageIndex[mate_bin_id].begin
             vec_end = min(length_coverage, vec_start +
-                          len(mate.seq) / pBinsize)
-            coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
-            coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
+                          len(mate.seq) / pData.binsize)
+            coverage_index = pData.coverageIndex[mate_bin_id].begin + vec_start
+            coverage_end = pData.coverageIndex[mate_bin_id].begin + vec_end
             for i in xrange(coverage_index, coverage_end, 1):
-                pCoverage[i] += 1
+                pData.coverage[i] += 1
 
-        pRow[pair_added] = mate_bins[0]
-        pCol[pair_added] = mate_bins[1]
-        pData[pair_added] = np.uint8(1)
+        pData.row[pair_added] = mate_bins[0]
+        pData.col[pair_added] = mate_bins[1]
+        pData.data[pair_added] = np.uint8(1)
 
         pair_added += 1
-        if pOutputBamSet:
-            # out_bam = pysam.Samfile(pOutputName, 'wb', template=pTemplate)
-            # prepare data for bam output
-            # set the flag to point that this data is paired
-            mate1.flag |= 0x1
-            mate2.flag |= 0x1
+        # out_bam = pysam.Samfile(pOutputName, 'wb', template=pTemplate)
+        # prepare data for bam output
+        # set the flag to point that this data is paired
+        mate1.flag |= 0x1
+        mate2.flag |= 0x1
 
-            # set one read as the first in pair and the
-            # other as second
-            mate1.flag |= 0x40
-            mate2.flag |= 0x80
+        # set one read as the first in pair and the
+        # other as second
+        mate1.flag |= 0x40
+        mate2.flag |= 0x80
 
-            # set chrom of mate
-            mate1.mrnm = mate2.rname
-            mate2.mrnm = mate1.rname
+        # set chrom of mate
+        mate1.mrnm = mate2.rname
+        mate2.mrnm = mate1.rname
 
-            # set position of mate
-            mate1.mpos = mate2.pos
-            mate2.mpos = mate1.pos
-            out_bam.write(mate1)
-            out_bam.write(mate2)
+        # set position of mate
+        mate1.mpos = mate2.pos
+        mate2.mpos = mate1.pos
+        out_bam.write(mate1)
+        out_bam.write(mate2)
 
-    # hic_matrix = coo_matrix((data[:pair_added], (row[:pair_added], col[:pair_added])), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
-    # row = None
-    # col = None
-    # data = None
-    if pOutputBamSet:
-        out_bam.close()
+    out_bam.close()
 
-    pQueueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-                                mate_not_close_to_rf, count_inward, count_outward,
-                                count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter]])
+    pData.queueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+                         mate_not_close_to_rf, count_inward, count_outward,
+                         count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pData.mate_buffer1), pData.resultIndex, pData.counter]])
     return
 
 
@@ -1032,8 +1051,8 @@ def main(args=None):
     start_pos_coverage = None
     end_pos_coverage = None
     coverage = Array(c_uint, number_of_elements_coverage)
-
-
+    # foo = RawArray(pysam.libcalignedsegment.AlignedSegment, 50)
+    # print foo
     # define global shared ctypes arrays for row, col and data
     args.threads = args.threads - 2
     row = [None] * args.threads
@@ -1043,7 +1062,7 @@ def main(args=None):
         row[i] = RawArray(c_uint, args.inputBufferSize)
         col[i] = RawArray(c_uint, args.inputBufferSize)
         data[i] = RawArray(c_ushort, args.inputBufferSize)
-        
+
     start_time = time.time()
 
     iter_num = 0
@@ -1084,7 +1103,31 @@ def main(args=None):
     thread_done = [False] * args.threads
     count_output = 0
     count_call_of_read_input = 0
-    computed_pairs = 0
+    # computed_pairs = 0
+    multiprocessing_data = MultiprocessingData(pMateBuffer1=None, pMateBuffer2=None,
+                                               pMinMappingQuality=args.minMappingQuality,
+                                               pRemoveSelfCircles=args.removeSelfCircles,
+                                               pRestrictionSequence=args.restrictionSequence,
+                                               pRemoveSelfLigation=args.removeSelfLigation,
+                                               pReadPosMatrix=read_pos_matrix,
+                                               pRfPositions=rf_positions,
+                                               pRefId2name=ref_id2name,
+                                               pDanglingSequences=dangling_sequences,
+                                               pBinsize=binsize,
+                                               pResultIndex=None,
+                                               pQueueOut=None,
+                                               pTemplate=str1,
+                                               pOutputName=None,
+                                               pCounter=count_output,
+                                               pSharedBinIntvalTree=shared_build_intval_tree,
+                                               pDictBinIntervalTreeIndex=index_dict,
+                                               pCoverage=coverage,
+                                               pCoverageIndex=pos_coverage,
+                                               pOutputFileBufferDir=outputFileBufferDir,
+                                               pRow=row[i],
+                                               pCol=col[i],
+                                               pData=data[i])
+
     process_write_bam_file = Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir))
     process_write_bam_file.start()
     while not all_data_processed or not all_threads_done:
@@ -1093,7 +1136,7 @@ def main(args=None):
             if queue[i] is None and not all_data_processed:
                 count_call_of_read_input += 1
 
-                buffer_workers1[i], buffer_workers2[i], all_data_processed, \
+                multiprocessing_data.mate_buffer1, multiprocessing_data.mate_buffer2, all_data_processed, \
                     duplicated_pairs_, one_mate_unmapped_, one_mate_not_unique_, \
                     one_mate_low_quality_, iter_num_ = readBamFiles(pFileOneIterator=str1,
                                                                     pFileTwoIterator=str2,
@@ -1110,36 +1153,10 @@ def main(args=None):
                 iter_num += iter_num_
                 queue[i] = Queue()
                 thread_done[i] = False
-                computed_pairs += len(buffer_workers1[i])
-                # create process to compute hic matrix for this buffer
-                process[i] = Process(target=process_data, kwargs=dict(
-                    pMateBuffer1=buffer_workers1[i],
-                    pMateBuffer2=buffer_workers2[i],
-                    pMinMappingQuality=args.minMappingQuality,
-                    pRemoveSelfCircles=args.removeSelfCircles,
-                    pRestrictionSequence=args.restrictionSequence,
-                    pRemoveSelfLigation=args.removeSelfLigation,
-                    pMatrixSize=matrix_size,
-                    pReadPosMatrix=read_pos_matrix,
-                    pRfPositions=rf_positions,
-                    pRefId2name=ref_id2name,
-                    pDanglingSequences=dangling_sequences,
-                    pBinsize=binsize,
-                    pResultIndex=i,
-                    pQueueOut=queue[i],
-                    pTemplate=str1,
-                    pOutputBamSet=args.outBam,
-                    pOutputName=str(count_output) + '.bam',
-                    pCounter=count_output,
-                    pSharedBinIntvalTree=shared_build_intval_tree,
-                    pDictBinIntervalTreeIndex=index_dict,
-                    pCoverage=coverage,
-                    pCoverageIndex=pos_coverage,
-                    pOutputFileBufferDir=outputFileBufferDir,
-                    pRow=row[i],
-                    pCol=col[i],
-                    pData=data[i]
-                ))
+                multiprocessing_data.resultIndex = i
+                multiprocessing_data.queueOut = queue[i]
+                multiprocessing_data.outputName = str(count_output) + '.bam'
+                process[i] = Process(target=process_data, kwargs=dict(pData=multiprocessing_data))
                 process[i].start()
                 count_output += 1
                 buffer_workers1[i] = None
@@ -1151,10 +1168,9 @@ def main(args=None):
                 if result[0] is not None:
                     elements = result[0][15]
                     if hic_matrix is None:
-                        hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
+                        hic_matrix = coo_matrix((multiprocessing_data.data[i][:elements], (multiprocessing_data.row[i][:elements], multiprocessing_data.col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
                     else:
-                        hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
-                        # hic_matrix += result[0]
+                        hic_matrix += coo_matrix((multiprocessing_data.data[i][:elements], (multiprocessing_data.row[i][:elements], multiprocessing_data.col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
 
                     dangling_end += result[0][3]
                     self_circle += result[0][4]
