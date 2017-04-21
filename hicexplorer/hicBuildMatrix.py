@@ -1168,9 +1168,9 @@ def main(args=None):
                 if result[0] is not None:
                     elements = result[0][15]
                     if hic_matrix is None:
-                        hic_matrix = coo_matrix((multiprocessing_data.data[i][:elements], (multiprocessing_data.row[i][:elements], multiprocessing_data.col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
+                        hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
                     else:
-                        hic_matrix += coo_matrix((multiprocessing_data.data[i][:elements], (multiprocessing_data.row[i][:elements], multiprocessing_data.col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
+                        hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
 
                     dangling_end += result[0][3]
                     self_circle += result[0][4]
