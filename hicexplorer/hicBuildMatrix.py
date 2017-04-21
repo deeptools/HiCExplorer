@@ -56,12 +56,20 @@ class ReadPositionMatrix(object):
         self.pos_matrix = set()
 
     def is_duplicated(self, chrom1, start1, chrom2, start2):
-        id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
+        if chrom1 < chrom2:
+            id_string = "%s-%s" % (chrom1, chrom2)
+        else:
+            id_string = "%s-%s" % (chrom2, chrom1)
+
+        if start1 < start2:
+            id_string += "-%s-%s" % (start1, start2)
+        else:
+            id_string += "-%s-%s" % (start2, start1)
+
         if id_string in self.pos_matrix:
             return True
         else:
             self.pos_matrix.add(id_string)
-            self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
             return False
 
 
@@ -1305,7 +1313,6 @@ Max rest. site distance\t{}\t\t
 
 class Tester(object):
     def __init__(self):
-        import os
         hic_test_data_dir = os.environ.get('HIC_TEST_DATA_DIR', False)
         if hic_test_data_dir:
             self.root = hic_test_data_dir
