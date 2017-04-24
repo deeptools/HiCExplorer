@@ -7,8 +7,8 @@ from os import unlink
 import os
 import shutil
 import pysam
-from distutils.version import LooseVersion
 
+from six.moves import xrange
 
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
@@ -35,7 +35,7 @@ class C_Coverage(Structure):
 
 
 class MultiprocessingData():
-
+    """A class to wrap the input to process the buffers with the function \'process data\'."""
     def __init__(self, pMateBuffer1, pMateBuffer2, pMinMappingQuality, pRemoveSelfCircles,
                  pRestrictionSequence, pRemoveSelfLigation, pReadPosMatrix, pRfPositions,
                  pRefId2name, pDanglingSequences, pBinsize, pResultIndex, pQueueOut, pTemplate,
@@ -66,6 +66,24 @@ class MultiprocessingData():
         self.col = pCol
         self.data = pData
 
+        self.one_mate_unmapped = 0
+        self.one_mate_low_quality = 0
+        self.one_mate_not_unique = 0
+        self.dangling_end = 0
+        self.self_circle = 0
+        self.self_ligation = 0
+        self.same_fragment = 0
+        self.mate_not_close_to_rf = 0
+        self.count_inward = 0
+        self.count_outward = 0
+        self.count_left = 0
+        self.count_right = 0
+        self.inter_chromosomal = 0
+        self.short_range = 0
+        self.long_range = 0
+        self.pair_added = 0
+        self.iter_num = 0
+
 
 class ReadPositionMatrix(object):
     """ class to check for PCR duplicates.
@@ -89,6 +107,9 @@ class ReadPositionMatrix(object):
         self.pos_matrix = set()
 
     def is_duplicated(self, chrom1, start1, chrom2, start2):
+        """Checks if some sequence was seen before and is a duplicate.
+        Returns true if it is a duplicate, returns false if not and inserts the elements into  a set.
+        """
         if chrom1 < chrom2:
             id_string = "%s-%s" % (chrom1, chrom2)
         else:
@@ -581,7 +602,8 @@ def enlarge_bins(bin_intervals, chrom_sizes):
 
 
 def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pSkipDuplicationCheck, pReadPosMatrix, pRefId2name, pMinMappingQuality):
-    """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer with n = number of processes """
+    """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer
+        with n = number of processes. The duplication check is handled here too."""
     buffer_mate1 = []
     buffer_mate2 = []
     duplicated_pairs = 0
@@ -680,40 +702,20 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
 
 
 def process_data(pData):
-
-    one_mate_unmapped = 0
-    one_mate_low_quality = 0
-    one_mate_not_unique = 0
-    dangling_end = 0
-    self_circle = 0
-    self_ligation = 0
-    same_fragment = 0
-    mate_not_close_to_rf = 0
-
-    count_inward = 0
-    count_outward = 0
-    count_left = 0
-    count_right = 0
-    inter_chromosomal = 0
-    short_range = 0
-    long_range = 0
-
-    pair_added = 0
-
-    # row = np.empty(len(pMateBuffer1), dtype=np.uint32)
-    # col = np.empty(len(pMateBuffer1), dtype=np.uint32)
-    # data = np.empty(len(pMateBuffer1), dtype=np.uint8)
-
+    """This function is used to compute the data in parallel. To do this it is called at 
+    the process start together with a buffer of input data and some parameters. This all is
+    embedded in the parameter pData which is of the datatype \'MultiprocessingData\'."""
     iter_num = 0
+    pair_added = 0
     # hic_matrix = None
-    out_bam = pysam.Samfile(pData.outputFileBufferDir + pData.outputName, 'wb', template=pData.template)
+    out_bam = pysam.Samfile(os.path.join(pData.outputFileBufferDir, pData.outputName), 'wb', template=pData.template)
 
     if pData.mate_buffer1 is None or pData.mate_buffer2 is None:
-
-        pData.queueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-                             mate_not_close_to_rf, count_inward, count_outward,
-                             count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pData.resultIndex]])
         return
+        # pData.queueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+        #                      mate_not_close_to_rf, count_inward, count_outward,
+        #                      count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pData.resultIndex]])
+        # return
 
     while iter_num < len(pData.mate_buffer1) and iter_num < len(pData.mate_buffer2):
         mate1 = pData.mate_buffer1[iter_num]
@@ -764,7 +766,7 @@ def process_data(pData):
         # if a mate is unassigned, it means it is not close
         # to a restriction sites
         if mate_is_unasigned is True:
-            mate_not_close_to_rf += 1
+            pData.mate_not_close_to_rf += 1
             continue
 
         # check if mates are in the same chromosome
@@ -808,7 +810,7 @@ def process_data(pData):
             # self circles are defined as pairs within 25kb
             # with 'outward' orientation (Jin et al. 2013. Nature)
             if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
-                self_circle += 1
+                pData.self_circle += 1
                 if pData.removeSelfCircles:
                     continue
 
@@ -817,7 +819,7 @@ def process_data(pData):
             if pData.restrictionSequence:
                 if check_dangling_end(mate1, pData.danglingSequences) or \
                         check_dangling_end(mate2, pData.danglingSequences):
-                    dangling_end += 1
+                    pData.dangling_end += 1
                     continue
 
             if abs(mate2.pos - mate1.pos) < 1000 and orientation == 'inward':
@@ -840,10 +842,10 @@ def process_data(pData):
 
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
-                    same_fragment += 1
+                    pData.same_fragment += 1
                     continue
 
-                self_ligation += 1
+                pData.self_ligation += 1
 
                 if pData.removeSelfLigation:
                     # skip self ligations
@@ -861,21 +863,21 @@ def process_data(pData):
 
         # count type of pair (distance, orientation)
         if mate1.reference_id != mate2.reference_id:
-            inter_chromosomal += 1
+            pData.inter_chromosomal += 1
 
         elif abs(mate2.pos - mate1.pos) < 20000:
-            short_range += 1
+            pData.short_range += 1
         else:
-            long_range += 1
+            pData.long_range += 1
 
         if orientation == 'inward':
-            count_inward += 1
+            pData.count_inward += 1
         elif orientation == 'outward':
-            count_outward += 1
+            pData.count_outward += 1
         elif orientation == 'same-strand-left':
-            count_left += 1
+            pData.count_left += 1
         elif orientation == 'same-strand-right':
-            count_right += 1
+            pData.count_right += 1
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
@@ -893,7 +895,6 @@ def process_data(pData):
         pData.data[pair_added] = np.uint8(1)
 
         pair_added += 1
-        # out_bam = pysam.Samfile(pOutputName, 'wb', template=pTemplate)
         # prepare data for bam output
         # set the flag to point that this data is paired
         mate1.flag |= 0x1
@@ -915,21 +916,23 @@ def process_data(pData):
         out_bam.write(mate2)
 
     out_bam.close()
-
-    pData.queueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-                         mate_not_close_to_rf, count_inward, count_outward,
-                         count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pData.mate_buffer1), pData.resultIndex, pData.counter]])
+    pData.pair_added += pair_added
+    # pData.queueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+    #                      mate_not_close_to_rf, count_inward, count_outward,
+    #                      count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pData.mate_buffer1), pData.resultIndex, pData.counter]])
     return
 
 
 def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
-
-    out_bam = pysam.Samfile(pOutputFileBufferDir + pOutputBam, 'wb', template=pTemplate)
+    """This function is used by the background process to merge the sub-output bam files
+    of each input buffer. If it is done, it is creating a file named \'done_processing\' to signal 
+    the main process it can continue."""
+    out_bam = pysam.Samfile(os.join.path(pOutputFileBufferDir, pOutputBam), 'wb', template=pTemplate)
 
     counter = 0
-    while not os.path.isfile(pOutputFileBufferDir + 'done_processing') or os.path.isfile(pOutputFileBufferDir + str(counter) + '.bam_done'):
-        if os.path.isfile(pOutputFileBufferDir + str(counter) + '.bam_done'):
-            out_put_threads = pysam.Samfile(pOutputFileBufferDir + str(counter) + '.bam', 'rb')
+    while not os.path.isfile(os.path.join(pOutputFileBufferDir, 'done_processing')) or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter), '.bam_done')):
+        if os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter), '.bam_done')):
+            out_put_threads = pysam.Samfile(os.path.join(pOutputFileBufferDir, str(counter), '.bam'), 'rb')
             while True:
                 try:
                     data = out_put_threads.next()
@@ -937,8 +940,8 @@ def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
                     break
                 out_bam.write(data)
             out_put_threads.close()
-            os.remove(pOutputFileBufferDir + str(counter) + '.bam')
-            os.remove(pOutputFileBufferDir + str(counter) + '.bam_done')
+            os.remove(os.path.join(pOutputFileBufferDir, str(counter), '.bam'))
+            os.remove(os.path.join(pOutputFileBufferDir, str(counter), '.bam_done'))
             counter += 1
         else:
             time.sleep(3)
@@ -952,7 +955,7 @@ def main(args=None):
     Reads line by line two bam files that are not sorted.
     Each line in the two bam files should correspond
     to the mapped position of the two ends of a Hi-C
-    fragment.
+    fragment. 
 
     Each mate pair is assessed to determine if it is
     a valid Hi-C pair, in such case a matrix
@@ -961,10 +964,6 @@ def main(args=None):
     A bam file containing the valid Hi-C reads
     is also constructed
     """
-
-    # check pysam version
-    if LooseVersion(pysam.__version__) < LooseVersion("0.8.3"):
-        exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
 
     args = parse_arguments().parse_args(args)
     if args.threads < 3:
@@ -978,8 +977,7 @@ def main(args=None):
     args.samFiles[0].close()
     args.samFiles[1].close()
     outputFileBufferDir = args.outputFileBufferDir
-    if not outputFileBufferDir[:-1] == '/':
-        outputFileBufferDir += '/'
+
     if args.outBam:
         args.outBam.close()
 
@@ -1146,11 +1144,11 @@ def main(args=None):
                                                                     pRefId2name=ref_id2name,
                                                                     pMinMappingQuality=args.minMappingQuality
                                                                     )
-                duplicated_pairs += duplicated_pairs_
-                one_mate_unmapped += one_mate_unmapped_
-                one_mate_not_unique += one_mate_not_unique_
-                one_mate_low_quality += one_mate_low_quality_
-                iter_num += iter_num_
+                multiprocessing_data.duplicated_pairs += duplicated_pairs_
+                multiprocessing_data.one_mate_unmapped += one_mate_unmapped_
+                multiprocessing_data.one_mate_not_unique += one_mate_not_unique_
+                multiprocessing_data.one_mate_low_quality += one_mate_low_quality_
+                multiprocessing_data.iter_num += iter_num_
                 queue[i] = Queue()
                 thread_done[i] = False
                 multiprocessing_data.resultIndex = i
@@ -1165,29 +1163,29 @@ def main(args=None):
             elif queue[i] is not None and not queue[i].empty():
                 result = queue[i].get()
 
-                if result[0] is not None:
-                    elements = result[0][15]
+                # if result[0] is not None:
+                    elements = result[0]
                     if hic_matrix is None:
                         hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
                     else:
                         hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
 
-                    dangling_end += result[0][3]
-                    self_circle += result[0][4]
-                    self_ligation += result[0][5]
-                    same_fragment += result[0][6]
-                    mate_not_close_to_rf += result[0][7]
+                    # dangling_end += result[0][3]
+                    # self_circle += result[0][4]
+                    # self_ligation += result[0][5]
+                    # same_fragment += result[0][6]
+                    # mate_not_close_to_rf += result[0][7]
 
-                    count_inward += result[0][8]
-                    count_outward += result[0][9]
-                    count_left += result[0][10]
-                    count_right += result[0][11]
-                    inter_chromosomal += result[0][12]
-                    short_range += result[0][13]
-                    long_range += result[0][14]
+                    # count_inward += result[0][8]
+                    # count_outward += result[0][9]
+                    # count_left += result[0][10]
+                    # count_right += result[0][11]
+                    # inter_chromosomal += result[0][12]
+                    # short_range += result[0][13]
+                    # long_range += result[0][14]
 
-                    pair_added += result[0][15]
-                    iter_num += result[0][16]
+                    # pair_added += result[0][15]
+                    # iter_num += result[0][16]
 
                 queue[i] = None
                 process[i].join()
@@ -1195,7 +1193,7 @@ def main(args=None):
                 process[i] = None
                 thread_done[i] = True
 
-                open(outputFileBufferDir + str(result[0][-1]) + '.bam_done', 'a').close()
+                open(os.path.join(outputFileBufferDir, str(result[0][-1]), '.bam_done'), 'a').close()
 
                 # caused by the architecture I try to display this output information after +-1e5 of 1e6 reads.
                 if iter_num % 1e6 < 100000:
@@ -1224,7 +1222,7 @@ def main(args=None):
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
-    open(outputFileBufferDir + 'done_processing', 'a').close()
+    open(os.path.join(outputFileBufferDir, 'done_processing'), 'a').close()
     print "wait for bam merging process to finish"
     process_write_bam_file.join()
     print "wait for bam merging process to finish...DONE!"
