@@ -34,15 +34,15 @@ class C_Coverage(Structure):
                 ("end", c_uint)]
 
 
-class MultiprocessingData():
+class SharedData():
     """A class to wrap the input to process the buffers with the function \'process data\'."""
-    def __init__(self, pMateBuffer1, pMateBuffer2, pMinMappingQuality, pRemoveSelfCircles,
+
+    def __init__(self, pMinMappingQuality, pRemoveSelfCircles,
                  pRestrictionSequence, pRemoveSelfLigation, pReadPosMatrix, pRfPositions,
-                 pRefId2name, pDanglingSequences, pBinsize, pResultIndex, pQueueOut, pTemplate,
-                 pOutputName, pCounter, pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage,
-                 pCoverageIndex, pOutputFileBufferDir, pRow, pCol, pData):
-        self.mate_buffer1 = pMateBuffer1
-        self.mate_buffer2 = pMateBuffer2
+                 pRefId2name, pDanglingSequences, pBinsize, pTemplate,
+                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage,
+                 pCoverageIndex, pOutputFileBufferDir):
+
         self.min_mapping_quality = pMinMappingQuality
         self.removeSelfCircles = pRemoveSelfCircles
         self.restrictionSequence = pRestrictionSequence
@@ -52,19 +52,22 @@ class MultiprocessingData():
         self.refId2name = pRefId2name
         self.danglingSequences = pDanglingSequences
         self.binsize = pBinsize
-        self.resultIndex = pResultIndex
-        self.queueOut = pQueueOut
         self.template = pTemplate
-        self.outputName = pOutputName
-        self.counter = pCounter
+        # self.outputName = pOutputName
+        # self.counter = pCounter
         self.sharedBinIntvalTree = pSharedBinIntvalTree
         self.dictBinIntervalTreeIndex = pDictBinIntervalTreeIndex
         self.coverage = pCoverage
         self.coverageIndex = pCoverageIndex
         self.outputFileBufferDir = pOutputFileBufferDir
-        self.row = pRow
-        self.col = pCol
-        self.data = pData
+
+
+class ProcessData():
+    """A class to wrap all variables which are unique for a process. """
+
+    def __init__(self, pBuffer1=None, pBuffer2=None, pRow=None,
+                 pCol=None, pData=None, pResultIndex=None,
+                 pOutputName=None, pCounter=None, pQueueOut=None):
 
         self.one_mate_unmapped = 0
         self.one_mate_low_quality = 0
@@ -83,6 +86,45 @@ class MultiprocessingData():
         self.long_range = 0
         self.pair_added = 0
         self.iter_num = 0
+        self.duplicated_pairs = 0
+        self.one_mate_unmapped = 0
+        self.one_mate_not_unique = 0
+        self.one_mate_low_quality = 0
+
+        self.result_index = pResultIndex
+        self.output_name = pOutputName
+        self.counter = pCounter
+
+        self.row = pRow
+        self.col = pCol
+        self.data = pData
+        self.buffer1 = pBuffer1
+        self.buffer2 = pBuffer2
+        self.queue_out = pQueueOut
+
+    def synchronize(self, pProcessDataObj):
+        self.one_mate_unmapped += pProcessDataObj.one_mate_unmapped
+        self.one_mate_low_quality += pProcessDataObj.one_mate_low_quality
+        self.one_mate_not_unique += pProcessDataObj.one_mate_not_unique
+        self.dangling_end += pProcessDataObj.dangling_end
+        self.self_circle += pProcessDataObj.self_circle
+        self.self_ligation += pProcessDataObj.self_ligation
+        self.same_fragment += pProcessDataObj.same_fragment
+        self.mate_not_close_to_rf += pProcessDataObj.mate_not_close_to_rf
+        self.count_inward += pProcessDataObj.count_inward
+        self.count_outward += pProcessDataObj.count_outward
+        self.count_left += pProcessDataObj.count_left
+        self.count_right += pProcessDataObj.count_right
+        self.inter_chromosomal += pProcessDataObj.inter_chromosomal
+        self.short_range += pProcessDataObj.short_range
+        self.long_range += pProcessDataObj.long_range
+        self.pair_added += pProcessDataObj.pair_added
+        self.iter_num += pProcessDataObj.iter_num
+
+    def processing_done(self):
+        if self.queue_out is not None and not self.queue_out.empty():
+            return True
+        return False
 
 
 class ReadPositionMatrix(object):
@@ -601,15 +643,17 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     return bin_intervals
 
 
-def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pSkipDuplicationCheck, pReadPosMatrix, pRefId2name, pMinMappingQuality):
+def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer,
+                 pSkipDuplicationCheck, pReadPosMatrix, pRefId2name, pMinMappingQuality,
+                 pProcessData):
     """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer
         with n = number of processes. The duplication check is handled here too."""
     buffer_mate1 = []
     buffer_mate2 = []
-    duplicated_pairs = 0
-    one_mate_unmapped = 0
-    one_mate_not_unique = 0
-    one_mate_low_quality = 0
+    # duplicated_pairs = 0
+    # one_mate_unmapped = 0
+    # one_mate_not_unique = 0
+    # one_mate_low_quality = 0
 
     all_data_read = False
     j = 0
@@ -657,7 +701,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
 
         # skip if any of the reads is not mapped
         if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
-            one_mate_unmapped += 1
+            pProcessData.one_mate_unmapped += 1
             continue
         # skip if the read quality is low
         if mate1.mapq < pMinMappingQuality or mate2.mapq < pMinMappingQuality:
@@ -665,7 +709,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
             # for multi-mapping reads is with a mapq = 0
             # the XS flag is not reliable.
             if mate1.mapq == 0 & mate2.mapq == 0:
-                one_mate_not_unique += 1
+                pProcessData.one_mate_not_unique += 1
                 continue
 
             """
@@ -680,7 +724,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
                 continue
             """
 
-            one_mate_low_quality += 1
+            pProcessData.one_mate_low_quality += 1
             continue
 
         if pSkipDuplicationCheck is False:
@@ -688,38 +732,35 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
                                             mate1.pos,
                                             pRefId2name[mate2.rname],
                                             mate2.pos):
-                duplicated_pairs += 1
+                pProcessData.duplicated_pairs += 1
                 continue
         buffer_mate1.append(mate1)
         buffer_mate2.append(mate2)
         j += 1
 
+    pProcessData.iter_num += iter_num - len(buffer_mate1)
     if all_data_read and len(buffer_mate1) != 0 and len(buffer_mate2) != 0:
-        return buffer_mate1, buffer_mate2, True, duplicated_pairs, one_mate_unmapped, one_mate_not_unique, one_mate_low_quality, iter_num - len(buffer_mate1)
+        return buffer_mate1, buffer_mate2, True, pProcessData
     if all_data_read and len(buffer_mate1) == 0 or len(buffer_mate2) == 0:
-        return None, None, True, duplicated_pairs, one_mate_unmapped, one_mate_not_unique, one_mate_low_quality, iter_num - len(buffer_mate1)
-    return buffer_mate1, buffer_mate2, False, duplicated_pairs, one_mate_unmapped, one_mate_not_unique, one_mate_low_quality, iter_num - len(buffer_mate1)
+        return None, None, True, pProcessData
+    return buffer_mate1, buffer_mate2, False, pProcessData
 
 
-def process_data(pData):
+def process_data(pSharedData, pProcessData, pCol, pRow, pData, pQueue):
     """This function is used to compute the data in parallel. To do this it is called at 
     the process start together with a buffer of input data and some parameters. This all is
     embedded in the parameter pData which is of the datatype \'MultiprocessingData\'."""
     iter_num = 0
     pair_added = 0
     # hic_matrix = None
-    out_bam = pysam.Samfile(os.path.join(pData.outputFileBufferDir, pData.outputName), 'wb', template=pData.template)
+    out_bam = pysam.Samfile(os.path.join(pSharedData.outputFileBufferDir, pProcessData.output_name), 'wb', template=pSharedData.template)
 
-    if pData.mate_buffer1 is None or pData.mate_buffer2 is None:
-        return
-        # pData.queueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-        #                      mate_not_close_to_rf, count_inward, count_outward,
-        #                      count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pData.resultIndex]])
-        # return
+    if pProcessData.buffer1 is None or pProcessData.buffer2 is None:
+        pQueue.put(pair_added)
 
-    while iter_num < len(pData.mate_buffer1) and iter_num < len(pData.mate_buffer2):
-        mate1 = pData.mate_buffer1[iter_num]
-        mate2 = pData.mate_buffer2[iter_num]
+    while iter_num < len(pProcessData.buffer1) and iter_num < len(pProcessData.buffer2):
+        mate1 = pProcessData.buffer1[iter_num]
+        mate2 = pProcessData.buffer2[iter_num]
         iter_num += 1
 
         # check if reads belong to a bin
@@ -729,19 +770,19 @@ def process_data(pData):
         mate_bins = []
         mate_is_unasigned = False
         for mate in [mate1, mate2]:
-            mate_ref = pData.refId2name[mate.rname]
+            mate_ref = pSharedData.refId2name[mate.rname]
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen / 2)
             try:
-                start, end = pData.dictBinIntervalTreeIndex[mate_ref]
+                start, end = pSharedData.dictBinIntervalTreeIndex[mate_ref]
                 middle_pos = int((start + end) / 2)
                 mate_bin = None
                 while not start > end:
-                    if pData.sharedBinIntvalTree[middle_pos].begin <= read_middle and read_middle <= pData.sharedBinIntvalTree[middle_pos].end:
-                        mate_bin = pData.sharedBinIntvalTree[middle_pos]
+                    if pSharedData.sharedBinIntvalTree[middle_pos].begin <= read_middle and read_middle <= pSharedData.sharedBinIntvalTree[middle_pos].end:
+                        mate_bin = pSharedData.sharedBinIntvalTree[middle_pos]
                         mate_is_unasigned = False
                         break
-                    elif pData.sharedBinIntvalTree[middle_pos].begin > read_middle:
+                    elif pSharedData.sharedBinIntvalTree[middle_pos].begin > read_middle:
                         end = middle_pos - 1
                         middle_pos = int((start + end) / 2)
                         mate_is_unasigned = True
@@ -766,7 +807,7 @@ def process_data(pData):
         # if a mate is unassigned, it means it is not close
         # to a restriction sites
         if mate_is_unasigned is True:
-            pData.mate_not_close_to_rf += 1
+            pProcessData.mate_not_close_to_rf += 1
             continue
 
         # check if mates are in the same chromosome
@@ -810,22 +851,22 @@ def process_data(pData):
             # self circles are defined as pairs within 25kb
             # with 'outward' orientation (Jin et al. 2013. Nature)
             if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
-                pData.self_circle += 1
-                if pData.removeSelfCircles:
+                pProcessData.self_circle += 1
+                if pSharedData.removeSelfCircles:
                     continue
 
             # check for dangling ends if the restriction sequence
             # is known:
-            if pData.restrictionSequence:
-                if check_dangling_end(mate1, pData.danglingSequences) or \
-                        check_dangling_end(mate2, pData.danglingSequences):
-                    pData.dangling_end += 1
+            if pSharedData.restrictionSequence:
+                if check_dangling_end(mate1, pSharedData.danglingSequences) or \
+                        check_dangling_end(mate2, pSharedData.danglingSequences):
+                    pProcessData.dangling_end += 1
                     continue
 
             if abs(mate2.pos - mate1.pos) < 1000 and orientation == 'inward':
                 has_rf = []
 
-                if pData.rfPositions and pData.restrictionSequence:
+                if pSharedData.rfPositions and pSharedData.restrictionSequence:
                     # check if in between the two mate
                     # ends the restriction fragment is found.
 
@@ -835,19 +876,19 @@ def process_data(pData):
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + len(pData.restrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pData.restrictionSequence)
-                    mate_ref = pData.refId2name[mate1.rname]
-                    has_rf = sorted(pData.rfPositions[mate_ref][frag_start: frag_end])
+                    frag_start = min(mate1.pos, mate2.pos) + len(pSharedData.restrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pSharedData.restrictionSequence)
+                    mate_ref = pSharedData.refId2name[mate1.rname]
+                    has_rf = sorted(pSharedData.rfPositions[mate_ref][frag_start: frag_end])
 
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
-                    pData.same_fragment += 1
+                    pProcessData.same_fragment += 1
                     continue
 
-                pData.self_ligation += 1
+                pProcessData.self_ligation += 1
 
-                if pData.removeSelfLigation:
+                if pSharedData.removeSelfLigation:
                     # skip self ligations
                     continue
 
@@ -863,36 +904,36 @@ def process_data(pData):
 
         # count type of pair (distance, orientation)
         if mate1.reference_id != mate2.reference_id:
-            pData.inter_chromosomal += 1
+            pProcessData.inter_chromosomal += 1
 
         elif abs(mate2.pos - mate1.pos) < 20000:
-            pData.short_range += 1
+            pProcessData.short_range += 1
         else:
-            pData.long_range += 1
+            pProcessData.long_range += 1
 
         if orientation == 'inward':
-            pData.count_inward += 1
+            pProcessData.count_inward += 1
         elif orientation == 'outward':
-            pData.count_outward += 1
+            pProcessData.count_outward += 1
         elif orientation == 'same-strand-left':
-            pData.count_left += 1
+            pProcessData.count_left += 1
         elif orientation == 'same-strand-right':
-            pData.count_right += 1
+            pProcessData.count_right += 1
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
-            vec_start = max(0, mate.pos - mate_bin.begin) / pData.binsize
-            length_coverage = pData.coverageIndex[mate_bin_id].end - pData.coverageIndex[mate_bin_id].begin
+            vec_start = max(0, mate.pos - mate_bin.begin) / pSharedData.binsize
+            length_coverage = pSharedData.coverageIndex[mate_bin_id].end - pSharedData.coverageIndex[mate_bin_id].begin
             vec_end = min(length_coverage, vec_start +
-                          len(mate.seq) / pData.binsize)
-            coverage_index = pData.coverageIndex[mate_bin_id].begin + vec_start
-            coverage_end = pData.coverageIndex[mate_bin_id].begin + vec_end
+                          len(mate.seq) / pSharedData.binsize)
+            coverage_index = pSharedData.coverageIndex[mate_bin_id].begin + vec_start
+            coverage_end = pSharedData.coverageIndex[mate_bin_id].begin + vec_end
             for i in xrange(coverage_index, coverage_end, 1):
-                pData.coverage[i] += 1
+                pSharedData.coverage[i] += 1
 
-        pData.row[pair_added] = mate_bins[0]
-        pData.col[pair_added] = mate_bins[1]
-        pData.data[pair_added] = np.uint8(1)
+        pRow[pair_added] = mate_bins[0]
+        pCol[pair_added] = mate_bins[1]
+        pData[pair_added] = np.uint8(1)
 
         pair_added += 1
         # prepare data for bam output
@@ -916,10 +957,8 @@ def process_data(pData):
         out_bam.write(mate2)
 
     out_bam.close()
-    pData.pair_added += pair_added
-    # pData.queueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-    #                      mate_not_close_to_rf, count_inward, count_outward,
-    #                      count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pData.mate_buffer1), pData.resultIndex, pData.counter]])
+    pProcessData.pair_added += pair_added
+    pQueue.put([pair_added, pProcessData])
     return
 
 
@@ -927,7 +966,7 @@ def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
     """This function is used by the background process to merge the sub-output bam files
     of each input buffer. If it is done, it is creating a file named \'done_processing\' to signal 
     the main process it can continue."""
-    out_bam = pysam.Samfile(os.join.path(pOutputFileBufferDir, pOutputBam), 'wb', template=pTemplate)
+    out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pOutputBam), 'wb', template=pTemplate)
 
     counter = 0
     while not os.path.isfile(os.path.join(pOutputFileBufferDir, 'done_processing')) or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter), '.bam_done')):
@@ -1063,34 +1102,17 @@ def main(args=None):
 
     start_time = time.time()
 
-    iter_num = 0
-    pair_added = 0
+    # iter_num = 0
+    # pair_added = 0
     hic_matrix = None
 
-    one_mate_unmapped = 0
-    one_mate_low_quality = 0
-    one_mate_not_unique = 0
-    dangling_end = 0
-    self_circle = 0
-    self_ligation = 0
-    same_fragment = 0
-    mate_not_close_to_rf = 0
-    duplicated_pairs = 0
 
-    count_inward = 0
-    count_outward = 0
-    count_left = 0
-    count_right = 0
-    inter_chromosomal = 0
-    short_range = 0
-    long_range = 0
-
-    pair_added = 0
+    # pair_added = 0
 
     # input buffer for bam files
     buffer_workers1 = [None] * args.threads
     buffer_workers2 = [None] * args.threads
-
+    process_data_obj = [None] * args.threads
     # output buffer to write bam with mate1 and mate2 pairs
     process = [None] * args.threads
     all_data_processed = False
@@ -1101,30 +1123,23 @@ def main(args=None):
     thread_done = [False] * args.threads
     count_output = 0
     count_call_of_read_input = 0
-    # computed_pairs = 0
-    multiprocessing_data = MultiprocessingData(pMateBuffer1=None, pMateBuffer2=None,
-                                               pMinMappingQuality=args.minMappingQuality,
-                                               pRemoveSelfCircles=args.removeSelfCircles,
-                                               pRestrictionSequence=args.restrictionSequence,
-                                               pRemoveSelfLigation=args.removeSelfLigation,
-                                               pReadPosMatrix=read_pos_matrix,
-                                               pRfPositions=rf_positions,
-                                               pRefId2name=ref_id2name,
-                                               pDanglingSequences=dangling_sequences,
-                                               pBinsize=binsize,
-                                               pResultIndex=None,
-                                               pQueueOut=None,
-                                               pTemplate=str1,
-                                               pOutputName=None,
-                                               pCounter=count_output,
-                                               pSharedBinIntvalTree=shared_build_intval_tree,
-                                               pDictBinIntervalTreeIndex=index_dict,
-                                               pCoverage=coverage,
-                                               pCoverageIndex=pos_coverage,
-                                               pOutputFileBufferDir=outputFileBufferDir,
-                                               pRow=row[i],
-                                               pCol=col[i],
-                                               pData=data[i])
+    main_process_data = ProcessData()
+
+    shared_data = SharedData(pMinMappingQuality=args.minMappingQuality,
+                             pRemoveSelfCircles=args.removeSelfCircles,
+                             pRestrictionSequence=args.restrictionSequence,
+                             pRemoveSelfLigation=args.removeSelfLigation,
+                             pReadPosMatrix=read_pos_matrix,
+                             pRfPositions=rf_positions,
+                             pRefId2name=ref_id2name,
+                             pDanglingSequences=dangling_sequences,
+                             pBinsize=binsize,
+                             pTemplate=str1,
+                             pSharedBinIntvalTree=shared_build_intval_tree,
+                             pDictBinIntervalTreeIndex=index_dict,
+                             pCoverage=coverage,
+                             pCoverageIndex=pos_coverage,
+                             pOutputFileBufferDir=outputFileBufferDir)
 
     process_write_bam_file = Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir))
     process_write_bam_file.start()
@@ -1134,58 +1149,43 @@ def main(args=None):
             if queue[i] is None and not all_data_processed:
                 count_call_of_read_input += 1
 
-                multiprocessing_data.mate_buffer1, multiprocessing_data.mate_buffer2, all_data_processed, \
-                    duplicated_pairs_, one_mate_unmapped_, one_mate_not_unique_, \
-                    one_mate_low_quality_, iter_num_ = readBamFiles(pFileOneIterator=str1,
-                                                                    pFileTwoIterator=str2,
-                                                                    pNumberOfItemsPerBuffer=args.inputBufferSize,
-                                                                    pSkipDuplicationCheck=args.skipDuplicationCheck,
-                                                                    pReadPosMatrix=read_pos_matrix,
-                                                                    pRefId2name=ref_id2name,
-                                                                    pMinMappingQuality=args.minMappingQuality
-                                                                    )
-                multiprocessing_data.duplicated_pairs += duplicated_pairs_
-                multiprocessing_data.one_mate_unmapped += one_mate_unmapped_
-                multiprocessing_data.one_mate_not_unique += one_mate_not_unique_
-                multiprocessing_data.one_mate_low_quality += one_mate_low_quality_
-                multiprocessing_data.iter_num += iter_num_
+                mate_buffer1, mate_buffer2, all_data_processed, main_process_data = readBamFiles(pFileOneIterator=str1,
+                                                                                                 pFileTwoIterator=str2,
+                                                                                                 pNumberOfItemsPerBuffer=args.inputBufferSize,
+                                                                                                 pSkipDuplicationCheck=args.skipDuplicationCheck,
+                                                                                                 pReadPosMatrix=read_pos_matrix,
+                                                                                                 pRefId2name=ref_id2name,
+                                                                                                 pMinMappingQuality=args.minMappingQuality,
+                                                                                                 pProcessData=main_process_data)
+
                 queue[i] = Queue()
+                process_data_obj[i] = ProcessData(pBuffer1=mate_buffer1, pBuffer2=mate_buffer2,
+                                                  pResultIndex=i, pOutputName=str(count_output) + '.bam',
+                                                  pCounter=count_output)
                 thread_done[i] = False
-                multiprocessing_data.resultIndex = i
-                multiprocessing_data.queueOut = queue[i]
-                multiprocessing_data.outputName = str(count_output) + '.bam'
-                process[i] = Process(target=process_data, kwargs=dict(pData=multiprocessing_data))
+                process[i] = Process(target=process_data, kwargs=dict(pSharedData=shared_data,
+                                                                      pProcessData=process_data_obj[i],
+                                                                      pCol=col[i],
+                                                                      pRow=row[i],
+                                                                      pData=data[i],
+                                                                      pQueue=queue[i]))
                 process[i].start()
                 count_output += 1
                 buffer_workers1[i] = None
                 buffer_workers2[i] = None
-
+                process_data_obj[i] = None
+                
             elif queue[i] is not None and not queue[i].empty():
                 result = queue[i].get()
 
-                # if result[0] is not None:
+                if result[0] is not None:
                     elements = result[0]
                     if hic_matrix is None:
                         hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
                     else:
                         hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
 
-                    # dangling_end += result[0][3]
-                    # self_circle += result[0][4]
-                    # self_ligation += result[0][5]
-                    # same_fragment += result[0][6]
-                    # mate_not_close_to_rf += result[0][7]
-
-                    # count_inward += result[0][8]
-                    # count_outward += result[0][9]
-                    # count_left += result[0][10]
-                    # count_right += result[0][11]
-                    # inter_chromosomal += result[0][12]
-                    # short_range += result[0][13]
-                    # long_range += result[0][14]
-
-                    # pair_added += result[0][15]
-                    # iter_num += result[0][16]
+                    main_process_data.synchronize(result[1])
 
                 queue[i] = None
                 process[i].join()
@@ -1193,19 +1193,19 @@ def main(args=None):
                 process[i] = None
                 thread_done[i] = True
 
-                open(os.path.join(outputFileBufferDir, str(result[0][-1]), '.bam_done'), 'a').close()
-
+                open(os.path.join(outputFileBufferDir, str(result[1].counter) + '.bam_done'), 'a').close()
+                result = None
                 # caused by the architecture I try to display this output information after +-1e5 of 1e6 reads.
-                if iter_num % 1e6 < 100000:
+                if main_process_data.iter_num % 1e6 < 100000:
                     elapsed_time = time.time() - start_time
                     sys.stderr.write("processing {} lines took {:.2f} "
                                      "secs ({:.1f} lines per "
-                                     "second)\n".format(iter_num,
+                                     "second)\n".format(main_process_data.iter_num,
                                                         elapsed_time,
-                                                        iter_num / elapsed_time))
+                                                        main_process_data.iter_num / elapsed_time))
                     sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
-                                     "\n".format(pair_added, float(100 * pair_added) / iter_num))
-                if args.doTestRun and iter_num > 1e5:
+                                     "\n".format(main_process_data.pair_added, float(100 * main_process_data.pair_added) / main_process_data.iter_num))
+                if args.doTestRun and main_process_data.iter_num > 1e5:
                     sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
                     break
             else:
@@ -1276,7 +1276,7 @@ def main(args=None):
     else:
         msg = " (not removed)"
 
-    mappable_pairs = iter_num - one_mate_unmapped
+    mappable_pairs = main_process_data.iter_num - main_process_data.one_mate_unmapped
 
     log_file_name = os.path.join(args.QCfolder, "QC.log")
     log_file = open(log_file_name, 'w')
@@ -1286,60 +1286,60 @@ Pairs considered\t{}\t\t
 Min rest. site distance\t{}\t\t
 Max rest. site distance\t{}\t\t
 
-""".format(args.outFileName.name, iter_num, args.minDistance,
+""".format(args.outFileName.name, main_process_data.iter_num, args.minDistance,
            args.maxDistance))
 
-    log_file.write("Pairs used\t{}\t({:.2f})\t({:.2f})\n".format(pair_added,
-                                                                 100 * float(pair_added) / iter_num,
-                                                                 100 * float(pair_added) / mappable_pairs))
-    log_file.write("One mate unmapped\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_unmapped,
-                                                                        100 * float(one_mate_unmapped) / iter_num,
-                                                                        100 * float(one_mate_unmapped) / mappable_pairs))
+    log_file.write("Pairs used\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.pair_added,
+                                                                 100 * float(main_process_data.pair_added) / main_process_data.iter_num,
+                                                                 100 * float(main_process_data.pair_added) / mappable_pairs))
+    log_file.write("One mate unmapped\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.one_mate_unmapped,
+                                                                        100 * float(main_process_data.one_mate_unmapped) / main_process_data.iter_num,
+                                                                        100 * float(main_process_data.one_mate_unmapped) / mappable_pairs))
 
-    log_file.write("One mate not unique\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_not_unique,
-                                                                          100 * float(one_mate_not_unique) / iter_num,
-                                                                          100 * float(one_mate_not_unique) / mappable_pairs))
+    log_file.write("One mate not unique\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.one_mate_not_unique,
+                                                                          100 * float(main_process_data.one_mate_not_unique) / main_process_data.iter_num,
+                                                                          100 * float(main_process_data.one_mate_not_unique) / mappable_pairs))
 
-    log_file.write("One mate low quality\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_low_quality,
-                                                                           100 * float(one_mate_low_quality) / iter_num,
-                                                                           100 * float(one_mate_low_quality) / mappable_pairs))
+    log_file.write("One mate low quality\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.one_mate_low_quality,
+                                                                           100 * float(main_process_data.one_mate_low_quality) / main_process_data.iter_num,
+                                                                           100 * float(main_process_data.one_mate_low_quality) / mappable_pairs))
 
-    log_file.write("dangling end\t{}\t({:.2f})\t({:.2f})\n".format(dangling_end,
-                                                                   100 * float(dangling_end) / iter_num,
-                                                                   100 * float(dangling_end) / mappable_pairs))
+    log_file.write("dangling end\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.dangling_end,
+                                                                   100 * float(main_process_data.dangling_end) / main_process_data.iter_num,
+                                                                   100 * float(main_process_data.dangling_end) / mappable_pairs))
 
-    log_file.write("self ligation{}\t{}\t({:.2f})\t({:.2f})\n".format(msg, self_ligation,
-                                                                      100 * float(self_ligation) / iter_num,
-                                                                      100 * float(self_ligation) / mappable_pairs))
+    log_file.write("self ligation{}\t{}\t({:.2f})\t({:.2f})\n".format(msg, main_process_data.self_ligation,
+                                                                      100 * float(main_process_data.self_ligation) / main_process_data.iter_num,
+                                                                      100 * float(main_process_data.self_ligation) / mappable_pairs))
 
-    log_file.write("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})\n".format(mate_not_close_to_rf,
-                                                                                      100 * float(mate_not_close_to_rf) / iter_num,
-                                                                                      100 * float(mate_not_close_to_rf) / mappable_pairs))
+    log_file.write("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.mate_not_close_to_rf,
+                                                                                      100 * float(main_process_data.mate_not_close_to_rf) / main_process_data.iter_num,
+                                                                                      100 * float(main_process_data.mate_not_close_to_rf) / mappable_pairs))
 
-    log_file.write("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})\n".format(same_fragment,
-                                                                             100 * float(same_fragment) / iter_num,
-                                                                             100 * float(same_fragment) / mappable_pairs))
-    log_file.write("self circle\t{}\t({:.2f})\t({:.2f})\n".format(self_circle,
-                                                                  100 * float(self_circle) / iter_num,
-                                                                  100 * float(self_circle) / mappable_pairs))
-    log_file.write("duplicated pairs\t{}\t({:.2f})\t({:.2f})\n".format(duplicated_pairs,
-                                                                       100 * float(duplicated_pairs) / iter_num,
-                                                                       100 * float(duplicated_pairs) / mappable_pairs))
-    if pair_added > 0:
+    log_file.write("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.same_fragment,
+                                                                             100 * float(main_process_data.same_fragment) / main_process_data.iter_num,
+                                                                             100 * float(main_process_data.same_fragment) / mappable_pairs))
+    log_file.write("self circle\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.self_circle,
+                                                                  100 * float(main_process_data.self_circle) / main_process_data.iter_num,
+                                                                  100 * float(main_process_data.self_circle) / mappable_pairs))
+    log_file.write("duplicated pairs\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.duplicated_pairs,
+                                                                       100 * float(main_process_data.duplicated_pairs) / main_process_data.iter_num,
+                                                                       100 * float(main_process_data.duplicated_pairs) / mappable_pairs))
+    if main_process_data.pair_added > 0:
         log_file.write("Of pairs used:\n")
-        log_file.write("inter chromosomal\t{}\t({:.2f})\n".format(inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
+        log_file.write("inter chromosomal\t{}\t({:.2f})\n".format(main_process_data.inter_chromosomal, 100 * float(main_process_data.inter_chromosomal) / main_process_data.pair_added))
 
-        log_file.write("short range < 20kb\t{}\t({:.2f})\n".format(short_range, 100 * float(short_range) / pair_added))
+        log_file.write("short range < 20kb\t{}\t({:.2f})\n".format(main_process_data.short_range, 100 * float(main_process_data.short_range) / main_process_data.pair_added))
 
-        log_file.write("long range\t{}\t({:.2f})\n".format(long_range, 100 * float(long_range) / pair_added))
+        log_file.write("long range\t{}\t({:.2f})\n".format(main_process_data.long_range, 100 * float(main_process_data.long_range) / main_process_data.pair_added))
 
-        log_file.write("inward pairs\t{}\t({:.2f})\n".format(count_inward, 100 * float(count_inward) / pair_added))
+        log_file.write("inward pairs\t{}\t({:.2f})\n".format(main_process_data.count_inward, 100 * float(main_process_data.count_inward) / main_process_data.pair_added))
 
-        log_file.write("outward pairs\t{}\t({:.2f})\n".format(count_outward, 100 * float(count_outward) / pair_added))
+        log_file.write("outward pairs\t{}\t({:.2f})\n".format(main_process_data.count_outward, 100 * float(main_process_data.count_outward) / main_process_data.pair_added))
 
-        log_file.write("left pairs\t{}\t({:.2f})\n".format(count_left, 100 * float(count_left) / pair_added))
+        log_file.write("left pairs\t{}\t({:.2f})\n".format(main_process_data.count_left, 100 * float(main_process_data.count_left) / main_process_data.pair_added))
 
-        log_file.write("right pairs\t{}\t({:.2f})\n".format(count_right, 100 * float(count_right) / pair_added))
+        log_file.write("right pairs\t{}\t({:.2f})\n".format(main_process_data.count_right, 100 * float(main_process_data.count_right) / main_process_data.pair_added))
 
     log_file.close()
     QC.main("-l {} -o {}".format(log_file_name, args.QCfolder).split())
