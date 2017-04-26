@@ -1175,9 +1175,9 @@ def main(args=None):
                 if result[0] is not None:
                     elements = result[0]
                     if hic_matrix is None:
-                        hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
+                        hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
                     else:
-                        hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
+                        hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
 
                     main_process_data.synchronize(result[1])
 
