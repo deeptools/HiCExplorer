@@ -953,6 +953,9 @@ def process_data(pSharedData, pProcessData, pCol, pRow, pData, pQueue):
 
     out_bam.close()
     pProcessData.pair_added += pair_added
+    pProcessData.refId2name = None
+    pProcessData.rfPositions = None
+
     pQueue.put([pair_added, pProcessData])
     return
 
@@ -1130,6 +1133,8 @@ def main(args=None):
                              pCoverageIndex=pos_coverage,
                              pOutputFileBufferDir=outputFileBufferDir)
 
+    # read_pos_matrix = None
+    rf_positions = None
     process_write_bam_file = Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir))
     process_write_bam_file.start()
     while not all_data_processed or not all_threads_done:
@@ -1197,6 +1202,8 @@ def main(args=None):
                 if args.doTestRun and main_process_data.iter_num > 1e5:
                     sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
                     break
+            elif all_data_processed and queue[i] is None:
+                thread_done[i] = True
             else:
                 time.sleep(1)
 
