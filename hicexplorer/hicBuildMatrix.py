@@ -1253,8 +1253,6 @@ def main(args=None):
     hic_ma.save(args.outFileName.name)
 
     if args.outBam:
-        print "foo"
-        os.system("ls -lah /dev/shm/")
         shutil.move(outputFileBufferDir + args.outBam.name, args.outBam.name)
 
     """
