@@ -967,9 +967,9 @@ def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
     out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pOutputBam), 'wb', template=pTemplate)
 
     counter = 0
-    while not os.path.isfile(os.path.join(pOutputFileBufferDir, 'done_processing')) or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter), '.bam_done')):
-        if os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter), '.bam_done')):
-            out_put_threads = pysam.Samfile(os.path.join(pOutputFileBufferDir, str(counter), '.bam'), 'rb')
+    while not os.path.isfile(os.path.join(pOutputFileBufferDir, 'done_processing')) or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done')):
+        if os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done')):
+            out_put_threads = pysam.Samfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam'), 'rb')
             while True:
                 try:
                     data = out_put_threads.next()
@@ -977,14 +977,14 @@ def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
                     break
                 out_bam.write(data)
             out_put_threads.close()
-            os.remove(os.path.join(pOutputFileBufferDir, str(counter), '.bam'))
-            os.remove(os.path.join(pOutputFileBufferDir, str(counter), '.bam_done'))
+            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + '.bam'))
+            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done'))
             counter += 1
         else:
             time.sleep(3)
 
     out_bam.close()
-    os.remove(pOutputFileBufferDir + 'done_processing')
+    os.remove(os.path.join(pOutputFileBufferDir, 'done_processing'))
 
 
 def main(args=None):
@@ -1253,6 +1253,8 @@ def main(args=None):
     hic_ma.save(args.outFileName.name)
 
     if args.outBam:
+        print "foo"
+        os.system("ls -lah /dev/shm/")
         shutil.move(outputFileBufferDir + args.outBam.name, args.outBam.name)
 
     """
