@@ -296,7 +296,7 @@ def parse_arguments(args=None):
                         help='Size of the input buffer of each thread. 100,000 read pairs per input file per thread is the default value.'
                              ' Reduce value to decrease memory usage.',
                         required=False,
-                        default=1e5,
+                        default=100000,
                         type=int
                         )
     parser.add_argument('--outputFileBufferDir',
@@ -1093,6 +1093,7 @@ def main(args=None):
     row = [None] * args.threads
     col = [None] * args.threads
     data = [None] * args.threads
+    args.inputBufferSize = int(args.inputBufferSize)
     for i in xrange(args.threads):
         row[i] = RawArray(c_uint, args.inputBufferSize)
         col[i] = RawArray(c_uint, args.inputBufferSize)
