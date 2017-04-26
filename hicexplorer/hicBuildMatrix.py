@@ -1042,20 +1042,19 @@ def main(args=None):
     # build c_type shared memory for the interval tree
     shared_array_list = []
     index_dict = {}
-    j = 0
-    interval_list = []
+    end = -1
     for i, seq in enumerate(bin_intval_tree):
-        start = j
+        start = end + 1
         interval_list = []
         for interval in bin_intval_tree[seq]:
             interval_list.append((interval.begin, interval.end, interval.data))
-            j += 1
-        end = j - 1
+        end = start + len(bin_intval_tree[seq]) - 1
         index_dict[seq] = (start, end)
         interval_list = sorted(interval_list)
         shared_array_list.extend(interval_list)
     shared_build_intval_tree = RawArray(C_Interval, shared_array_list)
     bin_intval_tree = None
+    shared_array_list = None
     dangling_sequences = dict()
     if args.restrictionSequence:
         # build a list of dangling sequences
@@ -1075,15 +1074,11 @@ def main(args=None):
     start_pos_coverage = []
     end_pos_coverage = []
 
-    for value in bin_intervals:
-        chrom, start, end = value
+    for chrom, start, end in bin_intervals:
         start_pos_coverage.append(number_of_elements_coverage)
-
         number_of_elements_coverage += (end - start) / binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
-    pos_coverage_ = zip(start_pos_coverage, end_pos_coverage)
-    pos_coverage = RawArray(C_Coverage, pos_coverage_)
-    pos_coverage_ = None
+    pos_coverage = RawArray(C_Coverage, zip(start_pos_coverage, end_pos_coverage))
     start_pos_coverage = None
     end_pos_coverage = None
     coverage = Array(c_uint, number_of_elements_coverage)
