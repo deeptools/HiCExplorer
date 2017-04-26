@@ -24,12 +24,14 @@ import hicexplorer.hicPrepareQCreport as QC
 
 
 class C_Interval(Structure):
+    """Struct to map a Interval form intervaltree as a multiprocessing.sharedctype"""
     _fields_ = [("begin", c_uint),
                 ("end", c_uint),
                 ("data", c_uint)]
 
 
 class C_Coverage(Structure):
+    """Struct to model the coverage as a multiprocessing.sharedctype"""
     _fields_ = [("begin", c_uint),
                 ("end", c_uint)]
 
@@ -53,8 +55,6 @@ class SharedData():
         self.danglingSequences = pDanglingSequences
         self.binsize = pBinsize
         self.template = pTemplate
-        # self.outputName = pOutputName
-        # self.counter = pCounter
         self.sharedBinIntvalTree = pSharedBinIntvalTree
         self.dictBinIntervalTreeIndex = pDictBinIntervalTreeIndex
         self.coverage = pCoverage
@@ -128,13 +128,9 @@ class ProcessData():
 
 
 class ReadPositionMatrix(object):
-    """ class to check for PCR duplicates.
-    A sparse matrix having as bins all possible
-    start sites (single bp resolution)
-    is created. PCR duplicates
-    are determined by checking if the matrix
-    cell is already filled.
-
+    """ Aclass to check for PCR duplicates.
+    A set storing all possible
+    start sites. Checks if read is already in the set.
     """
 
     def __init__(self):
@@ -153,14 +149,14 @@ class ReadPositionMatrix(object):
         Returns true if it is a duplicate, returns false if not and inserts the elements into  a set.
         """
         if chrom1 < chrom2:
-            id_string = "%s-%s" % (chrom1, chrom2)
+            id_string = "{}-{}".format(chrom1, chrom2)
         else:
-            id_string = "%s-%s" % (chrom2, chrom1)
+            id_string = "{}-{}".format(chrom2, chrom1)
 
         if start1 < start2:
-            id_string += "-%s-%s" % (start1, start2)
+            id_string += "-{}-{}".format(start1, start2)
         else:
-            id_string += "-%s-%s" % (start2, start1)
+            id_string += "-{}-{}".format(start2, start1)
 
         if id_string in self.pos_matrix:
             return True
@@ -188,7 +184,12 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--outBam', '-b',
-                        help='Bam file to process. Optional parameter. Computation will be significant longer if this option is set.',
+                        help='Bam file to process. Optional parameter. '
+                        'An bam file containing all valid Hi-C reads can be created '
+                        'using this option. This bam file could be useful to inspect '
+                        'the distribution of valid Hi-C reads pairs or for other '
+                        'downstream analysis, but is not used by any HiCExplorer tool. '
+                        'Computation will be significant longer if this option is set.',
                         metavar='bam file',
                         type=argparse.FileType('w'),
                         required=True)
@@ -292,14 +293,14 @@ def parse_arguments(args=None):
                         type=int
                         )
     parser.add_argument('--inputBufferSize',
-                        help='Size of the input buffer of each thread. 100,000 elements per input file per thread is the default value.'
+                        help='Size of the input buffer of each thread. 100,000 read pairs per input file per thread is the default value.'
                              ' Reduce value to decrease memory usage.',
                         required=False,
                         default=1e5,
                         type=int
                         )
     parser.add_argument('--outputFileBufferDir',
-                        help='The location of the output file buffer. Per default /dev/shm/ is used which is in the most Linux systems a RAM disk. '
+                        help='The location of the output file buffer. At this location the intermediate \'bam\' files and \'bam_done\' are stored. Per default /dev/shm/ is used which is in the most Linux systems a RAM disk. '
                         'Please make sure no other instance of hicBuildMatrix is accessing this directory at the same time or that old tmp files, maybe from '
                         'an interupted run of hicBuildMatrix, are stored there. It could cause some non expected behaviour and or results.',
                         required=False,
@@ -650,10 +651,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer,
         with n = number of processes. The duplication check is handled here too."""
     buffer_mate1 = []
     buffer_mate2 = []
-    # duplicated_pairs = 0
-    # one_mate_unmapped = 0
-    # one_mate_not_unique = 0
-    # one_mate_low_quality = 0
 
     all_data_read = False
     j = 0
@@ -678,7 +675,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer,
             try:
                 mate2 = pFileTwoIterator.next()
             except StopIteration:
-                # pTerminateSignal.set()
                 all_data_read = True
                 break
 
@@ -752,7 +748,6 @@ def process_data(pSharedData, pProcessData, pCol, pRow, pData, pQueue):
     embedded in the parameter pData which is of the datatype \'MultiprocessingData\'."""
     iter_num = 0
     pair_added = 0
-    # hic_matrix = None
     out_bam = pysam.Samfile(os.path.join(pSharedData.outputFileBufferDir, pProcessData.output_name), 'wb', template=pSharedData.template)
 
     if pProcessData.buffer1 is None or pProcessData.buffer2 is None:
@@ -1005,6 +1000,10 @@ def main(args=None):
     """
 
     args = parse_arguments().parse_args(args)
+    try:
+        QC.make_sure_path_exists(args.QCfolder)
+    except OSError:
+        exit("Can't open/create QC folder path: {}. Please check".format(args.QCfolder))
     if args.threads < 3:
         exit("\nAt least three threads need to be defined.\n")
 
@@ -1088,8 +1087,7 @@ def main(args=None):
     start_pos_coverage = None
     end_pos_coverage = None
     coverage = Array(c_uint, number_of_elements_coverage)
-    # foo = RawArray(pysam.libcalignedsegment.AlignedSegment, 50)
-    # print foo
+
     # define global shared ctypes arrays for row, col and data
     args.threads = args.threads - 2
     row = [None] * args.threads
@@ -1102,12 +1100,7 @@ def main(args=None):
 
     start_time = time.time()
 
-    # iter_num = 0
-    # pair_added = 0
     hic_matrix = None
-
-
-    # pair_added = 0
 
     # input buffer for bam files
     buffer_workers1 = [None] * args.threads
@@ -1174,7 +1167,7 @@ def main(args=None):
                 buffer_workers1[i] = None
                 buffer_workers2[i] = None
                 process_data_obj[i] = None
-                
+
             elif queue[i] is not None and not queue[i].empty():
                 result = queue[i].get()
 
