@@ -24,24 +24,23 @@ import hicexplorer.hicPrepareQCreport as QC
 
 
 class C_Interval(Structure):
+    """Struct to map a Interval form intervaltree as a multiprocessing.sharedctype"""
     _fields_ = [("begin", c_uint),
                 ("end", c_uint),
                 ("data", c_uint)]
 
 
 class C_Coverage(Structure):
+    """Struct to model the coverage as a multiprocessing.sharedctype"""
+
     _fields_ = [("begin", c_uint),
                 ("end", c_uint)]
 
 
 class ReadPositionMatrix(object):
-    """ class to check for PCR duplicates.
-    A sparse matrix having as bins all possible
-    start sites (single bp resolution)
-    is created. PCR duplicates
-    are determined by checking if the matrix
-    cell is already filled.
-
+    """A class to check for PCR duplicates.
+       A set storing all possible
+       start sites. Checks if read is already in the set.
     """
 
     def __init__(self):
@@ -57,14 +56,14 @@ class ReadPositionMatrix(object):
 
     def is_duplicated(self, chrom1, start1, chrom2, start2):
         if chrom1 < chrom2:
-            id_string = "%s-%s" % (chrom1, chrom2)
+            id_string = "{}-{}".format(chrom1, chrom2)
         else:
-            id_string = "%s-%s" % (chrom2, chrom1)
+            id_string = "{}-{}".format(chrom2, chrom1)
 
         if start1 < start2:
-            id_string += "-%s-%s" % (start1, start2)
+            id_string += "-{}-{}".format(start1, start2)
         else:
-            id_string += "-%s-%s" % (start2, start1)
+            id_string += "-{}-{}".format(start2, start1)
 
         if id_string in self.pos_matrix:
             return True
@@ -92,7 +91,13 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--outBam', '-b',
-                        help='Bam file to process. Optional parameter. Computation will be significant longer if this option is set.',
+                         help='Bam file to process. Optional parameter. '
+                         'An bam file containing all valid Hi-C reads can be created '
+                         'using this option. This bam file could be useful to inspect '
+                         'the distribution of valid Hi-C reads pairs or for other '
+                         'downstream analysis, but is not used by any HiCExplorer tool. '
+                         'Computation will be significant longer if this option is set.',
+
                         metavar='bam file',
                         type=argparse.FileType('w'),
                         required=True)
@@ -196,14 +201,14 @@ def parse_arguments(args=None):
                         type=int
                         )
     parser.add_argument('--inputBufferSize',
-                        help='Size of the input buffer of each thread. 100,000 elements per input file per thread is the default value.'
+                        help='Size of the input buffer of each thread. 100,000 read pairs per input file per thread is the default value.'
                              ' Reduce value to decrease memory usage.',
                         required=False,
-                        default=1e5,
+                        default=100000,
                         type=int
                         )
     parser.add_argument('--outputFileBufferDir',
-                        help='The location of the output file buffer. Per default /dev/shm/ is used which is in the most Linux systems a RAM disk. '
+                        help='The location of the output file buffer. At this location the intermediate \'bam\' files and \'bam_done\' are stored. Per default /dev/shm/ is used which is in the most Linux systems a RAM disk. '
                         'Please make sure no other instance of hicBuildMatrix is accessing this directory at the same time or that old tmp files, maybe from '
                         'an interupted run of hicBuildMatrix, are stored there. It could cause some non expected behaviour and or results.',
                         required=False,
@@ -948,6 +953,11 @@ def main(args=None):
         exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
 
     args = parse_arguments().parse_args(args)
+    try:
+        QC.make_sure_path_exists(args.QCfolder)
+    except OSError:
+        exit("Can't open/create QC folder path: {}. Please check".format(args.QCfolder))
+ 
     if args.threads < 3:
         exit("\nAt least three threads need to be defined.\n")
 
