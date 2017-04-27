@@ -8,6 +8,7 @@ import os
 import shutil
 import pysam
 from distutils.version import LooseVersion
+from six.moves import xrange
 
 
 from ctypes import Structure, c_uint, c_ushort
@@ -553,7 +554,8 @@ def enlarge_bins(bin_intervals, chrom_sizes):
 
 
 def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pSkipDuplicationCheck, pReadPosMatrix, pRefId2name, pMinMappingQuality):
-    """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer with n = number of processes """
+    """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer
+        with n = number of processes. The duplication check is handled here too."""
     buffer_mate1 = []
     buffer_mate2 = []
     duplicated_pairs = 0
@@ -686,7 +688,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     iter_num = 0
     hic_matrix = None
     if pOutputBamSet:
-        out_bam = pysam.Samfile(pOutputFileBufferDir + pOutputName, 'wb', template=pTemplate)
+        out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pOutputName), 'wb', template=pTemplate)
 
     if pMateBuffer1 is None or pMateBuffer2 is None:
 
@@ -910,12 +912,12 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
 def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
 
-    out_bam = pysam.Samfile(pOutputFileBufferDir + pOutputBam, 'wb', template=pTemplate)
+    out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pOutputBam), 'wb', template=pTemplate)
 
     counter = 0
-    while not os.path.isfile(pOutputFileBufferDir + 'done_processing') or os.path.isfile(pOutputFileBufferDir + str(counter) + '.bam_done'):
-        if os.path.isfile(pOutputFileBufferDir + str(counter) + '.bam_done'):
-            out_put_threads = pysam.Samfile(pOutputFileBufferDir + str(counter) + '.bam', 'rb')
+    while not os.path.isfile(os.path.join(pOutputFileBufferDir, 'done_processing')) or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done')):
+        if os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done')):
+            out_put_threads = pysam.Samfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam'), 'rb')
             while True:
                 try:
                     data = out_put_threads.next()
@@ -923,14 +925,14 @@ def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
                     break
                 out_bam.write(data)
             out_put_threads.close()
-            os.remove(pOutputFileBufferDir + str(counter) + '.bam')
-            os.remove(pOutputFileBufferDir + str(counter) + '.bam_done')
+            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + '.bam'))
+            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done'))
             counter += 1
         else:
             time.sleep(3)
 
     out_bam.close()
-    os.remove(pOutputFileBufferDir + 'done_processing')
+    os.remove(os.path.join(pOutputFileBufferDir, 'done_processing'))
 
 
 def main(args=None):
@@ -947,10 +949,6 @@ def main(args=None):
     A bam file containing the valid Hi-C reads
     is also constructed
     """
-
-    # check pysam version
-    if LooseVersion(pysam.__version__) < LooseVersion("0.8.3"):
-        exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
 
     args = parse_arguments().parse_args(args)
     try:
@@ -969,8 +967,9 @@ def main(args=None):
     args.samFiles[0].close()
     args.samFiles[1].close()
     outputFileBufferDir = args.outputFileBufferDir
-    if not outputFileBufferDir[:-1] == '/':
-        outputFileBufferDir += '/'
+    outputFileBufferDir = os.path.join(outputFileBufferDir)
+    # if not outputFileBufferDir[:-1] == '/':
+    #     outputFileBufferDir += '/'
     if args.outBam:
         args.outBam.close()
 
@@ -997,15 +996,17 @@ def main(args=None):
     # build c_type shared memory for the interval tree
     shared_array_list = []
     index_dict = {}
-    j = 0
-    interval_list = []
+    # j = 0
+    # interval_list = []
+    end = -1
     for i, seq in enumerate(bin_intval_tree):
-        start = j
+        start = end + 1
         interval_list = []
         for interval in bin_intval_tree[seq]:
             interval_list.append((interval.begin, interval.end, interval.data))
-            j += 1
-        end = j - 1
+            # j += 1
+        # end = j - 1
+        end = start + len(bin_intval_tree[seq]) - 1
         index_dict[seq] = (start, end)
         interval_list = sorted(interval_list)
         shared_array_list.extend(interval_list)
@@ -1030,15 +1031,15 @@ def main(args=None):
     start_pos_coverage = []
     end_pos_coverage = []
 
-    for value in bin_intervals:
-        chrom, start, end = value
+    for chrom, start, end in bin_intervals:
+        # chrom, start, end = value
         start_pos_coverage.append(number_of_elements_coverage)
 
         number_of_elements_coverage += (end - start) / binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
-    pos_coverage_ = zip(start_pos_coverage, end_pos_coverage)
-    pos_coverage = RawArray(C_Coverage, pos_coverage_)
-    pos_coverage_ = None
+    # pos_coverage_ = zip(start_pos_coverage, end_pos_coverage)
+    pos_coverage = RawArray(C_Coverage, zip(start_pos_coverage, end_pos_coverage))
+    # pos_coverage_ = None
     start_pos_coverage = None
     end_pos_coverage = None
     coverage = Array(c_uint, number_of_elements_coverage)
@@ -1161,10 +1162,9 @@ def main(args=None):
                 if result[0] is not None:
                     elements = result[0][15]
                     if hic_matrix is None:
-                        hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
+                        hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
                     else:
-                        hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size), dtype='uint32')
-                        # hic_matrix += result[0]
+                        hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
 
                     dangling_end += result[0][3]
                     self_circle += result[0][4]
@@ -1189,7 +1189,7 @@ def main(args=None):
                 process[i] = None
                 thread_done[i] = True
 
-                open(outputFileBufferDir + str(result[0][-1]) + '.bam_done', 'a').close()
+                open(os.path.join(outputFileBufferDir, str(result[0][-1]) + '.bam_done'), 'a').close()
 
                 # caused by the architecture I try to display this output information after +-1e5 of 1e6 reads.
                 if iter_num % 1e6 < 100000:
@@ -1204,6 +1204,8 @@ def main(args=None):
                 if args.doTestRun and iter_num > 1e5:
                     sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
                     break
+            elif all_data_processed and queue[i] is None:
+                thread_done[i] = True
             else:
                 time.sleep(1)
 
@@ -1218,7 +1220,7 @@ def main(args=None):
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
-    open(outputFileBufferDir + 'done_processing', 'a').close()
+    open(os.path.join(outputFileBufferDir, 'done_processing'), 'a').close()
     print "wait for bam merging process to finish"
     process_write_bam_file.join()
     print "wait for bam merging process to finish...DONE!"
