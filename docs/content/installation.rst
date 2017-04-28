@@ -25,7 +25,7 @@ follow the directions for its installation. All of the requirements for HiCExplo
 
 .. code:: bash
 
-    $ conda install hicexplorer=1.6 -c bioconda -c conda-forge
+    $ conda install hicexplorer -c bioconda -c conda-forge
 
 Command line installation using ``pip``
 -----------------------------------------

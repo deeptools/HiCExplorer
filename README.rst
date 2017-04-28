@@ -49,7 +49,7 @@ Install with conda
 The easiest way to install HiCExplorer is using `BioConda <http://bioconda.github.io/>`_
 ::
 
-   $ conda install -c bioconda hicexplorer
+   $ conda install hicexplorer -c bioconda -c conda-forge
 
 
 
