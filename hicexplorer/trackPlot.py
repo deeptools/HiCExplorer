@@ -255,7 +255,7 @@ class PlotTracks(object):
             elif section_name.endswith('[x-axis]'):
                 track_options['x-axis'] = True
             for name, value in parser.items(section_name):
-                if name in ['max_value', 'min_value', 'depth', 'width', 'line width', 'fontsize'] and value != 'auto':
+                if name in ['max_value', 'min_value', 'depth', 'width', 'line width', 'fontsize', 'scale factor', 'number of bins'] and value != 'auto':
                     track_options[name] = literal_eval(value)
                 else:
                     track_options[name] = value
@@ -880,6 +880,8 @@ class PlotHiCMatrix(TrackPlot):
             # remove from matrix all data points that are not visible.
             matrix = matrix - scipy.sparse.triu(matrix, k=depth_in_bins, format='csr')
         matrix = np.asarray(matrix.todense().astype(float))
+        if 'scale factor' in self.properties:
+            matrix = matrix * self.properties['scale factor']
 
         if 'transform' in self.properties:
             if self.properties['transform'] == 'log1p':
@@ -1019,17 +1021,21 @@ class PlotXAxis(TrackPlot):
         ax.set_xlim(region_start, region_end)
         ticks = ax.get_xticks()
         if ticks[-1] - ticks[1] <= 1e5:
-            labels = ["{:.0f} kb".format((x / 1e3))
+            labels = ["{:,.0f}".format((x / 1e3))
                       for x in ticks]
+            labels[-2] += " Kb"
 
         elif 1e5 < ticks[-1] - ticks[1] < 4e6:
-            labels = ["{:,.0f} kb".format((x / 1e3))
+            labels = ["{:,.0f}".format((x / 1e3))
                       for x in ticks]
+            labels[-2] += " Kb"
         else:
-            labels = ["{:,.1f} Mbp".format((x / 1e6))
+            labels = ["{:,.1f} ".format((x / 1e6))
                       for x in ticks]
-            # labels[-1] += "Mbp"
+            labels[-2] += " Mbp"
 
+        print ticks
+        print labels
         ax.axis["x"] = ax.new_floating_axis(0, 0.5)
 
         ax.axis["x"].axis.set_ticklabels(labels)
