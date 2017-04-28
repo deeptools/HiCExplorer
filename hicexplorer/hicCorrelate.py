@@ -86,11 +86,13 @@ def heatmap_options():
     heatmap.add_argument('--zMin', '-min',
                          default=None,
                          help='Minimum value for the heat map intensities. '
-                              'If not specified the value is set automatically')
+                              'If not specified the value is set automatically',
+                         type=float)
     heatmap.add_argument('--zMax', '-max',
                          default=None,
                          help='Maximum value for the heat map intensities.'
-                              'If not specified the value is set automatically')
+                              'If not specified the value is set automatically',
+                         type=float)
 
     heatmap.add_argument(
         '--colorMap', default='jet',
@@ -131,7 +133,7 @@ def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
     axdendro = fig.add_axes([0.02, 0.1, 0.1, 0.7])
     axdendro.set_axis_off()
     y_var = sch.linkage(corr_matrix, method='complete')
-    z_var = sch.dendrogram(y_var, orientation='right',
+    z_var = sch.dendrogram(y_var, orientation='left',
                            link_color_func=lambda k: 'black')
     axdendro.set_xticks([])
     axdendro.set_yticks([])
@@ -245,17 +247,24 @@ def main():
         all_nan = np.unique(np.concatenate([all_nan, _mat.nan_bins]))
 
         _mat = triu(_mat.matrix, k=0, format='csr')
-        """
-        # estimate noise level
-        noise_cutoff = np.percentile(_mat.data,70)
-        print "noise threshold set to: {}".format(noise_cutoff)
-        _mat.data[_mat.data<=noise_cutoff] = 0
-        _mat.eliminate_zeros()
-        """
         if args.range:
             min_dist, max_dist = args.range.split(":")
-            min_dist = int(min_dist) / bin_size
+            min_dist = int(min_dist)
+            max_dist = int(max_dist)
+            if max_dist < bin_size:
+                exit("Please specify a max range that is larger than bin size ({})".format(bin_size))
+
+            max_depth_in_bins = int(max_dist / bin_size)
             max_dist = int(max_dist) / bin_size
+            # work only with the upper matrix
+            # and remove all pixels that are beyond
+            # max_depth_in_bis
+            # (this is done by subtracting a second sparse matrix
+            # that contains only the upper matrix that wants to be removed.
+            _mat = triu(_mat, k=0, format='csr') - triu(_mat, k=max_depth_in_bins, format='csr')
+
+            _mat.eliminate_zeros()
+
             _mat_coo = _mat.tocoo()
             dist = _mat_coo.col - _mat_coo.row
             keep = np.flatnonzero((dist <= max_dist) & (dist >= min_dist))
@@ -263,6 +272,9 @@ def main():
             _mat_coo.row = _mat_coo.row[keep]
             _mat_coo.col = _mat_coo.col[keep]
             _mat = _mat_coo.tocsr()
+        else:
+            _mat = triu(_mat, k=0, format='csr')
+
         if args.log1p:
             _mat.data = np.log1p(_mat.data)
         if all_mat is None:
@@ -385,20 +397,7 @@ def main():
         else:
             ax.set_xticklabels([])
 
-        ax.hist2d(vector1, vector2, bins=200, cmin=0.1)
-        # downsample for plotting
-#        choice_idx = np.random.randint(0,len(vector1),min(len(vector1), 500000))
-#        ax.plot(vector1[choice_idx], vector2[choice_idx], '.', markersize=1,
-#                 alpha=0.2, color='darkblue',
-#                 markeredgecolor='none')
-
-
-#        ax.set_ylim(min_value, max_value)
-#        ax.set_xlim(min_value,max_value)
-#        ax.set_ylim(-1, ax.get_ylim()[1])
-#        ax.set_xlim(-1, ax.get_xlim()[1])
-#        ax.set_ylim(min_value, ax.get_ylim()[1])
-#        ax.set_xlim(min_value, ax.get_xlim()[1])
+        ax.hist2d(vector1, vector2, bins=150, cmin=0.1)
     fig.tight_layout()
     print "saving {}".format(args.outFileNameScatter)
     fig.savefig(args.outFileNameScatter, bbox_inches='tight')
