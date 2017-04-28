@@ -61,7 +61,6 @@ def parse_arguments(args=None):
                         type=argparse.FileType('r'),
                         required=True)
 
-
     parser.add_argument('--outBam', '-b',
                         help='Output BAM file containing valid '
                              'Hi-C read pairs.',
@@ -73,8 +72,8 @@ def parse_arguments(args=None):
 
     group.add_argument('--binSize', '-bs',
                        help='Size in bp for the bins. The bin size depends '
-                             'on the depth of sequencing. Use a larger bin size for '
-                             'libraries sequenced with lower depth.',
+                            'on the depth of sequencing. Use a larger bin size for '
+                            'libraries sequenced with lower depth.',
                        type=int,
                        default=10000)
 
