@@ -5,7 +5,15 @@ from scipy.sparse import coo_matrix, dia_matrix
 import time
 from os import unlink
 import os
+import shutil
 import pysam
+
+from six.moves import xrange
+
+from ctypes import Structure, c_uint, c_ushort
+from multiprocessing import Process, Queue
+from multiprocessing.sharedctypes import Array, RawArray
+
 from intervaltree import IntervalTree, Interval
 
 # own tools
@@ -14,12 +22,115 @@ from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 import hicexplorer.hicPrepareQCreport as QC
 
-debug = 1
+
+class C_Interval(Structure):
+    """Struct to map a Interval form intervaltree as a multiprocessing.sharedctype"""
+    _fields_ = [("begin", c_uint),
+                ("end", c_uint),
+                ("data", c_uint)]
+
+
+class C_Coverage(Structure):
+    """Struct to model the coverage as a multiprocessing.sharedctype"""
+    _fields_ = [("begin", c_uint),
+                ("end", c_uint)]
+
+
+class SharedData():
+    """A class to wrap the input to process the buffers with the function \'process data\'."""
+
+    def __init__(self, pMinMappingQuality, pRemoveSelfCircles,
+                 pRestrictionSequence, pRemoveSelfLigation, pReadPosMatrix, pRfPositions,
+                 pRefId2name, pDanglingSequences, pBinsize, pTemplate,
+                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage,
+                 pCoverageIndex, pOutputFileBufferDir):
+
+        self.min_mapping_quality = pMinMappingQuality
+        self.removeSelfCircles = pRemoveSelfCircles
+        self.restrictionSequence = pRestrictionSequence
+        self.removeSelfLigation = pRemoveSelfLigation
+        self.readPosMatrix = pReadPosMatrix
+        self.rfPositions = pRfPositions
+        self.refId2name = pRefId2name
+        self.danglingSequences = pDanglingSequences
+        self.binsize = pBinsize
+        self.template = pTemplate
+        self.sharedBinIntvalTree = pSharedBinIntvalTree
+        self.dictBinIntervalTreeIndex = pDictBinIntervalTreeIndex
+        self.coverage = pCoverage
+        self.coverageIndex = pCoverageIndex
+        self.outputFileBufferDir = pOutputFileBufferDir
+
+
+class ProcessData():
+    """A class to wrap all variables which are unique for a process. """
+
+    def __init__(self, pBuffer1=None, pBuffer2=None, pRow=None,
+                 pCol=None, pData=None, pResultIndex=None,
+                 pOutputName=None, pCounter=None, pQueueOut=None):
+
+        self.one_mate_unmapped = 0
+        self.one_mate_low_quality = 0
+        self.one_mate_not_unique = 0
+        self.dangling_end = 0
+        self.self_circle = 0
+        self.self_ligation = 0
+        self.same_fragment = 0
+        self.mate_not_close_to_rf = 0
+        self.count_inward = 0
+        self.count_outward = 0
+        self.count_left = 0
+        self.count_right = 0
+        self.inter_chromosomal = 0
+        self.short_range = 0
+        self.long_range = 0
+        self.pair_added = 0
+        self.iter_num = 0
+        self.duplicated_pairs = 0
+        self.one_mate_unmapped = 0
+        self.one_mate_not_unique = 0
+        self.one_mate_low_quality = 0
+
+        self.result_index = pResultIndex
+        self.output_name = pOutputName
+        self.counter = pCounter
+
+        self.row = pRow
+        self.col = pCol
+        self.data = pData
+        self.buffer1 = pBuffer1
+        self.buffer2 = pBuffer2
+        self.queue_out = pQueueOut
+
+    def synchronize(self, pProcessDataObj):
+        self.one_mate_unmapped += pProcessDataObj.one_mate_unmapped
+        self.one_mate_low_quality += pProcessDataObj.one_mate_low_quality
+        self.one_mate_not_unique += pProcessDataObj.one_mate_not_unique
+        self.dangling_end += pProcessDataObj.dangling_end
+        self.self_circle += pProcessDataObj.self_circle
+        self.self_ligation += pProcessDataObj.self_ligation
+        self.same_fragment += pProcessDataObj.same_fragment
+        self.mate_not_close_to_rf += pProcessDataObj.mate_not_close_to_rf
+        self.count_inward += pProcessDataObj.count_inward
+        self.count_outward += pProcessDataObj.count_outward
+        self.count_left += pProcessDataObj.count_left
+        self.count_right += pProcessDataObj.count_right
+        self.inter_chromosomal += pProcessDataObj.inter_chromosomal
+        self.short_range += pProcessDataObj.short_range
+        self.long_range += pProcessDataObj.long_range
+        self.pair_added += pProcessDataObj.pair_added
+        self.iter_num += pProcessDataObj.iter_num
+
+    def processing_done(self):
+        if self.queue_out is not None and not self.queue_out.empty():
+            return True
+        return False
 
 
 class ReadPositionMatrix(object):
-    """ class to check for PCR duplicates.
-    A set with all seen reads is used to check for duplicates.
+    """ Aclass to check for PCR duplicates.
+    A set storing all possible
+    start sites. Checks if read is already in the set.
     """
 
     def __init__(self):
@@ -30,16 +141,27 @@ class ReadPositionMatrix(object):
         >>> rp.is_duplicated('1', 0, '2', 0)
         True
         """
+
         self.pos_matrix = set()
 
     def is_duplicated(self, chrom1, start1, chrom2, start2):
+        """Checks if some sequence was seen before and is a duplicate.
+        Returns true if it is a duplicate, returns false if not and inserts the elements into  a set.
+        """
+        if chrom1 < chrom2:
+            id_string = "{}-{}".format(chrom1, chrom2)
+        else:
+            id_string = "{}-{}".format(chrom2, chrom1)
 
-        id_string = "%s%s-%s%s" % (chrom1, start1, chrom2, start2)
+        if start1 < start2:
+            id_string += "-{}-{}".format(start1, start2)
+        else:
+            id_string += "-{}-{}".format(start2, start1)
+
         if id_string in self.pos_matrix:
             return True
         else:
             self.pos_matrix.add(id_string)
-            self.pos_matrix.add("%s%s-%s%s" % (chrom2, start2, chrom1, start1))
             return False
 
 
@@ -62,7 +184,12 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--outBam', '-b',
-                        help='Bam file to process',
+                        help='Bam file to process. Optional parameter. '
+                        'An bam file containing all valid Hi-C reads can be created '
+                        'using this option. This bam file could be useful to inspect '
+                        'the distribution of valid Hi-C reads pairs or for other '
+                        'downstream analysis, but is not used by any HiCExplorer tool. '
+                        'Computation will be significant longer if this option is set.',
                         metavar='bam file',
                         type=argparse.FileType('w'),
                         required=True)
@@ -129,9 +256,13 @@ def parse_arguments(args=None):
                         )
 
     parser.add_argument('--removeSelfLigation',
+                        # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
+                        #     'site in between are removed. Although this reads do not contribute to '
+                        #     'any distant contact, they are useful to account for bias in the data.',
                         help=argparse.SUPPRESS,
                         required=False,
                         default=True
+                        # action='store_true'
                         )
 
     parser.add_argument('--removeSelfCircles',
@@ -152,7 +283,30 @@ def parse_arguments(args=None):
                         default=15,
                         type=int
                         )
-
+    parser.add_argument('--threads',
+                        help='Number of threads. Using the python multiprocessing module.'
+                        ' One master process which is used to read the input file into the buffer and one process which is merging '
+                        'the output bam files of the processes into one output bam file.'
+                        ' This means that two processes less as defined do the computation. Minimum value is 3.',
+                        required=False,
+                        default=4,
+                        type=int
+                        )
+    parser.add_argument('--inputBufferSize',
+                        help='Size of the input buffer of each thread. 100,000 read pairs per input file per thread is the default value.'
+                             ' Reduce value to decrease memory usage.',
+                        required=False,
+                        default=100000,
+                        type=int
+                        )
+    parser.add_argument('--outputFileBufferDir',
+                        help='The location of the output file buffer. At this location the intermediate \'bam\' files and \'bam_done\' are stored. Per default /dev/shm/ is used which is in the most Linux systems a RAM disk. '
+                        'Please make sure no other instance of hicBuildMatrix is accessing this directory at the same time or that old tmp files, maybe from '
+                        'an interupted run of hicBuildMatrix, are stored there. It could cause some non expected behaviour and or results.',
+                        required=False,
+                        default='/dev/shm/',
+                        type=str
+                        )
     parser.add_argument('--doTestRun',
                         help='A test run is useful to test the quality of a Hi-C experiment quickly. It works by '
                              'testing only 1,000.000 reads. This option is useful to get an idea of quality control'
@@ -469,7 +623,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     # enlarge remaining bins
     chr_start = True
     chrom_sizes_dict = dict(chrom_sizes)
-    for idx in range(len(bin_intervals) - 1):
+    for idx in xrange(len(bin_intervals) - 1):
         chrom, start, end = bin_intervals[idx]
         chrom_next, start_next, end_next = bin_intervals[idx + 1]
         if chr_start is True:
@@ -490,139 +644,39 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     return bin_intervals
 
 
-def main(args=None):
-    """
-    Reads line by line two bam files that are not sorted.
-    Each line in the two bam files should correspond
-    to the mapped position of the two ends of a Hi-C
-    fragment.
+def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer,
+                 pSkipDuplicationCheck, pReadPosMatrix, pRefId2name, pMinMappingQuality,
+                 pProcessData):
+    """Read the two bam input files into n buffers each with pNumberOfItemsPerBuffer
+        with n = number of processes. The duplication check is handled here too."""
+    buffer_mate1 = []
+    buffer_mate2 = []
 
-    Each mate pair is assessed to determine if it is
-    a valid Hi-C pair, in such case a matrix
-    reporting the counts of mates is constructed.
-
-    A bam file containing the valid Hi-C reads
-    is also constructed
-    """
-
-    # check pysam version
-    from distutils.version import LooseVersion
-    if LooseVersion(pysam.__version__) < LooseVersion("0.8.3"):
-        exit("\n*ERROR*\n\nVersion of pysam has to be higher than 0.8.3. Current installed version is {}\n".format(pysam.__version__))
-
-    args = parse_arguments().parse_args(args)
-
-    # check that the log folder is valid
-    try:
-        QC.make_sure_path_exists(args.QCfolder)
-    except OSError:
-        exit("Can't open/create QC folder path: {}. Please check".format(args.QCfolder))
-
-    sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
-                                                                      args.samFiles[1].name))
-    str1 = pysam.Samfile(args.samFiles[0].name, 'rb')
-    str2 = pysam.Samfile(args.samFiles[1].name, 'rb')
-
-    args.samFiles[0].close()
-    args.samFiles[1].close()
-    args.outBam.close()
-    out_bam = pysam.Samfile(args.outBam.name, 'wb', template=str1)
-
-    chrom_sizes = get_chrom_sizes(str1)
-    # initialize read start positions matrix
-    if args.skipDuplicationCheck is False:
-        read_pos_matrix = ReadPositionMatrix()
-
-    # define bins
-    rf_positions = None
-    if args.restrictionCutFile:
-        rf_interval = bed2interval_list(args.restrictionCutFile)
-        bin_intervals = get_rf_bins(rf_interval,
-                                    min_distance=args.minDistance,
-                                    max_distance=args.maxDistance)
-
-        rf_positions = intervalListToIntervalTree(rf_interval)
-    else:
-        bin_intervals = get_bins(args.binSize, chrom_sizes, args.region)
-
-    sys.stderr.write("Matrix size: {}\n".format(len(bin_intervals)))
-    matrix_size = len(bin_intervals)
-    bin_intval_tree = intervalListToIntervalTree(bin_intervals)
-    ref_id2name = str1.references
-
-    dangling_sequences = dict()
-    if args.restrictionSequence:
-        # build a list of dangling sequences
-        args.restrictionSequence = args.restrictionSequence.upper()
-        dangling_sequences['pat_forw'] = args.restrictionSequence[1:]
-        dangling_sequences['pat_rev'] = args.restrictionSequence[:-1]
-        sys.stderr.write("dangling sequences to check "
-                         "are {}\n".format(dangling_sequences))
-
-    # initialize coverage vectors that
-    # save the number of reads that overlap
-    # a bin.
-    # To save memory, coverage is not measured by bp
-    # but by bins of length 10bp
-    coverage = []
-    binsize = 10
-    for value in bin_intervals:
-        chrom, start, end = value
-        coverage.append(np.zeros((end - start) / binsize, dtype='int'))
-
-    start_time = time.time()
-    pair_added = 0
-    one_mate_unmapped = 0
-    one_mate_low_quality = 0
-    one_mate_not_unique = 0
-    dangling_end = 0
-    self_circle = 0
-    self_ligation = 0
-    same_fragment = 0
-    mate_not_close_to_rf = 0
-    duplicated_pairs = 0
-
-    count_inward = 0
-    count_outward = 0
-    count_left = 0
-    count_right = 0
-    inter_chromosomal = 0
-    short_range = 0
-    long_range = 0
-
+    all_data_read = False
+    j = 0
     iter_num = 0
-    row = []
-    col = []
-    data = []
-    hic_matrix = None
-    # read the sam files line by line
-
-    while True:
-        iter_num += 1
-        if iter_num % 1e6 == 0:
-            elapsed_time = time.time() - start_time
-            sys.stderr.write("processing {} lines took {:.2f} "
-                             "secs ({:.1f} lines per "
-                             "second)\n".format(iter_num,
-                                                elapsed_time,
-                                                iter_num / elapsed_time))
-            sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
-                             "\n".format(pair_added, float(100 * pair_added) / iter_num))
-        if args.doTestRun and iter_num > 1e5:
-            sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
-            break
+    while j < pNumberOfItemsPerBuffer:
         try:
-            mate1 = str1.next()
-            mate2 = str2.next()
+            mate1 = pFileOneIterator.next()
+            mate2 = pFileTwoIterator.next()
         except StopIteration:
+            all_data_read = True
             break
+        iter_num += 1
 
         # skip 'not primary' alignments
         while mate1.flag & 256 == 256:
-            mate1 = str1.next()
-
+            try:
+                mate1 = pFileOneIterator.next()
+            except StopIteration:
+                all_data_read = True
+                break
         while mate2.flag & 256 == 256:
-            mate2 = str2.next()
+            try:
+                mate2 = pFileTwoIterator.next()
+            except StopIteration:
+                all_data_read = True
+                break
 
         assert mate1.qname == mate2.qname, "FATAL ERROR {} {} " \
             "Be sure that the sam files have the same read order " \
@@ -632,8 +686,8 @@ def main(args=None):
         # check for supplementary alignments
         # (needs to be done before skipping any unmapped reads
         # to keep the order of the two bam files in sync)
-        mate1_supplementary_list = get_supplementary_alignment(mate1, str1)
-        mate2_supplementary_list = get_supplementary_alignment(mate2, str2)
+        mate1_supplementary_list = get_supplementary_alignment(mate1, pFileOneIterator)
+        mate2_supplementary_list = get_supplementary_alignment(mate2, pFileTwoIterator)
 
         if mate1_supplementary_list:
             mate1 = get_correct_map(mate1, mate1_supplementary_list)
@@ -643,16 +697,15 @@ def main(args=None):
 
         # skip if any of the reads is not mapped
         if mate1.flag & 0x4 == 4 or mate2.flag & 0x4 == 4:
-            one_mate_unmapped += 1
+            pProcessData.one_mate_unmapped += 1
             continue
-
         # skip if the read quality is low
-        if mate1.mapq < args.minMappingQuality or mate2.mapq < args.minMappingQuality:
+        if mate1.mapq < pMinMappingQuality or mate2.mapq < pMinMappingQuality:
             # for bwa other way to test
             # for multi-mapping reads is with a mapq = 0
             # the XS flag is not reliable.
             if mate1.mapq == 0 & mate2.mapq == 0:
-                one_mate_not_unique += 1
+                pProcessData.one_mate_not_unique += 1
                 continue
 
             """
@@ -667,48 +720,89 @@ def main(args=None):
                 continue
             """
 
-            one_mate_low_quality += 1
+            pProcessData.one_mate_low_quality += 1
             continue
 
-        if args.skipDuplicationCheck is False:
-            if read_pos_matrix.is_duplicated(ref_id2name[mate1.rname],
-                                             mate1.pos,
-                                             ref_id2name[mate2.rname],
-                                             mate2.pos):
-                duplicated_pairs += 1
+        if pSkipDuplicationCheck is False:
+            if pReadPosMatrix.is_duplicated(pRefId2name[mate1.rname],
+                                            mate1.pos,
+                                            pRefId2name[mate2.rname],
+                                            mate2.pos):
+                pProcessData.duplicated_pairs += 1
                 continue
+        buffer_mate1.append(mate1)
+        buffer_mate2.append(mate2)
+        j += 1
+
+    pProcessData.iter_num += iter_num - len(buffer_mate1)
+    if all_data_read and len(buffer_mate1) != 0 and len(buffer_mate2) != 0:
+        return buffer_mate1, buffer_mate2, True, pProcessData
+    if all_data_read and len(buffer_mate1) == 0 or len(buffer_mate2) == 0:
+        return None, None, True, pProcessData
+    return buffer_mate1, buffer_mate2, False, pProcessData
+
+
+def process_data(pSharedData, pProcessData, pCol, pRow, pData, pQueue):
+    """This function is used to compute the data in parallel. To do this it is called at 
+    the process start together with a buffer of input data and some parameters. This all is
+    embedded in the parameter pData which is of the datatype \'MultiprocessingData\'."""
+    iter_num = 0
+    pair_added = 0
+    out_bam = pysam.Samfile(os.path.join(pSharedData.outputFileBufferDir, pProcessData.output_name), 'wb', template=pSharedData.template)
+
+    if pProcessData.buffer1 is None or pProcessData.buffer2 is None:
+        pQueue.put(pair_added)
+
+    while iter_num < len(pProcessData.buffer1) and iter_num < len(pProcessData.buffer2):
+        mate1 = pProcessData.buffer1[iter_num]
+        mate2 = pProcessData.buffer2[iter_num]
+        iter_num += 1
 
         # check if reads belong to a bin
+        #
+        # pDictBinInterval stores the start and end position for each chromsome in the array 'pSharedBinIntvalTree'
+        # To get to the right interval a binary search is used.
         mate_bins = []
         mate_is_unasigned = False
         for mate in [mate1, mate2]:
-            mate_ref = ref_id2name[mate.rname]
+            mate_ref = pSharedData.refId2name[mate.rname]
             # find the middle genomic position of the read. This is used to find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen / 2)
             try:
-                mate_bin = sorted(bin_intval_tree[mate_ref][read_middle:read_middle + 1])
-            except KeyError:
+                start, end = pSharedData.dictBinIntervalTreeIndex[mate_ref]
+                middle_pos = int((start + end) / 2)
+                mate_bin = None
+                while not start > end:
+                    if pSharedData.sharedBinIntvalTree[middle_pos].begin <= read_middle and read_middle <= pSharedData.sharedBinIntvalTree[middle_pos].end:
+                        mate_bin = pSharedData.sharedBinIntvalTree[middle_pos]
+                        mate_is_unasigned = False
+                        break
+                    elif pSharedData.sharedBinIntvalTree[middle_pos].begin > read_middle:
+                        end = middle_pos - 1
+                        middle_pos = int((start + end) / 2)
+                        mate_is_unasigned = True
+                    else:
+                        start = middle_pos + 1
+                        middle_pos = int((start + end) / 2)
+                        mate_is_unasigned = True
+
+            except:
                 # for small contigs it can happen that they are not
                 # in the bin_intval_tree keys if no restriction site is found on the contig.
                 mate_is_unasigned = True
                 break
 
             # report no match case
-            if len(mate_bin) == 0:
+            if mate_bin is None:
                 mate_is_unasigned = True
                 break
-            # take by default only the first match
-            # (although always there should be only
-            # one match
-            mate_bin = mate_bin[0]
-
             mate_bin_id = mate_bin.data
             mate_bins.append(mate_bin_id)
 
         # if a mate is unassigned, it means it is not close
         # to a restriction sites
         if mate_is_unasigned is True:
-            mate_not_close_to_rf += 1
+            pProcessData.mate_not_close_to_rf += 1
             continue
 
         # check if mates are in the same chromosome
@@ -752,22 +846,22 @@ def main(args=None):
             # self circles are defined as pairs within 25kb
             # with 'outward' orientation (Jin et al. 2013. Nature)
             if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
-                self_circle += 1
-                if args.removeSelfCircles:
+                pProcessData.self_circle += 1
+                if pSharedData.removeSelfCircles:
                     continue
 
             # check for dangling ends if the restriction sequence
             # is known:
-            if args.restrictionSequence:
-                if check_dangling_end(mate1, dangling_sequences) or \
-                        check_dangling_end(mate2, dangling_sequences):
-                    dangling_end += 1
+            if pSharedData.restrictionSequence:
+                if check_dangling_end(mate1, pSharedData.danglingSequences) or \
+                        check_dangling_end(mate2, pSharedData.danglingSequences):
+                    pProcessData.dangling_end += 1
                     continue
 
             if abs(mate2.pos - mate1.pos) < 1000 and orientation == 'inward':
                 has_rf = []
 
-                if rf_positions and args.restrictionSequence:
+                if pSharedData.rfPositions and pSharedData.restrictionSequence:
                     # check if in between the two mate
                     # ends the restriction fragment is found.
 
@@ -777,18 +871,19 @@ def main(args=None):
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + len(args.restrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(args.restrictionSequence)
-                    mate_ref = ref_id2name[mate1.rname]
-                    has_rf = sorted(rf_positions[mate_ref][frag_start: frag_end])
+                    frag_start = min(mate1.pos, mate2.pos) + len(pSharedData.restrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pSharedData.restrictionSequence)
+                    mate_ref = pSharedData.refId2name[mate1.rname]
+                    has_rf = sorted(pSharedData.rfPositions[mate_ref][frag_start: frag_end])
 
                 # case when there is no restriction fragment site between the mates
                 if len(has_rf) == 0:
-                    same_fragment += 1
+                    pProcessData.same_fragment += 1
                     continue
 
-                self_ligation += 1
-                if args.removeSelfLigation:
+                pProcessData.self_ligation += 1
+
+                if pSharedData.removeSelfLigation:
                     # skip self ligations
                     continue
 
@@ -804,35 +899,38 @@ def main(args=None):
 
         # count type of pair (distance, orientation)
         if mate1.reference_id != mate2.reference_id:
-            inter_chromosomal += 1
+            pProcessData.inter_chromosomal += 1
 
         elif abs(mate2.pos - mate1.pos) < 20000:
-            short_range += 1
+            pProcessData.short_range += 1
         else:
-            long_range += 1
+            pProcessData.long_range += 1
 
         if orientation == 'inward':
-            count_inward += 1
+            pProcessData.count_inward += 1
         elif orientation == 'outward':
-            count_outward += 1
+            pProcessData.count_outward += 1
         elif orientation == 'same-strand-left':
-            count_left += 1
+            pProcessData.count_left += 1
         elif orientation == 'same-strand-right':
-            count_right += 1
+            pProcessData.count_right += 1
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
-            vec_start = max(0, mate.pos - mate_bin.begin) / binsize
-            vec_end = min(len(coverage[mate_bin_id]), vec_start +
-                          len(mate.seq) / binsize)
-            coverage[mate_bin_id][vec_start:vec_end] += 1
+            vec_start = max(0, mate.pos - mate_bin.begin) / pSharedData.binsize
+            length_coverage = pSharedData.coverageIndex[mate_bin_id].end - pSharedData.coverageIndex[mate_bin_id].begin
+            vec_end = min(length_coverage, vec_start +
+                          len(mate.seq) / pSharedData.binsize)
+            coverage_index = pSharedData.coverageIndex[mate_bin_id].begin + vec_start
+            coverage_end = pSharedData.coverageIndex[mate_bin_id].begin + vec_end
+            for i in xrange(coverage_index, coverage_end, 1):
+                pSharedData.coverage[i] += 1
 
-        row.append(mate_bins[0])
-        col.append(mate_bins[1])
-        data.append(1)
+        pRow[pair_added] = mate_bins[0]
+        pCol[pair_added] = mate_bins[1]
+        pData[pair_added] = np.uint8(1)
 
         pair_added += 1
-
         # prepare data for bam output
         # set the flag to point that this data is paired
         mate1.flag |= 0x1
@@ -850,46 +948,297 @@ def main(args=None):
         # set position of mate
         mate1.mpos = mate2.pos
         mate2.mpos = mate1.pos
-
         out_bam.write(mate1)
         out_bam.write(mate2)
 
-        if iter_num % 5e6 == 0:
-            # every 5 million iterations append to the matrix
-            # otherwise the row, col and data vectors continue growing and
-            # for a large dataset the system could run out of memory
-            if hic_matrix is None:
-                hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
-            else:
-                hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
-            row = []
-            col = []
-            data = []
+    out_bam.close()
+    pProcessData.pair_added += pair_added
+    pProcessData.refId2name = None
+    pProcessData.rfPositions = None
 
-    if hic_matrix is None:
-        hic_matrix = coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+    pQueue.put([pair_added, pProcessData])
+    return
+
+
+def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
+    """This function is used by the background process to merge the sub-output bam files
+    of each input buffer. If it is done, it is creating a file named \'done_processing\' to signal 
+    the main process it can continue."""
+    out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pOutputBam), 'wb', template=pTemplate)
+
+    counter = 0
+    while not os.path.isfile(os.path.join(pOutputFileBufferDir, 'done_processing')) or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done')):
+        if os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done')):
+            out_put_threads = pysam.Samfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam'), 'rb')
+            while True:
+                try:
+                    data = out_put_threads.next()
+                except StopIteration:
+                    break
+                out_bam.write(data)
+            out_put_threads.close()
+            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + '.bam'))
+            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done'))
+            counter += 1
+        else:
+            time.sleep(3)
+
+    out_bam.close()
+    os.remove(os.path.join(pOutputFileBufferDir, 'done_processing'))
+
+
+def main(args=None):
+    """
+    Reads line by line two bam files that are not sorted.
+    Each line in the two bam files should correspond
+    to the mapped position of the two ends of a Hi-C
+    fragment. 
+
+    Each mate pair is assessed to determine if it is
+    a valid Hi-C pair, in such case a matrix
+    reporting the counts of mates is constructed.
+
+    A bam file containing the valid Hi-C reads
+    is also constructed
+    """
+
+    args = parse_arguments().parse_args(args)
+    try:
+        QC.make_sure_path_exists(args.QCfolder)
+    except OSError:
+        exit("Can't open/create QC folder path: {}. Please check".format(args.QCfolder))
+    if args.threads < 3:
+        exit("\nAt least three threads need to be defined.\n")
+
+    sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
+                                                                      args.samFiles[1].name))
+    str1 = pysam.Samfile(args.samFiles[0].name, 'rb')
+    str2 = pysam.Samfile(args.samFiles[1].name, 'rb')
+
+    args.samFiles[0].close()
+    args.samFiles[1].close()
+    outputFileBufferDir = args.outputFileBufferDir
+
+    if args.outBam:
+        args.outBam.close()
+
+    chrom_sizes = get_chrom_sizes(str1)
+
+    read_pos_matrix = ReadPositionMatrix()
+
+    # define bins
+    rf_positions = None
+    if args.restrictionCutFile:
+        rf_interval = bed2interval_list(args.restrictionCutFile)
+        bin_intervals = get_rf_bins(rf_interval,
+                                    min_distance=args.minDistance,
+                                    max_distance=args.maxDistance)
+
+        rf_positions = intervalListToIntervalTree(rf_interval)
     else:
-        hic_matrix += coo_matrix((data, (row, col)), shape=(matrix_size, matrix_size))
+        bin_intervals = get_bins(args.binSize, chrom_sizes, args.region)
+
+    matrix_size = len(bin_intervals)
+    bin_intval_tree = intervalListToIntervalTree(bin_intervals)
+    ref_id2name = str1.references
+
+    # build c_type shared memory for the interval tree
+    shared_array_list = []
+    index_dict = {}
+    end = -1
+    for i, seq in enumerate(bin_intval_tree):
+        start = end + 1
+        interval_list = []
+        for interval in bin_intval_tree[seq]:
+            interval_list.append((interval.begin, interval.end, interval.data))
+        end = start + len(bin_intval_tree[seq]) - 1
+        index_dict[seq] = (start, end)
+        interval_list = sorted(interval_list)
+        shared_array_list.extend(interval_list)
+    shared_build_intval_tree = RawArray(C_Interval, shared_array_list)
+    bin_intval_tree = None
+    shared_array_list = None
+    dangling_sequences = dict()
+    if args.restrictionSequence:
+        # build a list of dangling sequences
+        args.restrictionSequence = args.restrictionSequence.upper()
+        dangling_sequences['pat_forw'] = args.restrictionSequence[1:]
+        dangling_sequences['pat_rev'] = args.restrictionSequence[:-1]
+        sys.stderr.write("dangling sequences to check "
+                         "are {}\n".format(dangling_sequences))
+
+    # initialize coverage vectors that
+    # save the number of reads that overlap
+    # a bin.
+    # To save memory, coverage is not measured by bp
+    # but by bins of length 10bp
+    binsize = 10
+    number_of_elements_coverage = 0
+    start_pos_coverage = []
+    end_pos_coverage = []
+
+    for chrom, start, end in bin_intervals:
+        start_pos_coverage.append(number_of_elements_coverage)
+        number_of_elements_coverage += (end - start) / binsize
+        end_pos_coverage.append(number_of_elements_coverage - 1)
+    pos_coverage = RawArray(C_Coverage, zip(start_pos_coverage, end_pos_coverage))
+    start_pos_coverage = None
+    end_pos_coverage = None
+    coverage = Array(c_uint, number_of_elements_coverage)
+
+    # define global shared ctypes arrays for row, col and data
+    args.threads = args.threads - 2
+    row = [None] * args.threads
+    col = [None] * args.threads
+    data = [None] * args.threads
+    args.inputBufferSize = int(args.inputBufferSize)
+    for i in xrange(args.threads):
+        row[i] = RawArray(c_uint, args.inputBufferSize)
+        col[i] = RawArray(c_uint, args.inputBufferSize)
+        data[i] = RawArray(c_ushort, args.inputBufferSize)
+
+    start_time = time.time()
+
+    hic_matrix = None
+
+    # input buffer for bam files
+    buffer_workers1 = [None] * args.threads
+    buffer_workers2 = [None] * args.threads
+    process_data_obj = [None] * args.threads
+    # output buffer to write bam with mate1 and mate2 pairs
+    process = [None] * args.threads
+    all_data_processed = False
+    hic_matrix = coo_matrix((matrix_size, matrix_size), dtype='uint32')
+    queue = [None] * args.threads
+
+    all_threads_done = False
+    thread_done = [False] * args.threads
+    count_output = 0
+    count_call_of_read_input = 0
+    main_process_data = ProcessData()
+
+    shared_data = SharedData(pMinMappingQuality=args.minMappingQuality,
+                             pRemoveSelfCircles=args.removeSelfCircles,
+                             pRestrictionSequence=args.restrictionSequence,
+                             pRemoveSelfLigation=args.removeSelfLigation,
+                             pReadPosMatrix=read_pos_matrix,
+                             pRfPositions=rf_positions,
+                             pRefId2name=ref_id2name,
+                             pDanglingSequences=dangling_sequences,
+                             pBinsize=binsize,
+                             pTemplate=str1,
+                             pSharedBinIntvalTree=shared_build_intval_tree,
+                             pDictBinIntervalTreeIndex=index_dict,
+                             pCoverage=coverage,
+                             pCoverageIndex=pos_coverage,
+                             pOutputFileBufferDir=outputFileBufferDir)
+
+    # read_pos_matrix = None
+    rf_positions = None
+    process_write_bam_file = Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir))
+    process_write_bam_file.start()
+    while not all_data_processed or not all_threads_done:
+
+        for i in xrange(args.threads):
+            if queue[i] is None and not all_data_processed:
+                count_call_of_read_input += 1
+
+                mate_buffer1, mate_buffer2, all_data_processed, main_process_data = readBamFiles(pFileOneIterator=str1,
+                                                                                                 pFileTwoIterator=str2,
+                                                                                                 pNumberOfItemsPerBuffer=args.inputBufferSize,
+                                                                                                 pSkipDuplicationCheck=args.skipDuplicationCheck,
+                                                                                                 pReadPosMatrix=read_pos_matrix,
+                                                                                                 pRefId2name=ref_id2name,
+                                                                                                 pMinMappingQuality=args.minMappingQuality,
+                                                                                                 pProcessData=main_process_data)
+
+                queue[i] = Queue()
+                process_data_obj[i] = ProcessData(pBuffer1=mate_buffer1, pBuffer2=mate_buffer2,
+                                                  pResultIndex=i, pOutputName=str(count_output) + '.bam',
+                                                  pCounter=count_output)
+                thread_done[i] = False
+                process[i] = Process(target=process_data, kwargs=dict(pSharedData=shared_data,
+                                                                      pProcessData=process_data_obj[i],
+                                                                      pCol=col[i],
+                                                                      pRow=row[i],
+                                                                      pData=data[i],
+                                                                      pQueue=queue[i]))
+                process[i].start()
+                count_output += 1
+                buffer_workers1[i] = None
+                buffer_workers2[i] = None
+                process_data_obj[i] = None
+
+            elif queue[i] is not None and not queue[i].empty():
+                result = queue[i].get()
+
+                if result[0] is not None:
+                    elements = result[0]
+                    if hic_matrix is None:
+                        hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
+                    else:
+                        hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
+
+                    main_process_data.synchronize(result[1])
+
+                queue[i] = None
+                process[i].join()
+                process[i].terminate()
+                process[i] = None
+                thread_done[i] = True
+
+                open(os.path.join(outputFileBufferDir, str(result[1].counter) + '.bam_done'), 'a').close()
+                result = None
+                # caused by the architecture I try to display this output information after +-1e5 of 1e6 reads.
+                if main_process_data.iter_num % 1e6 < 100000:
+                    elapsed_time = time.time() - start_time
+                    sys.stderr.write("processing {} lines took {:.2f} "
+                                     "secs ({:.1f} lines per "
+                                     "second)\n".format(main_process_data.iter_num,
+                                                        elapsed_time,
+                                                        main_process_data.iter_num / elapsed_time))
+                    sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
+                                     "\n".format(main_process_data.pair_added, float(100 * main_process_data.pair_added) / main_process_data.iter_num))
+                if args.doTestRun and main_process_data.iter_num > 1e5:
+                    sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
+                    break
+            elif all_data_processed and queue[i] is None:
+                thread_done[i] = True
+            else:
+                time.sleep(1)
+
+        if all_data_processed:
+            all_threads_done = True
+            for thread in thread_done:
+                if not thread:
+                    all_threads_done = False
 
     # the resulting matrix is only filled unevenly with some pairs
     # int the upper triangle and others in the lower triangle. To construct
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
+    open(os.path.join(outputFileBufferDir, 'done_processing'), 'a').close()
+    print "wait for bam merging process to finish"
+    process_write_bam_file.join()
+    print "wait for bam merging process to finish...DONE!"
+
     dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
     hic_matrix = hic_matrix + hic_matrix.T - dia
-
     # extend bins such that they are next to each other
     bin_intervals = enlarge_bins(bin_intervals[:], chrom_sizes)
-
     # compute max bin coverage
     bin_max = []
-    for cov in coverage:
-        # bin_coverage.append(round(float(len(cov[cov > 0])) / len(cov), 3))
-        if len(cov) == 0:
+
+    for cover in pos_coverage:
+        max_element = 0
+        for i in xrange(cover.begin, cover.end, 1):
+            if coverage[i] > max_element:
+                max_element = coverage[i]
+        if max_element == 0:
             bin_max.append(np.nan)
         else:
-            bin_max.append(max(cov))
+            bin_max.append(max_element)
 
     chr_name_list, start_list, end_list = zip(*bin_intervals)
     bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
@@ -902,6 +1251,9 @@ def main(args=None):
     unlink(args.outFileName.name)
 
     hic_ma.save(args.outFileName.name)
+
+    if args.outBam:
+        shutil.move(outputFileBufferDir + args.outBam.name, args.outBam.name)
 
     """
     if args.restrictionCutFile:
@@ -920,7 +1272,7 @@ def main(args=None):
     else:
         msg = " (not removed)"
 
-    mappable_pairs = iter_num - one_mate_unmapped
+    mappable_pairs = main_process_data.iter_num - main_process_data.one_mate_unmapped
 
     log_file_name = os.path.join(args.QCfolder, "QC.log")
     log_file = open(log_file_name, 'w')
@@ -930,60 +1282,60 @@ Pairs considered\t{}\t\t
 Min rest. site distance\t{}\t\t
 Max rest. site distance\t{}\t\t
 
-""".format(args.outFileName.name, iter_num, args.minDistance,
+""".format(args.outFileName.name, main_process_data.iter_num, args.minDistance,
            args.maxDistance))
 
-    log_file.write("Pairs used\t{}\t({:.2f})\t({:.2f})\n".format(pair_added,
-                                                                 100 * float(pair_added) / iter_num,
-                                                                 100 * float(pair_added) / mappable_pairs))
-    log_file.write("One mate unmapped\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_unmapped,
-                                                                        100 * float(one_mate_unmapped) / iter_num,
-                                                                        100 * float(one_mate_unmapped) / mappable_pairs))
+    log_file.write("Pairs used\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.pair_added,
+                                                                 100 * float(main_process_data.pair_added) / main_process_data.iter_num,
+                                                                 100 * float(main_process_data.pair_added) / mappable_pairs))
+    log_file.write("One mate unmapped\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.one_mate_unmapped,
+                                                                        100 * float(main_process_data.one_mate_unmapped) / main_process_data.iter_num,
+                                                                        100 * float(main_process_data.one_mate_unmapped) / mappable_pairs))
 
-    log_file.write("One mate not unique\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_not_unique,
-                                                                          100 * float(one_mate_not_unique) / iter_num,
-                                                                          100 * float(one_mate_not_unique) / mappable_pairs))
+    log_file.write("One mate not unique\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.one_mate_not_unique,
+                                                                          100 * float(main_process_data.one_mate_not_unique) / main_process_data.iter_num,
+                                                                          100 * float(main_process_data.one_mate_not_unique) / mappable_pairs))
 
-    log_file.write("One mate low quality\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_low_quality,
-                                                                           100 * float(one_mate_low_quality) / iter_num,
-                                                                           100 * float(one_mate_low_quality) / mappable_pairs))
+    log_file.write("One mate low quality\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.one_mate_low_quality,
+                                                                           100 * float(main_process_data.one_mate_low_quality) / main_process_data.iter_num,
+                                                                           100 * float(main_process_data.one_mate_low_quality) / mappable_pairs))
 
-    log_file.write("dangling end\t{}\t({:.2f})\t({:.2f})\n".format(dangling_end,
-                                                                   100 * float(dangling_end) / iter_num,
-                                                                   100 * float(dangling_end) / mappable_pairs))
+    log_file.write("dangling end\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.dangling_end,
+                                                                   100 * float(main_process_data.dangling_end) / main_process_data.iter_num,
+                                                                   100 * float(main_process_data.dangling_end) / mappable_pairs))
 
-    log_file.write("self ligation{}\t{}\t({:.2f})\t({:.2f})\n".format(msg, self_ligation,
-                                                                      100 * float(self_ligation) / iter_num,
-                                                                      100 * float(self_ligation) / mappable_pairs))
+    log_file.write("self ligation{}\t{}\t({:.2f})\t({:.2f})\n".format(msg, main_process_data.self_ligation,
+                                                                      100 * float(main_process_data.self_ligation) / main_process_data.iter_num,
+                                                                      100 * float(main_process_data.self_ligation) / mappable_pairs))
 
-    log_file.write("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})\n".format(mate_not_close_to_rf,
-                                                                                      100 * float(mate_not_close_to_rf) / iter_num,
-                                                                                      100 * float(mate_not_close_to_rf) / mappable_pairs))
+    log_file.write("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.mate_not_close_to_rf,
+                                                                                      100 * float(main_process_data.mate_not_close_to_rf) / main_process_data.iter_num,
+                                                                                      100 * float(main_process_data.mate_not_close_to_rf) / mappable_pairs))
 
-    log_file.write("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})\n".format(same_fragment,
-                                                                             100 * float(same_fragment) / iter_num,
-                                                                             100 * float(same_fragment) / mappable_pairs))
-    log_file.write("self circle\t{}\t({:.2f})\t({:.2f})\n".format(self_circle,
-                                                                  100 * float(self_circle) / iter_num,
-                                                                  100 * float(self_circle) / mappable_pairs))
-    log_file.write("duplicated pairs\t{}\t({:.2f})\t({:.2f})\n".format(duplicated_pairs,
-                                                                       100 * float(duplicated_pairs) / iter_num,
-                                                                       100 * float(duplicated_pairs) / mappable_pairs))
-    if pair_added > 0:
+    log_file.write("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.same_fragment,
+                                                                             100 * float(main_process_data.same_fragment) / main_process_data.iter_num,
+                                                                             100 * float(main_process_data.same_fragment) / mappable_pairs))
+    log_file.write("self circle\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.self_circle,
+                                                                  100 * float(main_process_data.self_circle) / main_process_data.iter_num,
+                                                                  100 * float(main_process_data.self_circle) / mappable_pairs))
+    log_file.write("duplicated pairs\t{}\t({:.2f})\t({:.2f})\n".format(main_process_data.duplicated_pairs,
+                                                                       100 * float(main_process_data.duplicated_pairs) / main_process_data.iter_num,
+                                                                       100 * float(main_process_data.duplicated_pairs) / mappable_pairs))
+    if main_process_data.pair_added > 0:
         log_file.write("Of pairs used:\n")
-        log_file.write("inter chromosomal\t{}\t({:.2f})\n".format(inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
+        log_file.write("inter chromosomal\t{}\t({:.2f})\n".format(main_process_data.inter_chromosomal, 100 * float(main_process_data.inter_chromosomal) / main_process_data.pair_added))
 
-        log_file.write("short range < 20kb\t{}\t({:.2f})\n".format(short_range, 100 * float(short_range) / pair_added))
+        log_file.write("short range < 20kb\t{}\t({:.2f})\n".format(main_process_data.short_range, 100 * float(main_process_data.short_range) / main_process_data.pair_added))
 
-        log_file.write("long range\t{}\t({:.2f})\n".format(long_range, 100 * float(long_range) / pair_added))
+        log_file.write("long range\t{}\t({:.2f})\n".format(main_process_data.long_range, 100 * float(main_process_data.long_range) / main_process_data.pair_added))
 
-        log_file.write("inward pairs\t{}\t({:.2f})\n".format(count_inward, 100 * float(count_inward) / pair_added))
+        log_file.write("inward pairs\t{}\t({:.2f})\n".format(main_process_data.count_inward, 100 * float(main_process_data.count_inward) / main_process_data.pair_added))
 
-        log_file.write("outward pairs\t{}\t({:.2f})\n".format(count_outward, 100 * float(count_outward) / pair_added))
+        log_file.write("outward pairs\t{}\t({:.2f})\n".format(main_process_data.count_outward, 100 * float(main_process_data.count_outward) / main_process_data.pair_added))
 
-        log_file.write("left pairs\t{}\t({:.2f})\n".format(count_left, 100 * float(count_left) / pair_added))
+        log_file.write("left pairs\t{}\t({:.2f})\n".format(main_process_data.count_left, 100 * float(main_process_data.count_left) / main_process_data.pair_added))
 
-        log_file.write("right pairs\t{}\t({:.2f})\n".format(count_right, 100 * float(count_right) / pair_added))
+        log_file.write("right pairs\t{}\t({:.2f})\n".format(main_process_data.count_right, 100 * float(main_process_data.count_right) / main_process_data.pair_added))
 
     log_file.close()
     QC.main("-l {} -o {}".format(log_file_name, args.QCfolder).split())
@@ -991,7 +1343,6 @@ Max rest. site distance\t{}\t\t
 
 class Tester(object):
     def __init__(self):
-        import os
         hic_test_data_dir = os.environ.get('HIC_TEST_DATA_DIR', False)
         if hic_test_data_dir:
             self.root = hic_test_data_dir
