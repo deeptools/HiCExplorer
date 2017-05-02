@@ -77,7 +77,8 @@ def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description=('Using an alignment from Bowtie2 where both '
+        description=('Using an alignment from a program that supports '
+                     'local alignment (eg. Bowtie2) where both '
                      'PE reads are mapped using  the --local '
                      'option, this program reads such file and '
                      'creates a matrix of interactions.'))
@@ -90,7 +91,6 @@ def parse_arguments(args=None):
                         type=argparse.FileType('r'),
                         required=True)
 
-    # define the arguments
     parser.add_argument('--outBam', '-b',
                          help='Bam file to process. Optional parameter. '
                          'An bam file containing all valid Hi-C reads can be created '
@@ -98,7 +98,6 @@ def parse_arguments(args=None):
                          'the distribution of valid Hi-C reads pairs or for other '
                          'downstream analysis, but is not used by any HiCExplorer tool. '
                          'Computation will be significant longer if this option is set.',
-
                         metavar='bam file',
                         type=argparse.FileType('w'),
                         required=True)
@@ -106,12 +105,15 @@ def parse_arguments(args=None):
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument('--binSize', '-bs',
-                       help='Size in bp for the bins.',
+                       help='Size in bp for the bins. The bin size depends '
+                            'on the depth of sequencing. Use a larger bin size for '
+                            'libraries sequenced with lower depth.',
                        type=int,
                        default=10000)
 
     group.add_argument('--restrictionCutFile', '-rs',
-                       help=('BED file with all restriction cut places. '
+                       help=('BED file with all restriction cut places '
+                             '(output of "findRestSite" command). '
                              'Should contain only  mappable '
                              'restriction sites. If given, the bins are '
                              'set to match the restriction fragments (i.e. '
@@ -122,7 +124,7 @@ def parse_arguments(args=None):
 
     parser.add_argument('--minDistance',
                         help='Minimum distance between restriction sites. '
-                        'Restriction sites that are closer that this '
+                        'Restriction sites that are closer than this '
                         'distance are merged into one. This option only '
                         'applies if --restrictionCutFile is given.',
                         type=int,
@@ -130,7 +132,7 @@ def parse_arguments(args=None):
                         required=False)
 
     parser.add_argument('--maxDistance',
-                        help='Maximum distance in bp from restriction site '
+                        help='Maximum distance (in bp) from restriction site '
                         'to read, to consider a read a valid one. This option '
                         'only applies if --restrictionCutFile is given.',
                         type=int,
@@ -145,7 +147,7 @@ def parse_arguments(args=None):
                         'not be available.')
 
     parser.add_argument('--outFileName', '-o',
-                        help='Output file name for a matrix',
+                        help='Output file name for the HiC matrix',
                         metavar='FILENAME',
                         type=argparse.FileType('w'),
                         required=True)
@@ -156,14 +158,14 @@ def parse_arguments(args=None):
                         required=True)
 
     parser.add_argument('--region', '-r',
-                        help='Region of the genome to limit the operation. '
+                        help='Region of the genome to limit the operation to. '
                         'The format is chr:start-end. Also valid is just to '
                         'specify a chromosome, for example --region chr10',
                         metavar="CHR:START-END",
                         required=False,
                         type=genomicRegion
                         )
-
+    # curently not implemented
     parser.add_argument('--removeSelfLigation',
                         # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
                         #     'site in between are removed. Although this reads do not contribute to '
@@ -175,19 +177,24 @@ def parse_arguments(args=None):
                         )
 
     parser.add_argument('--removeSelfCircles',
-                        help='If set, outward facing reads, at a distance of less thatn 25kbs are removed.',
+                        help='If set, outward facing reads, at a distance '
+                        'of less than 25kbs are removed.',
                         required=False,
                         action='store_true'
                         )
 
     parser.add_argument('--minMappingQuality',
-                        help='minimun mapping quality for reads to be accepted. Because the restriction '
-                             'enzyme site could be located on top of the read, this may reduce the '
-                             'reported quality of the read. Thus, this parameter may be adusted if too many '
-                             'low quality (but otherwise perfectly valid hic-reads) are found. A good strategy '
-                             'is to make a test run (using the --doTestRun), then checking the results to see '
-                             'if too many low quality reads are present and then using the bam file generated to '
-                             'check if those low quality reads are caused by the read not being mapped entirely.',
+                        help='minimun mapping quality for reads to be accepted. '
+                             'Because the restriction enzyme site could be located '
+                             'on top of the read, this may reduce the '
+                             'reported quality of the read. Thus, this parameter '
+                             'may be adusted if too many low quality '
+                             '(but otherwise perfectly valid hic-reads) are found.'
+                             'A good strategy is to make a test run (using the --doTestRun), '
+                             'then checking the results to see if too many low quality '
+                             'reads are present and then using the bam file generated to '
+                             'check if those low quality reads are caused by the read '
+                             'not being mapped entirely.',
                         required=False,
                         default=15,
                         type=int
@@ -217,16 +224,21 @@ def parse_arguments(args=None):
                         type=str
                         )
     parser.add_argument('--doTestRun',
-                        help='A test run is useful to test the quality of a Hi-C experiment quickly. It works by '
-                             'testing only 1,000.000 reads. This option is useful to get an idea of quality control'
-                             'values like inter-chromosomal interactins, duplication rates etc.',
+                        help='A test run is useful to test the quality '
+                             'of a Hi-C experiment quickly. It works by '
+                             'testing only 1,000.000 reads. This option '
+                             'is useful to get an idea of quality control '
+                             'values like inter-chromosomal interactins, '
+                             'duplication rates etc.',
                         action='store_true'
                         )
 
     parser.add_argument('--skipDuplicationCheck',
-                        help='Identification of duplicated read pairs is memory consuming. Thus, in case of '
-                             'memory errors this check can be skipped. However, consider running a `--doTestRun` '
-                             'first to get an estimation of the duplicated reads. ',
+                        help='Identification of duplicated read pairs is '
+                             'memory consuming. Thus, in case of memory '
+                             'errors this check can be skipped. However, '
+                             'consider running a `--doTestRun` first to '
+                             'get an estimation of the duplicated reads. ',
                         action='store_true'
                         )
 
@@ -237,7 +249,7 @@ def parse_arguments(args=None):
 
 
 def intervalListToIntervalTree(interval_list):
-    """
+    r"""
     given a dictionary containing tuples of chrom, start, end,
     this is transformed to an interval trees. To each
     interval an id is assigned, this id corresponds to the
@@ -262,7 +274,7 @@ def intervalListToIntervalTree(interval_list):
 
 
 def get_bins(bin_size, chrom_size, region=None):
-    """
+    r"""
     Split the chromosomes into even sized bins
     of length bin_size.
 

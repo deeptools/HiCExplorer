@@ -20,7 +20,9 @@ file_type = hic_matrix
 # the default is to extend neighboring bins to
 # obtain an aesthetically pleasant output
 show_masked_bins = yes
-
+# optional if the values in the matrix need to be scaled the
+# following parameter can be used
+scale factor = 1
 [x-axis]
 #optional
 fontsize=20
