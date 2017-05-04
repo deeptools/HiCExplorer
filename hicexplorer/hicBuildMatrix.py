@@ -7,7 +7,6 @@ from os import unlink
 import os
 import shutil
 import pysam
-from distutils.version import LooseVersion
 from six.moves import xrange
 
 
@@ -92,12 +91,12 @@ def parse_arguments(args=None):
                         required=True)
 
     parser.add_argument('--outBam', '-b',
-                         help='Bam file to process. Optional parameter. '
-                         'An bam file containing all valid Hi-C reads can be created '
-                         'using this option. This bam file could be useful to inspect '
-                         'the distribution of valid Hi-C reads pairs or for other '
-                         'downstream analysis, but is not used by any HiCExplorer tool. '
-                         'Computation will be significant longer if this option is set.',
+                        help='Bam file to process. Optional parameter. '
+                        'An bam file containing all valid Hi-C reads can be created '
+                        'using this option. This bam file could be useful to inspect '
+                        'the distribution of valid Hi-C reads pairs or for other '
+                        'downstream analysis, but is not used by any HiCExplorer tool. '
+                        'Computation will be significant longer if this option is set.',
                         metavar='bam file',
                         type=argparse.FileType('w'),
                         required=True)
@@ -598,7 +597,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
             try:
                 mate2 = pFileTwoIterator.next()
             except StopIteration:
-                # pTerminateSignal.set()
                 all_data_read = True
                 break
 
@@ -692,10 +690,6 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     long_range = 0
 
     pair_added = 0
-
-    # row = np.empty(len(pMateBuffer1), dtype=np.uint32)
-    # col = np.empty(len(pMateBuffer1), dtype=np.uint32)
-    # data = np.empty(len(pMateBuffer1), dtype=np.uint8)
 
     iter_num = 0
     hic_matrix = None
@@ -888,7 +882,6 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
         pair_added += 1
         if pOutputBamSet:
-            # out_bam = pysam.Samfile(pOutputName, 'wb', template=pTemplate)
             # prepare data for bam output
             # set the flag to point that this data is paired
             mate1.flag |= 0x1
@@ -909,16 +902,12 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             out_bam.write(mate1)
             out_bam.write(mate2)
 
-    # hic_matrix = coo_matrix((data[:pair_added], (row[:pair_added], col[:pair_added])), shape=(pMatrixSize, pMatrixSize), dtype='uint16')
-    # row = None
-    # col = None
-    # data = None
     if pOutputBamSet:
         out_bam.close()
 
     pQueueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-                                mate_not_close_to_rf, count_inward, count_outward,
-                                count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter]])
+                    mate_not_close_to_rf, count_inward, count_outward,
+                    count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter]])
     return
 
 
@@ -967,7 +956,7 @@ def main(args=None):
         QC.make_sure_path_exists(args.QCfolder)
     except OSError:
         exit("Can't open/create QC folder path: {}. Please check".format(args.QCfolder))
- 
+
     if args.threads < 3:
         exit("\nAt least three threads need to be defined.\n")
 
@@ -980,8 +969,6 @@ def main(args=None):
     args.samFiles[1].close()
     outputFileBufferDir = args.outputFileBufferDir
     outputFileBufferDir = os.path.join(outputFileBufferDir)
-    # if not outputFileBufferDir[:-1] == '/':
-    #     outputFileBufferDir += '/'
     if args.outBam:
         args.outBam.close()
 
@@ -1008,16 +995,12 @@ def main(args=None):
     # build c_type shared memory for the interval tree
     shared_array_list = []
     index_dict = {}
-    # j = 0
-    # interval_list = []
     end = -1
     for i, seq in enumerate(bin_intval_tree):
         start = end + 1
         interval_list = []
         for interval in bin_intval_tree[seq]:
             interval_list.append((interval.begin, interval.end, interval.data))
-            # j += 1
-        # end = j - 1
         end = start + len(bin_intval_tree[seq]) - 1
         index_dict[seq] = (start, end)
         interval_list = sorted(interval_list)
@@ -1044,18 +1027,14 @@ def main(args=None):
     end_pos_coverage = []
 
     for chrom, start, end in bin_intervals:
-        # chrom, start, end = value
         start_pos_coverage.append(number_of_elements_coverage)
 
         number_of_elements_coverage += (end - start) / binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
-    # pos_coverage_ = zip(start_pos_coverage, end_pos_coverage)
     pos_coverage = RawArray(C_Coverage, zip(start_pos_coverage, end_pos_coverage))
-    # pos_coverage_ = None
     start_pos_coverage = None
     end_pos_coverage = None
     coverage = Array(c_uint, number_of_elements_coverage)
-
 
     # define global shared ctypes arrays for row, col and data
     args.threads = args.threads - 2
@@ -1066,7 +1045,7 @@ def main(args=None):
         row[i] = RawArray(c_uint, args.inputBufferSize)
         col[i] = RawArray(c_uint, args.inputBufferSize)
         data[i] = RawArray(c_ushort, args.inputBufferSize)
-        
+
     start_time = time.time()
 
     iter_num = 0
