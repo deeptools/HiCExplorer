@@ -255,7 +255,7 @@ class PlotTracks(object):
             elif section_name.endswith('[x-axis]'):
                 track_options['x-axis'] = True
             for name, value in parser.items(section_name):
-                if name in ['max_value', 'min_value', 'depth', 'width', 'line width', 'fontsize'] and value != 'auto':
+                if name in ['max_value', 'min_value', 'depth', 'width', 'line width', 'fontsize', 'scale factor', 'number of bins'] and value != 'auto':
                     track_options[name] = literal_eval(value)
                 else:
                     track_options[name] = value
@@ -814,8 +814,8 @@ class PlotHiCMatrix(TrackPlot):
         # with an array containing the max value found
         # in the matrix
         if sum(self.hic_ma.matrix.diagonal()) == 0:
-            sys.stderr.write("Filling main diagonal because is empty and "
-                             "otherwise it looks bad...\n")
+            sys.stderr.write("Filling main diagonal with max value "
+                             "because it empty and looks bad...\n")
             max_value = self.hic_ma.matrix.data.max()
             main_diagonal = scipy.sparse.dia_matrix(([max_value] * self.hic_ma.matrix.shape[0], [0]),
                                                     shape=self.hic_ma.matrix.shape)
@@ -880,6 +880,8 @@ class PlotHiCMatrix(TrackPlot):
             # remove from matrix all data points that are not visible.
             matrix = matrix - scipy.sparse.triu(matrix, k=depth_in_bins, format='csr')
         matrix = np.asarray(matrix.todense().astype(float))
+        if 'scale factor' in self.properties:
+            matrix = matrix * self.properties['scale factor']
 
         if 'transform' in self.properties:
             if self.properties['transform'] == 'log1p':
@@ -952,13 +954,20 @@ class PlotHiCMatrix(TrackPlot):
         try:
             if 'transform' in self.properties and \
                     self.properties['transform'] in ['log', 'log1p']:
-                from matplotlib.ticker import LogFormatter
-                formatter = LogFormatter(10, labelOnlyBase=False)
                 # get a useful log scale
                 # that looks like [1, 2, 5, 10, 20, 50, 100, ... etc]
+                """
+                The following code is problematic with some versions of matplotlib.
+                Should be uncommented once the problem is clarified
+                from matplotlib.ticker import LogFormatter
+                formatter = LogFormatter(10, labelOnlyBase=False)
                 aa = np.array([1, 2, 5])
                 tick_values = np.concatenate([aa * 10**x for x in range(10)])
                 cobar = plt.colorbar(img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
+                """
+                aa = np.array([0, 1, 2, 3, 4, 5])
+                tick_values = set(np.concatenate([aa * 10**x for x in range(10)]))
+                cobar = plt.colorbar(img, ticks=list(tick_values), ax=self.cbar_ax, fraction=0.95)
             else:
                 cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
             cobar.solids.set_edgecolor("face")
@@ -1019,17 +1028,21 @@ class PlotXAxis(TrackPlot):
         ax.set_xlim(region_start, region_end)
         ticks = ax.get_xticks()
         if ticks[-1] - ticks[1] <= 1e5:
-            labels = ["{:.0f} kb".format((x / 1e3))
+            labels = ["{:,.0f}".format((x / 1e3))
                       for x in ticks]
+            labels[-2] += " Kb"
 
         elif 1e5 < ticks[-1] - ticks[1] < 4e6:
-            labels = ["{:,.0f} kb".format((x / 1e3))
+            labels = ["{:,.0f}".format((x / 1e3))
                       for x in ticks]
+            labels[-2] += " Kb"
         else:
-            labels = ["{:,.1f} Mbp".format((x / 1e6))
+            labels = ["{:,.1f} ".format((x / 1e6))
                       for x in ticks]
-            # labels[-1] += "Mbp"
+            labels[-2] += " Mbp"
 
+        print ticks
+        print labels
         ax.axis["x"] = ax.new_floating_axis(0, 0.5)
 
         ax.axis["x"].axis.set_ticklabels(labels)
