@@ -123,7 +123,8 @@ setup(
         "biopython >= 1.65",
         "tables >= 3.2.2",
         "pandas >= 0.19.2",
-        "pyBigWig >=0.2.8"],
+        "pyBigWig >=0.2.8",
+        "six >= 1.10.0"],
     zip_safe=False,
     cmdclass={'sdist': sdist, 'install': install}
 )
