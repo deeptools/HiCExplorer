@@ -673,7 +673,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pRow, pCol, pData):
     """This function computes for a given number of elements in pMateBuffer1 and pMaterBuffer2 a partial interaction matrix.
     This function is used by multiple processes to speed up the computation. 
-    All partial matricies are merged in the end into one interaction matrix.
+    All partial matrices are merged in the end into one interaction matrix.
 
     Parameters
     ----------
