@@ -666,11 +666,47 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
 
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
-                 pReadPosMatrix, pRfPositions, pRefId2name,
+                 pRfPositions, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex,
                  pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter,
                  pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex, pOutputFileBufferDir,
                  pRow, pCol, pData):
+    """This function computes for a given number of elements in pMateBuffer1 and pMaterBuffer2 a partial interaction matrix.
+    This function is used by multiple processes to speed up the computation. 
+    All partial matricies are merged in the end into one interaction matrix.
+
+    Parameters
+    ----------
+    pMateBuffer1 : List of n reads of type 'pysam.libcalignedsegment.AlignedSegment' of sam input file 1
+    pMateBuffer2 : List of n reads of type 'pysam.libcalignedsegment.AlignedSegment' of sam input file 2
+    pMinMappingQuality : integer, minimum mapping quality of a read
+    pRemoveSelfCircles : boolean, if self circles should be removed
+    pRestrictionSequence : String, the restriction sequence
+    pRemoveSelfLigation : If self ligations should be removed
+    pMatrixSize : integer, the size of the interaction matrix
+    pRfPositions : intervalTree, only used if a restriction cut file and not a bin size was defined.
+    pRefId2name : Tuple, Maps a reference id to a name
+    pDanglingSequences : dict, dict of dangling sequences
+    pBinsize : integer, the size of the bins
+    pResultIndex : integer, number of processs, range(0, threads). Is returned via the queue to have access to the right row, col and data array after the computation.
+    pQueueOut : multiprocessing.Queue, queue to return the computed counting variables:
+            one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
+            mate_not_close_to_rf, count_inward, count_outward, count_left, count_right, inter_chromosomal, short_range, long_range, 
+            pair_added, len(pMateBuffer1), pResultIndex, pCounter
+    pTemplate : The template for the output bam file
+    pOutputBamSet : If a output bam file should be written. Depending on the input parameter '--outBam'
+    pOutputName : String, Name of the partial bam file
+    pCounter : integer, value which is returned to the main process. The main process can than write a pCounter.bam_done file 
+                to signal the background process, which is merging the partial bam files into one, that this dataset can be merged.
+    pSharedBinIntvalTree : multiprocessing.sharedctype.RawArray of C_Interval, stores the interval tree in a 1D-RawArray.
+    pDictBinIntervalTreeIndex : dict, stores the information at which index position a given interval starts and ends in the 1D-array 'pSharedBinIntvalTree'
+    pCoverage : multiprocessing.sharedctype.Array of c_uint, Stores the coverage in a 1D-Array
+    pCoverageIndex :  multiprocessing.sharedctype.RawArray of C_Coverage, stores the information in the 1D-array 'pCoverage'
+    pOutputFileBufferDir : String, the directory where the partial output bam files are buffered. Default is '/dev/shm/' 
+    pRow : multiprocessing.sharedctype.RawArray of c_uint, Stores the row index information. It is available for all processes and does not need to be copied.
+    pCol : multiprocessing.sharedctype.RawArray of c_uint, stores the column index information. It is available for all processes and does not need to be copied.
+    pDat : multiprocessing.sharedctype.RawArray of c_ushort, stores a 1 for each row - column pair. It is available for all processes and does not need to be copied.
+    """
 
     one_mate_unmapped = 0
     one_mate_low_quality = 0
@@ -1122,7 +1158,6 @@ def main(args=None):
                     pRestrictionSequence=args.restrictionSequence,
                     pRemoveSelfLigation=args.removeSelfLigation,
                     pMatrixSize=matrix_size,
-                    pReadPosMatrix=read_pos_matrix,
                     pRfPositions=rf_positions,
                     pRefId2name=ref_id2name,
                     pDanglingSequences=dangling_sequences,
@@ -1194,6 +1229,8 @@ def main(args=None):
                                      "\n".format(pair_added, float(100 * pair_added) / iter_num))
                 if args.doTestRun and iter_num > 1e5:
                     sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
+                    all_data_processed = True
+                    thread_done[i] = True
                     break
             elif all_data_processed and queue[i] is None:
                 thread_done[i] = True
