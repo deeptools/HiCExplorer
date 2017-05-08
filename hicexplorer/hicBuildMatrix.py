@@ -669,10 +669,11 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pRfPositions, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex,
                  pQueueOut, pTemplate, pOutputBamSet, pOutputName, pCounter,
-                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex, pOutputFileBufferDir,
-                 pRow, pCol, pData):
-    """This function computes for a given number of elements in pMateBuffer1 and pMaterBuffer2 a partial interaction matrix.
-    This function is used by multiple processes to speed up the computation. 
+                 pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex,
+                 pOutputFileBufferDir, pRow, pCol, pData):
+    """
+    This function computes for a given number of elements in pMateBuffer1 and pMaterBuffer2 a partial interaction matrix.
+    This function is used by multiple processes to speed up the computation.
     All partial matrices are merged in the end into one interaction matrix.
 
     Parameters
@@ -691,18 +692,18 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     pResultIndex : integer, number of processs, range(0, threads). Is returned via the queue to have access to the right row, col and data array after the computation.
     pQueueOut : multiprocessing.Queue, queue to return the computed counting variables:
             one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
-            mate_not_close_to_rf, count_inward, count_outward, count_left, count_right, inter_chromosomal, short_range, long_range, 
+            mate_not_close_to_rf, count_inward, count_outward, count_left, count_right, inter_chromosomal, short_range, long_range,
             pair_added, len(pMateBuffer1), pResultIndex, pCounter
     pTemplate : The template for the output bam file
     pOutputBamSet : If a output bam file should be written. Depending on the input parameter '--outBam'
     pOutputName : String, Name of the partial bam file
-    pCounter : integer, value which is returned to the main process. The main process can than write a pCounter.bam_done file 
+    pCounter : integer, value which is returned to the main process. The main process can than write a pCounter.bam_done file
                 to signal the background process, which is merging the partial bam files into one, that this dataset can be merged.
     pSharedBinIntvalTree : multiprocessing.sharedctype.RawArray of C_Interval, stores the interval tree in a 1D-RawArray.
     pDictBinIntervalTreeIndex : dict, stores the information at which index position a given interval starts and ends in the 1D-array 'pSharedBinIntvalTree'
     pCoverage : multiprocessing.sharedctype.Array of c_uint, Stores the coverage in a 1D-Array
     pCoverageIndex :  multiprocessing.sharedctype.RawArray of C_Coverage, stores the information in the 1D-array 'pCoverage'
-    pOutputFileBufferDir : String, the directory where the partial output bam files are buffered. Default is '/dev/shm/' 
+    pOutputFileBufferDir : String, the directory where the partial output bam files are buffered. Default is '/dev/shm/'
     pRow : multiprocessing.sharedctype.RawArray of c_uint, Stores the row index information. It is available for all processes and does not need to be copied.
     pCol : multiprocessing.sharedctype.RawArray of c_uint, stores the column index information. It is available for all processes and does not need to be copied.
     pDat : multiprocessing.sharedctype.RawArray of c_ushort, stores a 1 for each row - column pair. It is available for all processes and does not need to be copied.
