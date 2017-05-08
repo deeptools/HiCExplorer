@@ -96,7 +96,7 @@ class install(_install):
 setup(
     name='HiCExplorer',
     version=get_version(),
-    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning',
+    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff',
     author_email='deeptools@googlegroups.com',
     packages=['hicexplorer'],
     scripts=['bin/findRestSite', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
