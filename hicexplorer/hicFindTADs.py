@@ -12,6 +12,9 @@ import numpy as np
 import multiprocessing
 from hicexplorer._version import __version__
 
+import warnings
+warnings.filterwarnings('error')
+
 logging.basicConfig()
 log = logging.getLogger("hicFindTADs")
 log.setLevel(logging.INFO)
@@ -212,7 +215,7 @@ def get_idx_of_bins_at_given_distance(hic_matrix, idx, window_len):
 
 def get_cut_weight(hic_matrix, cut, window_len, return_mean=False):
     """
-    like get_cut_weight which is the 'diamond' representing the counts
+    'diamond' (when matrix is rotated 45 degrees) representing the counts
     from a region -window_len to +window_len from the given bin position (cut):
 
     """
@@ -222,7 +225,12 @@ def get_cut_weight(hic_matrix, cut, window_len, return_mean=False):
     left_idx, right_idx = get_idx_of_bins_at_given_distance(hic_matrix, cut, window_len)
 
     if return_mean is True:
-        return hic_matrix.matrix[left_idx:cut, cut:right_idx].mean()
+        if hic_matrix.matrix[left_idx:cut, cut:right_idx].nnz == 0:
+            # i.e. if the submatrix is emtpy. Calling the mean on an empty matrix
+            # triggers a RuntimeWarning error
+            return 0
+        else:
+            return hic_matrix.matrix[left_idx:cut, cut:right_idx].todense().mean()
     else:
         return hic_matrix.matrix[left_idx:cut, cut:right_idx].todense().A1
 
@@ -876,16 +884,36 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
                                                       mean_mat_all[idx]))
 
 
-def compute_spectra_matrix(args, matrix=None):
+def compute_spectra_matrix(matrix, num_processors=1, max_depth=None, min_depth=None,
+                           step=None, use_zscore=True):
+    """
+    Uses multiple processors to compute the TAD-score
 
-    if args.maxDepth is not None and args.minDepth is not None and args.maxDepth <= args.minDepth:
+
+    Parameters
+    ----------
+    matrix  Either a filename or a HiCMatrix object
+    num_processors
+    max_depth max window distance to consider (total window length is 2* max depth)
+    min_depth min window to consider (total window length is 2* max min)
+    step progression step from min_depth to max depth. The value give is for the first step, wich iteratively grows
+            exponentially (exponent = 1.5) until it reaches the max_depth value.
+    use_zscore boolean. By default is true. Set to other option
+
+    Returns
+    -------
+    bed matrix (chrom start end value1 value2 ... value_n)
+
+    """
+
+    if max_depth is not None and min_depth is not None and max_depth <= min_depth:
         exit("Please check that maxDepth is larger than minDepth.")
 
     global hic_ma
-    if matrix is not None:
-        hic_ma = matrix
+    if isinstance(matrix, str):
+        hic_ma = hm.hiCMatrix(matrix)
     else:
-        hic_ma = hm.hiCMatrix(args.matrix)
+        hic_ma = matrix
 
     # remove self counts
     log.info('removing diagonal values\n')
@@ -897,44 +925,47 @@ def compute_spectra_matrix(args, matrix=None):
 
     binsize = hic_ma.getBinSize()
 
-    if args.maxDepth is None:
+    if max_depth is None:
         if binsize < 1000:
-            args.maxDepth = binsize * 60
+            max_depth = binsize * 60
         elif 1000 <= binsize < 20000:
-            args.maxDepth = binsize * 20
+            max_depth = binsize * 20
         else:
-            args.maxDepth = binsize * 10
-    elif args.maxDepth < binsize * 5:
+            max_depth = binsize * 10
+    elif max_depth < binsize * 5:
         sys.error("Please specify a --maxDepth that is at least 5 times larger than the matrix bin size")
         exit(1)
 
-    if args.minDepth is None:
+    if min_depth is None:
         if binsize < 1000:
-            args.minDepth = binsize * 30
+            min_depth = binsize * 30
         elif 1000 <= binsize < 20000:
-            args.minDepth = binsize * 10
+            min_depth = binsize * 10
         else:
-            args.minDepth = binsize * 5
-    elif args.minDepth < binsize * 3:
+            min_depth = binsize * 5
+    elif min_depth < binsize * 3:
         log.error("Please specify a --minDepth that is at least 3 times larger than the matrix bin size")
         exit(1)
 
-    if args.step is None:
+    if step is None:
         if binsize < 1000:
-            args.step = binsize * 4
+            step = binsize * 4
         else:
-            args.step = binsize * 2
+            step = binsize * 2
 
-    elif args.step < binsize:
+    elif step < binsize:
         log.error("Please specify a --step that is at least the size of the matrix bin size")
         exit(1)
 
-    args.binsize = binsize
-    print_args(args)
-
-    # use zscore matrix
-    log.info("Computing z-score matrix...\n")
-    hic_ma.convert_to_zscore_matrix(maxdepth=args.maxDepth * 2.5, perchr=True)
+    # print parameters used
+    sys.stderr.write("max depth:\t{}\n".format(max_depth))
+    sys.stderr.write("min depth:\t{}\n".format(min_depth))
+    sys.stderr.write("step:\t{}\n".format(step))
+    sys.stderr.write("bin size:\t{}\n".format(binsize))
+    if use_zscore:
+        # use zscore matrix
+        log.info("Computing z-score matrix...\n")
+        hic_ma.convert_to_zscore_matrix(maxdepth=max_depth * 2.5, perchr=True)
 
     # extend remaining bins to remove gaps in
     # the matrix
@@ -949,25 +980,23 @@ def compute_spectra_matrix(args, matrix=None):
         hic_ma.orig_bin_ids = None
         hic_ma.nan_bins = None
 
-    hic_ma.save(args.outFileName + "_zscore_matrix.h5")
-
-    if args.minDepth % hic_ma.getBinSize() != 0:
+    if min_depth % hic_ma.getBinSize() != 0:
         log.warn('Warning. specified *depth* is not multiple of the '
                  'hi-c matrix bin size ({})\n'.format(hic_ma.getBinSize()))
-    if args.step % hic_ma.getBinSize() != 0:
+    if step % hic_ma.getBinSize() != 0:
         log.warn('Warning. specified *step* is not multiple of the '
                  'hi-c matrix bin size ({})\n'.format(hic_ma.getBinSize()))
 
     binsize = hic_ma.getBinSize()
 
     log.info("Computing TAD-separation scores...\n")
-    min_depth_in_bins = int(args.minDepth / binsize)
-    max_depth_in_bins = int(args.maxDepth / binsize)
-    step_in_bins = int(args.step / binsize)
+    min_depth_in_bins = int(min_depth / binsize)
+    max_depth_in_bins = int(max_depth / binsize)
+    step_in_bins = int(step / binsize)
     if step_in_bins == 0:
         exit("Please select a step size larger than {}".format(binsize))
 
-    incremental_step = get_incremental_step_size(args.minDepth, args.maxDepth, args.step)
+    incremental_step = get_incremental_step_size(min_depth, max_depth, step)
 
     log.info("computing spectrum for window sizes between {} ({} bp)"
              "and {} ({} bp) at the following window sizes {} {}\n".format(min_depth_in_bins,
@@ -994,7 +1023,7 @@ def compute_spectra_matrix(args, matrix=None):
     hic_ma.matrix = sparse.triu(hic_ma.matrix, k=0, format='csr') - sparse.triu(hic_ma.matrix, k=limit, format='csr')
     hic_ma.matrix.eliminate_zeros()
 
-    num_processors = args.numberOfProcessors
+    num_processors = num_processors
 
     func = compute_matrix_wrapper
     TASKS = []
@@ -1003,7 +1032,7 @@ def compute_spectra_matrix(args, matrix=None):
         bins_to_consider.extend(range(*hic_ma.chrBinBoundaries[chrom]))
 
     for idx_array in np.array_split(bins_to_consider, num_processors):
-        TASKS.append((idx_array, args.minDepth, args.maxDepth, args.step))
+        TASKS.append((idx_array, min_depth, max_depth, step))
 
     if num_processors > 1:
         pool = multiprocessing.Pool(num_processors)
@@ -1023,7 +1052,7 @@ def compute_spectra_matrix(args, matrix=None):
         matrix.append(_matrix)
 
     matrix = np.vstack(matrix)
-    return np.array(chrom), np.array(chr_start).astype(int), np.array(chr_end).astype(int), matrix
+    return np.array(chrom), np.array(chr_start).astype(int), np.array(chr_end).astype(int), matrix, hic_ma
 
 
 def load_spectrum_matrix(file):
@@ -1115,7 +1144,7 @@ def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000
         if len(left) == 0 and len(right) == 0:
             pval = np.nan
 
-        elif boundary is None or len(boundary) == 0:
+        elif boundary is None or len(boundary) == 0 or len(left) == 0 or len(right) == 0:
             pval = np.nan
         else:
             try:
@@ -1125,7 +1154,6 @@ def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000
             except ValueError:
                 # this condition happens when boundary, left and right are only composed of 'zeros'
                 pval = np.nan
-
         pvalues += [pval]
         # if delta[idx] > 0.04 and pval > 0.001:
         #    import ipdb; ipdb.set_trace()
@@ -1133,7 +1161,8 @@ def min_pvalue(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000
     assert len(pvalues) == len(new_min_idx)
     # bonferroni correction
     pvalues = np.array(pvalues) * len(pvalues)
-    pvalues[pvalues > 1] = 1
+    pvalues[np.array([e > 1 if ~np.isnan(e) else False for e in pvalues])] = 1
+
     return dict(zip(new_min_idx, pvalues))
 
 
@@ -1195,25 +1224,17 @@ def min_pvalue_diamond_vs_triangle(matrix_file, min_idx, chrom, chr_start, chr_e
     return dict(zip(new_min_idx, pvalues))
 
 
-def main(args=None):
-
-    args = parse_arguments().parse_args(args)
-    if args.command == 'TAD_score':
-        chrom, chr_start, chr_end, matrix = compute_spectra_matrix(args)
-        save_bedgraph_matrix(args.outFileName, chrom, chr_start, chr_end, matrix, args)
-        return
-
-    chrom, chr_start, chr_end, matrix, parameters = load_spectrum_matrix(args.tadScoreFile)
+def find_boundaries(tad_score_file, min_boundary_distance=None):
+    chrom, chr_start, chr_end, matrix, parameters = load_spectrum_matrix(tad_score_file)
 
     # perform some checks
     avg_bin_size = np.median(chr_end - chr_start)
 
     # compute lookahead (in number of bins)
-    if args.minBoundaryDistance is None:
-        args.minBoundaryDistance = avg_bin_size * 4
-    print_args(args)
+    if min_boundary_distance is None:
+        min_boundary_distance = avg_bin_size * 4
 
-    lookahead = int(args.minBoundaryDistance / avg_bin_size)
+    lookahead = int(min_boundary_distance / avg_bin_size)
     if lookahead < 1:
         raise (ValueError, "minBoundaryDistance must be '1' or above in value")
 
@@ -1238,14 +1259,35 @@ def main(args=None):
                " mean: {:.3f}\n"
                " median: {:.3f}\n"
                " 1st quartile: {:.3f}\n"
-               " 3rd quartile: {:.3f}\n".format(args.delta, args.minBoundaryDistance, m_mean, m_median, m_25, m_75))
+               " 3rd quartile: {:.3f}\n".format(args.delta, min_boundary_distance, m_mean, m_median, m_25, m_75))
 
         if len(min_idx) == 0:
             exit("\n*ERROR*\nNo boundaries were found. {}".format(msg))
         else:
             log.info("Only {} boundaries found. {}".format(len(min_idx), msg))
 
-    save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, delta, pvalues, args)
+    return chrom, chr_start, chr_end, matrix, min_idx, delta, pvalues
+
+def main(args=None):
+
+    args = parse_arguments().parse_args(args)
+    if args.command == 'TAD_score':
+        chrom, chr_start, chr_end, matrix, hic = compute_spectra_matrix(args.matrix,
+                                                                        num_processors=args.numberOfProcessors,
+                                                                        max_depth=args.maxDepth, min_depth=args.minDepth,
+                                                                        step=args.step, use_zscore=True)
+        # save z-score matrix that is needed for find TADs algorithm
+        hic.save(args.outFileName + "_zscore_matrix.h5")
+
+        save_bedgraph_matrix(args.outFileName, chrom, chr_start, chr_end, matrix, args)
+        return
+
+    else:
+        print_args(args)
+        chrom, chr_start, chr_end, matrix, min_idx, delta, pvalues = \
+            find_boundaries(args.tadScoreFile, min_boundary_distance=args.minBoundaryDistance)
+        save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx, delta, pvalues, args)
+
 
     # turn of hierarchical clustering which is apparently not working.
 
