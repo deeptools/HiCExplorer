@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from hicexplorer.hicFindTADs import main
+#from hicexplorer.hicFindTADs import main
+from hicexplorer.hicFindTads_class import main
 
 if __name__ == "__main__":
     main()

@@ -921,7 +921,7 @@ def compute_spectra_matrix(matrix, num_processors=1, max_depth=None, min_depth=N
 
     # mask bins without any information
     hic_ma.maskBins(hic_ma.nan_bins)
-    orig_intervals = hic_ma.cut_intervals
+    orig_intervals = hic_ma.cut_intervals[:]
 
     binsize = hic_ma.getBinSize()
 
@@ -977,8 +977,8 @@ def compute_spectra_matrix(matrix, num_processors=1, max_depth=None, min_depth=N
         hic_ma.interval_trees, hic_ma.chrBinBoundaries = \
             hic_ma.intervalListToIntervalTree(new_intervals)
         hic_ma.cut_intervals = new_intervals
-        hic_ma.orig_bin_ids = None
-        hic_ma.nan_bins = None
+        hic_ma.orig_bin_ids = range(len(new_intervals))
+        hic_ma.nan_bins = []
 
     if min_depth % hic_ma.getBinSize() != 0:
         log.warn('Warning. specified *depth* is not multiple of the '
