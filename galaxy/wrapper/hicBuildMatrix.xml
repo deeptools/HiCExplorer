@@ -119,7 +119,7 @@
             </repeat>
             <param name="binSize" value="5000"/>
             <output name="outBam" file="hicBuildMatrix_result1.bam" ftype="bam"/>
-            <output name="outFileName" file="hicBuildMatrix_result1.h5" ftype="h5" compare="sim_size"/>
+            <output name="outFileName" file="hicBuildMatrix_result1.h5" ftype="h5" compare="sim_size" delta="30000"/>
         </test>
     </tests>
     <help><![CDATA[
