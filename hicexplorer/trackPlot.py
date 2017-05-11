@@ -15,6 +15,9 @@ from matplotlib.patches import Rectangle
 import textwrap
 import os.path
 
+import warnings
+warnings.filterwarnings('error')
+
 
 import scipy.sparse
 from collections import OrderedDict
@@ -910,7 +913,17 @@ class PlotHiCMatrix(TrackPlot):
         else:
             if depth_in_bins > matrix.shape[0]:
                 depth_in_bins = matrix.shape[0] - 5
-            vmin = np.median(matrix.diagonal(int(region_len / self.hic_ma.getBinSize())))
+
+            # if the region length is large with respect to the chromosome length, the diagonal may have
+            # very few values or none. Thus, the following lines reduce the number of bins until the
+            # diagonal is at least length 5
+            num_bins_from_diagonal = int(region_len / self.hic_ma.getBinSize())
+            for num_bins in range(0, num_bins_from_diagonal)[::-1]:
+                distant_diagonal_values = matrix.diagonal(num_bins)
+                if len(distant_diagonal_values) > 5:
+                    break
+
+            vmin = np.median(distant_diagonal_values)
 
         sys.stderr.write("setting min, max values for track {} to: {}, {}\n".format(self.properties['section_name'],
                                                                                     vmin, vmax))
@@ -956,9 +969,9 @@ class PlotHiCMatrix(TrackPlot):
                     self.properties['transform'] in ['log', 'log1p']:
                 # get a useful log scale
                 # that looks like [1, 2, 5, 10, 20, 50, 100, ... etc]
-                """
-                The following code is problematic with some versions of matplotlib.
-                Should be uncommented once the problem is clarified
+
+                # The following code is problematic with some versions of matplotlib.
+                # Should be uncommented once the problem is clarified
                 from matplotlib.ticker import LogFormatter
                 formatter = LogFormatter(10, labelOnlyBase=False)
                 aa = np.array([1, 2, 5])
@@ -968,6 +981,7 @@ class PlotHiCMatrix(TrackPlot):
                 aa = np.array([0, 1, 2, 3, 4, 5])
                 tick_values = set(np.concatenate([aa * 10**x for x in range(10)]))
                 cobar = plt.colorbar(img, ticks=list(tick_values), ax=self.cbar_ax, fraction=0.95)
+                """
             else:
                 cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
             cobar.solids.set_edgecolor("face")
