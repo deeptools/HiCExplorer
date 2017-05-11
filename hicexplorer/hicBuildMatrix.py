@@ -90,17 +90,6 @@ def parse_arguments(args=None):
                         type=argparse.FileType('r'),
                         required=True)
 
-    parser.add_argument('--outBam', '-b',
-                        help='Bam file to process. Optional parameter. '
-                        'An bam file containing all valid Hi-C reads can be created '
-                        'using this option. This bam file could be useful to inspect '
-                        'the distribution of valid Hi-C reads pairs or for other '
-                        'downstream analysis, but is not used by any HiCExplorer tool. '
-                        'Computation will be significant longer if this option is set.',
-                        metavar='bam file',
-                        type=argparse.FileType('w'),
-                        required=True)
-
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument('--binSize', '-bs',
@@ -214,6 +203,18 @@ def parse_arguments(args=None):
                         default=100000,
                         type=int
                         )
+
+    parser.add_argument('--outBam', '-b',
+                        help='Bam file to process. Optional parameter. '
+                        'An bam file containing all valid Hi-C reads can be created '
+                        'using this option. This bam file could be useful to inspect '
+                        'the distribution of valid Hi-C reads pairs or for other '
+                        'downstream analysis, but is not used by any HiCExplorer tool. '
+                        'Computation will be significant longer if this option is set.',
+                        metavar='bam file',
+                        type=argparse.FileType('w'),
+                        required=False)
+
     parser.add_argument('--outputFileBufferDir',
                         help='The location of the output file buffer. At this location the intermediate \'bam\' files and \'bam_done\' are stored. Per default /dev/shm/ is used which is in the most Linux systems a RAM disk. '
                         'Please make sure no other instance of hicBuildMatrix is accessing this directory at the same time or that old tmp files, maybe from '
@@ -1124,8 +1125,9 @@ def main(args=None):
     count_output = 0
     count_call_of_read_input = 0
     computed_pairs = 0
-    process_write_bam_file = Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir))
-    process_write_bam_file.start()
+    if args.outBam is not None:
+        process_write_bam_file = Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir))
+        process_write_bam_file.start()
     while not all_data_processed or not all_threads_done:
 
         for i in xrange(args.threads):
@@ -1251,7 +1253,8 @@ def main(args=None):
     # The resulting matrix is symmetric.
     open(os.path.join(outputFileBufferDir, 'done_processing'), 'a').close()
     print "wait for bam merging process to finish"
-    process_write_bam_file.join()
+    if args.outBam is not None:
+        process_write_bam_file.join()
     print "wait for bam merging process to finish...DONE!"
 
     dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
@@ -1279,7 +1282,10 @@ def main(args=None):
     args.outFileName.close()
     # removing the empty file. Otherwise the save method
     # will say that the file already exists.
-    unlink(args.outFileName.name)
+    try:
+        unlink(args.outFileName.name)
+    except OSError:
+        pass
 
     hic_ma.save(args.outFileName.name)
 
