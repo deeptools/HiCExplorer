@@ -204,8 +204,10 @@ def get_idx_of_bins_at_given_distance(hic_matrix, idx, window_len):
     # length elements (i is excluded from the range)
     chrom, cut_start, cut_end, _ = hic_matrix.getBinPos(idx)
     left_start = max(0, cut_start - window_len)
-    left_idx = hic_matrix.getRegionBinRange(chrom, left_start, left_start + 1)[0]
-
+    try:
+        left_idx = hic_matrix.getRegionBinRange(chrom, left_start, left_start + 1)[0]
+    except:
+        import ipdb;ipdb.set_trace()
     chr_end_pos = hic_matrix.get_chromosome_sizes()[chrom]
 
     right_end = min(chr_end_pos, cut_end + window_len) - 1
@@ -1010,6 +1012,7 @@ class HicFindTads(object):
         if new_intervals != orig_intervals:
             self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = self.hic_ma.intervalListToIntervalTree(new_intervals)
             self.hic_ma.cut_intervals = new_intervals
+            self.hic_ma.orig_cut_intervals = new_intervals
             self.hic_ma.orig_bin_ids = range(len(new_intervals))
             self.hic_ma.nan_bins = []
 
@@ -1046,7 +1049,6 @@ class HicFindTads(object):
             log.error('ERROR\nmaxDepth length too small. Use a value that is larger '
                       'than the bin size which is: {}\n'.format(self.binsize))
             exit(0)
-
         # work only with the upper matrix
         # and remove all pixels that are beyond
         # 2 * max_depth_in_bis which are not required
@@ -1093,14 +1095,13 @@ class HicFindTads(object):
                                 'chr_end': np.array(chr_end).astype(int),
                                 'matrix': matrix}
 
-
-    def load_bedgraph_matrix(self, file):
+    def load_bedgraph_matrix(self, filename):
         # load spectrum matrix:
         matrix = []
         chrom_list = []
         start_list = []
         end_list = []
-        with open(file, 'r') as fh:
+        with open(filename, 'r') as fh:
             for line in fh:
                 if line.startswith("#"):
                     # recover the parameters used to generate the spectrum_matrix
@@ -1124,7 +1125,7 @@ class HicFindTads(object):
                                 'chr_end': np.array(end_list).astype(int),
                                 'matrix': matrix}
 
-    def min_pvalue(self,  min_idx, delta=None):
+    def min_pvalue(self,  min_idx):
         """
         For each putative local minima, find the -window_len diammond and the +window_len diamond
         and compare with the local minima using wilcoxon rank sum.
@@ -1132,7 +1133,6 @@ class HicFindTads(object):
         Parameters
         ----------
         min_idx list of local minima
-        window_len in base pairs
 
         Returns
         -------
@@ -1194,64 +1194,6 @@ class HicFindTads(object):
 
         return dict(zip(new_min_idx, pvalues))
 
-
-    def min_pvalue_diamond_vs_triangle(matrix_file, min_idx, chrom, chr_start, chr_end, window_len=20000, delta=None):
-        """
-        For each putative local minima, find the -window_len triangle and the +window_len triangle
-        and compare with the local minima dianmond using wilcoxon rank sum.
-
-        Parameters
-        ----------
-        min_idx list of local minima
-        window_len in base pairs
-
-        Returns
-        -------
-        list of p-values per each local minima
-
-        """
-        hic_ma = hm.hiCMatrix(matrix_file)
-
-        log.info("Computing p-values for window length: {}\n".format(window_len))
-        pvalues = []
-
-        from scipy.stats import ranksums
-
-        new_min_idx = []
-        for idx in min_idx:
-
-            matrix_idx = hic_ma.getRegionBinRange(chrom[idx], chr_start[idx], chr_end[idx])
-            if matrix_idx is None:
-                continue
-            else:
-                matrix_idx = matrix_idx[0]
-
-            new_min_idx += [idx]
-            min_chr, min_start, min_end, _ = hic_ma.getBinPos(matrix_idx)
-            assert chrom[idx] == min_chr and chr_start[idx] == min_start and chr_end[idx] == min_end
-
-            triangle = get_triangle(hic_ma, matrix_idx, window_len)
-            boundary = get_cut_weight(hic_ma, matrix_idx, window_len)
-            if triangle is None or len(triangle) == 0:
-                pval = np.nan
-            elif boundary is None or len(boundary) == 0:
-                pval = np.nan
-            else:
-                try:
-                    pval = ranksums(boundary[boundary.nonzero()], triangle[triangle.nonzero()])[1]
-                except ValueError:
-                    # this condition happens when boundary, left and right are only composed of 'zeros'
-                    pval = np.nan
-
-            pvalues += [pval]
-
-        assert len(pvalues) == len(new_min_idx)
-        # bonferroni correction
-        pvalues = np.array(pvalues) * len(pvalues)
-        pvalues[pvalues > 1] = 1
-
-        return dict(zip(new_min_idx, pvalues))
-
     def find_boundaries(self):
 
         # perform some checks
@@ -1268,10 +1210,8 @@ class HicFindTads(object):
         min_idx, delta = HicFindTads.find_consensus_minima(self.bedgraph_matrix['matrix'], lookahead=lookahead,
                                                            chrom=self.bedgraph_matrix['chrom'])
 
-        pvalues = self.min_pvalue(min_idx, delta=delta)
+        pvalues = self.min_pvalue(min_idx)
 
-        # pvalues = min_pvalue_diamond_vs_triangle(parameters['zscore_matrix'], min_idx, chrom, chr_start, chr_end,
-        #                     window_len=parameters['minDepth'], delta=delta)
         if len(min_idx) <= 10:
             mat_mean = self.bedgraph_matrix['matrix'].mean(axis=1)
             m_mean = mat_mean.mean()
@@ -1313,6 +1253,7 @@ def print_args(args):
     for key, value in args._get_kwargs():
         sys.stderr.write("{}:\t{}\n".format(key, value))
 
+
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
@@ -1325,7 +1266,6 @@ def main(args=None):
         ft.compute_spectra_matrix()
         # save z-score matrix that is needed for find TADs algorithm
         ft.hic_ma.save(args.outPrefix + "_zscore_matrix.h5")
-
         ft.save_bedgraph_matrix(tad_score_file)
     else:
         sys.stderr.write("Found existing TAD-separation score file: {}\n".format(tad_score_file))
