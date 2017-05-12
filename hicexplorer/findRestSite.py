@@ -22,7 +22,7 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--searchPattern', '-p',
-                        help='Search pattern. For example, for HindII this pattern is "AAGCTT". '
+                        help='Search pattern. For example, for HindIII this pattern is "AAGCTT". '
                              'Both, forward and reverse strand are searched for a match. The pattern '
                              'is a regexp and can contain regexp specif syntax '
                              '(see https://docs.python.org/2/library/re.html). For example the pattern'
