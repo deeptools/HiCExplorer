@@ -6,7 +6,6 @@ import numpy as np
 
 from builtins import range
 from past.builtins import zip
-from six import iteritems
 from future.utils import itervalues
 
 import argparse

@@ -8,6 +8,7 @@ from hicexplorer import HiCMatrix as Hm
 from past.builtins import zip
 from builtins import range
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
