@@ -8,7 +8,8 @@ import os
 import shutil
 import pysam
 from six.moves import xrange
-
+from past.builtins import zip
+from future.utils import listitems
 
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
@@ -425,7 +426,7 @@ def get_chrom_sizes(bam_handle):
     # then to list.
     list_chrom_sizes = dict(zip(bam_handle.references,
                                 bam_handle.lengths))
-    return list_chrom_sizes.items()
+    return listitems(list_chrom_sizes)
 
 
 def check_dangling_end(read, dangling_sequences):
@@ -464,7 +465,7 @@ def get_supplementary_alignment(read, pysam_obj):
         other_alignments = read.get_tag('SA').split(";")[0:-1]
         supplementary_alignment = []
         for i in range(len(other_alignments)):
-            _sup = pysam_obj.next()
+            _sup = next(pysam_obj)
             if _sup.is_supplementary and _sup.qname == read.qname:
                 supplementary_alignment.append(_sup)
 
@@ -551,7 +552,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
             chr_start = False
         if chrom == chrom_next and \
                 end != start_next:
-            middle = start_next - (start_next - end) / 2
+            middle = start_next - (start_next - end) // 2
             bin_intervals[idx] = (chrom, start, middle)
             bin_intervals[idx + 1] = (chrom, middle, end_next)
         if chrom != chrom_next:
@@ -579,8 +580,8 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
     iter_num = 0
     while j < pNumberOfItemsPerBuffer:
         try:
-            mate1 = pFileOneIterator.next()
-            mate2 = pFileTwoIterator.next()
+            mate1 = next(pFileOneIterator)
+            mate2 = next(pFileTwoIterator)
         except StopIteration:
             all_data_read = True
             break
@@ -589,13 +590,13 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
         # skip 'not primary' alignments
         while mate1.flag & 256 == 256:
             try:
-                mate1 = pFileOneIterator.next()
+                mate1 = next(pFileOneIterator)
             except StopIteration:
                 all_data_read = True
                 break
         while mate2.flag & 256 == 256:
             try:
-                mate2 = pFileTwoIterator.next()
+                mate2 = next(pFileTwoIterator)
             except StopIteration:
                 all_data_read = True
                 break
@@ -904,10 +905,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
-            vec_start = max(0, mate.pos - mate_bin.begin) / pBinsize
+            vec_start = max(0, mate.pos - mate_bin.begin) // pBinsize
             length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
             vec_end = min(length_coverage, vec_start +
-                          len(mate.seq) / pBinsize)
+                          len(mate.seq) // pBinsize)
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
             for i in xrange(coverage_index, coverage_end, 1):
@@ -959,7 +960,7 @@ def write_bam(pTemplate, pOutputFileBufferDir, pUniqueHashForBam):
             out_put_threads = pysam.Samfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam'), 'rb')
             while True:
                 try:
-                    data = out_put_threads.next()
+                    data = next(out_put_threads)
                 except StopIteration:
                     break
                 out_bam.write(data)
@@ -1068,7 +1069,7 @@ def main(args=None):
     for chrom, start, end in bin_intervals:
         start_pos_coverage.append(number_of_elements_coverage)
 
-        number_of_elements_coverage += (end - start) / binsize
+        number_of_elements_coverage += (end - start) // binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
     pos_coverage = RawArray(C_Coverage, zip(start_pos_coverage, end_pos_coverage))
     start_pos_coverage = None
@@ -1254,9 +1255,9 @@ def main(args=None):
     # The resulting matrix is symmetric.
     if args.outBam:
         open(os.path.join(outputFileBufferDir, unique_hash_for_bam + '.done_processing'), 'a').close()
-        print "wait for bam merging process to finish"
+        print("wait for bam merging process to finish")
         process_write_bam_file.join()
-        print "wait for bam merging process to finish...DONE!"
+        print("wait for bam merging process to finish...DONE!")
 
     dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
     hic_matrix = hic_matrix + hic_matrix.T - dia

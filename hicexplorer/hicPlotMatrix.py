@@ -4,6 +4,11 @@ from hicexplorer.utilities import writableFile
 from hicexplorer._version import __version__
 import numpy as np
 
+from builtins import range
+from past.builtins import zip
+from six import iteritems
+from future.utils import itervalues
+
 import argparse
 import matplotlib
 matplotlib.use('Agg')
@@ -114,7 +119,7 @@ def plotHeatmap3D(ma, fig, position, args, cmap):
     axHeat1.view_init(50, -45)
     axHeat1.margins(0)
 
-    X, Y = np.meshgrid(range(ma.shape[0]), range(ma.shape[0]))
+    X, Y = np.meshgrid(list(range(ma.shape[0])), list(range(ma.shape[0])))
     ma = np.ma.array(ma, mask=np.isnan(ma))
     Z = ma.copy()
 
@@ -183,7 +188,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
         axHeat2.set_xticklabels([args.region[1], args.region[2]], size=4, rotation=90)
         axHeat2.set_axis_off()
     else:
-        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in chrBinBoundaries.values()]
+        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
         labels = chrBinBoundaries.keys()
         axHeat2.set_xticks(ticks)
         if len(labels) > 20:
@@ -242,8 +247,8 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         axHeat2.set_axis_off()
         """
     else:
-        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in chrBinBoundaries.values()]
-        labels = chrBinBoundaries.keys()
+        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
+        labels = list(chrBinBoundaries)
         axHeat2.set_xticks(ticks)
         if len(labels) > 20:
             axHeat2.set_xticklabels(labels, size=4, rotation=90)
@@ -391,7 +396,7 @@ def main(args=None):
         args.region2 = None
         ma.reorderChromosomes(args.chromosomeOrder)
 
-    print ma.interval_trees.keys()
+    print(list(ma.interval_trees))
     ma.restoreMaskedBins()
 
     if args.clearMaskedBins:
@@ -400,9 +405,9 @@ def main(args=None):
     sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
     if args.region:
         chrom, region_start, region_end = translate_region(args.region)
-        if chrom not in ma.interval_trees.keys():
+        if chrom not in list(ma.interval_trees):
             chrom = change_chrom_names(chrom)
-            if chrom not in ma.interval_trees.keys():
+            if chrom not in list(ma.interval_trees):
                 exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 
         args.region = [chrom, region_start, region_end]
@@ -410,9 +415,9 @@ def main(args=None):
                                  x[1] >= region_start and x[2] < region_end])
         if args.region2:
             chrom2, region_start2, region_end2 = translate_region(args.region2)
-            if chrom2 not in ma.interval_trees.keys():
+            if chrom2 not in list(ma.interval_trees):
                 chrom2 = change_chrom_names(chrom2)
-                if chrom2 not in ma.interval_trees.keys():
+                if chrom2 not in list(ma.interval_trees):
                     exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
             idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
                                      x[1] >= region_start2 and x[2] < region_end2])

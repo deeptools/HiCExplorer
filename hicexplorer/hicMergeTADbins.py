@@ -5,7 +5,8 @@ import sys
 import argparse
 import numpy as np
 from hicexplorer import HiCMatrix as Hm
-
+from past.builtins import zip
+from builtins import range
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -59,7 +60,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
             coverage = np.mean(coverage_list[idx_start:idx])
             new_bins.append((ref_name_list[idx_start], new_start,
                              end_list[idx - 1], coverage))
-            bins_to_merge.append(range(idx_start, idx))
+            bins_to_merge.append(list(range(idx_start, idx)))
             idx_start = idx
             new_start = start_list[idx]
             count = 0
@@ -71,7 +72,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
     if len(bins_to_merge) > 0:
         coverage = np.mean(coverage_list[idx_start:])
         new_bins.append((ref, new_start, end_list[idx], coverage))
-        bins_to_merge.append(range(idx_start, idx + 1))
+        bins_to_merge.append(list(range(idx_start, idx + 1)))
         # remove correction factors otherwise they are
         # saved but they no longer correspond to the
         # size of the matrix.

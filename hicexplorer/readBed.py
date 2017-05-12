@@ -1,5 +1,6 @@
 import sys
 import collections
+from past.builtins import map
 
 
 class ReadBed(object):

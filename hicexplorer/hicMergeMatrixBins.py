@@ -1,6 +1,9 @@
 import sys
 import argparse
 import numpy as np
+from past.builtins import zip
+from builtins import range
+
 
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
@@ -309,7 +312,7 @@ def merge_bins(hic, num_bins):
             else:
                 coverage = np.mean(coverage_list[idx_start:idx])
                 new_bins.append((ref_name_list[idx_start], new_start, end_list[idx - 1], coverage))
-                bins_to_merge.append(range(idx_start, idx))
+                bins_to_merge.append(list(range(idx_start, idx)))
             idx_start = idx
             new_start = start_list[idx]
             count = 0
@@ -318,7 +321,7 @@ def merge_bins(hic, num_bins):
         count += 1
     coverage = np.mean(coverage_list[idx_start:])
     new_bins.append((ref, new_start, end_list[idx], coverage))
-    bins_to_merge.append(range(idx_start, idx + 1))
+    bins_to_merge.append(list(range(idx_start, idx + 1)))
 
     hic.matrix = reduce_matrix(hic.matrix, bins_to_merge, diagonal=True)
     hic.cut_intervals = new_bins
@@ -336,7 +339,7 @@ def main():
     else:
         merged_matrix = merge_bins(hic, args.numBins)
 
-    print 'saving matrix'
+    print('saving matrix')
     # there is a pickle problem with large arrays
     # To increase the sparsity of the matrix and
     # overcome the problem

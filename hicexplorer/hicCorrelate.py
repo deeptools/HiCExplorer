@@ -2,6 +2,8 @@ import argparse
 import sys
 import os
 import numpy as np
+from builtins import range
+from past.builtins import map
 from scipy.sparse import triu
 from scipy.stats import pearsonr, spearmanr
 
@@ -220,7 +222,7 @@ def main():
     args = parse_arguments().parse_args()
 
     if args.labels and len(args.matrices) != len(args.labels):
-        print "The number of labels does not match the number of matrices."
+        print("The number of labels does not match the number of matrices.")
         exit(0)
     if not args.labels:
         args.labels = map(lambda x: os.path.basename(x), args.matrices)
@@ -294,13 +296,13 @@ def main():
         hic_mat_list.append(_mat)
 
     # remove nan bins
-    rows_keep = cols_keep = np.delete(range(all_mat.shape[1]), all_nan)
+    rows_keep = cols_keep = np.delete(list(range(all_mat.shape[1])), all_nan)
     all_mat = all_mat[rows_keep, :][:, cols_keep]
 
     # make large matrix to correlate by
     # using sparse matrix tricks
 
-    print len(all_nan)
+    print(len(all_nan))
     big_mat = None
     for mat in hic_mat_list:
         mat = mat[rows_keep, :][:, cols_keep]
@@ -326,10 +328,10 @@ def main():
         max_value += 1
 
     if args.log1p:
-        major_locator = FixedLocator(range(min_value, max_value, 2))
-        minor_locator = FixedLocator(range(min_value, max_value, 1))
+        major_locator = FixedLocator(list(range(min_value, max_value, 2)))
+        minor_locator = FixedLocator(list(range(min_value, max_value, 1)))
 
-    for index in xrange(len(rows)):
+    for index in range(len(rows)):
         row = rows[index]
         col = cols[index]
         if row == col:
@@ -403,7 +405,7 @@ def main():
 
         ax.hist2d(vector1, vector2, bins=150, cmin=0.1)
     fig.tight_layout()
-    print "saving {}".format(args.outFileNameScatter)
+    print("saving {}".format(args.outFileNameScatter))
     fig.savefig(args.outFileNameScatter, bbox_inches='tight')
 
     results = results + np.triu(results, 1).T

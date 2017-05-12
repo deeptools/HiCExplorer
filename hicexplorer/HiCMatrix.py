@@ -1,6 +1,10 @@
 import numpy as np
 import sys
 import os
+from builtins import range
+from past.builtins import zip
+from six import iteritems
+
 from collections import OrderedDict
 from scipy.sparse import csr_matrix, dia_matrix, coo_matrix
 from scipy.sparse import vstack as sparse_vstack
@@ -64,7 +68,7 @@ class hiCMatrix:
                 self.matrix = csr_matrix(
                     np.loadtxt(matrixFile,
                                skiprows=skiprows,
-                               usecols=range(1, len(self.cut_intervals) + 1)))
+                               usecols=list(range(1, len(self.cut_intervals) + 1))))
                 """
                 # convert nans to zeros
                 self.matrix.data[np.isnan(self.matrix.data)] = 0
@@ -146,12 +150,12 @@ class hiCMatrix:
         assert len(cut_intervals) == matrix.shape[0], \
             "Corrupted matrix file. Matrix size and " \
             "matrix bin definitions do not correspond"
-        if 'nan_bins' in _ma.keys():
+        if 'nan_bins' in list(_ma):
             nan_bins = _ma['nan_bins']
         else:
             nan_bins = np.array([])
 
-        if 'correction_factors' in _ma.keys():
+        if 'correction_factors' in list(_ma):
             try:
                 # None value
                 # for correction_factors is saved by numpy
@@ -270,8 +274,8 @@ class hiCMatrix:
                     break
 
         except IOError:
-            print "Error reading {}.\nDoes the file exists? "
-            "Is it gzipped?".format(fileName)
+            print("Error reading {}.\nDoes the file exists? "
+                  "Is it gzipped?".format(fileName))
             exit(1)
 
         return zip(nameList, startList, endList, binIdList)
@@ -296,7 +300,7 @@ class hiCMatrix:
                 chrd = pd.read_csv(filenameList[i], sep="\t", header=None)
                 chrdata = chrd.as_matrix()
             else:
-                print "Pandas unavailable. Reading files using numpy (slower).."
+                print("Pandas unavailable. Reading files using numpy (slower)..")
                 chrdata = np.loadtxt(filenameList[i])
 
             # define resolution as the median of the difference of the rows
@@ -346,7 +350,7 @@ class hiCMatrix:
         returns the names of the chromosomes
         present in the matrix
         """
-        return self.chrBinBoundaries.keys()
+        return list(self.chrBinBoundaries)
 
     def getBinPos(self, binIndex):
         """
@@ -374,8 +378,8 @@ class hiCMatrix:
             startpos = int(startpos)
             endpos = int(endpos)
         except:
-            print "{} or {}  are not valid " \
-                "position values.".format(startpos, endpos)
+            print("{} or {}  are not valid "
+                  "position values.".format(startpos, endpos))
             exit()
 
         try:
@@ -586,7 +590,7 @@ class hiCMatrix:
             # This  sparse matrix is then added to self.matrix
             # then, -1 is subtracted to the self.matrix.data, thus effectively
             # adding zeros.
-            diag_mat_ones = diags(np.repeat([1], m_size * depth).reshape(depth, m_size), range(depth))
+            diag_mat_ones = diags(np.repeat([1], m_size * depth).reshape(depth, m_size), list(range(depth)))
 
             self.matrix += diag_mat_ones
 
@@ -608,10 +612,10 @@ class hiCMatrix:
         else:
             chr_submatrix['all'] = self.matrix.tocoo()
             cut_intervals['all'] = self.cut_intervals
-            chrom_sizes['all'] = np.array([v[1] - v[0] for k, v in self.chrBinBoundaries.iteritems()])
+            chrom_sizes['all'] = np.array([v[1] - v[0] for k, v in iteritems(self.chrBinBoundaries)])
             chrom_range['all'] = (0, self.matrix.shape[0])
 
-        for chrname, submatrix in chr_submatrix.iteritems():
+        for chrname, submatrix in iteritems(chr_submatrix):
             sys.stderr.write("processing chromosome {}\n".format(chrname))
             if zscore is True:
                 # this step has to be done after tocoo()
@@ -845,7 +849,7 @@ class hiCMatrix:
             distance = hiCMatrix.dist_list_to_dict(data, dist_list)
         self.distance_counts = distance
         if mean:
-            return [np.mean(distance[x]) for x in range(len(distance.keys()))]
+            return [np.mean(distance[x]) for x in range(len(distance))]
         else:
             return distance
 
@@ -884,7 +888,7 @@ class hiCMatrix:
         # convert to dictionary having as key
         # the distance
         distance = {}
-        for index in xrange(len(distance_unique)):
+        for index in range(len(distance_unique)):
             distance[distance_unique[index]] = groups[index]
 
         return distance
@@ -924,7 +928,7 @@ class hiCMatrix:
         sel = np.empty(size[0], dtype=np.bool)
         sel[:] = False
 
-        for chrName in self.interval_trees.keys():
+        for chrName in list(self.interval_trees):
             if chrName not in chromosome_list:
                 continue
 
@@ -1042,7 +1046,7 @@ class hiCMatrix:
                              "the 'lieberman' format requires equally spaced bins. The program\n"
                              "will proceed but the results may be unreliable.\n")
 
-        for chrom in self.interval_trees.keys():
+        for chrom in list(self.interval_trees):
             chrstart, chrend = self.getChrBinRange(chrom)
             chrwise_mat = self.matrix[chrstart:chrend, chrstart:chrend]
             if len(chrwise_mat.data) > 0:
@@ -1058,7 +1062,7 @@ class hiCMatrix:
 
     def save_GInteractions(self, fileName):
         self.restoreMaskedBins()
-        print self.matrix.shape
+        print(self.matrix.shape)
         mat_coo = triu(self.matrix, k=0, format='csr').tocoo()
         fileh = open("{}.tsv".format(fileName), 'w')
         for idx, counts in enumerate(mat_coo.data):
@@ -1160,10 +1164,10 @@ class hiCMatrix:
                 startList=startList, endList=endList, extraList=extraList,
                 nan_bins=nan_bins, correction_factors=self.correction_factors)
         except Exception as e:
-            print "error saving matrix: {}".format(e)
+            print("error saving matrix: {}".format(e))
             try:
-                print "Matrix can not be saved because is too big!"
-                print "Eliminating entries with only one count."
+                print("Matrix can not be saved because is too big!")
+                print("Eliminating entries with only one count.")
 
                 # try to remove noise by deleting 1
                 matrix.data = matrix.data - 1
@@ -1173,7 +1177,7 @@ class hiCMatrix:
                     startList=startList, endList=endList, extraList=extraList,
                     nan_bins=nan_bins)
             except:
-                print "Matrix can not be saved because is too big!"
+                print("Matrix can not be saved because is too big!")
             exit()
 
     def diagflat(self, value=np.nan):
@@ -1262,7 +1266,7 @@ class hiCMatrix:
                 exit("Chromosome name '{}' not found. Please check the correct spelling "
                      "of the chromosomes and try again".format(chrName))
             orig = self.chrBinBoundaries[chrName]
-            new_order.extend(range(orig[0], orig[1]))
+            new_order.extend(list(range(orig[0], orig[1])))
         self.reorderBins(new_order)
 
     def reorderBins(self, new_order):
@@ -1294,7 +1298,7 @@ class hiCMatrix:
         """ given an array of ids, all rows and columns
         matching those ids are removed
         """
-        rows = cols = np.delete(range(self.matrix.shape[1]), bin_ids)
+        rows = cols = np.delete(list(range(self.matrix.shape[1])), bin_ids)
 
         self.matrix = self.matrix[rows, :][:, cols]
         self.cut_intervals = [self.cut_intervals[x] for x in rows]
@@ -1315,7 +1319,7 @@ class hiCMatrix:
         try:
             # check if a masked bin already exists
             if len(self.orig_bin_ids) > 0:
-                print "Masked bins already present"
+                print("Masked bins already present")
                 M = self.matrix.shape[0]
                 previous_bin_ids = self.orig_bin_ids[M:]
                 # merge new and old masked bins
@@ -1327,11 +1331,11 @@ class hiCMatrix:
 
         # join with existing nan_bins
         if len(self.nan_bins) > 0:
-            print "found existing {} nan bins that will be " \
-                "included for masking ".format(len(self.nan_bins))
+            print("found existing {} nan bins that will be "
+                  "included for masking ".format(len(self.nan_bins)))
             bin_ids = np.unique(np.concatenate([self.nan_bins, bin_ids]))
             self.nan_bins = []
-        rows = cols = np.delete(range(self.matrix.shape[1]), bin_ids)
+        rows = cols = np.delete(list(range(self.matrix.shape[1])), bin_ids)
         self.matrix = self.matrix[rows, :][:, cols]
 
         # to keep track of removed bins
@@ -1426,13 +1430,13 @@ class hiCMatrix:
                      the section moved
         """
 
-        rows = np.delete(range(self.matrix.shape[1]), range(orig[0], orig[1]))
+        rows = np.delete(list(range(self.matrix.shape[1])), range(orig[0], orig[1]))
 
         if dest > orig[1]:
             dest = dest - (orig[1] - orig[0])
 
         rows = cols = np.insert(
-            rows, np.repeat(dest, orig[1] - orig[0]), range(orig[0], orig[1]))
+            rows, np.repeat(dest, orig[1] - orig[0]), list(range(orig[0], orig[1])))
         self.matrix = self.matrix[rows, :][:, cols]
         self.cut_intervals = [self.cut_intervals[x] for x in rows]
         self.interval_trees, self.chrBinBoundaries = \
@@ -1532,7 +1536,7 @@ class hiCMatrix:
             try:
                 # check if a masked bin already exists
                 if len(self.orig_bin_ids) > 0:
-                    print "Masked bins already present"
+                    print("Masked bins already present")
                     self.restoreMaskedBins()
             except:
                 pass
@@ -1566,7 +1570,7 @@ class hiCMatrix:
 
     def get_chromosome_sizes(self):
         chrom_sizes = OrderedDict()
-        for chrom, (start_bin, end_bin) in self.chrBinBoundaries.iteritems():
+        for chrom, (start_bin, end_bin) in iteritems(self.chrBinBoundaries):
             chrom, start, end, _ = self.cut_intervals[end_bin - 1]
             chrom_sizes[chrom] = end
         return chrom_sizes

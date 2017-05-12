@@ -7,7 +7,7 @@ Installation
 Requirements
 -------------
 
-* Python 2.7
+* Python 3.6
 * numpy >= 1.10.4
 * scipy >= 0.17.1
 * matplotlib >= 1.5.3
@@ -16,8 +16,9 @@ Requirements
 * biopython >= 1.65
 * tables >= 3.2.2
 * pyBigWig >=0.2.8
+* future >= 0.16.0
 
-The fastet way to obtain **Python 2.7 together with numpy and scipy** is
+The fastet way to obtain **Python 3.6 together with numpy and scipy** is
 via the `Anaconda Scientific Python
 Distribution <https://store.continuum.io/cshop/anaconda/>`_.
 Just download the version that's suitable for your operating system and

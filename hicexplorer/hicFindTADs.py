@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import division
 import sys
 import logging
 import argparse
@@ -10,6 +9,13 @@ from hicexplorer.utilities import enlarge_bins
 from scipy import sparse
 import numpy as np
 import multiprocessing
+from past.builtins import zip
+from builtins import range
+from past.builtins import map
+
+from six import iteritems
+
+
 from hicexplorer._version import __version__
 
 logging.basicConfig()
@@ -353,12 +359,12 @@ def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0, chrom=None):
         x_axis = np.arange(len(y_axis))
 
     if len(y_axis) != len(x_axis):
-        raise (ValueError, 'Input vectors y_axis and x_axis must have same length')
+        raise ValueError('Input vectors y_axis and x_axis must have same length')
 
     # store data length for later use
 
     if not (np.isscalar(delta) and delta >= 0):
-        raise (ValueError, "delta must be a positive number")
+        raise ValueError("delta must be a positive number")
 
     # maximum and minimum candidates are temporarily stored in
     # min_x and min_y respectively
@@ -605,7 +611,7 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
         clusters = [{x} for x in range(len(domains))]
 
         # initialize the cluster_x with the genomic position of domain centers
-        cluster_x = [int(d_start + float(d_end - d_start) / 2) for d_start, d_end in domains]
+        cluster_x = [int(d_start + float(d_end - d_start) // 2) for d_start, d_end in domains]
         # number of domains should be equal to the number of values minus 1
         assert len(domains) == len(value_per_chr[chrom_idx]) - 1, "error"
 
@@ -636,7 +642,7 @@ def hierarchical_clustering(boundary_list, clusters_cutoff=[]):
 
             # set as new cluster position the center between the two merged
             # clusters
-            gen_dist = int(float(abs(cluster_x[left] - cluster_x[right])) / 2)
+            gen_dist = float(abs(cluster_x[left] - cluster_x[right])) // 2
             cluster_x.append(min(cluster_x[left], cluster_x[right]) + gen_dist)
 
             clusters.append(clusters[left].union(clusters[right]))
@@ -764,7 +770,7 @@ def save_clusters(clusters, file_prefix):
     :param file_prefix: file prefix to save the resulting bed files
     :return: list of file names created
     """
-    for cutoff, intervals in clusters.iteritems():
+    for cutoff, intervals in iteritems(clusters):
         fileh = open("{}_{}.bed".format(file_prefix, cutoff), 'w')
         for chrom, start, end in intervals:
             fileh.write("{}\t{}\t{}\t.\t0\t.\n".format(chrom, start, end))
@@ -820,9 +826,9 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
                 delta_of_min[min_bin_id] = np.nan
 
             # 1. save boundaries at 1bp position
-            right_bin_center = chr_start[min_bin_id] + int((chr_end[min_bin_id] - chr_start[min_bin_id]) / 2)
+            right_bin_center = chr_start[min_bin_id] + (chr_end[min_bin_id] - chr_start[min_bin_id]) // 2
 
-            left_bin_center = chr_start[min_bin_id - 1] + int((chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) / 2)
+            left_bin_center = chr_start[min_bin_id - 1] + (chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) // 2
 
             if chrom[min_bin_id] != chrom[min_bin_id - 1]:
                 continue
@@ -867,8 +873,8 @@ def save_domains_and_boundaries(chrom, chr_start, chr_end, matrix, min_idx,
     # save track with mean values in bedgraph format
     with open(args.outPrefix + '_score.bedgraph', 'w') as tad_score:
         for idx in range(1, len(chrom)):
-            right_bin_center = chr_start[idx] + int((chr_end[idx] - chr_start[idx]) / 2)
-            left_bin_center = chr_start[idx - 1] + int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
+            right_bin_center = chr_start[idx] + (chr_end[idx] - chr_start[idx]) // 2
+            left_bin_center = chr_start[idx - 1] + (chr_end[idx - 1] - chr_start[idx - 1]) // 2
             if right_bin_center < left_bin_center:
                 # this condition happens at chromosome borders
                 continue
@@ -961,9 +967,9 @@ def compute_spectra_matrix(args, matrix=None):
     binsize = hic_ma.getBinSize()
 
     log.info("Computing TAD-separation scores...\n")
-    min_depth_in_bins = int(args.minDepth / binsize)
-    max_depth_in_bins = int(args.maxDepth / binsize)
-    step_in_bins = int(args.step / binsize)
+    min_depth_in_bins = args.minDepth // binsize
+    max_depth_in_bins = args.maxDepth // binsize
+    step_in_bins = args.step // binsize
     if step_in_bins == 0:
         exit("Please select a step size larger than {}".format(binsize))
 
@@ -999,8 +1005,8 @@ def compute_spectra_matrix(args, matrix=None):
     func = compute_matrix_wrapper
     TASKS = []
     bins_to_consider = []
-    for chrom in hic_ma.chrBinBoundaries.keys():
-        bins_to_consider.extend(range(*hic_ma.chrBinBoundaries[chrom]))
+    for chrom in list(hic_ma.chrBinBoundaries):
+        bins_to_consider.extend(list(range(*hic_ma.chrBinBoundaries[chrom])))
 
     for idx_array in np.array_split(bins_to_consider, num_processors):
         TASKS.append((idx_array, args.minDepth, args.maxDepth, args.step))
@@ -1213,9 +1219,9 @@ def main(args=None):
         args.minBoundaryDistance = avg_bin_size * 4
     print_args(args)
 
-    lookahead = int(args.minBoundaryDistance / avg_bin_size)
+    lookahead = args.minBoundaryDistance // avg_bin_size
     if lookahead < 1:
-        raise (ValueError, "minBoundaryDistance must be '1' or above in value")
+        raise ValueError("minBoundaryDistance must be '1' or above in value")
 
     min_idx, delta = find_consensus_minima(matrix, lookahead=lookahead, chrom=chrom)
 

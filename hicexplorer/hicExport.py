@@ -1,4 +1,3 @@
-from __future__ import division
 import sys
 import argparse
 from hicexplorer import HiCMatrix as hm
@@ -111,7 +110,7 @@ def combine_matrices(matrix_list, bplimit=None):
 
         # trim matrix if bplimit given
         if bplimit is not None:
-            limit = int(bplimit / hic.getBinSize())
+            limit = bplimit // hic.getBinSize()
             matrix = (triu(hic.matrix, k=-limit) - triu(hic.matrix, k=limit)).tocoo()
         else:
             matrix = hic.matrix.tocoo()
@@ -182,7 +181,7 @@ def main():
             from scipy.sparse import triu
             sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
-            limit = int(args.bplimit / hic_ma.getBinSize())
+            limit = args.bplimit // hic_ma.getBinSize()
             hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
             hic_ma.matrix.eliminate_zeros()
 

@@ -55,7 +55,7 @@ def get_version():
 class sdist(_sdist):
 
     def run(self):
-        update_version_py()
+        # update_version_py()
         self.distribution.metadata.version = get_version()
         return _sdist.run(self)
 
@@ -65,7 +65,7 @@ class sdist(_sdist):
 class install(_install):
 
     def run(self):
-        update_version_py()
+        # update_version_py()
         self.distribution.metadata.version = get_version()
         _install.run(self)
         return
@@ -124,7 +124,8 @@ setup(
         "tables >= 3.2.2",
         "pandas >= 0.19.2",
         "pyBigWig >=0.2.8",
-        "six >= 1.10.0"],
+        "six >= 1.10.0",
+        "future >= 0.16.0"],
     zip_safe=False,
     cmdclass={'sdist': sdist, 'install': install}
 )
