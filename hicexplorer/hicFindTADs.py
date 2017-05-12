@@ -140,6 +140,13 @@ For detailed help:
                         type=float,
                         default=0.01)
 
+    parser.add_argument('--TAD_sep_score_prefix',
+                        help='Sometimes it is useful to change some of the parameters without recomputing the '
+                             'z-score matrix and the TAD-separation score. For this case, the prefix containing the '
+                             'TAD separation score and the z-score matrix can be given. If this option is given, '
+                             'new boundaries will be computed but the values of minDepth, maxDepth and step will '
+                             'not be used.',
+                        required=False)
     return parser
 
 
@@ -1253,15 +1260,33 @@ def main(args=None):
                      min_boundary_distance=args.minBoundaryDistance, use_zscore=True)
 
     tad_score_file = args.outPrefix + "_tad_score.bm"
-    if not os.path.isfile(tad_score_file):
+    zscore_matrix_file = args.outPrefix + "_zscore_matrix.h5"
+
+    if args.TAD_sep_score_prefix is not None:
+        tad_score_file = args.TAD_sep_score_prefix + "_tad_score.bm"
+        zscore_matrix_file = args.TAD_sep_score_prefix + "_zscore_matrix.h5"
+        # check that the given file exists
+        if not os.path.isfile(tad_score_file):
+            log.error("The given TAD_sep_score_prefix does not contain a valid TAD-separation score. Please check.\n"
+                      "Could not find file {}".format(tad_score_file))
+            exit(1)
+        if not os.path.isfile(zscore_matrix_file):
+            log.error("The given TAD_sep_score_prefix does not contain a valid z-score matrix. Please check.\n"
+                      "Could not find file {}".format(zscore_matrix_file))
+            exit(1)
+        sys.stderr.write("\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
+        ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
+        ft.load_bedgraph_matrix(tad_score_file)
+
+    elif not os.path.isfile(tad_score_file):
         ft.compute_spectra_matrix()
         # save z-score matrix that is needed for find TADs algorithm
         ft.hic_ma.save(args.outPrefix + "_zscore_matrix.h5")
         ft.save_bedgraph_matrix(tad_score_file)
     else:
-        sys.stderr.write("Found existing TAD-separation score file: {}\n".format(tad_score_file))
+        sys.stderr.write("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
         sys.stderr.write("This file will be used\n")
-        ft.hic_ma = hm.hiCMatrix(args.outPrefix + "_zscore_matrix.h5")
+        ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
         ft.load_bedgraph_matrix(tad_score_file)
 
     ft.find_boundaries()
