@@ -14,7 +14,7 @@ Requirements
 * pysam >= 0.8.3
 * intervaltree >= 2.1.0
 * biopython >= 1.65
-* tables >= 3.2.2
+* pytables >= 3.2.2
 * pyBigWig >=0.2.8
 * future >= 0.16.0
 

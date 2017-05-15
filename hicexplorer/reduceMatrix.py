@@ -45,59 +45,59 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     >>> reduce_matrix(A, [(0,1)], diagonal=True).todense()
     matrix([[2]])
     >>> A = csr_matrix(np.array([[5,5,2,2,0],[0,5,2,2,1],
-    ... [0,0,1,1,0], [0,0,0,1,0], [0,0,0,0,0]]))
+    ... [0,0,1,1,0], [0,0,0,1,0], [0,0,0,0,0]]), dtype=np.int32)
     >>> A.todense()
     matrix([[5, 5, 2, 2, 0],
             [0, 5, 2, 2, 1],
             [0, 0, 1, 1, 0],
             [0, 0, 0, 1, 0],
-            [0, 0, 0, 0, 0]])
+            [0, 0, 0, 0, 0]], dtype=np.int32)
     >>> ll = [(0,1), (2,3), (4,)]
     >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
     matrix([[15,  8,  1],
             [ 0,  3,  0],
-            [ 0,  0,  0]])
+            [ 0,  0,  0]], dtype=np.int32)
 
     >>> ll = [(0,1,2), (3,4)]
     >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
     matrix([[20,  6],
-            [ 0,  1]])
+            [ 0,  1]], dtype=np.int32)
 
     >>> ll = [(0,1), (2,3), (4,)]
     >>> reduce_matrix(A, ll, diagonal=True, use_triu=True).todense()
     matrix([[15,  8,  1],
             [ 8,  3,  0],
-            [ 1,  0,  0]])
+            [ 1,  0,  0]], dtype=np.int32)
 
     Test symmetric matrix
     >>> A = csr_matrix(np.array([[2,2,1,1,1,1],[2,2,1,1,1,1],
-    ... [1,1,1,1,1,1], [1,1,1,1,1,1], [1,1,1,1,1,1], [1,1,1,1,1,1]]))
+    ... [1,1,1,1,1,1], [1,1,1,1,1,1], [1,1,1,1,1,1], [1,1,1,1,1,1]]), dtype=np.int32)
     >>> A.todense()
     matrix([[2, 2, 1, 1, 1, 1],
             [2, 2, 1, 1, 1, 1],
             [1, 1, 1, 1, 1, 1],
             [1, 1, 1, 1, 1, 1],
             [1, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 1]])
+            [1, 1, 1, 1, 1, 1]], dtype=np.int32)
     >>> ll = [(0,1), (2,3), (4,5)]
     >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
     matrix([[8, 4, 4],
             [4, 4, 4],
-            [4, 4, 4]])
+            [4, 4, 4]], dtype=np.int32)
 
     >>> reduce_matrix(A, ll, diagonal=True, use_triu=True).todense()
     matrix([[6, 4, 4],
             [4, 3, 4],
-            [4, 4, 3]])
+            [4, 4, 3]], dtype=np.int32)
 
     >>> ll = [(0,1,2), (3,4,5)]
     >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
     matrix([[13,  9],
-            [ 9,  9]])
+            [ 9,  9]], dtype=np.int32)
 
     Test symmetric matrix non consecutive
     >>> A = csr_matrix(np.array([[5,1,5,1,0],[0,1,2,1,1],
-    ... [0,0,5,1,0], [0,0,0,1,0], [0,0,0,0,0]]))
+    ... [0,0,5,1,0], [0,0,0,1,0], [0,0,0,0,0]]), dtype=np.int32)
     >>> dia = dia_matrix(([A.diagonal()], [0]), shape=A.shape)
     >>> A= csr_matrix(A + A.T - dia)
     >>> A.todense()
@@ -105,24 +105,24 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
             [1, 1, 2, 1, 1],
             [5, 2, 5, 1, 0],
             [1, 1, 1, 1, 0],
-            [0, 1, 0, 0, 0]])
+            [0, 1, 0, 0, 0]], dtype=np.int32)
     >>> ll = [(0,2), (1,3), (4,)]
     >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
     matrix([[20,  5,  0],
             [ 5,  4,  1],
-            [ 0,  1,  0]])
+            [ 0,  1,  0]], dtype=np.int32)
 
     Test removal of row/columns when the scaffold list does
     not contains all indices
     >>> ll = [(1,2), (3,)]
     >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
     matrix([[10,  2],
-            [ 2,  1]])
+            [ 2,  1]], dtype=np.int32)
 
     Test with float and nan
     >>> A = csr_matrix(np.array([[0.1,0.1,0.2,0.2,np.nan],
     ... [0,0.1,0.2,0.2,1.1],
-    ... [0,0,0.2,0.2,0], [0,0,0,0.1,0], [0,0,0,0,0]]))
+    ... [0,0,0.2,0.2,0], [0,0,0,0.1,0], [0,0,0,0,0]]), dtype=np.int32)
     >>> dia = dia_matrix(([A.diagonal()], [0]), shape=A.shape)
     >>> A= csr_matrix(A + A.T - dia)
     >>> A.todense()
@@ -130,13 +130,13 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
             [ 0.1,  0.1,  0.2,  0.2,  1.1],
             [ 0.2,  0.2,  0.2,  0.2,  0. ],
             [ 0.2,  0.2,  0.2,  0.1,  0. ],
-            [ nan,  1.1,  0. ,  0. ,  0. ]])
+            [ nan,  1.1,  0. ,  0. ,  0. ]], dtype=np.int32)
 
     >>> ll = [(0,1), (2,3), (4,)]
     >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
     matrix([[ 0.4,  0.8,  nan],
             [ 0.8,  0.7,  0. ],
-            [ nan,  0. ,  0. ]])
+            [ nan,  0. ,  0. ]], dtype=np.int32)
     """
 
     if use_triu:

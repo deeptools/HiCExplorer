@@ -56,7 +56,7 @@ class ReadBed(object):
         "track" or "browser" in the bed files
         :return:
         """
-        line = self.file_handle.next()
+        line = next(self.file_handle)
         if line.startswith("#") or line.startswith("track") or \
            line.startswith("browser") or line.strip() == '':
             line = self.get_no_comment_line()

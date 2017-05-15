@@ -28,7 +28,8 @@ import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
 
 reload(sys)
-sys.setdefaultencoding('utf-8')
+if sys.version_info <= (3, 0):
+    sys.setdefaultencoding('utf-8')
 
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'

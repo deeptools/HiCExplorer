@@ -180,15 +180,16 @@ class hiCMatrix:
         Returns a whole matrix.
 
         >>> from scipy.sparse import csr_matrix
+        >>> import numpy as np
         >>> A = csr_matrix(np.array([[12,5,3,2,0],[0,11,4,1,1],
-        ... [0,0,9,6,0], [0,0,0,10,0], [0,0,0,0,0]]))
+        ... [0,0,9,6,0], [0,0,0,10,0], [0,0,0,0,0]]), dtype=np.int32)
         >>> B = hiCMatrix.fillLowerTriangle(A)
         >>> B.todense()
         matrix([[12,  5,  3,  2,  0],
                 [ 5, 11,  4,  1,  1],
                 [ 3,  4,  9,  6,  0],
                 [ 2,  1,  6, 10,  0],
-                [ 0,  1,  0,  0,  0]])
+                [ 0,  1,  0,  0,  0]], dtype=np.int32)
 
         """
         if tril(matrix, k=-1).sum() == 0:
@@ -405,17 +406,18 @@ class hiCMatrix:
             is also returned
 
         >>> from scipy.sparse import coo_matrix
+        >>> import numpy as np
         >>> row, col = np.triu_indices(5)
         >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
         ... ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
         >>> dist_list, chrom_list = hiCMatrix.getDistList(row, col,
         ... cut_intervals)
-        >>> coo_matrix((dist_list, (row, col)), shape=(5,5)).todense()
+        >>> coo_matrix((dist_list, (row, col)), shape=(5,5), dtype=np.int32).todense()
         matrix([[ 0, 10, 20, 30, -1],
                 [ 0,  0, 10, 20, -1],
                 [ 0,  0,  0, 10, -1],
                 [ 0,  0,  0,  0, -1],
-                [ 0,  0,  0,  0,  0]])
+                [ 0,  0,  0,  0,  0]], dtype=np.int32)
         >>> chrom_list.tolist()
         ['a', 'a', 'a', 'a', '', 'a', 'a', 'a', '', 'a', 'a', '', 'a', '', 'b']
         """
@@ -507,6 +509,7 @@ class hiCMatrix:
         observed / expected sparse matrix
 
         >>> from scipy.sparse import csr_matrix, dia_matrix
+        >>> import numpy as np
         >>> row, col = np.triu_indices(5)
         >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
         ... ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
@@ -749,6 +752,7 @@ class hiCMatrix:
         Examples
         --------
         >>> from scipy.sparse import coo_matrix
+        >>> import numpy as np
         >>> row, col = np.triu_indices(5)
         >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
         ... ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
@@ -1197,6 +1201,7 @@ class hiCMatrix:
         """
         set all inter chromosomal counts to np.nan
         >>> from scipy.sparse import coo_matrix
+        >>> import numpy as np
         >>> row, col = np.triu_indices(5)
         >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
         ... ('a', 20, 30, 1), ('b', 30, 40, 1), ('b', 40, 50, 1)]
