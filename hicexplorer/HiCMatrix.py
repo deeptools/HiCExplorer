@@ -189,7 +189,7 @@ class hiCMatrix:
                 [ 5, 11,  4,  1,  1],
                 [ 3,  4,  9,  6,  0],
                 [ 2,  1,  6, 10,  0],
-                [ 0,  1,  0,  0,  0]], dtype=np.int32)
+                [ 0,  1,  0,  0,  0]], dtype=int32)
 
         """
         if tril(matrix, k=-1).sum() == 0:
@@ -417,7 +417,7 @@ class hiCMatrix:
                 [ 0,  0, 10, 20, -1],
                 [ 0,  0,  0, 10, -1],
                 [ 0,  0,  0,  0, -1],
-                [ 0,  0,  0,  0,  0]], dtype=np.int32)
+                [ 0,  0,  0,  0,  0]], dtype=int32)
         >>> chrom_list.tolist()
         ['a', 'a', 'a', 'a', '', 'a', 'a', 'a', '', 'a', 'a', '', 'a', '', 'b']
         """
@@ -1216,13 +1216,13 @@ class hiCMatrix:
 
         make the matrix symmetric:
         >>> hic.matrix = csr_matrix(matrix + matrix.T)
-        >>> hic.setMatrix(csr_matrix(matrix + matrix.T), cut_intervals)
+        >>> hic.setMatrix(csr_matrix(matrix + matrix.T, dtype=np.int32), cut_intervals)
         >>> hic.filterOutInterChrCounts().todense()
         matrix([[ 0, 10,  5,  0,  0],
                 [10,  0, 15,  0,  0],
                 [ 5, 15,  0,  0,  0],
                 [ 0,  0,  0,  0,  1],
-                [ 0,  0,  0,  1,  0]])
+                [ 0,  0,  0,  1,  0]], dtype=int32)
         """
 
         ma_coo = self.matrix.tocoo()

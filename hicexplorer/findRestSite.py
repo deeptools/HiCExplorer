@@ -66,7 +66,7 @@ def find_pattern(pattern, fasta_file, out_file):
                          Csp6I
 
     >>> fa = open("/tmp/test.fa", 'w')
-    >>> fa.write(">chr1\nCTACGGTACGAACGTACGGTACGcgtaCGNAGTCATG\n")
+    >>> foo = fa.write(">chr1\nCTACGGTACGAACGTACGGTACGcgtaCGNAGTCATG\n")
     >>> fa.close()
     >>> find_pattern("GTAC", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
     >>> open("/tmp/test.bed", 'r').readlines()
