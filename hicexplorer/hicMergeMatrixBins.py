@@ -74,7 +74,7 @@ def running_window_merge(hic_matrix):
     ... [ 0,  0, 15, 5, 1],
     ... [ 0,  0,  0, 7, 3],
     ... [ 0,  0,  0, 0, 1],
-    ... [ 0,  0,  0, 0, 0]])
+    ... [ 0,  0,  0, 0, 0]], dtype=np.int32)
 
     make the matrix symmetric:
     >>> hic.matrix = csr_matrix(matrix + matrix.T)
@@ -85,7 +85,7 @@ def running_window_merge(hic_matrix):
     >>> merge_matrix.matrix.todense()
     matrix([[20, 30, 28],
             [30, 30, 27],
-            [28, 27, 14]])
+            [28, 27, 14]], dtype=int32)
     """
 
     from scipy.sparse import csr_matrix, vstack, hstack
@@ -170,7 +170,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
     >>> hic.nan_bins = []
     >>> matrix = np.array([
     ... [ 1, 1 ],
-    ... [ 1, 1 ]])
+    ... [ 1, 1 ]], dtype=np.int32)
 
     make the matrix symmetric:
     >>> hic.matrix = csr_matrix(matrix)
@@ -178,13 +178,13 @@ def running_window_merge_v2(hic_matrix, num_bins):
     >>> merge_matrix = running_window_merge_v2(hic, 3)
     >>> merge_matrix.matrix.todense()
     matrix([[3, 3],
-            [3, 3]])
+            [3, 3]], dtype=int32)
 
     >>> matrix = np.array([
     ... [ 1, 1, 1, 1 ],
     ... [ 1, 1, 1, 1 ],
     ... [ 1, 1, 1, 1 ],
-    ... [ 1, 1, 1, 1 ]])
+    ... [ 1, 1, 1, 1 ]], dtype=np.int32)
 
     make the matrix symmetric:
     >>> hic.matrix = csr_matrix(matrix)
@@ -194,7 +194,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
     matrix([[3, 5, 6, 4],
             [5, 6, 8, 6],
             [6, 8, 6, 5],
-            [4, 6, 5, 3]])
+            [4, 6, 5, 3]], dtype=int32)
     """
 
     if num_bins == 1:
@@ -277,7 +277,7 @@ def merge_bins(hic, num_bins):
     ... [  0, 60, 15,  5,   1],
     ... [  0,  0, 80,  7,   3],
     ... [  0,  0,  0, 90,   1],
-    ... [  0,  0,  0,  0, 100]])
+    ... [  0,  0,  0,  0, 100]], dtype=np.int32)
 
     make the matrix symmetric:
     >>> from scipy.sparse import dia_matrix
@@ -293,7 +293,7 @@ def merge_bins(hic, num_bins):
     >>> merge_matrix.matrix.todense()
     matrix([[120,  28,   1],
             [ 28, 177,   4],
-            [  1,   4, 100]])
+            [  1,   4, 100]], dtype=int32)
     """
     # get the bins to merge
     ref_name_list, start_list, end_list, coverage_list = zip(*hic.cut_intervals)
