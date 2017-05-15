@@ -267,27 +267,23 @@ Find and plot TADs
 Find TADs
 ~~~~~~~~~
 
-To find TADs we will first compute the TAD scores using hicFindTADs
-**TAD\_score** option. It requires the minimum and maximum depth (window
-length in base-pairs) to search around cut-points (bigger range will
-find bigger TADs), and the step size (in base-pairs).
+To call TADs a corrected matrix is needed.
+TAD calling works in two steps: First HiCExplorer computes a TAD-separation score based on a z-score matrix for
+all bins. Then those bins having a local minimum of the TAD-separation score are evaluated with respect to the
+surrounding bins to decide assign a p-value. Then a cutoff is applied to select the bins more likely to be TAD
+boundaries.
 
-Then we find the TADs using hicFindTADs **find\_TADs** option.
-Boundaries are discovered as local minima in a window. The *--lookahead*
-option tells the number of bins to search before deciding the local
-minima. Noise can be reduced by increasing the default *--delta* value.
+:ref:`hicFindTADs` tries to identify sensible parameters but those can be change to identify more stringent set of
+boundaries.
 
-.. code:: bash
+.. code-block:: bash
 
     mkdir TADs
-    hicFindTADs TAD_score -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
-    --minDepth 40000 --maxDepth 120000 -t 20 --step 20000 \
-    -o TADs/marks_et-al_TADs_20kb-Bins
+    hicFindTADs -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
+    --minDepth 40000 --maxDepth 120000 --numberOfProcessors 20 --step 20000 \
+    --outPrefix TADs/marks_et-al_TADs_20kb-Bins  --minBoundaryDistance 80000 \ # reduce noise by looking at min 80kb steps
+    --pvalue 0.05
 
-    hicFindTADs find_TADs -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
-    --minBoundaryDistance 80000 \ # reduce noise by looking at min 80kb steps
-    --pvalue 0.05 \
-    --outPrefix TADs/marks_et-al_TADs_20kb-Bins
 
 As an output we get the boundaries and domains as separate bed files.
 
