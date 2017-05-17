@@ -6,6 +6,7 @@ import os.path
 import logging
 import argparse
 import json
+from collections import OrderedDict
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import enlarge_bins
 from scipy import sparse
@@ -1190,7 +1191,7 @@ class HicFindTads(object):
         pvalues = np.array(pvalues) * len(pvalues)
         pvalues[np.array([e > 1 if ~np.isnan(e) else False for e in pvalues])] = 1
 
-        return dict(zip(new_min_idx, pvalues))
+        return OrderedDict(zip(new_min_idx, pvalues))
 
     def find_boundaries(self):
 
