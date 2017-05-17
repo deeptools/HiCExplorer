@@ -90,6 +90,17 @@ def parse_arguments(args=None):
                         type=argparse.FileType('r'),
                         required=True)
 
+    parser.add_argument('--outBam', '-b',
+                        help='Bam file to process. Optional parameter. '
+                        'An bam file containing all valid Hi-C reads can be created '
+                        'using this option. This bam file could be useful to inspect '
+                        'the distribution of valid Hi-C reads pairs or for other '
+                        'downstream analysis, but is not used by any HiCExplorer tool. '
+                        'Computation will be significant longer if this option is set.',
+                        metavar='bam file',
+                        type=argparse.FileType('w'),
+                        required=False)
+
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument('--binSize', '-bs',
@@ -203,18 +214,6 @@ def parse_arguments(args=None):
                         default=100000,
                         type=int
                         )
-
-    parser.add_argument('--outBam', '-b',
-                        help='Bam file to process. Optional parameter. '
-                        'An bam file containing all valid Hi-C reads can be created '
-                        'using this option. This bam file could be useful to inspect '
-                        'the distribution of valid Hi-C reads pairs or for other '
-                        'downstream analysis, but is not used by any HiCExplorer tool. '
-                        'Computation will be significant longer if this option is set.',
-                        metavar='bam file',
-                        type=argparse.FileType('w'),
-                        required=False)
-
     parser.add_argument('--outputFileBufferDir',
                         help='The location of the output file buffer. At this location the intermediate \'bam\' files and \'bam_done\' are stored. Per default /dev/shm/ is used which is in the most Linux systems a RAM disk. '
                         'Please make sure no other instance of hicBuildMatrix is accessing this directory at the same time or that old tmp files, maybe from '
@@ -949,14 +948,15 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     return
 
 
-def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
+def write_bam(pTemplate, pOutputFileBufferDir, pUniqueHashForBam):
 
-    out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pOutputBam), 'wb', template=pTemplate)
+    out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + ".bam"), 'wb', template=pTemplate)
 
     counter = 0
-    while not os.path.isfile(os.path.join(pOutputFileBufferDir, 'done_processing')) or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done')):
-        if os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done')):
-            out_put_threads = pysam.Samfile(os.path.join(pOutputFileBufferDir, str(counter) + '.bam'), 'rb')
+    while not os.path.isfile(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + '.done_processing')) \
+            or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done')):
+        if os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done')):
+            out_put_threads = pysam.Samfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam'), 'rb')
             while True:
                 try:
                     data = out_put_threads.next()
@@ -964,14 +964,14 @@ def write_bam(pOutputBam, pTemplate, pOutputFileBufferDir):
                     break
                 out_bam.write(data)
             out_put_threads.close()
-            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + '.bam'))
-            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + '.bam_done'))
+            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam'))
+            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done'))
             counter += 1
         else:
             time.sleep(3)
 
     out_bam.close()
-    os.remove(os.path.join(pOutputFileBufferDir, 'done_processing'))
+    os.remove(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + '.done_processing'))
 
 
 def main(args=None):
@@ -1007,6 +1007,7 @@ def main(args=None):
     args.samFiles[1].close()
     outputFileBufferDir = args.outputFileBufferDir
     outputFileBufferDir = os.path.join(outputFileBufferDir)
+    unique_hash_for_bam = str(hash(time.time()))
     if args.outBam:
         args.outBam.close()
 
@@ -1125,8 +1126,8 @@ def main(args=None):
     count_output = 0
     count_call_of_read_input = 0
     computed_pairs = 0
-    if args.outBam is not None:
-        process_write_bam_file = Process(target=write_bam, kwargs=dict(pOutputBam=args.outBam.name, pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir))
+    if args.outBam:
+        process_write_bam_file = Process(target=write_bam, kwargs=dict(pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir, pUniqueHashForBam=unique_hash_for_bam))
         process_write_bam_file.start()
     while not all_data_processed or not all_threads_done:
 
@@ -1169,7 +1170,7 @@ def main(args=None):
                     pQueueOut=queue[i],
                     pTemplate=str1,
                     pOutputBamSet=args.outBam,
-                    pOutputName=str(count_output) + '.bam',
+                    pOutputName=str(count_output) + "_" + unique_hash_for_bam + '.bam',
                     pCounter=count_output,
                     pSharedBinIntvalTree=shared_build_intval_tree,
                     pDictBinIntervalTreeIndex=index_dict,
@@ -1217,8 +1218,8 @@ def main(args=None):
                 process[i].terminate()
                 process[i] = None
                 thread_done[i] = True
-
-                open(os.path.join(outputFileBufferDir, str(result[0][-1]) + '.bam_done'), 'a').close()
+                if args.outBam:
+                    open(os.path.join(outputFileBufferDir, str(result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done'), 'a').close()
 
                 # caused by the architecture I try to display this output information after +-1e5 of 1e6 reads.
                 if iter_num % 1e6 < 100000:
@@ -1251,11 +1252,11 @@ def main(args=None):
     # the definite matrix I add the values from the upper and lower triangles
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
-    open(os.path.join(outputFileBufferDir, 'done_processing'), 'a').close()
-    print "wait for bam merging process to finish"
-    if args.outBam is not None:
+    if args.outBam:
+        open(os.path.join(outputFileBufferDir, unique_hash_for_bam + '.done_processing'), 'a').close()
+        print "wait for bam merging process to finish"
         process_write_bam_file.join()
-    print "wait for bam merging process to finish...DONE!"
+        print "wait for bam merging process to finish...DONE!"
 
     dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
     hic_matrix = hic_matrix + hic_matrix.T - dia
@@ -1282,15 +1283,13 @@ def main(args=None):
     args.outFileName.close()
     # removing the empty file. Otherwise the save method
     # will say that the file already exists.
-    try:
-        unlink(args.outFileName.name)
-    except OSError:
-        pass
+    unlink(args.outFileName.name)
 
     hic_ma.save(args.outFileName.name)
 
     if args.outBam:
-        shutil.move(outputFileBufferDir + args.outBam.name, args.outBam.name)
+        # os.path.join(outputFileBufferDir, unique_hash_for_bam + "_" + args.outBam.name)
+        shutil.move(os.path.join(outputFileBufferDir, unique_hash_for_bam + ".bam"), args.outBam.name)
 
     """
     if args.restrictionCutFile:
