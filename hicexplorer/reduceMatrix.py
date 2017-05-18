@@ -153,7 +153,7 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     # present
     num_nan = len(np.flatnonzero(np.isnan(np.array(ma.data))))
     if num_nan > 0:
-        logging.warn("*Warning*\nmatrix contains {} NaN values.".format(num_nan))
+        logging.warning("*Warning*\nmatrix contains {} NaN values.".format(num_nan))
 
     # each original col and row index is converted
     # to a new index based on the bins_to_merge.

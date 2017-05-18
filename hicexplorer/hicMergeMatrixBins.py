@@ -82,10 +82,10 @@ def running_window_merge(hic_matrix):
     >>> merge_matrix = running_window_merge(hic)
     >>> merge_matrix.cut_intervals
     [('a', 5, 15, 0.75), ('a', 15, 25, 1.0), ('a', 25, 35, 0.55000000000000004)]
-    >>> merge_matrix.matrix.todense()
-    matrix([[20, 30, 28],
-            [30, 30, 27],
-            [28, 27, 14]], dtype=int64)
+    >>> print(merge_matrix.matrix.todense())
+    [[20 30 28]
+     [30 30 27]
+     [28 27 14]]
     """
 
     from scipy.sparse import csr_matrix, vstack, hstack
