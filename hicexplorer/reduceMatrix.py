@@ -122,8 +122,8 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     Test with float and nan
     >>> A = csr_matrix(np.array([[0.1,0.1,0.2,0.2,np.nan],
     ... [0,0.1,0.2,0.2,1.1],
-    ... [0,0,0.2,0.2,0], [0,0,0,0.1,0], [0,0,0,0,0]]), dtype=np.int32)
-    >>> dia = dia_matrix(([A.diagonal()], [0]), shape=A.shape, dtype=np.int32)
+    ... [0,0,0.2,0.2,0], [0,0,0,0.1,0], [0,0,0,0,0]]))
+    >>> dia = dia_matrix(([A.diagonal()], [0]), shape=A.shape)
     >>> A= csr_matrix(A + A.T - dia)
     >>> print(A.todense())
     [[ 0.1  0.1  0.2  0.  nan]

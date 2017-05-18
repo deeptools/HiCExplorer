@@ -7,6 +7,7 @@ from os import unlink
 import os
 import shutil
 import pysam
+
 from six.moves import xrange
 from past.builtins import zip
 from future.utils import listitems
