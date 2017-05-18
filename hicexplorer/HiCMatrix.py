@@ -768,20 +768,25 @@ class hiCMatrix:
         make the matrix symmetric:
         >>> hic.matrix = csr_matrix(matrix + matrix.T)
         >>> hic.setMatrix(csr_matrix(matrix + matrix.T), cut_intervals)
-        >>> hic.getCountsByDistance()
-        {0: array([0, 0, 0, 0, 0]), 10: array([10, 15,  7]), \
-20: array([5, 5]), 30: array([3]), -1: array([0, 1, 3, 1])}
-
+        >>> result = hic.getCountsByDistance()
+        >>> result_sorted = sorted(result)
+        >>> for r in result_sorted:
+        ...     print(result[r])
+        [0 1 3 1]
+        [0 0 0 0 0]
+        [10 15  7]
+        [5 5]
+        [3]
         Test get distance counts per chromosome
         >>> hic.distance_counts = None
-        >>> hic.getCountsByDistance(per_chr=True)
+        >>> print(hic.getCountsByDistance(per_chr=True))
         {'a': {0: array([0, 0, 0, 0]), 10: array([10, 15,  7]), \
 20: array([5, 5]), 30: array([3])}, 'b': {0: array([0])}}
 
         Test the removal of masked bins
         >>> hic.nan_bins = [3]
         >>> hic.distance_counts = None
-        >>> hic.getCountsByDistance()
+        >>> print(hic.getCountsByDistance())
         {0: array([0, 0, 0, 0]), 10: array([10, 15]), 20: array([5]), \
 -1: array([0, 1, 3])}
 
@@ -792,7 +797,7 @@ class hiCMatrix:
         >>> hic.nan_bins = []
         >>> hic.matrix = csr_matrix(matrix + matrix.T)
         >>> hic.setMatrix(csr_matrix(matrix + matrix.T), cut_intervals)
-        >>> hic.getCountsByDistance()
+        >>> print(hic.getCountsByDistance())
         {0: array([0, 0, 0, 0, 0]), 33: array([3]), 11: array([10, 15,  7]), \
 22: array([5, 5]), -1: array([0, 1, 3, 1])}
         """
