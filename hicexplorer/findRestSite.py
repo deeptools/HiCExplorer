@@ -68,12 +68,12 @@ def find_pattern(pattern, fasta_file, out_file):
     >>> fa = open("/tmp/test.fa", 'w')
     >>> foo = fa.write(">chr1\nCTACGGTACGAACGTACGGTACGcgtaCGNAGTCATG\n")
     >>> fa.close()
-    >>> find_pattern("GTAC", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
+    >>> find_pattern("GTAC", "/tmp/test.fa", open("/tmp/test.bed", 'wb'))
     >>> open("/tmp/test.bed", 'r').readlines()
     ['chr1\t5\t9\t.\t0\t+\n', 'chr1\t13\t17\t.\t0\t+\n', 'chr1\t18\t22\t.\t0\t+\n', 'chr1\t24\t28\t.\t0\t+\n']
 
     Test with non palindromic sequence with regexp
-    >>> find_pattern("CG.AG", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
+    >>> find_pattern("CG.AG", "/tmp/test.fa", open("/tmp/test.bed", 'wb'))
     >>> open("/tmp/test.bed", 'r').readlines()
     ['chr1\t0\t5\t.\t0\t-\n', 'chr1\t27\t32\t.\t0\t+\n']
 

@@ -777,6 +777,7 @@ class hiCMatrix:
         [10 15  7]
         [5 5]
         [3]
+        
         Test get distance counts per chromosome
         >>> hic.distance_counts = None
         >>> print(hic.getCountsByDistance(per_chr=True))
