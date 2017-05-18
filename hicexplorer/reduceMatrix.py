@@ -124,19 +124,19 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     ... [0,0.1,0.2,0.2,1.1],
     ... [0,0,0.2,0.2,0], [0,0,0,0.1,0], [0,0,0,0,0]]), dtype=np.int32)
     >>> dia = dia_matrix(([A.diagonal()], [0]), shape=A.shape, dtype=np.int32)
-    >>> A= csr_matrix(A + A.T - dia, dtype=np.int32)
+    >>> A= csr_matrix(A + A.T - dia, dtype=np.float64)
     >>> A.todense()
     matrix([[ 0.1,  0.1,  0.2,  0.2,  nan],
             [ 0.1,  0.1,  0.2,  0.2,  1.1],
             [ 0.2,  0.2,  0.2,  0.2,  0. ],
             [ 0.2,  0.2,  0.2,  0.1,  0. ],
-            [ nan,  1.1,  0. ,  0. ,  0. ]], dtype=int32)
+            [ nan,  1.1,  0. ,  0. ,  0. ]], dtype=float64)
 
     >>> ll = [(0,1), (2,3), (4,)]
     >>> reduce_matrix(A, ll, diagonal=True, use_triu=False).todense()
     matrix([[ 0.4,  0.8,  nan],
             [ 0.8,  0.7,  0. ],
-            [ nan,  0. ,  0. ]], dtype=int32)
+            [ nan,  0. ,  0. ]], dtype=float64)
     """
 
     if use_triu:

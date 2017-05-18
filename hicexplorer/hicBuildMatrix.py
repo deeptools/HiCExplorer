@@ -283,8 +283,8 @@ def get_bins(bin_size, chrom_size, region=None):
 
     >>> test = Tester()
     >>> chrom_size = get_chrom_sizes(pysam.Samfile(test.bam_file_1))
-    >>> get_bins(50000, chrom_size)
-    [('contig-2', 0, 3345), ('contig-1', 0, 7125)]
+    >>> sorted(get_bins(50000, chrom_size))
+    [('contig-1', 0, 7125), ('contig-2', 0, 3345)]
     >>> get_bins(50000, chrom_size, region='contig-1')
     [('contig-1', 0, 7125)]
     """
@@ -311,10 +311,12 @@ def bed2interval_list(bed_file_handler):
 
     Make a temporary BED file
     >>> _file = tempfile.NamedTemporaryFile(delete=False)
-    >>> _file.write('chr1\t10\t20\tH1\t0\n')
-    >>> _file.write("chr1\t60\t70\tH2\t0\n")
     >>> _file.close()
-    >>> bed2interval_list(open(_file.name))
+    >>> file_tmp = open(_file.name, 'w')
+    >>> foo = file_tmp.write('chr1\t10\t20\tH1\t0\n')
+    >>> foo = file_tmp.write("chr1\t60\t70\tH2\t0\n")
+    >>> file_tmp.close()
+    >>> bed2interval_list(open(_file.name, 'r'))
     [('chr1', 10, 20), ('chr1', 60, 70)]
     >>> os.remove(_file.name)
     """
@@ -417,8 +419,8 @@ def get_chrom_sizes(bam_handle):
     [('chr1', 2343434), ('chr2', 43432432)]
 
     >>> test = Tester()
-    >>> get_chrom_sizes(pysam.Samfile(test.bam_file_1, 'rb'))
-    [('contig-2', 3345), ('contig-1', 7125)]
+    >>> sorted(get_chrom_sizes(pysam.Samfile(test.bam_file_1, 'rb')))
+    [('contig-1', 7125), ('contig-2', 3345)]
     """
 
     # in some cases there are repeated entries in

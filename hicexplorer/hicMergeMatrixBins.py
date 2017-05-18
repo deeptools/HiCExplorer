@@ -74,7 +74,7 @@ def running_window_merge(hic_matrix):
     ... [ 0,  0, 15, 5, 1],
     ... [ 0,  0,  0, 7, 3],
     ... [ 0,  0,  0, 0, 1],
-    ... [ 0,  0,  0, 0, 0]], dtype=np.int32)
+    ... [ 0,  0,  0, 0, 0]], dtype=np.int64)
 
     make the matrix symmetric:
     >>> hic.matrix = csr_matrix(matrix + matrix.T)
@@ -85,7 +85,7 @@ def running_window_merge(hic_matrix):
     >>> merge_matrix.matrix.todense()
     matrix([[20, 30, 28],
             [30, 30, 27],
-            [28, 27, 14]], dtype=int32)
+            [28, 27, 14]], dtype=int64)
     """
 
     from scipy.sparse import csr_matrix, vstack, hstack
