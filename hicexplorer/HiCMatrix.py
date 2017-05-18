@@ -780,7 +780,6 @@ class hiCMatrix:
 
         Test get distance counts per chromosome
         >>> hic.distance_counts = None
-        >>> print(hic.getCountsByDistance(per_chr=True))
         >>> result = hic.getCountsByDistance(per_chr=True)
         >>> result_sorted = sorted(result)
         >>> for r in result_sorted:
@@ -796,7 +795,6 @@ class hiCMatrix:
         Test the removal of masked bins
         >>> hic.nan_bins = [3]
         >>> hic.distance_counts = None
-        >>> print(hic.getCountsByDistance())
         >>> result = hic.getCountsByDistance()
         >>> result_sorted = sorted(result)
         >>> for r in result_sorted:

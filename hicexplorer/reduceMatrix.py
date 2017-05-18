@@ -126,7 +126,7 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     >>> dia = dia_matrix(([A.diagonal()], [0]), shape=A.shape)
     >>> A= csr_matrix(A + A.T - dia)
     >>> print(A.todense())
-    [[ 0.1  0.1  0.2  0.  nan]
+    [[ 0.1  0.1  0.2  0.2  nan]
      [ 0.1  0.1  0.2  0.2  1.1]
      [ 0.2  0.2  0.2  0.2  0. ]
      [ 0.2  0.2  0.2  0.1  0. ]
