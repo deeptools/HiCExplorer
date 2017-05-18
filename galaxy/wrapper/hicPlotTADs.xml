@@ -172,7 +172,7 @@ width = $track.spacer_width
             <param name="title" type="text" optional="true" label="Plot title"/>
             <expand macro="colormap" />
             <param name="color" type="color" value="#000000" label="Track color" optional="True" />
-            <param name="border_color" type="color" value="#000000" label="Border color" optional="True" />
+            <param name="border_color" type="color" value="#000001" label="Border color" optional="True" />
             <param name="min_value" type="float" value="" optional="True" label="Minimum value"/>
             <param name="max_value" type="float" value="" optional="True" label="Maximum value"/>
 
