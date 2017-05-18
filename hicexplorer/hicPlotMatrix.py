@@ -393,7 +393,20 @@ def main(args=None):
     if args.chromosomeOrder:
         args.region = None
         args.region2 = None
-        ma.reorderChromosomes(args.chromosomeOrder)
+
+        valid_chromosomes = []
+        invalid_chromosomes = []
+        for chrom in args.chromosomeOrder:
+            if chrom in ma.chrBinBoundaries:
+                valid_chromosomes.append(chrom)
+            else:
+                invalid_chromosomes.append(chrom)
+
+        ma.reorderChromosomes(valid_chromosomes)
+        if len(invalid_chromosomes) > 0:
+            sys.stderr.write("WARNING: The following chromosome/scaffold names were not found. Please check"
+                             "the correct spelling of the chromosome names. \n")
+            sys.stderr.write("\n".join(invalid_chromosomes))
 
     print(list(ma.interval_trees))
     ma.restoreMaskedBins()
