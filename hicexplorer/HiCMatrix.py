@@ -210,7 +210,8 @@ class hiCMatrix:
 
         # check that the matrix is squared
         if matrix.shape[0] != matrix.shape[1]:
-            raise Exception("Matrix is not squared. Shape is {}".format(matrix.shape))
+            raise Exception("Matrix is not squared. \
+                             Shape is {}".format(matrix.shape))
         self.matrix = matrix
         self.cut_intervals = cut_intervals
         self.interval_trees, self.chrBinBoundaries = \
@@ -228,12 +229,13 @@ class hiCMatrix:
             median = int(np.median(np.diff(start)))
             diff = np.array(end) - np.array(start)
 
-            # check if the bin size is homogeneous
+            # check if the bin size is
+            # homogeneous
             if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
                 self.bin_size_homogeneous = False
                 if self.non_homogeneous_warning_already_printed is False:
                     sys.stderr.write('WARNING: bin size is not homogeneous. \
-                                     Median {}\n'.format(median))
+                                      Median {}\n'.format(median))
                     self.non_homogeneous_warning_already_printed = True
             self.bin_size = median
         return self.bin_size
