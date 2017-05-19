@@ -231,7 +231,8 @@ class hiCMatrix:
             if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
                 self.bin_size_homogeneous = False
                 if self.non_homogeneous_warning_already_printed is False:
-                    sys.stderr.write('WARNING: bin size is not homogeneous. Median {}\n'.format(median))
+                    sys.stderr.write('WARNING: bin size is not homogeneous. \
+                                     Median {}\n'.format(median))
                     self.non_homogeneous_warning_already_printed = True
             self.bin_size = median
         return self.bin_size
