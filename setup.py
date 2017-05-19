@@ -122,7 +122,7 @@ setup(
         "intervaltree >= 2.1.0",
         "biopython >= 1.65",
         "tables >= 3.2.2",
-        "pandas = 0.19.2",
+        "pandas == 0.19.2",
         "pyBigWig >=0.2.8",
         "six >= 1.10.0",
         "future >= 0.16.0"],
