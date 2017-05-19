@@ -227,6 +227,7 @@ class hiCMatrix:
             chrom, start, end, extra = zip(*self.cut_intervals)
             median = int(np.median(np.diff(start)))
             diff = np.array(end) - np.array(start)
+
             # check if the bin size is homogeneous
             if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
                 self.bin_size_homogeneous = False
