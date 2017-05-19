@@ -5,7 +5,7 @@
         <import>macros.xml</import>
     </macros>
     <expand macro="requirements" />
-    <command><![CDATA[
+    <command detect_errors="exit_code"><![CDATA[
         #if $mode.mode_selector == 'TAD_score':
             ln -s '$mode.matrix' matrix.npz.h5 &&
         #end if
