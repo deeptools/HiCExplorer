@@ -222,7 +222,7 @@ class hiCMatrix:
             raise Exception("Matrix is not squared. Shape is {}".format(matrix.shape))
         if len(cut_intervals) != matrix.shape[0]:
             raise Exception("Length of cut_intervals {} does not match the matrix size {}".format(len(cut_intervals),
-                                                                                                      matrix.shape))
+                                                                                                  matrix.shape))
         self.matrix = matrix
         self.cut_intervals = cut_intervals
         self.interval_trees, self.chrBinBoundaries = \
