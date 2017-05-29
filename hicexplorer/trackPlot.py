@@ -221,7 +221,7 @@ class PlotTracks(object):
         :return: None
         """
         vlines_list = []
-        if 'line width' in self.vlines_properties:
+        if 'line width' in self.vlines_properties:`
             line_width = self.vlines_properties['line width']
         else:
             line_width = 0.5
@@ -247,9 +247,9 @@ class PlotTracks(object):
         :param tracks_file: file path containing the track configuration
         :return: array of dictionaries and vlines_file. One dictionary per track
         """
-        from configparser import SafeConfigParser
+        from configparser import ConfigParser
         from ast import literal_eval
-        parser = SafeConfigParser(None, MultiDict)
+        parser = ConfigParser(None, MultiDict)
         parser.readfp(open(tracks_file, 'r'))
 
         tracks_file_path = os.path.dirname(tracks_file)
