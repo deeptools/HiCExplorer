@@ -221,7 +221,7 @@ class PlotTracks(object):
         :return: None
         """
         vlines_list = []
-        if 'line width' in self.vlines_properties:`
+        if 'line width' in self.vlines_properties:
             line_width = self.vlines_properties['line width']
         else:
             line_width = 0.5
