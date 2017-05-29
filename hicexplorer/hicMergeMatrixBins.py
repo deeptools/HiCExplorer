@@ -171,7 +171,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
 
     make the matrix symmetric:
     >>> hic.matrix = csr_matrix(matrix)
-    >>> hic.setMatrix(hic.matrix, cut_intervals)
+    >>> hic.setMatrix(hic.matrix, cut_intervals[:3])
     >>> merge_matrix = running_window_merge_v2(hic, 3)
     >>> merge_matrix.matrix.todense()
     matrix([[3, 3],
@@ -185,7 +185,7 @@ def running_window_merge_v2(hic_matrix, num_bins):
 
     make the matrix symmetric:
     >>> hic.matrix = csr_matrix(matrix)
-    >>> hic.setMatrix(hic.matrix, cut_intervals)
+    >>> hic.setMatrix(hic.matrix, cut_intervals[:4])
     >>> merge_matrix = running_window_merge_v2(hic, 3)
     >>> merge_matrix.matrix.todense()
     matrix([[3, 5, 6, 4],
