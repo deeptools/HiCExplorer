@@ -88,7 +88,7 @@ def running_window_merge(hic_matrix):
     from scipy.sparse import csr_matrix, vstack, hstack
 
     num_rows = num_cols = hic_matrix.matrix.shape[0]
-    # add an extra last row the original matrix
+    # add an extra last row to the original matrix
     rows_mat = csr_matrix((num_rows, 1))
     merge_matrix = hstack([hic_matrix.matrix, rows_mat])
     # add an extra last column to the original matrix
@@ -137,109 +137,6 @@ def running_window_merge(hic_matrix):
 
     hic_matrix.matrix = merge_matrix[to_keep, :][:, to_keep]
     hic_matrix.cut_intervals = new_intervals
-    hic_matrix.nan_bins = np.flatnonzero(hic_matrix.matrix.sum(0).A == 0)
-
-    return hic_matrix
-
-
-def running_window_merge_v2(hic_matrix, num_bins):
-    """Creates a 'running window' merge without changing the
-    original resolution of the matrix. The window size is
-    defined by the num_bins that are merged. Num bins
-    had to be an odd number such that equal amounts of left and
-    right bins can be merged.
-
-       a | b | c
-       ---------
-       d | e | f
-       ---------
-       g | h | i
-
-    In this matrix, using a merge of num_bins 3,
-    the merge is done as follows, a = a + b + d + e,
-    e = a + b + c + d + e + f etc,
-
-    >>> from scipy.sparse import csr_matrix, dia_matrix
-    >>> row, col = np.triu_indices(5)
-    >>> cut_intervals = [('a', 0, 10, 0.5), ('a', 10, 20, 1),
-    ... ('a', 20, 30, 1), ('a', 30, 40, 0.1), ('b', 40, 50, 1)]
-    >>> hic = hm.hiCMatrix()
-    >>> hic.nan_bins = []
-    >>> matrix = np.array([
-    ... [ 1, 1 ],
-    ... [ 1, 1 ]])
-
-    make the matrix symmetric:
-    >>> hic.matrix = csr_matrix(matrix)
-    >>> hic.setMatrix(hic.matrix, cut_intervals[:2])
-    >>> merge_matrix = running_window_merge_v2(hic, 3)
-    >>> merge_matrix.matrix.todense()
-    matrix([[3, 3],
-            [3, 3]])
-
-    >>> matrix = np.array([
-    ... [ 1, 1, 1, 1 ],
-    ... [ 1, 1, 1, 1 ],
-    ... [ 1, 1, 1, 1 ],
-    ... [ 1, 1, 1, 1 ]])
-
-    make the matrix symmetric:
-    >>> hic.matrix = csr_matrix(matrix)
-    >>> hic.setMatrix(hic.matrix, cut_intervals[:4])
-    >>> merge_matrix = running_window_merge_v2(hic, 3)
-    >>> merge_matrix.matrix.todense()
-    matrix([[3, 5, 6, 4],
-            [5, 6, 8, 6],
-            [6, 8, 6, 5],
-            [4, 6, 5, 3]])
-    """
-
-    if num_bins == 1:
-        return hic_matrix
-
-    assert num_bins % 2 == 1, "num_bins has to be an odd number"
-    half_num_bins = int((num_bins - 1) / 2)
-    from scipy.sparse import coo_matrix, dia_matrix, triu
-    M = hic_matrix.matrix.shape[0]
-    ma = triu(hic_matrix.matrix, k=0, format='coo')
-    row = ma.row
-    col = ma.col
-    data = ma.data
-    # indices list:
-    idx_list = []
-    for i in range(num_bins):
-        for j in range(num_bins):
-            idx_list.append((j - half_num_bins, i - half_num_bins))
-
-    new_row = row
-    new_col = col
-    new_data = data
-    for idx_pair in idx_list:
-        if idx_pair == (0, 0):
-            continue
-        new_row = np.concatenate([new_row, row + idx_pair[0]])
-        new_col = np.concatenate([new_col, col + idx_pair[1]])
-        new_data = np.concatenate([new_data, data])
-
-#    import ipdb;ipdb.set_trace()
-#    print np.vstack([new_row, new_col, new_data])
-
-    # remove illegal matrix id
-    # that are less than zero
-    # or bigger than matrix size
-    keep = ((new_row > -1) & (new_col > -1) &
-            (new_row < M) & (new_col < M))
-    new_data = new_data[keep]
-    new_row = new_row[keep]
-    new_col = new_col[keep]
-
-    new_ma = coo_matrix((new_data, (new_row, new_col)), shape=(M, M))
-    new_ma = triu(new_ma, k=0)
-#   new_ma.data = new_ma.data / len(idx_list)
-    dia = dia_matrix(([new_ma.diagonal()], [0]), shape=new_ma.shape)
-    new_ma = new_ma + new_ma.T - dia
-
-    hic_matrix.matrix = new_ma
     hic_matrix.nan_bins = np.flatnonzero(hic_matrix.matrix.sum(0).A == 0)
 
     return hic_matrix
