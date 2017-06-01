@@ -33,10 +33,10 @@ before_install:
   - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.4" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install -c bioconda planemo -y; source deactivate; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.4" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install -c bioconda planemo -y; source deactivate; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install -c bioconda planemo -y; source deactivate; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install -c bioconda planemo -y; source deactivate; fi
  
 
 # Install packages
