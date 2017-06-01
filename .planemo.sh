@@ -3,7 +3,9 @@
 tmp_dir=`mktemp -d`
 source activate python2.7
 planemo_bin='which planemo'
+echo "GOOO"
 echo $planemo_bin
+echo "BLA"
 source deactivate
 $planemo_bin database_create galaxy
 $planemo_bin conda_init --conda_prefix $tmp_dir/conda
