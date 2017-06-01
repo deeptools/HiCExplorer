@@ -1,6 +1,7 @@
 #!/bin/bash
 
 tmp_dir=`mktemp -d`
+ls -lah
 planemo_test_env/bin/planemo database_create galaxy
 planemo_test_env/bin/planemo conda_init --conda_prefix $blah/conda
 export PATH=$tmp_dir/conda/bin:$PATH
@@ -11,3 +12,4 @@ pip install .
 
 # Galaxy wrapper testing
 planemo_test_env/bin/planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
+# /home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
