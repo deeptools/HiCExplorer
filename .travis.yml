@@ -13,7 +13,7 @@ before_install:
   - export HIC_TEST_DATA_DIR="`pwd`/hicexplorer/test/test_data/"
   - echo $HIC_TEST_DATA_DIR
   - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then pip install virtualenv --user ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then virtualenv planemo_test_env; source planemo_test_env/bin/activate; pip install planemo ; deactivate ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then virtualenv planemo_test_env; source planemo_test_env/bin/activate; pip install six; pip install planemo ; deactivate ; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh ; fi
   #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh ; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi
