@@ -8,7 +8,7 @@
     <command detect_errors="aggressive">
 <![CDATA[
         sed '/^$/d' '$tracks_config' &&
-
+        export PYTHONWARNINGS="ignore" && 
         @BINARY@
             --tracks '$tracks_config'
             #if $region and $region is not None:
@@ -59,7 +59,7 @@ color = $track.color
 #end if
 
 #if $track.border_color:
-color = $track.border_color
+border_color = $track.border_color
 #end if
 
 #if $track.depth:
