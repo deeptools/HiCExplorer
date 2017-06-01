@@ -78,9 +78,9 @@ def running_window_merge(hic_matrix, num_bins):
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals[:2])
     >>> merge_matrix = running_window_merge(hic, 3)
-    >>> merge_matrix.matrix.todense()
-    matrix([[3, 3],
-            [3, 3]])
+    >>> print(merge_matrix.matrix.todense())
+    [[3 3]
+     [3 3]]
 
     >>> matrix = np.array([
     ... [ 1, 1, 1, 1 ],
@@ -92,11 +92,11 @@ def running_window_merge(hic_matrix, num_bins):
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals)
     >>> merge_matrix = running_window_merge(hic, 3)
-    >>> merge_matrix.matrix.todense()
-    matrix([[3, 5, 6, 4],
-            [5, 6, 8, 6],
-            [6, 8, 6, 5],
-            [4, 6, 5, 3]])
+    >>> print(merge_matrix.matrix.todense())
+    [[3 5 6 4]
+     [5 6 8 6]
+     [6 8 6 5]
+     [4 6 5 3]]
     """
 
     if num_bins == 1:
