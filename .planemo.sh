@@ -10,10 +10,6 @@ source activate hicexplorer_galaxy
 
 pip install .
 
-ls -lah
-ls -lah planemo_test_env
-ls -lah planemo_test_env/bin
-
 # Galaxy wrapper testing
 planemo_test_env/bin/planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
 # /home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
