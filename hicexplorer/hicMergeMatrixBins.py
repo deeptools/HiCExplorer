@@ -63,6 +63,7 @@ def running_window_merge(hic_matrix, num_bins):
     In this matrix, using a merge of num_bins 3,
     the merge is done as follows, a = a + b + d + e,
     e = a + b + c + d + e + f etc,
+
     >>> from scipy.sparse import csr_matrix, dia_matrix
     >>> row, col = np.triu_indices(5)
     >>> cut_intervals = [('a', 0, 10, 0.5), ('a', 10, 20, 1),
@@ -72,6 +73,7 @@ def running_window_merge(hic_matrix, num_bins):
     >>> matrix = np.array([
     ... [ 1, 1 ],
     ... [ 1, 1 ]])
+
     make the matrix symmetric:
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals[:2])
@@ -79,11 +81,13 @@ def running_window_merge(hic_matrix, num_bins):
     >>> merge_matrix.matrix.todense()
     matrix([[3, 3],
             [3, 3]])
+
     >>> matrix = np.array([
     ... [ 1, 1, 1, 1 ],
     ... [ 1, 1, 1, 1 ],
     ... [ 1, 1, 1, 1 ],
     ... [ 1, 1, 1, 1 ]])
+
     make the matrix symmetric:
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals)
