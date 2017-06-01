@@ -3,7 +3,7 @@
 tmp_dir=`mktemp -d`
 
 planemo_test_env/bin/planemo database_create galaxy
-planemo_test_env/bin/planemo conda_init --conda_prefix $blah/conda
+planemo_test_env/bin/planemo conda_init --conda_prefix $tmp_dir/conda
 export PATH=$tmp_dir/conda/bin:$PATH
 conda create -y -c bioconda --name hicexplorer_galaxy samtools python=2.7.13 numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython pysam pybigwig intervaltree
 source activate hicexplorer_galaxy
