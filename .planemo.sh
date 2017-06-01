@@ -8,6 +8,8 @@ echo "GOOO"
 echo "BLA"
 # source deactivate
 planemo database_create galaxy
+curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh
+./miniconda.sh -b -p $tmp_dir/conda
 planemo conda_init --conda_prefix $tmp_dir/conda
 export PATH=$tmp_dir/conda/bin:$PATH
 conda install -y -c bioconda samtools python=2.7.13 numpy scipy matplotlib=2.0.0 nose flake8 pytables biopython pysam pybigwig intervaltree future six pandas
