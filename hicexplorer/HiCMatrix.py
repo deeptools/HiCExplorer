@@ -17,7 +17,7 @@ import gzip
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
+warnings.simplefilter(action='ignore', category=DeprecationWarning)
 # try to import pandas if exists
 try:
     import pandas as pd
