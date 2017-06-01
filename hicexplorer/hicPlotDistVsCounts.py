@@ -343,7 +343,7 @@ def main(args=None):
             if len(mean_values) <= 1:
                 sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
-            x, y = zip(*[(k, v) for k, v in mean_values.iteritems() if v > 0])
+            x, y = zip(*[(k, v) for k, v in iteritems(mean_values) if v > 0])
             if len(x) <= 1:
                 sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
