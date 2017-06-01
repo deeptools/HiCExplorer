@@ -1,7 +1,7 @@
 #!/bin/bash
 
 tmp_dir=`mktemp -d`
-ls -lah
+
 planemo_test_env/bin/planemo database_create galaxy
 planemo_test_env/bin/planemo conda_init --conda_prefix $blah/conda
 export PATH=$tmp_dir/conda/bin:$PATH
@@ -9,6 +9,10 @@ conda create -y -c bioconda --name hicexplorer_galaxy samtools python=2.7.13 num
 source activate hicexplorer_galaxy
 
 pip install .
+
+ls -lah
+ls -lah planemo_test_env
+ls -lah planemo_test_env/bin
 
 # Galaxy wrapper testing
 planemo_test_env/bin/planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
