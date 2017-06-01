@@ -50,4 +50,7 @@ script:
   - echo ${owd}
   #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then /home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo lint galaxy/wrapper/ ; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then bash .planemo.sh ; fi
-  # - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then bash /home/travis/build/maxplanck-ie/HiCExplorer/.planemo.sh ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.4" ]]; then sed -i s/2.7.13/3.4.5/g galaxy/wrapper/macros.xml; bash .planemo.sh ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then sed -i s/3.4.5/3.5.3/g galaxy/wrapper/macros.xml; bash .planemo.sh ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then sed -i s/3.5.3/3.6.1/g galaxy/wrapper/macros.xml; bash .planemo.sh ; fi
+  
