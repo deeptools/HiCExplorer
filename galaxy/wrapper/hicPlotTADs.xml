@@ -8,7 +8,6 @@
     <command detect_errors="aggressive">
 <![CDATA[
         sed '/^$/d' '$tracks_config' &&
-        export PYTHONWARNINGS="ignore" && 
         @BINARY@
             --tracks '$tracks_config'
             #if $region and $region is not None:
