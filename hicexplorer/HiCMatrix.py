@@ -15,6 +15,9 @@ from intervaltree import IntervalTree, Interval
 
 import gzip
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 # try to import pandas if exists
 try:
     import pandas as pd
