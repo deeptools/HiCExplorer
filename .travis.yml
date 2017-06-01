@@ -29,7 +29,7 @@ before_install:
 
 # Install packages
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython pandas
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=2.0.0 nose flake8 pytables biopython pandas
   - conda install --yes -c bioconda pysam intervaltree
   - pip install pyBigWig
   - python setup.py install
