@@ -3,6 +3,7 @@
 tmp_dir=`mktemp -d`
 source activate python2.7
 planemo_bin='which planemo'
+echo $planemo_bin
 source deactivate
 $planemo_bin database_create galaxy
 $planemo_bin conda_init --conda_prefix $tmp_dir/conda
@@ -17,3 +18,4 @@ pip install .
 # Galaxy wrapper testing
 $planemo_bin test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
 # /home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
+source deactivate
