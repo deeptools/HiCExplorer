@@ -26,18 +26,18 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TRAVIS_PYTHON_VERSION" == "3.4" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi  
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.4" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
-
   # Useful for debugging any issues with conda
   - conda info -a
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.4" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then conda create --name python2.7 python=2.7.13 -y ; source activate python2.7; conda install planemo -y; source deactivate; fi
+ 
 
 # Install packages
 install:
