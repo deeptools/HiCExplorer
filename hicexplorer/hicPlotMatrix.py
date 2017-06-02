@@ -1,3 +1,5 @@
+from __future__ import division
+
 import sys
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import writableFile

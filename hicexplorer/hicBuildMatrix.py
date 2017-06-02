@@ -1,3 +1,5 @@
+from __future__ import division
+
 import argparse
 import sys
 import numpy as np
@@ -555,7 +557,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
             chr_start = False
         if chrom == chrom_next and \
                 end != start_next:
-            middle = start_next - (start_next - end) // 2
+            middle = start_next - int((start_next - end) / 2)
             bin_intervals[idx] = (chrom, start, middle)
             bin_intervals[idx + 1] = (chrom, middle, end_next)
         if chrom != chrom_next:
@@ -908,10 +910,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
-            vec_start = max(0, mate.pos - mate_bin.begin) // pBinsize
+            vec_start = int(max(0, mate.pos - mate_bin.begin) / pBinsize)
             length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
-            vec_end = min(length_coverage, vec_start +
-                          len(mate.seq) // pBinsize)
+            vec_end = min(length_coverage, int(vec_start +
+                          len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
             for i in xrange(coverage_index, coverage_end, 1):

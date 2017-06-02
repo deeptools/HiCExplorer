@@ -1,9 +1,11 @@
-import numpy as np
-import sys
-import os
+from __future__ import division
 from builtins import range
 from past.builtins import zip
 from six import iteritems
+
+import numpy as np
+import sys
+import os
 
 from collections import OrderedDict
 from scipy.sparse import csr_matrix, dia_matrix, coo_matrix
@@ -685,7 +687,8 @@ class hiCMatrix:
 
                 if bin_dist_plus_one == 0:
                     total_intra = mat_size ** 2 - sum([size ** 2 for size in chrom_sizes[chrname]])
-                    diagonal_length = total_intra / 2
+                    diagonal_length = (total_intra / 2).astype(int)
+                    # print(type(diagonal_length))
                 else:
                     # to compute the average counts per distance we take the sum_counts and divide
                     # by the number of values on the respective diagonal
@@ -705,6 +708,7 @@ class hiCMatrix:
                     # idx - 1 because earlier the values where
                     # shifted.
                     diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes[chrname] if size > (bin_dist_plus_one - 1)])
+                    # print(type(diagonal_length))
 
                 # the diagonal length should contain the number of values at a certain distance.
                 # If the matrix is dense, the distance_len[bin_dist_plus_one] correctly contains the number of values
@@ -712,6 +716,7 @@ class hiCMatrix:
                 # But, if the matrix is both sparse and with unequal bins, then none of the above methods is
                 # accurate but the the diagonal_length as computed before will be closer.
                 diagonal_length = max(diagonal_length, distance_len[bin_dist_plus_one])
+                # print(type(diagonal_length))
 
                 if diagonal_length == 0:
                     mu[bin_dist_plus_one] = np.nan

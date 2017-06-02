@@ -1,3 +1,5 @@
+from __future__ import division
+
 import sys
 import collections
 from past.builtins import map

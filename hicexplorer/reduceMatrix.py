@@ -1,3 +1,5 @@
+from __future__ import division
+
 from scipy.sparse import coo_matrix, dia_matrix, triu
 import numpy as np
 import time

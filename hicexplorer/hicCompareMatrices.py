@@ -1,3 +1,5 @@
+from __future__ import division
+
 import argparse
 import numpy as np
 from hicexplorer import HiCMatrix as hm
