@@ -58,7 +58,7 @@ color = $track.color
 #end if
 
 #if $track.border_color:
-border_color = $track.border_color
+color = $track.border_color
 #end if
 
 #if $track.depth:
