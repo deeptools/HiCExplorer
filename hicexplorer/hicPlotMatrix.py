@@ -295,8 +295,11 @@ def translate_region(region_string):
     if sys.version_info[0] == 2:
         region_string = region_string.translate(None, ",;!").replace("-", ":")
     if sys.version_info[0] == 3:
-        region_string = region_string.translate(str.maketrans(None, ",;!")).replace("-", ":")
-        
+        region_string = region_string.replace(",", "")
+        region_string = region_string.replace(";", "")
+        region_string = region_string.replace("!", "")
+        region_string = region_string.replace("-", ":")
+
     fields = region_string.split(":")
     chrom = fields[0]
     try:
