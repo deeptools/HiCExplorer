@@ -2,6 +2,7 @@
 
 tmp_dir=`mktemp -d`
 source activate python2.7
+conda install -c bioconda planemo -y
 # planemo_bin='which planemo'
 # echo $planemo_bin
 # source deactivate
