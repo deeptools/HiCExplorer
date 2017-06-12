@@ -21,7 +21,9 @@ from past.builtins import zip
 
 import warnings
 warnings.filterwarnings('error')
-
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=DeprecationWarning)
+warnings.simplefilter(action='ignore', category=ImportWarning)
 
 import scipy.sparse
 from collections import OrderedDict
@@ -88,7 +90,7 @@ class PlotTracks(object):
         # initialize each track
         self.track_obj_list = []
         for idx, properties in enumerate(self.track_list):
-            if 'spacer' in properties:
+            if 'spacer_' + str(idx) in properties:
                 self.track_obj_list.append(PlotSpacer(properties))
                 continue
             elif 'x-axis' in properties:
@@ -258,7 +260,7 @@ class PlotTracks(object):
         track_list = []
         for section_name in parser.sections():
             track_options = dict({"section_name": section_name})
-            if section_name.endswith('[spacer]'):
+            if section_name.startswith('[spacer'):
                 track_options['spacer'] = True
             elif section_name.endswith('[x-axis]'):
                 track_options['x-axis'] = True
