@@ -27,13 +27,13 @@ source deactivate
 
 # source activate hicexplorer_galaxy
 # echo $CONDA_PREFIX
-pip install .
+python setup.py install
 export PATH="$prefix/bin:PATH"
 hash -r
 
 # echo $CONDA_PREFIX
 # Galaxy wrapper testing
-$planemo_bin $python_bin test --install_galaxy --galaxy_branch release_17.01 --skip_venv --conda_prefix $tmp_dir/conda --conda_dependency_resolution --postgres galaxy/wrapper
+planemo test --install_galaxy --galaxy_branch release_17.01 --skip_venv --conda_prefix $tmp_dir/conda --conda_dependency_resolution --postgres galaxy/wrapper
 # planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
 # /home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
 # source deactivate
