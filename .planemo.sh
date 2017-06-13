@@ -17,7 +17,7 @@ planemo database_create galaxy
 # ./miniconda.sh -b -p $tmp_dir/conda
 # echo $CONDA_PREFIX
 planemo conda_init --conda_prefix $tmp_dir/conda
-planemo conda_install galaxy/wrapper --conda_prefix $tmp_dir/conda
+# planemo conda_install galaxy/wrapper --conda_prefix $tmp_dir/conda
 # export PATH=$tmp_dir/conda/bin:$PATH
 # conda install -y -c bioconda samtools python=2.7.13 numpy scipy matplotlib=2.0.0 nose flake8 pytables biopython pysam pybigwig intervaltree future six pandas
 # source deactivate
