@@ -274,8 +274,10 @@ class PlotTracks(object):
         track_list = []
         for section_name in parser.sections():
             track_options = dict({"section_name": section_name})
+            print("sectionname: ", section_name)
             if section_name.startswith('[spacer]'):
                 track_options['spacer'] = True
+                print("sectionname TRUE: ")
             elif section_name.endswith('[x-axis]'):
                 track_options['x-axis'] = True
             for name, value in parser.items(section_name):
