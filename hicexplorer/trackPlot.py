@@ -58,7 +58,7 @@ class MultiDict(OrderedDict):
     """
     _unique = 0
 
-    def __setitem__(self, key, val):
+    def __setitem__(self, key, val):#
         if isinstance(val, OrderedDict):
             self._unique += 1
             key = "{}. [{}]".format(str(self._unique), key)
@@ -259,10 +259,14 @@ class PlotTracks(object):
         :param tracks_file: file path containing the track configuration
         :return: array of dictionaries and vlines_file. One dictionary per track
         """
-        from configparser import ConfigParser
+        # from configparser import ConfigParser
         from ast import literal_eval
-        parser = ConfigParser(None, MultiDict)
-        parser.readfp(open(tracks_file, 'r'))
+        # parser = ConfigParser(None, MultiDict)
+        # parser.readfp(open(tracks_file, 'r'))
+
+        from configparser import ConfigParser
+        parser = ConfigParser(dict_type=MultiDict, strict=False)
+        parser.read_file(open(tracks_file, 'r'))
 
         tracks_file_path = os.path.dirname(tracks_file)
 
