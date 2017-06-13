@@ -90,7 +90,15 @@ class PlotTracks(object):
         # initialize each track
         self.track_obj_list = []
         for idx, properties in enumerate(self.track_list):
-            if 'spacer_' + str(idx) in properties:
+            # replaces 'spacer' in properties
+            # change needed because multiple occurences of 'spacer' were causing an error;
+            # to fix this the spacer elements are now enumerated
+            spacer_in_keys = False
+            for key in list(properties):
+                if key.startswith('spacer'):
+                    spacer_in_keys = True
+                    break
+            if spacer_in_keys:
                 self.track_obj_list.append(PlotSpacer(properties))
                 continue
             elif 'x-axis' in properties:
