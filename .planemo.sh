@@ -28,8 +28,8 @@ source deactivate
 # source activate hicexplorer_galaxy
 # echo $CONDA_PREFIX
 python setup.py install
-export PATH="$prefix/bin:PATH"
-hash -r
+
+source activate python2.7
 
 # echo $CONDA_PREFIX
 # Galaxy wrapper testing
