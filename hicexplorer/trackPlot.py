@@ -93,12 +93,13 @@ class PlotTracks(object):
             # replaces 'spacer' in properties
             # change needed because multiple occurences of 'spacer' were causing an error;
             # to fix this the spacer elements are now enumerated
-            spacer_in_keys = False
-            for key in list(properties):
-                if key.startswith('[spacer'):
-                    spacer_in_keys = True
-                    break
-            if spacer_in_keys:
+            # spacer_in_keys = False
+            # for key in list(properties):
+            #     if key.startswith('[spacer'):
+            #         spacer_in_keys = True
+            #         break
+            # if spacer_in_keys:
+            if 'spacer' in properties:
                 self.track_obj_list.append(PlotSpacer(properties))
                 continue
             elif 'x-axis' in properties:
@@ -268,7 +269,7 @@ class PlotTracks(object):
         track_list = []
         for section_name in parser.sections():
             track_options = dict({"section_name": section_name})
-            if section_name.startswith('[spacer'):
+            if section_name.startswith('[spacer]'):
                 track_options['spacer'] = True
             elif section_name.endswith('[x-axis]'):
                 track_options['x-axis'] = True

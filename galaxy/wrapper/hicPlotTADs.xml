@@ -154,7 +154,7 @@ gene rows = $track.gene_rows
 #end if
 
 #if $track.spacer_width:
-[spacer_$counter]
+[spacer]
 width = $track.spacer_width
 #end if
 
