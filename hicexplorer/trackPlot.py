@@ -95,7 +95,7 @@ class PlotTracks(object):
             # to fix this the spacer elements are now enumerated
             spacer_in_keys = False
             for key in list(properties):
-                if key.startswith('spacer'):
+                if key.startswith('[spacer'):
                     spacer_in_keys = True
                     break
             if spacer_in_keys:
