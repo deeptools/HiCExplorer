@@ -58,7 +58,7 @@ class MultiDict(OrderedDict):
     """
     _unique = 0
 
-    def __setitem__(self, key, val):#
+    def __setitem__(self, key, val):
         if isinstance(val, OrderedDict):
             self._unique += 1
             key = "{}. [{}]".format(str(self._unique), key)
