@@ -99,7 +99,7 @@ class PlotTracks(object):
             #         spacer_in_keys = True
             #         break
             # if spacer_in_keys:
-            print(properties)
+            print("properties: ", properties)
             if 'spacer' in properties:
                 self.track_obj_list.append(PlotSpacer(properties))
                 continue
