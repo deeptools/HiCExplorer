@@ -7,8 +7,6 @@
     <expand macro="requirements" />
     <command detect_errors="aggressive">
 <![CDATA[
-        which python &&
-        whereis python &&
         sed '/^$/d' '$tracks_config' &&
         @BINARY@
             --tracks '$tracks_config'
