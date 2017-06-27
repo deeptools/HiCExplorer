@@ -19,6 +19,9 @@ from multiprocessing.sharedctypes import Array, RawArray
 
 from intervaltree import IntervalTree, Interval
 
+from Bio.Seq import Seq
+from Bio.Alphabet import generic_dna
+
 # own tools
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import getUserRegion, genomicRegion
@@ -142,11 +145,15 @@ def parse_arguments(args=None):
                         required=False)
 
     parser.add_argument('--restrictionSequence', '-seq',
-                        help='Sequence of the restriction site. This is used '
-                        'to discard reads that end/start with such sequence '
-                        'and that are considered un-ligated fragments or '
-                        '"dangling-ends". If not given, such statistics will '
-                        'not be available.')
+                        help='Sequence of the restriction site.')
+
+    parser.add_argument('--danglingSequence',
+                        help='Dangling end sequence left by the restriction enzyme. For DpnII for example, the '
+                             'dangling end is the same restriction sequence. This is used '
+                             'to discard reads that end/start with such sequence '
+                             'and that are considered un-ligated fragments or '
+                             '"dangling-ends". If not given, such statistics will '
+                             'not be available.')
 
     parser.add_argument('--outFileName', '-o',
                         help='Output file name for the HiC matrix',
@@ -1052,11 +1059,13 @@ def main(args=None):
     shared_build_intval_tree = RawArray(C_Interval, shared_array_list)
     bin_intval_tree = None
     dangling_sequences = dict()
-    if args.restrictionSequence:
+    if args.danglingSequence:
         # build a list of dangling sequences
         args.restrictionSequence = args.restrictionSequence.upper()
-        dangling_sequences['pat_forw'] = args.restrictionSequence[1:]
-        dangling_sequences['pat_rev'] = args.restrictionSequence[:-1]
+        args.danglingSequence = args.danglingSequence.upper()
+        dangling_sequences['pat_forw'] = args.danglingSequence
+        dangling_sequences['pat_rev'] = str(Seq(args.danglingSequence, generic_dna).complement())
+
         sys.stderr.write("dangling sequences to check "
                          "are {}\n".format(dangling_sequences))
 

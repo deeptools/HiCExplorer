@@ -237,7 +237,11 @@ def get_cut_weight(hic_matrix, cut, window_len, return_mean=False):
     if cut < 0 or cut > hic_matrix.matrix.shape[0]:
         return None
 
-    left_idx, right_idx = get_idx_of_bins_at_given_distance(hic_matrix, cut, window_len)
+    try:
+        left_idx, right_idx = get_idx_of_bins_at_given_distance(hic_matrix, cut, window_len)
+    except TypeError:
+        log.warn("Problem with cut: {}, window length: {}".format(cut, window_len))
+        return None
 
     if return_mean is True:
         if hic_matrix.matrix[left_idx:cut, cut:right_idx].nnz == 0:
@@ -330,7 +334,7 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
         # get conductance
         # for multiple window lengths at a time
         mult_matrix = [get_cut_weight(hic_ma, cut, depth, return_mean=True) for depth in incremental_step]
-        if np.any(np.isnan(mult_matrix)):
+        if any(x is None or np.isnan(x) for x in mult_matrix):
             # skip problematic cases
             continue
 
