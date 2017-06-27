@@ -1,16 +1,13 @@
 #!/bin/bash
 
 tmp_dir=`mktemp -d`
+conda create -c bioconda -c conda-forge --name python2.7 python=2.7.13 -y
+source activate python2.7
+pip install planemo
 
-planemo_test_env/bin/planemo database_create galaxy
-planemo_test_env/bin/planemo conda_init --conda_prefix $tmp_dir/conda
-export PATH=$tmp_dir/conda/bin:$PATH
-conda create -y -c bioconda --name hicexplorer_galaxy samtools python=2.7.13 numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython pysam pybigwig intervaltree
-source activate hicexplorer_galaxy
-
-pip install .
-
-
-# Galaxy wrapper testing
-planemo_test_env/bin/planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
-# /home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo test --skip_venv --install_galaxy --no_conda_auto_install --no_conda_auto_init --galaxy_branch release_17.01 --postgres galaxy/wrapper/
+planemo database_create galaxy
+planemo conda_init --conda_prefix $tmp_dir/conda
+planemo conda_install galaxy/wrapper --conda_prefix $tmp_dir/conda
+python setup.py install
+planemo test --install_galaxy --galaxy_branch release_17.01 --skip_venv --conda_prefix $tmp_dir/conda --conda_dependency_resolution --postgres galaxy/wrapper
+source deactivate

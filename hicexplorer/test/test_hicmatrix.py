@@ -5,6 +5,8 @@ from os import unlink
 import numpy as np
 import numpy.testing as nt
 from scipy.sparse import csr_matrix
+from past.builtins import zip
+from six import iteritems
 
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
@@ -103,7 +105,7 @@ def test_convert_to_zscore_matrix_2():
 
     mu = {}
     std = {}
-    for dist, values in dist_values.iteritems():
+    for dist, values in iteritems(dist_values):
         mu[dist] = np.mean(values)
         std[dist] = np.std(values)
 

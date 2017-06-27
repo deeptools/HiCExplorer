@@ -174,11 +174,18 @@ type = vlines
 from __future__ import division
 import sys
 import argparse
+from past.builtins import map
 import matplotlib
 matplotlib.use('Agg')
 
 import hicexplorer.trackPlot
 from hicexplorer._version import __version__
+
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=DeprecationWarning)
+warnings.simplefilter(action='ignore', category=ImportWarning)
 
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'

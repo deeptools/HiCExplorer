@@ -1,3 +1,5 @@
+from __future__ import division
+
 import numpy as np
 import time
 import logging
@@ -37,7 +39,7 @@ def iterativeCorrection(matrix, v=None, M=50, tolerance=1e-5, verbose=False):
 
     start_time = time.time()
     log.info("starting iterative correction")
-    for iternum in xrange(M):
+    for iternum in range(M):
         iternum += 1
         s = np.array(W.sum(axis=1)).flatten()
         mask = (s == 0)

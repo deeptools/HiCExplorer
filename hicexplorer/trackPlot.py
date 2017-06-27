@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import division
 
 import sys
 import numpy as np
@@ -14,10 +15,15 @@ import mpl_toolkits.axisartist as axisartist
 from matplotlib.patches import Rectangle
 import textwrap
 import os.path
+from imp import reload
+from past.builtins import map
+from past.builtins import zip
 
 import warnings
 warnings.filterwarnings('error')
-
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=DeprecationWarning)
+warnings.simplefilter(action='ignore', category=ImportWarning)
 
 import scipy.sparse
 from collections import OrderedDict
@@ -28,7 +34,8 @@ import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
 
 reload(sys)
-sys.setdefaultencoding('utf-8')
+if sys.version_info <= (3, 0):
+    sys.setdefaultencoding('utf-8')
 
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'
@@ -83,6 +90,16 @@ class PlotTracks(object):
         # initialize each track
         self.track_obj_list = []
         for idx, properties in enumerate(self.track_list):
+            # replaces 'spacer' in properties
+            # change needed because multiple occurences of 'spacer' were causing an error;
+            # to fix this the spacer elements are now enumerated
+            # spacer_in_keys = False
+            # for key in list(properties):
+            #     if key.startswith('[spacer'):
+            #         spacer_in_keys = True
+            #         break
+            # if spacer_in_keys:
+            print("properties: ", properties)
             if 'spacer' in properties:
                 self.track_obj_list.append(PlotSpacer(properties))
                 continue
@@ -118,7 +135,7 @@ class PlotTracks(object):
                 else:
                     properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 50)
 
-        print "time initializing track(s):"
+        print("time initializing track(s):")
         self.print_elapsed(start)
 
     def get_tracks_height(self, start, end):
@@ -222,7 +239,7 @@ class PlotTracks(object):
         else:
             line_width = 0.5
 
-        if chrom_region not in self.vlines_intval_tree.keys():
+        if chrom_region not in list(self.vlines_intval_tree):
             chrom_region = change_chrom_names(chrom_region)
         for region in sorted(self.vlines_intval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             vlines_list.append(region.begin)
@@ -243,18 +260,24 @@ class PlotTracks(object):
         :param tracks_file: file path containing the track configuration
         :return: array of dictionaries and vlines_file. One dictionary per track
         """
-        from ConfigParser import SafeConfigParser
+        # from configparser import ConfigParser
         from ast import literal_eval
-        parser = SafeConfigParser(None, MultiDict)
-        parser.readfp(open(tracks_file, 'r'))
+        # parser = ConfigParser(None, MultiDict)
+        # parser.readfp(open(tracks_file, 'r'))
+
+        from configparser import ConfigParser
+        parser = ConfigParser(dict_type=MultiDict, strict=False)
+        parser.read_file(open(tracks_file, 'r'))
 
         tracks_file_path = os.path.dirname(tracks_file)
 
         track_list = []
         for section_name in parser.sections():
             track_options = dict({"section_name": section_name})
+            # print("sectionname: ", section_name)
             if section_name.endswith('[spacer]'):
                 track_options['spacer'] = True
+                # print("sectionname TRUE: ")
             elif section_name.endswith('[x-axis]'):
                 track_options['x-axis'] = True
             for name, value in parser.items(section_name):
@@ -363,7 +386,7 @@ class PlotTracks(object):
     def print_elapsed(start):
         import time
         if start:
-            print time.time() - start
+            print(time.time() - start)
         return time.time()
 
 
@@ -502,7 +525,7 @@ class PlotBedGraph(TrackPlot):
         score_list = []
         pos_list = []
 
-        if chrom_region not in self.interval_tree.keys():
+        if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
 
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
@@ -570,7 +593,7 @@ class PlotBedGraphMatrix(PlotBedGraph):
 
         start_pos = []
         matrix_rows = []
-        if chrom_region not in self.interval_tree.keys():
+        if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             start_pos.append(region.begin)
@@ -647,7 +670,7 @@ class PlotBigWig(TrackPlot):
         self.ax = ax
         self.label_ax = label_ax
         formated_region = "{}:{}-{}".format(chrom_region, start_region, end_region)
-        print "plotting {}".format(self.properties['file'])
+        print("plotting {}".format(self.properties['file']))
         # compute the score in bins of 10000 SLOW
     #    score = np.array([self.bw.query(region[0], x, x+10000,1)[0]['mean']
     #                      for x in range(region[1], region[2], 10000)])
@@ -662,10 +685,10 @@ class PlotBigWig(TrackPlot):
                                  "is not valid. Using default value (700)".format(self.properties['number of bins'],
                                                                                   self.properties['file']))
 
-        if chrom_region not in self.bw.chroms().keys():
+        if chrom_region not in list(self.bw.chroms()):
             chrom_region = change_chrom_names(chrom_region)
 
-        if chrom_region not in self.bw.chroms().keys():
+        if chrom_region not in list(self.bw.chroms()):
             sys.stderr.write("Can not read region {} from bigwig file:\n\n"
                              "{}\n\nPlease check that the chromosome name is part of the bigwig file "
                              "and that the region is valid".format(formated_region, self.properties['file']))
@@ -703,11 +726,11 @@ class PlotBigWig(TrackPlot):
                     import pyBigWig
                     self.bw = pyBigWig.open(self.properties['file'])
 
-                    print "error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries)
+                    print("error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries))
                     pass
                 else:
                     if num_tries > 1:
-                        print "After {} the scores could be computed".format(num_tries)
+                        print("After {} the scores could be computed".format(num_tries))
                     break
 
             x_values = np.linspace(start_region, end_region, num_bins)
@@ -849,7 +872,7 @@ class PlotHiCMatrix(TrackPlot):
         self.ax = ax
 
         chrom_sizes = self.hic_ma.get_chromosome_sizes()
-        if chrom not in chrom_sizes.keys():
+        if chrom not in list(chrom_sizes):
             chrom = change_chrom_names(chrom)
         if region_end > chrom_sizes[chrom]:
             sys.stderr.write("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
@@ -1055,8 +1078,8 @@ class PlotXAxis(TrackPlot):
                       for x in ticks]
             labels[-2] += " Mbp"
 
-        print ticks
-        print labels
+        print(ticks)
+        print(labels)
         ax.axis["x"] = ax.new_floating_axis(0, 0.5)
 
         ax.axis["x"].axis.set_ticklabels(labels)
@@ -1148,7 +1171,7 @@ class PlotBoundaries(TrackPlot):
         if chrom_region not in self.interval_tree:
             orig = chrom_region
             chrom_region = change_chrom_names(chrom_region)
-            print 'changing {} to {}'.format(orig, chrom_region)
+            print('changing {} to {}'.format(orig, chrom_region))
         for region in sorted(self.interval_tree[chrom_region][start_region:end_region]):
             """
                   /\
@@ -1223,7 +1246,7 @@ class PlotBed(TrackPlot):
             bp_per_inch = region_len / fig_width
             font_in_bp = font_in_inches * bp_per_inch
             self.len_w = font_in_bp
-            print "len of w set to: {} bp".format(self.len_w)
+            print("len of w set to: {} bp".format(self.len_w))
         else:
             self.len_w = 1
 
@@ -1299,7 +1322,7 @@ class PlotBed(TrackPlot):
             if free_row > self.max_num_row[bed.chromosome]:
                 self.max_num_row[bed.chromosome] = free_row
 
-        print self.max_num_row
+        print(self.max_num_row)
 
         if valid_intervals == 0:
             sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file_name']))
@@ -1330,7 +1353,7 @@ class PlotBed(TrackPlot):
         self.small_relative = 0.004 * (end_region - start_region)
         self.process_bed(ax.get_figure().get_figwidth(), start_region, end_region)
 
-        if chrom_region not in self.interval_tree.keys():
+        if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
 
         genes_overlap = sorted(self.interval_tree[chrom_region][start_region:end_region])
@@ -1719,7 +1742,7 @@ class PlotArcs(TrackPlot):
         max_diameter = 0
         count = 0
 
-        if chrom_region not in self.interval_tree.keys():
+        if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
         arcs_in_region = sorted(self.interval_tree[chrom_region][region_start:region_end])
 
@@ -1741,7 +1764,7 @@ class PlotArcs(TrackPlot):
             ax.add_patch(Arc((center, 0), diameter,
                              diameter * 2, 0, 0, 180, color=self.properties['color'], lw=line_width))
 
-        print "{} arcs plotted".format(count)
+        print("{} arcs plotted".format(count))
         if 'orientation' in self.properties and self.properties['orientation'] == 'inverted':
             ax.set_ylim(max_diameter, -1)
         else:
