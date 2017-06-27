@@ -1059,7 +1059,7 @@ def main(args=None):
         args.restrictionSequence = args.restrictionSequence.upper()
         args.danglingSequence = args.danglingSequence.upper()
         dangling_sequences['pat_forw'] = args.danglingSequence
-        dangling_sequences['pat_rev'] = str(Seq(args.danglingSequence, generic_dna).reverse_complement())
+        dangling_sequences['pat_rev'] = str(Seq(args.danglingSequence, generic_dna).complement())
 
         sys.stderr.write("dangling sequences to check "
                          "are {}\n".format(dangling_sequences))
