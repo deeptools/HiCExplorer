@@ -11,7 +11,6 @@ import shutil
 import pysam
 
 from six.moves import xrange
-from past.builtins import zip
 from future.utils import listitems
 
 from ctypes import Structure, c_uint, c_ushort
@@ -369,7 +368,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
                      "restriction sites is {}\nMax "
                      "distance: {}\n".format(min_distance, max_distance))
 
-    chrom, start, end = zip(*rf_cut_intervals)
+    chrom, start, end = list(zip(*rf_cut_intervals))
     rest_site_len = end[0] - start[0]
 
     # find sites that are less than min_distance apart
@@ -422,7 +421,7 @@ def get_chrom_sizes(bam_handle):
     [('chr1', 2343434), ('chr2', 43432432)]
 
     >>> test = Tester()
-    >>> sorted(get_chrom_sizes(pysam.Samfile(test.bam_file_1, 'rb')))
+    >>> get_chrom_sizes(pysam.Samfile(test.bam_file_1, 'rb'))
     [('contig-1', 7125), ('contig-2', 3345)]
     """
 
@@ -431,7 +430,7 @@ def get_chrom_sizes(bam_handle):
     # then to list.
     list_chrom_sizes = dict(zip(bam_handle.references,
                                 bam_handle.lengths))
-    return listitems(list_chrom_sizes)
+    return sorted(listitems(list_chrom_sizes))
 
 
 def check_dangling_end(read, dangling_sequences):
@@ -1076,7 +1075,7 @@ def main(args=None):
 
         number_of_elements_coverage += (end - start) // binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
-    pos_coverage = RawArray(C_Coverage, zip(start_pos_coverage, end_pos_coverage))
+    pos_coverage = RawArray(C_Coverage, list(zip(start_pos_coverage, end_pos_coverage)))
     start_pos_coverage = None
     end_pos_coverage = None
     coverage = Array(c_uint, number_of_elements_coverage)
@@ -1281,8 +1280,8 @@ def main(args=None):
         else:
             bin_max.append(max_element)
 
-    chr_name_list, start_list, end_list = zip(*bin_intervals)
-    bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
+    chr_name_list, start_list, end_list = list(zip(*bin_intervals))
+    bin_intervals = list(zip(chr_name_list, start_list, end_list, bin_max))
     hic_ma = hm.hiCMatrix()
     hic_ma.setMatrix(hic_matrix, cut_intervals=bin_intervals)
 

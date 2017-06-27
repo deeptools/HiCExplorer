@@ -22,6 +22,7 @@ def test_build_matrix():
 
     test = hm.hiCMatrix(ROOT + "small_test_matrix.h5")
     new = hm.hiCMatrix(outfile.name)
+    import pdb;pdb.set_trace()
     nt.assert_equal(test.matrix.data, new.matrix.data)
     assert test.cut_intervals == new.cut_intervals
 
