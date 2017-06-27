@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import os
+import os, sys
 import errno
 import matplotlib
 matplotlib.use('Agg')
@@ -73,7 +73,7 @@ def make_figure_pairs_considered(table, filename):
     ax.set_ylabel("")
     ax.set_xlabel("Number of reads")
     plt.tight_layout()
-    plt.savefig(filename)
+    plt.savefig(filename, dpi=200)
 
 
 def make_figure_pairs_used(table, filename):
@@ -90,13 +90,13 @@ def make_figure_pairs_used(table, filename):
     handles, labels = ax.get_legend_handles_labels()
     lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_ylabel("fraction")
-    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
 
 
 def make_figure_distance(table, filename):
 
     prc_table2 = table[['inter chromosomal', 'short range < 20kb', 'long range']].T / table['Pairs used']
-    fig = plt.figure(figsize=(4, 5))
+    fig = plt.figure(figsize=(5, 4))
     ax = fig.add_subplot(111)
     prc_table2.plot.bar(ax=ax)
     labels = ax.get_xticklabels()
@@ -105,7 +105,7 @@ def make_figure_distance(table, filename):
     lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_ylabel("fraction")
 
-    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
 
 
 def make_figure_read_orientation(table, filename):
@@ -117,7 +117,7 @@ def make_figure_read_orientation(table, filename):
     handles, labels = ax.get_legend_handles_labels()
     lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_ylabel("fraction")
-    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
 
 
 def main(args=None):
@@ -158,6 +158,7 @@ def main(args=None):
     make_sure_path_exists(args.outputFolder)
     for fh in args.logfiles:
         in_log_part = False
+        sys.stderr.write('Processing {}\n'.format(fh.name))
         for line in fh.readlines():
             if line.startswith("File"):
                 in_log_part = True
@@ -178,7 +179,12 @@ def main(args=None):
     import pandas as pd
     table = pd.DataFrame(params)
     if args.labels and len(args.labels) == len(args.logfiles):
-            table['Labels'] = args.labels
+            try:
+                table['Labels'] = args.labels
+            except ValueError:
+                exit("*ERROR* Some log files may not be valid. Please check that the log files contain "
+                     "at the end the summary information.")
+
             table = table.set_index('Labels')
     else:
         table = table.set_index('File')
