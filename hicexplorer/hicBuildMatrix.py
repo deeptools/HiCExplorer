@@ -450,12 +450,14 @@ def check_dangling_end(read, dangling_sequences):
     ds = dangling_sequences
     # skip forward read that stars with the restriction sequence
     if not read.is_reverse and \
-            read.seq.upper()[0:len(ds['pat_forw'])] == ds['pat_forw']:
+            read.seq.upper().starswidth(ds['pat_forw']):
+            # read.seq.upper()[0:len(ds['pat_forw'])] == ds['pat_forw']:
         return True
 
     # skip reverse read that ends with the restriction sequence
     if read.is_reverse and \
-            read.seq.upper()[-len(ds['pat_rev']):] == ds['pat_rev']:
+            read.seq.upper().endswidth(ds['pat_rev']):
+            # read.seq.upper()[-len(ds['pat_rev']):] == ds['pat_rev']:
         return True
 
     return False
@@ -1064,7 +1066,7 @@ def main(args=None):
         args.restrictionSequence = args.restrictionSequence.upper()
         args.danglingSequence = args.danglingSequence.upper()
         dangling_sequences['pat_forw'] = args.danglingSequence
-        dangling_sequences['pat_rev'] = str(Seq(args.danglingSequence, generic_dna).complement())
+        dangling_sequences['pat_rev'] = str(Seq(args.danglingSequence, generic_dna).reverse_complement())
 
         sys.stderr.write("dangling sequences to check "
                          "are {}\n".format(dangling_sequences))
