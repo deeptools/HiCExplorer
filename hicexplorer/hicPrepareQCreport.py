@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import os, sys
+import os
+import sys
 import errno
 import matplotlib
 matplotlib.use('Agg')
