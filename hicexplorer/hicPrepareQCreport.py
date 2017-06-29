@@ -3,7 +3,8 @@
 from __future__ import division
 
 import argparse
-import os, sys
+import os
+import sys
 import errno
 import matplotlib
 matplotlib.use('Agg')
