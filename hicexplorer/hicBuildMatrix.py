@@ -9,6 +9,7 @@ from os import unlink
 import os
 import shutil
 import pysam
+from collections import OrderedDict
 
 from six.moves import xrange
 from future.utils import listitems
@@ -435,9 +436,9 @@ def get_chrom_sizes(bam_handle):
     # in some cases there are repeated entries in
     # the bam file. Thus, I first convert to dict,
     # then to list.
-    list_chrom_sizes = dict(zip(bam_handle.references,
-                                bam_handle.lengths))
-    return sorted(listitems(list_chrom_sizes))
+    list_chrom_sizes = OrderedDict(zip(bam_handle.references,
+                                       bam_handle.lengths))
+    return listitems(list_chrom_sizes)
 
 
 def check_dangling_end(read, dangling_sequences):
@@ -450,13 +451,13 @@ def check_dangling_end(read, dangling_sequences):
     ds = dangling_sequences
     # skip forward read that stars with the restriction sequence
     if not read.is_reverse and \
-            read.seq.upper().starswidth(ds['pat_forw']):
+            read.seq.upper().startswith(ds['pat_forw']):
             # read.seq.upper()[0:len(ds['pat_forw'])] == ds['pat_forw']:
         return True
 
     # skip reverse read that ends with the restriction sequence
     if read.is_reverse and \
-            read.seq.upper().endswidth(ds['pat_rev']):
+            read.seq.upper().endswith(ds['pat_rev']):
             # read.seq.upper()[-len(ds['pat_rev']):] == ds['pat_rev']:
         return True
 
@@ -678,7 +679,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
     return buffer_mate1, buffer_mate2, False, duplicated_pairs, one_mate_unmapped, one_mate_not_unique, one_mate_low_quality, iter_num - len(buffer_mate1)
 
 
-def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
+def process_data(pMateBuffer1, pMateBuffer2,
                  pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pRfPositions, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex,
@@ -694,7 +695,6 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     ----------
     pMateBuffer1 : List of n reads of type 'pysam.libcalignedsegment.AlignedSegment' of sam input file 1
     pMateBuffer2 : List of n reads of type 'pysam.libcalignedsegment.AlignedSegment' of sam input file 2
-    pMinMappingQuality : integer, minimum mapping quality of a read
     pRemoveSelfCircles : boolean, if self circles should be removed
     pRestrictionSequence : String, the restriction sequence
     pRemoveSelfLigation : If self ligations should be removed
@@ -1087,12 +1087,12 @@ def main(args=None):
         number_of_elements_coverage += (end - start) // binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
     pos_coverage = RawArray(C_Coverage, list(zip(start_pos_coverage, end_pos_coverage)))
-    start_pos_coverage = None
-    end_pos_coverage = None
-    coverage = Array(c_uint, number_of_elements_coverage)
+    # start_pos_coverage = None
+    # end_pos_coverage = None
+    coverage = Array(c_uint, range(number_of_elements_coverage))
 
     # define global shared ctypes arrays for row, col and data
-    args.threads = args.threads - 2
+    args.threads -= 2
     row = [None] * args.threads
     col = [None] * args.threads
     data = [None] * args.threads
@@ -1104,8 +1104,8 @@ def main(args=None):
     start_time = time.time()
 
     iter_num = 0
-    pair_added = 0
-    hic_matrix = None
+    # pair_added = 0
+    # hic_matrix = None
 
     one_mate_unmapped = 0
     one_mate_low_quality = 0
@@ -1173,7 +1173,6 @@ def main(args=None):
                 process[i] = Process(target=process_data, kwargs=dict(
                     pMateBuffer1=buffer_workers1[i],
                     pMateBuffer2=buffer_workers2[i],
-                    pMinMappingQuality=args.minMappingQuality,
                     pRemoveSelfCircles=args.removeSelfCircles,
                     pRestrictionSequence=args.restrictionSequence,
                     pRemoveSelfLigation=args.removeSelfLigation,
