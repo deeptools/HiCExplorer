@@ -61,7 +61,10 @@ def test_convert_to_zscore_matrix():
         for _j in range(mat.shape[0]):
             if _j >= _i:
                 diag = _j - _i
-                zscore = (mat[_i, _j] - mu[diag]) / std[diag]
+                if std[diag] == 0:
+                    zscore = np.nan
+                else:
+                    zscore = (mat[_i, _j] - mu[diag]) / std[diag]
                 zscore_mat[_i, _j] = zscore
 
     # make Hi-C matrix based on test matrix
