@@ -449,6 +449,9 @@ def check_dangling_end(read, dangling_sequences):
     read ends with the dangling sequence.
     """
     ds = dangling_sequences
+    # check if keys are existing, return false otherwise
+    if not 'pat_forw' in ds or not 'pat_rev' in ds:
+        return False
     # skip forward read that stars with the restriction sequence
     if not read.is_reverse and \
             read.seq.upper().startswith(ds['pat_forw']):
@@ -1087,9 +1090,7 @@ def main(args=None):
         number_of_elements_coverage += (end - start) // binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
     pos_coverage = RawArray(C_Coverage, list(zip(start_pos_coverage, end_pos_coverage)))
-    # start_pos_coverage = None
-    # end_pos_coverage = None
-    coverage = Array(c_uint, range(number_of_elements_coverage))
+    coverage = Array(c_uint, [0] * number_of_elements_coverage)
 
     # define global shared ctypes arrays for row, col and data
     args.threads -= 2
@@ -1289,7 +1290,7 @@ def main(args=None):
             bin_max.append(np.nan)
         else:
             bin_max.append(max_element)
-
+    
     chr_name_list, start_list, end_list = list(zip(*bin_intervals))
     bin_intervals = list(zip(chr_name_list, start_list, end_list, bin_max))
     hic_ma = hm.hiCMatrix()
