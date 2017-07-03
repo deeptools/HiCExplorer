@@ -33,17 +33,17 @@ def test_build_matrix():
                                                                                        qc_folder).split()
     hicBuildMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "small_test_matrix.h5")
+    test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
     new = hm.hiCMatrix(outfile.name)
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
-
+    # print("MATRIX NAME:", outfile.name)
     print(set(os.listdir(ROOT + "QC/")))
     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
     # using galaxy wrapper test case
-    test_size = os.path.getsize(ROOT + "small_test_matrix.h5")
+    test_size = os.path.getsize(ROOT + "small_test_matrix_parallel.h5")
     new_size = os.path.getsize(outfile.name)
 
     assert abs(test_size - new_size) < 30000
@@ -65,8 +65,10 @@ def test_build_matrix_rf():
                                        qc_folder).split()
     hicBuildMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix.h5")
+    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix_parallel.h5")
     new = hm.hiCMatrix(outfile.name)
+    # print("MATRIX NAME RF:", outfile.name)
+    
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
