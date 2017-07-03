@@ -7,6 +7,7 @@ import os
 import sys
 import errno
 import matplotlib
+import pandas as pd
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from hicexplorer._version import __version__
@@ -178,7 +179,6 @@ def main(args=None):
                 except ValueError:
                     params[fields[0]].append(fields[1])
 
-    import pandas as pd
     table = pd.DataFrame(params)
     if args.labels and len(args.labels) == len(args.logfiles):
             try:
