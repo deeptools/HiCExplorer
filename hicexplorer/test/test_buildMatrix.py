@@ -51,6 +51,7 @@ def test_build_matrix():
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
 
+
 def test_build_matrix_rf():
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()
