@@ -450,7 +450,7 @@ def check_dangling_end(read, dangling_sequences):
     """
     ds = dangling_sequences
     # check if keys are existing, return false otherwise
-    if not 'pat_forw' in ds or not 'pat_rev' in ds:
+    if 'pat_forw' not in ds or 'pat_rev' not in ds:
         return False
     # skip forward read that stars with the restriction sequence
     if not read.is_reverse and \
@@ -924,7 +924,7 @@ def process_data(pMateBuffer1, pMateBuffer2,
             vec_start = int(max(0, mate.pos - mate_bin.begin) / pBinsize)
             length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
             vec_end = min(length_coverage, int(vec_start +
-                          len(mate.seq) / pBinsize))
+                                               len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
             for i in xrange(coverage_index, coverage_end, 1):
@@ -1290,7 +1290,7 @@ def main(args=None):
             bin_max.append(np.nan)
         else:
             bin_max.append(max_element)
-    
+
     chr_name_list, start_list, end_list = list(zip(*bin_intervals))
     bin_intervals = list(zip(chr_name_list, start_list, end_list, bin_max))
     hic_ma = hm.hiCMatrix()

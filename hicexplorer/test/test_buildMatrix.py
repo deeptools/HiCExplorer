@@ -68,7 +68,7 @@ def test_build_matrix_rf():
     test = hm.hiCMatrix(ROOT + "small_test_rf_matrix_parallel.h5")
     new = hm.hiCMatrix(outfile.name)
     # print("MATRIX NAME RF:", outfile.name)
-    
+
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
 

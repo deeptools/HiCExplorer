@@ -45,7 +45,7 @@ class TestPlottingPrograms(object):
                "--outFileName  {1}".format(ROOT, outfile.name).split()
         hicexplorer.hicPlotTADs.main(args)
 
-        # it is more or less impossible to have a identical file with matplotlib and svg graphics. 
+        # it is more or less impossible to have a identical file with matplotlib and svg graphics.
         # for this reason I adopt the test case from galaxy and check only for the file size +/- 100kb
         test_size = os.path.getsize(ROOT + '/master_TADs_plot.svg')
         new_size = os.path.getsize(outfile.name)
@@ -63,7 +63,7 @@ class TestPlottingPrograms(object):
                "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
         hicexplorer.hicPlotMatrix.main(args)
 
-        # it is more or less impossible to have a identical file with matplotlib and svg graphics. 
+        # it is more or less impossible to have a identical file with matplotlib and svg graphics.
         # for this reason I adopt the test case from galaxy and check only for the file size +/- 100kb
         test_size = os.path.getsize(ROOT + '/master_matrix_plot.svg')
         new_size = os.path.getsize(outfile.name)
