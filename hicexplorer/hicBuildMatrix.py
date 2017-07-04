@@ -337,6 +337,8 @@ def bed2interval_list(bed_file_handler):
         fields = line.strip().split()
         try:
             chrom, start, end = fields[0], int(fields[1]), int(fields[2])
+            if type(chrom) is bytes or type(chrom) is np.bytes_:
+                chrom = chrom.decode('utf-8')
         except IndexError:
             sys.stderr.write("error reading BED file at line {}".format(count))
 
@@ -377,6 +379,9 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
                      "distance: {}\n".format(min_distance, max_distance))
 
     chrom, start, end = list(zip(*rf_cut_intervals))
+    for i in range(len(chrom)):
+        if type(chrom[i]) is bytes or type(chrom[i]) is np.bytes_:
+            chrom[i] = chrom[i].decode('utf-8')
     rest_site_len = end[0] - start[0]
 
     # find sites that are less than min_distance apart
@@ -563,7 +568,11 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     chrom_sizes_dict = dict(chrom_sizes)
     for idx in xrange(len(bin_intervals) - 1):
         chrom, start, end = bin_intervals[idx]
+        if type(chrom) is bytes or type(chrom) is np.bytes_:
+            chrom = chrom.decode('utf-8')
         chrom_next, start_next, end_next = bin_intervals[idx + 1]
+        if type(chrom_next) is bytes or type(chrom_next) is np.bytes_:
+            chrom_next = chrom_next.decode('utf-8')
         if chr_start is True:
             start = 0
             chr_start = False
