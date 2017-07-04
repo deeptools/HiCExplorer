@@ -36,8 +36,8 @@ before_install:
 
 # Install packages
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=2.0.0 flake8 biopython pandas=0.19.2 future six
-  - conda install --yes -c bioconda pysam intervaltree pytables pybigwig
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION flake8 pytest
+  - conda install --yes -c bioconda --file requirements.txt
   - python setup.py install
 
 # command to run tests
@@ -48,6 +48,3 @@ script:
   - cd ${owd}
   - echo ${owd}
   - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then bash .planemo.sh ; fi
-  # - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.4" ]]; then sed -i s/2.7.13/3.4.5/g galaxy/wrapper/macros.xml; bash .planemo.sh ; fi
-  # - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then sed -i s/3.4.5/3.5.3/g galaxy/wrapper/macros.xml; bash .planemo.sh ; fi
-  # - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then sed -i s/3.5.3/3.6.1/g galaxy/wrapper/macros.xml; bash .planemo.sh ; fi
