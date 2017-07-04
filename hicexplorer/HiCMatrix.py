@@ -1,4 +1,5 @@
 from __future__ import division
+# from __future__ import unicode_literals
 from builtins import range
 from past.builtins import zip
 from six import iteritems
@@ -18,9 +19,12 @@ from intervaltree import IntervalTree, Interval
 import gzip
 
 import warnings
+# import warnings
+# warnings.filterwarnings('ignore')
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 warnings.simplefilter(action='ignore', category=ImportWarning)
+warnings.simplefilter(action='ignore', category=tables.exceptions.FlavorWarning)
 # try to import pandas if exists
 try:
     import pandas as pd
@@ -91,6 +95,12 @@ class hiCMatrix:
             else:
                 exit("matrix format not known.")
 
+            cut_intervals, intvals_start, intvals_end, intvals_extra = zip(*self.cut_intervals)
+            cut_intervals_corrected = [None] * len(cut_intervals)
+            for i in range(len(cut_intervals)):
+                if type(cut_intervals[i]) is bytes or type(cut_intervals[i]) is np.bytes_:
+                    cut_intervals_corrected[i] = cut_intervals[i].decode('utf-8')
+            self.cut_intervals = zip(cut_intervals_corrected, intvals_start, intvals_end, intvals_extra)       
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
 
@@ -278,7 +288,7 @@ class hiCMatrix:
         self.header = []
         try:
             for line in gzip.open(fileName, 'r').readlines():
-                if line.startswith("#"):
+                if line.startswith(b"#"):
                     self.header.append(line)
                     continue
                 i += 1
@@ -633,6 +643,9 @@ class hiCMatrix:
         chrom_range = OrderedDict()
         if perchr:
             for chrname in self.getChrNames():
+                if type(chrname) is bytes or type(chrname) is np.bytes_:
+                    chrname = chrname.decode('utf-8')
+                # print("chrname", chrname)
                 chr_range = self.getChrBinRange(chrname)
                 chr_submatrix[chrname] = self.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]].tocoo()
                 cut_intervals[chrname] = [self.cut_intervals[x] for x in range(chr_range[0], chr_range[1])]
@@ -1632,7 +1645,10 @@ class hiCMatrix:
         chrom_sizes = OrderedDict()
         for chrom, (start_bin, end_bin) in iteritems(self.chrBinBoundaries):
             chrom, start, end, _ = self.cut_intervals[end_bin - 1]
+            if type(chrom) is bytes or type(chrom) is np.bytes_:
+                chrom = chrom.decode("utf-8")
             chrom_sizes[chrom] = end
+            
         return chrom_sizes
 
     @staticmethod
@@ -1666,7 +1682,8 @@ class hiCMatrix:
             cut_int_tree[chrom].add(Interval(start, end, intval_id))
 
             intval_id += 1
-
+        if type(chrom) is bytes or type(chrom) is np.bytes_:
+            chrom = chrom.decode("utf-8")    
         chrbin_boundaries[chrom] = (chr_start_id, intval_id)
 
         return cut_int_tree, chrbin_boundaries
