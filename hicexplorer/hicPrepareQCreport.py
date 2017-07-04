@@ -45,12 +45,13 @@ def parse_arguments():
 def save_html(filename, html_table):
     root = os.path.dirname(os.path.abspath(__file__))
 
-    html = open(os.path.join(root, "qc_template.html"), "r").read()
+    html = open(os.path.join(root, "qc_template.html"), "r")
+    html_content = html.read()
     # the html code has a placeholder for the html table
-    html = html.replace("%%TABLE%%", html_table)
+    html_content = html_content.replace("%%TABLE%%", html_table)
     with open(filename, 'w') as fh:
-        fh.write(html)
-
+        fh.write(html_content)
+    html.close()
 
 def make_sure_path_exists(path):
     try:
