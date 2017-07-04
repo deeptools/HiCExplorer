@@ -19,6 +19,8 @@ from imp import reload
 from past.builtins import map
 from past.builtins import zip
 
+from . readBed import ReadBed
+
 import warnings
 warnings.filterwarnings('error')
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -99,7 +101,7 @@ class PlotTracks(object):
             #         spacer_in_keys = True
             #         break
             # if spacer_in_keys:
-            print("properties: ", properties)
+            # print("properties: ", properties)
             if 'spacer' in properties:
                 self.track_obj_list.append(PlotSpacer(properties))
                 continue
@@ -131,9 +133,16 @@ class PlotTracks(object):
                 # adjust titles that are too long
                 # if the track label space is small
                 if track_label_width < 0.1:
-                    properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 12)
+                    if sys.version_info[0] == 2:
+                        properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 12)
+                    else:
+                        properties['title'] = textwrap.fill(properties['title'], 12)
                 else:
-                    properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 50)
+                    if sys.version_info[0] == 2: 
+                        properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 50)
+                    else:
+                        properties['title'] = textwrap.fill(properties['title'], 50)
+                    
 
         print("time initializing track(s):")
         self.print_elapsed(start)
@@ -181,6 +190,8 @@ class PlotTracks(object):
         return track_height
 
     def plot(self, file_name, chrom, start, end, title=None):
+        if type(chrom) is bytes:
+            chrom = chrom.decode('utf-8')
         track_height = self.get_tracks_height(start, end)
 
         if self.fig_height:
@@ -396,7 +407,9 @@ def opener(filename):
     """
     import gzip
     f = open(filename, 'rb')
-    if f.read(2) == '\x1f\x8b':
+    # print("gzip or not?", f.read(2))
+    f.seek(0)    
+    if f.read(2) == b'\x1f\x8b':
         f.seek(0)
         return gzip.GzipFile(fileobj=f)
     else:
@@ -426,9 +439,10 @@ def file_to_intervaltree(file_name):
 
     for line in file_h.readlines():
         line_number += 1
-        if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
+        if line.startswith(b'browser') or line.startswith(b'track') or line.startswith(b'#'):
             continue
-        fields = line.strip().split('\t')
+        fields = line.strip().split(b'\t')
+        # print("fields: ", fields[0:3], type(fields))
         try:
             chrom, start, end = fields[0:3]
         except Exception as detail:
@@ -458,7 +472,7 @@ def file_to_intervaltree(file_name):
 
         value = None
 
-        if fields > 3:
+        if len(fields) > 3:
             value = fields[3:]
             try:
                 line_min = min(map(float, value))
@@ -865,15 +879,22 @@ class PlotHiCMatrix(TrackPlot):
             self.boundaries_obj = PlotBoundaries({'file': self.properties['boundaries_file']})
 
     def plot(self, ax, label_ax, chrom, region_start, region_end):
+        if type(chrom) is bytes or type(chrom) is np.bytes_:
+            chrom = chrom.decode('utf-8')
         import copy
         self.cbar_ax = copy.copy(label_ax)
         self.label_ax = label_ax
         self.label_ax.set_axis_off()
         self.ax = ax
 
+        # print("chrom: ", chrom)
         chrom_sizes = self.hic_ma.get_chromosome_sizes()
+        # print("chrom_sizes", chrom_sizes)
+        
+        
         if chrom not in list(chrom_sizes):
             chrom = change_chrom_names(chrom)
+            
         if region_end > chrom_sizes[chrom]:
             sys.stderr.write("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
             sys.stderr.write("{} size: {}. Region to plot {}-{}\n".format(chrom, chrom_sizes[chrom],
@@ -884,15 +905,20 @@ class PlotHiCMatrix(TrackPlot):
 
         # get bin id of start and end of region in given chromosome
         chr_start_id, chr_end_id = self.hic_ma.getChrBinRange(chrom)
+        # print ("self.hic_ma.getChrBinRange(chrom)", self.hic_ma.getChrBinRange(chrom))
+        # print("self.hic_ma.cut_intervals", self.hic_ma.cut_intervals)
         chr_start = self.hic_ma.cut_intervals[chr_start_id][1]
         chr_end = self.hic_ma.cut_intervals[chr_end_id - 1][1]
         start_bp = max(chr_start, region_start - self.properties['depth'])
         end_bp = min(chr_end, region_end + self.properties['depth'])
 
+        # if len(self.hic_ma.cut_intervals) > 1 and type(self.hic_ma.cut_intervals[0][0]) is not bytes:
+        # chrom_name = chrom.encode('utf-8')
+        
         idx, start_pos = zip(*[(idx, x[1]) for idx, x in
                                enumerate(self.hic_ma.cut_intervals)
                                if x[0] == chrom and x[1] >= start_bp and x[2] <= end_bp])
-
+        
         idx = idx[0:-1]
         # select only relevant matrix part
         matrix = self.hic_ma.matrix[idx, :][:, idx]
@@ -1250,9 +1276,9 @@ class PlotBed(TrackPlot):
         else:
             self.len_w = 1
 
-        import readBed
+       
 
-        bed_file_h = readBed.ReadBed(opener(self.properties['file']))
+        bed_file_h = ReadBed(opener(self.properties['file']))
         self.bed_type = bed_file_h.file_type
         valid_intervals = 0
         self.max_num_row = {}
