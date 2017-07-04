@@ -44,7 +44,7 @@ install:
 script:
   - flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712
   - export owd=`pwd`
-  - cd ~/ && py.test hicexplorer --doctest-modules
+  - py.test hicexplorer --doctest-modules
   - cd ${owd}
   - echo ${owd}
   - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then bash .planemo.sh ; fi
