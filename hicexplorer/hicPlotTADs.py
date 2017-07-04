@@ -292,8 +292,24 @@ def get_region(region_string):
     The region_string format is chr:start-end
     """
     if region_string:
-        region_string = region_string.translate(
+
+        if sys.version_info[0] == 2:
+            region_string = region_string.translate(
             None, ",.;|!{}()").replace("-", ":")
+        if sys.version_info[0] == 3:
+            region_string = region_string.replace(",", "")
+            region_string = region_string.replace(".", "")
+            region_string = region_string.replace(";", "")
+            region_string = region_string.replace("|", "")
+            region_string = region_string.replace("!", "")
+            region_string = region_string.replace("{", "")
+            region_string = region_string.replace("}", "")
+            region_string = region_string.replace("(", "")
+            region_string = region_string.replace(")", "")
+            region_string = region_string.replace("-", ":")
+            
+        # region_string = region_string.translate(
+        #     None, ",.;|!{}()").replace("-", ":")
         region = region_string.split(":")
         chrom = region[0]
         try:
