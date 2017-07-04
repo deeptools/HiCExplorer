@@ -115,7 +115,7 @@ setup(
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Bio-Informatics'],
     install_requires=[
-        "numpy >= 1.13.0",
+        "numpy >= 1.12.1",
         "scipy >= 0.19.0",
         "matplotlib >= 2.0.0",
         "pysam >= 0.11.2.2",
