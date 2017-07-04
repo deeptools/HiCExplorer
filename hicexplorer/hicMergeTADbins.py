@@ -98,7 +98,7 @@ def get_boundary_bin_id(hic, bed_fh):
     boundaries = set()
     for line in bed_fh.readlines():
         line_number += 1
-        if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
+        if line.startswith(b'browser') or line.startswith(b'track') or line.startswith(b'#'):
             continue
         try:
             chrom, start, end = line.strip().split('\t')[0:3]
