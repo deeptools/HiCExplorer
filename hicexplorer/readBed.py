@@ -28,7 +28,7 @@ class ReadBed(object):
         self.file_handle = file_handle
         self.line_number = 0
         # guess file type
-        fields = self.get_no_comment_line().split('\t')
+        fields = self.get_no_comment_line().split(b'\t')
         self.guess_file_type(fields)
         self.file_handle.seek(0)
         self.prev_chrom = None
@@ -59,8 +59,8 @@ class ReadBed(object):
         :return:
         """
         line = next(self.file_handle)
-        if line.startswith("#") or line.startswith("track") or \
-           line.startswith("browser") or line.strip() == '':
+        if line.startswith(b"#") or line.startswith(b"track") or \
+           line.startswith(b"browser") or line.strip() == '':
             line = self.get_no_comment_line()
 
         self.line_number += 1
