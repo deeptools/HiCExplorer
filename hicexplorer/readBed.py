@@ -28,7 +28,7 @@ class ReadBed(object):
         self.file_handle = file_handle
         self.line_number = 0
         # guess file type
-        fields = self.get_no_comment_line().split('\t')
+        fields = self.get_no_comment_line().split(b'\t')
         self.guess_file_type(fields)
         self.file_handle.seek(0)
         self.prev_chrom = None
@@ -91,6 +91,25 @@ class ReadBed(object):
         return self.file_type
 
     def next(self):
+        """
+        :return: bedInterval object
+        """
+        line = self.get_no_comment_line()
+
+        bed = self.get_bed_interval(line)
+        if self.prev_chrom == bed.chromosome:
+            assert self.prev_start <= bed.start, \
+                "Bed file not sorted. Please use a sorted bed file.\n" \
+                "File: {}\n" \
+                "Previous line: {}\n Current line{} ".format(self.file_handle.name, self.prev_line, line)
+
+        self.prev_chrom = bed.chromosome
+        self.prev_start = bed.start
+        self.prev_line = line
+
+        return bed
+
+    def __next__(self):
         """
         :return: bedInterval object
         """
