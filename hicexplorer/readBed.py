@@ -1,5 +1,5 @@
 from __future__ import division
-
+from past.builtins import basestring
 import sys
 import collections
 from past.builtins import map
@@ -59,8 +59,8 @@ class ReadBed(object):
         :return:
         """
         line = next(self.file_handle)
-        if line.startswith(b"#") or line.startswith(b"track") or \
-           line.startswith(b"browser") or line.strip() == '':
+        if line.startswith("#") or line.startswith("track") or \
+           line.startswith("browser") or line.strip() == '':
             line = self.get_no_comment_line()
 
         self.line_number += 1

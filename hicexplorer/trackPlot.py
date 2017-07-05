@@ -18,7 +18,7 @@ import os.path
 from imp import reload
 from past.builtins import map
 from past.builtins import zip
-
+from past.builtins import basestring
 from . readBed import ReadBed
 
 import warnings
@@ -190,8 +190,6 @@ class PlotTracks(object):
         return track_height
 
     def plot(self, file_name, chrom, start, end, title=None):
-        if type(chrom) is bytes:
-            chrom = chrom.decode('utf-8')
         track_height = self.get_tracks_height(start, end)
 
         if self.fig_height:
@@ -879,22 +877,15 @@ class PlotHiCMatrix(TrackPlot):
             self.boundaries_obj = PlotBoundaries({'file': self.properties['boundaries_file']})
 
     def plot(self, ax, label_ax, chrom, region_start, region_end):
-        if type(chrom) is bytes or type(chrom) is np.bytes_:
-            chrom = chrom.decode('utf-8')
         import copy
         self.cbar_ax = copy.copy(label_ax)
         self.label_ax = label_ax
         self.label_ax.set_axis_off()
         self.ax = ax
 
-        # print("chrom: ", chrom)
         chrom_sizes = self.hic_ma.get_chromosome_sizes()
-        # print("chrom_sizes", chrom_sizes)
-        
-        
         if chrom not in list(chrom_sizes):
             chrom = change_chrom_names(chrom)
-            
         if region_end > chrom_sizes[chrom]:
             sys.stderr.write("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
             sys.stderr.write("{} size: {}. Region to plot {}-{}\n".format(chrom, chrom_sizes[chrom],
@@ -905,15 +896,10 @@ class PlotHiCMatrix(TrackPlot):
 
         # get bin id of start and end of region in given chromosome
         chr_start_id, chr_end_id = self.hic_ma.getChrBinRange(chrom)
-        # print ("self.hic_ma.getChrBinRange(chrom)", self.hic_ma.getChrBinRange(chrom))
-        # print("self.hic_ma.cut_intervals", self.hic_ma.cut_intervals)
         chr_start = self.hic_ma.cut_intervals[chr_start_id][1]
         chr_end = self.hic_ma.cut_intervals[chr_end_id - 1][1]
         start_bp = max(chr_start, region_start - self.properties['depth'])
         end_bp = min(chr_end, region_end + self.properties['depth'])
-
-        # if len(self.hic_ma.cut_intervals) > 1 and type(self.hic_ma.cut_intervals[0][0]) is not bytes:
-        # chrom_name = chrom.encode('utf-8')
         
         idx, start_pos = zip(*[(idx, x[1]) for idx, x in
                                enumerate(self.hic_ma.cut_intervals)

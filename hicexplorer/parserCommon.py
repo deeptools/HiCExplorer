@@ -1,5 +1,5 @@
 import argparse
-
+from past.builtins import basestring
 
 def getParentArgParse(args=None):
     parser = argparse.ArgumentParser(add_help=False)

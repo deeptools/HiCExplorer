@@ -9,6 +9,7 @@ import numpy as np
 from builtins import range
 from past.builtins import zip
 from future.utils import itervalues
+from past.builtins import basestring
 
 import argparse
 import matplotlib

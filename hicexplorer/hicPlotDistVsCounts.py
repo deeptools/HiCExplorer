@@ -10,6 +10,7 @@ import argparse
 from builtins import range
 from past.builtins import zip
 from six import iteritems
+from past.builtins import basestring
 
 from matplotlib import use as mplt_use
 from collections import OrderedDict

@@ -5,6 +5,7 @@ import numpy as np
 import scipy.stats
 import scipy.sparse
 import argparse
+from past.builtins import basestring
 from matplotlib import use as mplt_use
 mplt_use('Agg')
 
@@ -794,11 +795,7 @@ def enlarge_bins(bin_intervals):
     chr_start = True
     for idx in range(len(bin_intervals) - 1):
         chrom, start, end, extra = bin_intervals[idx]
-        if type(chrom) is bytes or type(chrom) is np.bytes_:
-            chrom = chrom.decode('utf-8')
         chrom_next, start_next, end_next, extra_next = bin_intervals[idx + 1]
-        if type(chrom_next) is bytes or type(chrom_next) is np.bytes_:
-            chrom_next = chrom_next.decode('utf-8')
 
         if chr_start is True:
             start = 0

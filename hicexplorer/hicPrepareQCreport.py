@@ -8,6 +8,7 @@ import sys
 import errno
 import matplotlib
 import pandas as pd
+from past.builtins import basestring
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from hicexplorer._version import __version__

@@ -8,7 +8,7 @@ import numpy as np
 from hicexplorer import HiCMatrix as Hm
 from past.builtins import zip
 from builtins import range
-
+from past.builtins import basestring
 
 def parse_arguments():
     parser = argparse.ArgumentParser(

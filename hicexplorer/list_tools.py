@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import division
-
+from past.builtins import basestring
 import argparse
 import sys
 from hicexplorer._version import __version__

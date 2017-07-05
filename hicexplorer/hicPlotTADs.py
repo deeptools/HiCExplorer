@@ -175,6 +175,7 @@ from __future__ import division
 import sys
 import argparse
 from past.builtins import map
+from past.builtins import basestring
 import matplotlib
 matplotlib.use('Agg')
 

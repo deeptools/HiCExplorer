@@ -1,5 +1,5 @@
 from __future__ import division
-
+from past.builtins import basestring
 import sys
 import argparse
 import numpy as np

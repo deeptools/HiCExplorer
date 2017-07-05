@@ -2,6 +2,7 @@ from __future__ import division
 
 import argparse
 import numpy as np
+from past.builtins import basestring
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 

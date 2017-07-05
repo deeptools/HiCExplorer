@@ -6,6 +6,7 @@ import os
 import numpy as np
 from builtins import range
 from past.builtins import map
+from past.builtins import basestring
 from scipy.sparse import triu
 from scipy.stats import pearsonr, spearmanr
 
