@@ -10,3 +10,7 @@ hicBuildMatrix -s small_test_R1_unsorted.bam small_test_R2_unsorted.bam -rs DpnI
  --restrictionSequence GATC --danglingSequence GATC \
  --minDistance 150  --maxDistance 1500 -o small_test_rf_matrix.h5 --QCfolder QC_rc
 
+# generate test images
+hicPlotTADs --tracks browser_tracks.ini --region chrX:3000000-3500000 --outFileName master_TADs_plot.png
+hicPlotMatrix --matrix Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 \
+ --outFileName  master_matrix_plot.png --log1p --clearMaskedBins
