@@ -39,6 +39,42 @@ file_type = bedgraph_matrix
 [spacer]
 width = 1
 
+[test bedgraph]
+file = bedgraph_chrx_2e6_5e6.bg
+color = blue
+width = 4
+title = bedgraph
+
+[test bigwig]
+file = bigwig_chrx_2e6_5e6.bw
+color = blue
+width = 4
+title = rep 1 test fill
+
+[test bigwig lines]
+file = bigwig_chrx_2e6_5e6.bw
+color = red
+width = 4
+type = line
+title = rep 1 test line
+
+[test bigwig lines]
+file = bigwig_chrx_2e6_5e6.bw
+color = red
+width = 4
+type = line:0.2
+title = rep 1 test lw=0.1
+
+[test bigwig points]
+file = bedgraph_chrx_2e6_5e6.bw
+color = black
+width = 4
+type = points:0.5
+title = rep 1 test point:0.5
+
+[spacer]
+width = 0.5
+
 [genes 2]
 file = dm3_genes.bed.gz
 width = 5
