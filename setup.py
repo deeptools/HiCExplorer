@@ -120,7 +120,7 @@ setup(
         "matplotlib >= 2.0.0",
         "pysam >= 0.11.2.2",
         "intervaltree >= 2.1.0",
-        "biopython >= 1.69",
+        "biopython >= 1.68",
         "tables >= 3.3.0",
         "pandas >= 0.20.2",
         "pyBigWig >=0.3.4",
