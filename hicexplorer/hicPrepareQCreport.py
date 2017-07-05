@@ -8,7 +8,6 @@ import sys
 import errno
 import matplotlib
 import pandas as pd
-from past.builtins import basestring
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from hicexplorer._version import __version__
@@ -53,6 +52,7 @@ def save_html(filename, html_table):
     with open(filename, 'w') as fh:
         fh.write(html_content)
     html.close()
+
 
 def make_sure_path_exists(path):
     try:
@@ -126,7 +126,6 @@ def make_figure_read_orientation(table, filename):
 
 
 def main(args=None):
-
     """
     The structure of the log file is as follows:
     --------------------------------------------
@@ -183,13 +182,13 @@ def main(args=None):
 
     table = pd.DataFrame(params)
     if args.labels and len(args.labels) == len(args.logfiles):
-            try:
-                table['Labels'] = args.labels
-            except ValueError:
-                exit("*ERROR* Some log files may not be valid. Please check that the log files contain "
-                     "at the end the summary information.")
+        try:
+            table['Labels'] = args.labels
+        except ValueError:
+            exit("*ERROR* Some log files may not be valid. Please check that the log files contain "
+                 "at the end the summary information.")
 
-            table = table.set_index('Labels')
+        table = table.set_index('Labels')
     else:
         table = table.set_index('File')
 

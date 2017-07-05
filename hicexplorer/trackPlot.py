@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
+from past.builtins import map
+from past.builtins import zip
 
 import sys
 import numpy as np
@@ -16,9 +18,6 @@ from matplotlib.patches import Rectangle
 import textwrap
 import os.path
 from imp import reload
-from past.builtins import map
-from past.builtins import zip
-from past.builtins import basestring
 from .readBed import ReadBed
 import copy
 
@@ -139,11 +138,10 @@ class PlotTracks(object):
                     else:
                         properties['title'] = textwrap.fill(properties['title'], 12)
                 else:
-                    if sys.version_info[0] == 2: 
+                    if sys.version_info[0] == 2:
                         properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 50)
                     else:
                         properties['title'] = textwrap.fill(properties['title'], 50)
-                    
 
         print("time initializing track(s):")
         self.print_elapsed(start)
@@ -249,14 +247,19 @@ class PlotTracks(object):
             line_width = self.vlines_properties['line width']
         else:
             line_width = 0.5
-        chrom_region = np.bytes_(chrom_region)
-        # print("list(self.vlines_intval_tree)", list(self.vlines_intval_tree))
-        if type(list(self.vlines_intval_tree)[0]) is not np.bytes_:
-            chrom_region = chrom_region.decode()
+        # chrom_region = np.bytes_(chrom_region)
+        if type(list(self.vlines_intval_tree)[0]) is np.bytes_:
+            chrom_region = np.bytes_(chrom_region)
+        if type(list(self.vlines_intval_tree)[0]) is bytes and type(chrom_region) is str:
+            chrom_region = chrom_region.encode()
+
         if chrom_region not in list(self.vlines_intval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            # chrom_region = np.bytes_(chrom_region)
-            
+            if type(list(self.vlines_intval_tree)[0]) is np.bytes_:
+                chrom_region = np.bytes_(chrom_region)
+            if type(list(self.vlines_intval_tree)[0]) is bytes and type(chrom_region) is not bytes:
+                chrom_region = chrom_region.encode()
+
         for region in sorted(self.vlines_intval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             vlines_list.append(region.begin)
 
@@ -413,7 +416,7 @@ def opener(filename):
     import gzip
     f = open(filename, 'rb')
     # print("gzip or not?", f.read(2))
-    f.seek(0)    
+    f.seek(0)
     if f.read(2) == b'\x1f\x8b':
         f.seek(0)
         return gzip.GzipFile(fileobj=f)
@@ -545,7 +548,7 @@ class PlotBedGraph(TrackPlot):
         pos_list = []
         chrom_region = np.bytes_(chrom_region)
         # print("list(self.interval_tree)", list(self.interval_tree))
-        if type(list(self.interval_tree)[0]) is not np.bytes_:
+        if type(list(self.interval_tree)[0]) is np.bytes_ or type(list(self.interval_tree)[0]) is bytes:
             chrom_region = chrom_region.decode()
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
@@ -616,14 +619,17 @@ class PlotBedGraphMatrix(PlotBedGraph):
 
         start_pos = []
         matrix_rows = []
-        chrom_region = np.bytes_(chrom_region)
-        # print("list(self.interval_tree)", list(self.interval_tree))
-        if type(list(self.interval_tree)[0]) is not np.bytes_:
-            chrom_region = chrom_region.decode()
+        if type(list(self.interval_tree)[0]) is np.bytes_:
+            chrom_region = np.bytes_(chrom_region)
+        if type(list(self.interval_tree)[0]) is bytes and type(chrom_region) is str:
+            chrom_region = chrom_region.encode()
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            # chrom_region = np.bytes_(chrom_region)
-            
+            if type(list(self.interval_tree)[0]) is np.bytes_:
+                chrom_region = np.bytes_(chrom_region)
+            if type(list(self.interval_tree)[0]) is bytes and type(chrom_region) is str:
+                chrom_region = chrom_region.encode()
+
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             start_pos.append(region.begin)
             values = map(float, region.data)
@@ -906,17 +912,17 @@ class PlotHiCMatrix(TrackPlot):
         chrom_sizes = self.hic_ma.get_chromosome_sizes()
         print("chrom_sizes", chrom_sizes)
         print("list(chrom_sizes)", list(chrom_sizes))
-        
-        print("type(chrom_sizes.key):", type(next(iter(chrom_sizes)) ))
+
+        print("type(chrom_sizes.key):", type(next(iter(chrom_sizes))))
         chrom = np.bytes_(chrom)
-        
+
         if chrom not in list(chrom_sizes):
             # chrom = chrom.decode()
             chrom = change_chrom_names(chrom)
             chrom = np.bytes_(chrom)
         print("chrom", chrom)
         print("type", type(chrom))
-       
+
         if region_end > chrom_sizes[chrom]:
             sys.stderr.write("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
             sys.stderr.write("{} size: {}. Region to plot {}-{}\n".format(chrom, chrom_sizes[chrom],
@@ -931,11 +937,11 @@ class PlotHiCMatrix(TrackPlot):
         chr_end = self.hic_ma.cut_intervals[chr_end_id - 1][1]
         start_bp = max(chr_start, region_start - self.properties['depth'])
         end_bp = min(chr_end, region_end + self.properties['depth'])
-        
+
         idx, start_pos = zip(*[(idx, x[1]) for idx, x in
                                enumerate(self.hic_ma.cut_intervals)
                                if x[0] == chrom and x[1] >= start_bp and x[2] <= end_bp])
-        
+
         idx = idx[0:-1]
         # select only relevant matrix part
         matrix = self.hic_ma.matrix[idx, :][:, idx]
@@ -1218,10 +1224,10 @@ class PlotBoundaries(TrackPlot):
             orig = chrom_region
             chrom_region = change_chrom_names(chrom_region)
             # chrom_region = np.bytes_(chrom_region)
-            
+
             print('changing {} to {}muuh'.format(orig, chrom_region))
         print("list(self.interval_tree)", list(self.interval_tree))
-        
+
         for region in sorted(self.interval_tree[chrom_region][start_region:end_region]):
             """
                   /\
@@ -1299,8 +1305,6 @@ class PlotBed(TrackPlot):
             print("len of w set to: {} bp".format(self.len_w))
         else:
             self.len_w = 1
-
-       
 
         bed_file_h = ReadBed(opener(self.properties['file']))
         self.bed_type = bed_file_h.file_type
@@ -1403,10 +1407,13 @@ class PlotBed(TrackPlot):
         self.small_relative = 0.004 * (end_region - start_region)
         self.process_bed(ax.get_figure().get_figwidth(), start_region, end_region)
         # chrom_region = np.bytes_(chrom_region)
-        if type(list(self.interval_tree)[0]) is not np.bytes_:
-            chrom_region = chrom_region.decode()
+        if type(list(self.interval_tree)[0]) is np.bytes_:
+            chrom_region = np.bytes_(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
+            if type(list(self.interval_tree)[0]) is np.bytes_:
+                chrom_region = np.bytes_(chrom_region)
+
             # chrom_region = np.bytes_(chrom_region)
 
         genes_overlap = sorted(self.interval_tree[chrom_region][start_region:end_region])
@@ -1800,7 +1807,7 @@ class PlotArcs(TrackPlot):
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
             # chrom_region = np.bytes_(chrom_region)
-            
+
         arcs_in_region = sorted(self.interval_tree[chrom_region][region_start:region_end])
 
         for idx, interval in enumerate(arcs_in_region):
@@ -1842,8 +1849,9 @@ def change_chrom_names(chrom):
 
     # python 2 / 3 issue with string, bytes and np.bytes_
     # if chrom.startswith('chr'):
-    chrom = chrom.decode()
-    if chrom[0] == 'c' and chrom[1] == 'h' and chrom[2] == 'r':
+    if type(chrom) is bytes or type(chrom) is np.bytes_:
+        chrom = chrom.decode()
+    if chrom.startswith('chr'):
         # remove the chr part from chromosome name
         chrom = chrom[3:]
     else:

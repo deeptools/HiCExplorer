@@ -7,7 +7,7 @@ import subprocess
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
-from past.builtins import basestring
+
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(description='Identifies the genomic locations of restriction sites. ',

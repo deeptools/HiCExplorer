@@ -1,8 +1,8 @@
 from __future__ import division
-from past.builtins import basestring
 import sys
 import collections
 from past.builtins import map
+import numpy as np
 
 
 class ReadBed(object):
@@ -28,7 +28,12 @@ class ReadBed(object):
         self.file_handle = file_handle
         self.line_number = 0
         # guess file type
-        fields = self.get_no_comment_line().split(b'\t')
+        fields = self.get_no_comment_line()
+        if type(fields) is bytes or type(fields) is np.bytes_:
+            fields = fields.split(b'\t')
+        else:
+            fields = fields.split('\t')
+
         self.guess_file_type(fields)
         self.file_handle.seek(0)
         self.prev_chrom = None
@@ -59,9 +64,14 @@ class ReadBed(object):
         :return:
         """
         line = next(self.file_handle)
-        if line.startswith("#") or line.startswith("track") or \
-           line.startswith("browser") or line.strip() == '':
-            line = self.get_no_comment_line()
+        if type(line) is bytes or type(line) is np.bytes_:
+            if line.startswith(b"#") or line.startswith(b"track") or \
+                    line.startswith(b"browser") or line.strip() == '':
+                line = self.get_no_comment_line()
+        else:
+            if line.startswith("#") or line.startswith("track") or \
+                    line.startswith("browser") or line.strip() == '':
+                line = self.get_no_comment_line()
 
         self.line_number += 1
         return line
@@ -151,7 +161,15 @@ class ReadBed(object):
         BedInterval(chromosome='chr2', start=0, end=1000, name='gene_1', score=0.5, strand='-')
         """
 
-        line_data = bed_line.strip().split("\t")
+        line_data = bed_line.strip()
+        if sys.version_info[0] == 3:
+            if type(line_data) is bytes or type(line_data) is np.bytes_:
+                line_data = line_data.decode()
+            # line_data = line_data.split(b"\t")
+
+        # else:
+        line_data = line_data.split("\t")
+
         if self.file_handle == 'bed12':
             assert len(line_data) == 12, "File type detected is bed12 but line {}: {} does " \
                                          "not have 12 fields.".format(self.line_number, bed_line)
@@ -194,7 +212,13 @@ class ReadBed(object):
                     return dict()
             # check item rgb
             elif idx == 8:
+                if sys.version_info[0] == 3:
+                    if type(r) is bytes or type(r) is np.bytes_:
+                        r = r.decode()
+                    # rgb = r.split(b",")
+                # else:
                 rgb = r.split(",")
+
                 if len(rgb) == 3:
                     try:
                         r = map(int, rgb)
@@ -205,7 +229,13 @@ class ReadBed(object):
 
             elif idx in [10, 11]:
                 # this are the block sizes and block start positions
+                if sys.version_info[0] == 3:
+                    if type(r) is bytes or type(r) is np.bytes_:
+                        r = r.decode()
+                    # r_parts = r.split(b',')
+                # else:
                 r_parts = r.split(',')
+
                 try:
                     r = [int(x) for x in r_parts if x != '']
                 except ValueError as detail:

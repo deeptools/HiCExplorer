@@ -13,7 +13,6 @@ from collections import OrderedDict
 
 from six.moves import xrange
 from future.utils import listitems
-from past.builtins import basestring
 
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue

@@ -3,7 +3,6 @@ from __future__ import division
 from builtins import range
 from past.builtins import zip
 from six import iteritems
-from past.builtins import basestring
 
 import numpy as np
 import sys

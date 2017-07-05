@@ -19,7 +19,6 @@ from past.builtins import zip
 from six import iteritems
 from builtins import range
 from past.builtins import map
-from past.builtins import basestring
 
 logging.basicConfig()
 log = logging.getLogger("hicFindTADs")

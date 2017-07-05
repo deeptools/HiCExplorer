@@ -1,5 +1,4 @@
 from __future__ import division
-from past.builtins import basestring
 import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__

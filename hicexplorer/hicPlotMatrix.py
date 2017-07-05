@@ -9,7 +9,6 @@ import numpy as np
 from builtins import range
 from past.builtins import zip
 from future.utils import itervalues
-from past.builtins import basestring
 
 import argparse
 import matplotlib
@@ -139,6 +138,8 @@ def change_chrom_names(chrom):
     and vice versa.
     """
     # TODO: mapping from chromosome names like mithocondria is missing
+    if type(chrom) is bytes or type(chrom) is np.bytes_:
+        chrom = chrom.decode()
     if chrom.startswith('chr'):
         # remove the chr part from chromosome name
         chrom = chrom[3:]
@@ -427,8 +428,17 @@ def main(args=None):
     sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
     if args.region:
         chrom, region_start, region_end = translate_region(args.region)
+        if type(list(ma.interval_trees)[0]) is np.bytes_:
+            chrom = np.bytes_(chrom)
+        if type(list(ma.interval_trees)[0]) is bytes and type(chrom) is str:
+            chrom = chrom.encode()
+
         if chrom not in list(ma.interval_trees):
             chrom = change_chrom_names(chrom)
+            if type(list(ma.interval_trees)[0]) is np.bytes_:
+                chrom = np.bytes_(chrom)
+            if type(list(ma.interval_trees)[0]) is bytes and type(chrom) is str:
+                chrom = chrom.encode()
             if chrom not in list(ma.interval_trees):
                 exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 
@@ -437,8 +447,16 @@ def main(args=None):
                                  x[1] >= region_start and x[2] < region_end])
         if args.region2:
             chrom2, region_start2, region_end2 = translate_region(args.region2)
+            if type(list(ma.interval_trees)[0]) is np.bytes_:
+                chrom2 = np.bytes_(chrom)
+            if type(list(ma.interval_trees)[0]) is bytes and type(chrom) is str:
+                chrom2 = chrom.encode()
             if chrom2 not in list(ma.interval_trees):
                 chrom2 = change_chrom_names(chrom2)
+                if type(list(ma.interval_trees)[0]) is np.bytes_:
+                    chrom2 = np.bytes_(chrom)
+                if type(list(ma.interval_trees)[0]) is bytes and type(chrom) is str:
+                    chrom2 = chrom.encode()
                 if chrom2 not in list(ma.interval_trees):
                     exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
             idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and

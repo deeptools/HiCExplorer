@@ -175,7 +175,6 @@ from __future__ import division
 import sys
 import argparse
 from past.builtins import map
-from past.builtins import basestring
 import matplotlib
 matplotlib.use('Agg')
 
@@ -297,7 +296,7 @@ def get_region(region_string):
 
         if sys.version_info[0] == 2:
             region_string = region_string.translate(
-            None, ",.;|!{}()").replace("-", ":")
+                None, ",.;|!{}()").replace("-", ":")
         if sys.version_info[0] == 3:
             region_string = region_string.replace(",", "")
             region_string = region_string.replace(".", "")
@@ -309,7 +308,7 @@ def get_region(region_string):
             region_string = region_string.replace("(", "")
             region_string = region_string.replace(")", "")
             region_string = region_string.replace("-", ":")
-            
+
         # region_string = region_string.translate(
         #     None, ",.;|!{}()").replace("-", ":")
         region = region_string.split(":")
