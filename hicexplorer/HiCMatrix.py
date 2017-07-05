@@ -1637,7 +1637,7 @@ class hiCMatrix:
         for chrom, (start_bin, end_bin) in iteritems(self.chrBinBoundaries):
             chrom, start, end, _ = self.cut_intervals[end_bin - 1]
             chrom_sizes[chrom] = end
-            
+
         return chrom_sizes
 
     @staticmethod

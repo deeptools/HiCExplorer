@@ -4,10 +4,11 @@ from __future__ import division
 
 import sys
 import argparse
-import numpy as np
 from hicexplorer import HiCMatrix as Hm
 from past.builtins import zip
 from builtins import range
+import numpy as np
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
