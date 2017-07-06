@@ -66,7 +66,7 @@ type = line:0.2
 title = rep 1 test lw=0.1
 
 [test bigwig points]
-file = bedgraph_chrx_2e6_5e6.bw
+file = bigwig_chrx_2e6_5e6.bw
 color = black
 width = 4
 type = points:0.5
