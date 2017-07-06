@@ -98,9 +98,15 @@ section as `color`, `title`, etc.
    # of 1000000/500 = 2000 bp
    number of bins = 500
    nans to zeros = True
-   # optional. If type is not specified, then a fill curve is plotted.
+   # options are: line, points, fill. Default is fill
+   # to add the preferred line width or point size use:
+   # type = line:lw where lw (linewidth) is float
+   # similary points:ms sets the point size (markersize (ms) to the given float
    type = line
-   # Default is yes, set to no to turn off the visualization of
+   # type = line:0.5
+   # type = points:0.5
+
+   # Default is yes, set to 'no' to turn off the visualization of
    # text showing the data range (eg. 0 - 100) for the track
    show data range = yes
    # in case it can not be guessed by the file ending

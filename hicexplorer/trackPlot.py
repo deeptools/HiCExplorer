@@ -699,15 +699,34 @@ class PlotBigWig(TrackPlot):
             if 'nans to zeros' in self.properties and self.properties['nans to zeros'] is True:
                 scores[np.isnan(scores)] = 0
 
-            scores = np.ma.masked_invalid(scores)
-
             lins = np.linspace(0, len(scores), num_bins).astype(int)
             scores_per_bin = [np.mean(scores[lins[x]:lins[x + 1]]) for x in range(len(lins) - 1)]
             _x = lins + start_region
             x_values = [float(_x[x] + _x[x + 1]) / 2 for x in range(len(lins) - 1)]
-            if 'type' in self.properties and self.properties['type'] == 'line':
-                self.ax.plot(x_values, scores_per_bin, linewidth=0.1, color=self.properties['color'])
+            if 'type' in self.properties and self.properties != 'fill':
+                if self.properties['type'].find(":") > 0:
+                    plot_type, size = self.properties['type'].split(":")
+                    try:
+                        size = float(size)
+                    except ValueError:
+                        exit("Invalid value: 'type = {}' in section: {}\n"
+                             "A number was expected and found '{}'".format(self.properties['type'],
+                                                                           self.properties['section_name'],
+                                                                           size))
+                else:
+                    plot_type = self.properties['type']
+                    size = None
 
+                if plot_type == 'line':
+                    self.ax.plot(x_values, scores_per_bin, '-', linewidth=size, color=self.properties['color'])
+
+                elif plot_type == 'points':
+                    self.ax.plot(x_values, scores_per_bin, '.', markersize=size, color=self.properties['color'])
+
+                else:
+                    exit("Invalid: 'type = {}' in section: {}\n".format(self.properties['type'],
+                                                                        self.properties['section_name'],
+                                                                        size))
             else:
                 self.ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
                                      color=self.properties['color'],
