@@ -178,7 +178,6 @@ from past.builtins import map
 import matplotlib
 matplotlib.use('Agg')
 
-import numpy as np
 import hicexplorer.trackPlot
 from hicexplorer._version import __version__
 
@@ -353,7 +352,6 @@ def main(args=None):
                 start -= 100000
                 end += 100000
             sys.stderr.write("saving {}'\n".format(file_name))
-            # chrom = np.bytes_(chrom)
             trp.plot(file_name, chrom, start, end, title=args.title)
     else:
         region = get_region(args.region)

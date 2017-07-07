@@ -2,7 +2,6 @@ from __future__ import division
 import sys
 import collections
 from past.builtins import map
-import numpy as np
 from hicexplorer.utilities import toString
 
 
@@ -31,9 +30,6 @@ class ReadBed(object):
         # guess file type
         fields = self.get_no_comment_line()
         fields = toString(fields)
-        # if type(fields) is bytes or type(fields) is np.bytes_:
-            # fields = fields.split(b'\t')
-        # else:
         fields = fields.split('\t')
 
         self.guess_file_type(fields)
@@ -67,11 +63,6 @@ class ReadBed(object):
         """
         line = next(self.file_handle)
         line = toString(line)
-        # if type(line) is bytes or type(line) is np.bytes_:
-        #     if line.startswith(b"#") or line.startswith(b"track") or \
-        #             line.startswith(b"browser") or line.strip() == '':
-        #         line = self.get_no_comment_line()
-        # else:
         if line.startswith("#") or line.startswith("track") or \
                 line.startswith("browser") or line.strip() == '':
             line = self.get_no_comment_line()
@@ -166,12 +157,6 @@ class ReadBed(object):
 
         line_data = bed_line.strip()
         line_data = toString(line_data)
-        # if sys.version_info[0] == 3:
-            # if type(line_data) is bytes or type(line_data) is np.bytes_:
-            #     line_data = line_data.decode()
-            # line_data = line_data.split(b"\t")
-
-        # else:
         line_data = line_data.split("\t")
 
         if self.file_handle == 'bed12':
@@ -216,11 +201,7 @@ class ReadBed(object):
                     return dict()
             # check item rgb
             elif idx == 8:
-                # if sys.version_info[0] == 3:
-                #     if type(r) is bytes or type(r) is np.bytes_:
                 r = toString(r)
-                    # rgb = r.split(b",")
-                # else:
                 rgb = r.split(",")
 
                 if len(rgb) == 3:
@@ -233,10 +214,7 @@ class ReadBed(object):
 
             elif idx in [10, 11]:
                 # this are the block sizes and block start positions
-                # if sys.version_info[0] == 3:
                 r = toString(r)
-                    # r_parts = r.split(b',')
-                # else:
                 r_parts = r.split(',')
 
                 try:
