@@ -8,6 +8,7 @@ from hicexplorer import HiCMatrix as Hm
 from past.builtins import zip
 from builtins import range
 import numpy as np
+from hicexplorer.utilities import toString
 
 
 def parse_arguments():
@@ -98,7 +99,8 @@ def get_boundary_bin_id(hic, bed_fh):
     boundaries = set()
     for line in bed_fh.readlines():
         line_number += 1
-        if line.startswith(b'browser') or line.startswith(b'track') or line.startswith(b'#'):
+        line = toString(line)
+        if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
             continue
         try:
             chrom, start, end = line.strip().split('\t')[0:3]

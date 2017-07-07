@@ -19,12 +19,11 @@ from intervaltree import IntervalTree, Interval
 import gzip
 
 import warnings
-# import warnings
-# warnings.filterwarnings('ignore')
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 warnings.simplefilter(action='ignore', category=ImportWarning)
 warnings.simplefilter(action='ignore', category=tables.exceptions.FlavorWarning)
+
 # try to import pandas if exists
 try:
     import pandas as pd

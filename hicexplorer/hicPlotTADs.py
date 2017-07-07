@@ -353,7 +353,7 @@ def main(args=None):
                 start -= 100000
                 end += 100000
             sys.stderr.write("saving {}'\n".format(file_name))
-            chrom = np.bytes_(chrom)
+            # chrom = np.bytes_(chrom)
             trp.plot(file_name, chrom, start, end, title=args.title)
     else:
         region = get_region(args.region)

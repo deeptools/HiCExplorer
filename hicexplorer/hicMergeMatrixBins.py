@@ -9,6 +9,7 @@ from builtins import range
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
 from hicexplorer._version import __version__
+from hicexplorer.utilities import toString
 
 debug = 0
 
