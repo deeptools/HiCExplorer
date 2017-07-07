@@ -8,6 +8,7 @@ pip install planemo
 planemo database_create galaxy
 planemo conda_init --conda_prefix $tmp_dir/conda
 planemo conda_build  --conda_prefix $tmp_dir/conda conda_hicexplorer_test
+planemo clonda_install --conda_prefix $tmp_dir/conda --conda_use_local hicexplorer
 planemo conda_install galaxy/wrapper --conda_prefix $tmp_dir/conda --conda_use_local
 planemo test --install_galaxy --galaxy_branch release_17.01 --skip_venv --conda_prefix $tmp_dir/conda --conda_dependency_resolution --conda_use_local --postgres galaxy/wrapper
 # source deactivate
