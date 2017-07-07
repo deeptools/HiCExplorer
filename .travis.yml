@@ -44,4 +44,4 @@ script:
   - py.test hicexplorer --doctest-modules
   - cd ${owd}
   - echo ${owd}
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then sed -i s/pytables/tables/g requirements.txt; bash .planemo.sh ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then bash .planemo.sh ; fi
