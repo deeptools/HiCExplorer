@@ -9,5 +9,9 @@ planemo database_create galaxy
 
 # planemo conda_install --conda_prefix $tmp_dir/conda --conda_use_local hicexplorer
 # planemo conda_install galaxy/wrapper --conda_prefix $tmp_dir/conda --conda_use_local
-planemo test --install_galaxy --galaxy_branch release_17.01 --skip_venv --no_dependency_resolution --postgres galaxy/wrapper
+planemo conda_build  --conda_prefix $tmp_dir/conda conda_hicexplorer_test
+planemo conda_install --conda_prefix $tmp_dir/conda --conda_use_local hicexplorer
+planemo conda_install galaxy/wrapper --conda_prefix $tmp_dir/conda --conda_use_local
+
+planemo test --install_galaxy --galaxy_branch release_17.01 --skip_venv --no_dependency_resolution --postgres galaxy/wrapper 
 # source deactivate
