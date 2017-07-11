@@ -106,6 +106,8 @@ file = domains.bed
 type = vlines
 
 """
+from tempfile import NamedTemporaryFile
+
 with open(ROOT + "browser_tracks.ini", 'w') as fh:
     fh.write(browser_tracks)
 
