@@ -14,7 +14,10 @@ jobs:
   include:
     - stage: galaxy
       env:
-        - TESTGALAXY="0"
+        - TESTGALAXY=0
+      script:
+        - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" && "$TESTGALAXY" == "1"]]; then bash .planemo.sh ; fi
+
 # Setup anaconda
 before_install:
   - export HIC_TEST_DATA_DIR="`pwd`/hicexplorer/test/test_data/"
@@ -48,4 +51,3 @@ script:
   - py.test hicexplorer --doctest-modules
   - cd ${owd}
   - echo ${owd}
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" && && "$TESTGALAXY" == "1"]]; then bash .planemo.sh ; fi
