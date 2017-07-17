@@ -715,10 +715,17 @@ class PlotBigWig(TrackPlot):
                                  "is not valid. Using default value (700)".format(self.properties['number of bins'],
                                                                                   self.properties['file']))
 
-        chrom_region = toBytes(chrom_region)
+        if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
+            chrom_region = toBytes(chrom_region)
+        # chrom_region = toBytes(chrom_region)
+        # print('chrom_region', chrom_region, type(chrom_region))
+        # print('list(self.bw.chroms())[0]', list(self.bw.chroms())[0], type(list(self.bw.chroms())[0]))
+
         if chrom_region not in list(self.bw.chroms()):
             chrom_region = change_chrom_names(chrom_region)
-            chrom_region = toBytes(chrom_region)
+            if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
+                chrom_region = toBytes(chrom_region)
+            # chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.bw.chroms()):
             sys.stderr.write("Can not read region {} from bigwig file:\n\n"
@@ -1226,7 +1233,10 @@ class PlotBoundaries(TrackPlot):
         x = []
         y = []
 
-        chrom_region = toString(chrom_region)
+        if type(next(iter(self.interval_tree))) is np.bytes_:
+            chrom_region = toBytes(chrom_region)
+        if type(next(iter(self.interval_tree))) is str:
+            chrom_region = toString(chrom_region)
         if chrom_region not in self.interval_tree:
             orig = chrom_region
             chrom_region = change_chrom_names(chrom_region)
@@ -1807,7 +1817,8 @@ class PlotArcs(TrackPlot):
             chrom_region = toString(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
-
+            if type(next(iter(self.intval_tree))) is not np.bytes_:
+                chrom_region = toString(chrom_region)
         arcs_in_region = sorted(self.interval_tree[chrom_region][region_start:region_end])
 
         for idx, interval in enumerate(arcs_in_region):
