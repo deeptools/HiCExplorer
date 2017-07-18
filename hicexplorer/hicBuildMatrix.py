@@ -445,13 +445,13 @@ def check_dangling_end(read, dangling_sequences):
     ds = dangling_sequences
     # skip forward read that stars with the restriction sequence
     if not read.is_reverse and \
-            read.seq.upper().starswidth(ds['pat_forw']):
+            read.seq.upper().startswith(ds['pat_forw']):
             # read.seq.upper()[0:len(ds['pat_forw'])] == ds['pat_forw']:
         return True
 
     # skip reverse read that ends with the restriction sequence
     if read.is_reverse and \
-            read.seq.upper().endswidth(ds['pat_rev']):
+            read.seq.upper().endswith(ds['pat_rev']):
             # read.seq.upper()[-len(ds['pat_rev']):] == ds['pat_rev']:
         return True
 
