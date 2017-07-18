@@ -59,6 +59,7 @@ before_install:
 install:
   - conda install --yes python=$TRAVIS_PYTHON_VERSION pytest
   - conda install --yes -c bioconda --file requirements.txt
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7"  ]]; then conda install -y -c bioconda configparser ; fi
   - python setup.py install
 
 # command to run tests
