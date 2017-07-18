@@ -15,6 +15,8 @@ jobs:
     - stage: lint
       env:
         - LINT=1
+      install: true
+
       script:
         - flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712
 
@@ -34,7 +36,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi  
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" && "$LINT" == "1" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh ; fi
+  - if [[ "$LINT" == "1" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh ; export TRAVIS_PYTHON_VERSION=2.7 ; fi
  
   - bash miniconda.sh -b -p $HOME/miniconda
   - PATH_WITHOUT_CONDA="$PATH"
