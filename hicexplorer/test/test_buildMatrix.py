@@ -62,8 +62,8 @@ def test_build_matrix_rf():
            "--minDistance 150 " \
            "--maxDistance 1500 \
            --threads 4".format(sam_R1, sam_R2, dpnii_file,
-                                       outfile.name,
-                                       qc_folder).split()
+                               outfile.name,
+                               qc_folder).split()
     hicBuildMatrix.main(args)
 
     test = hm.hiCMatrix(ROOT + "small_test_rf_matrix_parallel.h5")
