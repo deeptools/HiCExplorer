@@ -60,7 +60,8 @@ def test_build_matrix_rf():
            "--restrictionSequence GATC " \
            "--danglingSequence GATC " \
            "--minDistance 150 " \
-           "--maxDistance 1500".format(sam_R1, sam_R2, dpnii_file,
+           "--maxDistance 1500 \
+           --threads 4".format(sam_R1, sam_R2, dpnii_file,
                                        outfile.name,
                                        qc_folder).split()
     hicBuildMatrix.main(args)
