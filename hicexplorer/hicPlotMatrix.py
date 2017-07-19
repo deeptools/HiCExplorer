@@ -109,6 +109,10 @@ def parse_arguments(args=None):
                              'ouput is a raster graphics image (e.g png, jpg)',
                         type=int,
                         default=72)
+    parser.add_argument('--pca',
+                        help='One eigenvector of the pca as a bigwig file.',
+                        type=str,
+                        default=None)
 
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
@@ -520,5 +524,13 @@ def main(args=None):
             else:
                 plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
                             args, fig_width, cmap)
+        
+        if args.pca:
+            plotEigenvector(fig, args)
 
     plt.savefig(args.outFileName, dpi=args.dpi)
+
+
+def plotEigenvector(pFigure, pArgs):
+    ax = pFigure.add_axes(1)
+    ax.set_title("HANNIBAL")
