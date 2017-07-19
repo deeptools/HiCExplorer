@@ -31,7 +31,7 @@ class ReadBed(object):
         fields = self.get_no_comment_line()
         fields = toString(fields)
         fields = fields.split('\t')
-         
+
         self.guess_file_type(fields)
         self.file_handle.seek(0)
         self.prev_chrom = None
