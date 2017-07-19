@@ -30,7 +30,7 @@
     <tests>
         <test>
             <param name="matrices" value="hicCorrectMatrix_result1.npz.h5,hicCorrectMatrix_result1.npz.h5"/>
-            <output name="outFileName" file="hicSumMatrices_result1.npz.h5" ftype="h5" compare="sim_size"/>
+            <output name="outFileName" file="hicSumMatrices_result1.npz.h5" ftype="h5" compare="sim_size" delta="70000"/>
         </test>
     </tests>
     <help><![CDATA[

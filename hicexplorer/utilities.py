@@ -21,7 +21,7 @@ def writableFile(string):
 
 
 def mylog(data):
-    return np.log(data+1)
+    return np.log(data + 1)
 
 
 def getZscores(hicma):
@@ -46,10 +46,10 @@ def getPearson(matrix):
     numRows, numCols = matrix.shape
     # create matrix to hold computed pval
     pMa = np.zeros(shape=(numCols, numRows))
-    pMa[:,:] = np.nan
+    pMa[:, :] = np.nan
     for row in range(numRows):
         if row % 10 == 0:
-            sys.stderr.write("{} rows processed ({:.2f})\n".format(row, float(row)/numRows))
+            sys.stderr.write("{} rows processed ({:.2f})\n".format(row, float(row) / numRows))
         for col in range(numCols):
             if not np.isnan(pMa[col, row]):
                 pMa[row, col] = pMa[col, row]
@@ -57,7 +57,7 @@ def getPearson(matrix):
             try:
                 # pearsonr returns two values, the first is the
                 # correlation, the second is a pvalue.
-                pMa[row, col] = pearsonr(np.asarray(matrix[row,:])[0], np.asarray(matrix[:,col].T)[0])[0]
+                pMa[row, col] = pearsonr(np.asarray(matrix[row, :])[0], np.asarray(matrix[:, col].T)[0])[0]
             except:
                 continue
 
@@ -65,14 +65,14 @@ def getPearson(matrix):
 
 
 def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in_bins=None):
-    methods_avail = {'residuals':_residuals, 'obs/exp':_obsExp,
-                     'z-score':_zscore, 't-score':_tscore,
+    methods_avail = {'residuals': _residuals, 'obs/exp': _obsExp,
+                     'z-score': _zscore, 't-score': _tscore,
                      'p-value': _pvalue, 'nbinom-p-value': _nbinomPvalue,
                      'nbinom-expected': _nbinomExpected,
                      'log-norm': _lognormPvalue,
                      'chi-squared': _chi2Pvalue}
 
-    counts_by_distance, cut_intervals = hicma.getCountsByDistance(per_chr=per_chr, depth_in_bins=depth_in_bins)
+    counts_by_distance, cut_intervals = hicma.getCountsByDistance(per_chr=per_chr)
     if method in ['nbinom-p-value', 'nbinom-expected', 'nbinom-est-dist']:
         size, prob = fitNegBinom_Rserve(counts_by_distance, per_chr=per_chr,
                                         plot_distribution=True)
@@ -83,16 +83,16 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
             mu_ = {}
             sigma = {}
             n_value = {}
-            for chrom in counts_by_distance.keys():
+            for chrom in list(counts_by_distance):
                 mu_[chrom] = dict([(x, np.mean(counts_by_distance[chrom][x]))
                                    for x in counts_by_distance[chrom]])
                 sigma[chrom] = dict([(x, np.std(counts_by_distance[chrom][x]))
-                                      for x in counts_by_distance[chrom]])
+                                     for x in counts_by_distance[chrom]])
                 n_value[chrom] = dict([(x, len(counts_by_distance[chrom][x]))
-                                for x in counts_by_distance[chrom]])
+                                       for x in counts_by_distance[chrom]])
         else:
             mu_ = dict([(x, np.mean(counts_by_distance[x]))
-                               for x in counts_by_distance])
+                        for x in counts_by_distance])
             sigma = dict([(x, np.std(counts_by_distance[x]))
                           for x in counts_by_distance])
             n_value = dict([(x, len(counts_by_distance[x]))
@@ -104,7 +104,7 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
         orig_ma = original_matrix.matrix
         if per_chr:
             noise_level = {}
-            for chrom in counts_by_distance.keys():
+            for chrom in list(counts_by_distance):
                 chr_range = original_matrix.getChrBinRange(chrom)
                 chr_submatrix = orig_ma[chr_range[0]:chr_range[1],
                                         chr_range[0]:chr_range[1]]
@@ -141,8 +141,8 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
                     if dist_list[idx] == -1:
                         continue
                     elif (orig_ma[triu_ma.row[idx],
-                                triu_ma.col[idx]] <=
-                        noise_level[chrom_list[idx]]):
+                                  triu_ma.col[idx]] <=
+                          noise_level[chrom_list[idx]]):
                         under_noise += 1
                         continue
                 elif orig_ma[triu_ma.row[idx],
@@ -214,9 +214,8 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
                              (endtime - start_time)) / idx
                 mmin, sec = divmod(estimated, 60)
                 hour, mmin = divmod(mmin, 60)
-                print "iteration: {} Estimated remaining time "\
-                    "{:.0f}:{:.0f}:{:.0f}".format(idx, hour, mmin, sec)
-
+                print("iteration: {} Estimated remaining time "
+                      "{:.0f}:{:.0f}:{:.0f}".format(idx, hour, mmin, sec))
 
         """
         print "problematic bins:"
@@ -232,10 +231,11 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
 
     return triu_ma
 
+
 def nbinom_est_dist(size, prob, triu_ma, cut_intervals):
     # compute a mapping from mean to distance
-    mean2dist = {'mean':[], 'dist':[]}
-    for dist in np.sort(size.keys()):
+    mean2dist = {'mean': [], 'dist': []}
+    for dist in np.sort(list(size)):
         mean = scipy.stats.nbinom.mean(size[dist], prob[dist])
         if not np.isnan(mean):
             mean2dist['mean'].append(mean)
@@ -261,7 +261,7 @@ def nbinom_est_dist(size, prob, triu_ma, cut_intervals):
         if _nbinomPvalue(data,
                          size[orig_dist],
                          prob[orig_dist]) < 5:
-            #pass
+            # pass
             continue
 
         # get largest closest mean
@@ -275,19 +275,20 @@ def nbinom_est_dist(size, prob, triu_ma, cut_intervals):
             except IndexError:
                 dist = orig_dist
 
-        # min distance should be 1, otherwise the 
+        # min distance should be 1, otherwise the
         # sparse matrix will treat nans as cero distance
         transf_ma[idx] = dist_list[idx] - dist
         transf_ma[idx] = dist
 
     # set the new values back into the original matrix
-    triu_ma = scipy.sparse.coo_matrix((transf_ma,(row, col)), shape=triu_ma.shape)
+    triu_ma = scipy.sparse.coo_matrix((transf_ma, (row, col)), shape=triu_ma.shape)
     # fill the lower triangle
     triu_ma = triu_ma + scipy.sparse.triu(triu_ma, 1).T
     triu_ma = triu_ma.tocsr()
     triu_ma.eliminate_zeros()
 
     return triu_ma
+
 
 def applyFdr(matrix):
     """
@@ -298,7 +299,7 @@ def applyFdr(matrix):
     """
     # use only the upper half of the matrix
     mat = scipy.sparse.triu(matrix)
-    #exp is required because the matrix contains
+    # exp is required because the matrix contains
     # -log(pvalues)
     mat.data = -np.log(_fdr(np.exp(-mat.data)))
     mat = mat + scipy.sparse.triu(mat, 1).T
@@ -347,7 +348,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
     if per_chr:
         size = {}
         prob = {}
-        for chrom in countsByDistance.keys():
+        for chrom in list(countsByDistance):
             sys.stderr.write('computing negative binomial for '
                              '{}\n'.format(chrom))
             size[chrom], prob[chrom] = \
@@ -362,7 +363,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
         conn.r('library("MASS")')
 
     except:
-        print "Could not connect to Rserve. Check that Rserve is up and running"
+        print("Could not connect to Rserve. Check that Rserve is up and running")
         exit(1)
     size = {}
     mu = {}
@@ -371,16 +372,16 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
     good = 0
     bad = 0
 
-    for dist in np.sort(countsByDistance.keys()):
-        if dist == -1: # skip intra chromosomal counts
+    for dist in np.sort(list(countsByDistance)):
+        if dist == -1:  # skip intra chromosomal counts
             continue
         size[dist] = np.nan
         mu[dist] = np.nan
         prob[dist] = np.nan
         if sum(countsByDistance[dist]) == 0.0:
-            print "no counts for bins at distance {}".format(dist)
+            print("no counts for bins at distance {}".format(dist))
             continue
-        if np.any(np.isnan(countsByDistance[dist])) == True:
+        if np.any(np.isnan(countsByDistance[dist])) is True:
             exit("ERROR: matrix contains NaN values\n")
 
         counts = remove_outliers(countsByDistance[dist])
@@ -416,15 +417,14 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
             # prob = size / ( size + mu )
             prob[dist] = size[dist] / (size[dist] + mu[dist])
 
-
-        sys.stderr.write(".") #  print a . to show progress
+        sys.stderr.write(".")  # print a . to show progress
 
         # evaluate fit of the counts distribution with respect to
         # the negative binomial  distribution using the parameters
-        #returned by R
+        # returned by R
         fitted_dist = scipy.stats.nbinom.rvs(size[dist],
                                              prob[dist],
-                                             size=len(counts)*2)
+                                             size=len(counts) * 2)
         pval[dist] = scipy.stats.ks_2samp(counts_int,
                                           fitted_dist)[1]
 
@@ -439,7 +439,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
             good += 1
 
         if (plot_distribution and
-            dist in [50000] + range(0, max(countsByDistance.keys()), 1000000)):
+                dist in [50000] + range(0, max(list(countsByDistance)), 1000000)):
             # actual and fitted distributions are plotted
             # next to each other
 
@@ -455,16 +455,16 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
             freq, bins = np.histogram(counts.astype(int), nbins,
                                       normed=True)
             plt.hist(counts, bins, linewidth=0.1, alpha=0.8, normed=True)
-            #plt.hist(fitted_dist, bins, histtype='step', linestyle='solid',
+            # plt.hist(fitted_dist, bins, histtype='step', linestyle='solid',
             #          linewidth=1.5, color='black', normed=True)
             pdf_fitted = scipy.stats.nbinom.pmf(bins.astype('int'),
                                                 size[dist],
                                                 prob[dist])
-            plt.plot(bins.astype(int), pdf_fitted, 
+            plt.plot(bins.astype(int), pdf_fitted,
                      label='fitted nbinom gf={:.3f}'.format(pval[dist]))
 
             fig_name = '/tmp/fitt_{}_{}.png'.format('nbinom', dist)
-            plt.title('{} bp; size: {}, prob: {}'.format(dist, 
+            plt.title('{} bp; size: {}, prob: {}'.format(dist,
                                                          size[dist],
                                                          prob[dist]))
             plt.ylim(0, np.max(freq) + np.max(freq) * 0.2)
@@ -485,7 +485,7 @@ def fitNegBinom(countsByDistance):
     one contains the size fit and the
     other the probability
     """
-    print "fit neg binom"
+    print("fit neg binom")
     size = {}
     mu = {}
     prob = {}
@@ -495,7 +495,7 @@ def fitNegBinom(countsByDistance):
         mu[dist] = np.nan
         prob[dist] = np.nan
         if sum(countsByDistance[dist]) == 0.0:
-            print "no counts for bins at distance {}".format(dist)
+            print("no counts for bins at distance {}".format(dist))
             continue
         if len(countsByDistance[dist]) <= 2:
             continue
@@ -506,14 +506,14 @@ def fitNegBinom(countsByDistance):
         try:
             size[dist], prob[dist] = fit_nbinom(counts)
         except ValueError as error:
-            print "could not compute pval for dist={}. "\
-                "Message:\n {}".format(dist, error)
+            print("could not compute pval for dist={}. "
+                  "Message:\n {}".format(dist, error))
 
         if np.isnan(size[dist]) or np.isnan(prob[dist]):
-            print "for dist={}, size={}, prob={}, len={}".format(dist,
+            print("for dist={}, size={}, prob={}, len={}".format(dist,
                                                                  size[dist],
                                                                  prob[dist],
-                                                                 len(counts))
+                                                                 len(counts)))
         else:
             # evaluate fit of the counts distribution with respect to the
             # negative binomial distribution using the parameters returned by R
@@ -523,9 +523,9 @@ def fitNegBinom(countsByDistance):
                                        prob[dist],
                                        size=len(counts)))[1]
             if pval[dist] < 0.001:
-                print "problem with {} when fitting a negative binomial. "\
-                    "The fit p-value ({}) is too low to consider the "\
-                    "distribution negative binomial".format(dist, pval[dist])
+                print("problem with {} when fitting a negative binomial. "
+                      "The fit p-value ({}) is too low to consider the "
+                      "distribution negative binomial".format(dist, pval[dist]))
 
     return (size, prob)
 
@@ -548,21 +548,21 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
     try:
         conn = pyRserve.connect()
         conn.r('library("MASS")')
-    except RConnectionRefused:
-        print "Could not connect to Rserve. Check that Rserve is up and running"
+    except:
+        print("Could not connect to Rserve. Check that Rserve is up and running")
         exit(1)
 
     import sys
-    for distnc in np.sort(countsByDistance.keys()):
-        if distnc == -1: # skip intra chromosomal counts
+    for distnc in np.sort(list(countsByDistance)):
+        if distnc == -1:  # skip intra chromosomal counts
             continue
         if sum(countsByDistance[distnc]) == 0.0:
-            print "no counts for bins at distance {}".format(distnc)
+            print("no counts for bins at distance {}".format(distnc))
             continue
         if len(countsByDistance[distnc]) <= 2:
             continue
         sys.stderr.write('.')
-        ##### TEMP code to compare with negative binomial ###
+        # TEMP code to compare with negative binomial ###
 
         # the values in countsByDistance of a corrected matrix
         # are float values, but integers are needed for
@@ -581,8 +581,8 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
             mu_ = res[0]['mu']
 
             if np.isnan(size) or np.isnan(mu_):
-                print "for dist={}, size={}, mu={}, len={}".format(
-                    distnc, size, mu_, len(counts_nb))
+                print("for dist={}, size={}, mu={}, len={}".format(
+                    distnc, size, mu_, len(counts_nb)))
                 continue
 
             prob = size / (size + mu_)
@@ -590,24 +590,25 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
         #####
 
         counts = remove_outliers(countsByDistance[distnc])
-        counts[counts==0] = 0.01
+        counts[counts == 0] = 0.01
         dist = getattr(scipy.stats, distribution)
         param = dist.fit(counts, floc=0)
         if np.any(np.isnan(param)):
             sys.stderr.write('\n{} no params computed'.format(distnc))
-            import ipdb;ipdb.set_trace()
+            import ipdb
+            ipdb.set_trace()
         mu[distnc] = param[-1]
         sigma[distnc] = param[0]
 
         # estimate the goodness of fit pvalue
         fitted_dist = dist.rvs(*param[:-2],
-                                loc=param[-2], scale=param[-1],
-                                size=len(counts)*2)
+                               loc=param[-2], scale=param[-1],
+                               size=len(counts) * 2)
         pval[distnc] = scipy.stats.ks_2samp(counts,
                                             fitted_dist)[1]
         fitted_dist_nb = scipy.stats.nbinom.rvs(size,
                                                 prob,
-                                                size=len(counts_nb)*2)
+                                                size=len(counts_nb) * 2)
 
         pval_nb = scipy.stats.ks_2samp(counts_nb,
                                        fitted_dist_nb)[1]
@@ -628,12 +629,12 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
                                                               pval_nb))
 
         if (plot_distribution and
-            distnc in range(50000, max(countsByDistance.keys()), 500000)):
+                distnc in range(50000, max(countsByDistance.keys()), 500000)):
 
             import matplotlib.pyplot as plt
             freq, bins = np.histogram(counts, 30,
                                       normed=True)
-            plt.close() #  to avoid overlaps
+            plt.close()  # to avoid overlaps
             plt.hist(counts, bins, linewidth=0.1, alpha=0.8, normed=True)
 #            plt.hist(fitted_dist, bins, histtype='step', linestyle='solid',
 #                      linewidth=1.5, color='black', normed=True)
@@ -655,10 +656,11 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
             plt.legend()
             plt.savefig(fig_name, dpi=200)
             plt.close()
-            print "check {}".format(fig_name)
-    print "good {}, bad {}, good_nb {}, bad_nb {}".format(good, bad, good_nb,
-                                                          bad_nb)
+            print("check {}".format(fig_name))
+    print("good {}, bad {}, good_nb {}, bad_nb {}".format(good, bad, good_nb,
+                                                          bad_nb))
     return (mu, sigma)
+
 
 def remove_outliers(data, max_deviation=3.5):
     """
@@ -671,8 +673,8 @@ def remove_outliers(data, max_deviation=3.5):
     returns the list, without the outliers
     """
     median = np.median(data)
-    b_value = 1.4826 # value for normal distribution
-    mad = b_value * np.median(np.abs(data-median))
+    b_value = 1.4826  # value for normal distribution
+    mad = b_value * np.median(np.abs(data - median))
 
     if mad > 0:
         deviation = abs(data - median) / mad
@@ -689,7 +691,7 @@ def fitChisquared(countsByDistance):
     shape = {}
     loc = {}
     scale = {}
-    pval ={}
+    pval = {}
     for x in countsByDistance:
         if len(countsByDistance[x]) > 2:
             counts = countsByDistance[x]
@@ -699,51 +701,59 @@ def fitChisquared(countsByDistance):
                 counts = counts[rand]
             shape[x], loc[x], scale[x] = scipy.stats.chi2.fit(counts, 3, floc=0)
             # estimate the fit pvalue
-            pval[x] = scipy.stats.wilcoxon(counts, 
-                                           scipy.stats.chi2.rvs(shape[x], 
-                                                                loc=loc[x], 
-                                                                scale=scale[x], 
-                                                                size=len(counts) ))[1]
-            if pval[x]<0.001:
-                print "problem with {}, p-value for log-norm fit: {}".format(x, pval[x])
+            pval[x] = scipy.stats.wilcoxon(counts,
+                                           scipy.stats.chi2.rvs(shape[x],
+                                                                loc=loc[x],
+                                                                scale=scale[x],
+                                                                size=len(counts)))[1]
+            if pval[x] < 0.001:
+                print("problem with {}, p-value for log-norm fit: {}".format(x, pval[x]))
 
     return (shape, loc, scale)
 
-def _residuals(value, mu):
-    return value - mu 
 
-    
+def _residuals(value, mu):
+    return value - mu
+
+
 def _obsExp(value, mu):
-    return value/mu 
+    return value / mu
+
 
 def _zscore(value, mu, sigma, n):
     return (value - mu) / sigma
 
+
 def _tscore(value, mu, sigma, n):
-    return (value - mu) / ( sigma/np.sqrt(n) )
+    return (value - mu) / (sigma / np.sqrt(n))
+
 
 def _pvalue(value, mu, sigma, n):
-#    tscore = _tscore(value, mu, sigma, n)
+    #    tscore = _tscore(value, mu, sigma, n)
     pvalue = -np.log(scipy.stats.t.sf(value, n, loc=mu, scale=sigma))
     return pvalue
 
+
 def _lognormPvalue(value, mu, sigma, n):
-    """ 
+    """
     n is not used, but is generic
     to other calls (see _pvalue).
     """
     return scipy.stats.norm.sf(np.log(value), mu, sigma)
 
+
 def _chi2Pvalue(value, shape, loc, scale):
-    """ 
+    """
     n is not used, but is generic
     to other calls (see _pvalue).
     """
     return -np.log(scipy.stats.chi2.sf(np.log(value), shape, loc=loc, scale=scale))
 
+
 def _nbinomPvalue(value, size, prob):
     pvalue = -np.log(scipy.stats.nbinom.sf(value, size, prob))
     return pvalue
+
 
 def _nbinomExpected(value, size, prob):
     mean = scipy.stats.nbinom.mean(size, prob)
@@ -752,18 +762,20 @@ def _nbinomExpected(value, size, prob):
 
 def convertNansToZeros(ma):
     ma.data[np.flatnonzero(np.isnan(ma.data))] = 0
-    #ma[np.where(np.isnan(ma) == True)] = 0
+    # ma[np.where(np.isnan(ma) == True)] = 0
     return ma
+
 
 def myAverage(valuesArray, avgType='mean'):
 
-    valuesArray = valuesArray[ logical_not(np.isnan(valuesArray)) ]
-    if avgType=='mean':
+    valuesArray = valuesArray[np.logical_not(np.isnan(valuesArray))]
+    if avgType == 'mean':
         mean = np.mean(valuesArray)
     else:
         mean = np.median(valuesArray)
 
     return mean
+
 
 def enlarge_bins(bin_intervals):
     r"""
@@ -773,32 +785,33 @@ def enlarge_bins(bin_intervals):
     end and start of consecutive bins
     is the same.
 
-    >>> bin_intervals = [('chr1', 10, 30, 1), ('chr1', 50, 80, 2),
-    ... ('chr2', 10, 60, 3), ('chr2', 60, 90, 4)]
+    >>> bin_intervals = [('chr1', 10, 50, 1), ('chr1', 50, 80, 2),
+    ... ('chr2', 10, 60, 3), ('chr2', 70, 90, 4)]
     >>> enlarge_bins(bin_intervals)
-    [('chr1', 0, 40, 1), ('chr1', 40, 80, 2), ('chr2', 0, 60, 3), ('chr2', 60, 90, 4)]
+    [('chr1', 0, 50, 1), ('chr1', 50, 80, 2), ('chr2', 0, 65, 3), ('chr2', 65, 90, 4)]
     """
     # enlarge remaining bins
     chr_start = True
-    for idx in range(len(bin_intervals)-1):
+    for idx in range(len(bin_intervals) - 1):
         chrom, start, end, extra = bin_intervals[idx]
-        chrom_next, start_next, end_next, extra_next = bin_intervals[idx +1]
+        chrom_next, start_next, end_next, extra_next = bin_intervals[idx + 1]
+
         if chr_start is True:
             start = 0
             chr_start = False
-        if chrom == chrom_next and \
-                end != start_next:
+            bin_intervals[idx] = (chrom, start, end, extra)
+        if chrom == chrom_next and end != start_next:
             middle = start_next - int((start_next - end) / 2)
             bin_intervals[idx] = (chrom, start, middle, extra)
-            bin_intervals[idx+1] = (chrom, middle, end_next, extra_next)
+            bin_intervals[idx + 1] = (chrom, middle, end_next, extra_next)
         if chrom != chrom_next:
-            bin_intervals[idx] = (chrom, start, end, extra)
-            bin_intervals[idx+1] = (chrom_next, 0, end_next, extra_next)
+            chr_start = True
 
     chrom, start, end, extra = bin_intervals[-1]
     bin_intervals[-1] = (chrom, start, end, extra)
 
     return bin_intervals
+
 
 def genomicRegion(string):
     """
@@ -854,7 +867,7 @@ def getUserRegion(chromSizes, regionString, max_chunk_size=1e6):
         chromSizes[chrom]
     except KeyError:
         raise NameError("Unknown chromosome: %s\nKnown "
-                        "chromosomes are: %s " % (chrom, chromSizes.keys()))
+                        "chromosomes are: %s " % (chrom, list(chromSizes)))
     try:
         regionStart = int(region[1])
     except IndexError:
@@ -877,8 +890,8 @@ def getUserRegion(chromSizes, regionString, max_chunk_size=1e6):
     # if tilesize is given, make regionStart and regionEnd
     # multiple of tileSize
     if tilesize:
-        regionStart -= regionStart  % tilesize
-        regionEnd += tilesize - (regionEnd  % tilesize)
+        regionStart -= regionStart % tilesize
+        regionEnd += tilesize - (regionEnd % tilesize)
 
     chunkSize = int(regionEnd - regionStart)
     if chunkSize > max_chunk_size:
@@ -900,9 +913,39 @@ def fit_nbinom(k):
     from scipy.special import psi
     from scipy.optimize import brentq
     N = len(k)
-    n = brentq(lambda r: sum(psi(k + r)) - N*psi(r) +
-               N*np.log(r/(r + sum(k/N))),
+    n = brentq(lambda r: sum(psi(k + r)) - N * psi(r) +
+               N * np.log(r / (r + sum(k / N))),
                np.finfo(np.float128).eps,
                np.max(k))
-    p = n/(n + sum(k/N)) # Note: this `p` = 1 - `p` from Wikipedia
+    p = n / (n + sum(k / N))  # Note: this `p` = 1 - `p` from Wikipedia
     return n, p
+
+
+def toString(s):
+    """
+    This takes care of python2/3 differences
+    """
+    if isinstance(s, str):
+        return s
+    if isinstance(s, bytes):
+        if sys.version_info[0] == 2:
+            return str(s)
+        return s.decode('ascii')
+    if isinstance(s, list):
+        return [toString(x) for x in s]
+    return s
+
+
+def toBytes(s):
+    """
+    Like toString, but for functions requiring bytes in python3
+    """
+    if sys.version_info[0] == 2:
+        return s
+    if isinstance(s, bytes):
+        return s
+    if isinstance(s, str):
+        return bytes(s, 'ascii')
+    if isinstance(s, list):
+        return [toBytes(x) for x in s]
+    return s

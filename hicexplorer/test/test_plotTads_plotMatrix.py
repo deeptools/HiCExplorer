@@ -1,59 +1,140 @@
-import filecmp
-import sys
 import matplotlib as mpl
-from tempfile import NamedTemporaryFile
-import hicexplorer
+mpl.use('agg')
+from matplotlib.testing.compare import compare_images
 import os.path
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
-MATPLOTLIB_VERSION = '1.5.3'
 
-def compare_svg(file1, file2):
-    """
-    svg files usually differ on randomly assigned ids and xlink:href tags
-    This code compares the files ignoring the lines that contain ids
+browser_tracks = """
+[x-axis]
 
-    :return: bool True if files are similar
-    """
-    f1 = NamedTemporaryFile(suffix='.svg', delete=False)
-    f2 = NamedTemporaryFile(suffix='.svg', delete=False)
-    # remove xlink:href, id and url attributes
-    os.system('cat {} | perl -lane \'s/xlink:href=".+?"//g; s/id=".+?"//g; s/"url\(.+?\)"//g; print $_\' > {}'.format(file1, f1.name))
-    os.system('cat {} | perl -lane \'s/xlink:href=".+?"//g; s/id=".+?"//g; s/"url\(.+?\)"//g; print $_\' > {}'.format(file2, f2.name))
-    res = filecmp.cmp(f1.name, f2.name)
-    os.remove(f1.name)
-    os.remove(f2.name)
-    return res
+[hic Kc]
+file = Li_et_al_2015.h5
+title = Kc DpnII (Li et al. 2015)
+colormap = RdYlBu_r
+depth = 200000
+transform = log1p
+x labels = yes
+boundaries_file = domains.bed
+
+[spacer]
+width = 0.05
+
+[tad state]
+file = tad_classification.bed
+width = 0.5
+title = TAD state
+display = collapsed
+labels = off
+
+[tad-separation score]
+file = tad_score.gz
+width = 10
+type = lines
+title= TAD separation score (Ramirez et al.)
+file_type = bedgraph_matrix
 
 
-class TestPlottingPrograms(object):
+[spacer]
+width = 1
 
-    def setUp(self):
-        # the tests based on images were done with
-        # matplotlib under certain version and will fail if other
-        # version is used
-        if mpl.__version__ != MATPLOTLIB_VERSION:
-            sys.stderr.write("\nTests based on images are skipped because of "
-                             "different matplotlib version ({}) != {}\n".format(mpl.__version__, MATPLOTLIB_VERSION))
-            exit(1)
+[test bedgraph]
+file = bedgraph_chrx_2e6_5e6.bg
+color = blue
+width = 4
+title = bedgraph
 
-    def test_hicPlotTads(self):
-        import hicexplorer.hicPlotTADs
+[test bigwig]
+file = bigwig_chrx_2e6_5e6.bw
+color = blue
+width = 4
+title = rep 1 test fill
 
-        outfile = NamedTemporaryFile(suffix='.svg', delete=False)
-        args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000   " \
-               "--outFileName  {1}".format(ROOT, outfile.name).split()
-        hicexplorer.hicPlotTADs.main(args)
-        assert compare_svg(ROOT + '/master_TADs_plot.svg', outfile.name) is True, "Plot is not similar to master. Args: {}".format(" ".join(args))
-        os.remove(outfile.name) 
+[test bigwig lines]
+file = bigwig_chrx_2e6_5e6.bw
+color = red
+width = 4
+type = line
+title = rep 1 test line
 
-    def test_hicPlotMatrix(self):
-        import hicexplorer.hicPlotMatrix
+[test bigwig lines]
+file = bigwig_chrx_2e6_5e6.bw
+color = red
+width = 4
+type = line:0.2
+title = rep 1 test lw=0.1
 
-        outfile = NamedTemporaryFile(suffix='.svg', delete=False)
-        args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
-               "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
-        hicexplorer.hicPlotMatrix.main(args)
-        assert compare_svg(ROOT + '/master_matrix_plot.svg', outfile.name) is True
-        os.remove(outfile.name)
+[test bigwig points]
+file = bigwig_chrx_2e6_5e6.bw
+color = black
+width = 4
+type = points:0.5
+title = rep 1 test point:0.5
 
+[spacer]
+width = 0.5
+
+[genes 2]
+file = dm3_genes.bed.gz
+width = 5
+title = genes
+fontsize = 10
+
+[spacer]
+width = 1
+
+[test gene rows]
+file = dm3_genes.bed.gz
+width = 3
+title = max num rows 3
+fontsize = 8
+gene rows = 3
+
+[spacer]
+width = 1
+
+[test bed6]
+file = dm3_genes.bed6.gz
+width = 20
+title = bed6 global max row
+fontsize = 10
+file_type = bed
+global max row = yes
+
+[vlines]
+file = domains.bed
+type = vlines
+
+"""
+from tempfile import NamedTemporaryFile
+
+with open(ROOT + "browser_tracks.ini", 'w') as fh:
+    fh.write(browser_tracks)
+
+tolerance = 13  # default matplotlib pixed difference tolerance
+
+
+def test_hicPlotTads():
+    import hicexplorer.hicPlotTADs
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_', delete=False)
+    args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000  " \
+           "--outFileName  {1}".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotTADs.main(args)
+
+    res = compare_images(ROOT + '/master_TADs_plot.png', outfile.name, tolerance)
+    assert res is None, res
+
+    os.remove(outfile.name)
+
+
+def test_hicPlotMatrix():
+    import hicexplorer.hicPlotMatrix
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_', delete=False)
+    args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
+           "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + '/master_matrix_plot.png', outfile.name, tolerance)
+    assert res is None, res
+    os.remove(outfile.name)

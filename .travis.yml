@@ -1,45 +1,62 @@
 language: python
-os: linux
+sudo: false
+services:
+  - postgresql
 python:
-    - 2.7
+  - 2.7
+  - 3.5
+  - 3.6
+os:
+  - linux
+jobs:
+  include:
+    - stage: lint
+      env:
+        - LINT=1
+      before_install:
+        - curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - PATH_WITHOUT_CONDA="$PATH"
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - hash -r
+        - conda config --set always_yes yes --set changeps1 no
+        - conda update -q conda
+      install:
+        - conda install --yes python=2.7 flake8
+      script:
+        - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712 ; fi
 
-#matrix:
-#  include:
-#  - os: osx
-#    language: generic
-#    env: PYTHON=2.7
-
+    - stage: galaxy
+      env:
+        - TESTGALAXY=0
+      before_install: true
+      install: true
+      script:
+        - if [[ "$TESTGALAXY" == "1" ]]; then bash .planemo.sh ; fi
 
 # Setup anaconda
 before_install:
-  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == 2* ]]; then pip install virtualenv --user ; fi
-  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == 2* ]]; then virtualenv foo; source foo/bin/activate; pip install planemo ; deactivate ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi
+  - export HIC_TEST_DATA_DIR="`pwd`/hicexplorer/test/test_data/"
+  - echo $HIC_TEST_DATA_DIR
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh ; fi
   - bash miniconda.sh -b -p $HOME/miniconda
+  - PATH_WITHOUT_CONDA="$PATH"
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
-
   # Useful for debugging any issues with conda
   - conda info -a
 
 # Install packages
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=1.5.3 nose flake8 pytables biopython
-  - conda install --yes -c bioconda pysam intervaltree
-  - pip install pyBigWig
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION pytest
+  - conda install --yes -c bioconda --file requirements.txt
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7"  ]]; then conda install -y -c bioconda configparser ; fi
   - python setup.py install
 
 # command to run tests
 script:
-  - nosetests --with-doctest -sv hicexplorer
-  #- flake8 . --ignore=E501,F403,E402,F999
-  #- export owd=`pwd`
-  #- cd ~/ && nosetests --with-doctest -sv hicexplorer
-  #- cd ${owd}
-  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then export PATH=`echo $PATH | sed -e 's/\/home\/travis\/miniconda\/bin://'` ; fi
-  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then /home/travis/build/fidelram/deepTools/foo/bin/planemo lint galaxy/wrapper/ ; fi
-  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then ./.planemo.sh ; fi
-sudo: false
+  - py.test hicexplorer --doctest-modules

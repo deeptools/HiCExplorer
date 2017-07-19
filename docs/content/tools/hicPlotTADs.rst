@@ -55,6 +55,10 @@ section as `color`, `title`, etc.
    # obtain an aesthetically pleasant output
    show_masked_bins = yes
 
+   # optional, if the values in the matrix need to be scaled the
+   # following parameter can be used
+   scale factor = 1
+
    [x-axis]
    # optional
    fontsize=20
@@ -94,7 +98,15 @@ section as `color`, `title`, etc.
    # of 1000000/500 = 2000 bp
    number of bins = 500
    nans to zeros = True
-   # Default is yes, set to no to turn off the visualization of
+   # options are: line, points, fill. Default is fill
+   # to add the preferred line width or point size use:
+   # type = line:lw where lw (linewidth) is float
+   # similary points:ms sets the point size (markersize (ms) to the given float
+   type = line
+   # type = line:0.5
+   # type = points:0.5
+
+   # Default is yes, set to 'no' to turn off the visualization of
    # text showing the data range (eg. 0 - 100) for the track
    show data range = yes
    # in case it can not be guessed by the file ending
@@ -105,6 +117,8 @@ section as `color`, `title`, etc.
    file = file.bed
    title = peaks
    color = read
+   # optional boder color. Set to none for no border color
+   border_color = black
    width = 0.5
    # optional. If not given is guessed from the file ending
    file_type = bed
@@ -140,6 +154,8 @@ section as `color`, `title`, etc.
    # color is replaced by the color in the bed file
    # in this case
    color = black
+   # optional boder color. Set to none for no border color
+   border_color = black
    # default behaviour when plotting intervals from a
    # bed file is to 'expand' them such that they
    # do not overlap. The display = collapsed

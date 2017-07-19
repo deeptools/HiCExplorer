@@ -17,24 +17,6 @@ Lieberman-Aiden et al. and sequenced on the NextSeq 500 platform using 2
 Prepare for analysis
 --------------------
 
-Install HiC explorer
-~~~~~~~~~~~~~~~~~~~~
-
-The following commands install HiCExplorar globally. In case you don't
-have admin privileges, you can first install and setup a `virtual
-environment <https://virtualenv.pypa.io/en/latest/>`__ for python, and
-then install HiCExplorer inside the virtual environment.
-
-.. code:: bash
-
-    # To Clone and install in the ~/programs directory
-    cd ~/programs
-    git clone https://github.com/maxplanck-ie/HiCExplorer.git
-    cd HiCExplorer.git
-    python setup.py install
-    ## now add HiCExplorer in $PATH
-    export PATH=:$PATH
-
 Download Raw fastq files
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -57,20 +39,24 @@ Fastq files can be downloaded from the EBI archive (or NCBI archive).
 Map Raw fastq files
 ~~~~~~~~~~~~~~~~~~~
 
-The raw fastq files are now aligned to mouse genome. Here we will map
+Mates have to be mapped individually to avoid mapper specific heuristics designed
+for standard paired-end libraries.
+
+We have used the HiCExplorer sucessfuly with `bwa`, `bowtie2` and `hisat2`. However, it is important to:
+
+ * for either `bowtie2` or `hisat2` use the `--reorder` parameter which tells bowtie2 or hisat2 to output
+   the *sam* files in the **exact** same order as in the *.fastq* files.
+ * use local mapping, in contrast to end-to-end. A fraction of Hi-C reads are chimeric and will not map end-to-end
+   thus, local mapping is important to increase the number of mapped reads.
+ * Tune the aligner parameters to penalize deletions and insertions. This is important to avoid aligned reads with
+   gaps if they happen to be chimeric.
+
+
+The raw fastq files are aligned to mouse genome. Here we will map
 them to *GRCm37* using
-`HISAT <https://ccb.jhu.edu/software/hisat/index.shtml>`__, a fast and
-memory efficient read aligner.
+`BWA mem <http://bio-bwa.sourceforge.net/bwa.shtml>`__. See :ref:`example_usage` for an explanation of
+the bwa mem parameter used.
 
-The option : **--sensitive-local** is used, since we want local
-alignment. In HiC, many reads in the read-pair overlap with their mates.
-Using *local* alignment avoids the alignment of the end of the reads,
-where the sequence might correspond to the read mate.
-
-**--reorder** is used to get the reads in the sam file in the order they
-are aligned in. HiCExplorer reads the alignment in this order.
-
-Same options can be used with bowtie2 too.
 
 .. code:: bash
 
@@ -78,7 +64,7 @@ Same options can be used with bowtie2 too.
 
     for fq in $(ls ${inputdir} | grep '.fastq.gz')
     do fqbase=$(basename ${fq} .fastq.gz)
-    /path/to/hisat/bin/hisat -x /path/to/hisat_index/prefix --sensitive-local --reorder -p 40 -U inputdir/${fq} -S mapped_files/${fqbase}.sam
+     bwa mem -A1 -B4 -E50 -L0  /path/to/bwa_index -U inputdir/${fq} | samtools view -Shb - > mapped_files/${fqbase}.sam
     done
 
 Build, visualize and correct Hi-C matrix
@@ -86,31 +72,19 @@ Build, visualize and correct Hi-C matrix
 
 Create a Hi-C matrix using the aligned files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Build restriction-site bed files
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Before creating the HiC matrix, we need to know the restriction cut
-site. The program *findRestSite* creates it for us. It needs the
-restriction sequence as input. Here `DpnII
-sequence <https://www.neb.com/products/r0543-dpnii>`__ is used.
-
-.. code:: bash
-
-    findRestSite --fasta /path/to/GRCm37/genome_fasta/genome.fa --searchPattern GATC -o dpnII_positions_GRCm37.bed
-
-    ## Sort the file
-    sort -k1,1 -k2,2n dpnII_positions_GRCm37.bed > dpnII_positions_GRCm37-sorted.bed
+the restriction site bed file [-rs],
+restriction sequence [-seq]
+#-rs dpnII_positions_GRCm37-sorted.bed
 
 Build Hi-C matrix
 ^^^^^^^^^^^^^^^^^
 
-**hicBuildMatrix** builds the matrix of read counts over the bins in the
+:ref:`hicBuildMatrix` builds the matrix of read counts over the bins in the
 genome, considering the sites around the given restriction site. We need
-to provide the input bams, the restriction site bed file [-rs],
-restriction sequence [-seq] , binsize [-bs], name of output matrix file
+to provide the input BAM/SAM files,  binsize [-bs], restriction sequence [-seq],
+name of output matrix file
 [-o] and the name of output bam file (which contains the accepted
-alignments) [-b] .
+alignments) [-b].
 
 .. code:: bash
 
@@ -118,54 +92,74 @@ alignments) [-b] .
 
     for SRR in SRR1956527 SRR1956528 SRR1956529;
     do hicBuildMatrix \
-    -s mapped_files/${SRR}_1.bam mapped_files/${SRR}_2.bam \
-    -bs 10000 \#-rs dpnII_positions_GRCm37-sorted.bed -seq GATC
-    -b ${SRR}_ref.bam -o hiCmatrix/${SRR}.matrix & done
+       -s mapped_files/${SRR}_1.bam mapped_files/${SRR}_2.bam \
+       -bs 10000 -seq GATC \
+       -b ${SRR}_ref.bam -o hiCmatrix/${SRR}.matrix --QCfolder hiCmatrix/${SRR}_QC  & done
 
 The output bam files show that we have around 34M, 54M and 58M selected
 reads for SRR1956527, SRR1956528 & SRR1956529, respectively. Normally
-25% of the total reads et selected.
+25% of the total reads are selected.
 
-The output matrices have counts for the genomic regions. The extention
-of output matrix files is *.npz*.
+The output matrices have counts for the genomic regions. The extension
+of output matrix files is *.h5*.
 
-Merge Matrices from Replicates
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Merge (sum) matrices from replicates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To increase the depth of reads we merge the counts from these three
 replicates.
 
 .. code:: bash
 
-    hicSumMatrices -m hiCmatrix/SRR1956527.matrix.npz hiCmatrix/SRR1956528.matrix.npz hiCmatrix/SRR1956529.matrix.npz -o hiCmatrix/replicateMerged.matrix
+    hicSumMatrices -m hiCmatrix/SRR1956527.matrix.h5 hiCmatrix/SRR1956528.matrix.h5 \
+                      hiCmatrix/SRR1956529.matrix.h5 -o hiCmatrix/replicateMerged.matrix.h5
 
 Correct Hi-C Matrix
 ^^^^^^^^^^^^^^^^^^^
 
-**hiCorrectMatrix** corrects the matrix counts in an iterative manner.
+:ref:`hicCorrectMatrix` corrects the matrix counts in an iterative manner.
 For correcting the matrix, it's important to remove the unassembled
 scaffolds (eg NT\_) and keep only chromosomes, as scaffolds create
-problems with marix correction. Therefore we use the chromosome names
-(1-19, X, Y) here.
+problems with matrix correction. Therefore we use the chromosome names
+(1-19, X, Y) here. **Important** use 'chr1 chr2 chr3 etc.' if your genome index uses
+chromosome names with the 'chr' prefix.
+
+Matrix correction works in two steps: first a histogram containing the sum of contact per bin (row sum) is
+produced. This plot needs to be inspected to decide the best threshold for removing bins with lower number of reads. The
+second steps removes the low scoring bins and does the correction.
+
+.. code:: bash
+
+    hicCorrectMatrix diagnostic_plot \
+    --chromosomes 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 X Y \
+    -m hiCmatrix/replicateMerged.matrix.npz -o hiCmatrix/diagnostic_plot.png
+
+The output of the program prints a threshold suggestion that is usually accurate but is better to
+revise the histogram plot. See :ref:`example_usage` for an example and for more info.
+
+Next we do the correction using the best filter threshold.
 
 .. code:: bash
 
     hicCorrectMatrix correct \
     --chromosomes 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 X Y \
+    --filterThreshold -1.5 10 \
     -m hiCmatrix/replicateMerged.matrix.npz -o hiCmatrix/replicateMerged.Corrected.npz
+
 
 Plot Hi-C matrix
 ~~~~~~~~~~~~~~~~
 
-since a big matrix takes too longs to plot, we merge the small bins into
-larger one.
+A 10kb bin matrix is quite large to plot and is better to reduce the resolution (to know the size
+of a Hi-C matrix use the tool :ref:`hicInfo`). For this we use the tool :ref:`hicMergeMatrixBins`
 
 Merge matrix bins for plotting
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**hicMergeMatrixBins** merges the bins into larger bins of given number
-(specified by -nb). We will merge the original (uncorrected) matrix and
-then correct it.
+:ref:`hicMergeMatrixBins` merges the bins into larger bins of given number
+(specified by -nb). We will merge 100 bins in the original (uncorrected) matrix and
+then correct it. The new bin size is going to be 10.000 bp * 100 = 1.000.000 bp
 
 .. code:: bash
 
@@ -176,12 +170,17 @@ then correct it.
 Correct the merged matrix
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We will now correct the merged matrix befor plotting.
+We will now correct the merged matrix before plotting.
 
 .. code:: bash
 
+    hicCorrectMatrix diagnostic_plot \
+    --chromosomes 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 X Y \
+    -m hiCmatrix/replicateMerged.matrix-100bins.npz -o hiCmatrix/diagnostic_plot_100bins.png
+
     hicCorrectMatrix correct \
     --chromosomes 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 X Y \
+    --filterThreshold 0.9 10 \
     -m hiCmatrix/replicateMerged.matrix-100bins.npz -o hiCmatrix/replicateMerged.Corrected-100bins.npz
 
 Plot the corrected Hi-C Matrix
@@ -197,7 +196,7 @@ resolution
     hicPlotMatrix \
     --log1p --dpi 300 \
     -m hiCmatrix/replicateMerged.Corrected-100bins.npz \
-    --chromosomeOrder 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 X Y \
+    --clearMaskedBins \
     -o plots/replicateMerged_Corrected-100bins_plot.png
 
 .. figure:: ./plots/replicateMerged_Corrected-100bins_plot.png
@@ -209,7 +208,7 @@ Remove outliers from hic-Matrix
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Outliers can be removed by a cutoff after looking at the diagnostic plot
-for **hicCorrectMatrix** (using **diagnostic\_plot** option). Here we
+for :ref:`hicCorrectMatrix` (using **diagnostic\_plot** option). Here we
 are using a matrix with 20kb bins (produced by *hicMergeMatrixBins -nb
 2*), since 20kb seems to be decent resolution.
 
@@ -268,28 +267,25 @@ Find and plot TADs
 Find TADs
 ~~~~~~~~~
 
-To find TADs we will first compute the TAD scores using hicFindTADs
-**TAD\_score** option. It requires the minimum and maximum depth (window
-length in base-pairs) to search around cut-points (bigger range will
-find bigger TADs), and the step size (in base-pairs).
+To call TADs a corrected matrix is needed.
+TAD calling works in two steps: First HiCExplorer computes a TAD-separation score based on a z-score matrix for
+all bins. Then those bins having a local minimum of the TAD-separation score are evaluated with respect to the
+surrounding bins to decide assign a p-value. Then a cutoff is applied to select the bins more likely to be TAD
+boundaries.
 
-Then we find the TADs using hicFindTADs **find\_TADs** option.
-Boundaries are discovered as local minima in a window. The *--lookahead*
-option tells the number of bins to search before deciding the local
-minima. Noise can be reduced by increasing the default *--delta* value.
+:ref:`hicFindTADs` tries to identify sensible parameters but those can be change to identify more stringent set of
+boundaries.
 
-.. code:: bash
+.. code-block:: bash
 
     mkdir TADs
-    hicFindTADs TAD_score -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
-    --minDepth 40000 --maxDepth 120000 -t 20 --step 20000 \
-    -o TADs/marks_et-al_TADs_20kb-Bins
+    hicFindTADs -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
+    --minDepth 40000 --maxDepth 120000 --numberOfProcessors 20 --step 20000 \
+    --outPrefix TADs/marks_et-al_TADs_20kb-Bins  --minBoundaryDistance 80000 \ # reduce noise by looking at min 80kb steps
+    --pvalue 0.05
 
-    hicFindTADs find_TADs -m hiCmatrix/replicateMerged.Corrected_20kb.npz \
-    --lookahead 4 \
-    --outPrefix TADs/marks_et-al_TADs_20kb-Bins
 
-As an output we get the boundries and domains as seperate bed files.
+As an output we get the boundaries and domains as separate bed files.
 
 Plot TADs
 ~~~~~~~~~
@@ -339,7 +335,7 @@ and GRCm37\_genes.bed file (from ensembl).
    :alt: TADplot
 
    TADplot
-   
+
 Comparing Marks et. al. and Dixon et. al.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

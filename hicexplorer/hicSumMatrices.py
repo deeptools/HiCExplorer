@@ -1,4 +1,5 @@
-import sys, argparse
+from __future__ import division
+import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
@@ -34,14 +35,18 @@ def main():
     nan_bins = set(hic.nan_bins)
     for matrix in args.matrices[1:]:
         hic_to_append = hm.hiCMatrix(matrix)
+        if hic.chrBinBoundaries != hic_to_append.chrBinBoundaries:
+            exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
+                 "{}: {}\n"
+                 "{}: {}".format(args.matrices[0], list(hic.chrBinBoundaries),
+                                 matrix, list(hic_to_append.chrBinBoundaries)))
 
         try:
             summed_matrix = summed_matrix + hic_to_append.matrix
             if len(hic_to_append.nan_bins):
                 nan_bins = nan_bins.union(hic_to_append.nan_bins)
         except:
-            print "\nMatrix {} seems to be corrupted or of different " \
-                  "shape".format(matrix)
+            print("\nMatrix {} seems to be corrupted or of different shape".format(matrix))
             exit(1)
 
     # save only the upper triangle of the

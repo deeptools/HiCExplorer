@@ -8,7 +8,6 @@
     <command detect_errors="aggressive">
 <![CDATA[
         sed '/^$/d' '$tracks_config' &&
-
         @BINARY@
             --tracks '$tracks_config'
             #if $region and $region is not None:
@@ -31,8 +30,12 @@
 
 #if $x_axis.x_axis_select == "yes":
 [x-axis]
+#if $x_axis.fontsize:
 fontsize = $x_axis.fontsize
+#end if
+#if $x_axis.where:
 where = $x_axis.where
+#end if
 #else:
 [x-axis]
 #end if
@@ -46,8 +49,16 @@ file = $track.track_input
 title = $track.title
 #end if
 
-#if $track.colormap:
+#if $track.colormap and $track.track_input.ext == "h5":
 colormap = $track.colormap
+#end if
+
+#if $track.color and $track.track_input.ext != "h5":
+color = $track.color
+#end if
+
+#if $track.border_color:
+border_color = $track.border_color
 #end if
 
 #if $track.depth:
@@ -57,8 +68,6 @@ depth = $track.depth
 #if $track.display:
 display = $track.display
 #end if
-
-##color = black
 
 #if $track.width
 width = $track.width
@@ -86,7 +95,12 @@ x labels = yes
 #end if
 
 #if $track.track_input.ext == "bedgraph":
+#set $columns = len(open(str($track.track_input)).readline().split('\t'))
+#if $columns > 5:
 file_type = bedgraph_matrix
+#else:
+file_type = bedgraph
+#end if
 #elif $track.track_input.ext == "h5":
 file_type = hic_matrix
 #else
@@ -101,6 +115,14 @@ file_type = $track.track_input.ext
 show_masked_bins = $track.show_masked_bins
 #end if
 
+#if $track.show_data_range:
+show data range = $track.show_data_range
+#end if
+
+#if $track.nans_to_zeros:
+nans to zeros = $track.nans_to_zeros
+#end if
+
 ## to turn off/on printing of labels
 #if str($track.labels) == 'off'
 labels = off
@@ -113,6 +135,10 @@ global max row = yes
 ## optional: font size can be given if default are not good
 #if $track.fontsize:
 fontsize = $track.fontsize
+#end if
+
+#if $track.number_of_bins:
+number of bins = $track.number_of_bins
 #end if
 
 #if $track.orientation
@@ -144,10 +170,12 @@ width = $track.spacer_width
             <param name="boundaries_file" type="data" optional="True" format="bed" label="Boundaries file"/>
             <param name="title" type="text" optional="true" label="Plot title"/>
             <expand macro="colormap" />
+            <param name="color" type="color" value="#000000" label="Track color" optional="True" />
+            <param name="border_color" type="color" value="#000000" label="Border color" optional="True" />
             <param name="min_value" type="float" value="" optional="True" label="Minimum value"/>
             <param name="max_value" type="float" value="" optional="True" label="Maximum value"/>
 
-            <param name="width" type="float" value="" optional="True" label="Width"/>
+            <param name="width" type="float" value="1.5" optional="True" label="Width"/>
 
             <param name="transform" type="select" optional="True" label="Plot the transformed value">
                 <option value="log1p">log1p</option>
@@ -156,6 +184,12 @@ width = $track.spacer_width
             <param name="show_masked_bins" type="boolean" truevalue="yes" falsevalue="no" checked="false"
                 label="Show masked bins" />
 
+            <param name="nans_to_zeros" type="boolean" truevalue="True" falsevalue="False" checked="false"
+                label="NAN's to zeros" />
+
+            <param name="show_data_range" type="boolean" truevalue="yes" falsevalue="no" checked="false"
+                label="SHow data range" />
+
             <param name="labels" type="boolean" truevalue="on" falsevalue="off" checked="true"
                 label="Plot labels" />
 
@@ -163,7 +197,7 @@ width = $track.spacer_width
                 label="X labels" />
 
             <param name="global_max_row" type="boolean" truevalue="yes" falsevalue="no" checked="false"
-                label="Plot lables" />
+                label="Global max rows" />
 
             <param name="orientation" type="select" optional="True" label="Orientation">
                 <option value="inverted">Inverted</option>
@@ -177,12 +211,16 @@ width = $track.spacer_width
 
             <param name="type" type="select" optional="True" label="Plotting type">
                 <option value="lines">Lines</option>
+                <option value="line">Line</option>
                 <option value="vlines">vertical dotted lines from the top to the bottom</option>
                 <option value="arcplot">arcplot</option>
                 <option value="interaction">interaction</option>
+                <option value="genes">Genes</option>
             </param>
 
-            <param name="depth" type="integer" value="" optional="True" label="Depth" />
+            <param name="depth" type="integer" value="8000000" optional="True" label="Depth" />
+            <param name="number_of_bins" type="integer" value="" optional="True" label="Number of bins" />
+
             <param name="fontsize" type="integer" value="" optional="True" label="Fontsize" />
             <param name="gene_rows" type="integer" value="" optional="True" label="Gene rows" />
 
@@ -220,7 +258,7 @@ width = $track.spacer_width
                 <param name="depth" value="200000"/>
                 <param name="transform" value="log1p"/>
                 <param name="boundaries_file" value="domains.bed"/>
-                <param name="spacer_width" value="0.05"/>
+                <param name="spacer_width" value="0.5"/>
             </repeat>
             <repeat name="tracks">
                 <param name="track_input" value="tad_classification.bed" ftype="bed" />
@@ -262,7 +300,7 @@ width = $track.spacer_width
                 <param name="track_input" value="domains.bed" ftype="bed" />
                 <param name="type" value="vlines"/>
             </repeat>
-            <output name="outFileName" file="hicPlotTADs_result1.svg" ftype="svg" compare="sim_size"/>
+            <output name="outFileName" file="hicPlotTADs_result1.svg" ftype="svg" compare="sim_size" delta="35000"/>
         </test>
     </tests>
     <help><![CDATA[

@@ -1,3 +1,4 @@
+from __future__ import division
 import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
@@ -30,12 +31,12 @@ def main():
         hic_ma = hm.hiCMatrix(matrix)
         size = hic_ma.matrix.shape[0]
         num_non_zero = hic_ma.matrix.nnz
-        sum_elements = hic_ma.matrix.sum()/2
+        sum_elements = hic_ma.matrix.sum() / 2
         bin_length = hic_ma.getBinSize()
         num_nan_bins = len(hic_ma.nan_bins)
-        min_non_zero = hic_ma.matrix.min()
-        max_non_zero = hic_ma.matrix.max()
-        chromosomes = hic_ma.chrBinBoundaries.keys()
+        min_non_zero = hic_ma.matrix.data.min()
+        max_non_zero = hic_ma.matrix.data.max()
+        chromosomes = list(hic_ma.chrBinBoundaries)
 
         print("Size:\t{:,}".format(size))
         print("Sum:\t{:,}".format(sum_elements))
@@ -46,4 +47,3 @@ def main():
         print("Maximum:\t{}".format(max_non_zero))
         print("NaN bins:\t{}".format(num_nan_bins))
         print("")
-

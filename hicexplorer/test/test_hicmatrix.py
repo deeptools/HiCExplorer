@@ -5,6 +5,8 @@ from os import unlink
 import numpy as np
 import numpy.testing as nt
 from scipy.sparse import csr_matrix
+from past.builtins import zip
+from six import iteritems
 
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
@@ -12,15 +14,15 @@ ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
 def test_save_load():
     outfile = '/tmp/matrix.h5'
-    cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
-    ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
+    cut_intervals = [(b'a', 0, 10, 1), (b'a', 10, 20, 1),
+                     (b'a', 20, 30, 1), (b'a', 30, 40, 1), (b'b', 40, 50, 1)]
     hic = hm.hiCMatrix()
     hic.nan_bins = []
-    matrix = np.array([[ 1,  8,  5, 3, 0],
-                       [ 0,  4, 15, 5, 1],
-                       [ 0,  0,  0, np.nan, 2],
-                       [ 0,  0,  0, 0, 1],
-                       [ 0,  0,  0, 0, 0]])
+    matrix = np.array([[1, 8, 5, 3, 0],
+                       [0, 4, 15, 5, 1],
+                       [0, 0, 0, np.nan, 2],
+                       [0, 0, 0, 0, 1],
+                       [0, 0, 0, 0, 0]])
 
     hic.matrix = csr_matrix(matrix)
     # make matrix symmetric
@@ -32,13 +34,13 @@ def test_save_load():
     hic.save(outfile)
 
     h5 = hm.hiCMatrix(outfile)
-
     nt.assert_equal(hic.correction_factors, h5.correction_factors)
     nt.assert_equal(hic.matrix.data, h5.matrix.data)
     nt.assert_equal(hic.matrix.indices, h5.matrix.indices)
     nt.assert_equal(hic.matrix.indptr, h5.matrix.indptr)
     nt.assert_equal(hic.nan_bins, h5.nan_bins)
-    assert hic.cut_intervals == h5.cut_intervals
+
+    nt.assert_equal(hic.cut_intervals, h5.cut_intervals)
     unlink(outfile)
 
 
@@ -49,7 +51,7 @@ def test_convert_to_zscore_matrix():
     mat = np.triu(np.random.random_integers(0, 100, (m_size, m_size)))
     # add a number of zeros
     mat[mat < 90] = 0
-    #import ipdb;ipdb.set_trace()
+    # import ipdb;ipdb.set_trace()
     mu = dict([(idx, mat.diagonal(idx).mean()) for idx in range(mat.shape[0])])
     std = dict([(idx, np.std(mat.diagonal(idx))) for idx in range(mat.shape[0])])
 
@@ -58,14 +60,17 @@ def test_convert_to_zscore_matrix():
     for _i in range(mat.shape[0]):
         for _j in range(mat.shape[0]):
             if _j >= _i:
-                diag = _j- _i
-                zscore = (mat[_i, _j] - mu[diag]) / std[diag]
+                diag = _j - _i
+                if std[diag] == 0:
+                    zscore = np.nan
+                else:
+                    zscore = (mat[_i, _j] - mu[diag]) / std[diag]
                 zscore_mat[_i, _j] = zscore
 
     # make Hi-C matrix based on test matrix
     hic = hm.hiCMatrix()
     hic.matrix = csr_matrix(mat)
-    cut_intervals = [('chr', idx, idx+10, 0) for idx in range(0, mat.shape[0] * 10, 10)]
+    cut_intervals = [('chr', idx, idx + 10, 0) for idx in range(0, mat.shape[0] * 10, 10)]
     hic.setMatrix(hic.matrix, cut_intervals)
     hic.convert_to_zscore_matrix()
 
@@ -83,7 +88,6 @@ def test_convert_to_zscore_matrix_2():
     max_depth = 10000
     bin_size = hic.getBinSize()
     max_depth_in_bins = int(float(max_depth) / bin_size)
-
 
     m_size = mat.shape[0]
     # compute matrix values per distance
@@ -104,7 +108,7 @@ def test_convert_to_zscore_matrix_2():
 
     mu = {}
     std = {}
-    for dist, values in dist_values.iteritems():
+    for dist, values in iteritems(dist_values):
         mu[dist] = np.mean(values)
         std[dist] = np.std(values)
 
