@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
+from past.builtins import map
+from past.builtins import zip
 
 import sys
 import numpy as np
@@ -16,8 +18,8 @@ from matplotlib.patches import Rectangle
 import textwrap
 import os.path
 from imp import reload
-from past.builtins import map
-from past.builtins import zip
+from .readBed import ReadBed
+import copy
 
 import warnings
 warnings.filterwarnings('error')
@@ -32,6 +34,8 @@ from intervaltree import IntervalTree, Interval
 
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
+from hicexplorer.utilities import toString, toBytes
+
 
 reload(sys)
 if sys.version_info <= (3, 0):
@@ -99,7 +103,7 @@ class PlotTracks(object):
             #         spacer_in_keys = True
             #         break
             # if spacer_in_keys:
-            print("properties: ", properties)
+            # print("properties: ", properties)
             if 'spacer' in properties:
                 self.track_obj_list.append(PlotSpacer(properties))
                 continue
@@ -131,9 +135,15 @@ class PlotTracks(object):
                 # adjust titles that are too long
                 # if the track label space is small
                 if track_label_width < 0.1:
-                    properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 12)
+                    if sys.version_info[0] == 2:
+                        properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 12)
+                    else:
+                        properties['title'] = textwrap.fill(properties['title'], 12)
                 else:
-                    properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 50)
+                    if sys.version_info[0] == 2:
+                        properties['title'] = textwrap.fill(properties['title'].encode("UTF-8"), 50)
+                    else:
+                        properties['title'] = textwrap.fill(properties['title'], 50)
 
         print("time initializing track(s):")
         self.print_elapsed(start)
@@ -181,6 +191,7 @@ class PlotTracks(object):
         return track_height
 
     def plot(self, file_name, chrom, start, end, title=None):
+        # print("plot 1: type(chrom)", type(chrom))
         track_height = self.get_tracks_height(start, end)
 
         if self.fig_height:
@@ -238,9 +249,14 @@ class PlotTracks(object):
             line_width = self.vlines_properties['line width']
         else:
             line_width = 0.5
+        if type(next(iter(self.vlines_intval_tree))) is np.bytes_ or type(next(iter(self.vlines_intval_tree))) is bytes:
+            chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.vlines_intval_tree):
             chrom_region = change_chrom_names(chrom_region)
+            if type(next(iter(self.vlines_intval_tree))) is np.bytes_ or type(next(iter(self.vlines_intval_tree))) is bytes:
+                chrom_region = toBytes(chrom_region)
+
         for region in sorted(self.vlines_intval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             vlines_list.append(region.begin)
 
@@ -396,7 +412,9 @@ def opener(filename):
     """
     import gzip
     f = open(filename, 'rb')
-    if f.read(2) == '\x1f\x8b':
+    # print("gzip or not?", f.read(2))
+
+    if f.read(2) == b'\x1f\x8b':
         f.seek(0)
         return gzip.GzipFile(fileobj=f)
     else:
@@ -426,9 +444,11 @@ def file_to_intervaltree(file_name):
 
     for line in file_h.readlines():
         line_number += 1
+        line = toString(line)
         if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
             continue
         fields = line.strip().split('\t')
+        # print("fields: ", fields[0:3], type(fields))
         try:
             chrom, start, end = fields[0:3]
         except Exception as detail:
@@ -458,7 +478,7 @@ def file_to_intervaltree(file_name):
 
         value = None
 
-        if fields > 3:
+        if len(fields) > 3:
             value = fields[3:]
             try:
                 line_min = min(map(float, value))
@@ -525,8 +545,13 @@ class PlotBedGraph(TrackPlot):
         score_list = []
         pos_list = []
 
+        if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+            chrom_region = toBytes(chrom_region)
+
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
+            if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+                chrom_region = toBytes(chrom_region)
 
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             score_list.append(float(region.data[0]))
@@ -593,8 +618,13 @@ class PlotBedGraphMatrix(PlotBedGraph):
 
         start_pos = []
         matrix_rows = []
+        if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+            chrom_region = toBytes(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
+            if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+                chrom_region = toBytes(chrom_region)
+
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             start_pos.append(region.begin)
             values = map(float, region.data)
@@ -685,8 +715,17 @@ class PlotBigWig(TrackPlot):
                                  "is not valid. Using default value (700)".format(self.properties['number of bins'],
                                                                                   self.properties['file']))
 
+        if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
+            chrom_region = toBytes(chrom_region)
+        # chrom_region = toBytes(chrom_region)
+        # print('chrom_region', chrom_region, type(chrom_region))
+        # print('list(self.bw.chroms())[0]', list(self.bw.chroms())[0], type(list(self.bw.chroms())[0]))
+
         if chrom_region not in list(self.bw.chroms()):
             chrom_region = change_chrom_names(chrom_region)
+            if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
+                chrom_region = toBytes(chrom_region)
+            # chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.bw.chroms()):
             sys.stderr.write("Can not read region {} from bigwig file:\n\n"
@@ -884,15 +923,21 @@ class PlotHiCMatrix(TrackPlot):
             self.boundaries_obj = PlotBoundaries({'file': self.properties['boundaries_file']})
 
     def plot(self, ax, label_ax, chrom, region_start, region_end):
-        import copy
         self.cbar_ax = copy.copy(label_ax)
         self.label_ax = label_ax
         self.label_ax.set_axis_off()
         self.ax = ax
 
         chrom_sizes = self.hic_ma.get_chromosome_sizes()
+
+        if type(next(iter(chrom_sizes))) is np.bytes_ or type(next(iter(chrom_sizes))) is bytes:
+            chrom = toBytes(chrom)
+
         if chrom not in list(chrom_sizes):
             chrom = change_chrom_names(chrom)
+            if type(next(iter(chrom_sizes))) is np.bytes_ or type(next(iter(chrom_sizes))) is bytes:
+                chrom = toBytes(chrom)
+
         if region_end > chrom_sizes[chrom]:
             sys.stderr.write("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
             sys.stderr.write("{} size: {}. Region to plot {}-{}\n".format(chrom, chrom_sizes[chrom],
@@ -1187,10 +1232,17 @@ class PlotBoundaries(TrackPlot):
         """
         x = []
         y = []
+
+        if type(next(iter(self.interval_tree))) is np.bytes_:
+            chrom_region = toBytes(chrom_region)
+        if type(next(iter(self.interval_tree))) is str:
+            chrom_region = toString(chrom_region)
         if chrom_region not in self.interval_tree:
             orig = chrom_region
             chrom_region = change_chrom_names(chrom_region)
+
             print('changing {} to {}'.format(orig, chrom_region))
+
         for region in sorted(self.interval_tree[chrom_region][start_region:end_region]):
             """
                   /\
@@ -1269,9 +1321,7 @@ class PlotBed(TrackPlot):
         else:
             self.len_w = 1
 
-        import readBed
-
-        bed_file_h = readBed.ReadBed(opener(self.properties['file']))
+        bed_file_h = ReadBed(opener(self.properties['file']))
         self.bed_type = bed_file_h.file_type
         valid_intervals = 0
         self.max_num_row = {}
@@ -1371,9 +1421,12 @@ class PlotBed(TrackPlot):
         self.counter = 0
         self.small_relative = 0.004 * (end_region - start_region)
         self.process_bed(ax.get_figure().get_figwidth(), start_region, end_region)
-
+        if type(next(iter(self.interval_tree))) is np.bytes_:
+            chrom_region = toBytes(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
+            if type(next(iter(self.interval_tree))) is np.bytes_:
+                chrom_region = toBytes(chrom_region)
 
         genes_overlap = sorted(self.interval_tree[chrom_region][start_region:end_region])
 
@@ -1760,9 +1813,12 @@ class PlotArcs(TrackPlot):
         from matplotlib.patches import Arc
         max_diameter = 0
         count = 0
-
+        if type(next(iter(self.intval_tree))) is not np.bytes_:
+            chrom_region = toString(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
+            if type(next(iter(self.intval_tree))) is not np.bytes_:
+                chrom_region = toString(chrom_region)
         arcs_in_region = sorted(self.interval_tree[chrom_region][region_start:region_end])
 
         for idx, interval in enumerate(arcs_in_region):
@@ -1801,6 +1857,11 @@ def change_chrom_names(chrom):
     and vice versa.
     """
     # TODO: mapping from chromosome names like mithocondria is missing
+
+    # python 2 / 3 issue with string, bytes and np.bytes_
+    # if chrom.startswith('chr'):
+
+    chrom = toString(chrom)
     if chrom.startswith('chr'):
         # remove the chr part from chromosome name
         chrom = chrom[3:]

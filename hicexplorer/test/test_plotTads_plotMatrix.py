@@ -1,7 +1,6 @@
 import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images
-from tempfile import NamedTemporaryFile
 import os.path
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
@@ -107,6 +106,8 @@ file = domains.bed
 type = vlines
 
 """
+from tempfile import NamedTemporaryFile
+
 with open(ROOT + "browser_tracks.ini", 'w') as fh:
     fh.write(browser_tracks)
 

@@ -7,6 +7,7 @@ import os
 import sys
 import errno
 import matplotlib
+import pandas as pd
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from hicexplorer._version import __version__
@@ -44,11 +45,13 @@ def parse_arguments():
 def save_html(filename, html_table):
     root = os.path.dirname(os.path.abspath(__file__))
 
-    html = open(os.path.join(root, "qc_template.html"), "r").read()
+    html = open(os.path.join(root, "qc_template.html"), "r")
+    html_content = html.read()
     # the html code has a placeholder for the html table
-    html = html.replace("%%TABLE%%", html_table)
+    html_content = html_content.replace("%%TABLE%%", html_table)
     with open(filename, 'w') as fh:
-        fh.write(html)
+        fh.write(html_content)
+    html.close()
 
 
 def make_sure_path_exists(path):
@@ -123,7 +126,6 @@ def make_figure_read_orientation(table, filename):
 
 
 def main(args=None):
-
     """
     The structure of the log file is as follows:
     --------------------------------------------
@@ -178,16 +180,15 @@ def main(args=None):
                 except ValueError:
                     params[fields[0]].append(fields[1])
 
-    import pandas as pd
     table = pd.DataFrame(params)
     if args.labels and len(args.labels) == len(args.logfiles):
-            try:
-                table['Labels'] = args.labels
-            except ValueError:
-                exit("*ERROR* Some log files may not be valid. Please check that the log files contain "
-                     "at the end the summary information.")
+        try:
+            table['Labels'] = args.labels
+        except ValueError:
+            exit("*ERROR* Some log files may not be valid. Please check that the log files contain "
+                 "at the end the summary information.")
 
-            table = table.set_index('Labels')
+        table = table.set_index('Labels')
     else:
         table = table.set_index('File')
 

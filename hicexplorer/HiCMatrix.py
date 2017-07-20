@@ -1,4 +1,5 @@
 from __future__ import division
+# from __future__ import unicode_literals
 from builtins import range
 from past.builtins import zip
 from six import iteritems
@@ -21,6 +22,8 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 warnings.simplefilter(action='ignore', category=ImportWarning)
+warnings.simplefilter(action='ignore', category=tables.exceptions.FlavorWarning)
+
 # try to import pandas if exists
 try:
     import pandas as pd
@@ -278,7 +281,7 @@ class hiCMatrix:
         self.header = []
         try:
             for line in gzip.open(fileName, 'r').readlines():
-                if line.startswith("#"):
+                if line.startswith(b"#"):
                     self.header.append(line)
                     continue
                 i += 1
@@ -1633,6 +1636,7 @@ class hiCMatrix:
         for chrom, (start_bin, end_bin) in iteritems(self.chrBinBoundaries):
             chrom, start, end, _ = self.cut_intervals[end_bin - 1]
             chrom_sizes[chrom] = end
+
         return chrom_sizes
 
     @staticmethod
@@ -1666,7 +1670,6 @@ class hiCMatrix:
             cut_int_tree[chrom].add(Interval(start, end, intval_id))
 
             intval_id += 1
-
         chrbin_boundaries[chrom] = (chr_start_id, intval_id)
 
         return cut_int_tree, chrbin_boundaries

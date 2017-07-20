@@ -1,5 +1,4 @@
 from __future__ import division
-
 import sys
 import argparse
 import numpy as np

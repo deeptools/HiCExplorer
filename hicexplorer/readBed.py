@@ -1,8 +1,8 @@
 from __future__ import division
-
 import sys
 import collections
 from past.builtins import map
+from hicexplorer.utilities import toString
 
 
 class ReadBed(object):
@@ -28,7 +28,10 @@ class ReadBed(object):
         self.file_handle = file_handle
         self.line_number = 0
         # guess file type
-        fields = self.get_no_comment_line().split('\t')
+        fields = self.get_no_comment_line()
+        fields = toString(fields)
+        fields = fields.split('\t')
+
         self.guess_file_type(fields)
         self.file_handle.seek(0)
         self.prev_chrom = None
@@ -59,8 +62,9 @@ class ReadBed(object):
         :return:
         """
         line = next(self.file_handle)
+        line = toString(line)
         if line.startswith("#") or line.startswith("track") or \
-           line.startswith("browser") or line.strip() == '':
+                line.startswith("browser") or line.strip() == '':
             line = self.get_no_comment_line()
 
         self.line_number += 1
@@ -109,6 +113,25 @@ class ReadBed(object):
 
         return bed
 
+    def __next__(self):
+        """
+        :return: bedInterval object
+        """
+        line = self.get_no_comment_line()
+
+        bed = self.get_bed_interval(line)
+        if self.prev_chrom == bed.chromosome:
+            assert self.prev_start <= bed.start, \
+                "Bed file not sorted. Please use a sorted bed file.\n" \
+                "File: {}\n" \
+                "Previous line: {}\n Current line{} ".format(self.file_handle.name, self.prev_line, line)
+
+        self.prev_chrom = bed.chromosome
+        self.prev_start = bed.start
+        self.prev_line = line
+
+        return bed
+
     def get_bed_interval(self, bed_line):
         r"""
         Processes each bed line from a bed file, casts the values and returns
@@ -132,7 +155,10 @@ class ReadBed(object):
         BedInterval(chromosome='chr2', start=0, end=1000, name='gene_1', score=0.5, strand='-')
         """
 
-        line_data = bed_line.strip().split("\t")
+        line_data = bed_line.strip()
+        line_data = toString(line_data)
+        line_data = line_data.split("\t")
+
         if self.file_handle == 'bed12':
             assert len(line_data) == 12, "File type detected is bed12 but line {}: {} does " \
                                          "not have 12 fields.".format(self.line_number, bed_line)
@@ -175,7 +201,9 @@ class ReadBed(object):
                     return dict()
             # check item rgb
             elif idx == 8:
+                r = toString(r)
                 rgb = r.split(",")
+
                 if len(rgb) == 3:
                     try:
                         r = map(int, rgb)
@@ -186,7 +214,9 @@ class ReadBed(object):
 
             elif idx in [10, 11]:
                 # this are the block sizes and block start positions
+                r = toString(r)
                 r_parts = r.split(',')
+
                 try:
                     r = [int(x) for x in r_parts if x != '']
                 except ValueError as detail:

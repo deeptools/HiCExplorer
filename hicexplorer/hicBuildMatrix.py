@@ -449,6 +449,9 @@ def check_dangling_end(read, dangling_sequences):
     read ends with the dangling sequence.
     """
     ds = dangling_sequences
+    # check if keys are existing, return false otherwise
+    if 'pat_forw' not in ds or 'pat_rev' not in ds:
+        return False
     # skip forward read that stars with the restriction sequence
     if not read.is_reverse and \
             read.seq.upper().startswith(ds['pat_forw']):
@@ -919,7 +922,7 @@ def process_data(pMateBuffer1, pMateBuffer2,
             vec_start = int(max(0, mate.pos - mate_bin.begin) / pBinsize)
             length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
             vec_end = min(length_coverage, int(vec_start +
-                          len(mate.seq) / pBinsize))
+                                               len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
             for i in xrange(coverage_index, coverage_end, 1):
@@ -1085,9 +1088,7 @@ def main(args=None):
         number_of_elements_coverage += (end - start) // binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
     pos_coverage = RawArray(C_Coverage, list(zip(start_pos_coverage, end_pos_coverage)))
-    # start_pos_coverage = None
-    # end_pos_coverage = None
-    coverage = Array(c_uint, range(number_of_elements_coverage))
+    coverage = Array(c_uint, [0] * number_of_elements_coverage)
 
     # define global shared ctypes arrays for row, col and data
     args.threads -= 2

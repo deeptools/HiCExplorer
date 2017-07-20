@@ -2,7 +2,6 @@ from __future__ import division
 import sys
 import argparse
 from past.builtins import zip
-
 from scipy.sparse import lil_matrix
 import logging
 
