@@ -670,69 +670,56 @@ class PlotBigWig(TrackPlot):
                              "{}\n\nPlease check that the chromosome name is part of the bigwig file "
                              "and that the region is valid".format(formated_region, self.properties['file']))
 
-        if end_region - start_region < 2e6:
-            scores = self.bw.values(chrom_region, start_region, end_region)
+        # on rare occasions pyBigWig may throw an error, apparently caused by a corruption
+        # of the memory. This only occurs when calling trackPlot from different
+        # processors. Reloading the file solves the problem.
+        num_tries = 0
+        while num_tries < 5:
+            num_tries += 1
+            try:
+                scores_per_bin = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
+            except Exception as e:
+                import pyBigWig
+                self.bw = pyBigWig.open(self.properties['file'])
 
-            if 'nans to zeros' in self.properties and self.properties['nans to zeros'] is True:
-                scores[np.isnan(scores)] = 0
-
-            lins = np.linspace(0, len(scores), num_bins).astype(int)
-            scores_per_bin = [np.mean(scores[lins[x]:lins[x + 1]]) for x in range(len(lins) - 1)]
-            _x = lins + start_region
-            x_values = [float(_x[x] + _x[x + 1]) / 2 for x in range(len(lins) - 1)]
-            if 'type' in self.properties and self.properties != 'fill':
-                if self.properties['type'].find(":") > 0:
-                    plot_type, size = self.properties['type'].split(":")
-                    try:
-                        size = float(size)
-                    except ValueError:
-                        exit("Invalid value: 'type = {}' in section: {}\n"
-                             "A number was expected and found '{}'".format(self.properties['type'],
-                                                                           self.properties['section_name'],
-                                                                           size))
-                else:
-                    plot_type = self.properties['type']
-                    size = None
-
-                if plot_type == 'line':
-                    self.ax.plot(x_values, scores_per_bin, '-', linewidth=size, color=self.properties['color'])
-
-                elif plot_type == 'points':
-                    self.ax.plot(x_values, scores_per_bin, '.', markersize=size, color=self.properties['color'])
-
-                else:
-                    exit("Invalid: 'type = {}' in section: {}\n".format(self.properties['type'],
-                                                                        self.properties['section_name'],
-                                                                        size))
+                print "error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries)
+                pass
             else:
-                self.ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
-                                     color=self.properties['color'],
-                                     facecolor=self.properties['color'])
+                if num_tries > 1:
+                    print "After {} the scores could be computed".format(num_tries)
+                break
 
-        else:
-            # on rare occasions pyBigWig may throw an error, apparently caused by a corruption
-            # of the memory. This only occurs when calling trackPlot from different
-            # processors. Reloading the file solves the problem.
-            num_tries = 0
-            while num_tries < 5:
-                num_tries += 1
+        x_values = np.linspace(start_region, end_region, num_bins)
+
+        if 'type' in self.properties and self.properties != 'fill':
+            if self.properties['type'].find(":") > 0:
+                plot_type, size = self.properties['type'].split(":")
                 try:
-                    scores = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
-                except Exception as e:
-                    import pyBigWig
-                    self.bw = pyBigWig.open(self.properties['file'])
+                    size = float(size)
+                except ValueError:
+                    exit("Invalid value: 'type = {}' in section: {}\n"
+                         "A number was expected and found '{}'".format(self.properties['type'],
+                                                                       self.properties['section_name'],
+                                                                       size))
+            else:
+                plot_type = self.properties['type']
+                size = None
 
-                    print "error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries)
-                    pass
-                else:
-                    if num_tries > 1:
-                        print "After {} the scores could be computed".format(num_tries)
-                    break
+            if plot_type == 'line':
+                self.ax.plot(x_values, scores_per_bin, '-', linewidth=size, color=self.properties['color'])
 
-            x_values = np.linspace(start_region, end_region, num_bins)
-            self.ax.fill_between(x_values, scores, linewidth=0.1,
+            elif plot_type == 'points':
+                self.ax.plot(x_values, scores_per_bin, '.', markersize=size, color=self.properties['color'])
+
+            else:
+                exit("Invalid: 'type = {}' in section: {}\n".format(self.properties['type'],
+                                                                    self.properties['section_name'],
+                                                                    size))
+        else:
+            self.ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
                                  color=self.properties['color'],
-                                 facecolor=self.properties['color'], zorder=1)
+                                 facecolor=self.properties['color'])
+
         self.ax.set_xlim(start_region, end_region)
         ymin, ymax = self.ax.get_ylim()
         if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
