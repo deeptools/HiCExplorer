@@ -18,6 +18,8 @@ from intervaltree import IntervalTree, Interval
 
 import gzip
 
+import cooler
+
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
@@ -55,6 +57,8 @@ class hiCMatrix:
                     file_format = 'h5'
                 elif matrixFile.endswith('.gz'):
                     file_format = 'dekker'
+                elif matrix.File.endswith('.cool'):
+                    file_format = 'cool'
                 # by default assume that the matrix file_format is hd5
                 else:
                     file_format = 'h5'
@@ -78,6 +82,7 @@ class hiCMatrix:
                     np.loadtxt(matrixFile,
                                skiprows=skiprows,
                                usecols=list(range(1, len(self.cut_intervals) + 1))))
+
                 """
                 # convert nans to zeros
                 self.matrix.data[np.isnan(self.matrix.data)] = 0
@@ -90,13 +95,19 @@ class hiCMatrix:
                 lieberman_data = self.getLiebermanBins(filenameList=matrixFile, chrnameList=chrnameList)
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
-
+            elif file_format == 'cool':
+                self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
+                    hiCMatrix.load_cool(matrixFile)
+                self.restoreMaskedBins()
             else:
                 exit("matrix format not known.")
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
 
+    @staticmethod
+    def load_cool(matrixFile):
+        pass
     @staticmethod
     def load_h5(matrix_filename):
         """
