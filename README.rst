@@ -40,7 +40,7 @@ HiCExplorer is available for:
 -  Integration into Galaxy servers (via toolshed/API/web-browser)
 
 There are many easy ways to install HiCExplorer. Details can be found
-`here <http://hicexplorer.readthedocs.io/content/installation.html>`__
+`here <https://hicexplorer.readthedocs.io/en/latest/content/installation.html>`__
 
 
 Install with conda
