@@ -57,7 +57,7 @@ class hiCMatrix:
                     file_format = 'h5'
                 elif matrixFile.endswith('.gz'):
                     file_format = 'dekker'
-                elif matrix.File.endswith('.cool'):
+                elif matrixFile.endswith('.cool'):
                     file_format = 'cool'
                 # by default assume that the matrix file_format is hd5
                 else:
@@ -106,8 +106,31 @@ class hiCMatrix:
                 self.intervalListToIntervalTree(self.cut_intervals)
 
     @staticmethod
-    def load_cool(matrixFile):
-        pass
+    def load_cool(pMatrixFile, pChr=None, pStartRange=None, pEndRange=None):
+        cooler_file = cooler.Cooler(pMatrixFile)
+        cut_intervals_data_frame = None
+        fetch_string = None
+        if pChr is not None:
+            fetch_string = pChr
+            if pStartRange is not None and pEndRange is not None:
+                fetch_string += ':' + str(pRangeStart) + '-' + str(pEndRange)
+            cut_intervals_data_frame = cooler_file.bins().fetch(fetch_string)
+        else:        
+            cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
+
+        cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
+        
+        if fetch_string is None:
+            matrix = cooler_file.matrix(balance=False, sparse=True)[: , :]
+        else:
+            matrix = cooler_file.matrix(sparse=True).fetch(fetch_string)
+        
+        distance_counts = None
+        correction_factors = None
+        nan_bins = np.array([])
+
+        return matrix.tocsr(), cut_intervals, nan_bins, distance_counts, correction_factors
+
     @staticmethod
     def load_h5(matrix_filename):
         """
@@ -128,6 +151,8 @@ class hiCMatrix:
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
                 intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
             cut_intervals = zip(intvals['chr_list'], intvals['start_list'], intvals['end_list'], intvals['extra_list'])
+            print(cut_intervals[:10])
+            # exit(1234)
             assert len(cut_intervals) == matrix.shape[0], \
                 "Error loading matrix. Length of bin intervals ({}) is different than the " \
                 "size of the matrix ({})".format(len(cut_intervals), matrix.shape[0])
@@ -1145,6 +1170,8 @@ class hiCMatrix:
                                                               chr_col, int(start_col), int(end_col), counts))
         fileh.close()
 
+    def save_cooler(self, pFileName):
+        pass
     def save(self, filename):
         """
         Saves a matrix using hdf5 format
