@@ -394,8 +394,14 @@ def plotPerChr(hic_matrix, cmap, args):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-
-    ma = HiCMatrix.hiCMatrix(args.matrix)
+    chrom_cooler = None
+    region_start_cooler = None
+    region_end_cooler = None
+    if args.matrix.endswith('cool'):
+        if args.region:
+            chrom_cooler, region_start_cooler, region_end_cooler = translate_region(args.region)
+            
+    ma = HiCMatrix.hiCMatrix(args.matrix, chrom_cooler, region_start_cooler, region_end_cooler)
     if args.perChromosome and args.region:
         sys.stderr.write('ERROR, choose from the option '
                          '--perChromosome or --region, the two '
@@ -442,6 +448,7 @@ def main(args=None):
         args.region = [chrom, region_start, region_end]
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
                                  x[1] >= region_start and x[2] < region_end])
+        print(chrom, region_start, region_end, idx1, start_pos1)
         if args.region2:
             chrom2, region_start2, region_end2 = translate_region(args.region2)
             if type(next(iter(ma.interval_trees))) is np.bytes_:
@@ -459,8 +466,11 @@ def main(args=None):
             chrom2 = chrom
             start_pos2 = start_pos1
         # select only relevant part
-        matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
-
+        if args.matrix.endswith('.cool'):
+            matrix = np.asarray(ma.matrix.todense().astype(float))
+        else:
+            matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
+            
     else:
         # TODO make start_pos1
         start_pos1 = None
