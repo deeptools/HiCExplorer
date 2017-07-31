@@ -9,7 +9,7 @@ import sys
 import os
 
 from collections import OrderedDict
-from scipy.sparse import csr_matrix, dia_matrix, coo_matrix
+from scipy.sparse import csr_matrix, dia_matrix, coo_matrix, triu
 from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 from scipy.sparse import triu, tril
@@ -41,7 +41,8 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None):
+    def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None,
+                 pChrName=None, pChrStart=None, pChrEnd=None):
         self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distance_counts = None  # only defined when getCountsByDistance is called
@@ -97,7 +98,7 @@ class hiCMatrix:
                 self.matrix = lieberman_data['matrix']
             elif file_format == 'cool':
                 self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
-                    hiCMatrix.load_cool(matrixFile)
+                    hiCMatrix.load_cool(matrixFile, pChrName, pChrStart, pChrEnd)
                 self.restoreMaskedBins()
             else:
                 exit("matrix format not known.")
@@ -115,16 +116,16 @@ class hiCMatrix:
             if pStartRange is not None and pEndRange is not None:
                 fetch_string += ':' + str(pRangeStart) + '-' + str(pEndRange)
             cut_intervals_data_frame = cooler_file.bins().fetch(fetch_string)
-        else:        
+        else:
             cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
-        
+
         if fetch_string is None:
-            matrix = cooler_file.matrix(balance=False, sparse=True)[: , :]
+            matrix = cooler_file.matrix(balance=False, sparse=True)[:, :]
         else:
             matrix = cooler_file.matrix(sparse=True).fetch(fetch_string)
-        
+
         distance_counts = None
         correction_factors = None
         nan_bins = np.array([])
@@ -1171,8 +1172,22 @@ class hiCMatrix:
         fileh.close()
 
     def save_cooler(self, pFileName):
-        pass
-    def save(self, filename):
+        # create a pandas data frame for cut_intervals
+        bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
+
+        # get only the upper triangle of the matrix to save to disk
+        upper_triangle = triu(self.matrix, k=0, format='csr')
+        # create a tuple list and use it to create a data frame
+        instances, features = upper_triangle.nonzero()
+        data = upper_triangle.data.tolist()
+        matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
+
+        matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
+        cooler_file = cooler.io.create(cool_uri=pFileName,
+                                       bins=bins_data_frame,
+                                       pixels=matrix_data_frame)
+
+    def save_hdf5(self, filename):
         """
         Saves a matrix using hdf5 format
         :param filename:
@@ -1279,6 +1294,26 @@ class hiCMatrix:
             except:
                 print("Matrix can not be saved because is too big!")
             exit()
+
+    def save(self, pMatrixName):
+    """To save please specifiy the ending of your format i.e. 'output_matrix.format' Supported are: 'dekker', 'ren', 
+        'lieberman', 'npz', 'GInteractions', 'h5' and 'cool'.
+    """
+        if pMatrixName.endswith('dekker') == 'dekker':
+            hic_ma.save_dekker(args.outFileName)
+        elif pMatrixName.endswith('ren'):
+            hic_ma.save_bing_ren(args.outFileName)
+        elif pMatrixName.endswith('lieberman'):
+            hic_ma.save_lieberman(args.outFileName)
+        elif pMatrixName.endswith('npz'):
+            hic_ma.save_npz(args.outFileName)
+        elif pMatrixName.endswith('GInteractions'):
+            hic_ma.save_GInteractions(args.outFileName)
+        elif pMatrixName.endswith('cool'):
+            hic_ma.save_cooler(args.outFileName)
+        else:
+            hic_ma.save_hdf5(args.outFileName)
+
 
     def diagflat(self, value=np.nan):
         """
