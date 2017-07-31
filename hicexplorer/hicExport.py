@@ -71,7 +71,7 @@ def parse_arguments(args=None):
                              'The GInteractions format is in the form : Bin1, Bin2 , Interaction,'
                              'where Bin1 and Bin2 are intervals (chr,start,end), seperated by tab.',
                         default='dekker',
-                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz', 'GInteractions'])
+                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz', 'GInteractions', 'cool'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
@@ -204,5 +204,7 @@ def main():
         hic_ma.save_npz(args.outFileName)
     elif args.outputFormat == 'GInteractions':
         hic_ma.save_GInteractions(args.outFileName)
+    elif args.outputFormat == 'cool':
+        hic_ma.save_cooler(args.outFileName)
     else:
         hic_ma.save(args.outFileName)
