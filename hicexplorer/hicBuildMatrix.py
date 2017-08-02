@@ -83,11 +83,14 @@ def parse_arguments(args=None):
                      'local alignment (eg. Bowtie2) where both '
                      'PE reads are mapped using  the --local '
                      'option, this program reads such file and '
-                     'creates a matrix of interactions.'))
+                     'creates a matrix of interactions.'
+                     'It is highly recommended to set the system environment variable' 
+                     '\'HICEXPLORER_FILE_BUFFER_DIR\' to a ram disk location (e.g. /dev/shm) to'
+                     'speed up the computation. If it is not set the local directory \'bam_file_buffer_dir\' is used.'))
 
     # define the arguments
     parser.add_argument('--samFiles', '-s',
-                        help='The two sam files to process',
+                        help='The two alignment sam files to process',
                         metavar='two sam files',
                         nargs=2,
                         type=argparse.FileType('r'),
@@ -152,7 +155,7 @@ def parse_arguments(args=None):
                              '"dangling-ends". If not given, such statistics will '
                              'not be available.')
 
-    parser.add_argument('--outFileName', '-o',
+    parser.add_argument('--outFileName',
                         help='Output file name for the HiC matrix',
                         metavar='FILENAME',
                         type=argparse.FileType('w'),
@@ -220,14 +223,6 @@ def parse_arguments(args=None):
                         required=False,
                         default=100000,
                         type=int
-                        )
-    parser.add_argument('--outputFileBufferDir',
-                        help='The location of the output file buffer. At this location the intermediate \'bam\' files and \'bam_done\' are stored. Per default /dev/shm/ is used which is in the most Linux systems a RAM disk. '
-                        'Please make sure no other instance of hicBuildMatrix is accessing this directory at the same time or that old tmp files, maybe from '
-                        'an interupted run of hicBuildMatrix, are stored there. It could cause some non expected behaviour and or results.',
-                        required=False,
-                        default='/dev/shm/',
-                        type=str
                         )
     parser.add_argument('--doTestRun',
                         help='A test run is useful to test the quality '
@@ -1014,7 +1009,12 @@ def main(args=None):
 
     args.samFiles[0].close()
     args.samFiles[1].close()
-    outputFileBufferDir = args.outputFileBufferDir
+    if 'HICEXPLORER_FILE_BUFFER_DIR' in os.environ:
+        outputFileBufferDir = os.environ['HICEXPLORER_FILE_BUFFER_DIR']
+    else:
+        if not os.path.exists('bam_file_buffer_dir'):
+            os.makedirs('bam_file_buffer_dir')
+            outputFileBufferDir = os.path.abspath('bam_file_buffer_dir')
     outputFileBufferDir = os.path.join(outputFileBufferDir)
     unique_hash_for_bam = str(hash(time.time()))
     if args.outBam:
