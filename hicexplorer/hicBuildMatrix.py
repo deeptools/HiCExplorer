@@ -218,10 +218,10 @@ def parse_arguments(args=None):
                         type=int
                         )
     parser.add_argument('--inputBufferSize',
-                        help='Size of the input buffer of each thread. 100,000 read pairs per input file per thread is the default value.'
+                        help='Size of the input buffer of each thread. 400,000 read pairs per input file per thread is the default value.'
                              ' Reduce value to decrease memory usage.',
                         required=False,
-                        default=100000,
+                        default=400000,
                         type=int
                         )
     parser.add_argument('--doTestRun',
