@@ -58,6 +58,12 @@
                 --minMappingQuality $minMappingQuality
             #end if
 
+            #if $danglingSequence:
+                --danglingSequence '$danglingSequence'
+            #end if
+
+            --threads \${GALAXY_SLOTS:-8}
+            
             --QCfolder ./QCfolder
         &&
         mv ./QCfolder/* $qc.files_path/
@@ -72,25 +78,31 @@
         <repeat max="2" min="2" name="samFiles" title="Sam/Bam files to process">
             <param name="samFile" type="data" format="sam,bam"/>
         </repeat>
+        <conditional name="restrictionCutFileBinSize_conditional">
+            <param name="restrictionCutFileBinSize_selector" type="select" label="Choose to use a restriction cut file or a bin size">
+                <option value="optionRestrictionCutFile">Restriction cut file</option>
+                <option value="optionBinSize" selected="True">Bin size</option>
+            </param>
+            <when value="optionRestrictionCutFile">
+                <param argument="--restrictionCutFile" type="data" format="bed" optional="True"
+                        help="BED file with all restriction cut places. Should contain only mappable restriction sites. If given, the
+                            bins are set to match the restriction fragments (i.e. the region between one restriction site and the next)"/>
+                <param name="restrictionCutFile" type="data" format="bed" optional="true" label="BED file with all restriction cut places"
+                        help="Should contaion only  mappable restriction sites. If given, the bins are set to match the restriction fragments
+                        (i.e. the region between one restriction site and the next)." argument="--restrictionCutFile"/>
+                <param name="minDistance" type="integer" value="" optional="true" label="Minimum distance between restriction sites"
+                        help="Restriction sites that are closer that this distance are merged into one.
+                        This option only applies if --restrictionCutFile is given." argument="--minDistance"/>
 
-        <param argument="--restrictionCutFile" type="data" format="bed" optional="True"
-            help="BED file with all restriction cut places. Should contain only mappable restriction sites. If given, the
-                  bins are set to match the restriction fragments (i.e. the region between one restriction site and the next)"/>
-
-        <param name="binSize" type="integer" value="" optional="true" label="Bin size in bp"
-            help="If used, the restriction cut places (if given) are used to only consider reads that are in the vicinity of the resctriction sites.
-            Otherwise all reads in the interval are considered. " argument="--binSize"/>
-        
-        <param name="restrictionCutFile" type="data" format="bed" optional="true" label="BED file with all restriction cut places"
-            help="Should contaion only  mappable restriction sites. If given, the bins are set to match the restriction fragments
-            (i.e. the region between one restriction site and the next)." argument="--restrictionCutFile"/>
-
-        <param name="minDistance" type="integer" value="" optional="true" label="Minimum distance between restriction sites"
-            help="Restriction sites that are closer that this distance are merged into one.
-            This option only applies if --restrictionCutFile is given." argument="--minDistance"/>
-
-        <param name="maxDistance" type="integer" value="" optional="true" label="Maximum distance in bp from restriction site to read, to consider a read a valid one"
-            help="This option only applies if --restrictionCutFile is given."  argument="--maxDistance"/>
+                <param name="maxDistance" type="integer" value="" optional="true" label="Maximum distance in bp from restriction site to read, to consider a read a valid one"
+                        help="This option only applies if --restrictionCutFile is given."  argument="--maxDistance"/>
+            </when>
+            <when value="optionBinSize">
+                <param name="binSize" type="integer" value="" optional="true" label="Bin size in bp"
+                        help="If used, the restriction cut places (if given) are used to only consider reads that are in the vicinity of the resctriction sites.
+                        Otherwise all reads in the interval are considered. " argument="--binSize"/>
+            </when>
+        </conditional>
 
         <param name="restrictionSequence" type="text" optional="true" label="Sequence of the restriction site"
             help="This is used to discard reads that end/start with such sequence and that are considered un-ligated fragments or
@@ -103,6 +115,13 @@
 
         <expand macro="minMappingQuality" />
 
+        <param name="danglingSequence" type="text" optional="true" label="The dangling sequence"
+            help="Dangling end sequence left by the restriction enzyme. For DpnII for example, 
+                    the dangling end is the same restriction sequence. This is used
+                    to discard reads that end/start with such sequence 
+                    and that are considered un-ligated fragments or 
+                    'dangling-ends'. If not given, such statistics will 
+                    not be available." argument="--danglingSequence"/>
     </inputs>
     <outputs>
         <data name="outBam" from_work_dir="sorted.bam" format="bam" label="${tool.name} BAM file on ${on_string}"/>
