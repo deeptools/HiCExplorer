@@ -146,15 +146,14 @@
 
 Runs Dekker's iterative correction over a hic matrix.
 
-correct         Run the iterative correction.
-diagnostic_plot
-                Plots a histogram of the coverage per bin together with the
-                modified z-score based on the median absolute deviation
-                method (see Boris Iglewicz and David Hoaglin 1993, Volume
-                16: How to Detect and Handle Outliers The ASQC Basic
-                References in Quality Control: Statistical Techniques,
-                Edward F. Mykytka, Ph.D., Editor.
+correct:         Run the iterative correction.
 
+diagnostic_plot:  Plots a histogram of the coverage per bin together with the
+modified z-score based on the median absolute deviation
+method (see Boris Iglewicz and David Hoaglin 1993, Volume
+16: How to Detect and Handle Outliers The ASQC Basic
+References in Quality Control: Statistical Techniques,
+Edward F. Mykytka, Ph.D., Editor.
 
 ]]></help>
     <expand macro="citations" />
