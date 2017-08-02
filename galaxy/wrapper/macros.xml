@@ -537,6 +537,33 @@ This tool is developed by the `Bioinformatics and Deep-Sequencing Unit`_ at the 
         </data>
     </xml>
 
+    <xml name="track_input_h5_macro">
+        <param name="track_input_h5" type="data" format="h5" label="Track file h5 format"/>
+    </xml>
+    <xml name="track_input_bed_macro">
+        <param name="track_input_bed" type="data" format="bed" label="Track file bed format"/>
+    </xml>
+    <xml name="track_input_bedgraph_macro">
+        <param name="track_input_bedgraph" type="data" format="bedgraph" label="Track file bedgraph format"/>
+    </xml>
+    <xml name="track_input_bigwig_macro">
+        <param name="track_input_bigwig" type="data" format="bigwig" label="Track file bigwig format"/>
+    </xml>
+    <xml name="track_input_bedgraph_matrix_macro">
+        <param name="track_input_bedgraph_matrix" type="data" format="bm" label="Track file bigwig format"/>
+    </xml>
+    <xml name="track_input_tabular_macro">
+        <param name="track_input_tabular" type="data" format="tabular" label="Track file tabular format"/>
+    </xml>
+    <xml name="plot_title">
+        <param name="title" type="text" optional="true" label="Plot title"/>
+    </xml>
 
-
+    <xml name="spacer_macro">
+        <param name="spacer_width" type="float" value="" optional="True"
+                label="Include spacer at the end of the track." help="Width of the spacer." />
+    </xml>
+    <xml name="fontsize_macro">
+                    <param name="fontsize" type="integer" value="" optional="True" label="Fontsize" />
+    </xml>
 </macros>
