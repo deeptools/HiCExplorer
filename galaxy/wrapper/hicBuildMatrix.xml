@@ -21,21 +21,18 @@
                 '${repeat.samFile}'
             #end for
 
-            #if $binSize:
-                --binSize $binSize
+            #if str($restrictionCutFileBinSize_conditional.restrictionCutFileBinSize_selector) == "optionRestrictionCutFile":
+                --restrictionCutFile '$restrictionCutFileBinSize_conditional.restrictionCutFile'
+                --minDistance '$restrictionCutFileBinSize_conditional.minDistance'
+                --maxDistance '$restrictionCutFileBinSize_conditional.maxDistance'
+                
+                
             #end if
 
-            #if $restrictionCutFile:
-                --restrictionCutFile '$restrictionCutFile'
+            #if str($restrictionCutFileBinSize_conditional.restrictionCutFileBinSize_selector) == "optionBinSize":
+                --binSize '$restrictionCutFileBinSize_conditional.binSize'
             #end if
 
-            #if $minDistance:
-                --minDistance $minDistance
-            #end if
-
-            #if $maxDistance:
-                --maxDistance $maxDistance
-            #end if
 
             #if $restrictionSequence:
                 --restrictionSequence '$restrictionSequence'
@@ -48,9 +45,7 @@
             --outFileName ./matrix.h5
             --outBam ./unsorted.bam
 
-            #if $restrictionCutFile:
-                --restrictionCutFile '$restrictionCutFile'
-            #end if
+           
 
             $removeSelfCircles
 
@@ -136,7 +131,10 @@
             <repeat name="samFiles">
                 <param name="samFile" value="small_test_R2_unsorted.bam" ftype="sam"/>
             </repeat>
-            <param name="binSize" value="5000"/>
+            <conditional name="restrictionCutFileBinSize_conditional">
+                <param name="restrictionCutFileBinSize_selector" value="optionBinSize"/>
+                <param name="binSize" value="5000"/>
+            </conditional>
             <output name="outBam" file="hicBuildMatrix_result1.bam" ftype="bam"/>
             <output name="outFileName" file="hicBuildMatrix_result1.h5" ftype="h5" compare="sim_size" delta="30000"/>
         </test>
