@@ -844,10 +844,11 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             # check for dangling ends if the restriction sequence
             # is known:
             if pRestrictionSequence:
-                if check_dangling_end(mate1, pDanglingSequences) or \
-                        check_dangling_end(mate2, pDanglingSequences):
-                    dangling_end += 1
-                    continue
+                if pDanglingSequences:
+                    if check_dangling_end(mate1, pDanglingSequences) or \
+                            check_dangling_end(mate2, pDanglingSequences):
+                        dangling_end += 1
+                        continue
 
             if abs(mate2.pos - mate1.pos) < 1000 and orientation == 'inward':
                 has_rf = []
@@ -1002,6 +1003,9 @@ def main(args=None):
     if args.threads < 3:
         exit("\nAt least three threads need to be defined.\n")
 
+    if args.danglingSequence and not args.restrictionSequence:
+        exit("\nIf --danglingSequence is set, --restrictonSequence needs to be set too.\n")
+        
     sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
                                                                       args.samFiles[1].name))
     str1 = pysam.Samfile(args.samFiles[0].name, 'rb')
@@ -1014,7 +1018,7 @@ def main(args=None):
     else:
         if not os.path.exists('bam_file_buffer_dir'):
             os.makedirs('bam_file_buffer_dir')
-            outputFileBufferDir = os.path.abspath('bam_file_buffer_dir')
+        outputFileBufferDir = os.path.abspath('bam_file_buffer_dir')
     outputFileBufferDir = os.path.join(outputFileBufferDir)
     unique_hash_for_bam = str(hash(time.time()))
     if args.outBam:
