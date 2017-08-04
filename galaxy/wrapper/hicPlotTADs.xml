@@ -52,8 +52,12 @@ file = '$track.track_file_style_conditional.track_input_h5'
 #if '$track.track_file_style_conditional.title'
 title = '$track.track_file_style_conditional.title'
 #end if 
-colormap = RdYlBu_r
-depth = 100000
+#if $track.track_file_style_conditional.colormap:
+colormap = $track.track_file_style_conditional.colormap
+#end if
+#if $track.track_file_style_conditional.depth:
+depth = $track.track_file_style_conditional.depth
+#end if
 #min_value =2.8
 #max_value = 3.0
 transform = log1p
@@ -76,6 +80,7 @@ scale factor = 1
 fontsize=20
 # default is bottom meaning below the axis line
 where=top
+
 
 #elif str($track.track_file_style_conditional.track_file_style_selector) == "gene_track_option":
 file = genes.bed
@@ -111,6 +116,8 @@ fontsize = 10
 # This is useful to combine images that are all consistent and
 # have the same number of rows.
 #global max row = yes
+
+
 #elif str($track.track_file_style_conditional.track_file_style_selector) == "peak_track_option":
 file = file.bed
 title = peaks
@@ -139,6 +146,8 @@ type = line
 #optional in case it can not be guessed by the file ending
 file_type = bigwig
 
+
+
 #elif str($track.track_file_style_conditional.track_file_style_selector) == "chrom_states_option":
 # this is a case of a bed file that is plotted 'collapsed'
 # useful to plot chromatin states if the bed file contains
@@ -156,6 +165,9 @@ border_color = black
 # directive overlaps the intervals.
 display = collapsed
 width = 0.3
+
+
+
 #elif str($track.track_file_style_conditional.track_file_style_selector) == "bedgraph_track_option":
 file = file.bg
 title = bedgraph track
@@ -187,15 +199,27 @@ orientation = inverted
 file_type = dendrogram
 # y positions to draw horizontal lines
 hlines = 0.2 0.3
+
+
 #elif str($track.track_file_style_conditional.track_file_style_selector) == "vlines_track_option":
 file = regions.bed
 type = vlines
+
+
 #end if
 
-file = $track.track_input
+
+
+
+
+
+
+
+
+file = $track.track_file_style_conditional.track
 
 #if $track.title
-title = $track.title
+title = $track.track_file_style_conditional.title
 #end if
 
 #if $track.colormap and $track.track_input.ext == "h5":
