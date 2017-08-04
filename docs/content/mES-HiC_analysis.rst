@@ -17,27 +17,70 @@ Lieberman-Aiden et al. and sequenced on the NextSeq 500 platform using 2
 Prepare for analysis
 --------------------
 
+
 Download Raw fastq files
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Fastq files can be downloaded from the EBI archive (or NCBI archive).
+Fastq files can be downloaded from the EBI archive (or NCBI archive). We will store the files in the directory *original_data*.
 
 .. code:: bash
 
-    mkdir inputdir
-    cd inputdir
+    mkdir original_data
 
-    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/007/SRR1956527/SRR1956527_2.fastq.gz
-    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/007/SRR1956527/SRR1956527_1.fastq.gz
+    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/007/SRR1956527/SRR1956527_1.fastq.gz -O original_data/SRR1956527_1.fastq.gz
+    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/007/SRR1956527/SRR1956527_2.fastq.gz -O original_data/SRR1956527_2.fastq.gz
 
-    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/008/SRR1956528/SRR1956528_1.fastq.gz
-    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/008/SRR1956528/SRR1956528_2.fastq.gz
+    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/008/SRR1956528/SRR1956528_1.fastq.gz -O original_data/SRR1956528_1.fastq.gz
+    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/008/SRR1956528/SRR1956528_2.fastq.gz -O original_data/SRR1956528_2.fastq.gz
 
-    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/009/SRR1956529/SRR1956529_1.fastq.gz
-    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/009/SRR1956529/SRR1956529_2.fastq.gz
+    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/009/SRR1956529/SRR1956529_1.fastq.gz -O original_data/SRR1956529_1.fastq.gz
+    wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/009/SRR1956529/SRR1956529_2.fastq.gz -O original_data/SRR1956529_2.fastq.gz
 
-Map Raw fastq files
-~~~~~~~~~~~~~~~~~~~
+
+We start with creating an index for our alignment software for the *GRCm38/mm10* genome. 
+As a source we use the mm10 genome from `UCSC <http://hgdownload-test.cse.ucsc.edu/goldenPath/mm10/bigZips/>`__
+
+.. code:: bash
+
+    mkdir genome_mm10
+    wget http://hgdownload-test.cse.ucsc.edu/goldenPath/mm10/bigZips/chromFa.tar.gz -O genome_mm10/chromFa.tar.gz
+    tar -xvzf genome_mm10/chromFa.tar.gz
+    cat genome_mm10/*.fa > genome_mm10/mm10.fa
+
+We have the mm10 genome stored in one fasta file and can build the index. We tried it sucessfuly with hisat2, bowtie2 and bwa. Run the mapping 
+with one of them and do not mix them!
+
+Create an index 
+~~~~~~~~~~~~~~~
+
+hisat2
+^^^^^^^
+
+.. code:: bash
+
+    hisat2-build -p 8 genome_mm10/mm10.fa hisat2/mm10_index 
+
+You can find more information about `hisat <https://ccb.jhu.edu/software/hisat2/manual.shtml>`__
+
+bowtie2
+^^^^^^^^
+.. code:: bash
+
+    bowtie2-build genome_mm10/mm10.fa bowtie2/mm10_index --threads 8
+
+You can find more information about `bowtie <http://bowtie-bio.sourceforge.net/bowtie2/manual.shtml>`__
+
+bwa
+^^^^
+.. code:: bash
+
+    bwa index -p bwa/mm10_index genome_mm10/mm10.fa
+
+You can find more information about `bwa <http://bio-bwa.sourceforge.net/bwa.shtml>`__
+
+
+Mapping the RAW files
+~~~~~~~~~~~~~~~~~~~~~
 
 Mates have to be mapped individually to avoid mapper specific heuristics designed
 for standard paired-end libraries.
@@ -52,20 +95,41 @@ We have used the HiCExplorer sucessfuly with `bwa`, `bowtie2` and `hisat2`. Howe
    gaps if they happen to be chimeric.
 
 
-The raw fastq files are aligned to mouse genome. Here we will map
-them to *GRCm37* using
-`BWA mem <http://bio-bwa.sourceforge.net/bwa.shtml>`__. See :ref:`example_usage` for an explanation of
-the bwa mem parameter used.
-
+hisat2
+^^^^^^
 
 .. code:: bash
 
-    mkdir mapped_files
+    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956527_1.fastq --reorder -S SRR1956527_1.sam 
+    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956527_2.fastq --reorder -S SRR1956527_2.sam 
+    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956528_1.fastq --reorder -S SRR1956528_1.sam 
+    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956528_2.fastq --reorder -S SRR1956528_2.sam 
+    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956529_1.fastq --reorder -S SRR1956529_1.sam 
+    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956529_2.fastq --reorder -S SRR1956529_2.sam 
+    
+bowtie2
+^^^^^^^^
 
-    for fq in $(ls ${inputdir} | grep '.fastq.gz')
-    do fqbase=$(basename ${fq} .fastq.gz)
-     bwa mem -A1 -B4 -E50 -L0  /path/to/bwa_index -U inputdir/${fq} | samtools view -Shb - > mapped_files/${fqbase}.sam
-    done
+.. code:: bash
+
+    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956527_1.fastq --reorder -S SRR1956527_1.sam 
+    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956527_2.fastq --reorder -S SRR1956527_2.sam 
+    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956528_1.fastq --reorder -S SRR1956528_1.sam 
+    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956528_2.fastq --reorder -S SRR1956528_2.sam 
+    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956529_1.fastq --reorder -S SRR1956529_1.sam 
+    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956529_2.fastq --reorder -S SRR1956529_2.sam 
+    
+
+.. code:: bash
+
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956527_1.fastq > SRR1956527_1.sam 
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956527_2.fastq > SRR1956527_2.sam 
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956528_1.fastq > SRR1956528_1.sam 
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956528_2.fastq > SRR1956528_2.sam 
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956529_1.fastq > SRR1956529_1.sam 
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956529_2.fastq > SRR1956529_2.sam 
+    
+
 
 Build, visualize and correct Hi-C matrix
 ----------------------------------------
@@ -86,6 +150,24 @@ name of output matrix file
 [-o] and the name of output bam file (which contains the accepted
 alignments) [-b].
 
+To increase the computation speed, please set the system environment variable `HICEXPLORER_FILE_BUFFER_DIR` to a RAM disk like `/dev/shm`.
+Be careful: This will consume a sustainable amount of memory, for 8 threads and an input buffer size of 400000 it is recommended to use a 
+system with at least 32 GB of RAM. If you have a system with lower specifications, decrease the inputBufferSize. It is recommended to not use 
+than 100000. If the memory is still not enough, use a directory on your local hard drive.
+
+.. code:: bash
+
+    export HICEXPLORER_FILE_BUFFER_DIR=/dev/shm
+
+
+.. code:: bash
+
+    mkdir hicMatrix
+    hicBuildMatrix -s SRR1956527_1.sam SRR1956527_2.sam -bs 1000 -seq GATC -b SRR1956527_ref.bam --outFileName hicMatrix/SRR1956527.h5 --QCfolder hicMatrix/SRR1956527_QC --threads 8 --inputBufferSize 400000
+    hicBuildMatrix -s SRR1956528_1.sam SRR1956528_2.sam -bs 1000 -seq GATC -b SRR1956528_ref.bam --outFileName hicMatrix/SRR1956528.h5 --QCfolder hicMatrix/SRR1956528_QC --threads 8 --inputBufferSize 400000
+    hicBuildMatrix -s SRR1956529_1.sam SRR1956529_2.sam -bs 1000 -seq GATC -b SRR1956529_ref.bam --outFileName hicMatrix/SRR1956529.h5 --QCfolder hicMatrix/SRR1956529_QC --threads 8 --inputBufferSize 400000
+    
+
 .. code:: bash
 
     mkdir hiCmatrix
@@ -94,7 +176,7 @@ alignments) [-b].
     do hicBuildMatrix \
        -s mapped_files/${SRR}_1.bam mapped_files/${SRR}_2.bam \
        -bs 10000 -seq GATC \
-       -b ${SRR}_ref.bam -o hiCmatrix/${SRR}.matrix --QCfolder hiCmatrix/${SRR}_QC  & done
+       -b ${SRR}_ref.bam -o hiCmatrix/${SRR}.matrix --QCfolder hiCmatrix/${SRR}_QC  --threads 8 --inputBufferSize 400000 & done
 
 The output bam files show that we have around 34M, 54M and 58M selected
 reads for SRR1956527, SRR1956528 & SRR1956529, respectively. Normally
@@ -129,10 +211,20 @@ Matrix correction works in two steps: first a histogram containing the sum of co
 produced. This plot needs to be inspected to decide the best threshold for removing bins with lower number of reads. The
 second steps removes the low scoring bins and does the correction.
 
+(1-19, X, Y) variant:
+
 .. code:: bash
 
     hicCorrectMatrix diagnostic_plot \
     --chromosomes 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 X Y \
+    -m hiCmatrix/replicateMerged.matrix.npz -o hiCmatrix/diagnostic_plot.png
+
+(chr1-ch19, chrX, chrY) variant:
+
+.. code:: bash
+
+    hicCorrectMatrix diagnostic_plot \
+    --chromosomes chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \
     -m hiCmatrix/replicateMerged.matrix.npz -o hiCmatrix/diagnostic_plot.png
 
 The output of the program prints a threshold suggestion that is usually accurate but is better to
@@ -146,6 +238,16 @@ Next we do the correction using the best filter threshold.
     --chromosomes 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 X Y \
     --filterThreshold -1.5 10 \
     -m hiCmatrix/replicateMerged.matrix.npz -o hiCmatrix/replicateMerged.Corrected.npz
+
+
+
+.. code:: bash
+
+    hicCorrectMatrix correct \
+    --chromosomes chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \
+    --filterThreshold -1.5 10 \
+    -m hiCmatrix/replicateMerged.matrix.npz -o hiCmatrix/replicateMerged.Corrected.npz
+
 
 
 Plot Hi-C matrix
@@ -182,6 +284,20 @@ We will now correct the merged matrix before plotting.
     --chromosomes 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 X Y \
     --filterThreshold 0.9 10 \
     -m hiCmatrix/replicateMerged.matrix-100bins.npz -o hiCmatrix/replicateMerged.Corrected-100bins.npz
+
+
+.. code:: bash
+
+    hicCorrectMatrix diagnostic_plot \
+    --chromosomes chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \
+    -m hiCmatrix/replicateMerged.matrix-100bins.npz -o hiCmatrix/diagnostic_plot_100bins.png
+
+    hicCorrectMatrix correct \
+    --chromosomes chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \
+    --filterThreshold 0.9 10 \
+    -m hiCmatrix/replicateMerged.matrix-100bins.npz -o hiCmatrix/replicateMerged.Corrected-100bins.npz
+
+
 
 Plot the corrected Hi-C Matrix
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -241,6 +357,15 @@ hicCorrectMatrix.
     --chromosomes 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 X Y \
     -m hiCmatrix/replicateMerged.matrix_20kb.npz \
     -t -2 3 --perchr -o hiCmatrix/replicateMerged.Corrected_20kb.npz
+
+
+.. code:: bash
+
+    hicCorrectMatrix correct \
+    --chromosomes chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \
+    -m hiCmatrix/replicateMerged.matrix_20kb.npz \
+    -t -2 3 --perchr -o hiCmatrix/replicateMerged.Corrected_20kb.npz
+
 
 Plot corrected matrix
 ^^^^^^^^^^^^^^^^^^^^^
