@@ -85,7 +85,7 @@
 
 **What it does**
 
-Computes pairwise correlations between hic matrices data.
+Computes pairwise correlations between Hi-C matrices data.
 The correlation is computed taking the values from each pair of matrices and discarding values that are zero in both matrices.
 
 

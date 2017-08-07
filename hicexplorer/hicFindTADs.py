@@ -290,7 +290,7 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
 
     Parameters
     ----------
-    hic_ma HiCMatrix object
+    hic_ma Hi-C matrix object
     bins_list list of bins to process
     min_win_size
     max_win_size
@@ -340,7 +340,7 @@ class HicFindTads(object):
 
         Parameters
         ----------
-        matrix  Either a filename or a HiCMatrix object
+        matrix  Either a filename or a Hi-C Matrix object
         num_processors
         max_depth max window distance to consider (total window length is 2* max depth)
         min_depth min window to consider (total window length is 2* max min)
@@ -1011,10 +1011,10 @@ class HicFindTads(object):
 
         if self.min_depth % self.hic_ma.getBinSize() != 0:
             log.warn('Warning. specified *depth* is not multiple of the '
-                     'hi-c matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
+                     'Hi-C matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
         if self.step % self.hic_ma.getBinSize() != 0:
             log.warn('Warning. specified *step* is not multiple of the '
-                     'hi-c matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
+                     'Hi-C matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
 
         self.binsize = self.hic_ma.getBinSize()
 

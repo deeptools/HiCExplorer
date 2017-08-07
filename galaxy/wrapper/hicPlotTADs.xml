@@ -589,7 +589,7 @@ type = $
 
 **What it does**
 
-Plots the diagonal, and some values close to the diagonal of a HiC matrix. The diagonal of the matrix is plotted horizontally for a region.
+Plots the diagonal, and some values close to the diagonal of a Hi-C matrix. The diagonal of the matrix is plotted horizontally for a region.
 
 ]]></help>
     <expand macro="citations" />

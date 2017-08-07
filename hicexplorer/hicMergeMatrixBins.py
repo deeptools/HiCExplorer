@@ -154,7 +154,7 @@ def merge_bins(hic, num_bins):
     Parameters
     ----------
 
-    hic : HiCMatrix object
+    hic : Hi-C Matrix object
 
     num_bins : number of consecutive bins to merge.
 

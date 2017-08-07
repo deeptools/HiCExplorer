@@ -127,7 +127,7 @@
 
 **What it does**
 
-Plots a HiC matrix heatmap.
+Plots a Hi-C matrix heatmap.
 
 ]]></help>
     <expand macro="citations" />

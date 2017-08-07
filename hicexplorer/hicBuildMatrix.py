@@ -156,7 +156,7 @@ def parse_arguments(args=None):
                              'not be available.')
 
     parser.add_argument('--outFileName',
-                        help='Output file name for the HiC matrix',
+                        help='Output file name for the Hi-C matrix',
                         metavar='FILENAME',
                         type=argparse.FileType('w'),
                         required=True)
@@ -198,7 +198,7 @@ def parse_arguments(args=None):
                              'on top of the read, this may reduce the '
                              'reported quality of the read. Thus, this parameter '
                              'may be adusted if too many low quality '
-                             '(but otherwise perfectly valid hic-reads) are found.'
+                             '(but otherwise perfectly valid Hi-C reads) are found.'
                              'A good strategy is to make a test run (using the --doTestRun), '
                              'then checking the results to see if too many low quality '
                              'reads are present and then using the bam file generated to '
@@ -1317,7 +1317,7 @@ def main(args=None):
         # bins that most likely didn't
         # have a restriction site that was cutted
 
-        # reload the matrix as a HiCMatrix object
+        # reload the matrix as a hicMatrix object
         hic_matrix = hm.hiCMatrix(args.outFileName.name)
 
         hic_matrix.maskBins(get_poor_bins(bin_max))

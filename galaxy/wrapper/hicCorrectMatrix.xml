@@ -144,7 +144,7 @@
 
 **What it does**
 
-Runs Dekker's iterative correction over a hic matrix.
+Runs Dekker's iterative correction over a Hi-C matrix.
 
 correct:         Run the iterative correction.
 

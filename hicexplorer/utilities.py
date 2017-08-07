@@ -338,7 +338,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
     defined as those having a z-score higher than 3.4. This
     number as defined after exploring different values
     of z-scores and estimating the best goodness of fit.
-    The HiC data is expected to contain outliers but they
+    The Hi-C data is expected to contain outliers but they
     are problematic to fit and test the goodness of fit of a
     distribution, that's why there are removed.
     """
@@ -533,7 +533,7 @@ def fitNegBinom(countsByDistance):
 def fitDistribution(countsByDistance, distribution, plot_distribution=False):
     """
     Generic method to fit continuous
-    distributions to the  HiC countsByDistance
+    distributions to the  Hi-C countsByDistance
     The distribution names are the ones supported
     by scipy.
     """
