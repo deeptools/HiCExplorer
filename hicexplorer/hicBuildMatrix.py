@@ -211,8 +211,13 @@ def parse_arguments(args=None):
     parser.add_argument('--threads',
                         help='Number of threads. Using the python multiprocessing module.'
                         ' One master process which is used to read the input file into the buffer and one process which is merging '
-                        'the output bam files of the processes into one output bam file.'
-                        ' This means that two processes less as defined do the computation. Minimum value is 3.',
+                        'the output bam files of the processes into one output bam file. All other threads do the actual computation.'
+                        ' Minimum value for the \'--thread\' parameter is 3.'
+                        'The usage of 8 threads is optimal if you have an HDD. A higher number of threads is only '
+                        'useful if you have a fast SSD. Have in mind that the performance of hicBuildMatrix is influenced by '
+                        ' the number of threads, the speed of your hard drive and the inputBufferSize. To clearify: the peformance '
+                        'with a higher thread number is not negative influenced but not positiv too. With a slow HDD and a high number of'
+                        ' threads many threads will do nothing most of the time. ',
                         required=False,
                         default=4,
                         type=int
@@ -991,7 +996,7 @@ def main(args=None):
     reporting the counts of mates is constructed.
 
     A bam file containing the valid Hi-C reads
-    is also constructed
+    is also constructed.
     """
 
     args = parse_arguments().parse_args(args)
