@@ -37,7 +37,7 @@ def main():
     args = parse_arguments().parse_args()
     if args.operation not in ['diff', 'ratio', 'log2ratio']:
         exit("Operation not found. Please use 'diff', 'ratio' or 'log2ratio'.")
-        
+
     hic1 = hm.hiCMatrix(args.matrices[0])
     hic2 = hm.hiCMatrix(args.matrices[1])
 

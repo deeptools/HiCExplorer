@@ -36,7 +36,7 @@ def main():
         max_non_zero = hic_ma.matrix.data.max()
         if not matrix.endswith("lieberman"):
             chromosomes = hic_ma.chrBinBoundaries.keys()
-        
+
         print("File:\t{}".format(matrix))
         print("Size:\t{:,}".format(size))
         print("Sum:\t{:,}".format(sum_elements))

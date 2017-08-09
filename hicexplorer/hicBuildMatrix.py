@@ -84,7 +84,7 @@ def parse_arguments(args=None):
                      'PE reads are mapped using  the --local '
                      'option, this program reads such file and '
                      'creates a matrix of interactions.'
-                     'It is highly recommended to set the system environment variable' 
+                     'It is highly recommended to set the system environment variable'
                      '\'HICEXPLORER_FILE_BUFFER_DIR\' to a ram disk location (e.g. /dev/shm) to'
                      'speed up the computation. If it is not set the local directory \'bam_file_buffer_dir\' is used.'))
 
@@ -1010,7 +1010,7 @@ def main(args=None):
 
     if args.danglingSequence and not args.restrictionSequence:
         exit("\nIf --danglingSequence is set, --restrictonSequence needs to be set too.\n")
-        
+
     sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
                                                                       args.samFiles[1].name))
     str1 = pysam.Samfile(args.samFiles[0].name, 'rb')
@@ -1317,7 +1317,7 @@ def main(args=None):
         # bins that most likely didn't
         # have a restriction site that was cutted
 
-        # reload the matrix as a hicMatrix object
+        # reload the matrix as a Hi-C matrix object
         hic_matrix = hm.hiCMatrix(args.outFileName.name)
 
         hic_matrix.maskBins(get_poor_bins(bin_max))
