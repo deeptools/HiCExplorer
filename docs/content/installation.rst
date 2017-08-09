@@ -18,6 +18,9 @@ Requirements
 * pandas >= 0.20.2
 * pybigwig >= 0.3.4
 
+Command line installation using ``conda``
+-----------------------------------------
+
 The fastet way to obtain **Python 2.7 together with numpy and scipy** is
 via the `Anaconda Scientific Python
 Distribution <https://store.continuum.io/cshop/anaconda/>`_.
