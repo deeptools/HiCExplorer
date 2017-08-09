@@ -8,14 +8,15 @@ Requirements
 -------------
 
 * Python 2.7
-* numpy >= 1.10.4
-* scipy >= 0.17.1
-* matplotlib >= 1.5.3
-* pysam >= 0.8.3
+* numpy >= 1.12.1
+* scipy >= 0.19.0
+* matplotlib >= 2.0.0
+* pysam >= 0.11.2
 * intervaltree >= 2.1.0
-* biopython >= 1.65
-* tables >= 3.2.2
-* pyBigWig >=0.2.8
+* biopython >= 1.68
+* pytables >= 3.3.0
+* pandas >= 0.20.2
+* pybigwig >= 0.3.4
 
 The fastet way to obtain **Python 2.7 together with numpy and scipy** is
 via the `Anaconda Scientific Python
@@ -67,6 +68,19 @@ a specific folder using the ``--prefix`` option)
 ::
 
 	$ python setup.py install --prefix /User/Tools/hicexplorer
+
+
+
+To decrease the computing time you can set the system environment variable `HICEXPLORER_FILE_BUFFER_DIR` to a RAM disk like `/dev/shm`.
+Be careful: This will consume a sustainable amount of memory i.e. it is recommended to use a system with at least 16 GB, better are 32 GB.
+If your system runs out of memory decrease the inputBufferSize and / or the number of used threads. It is recommended to not use less
+than 100,000. If the memory is still not enough use a directory on your local hard drive.
+
+To set the system environment variable run:
+
+.. code:: bash
+
+    export HICEXPLORER_FILE_BUFFER_DIR=/dev/shm
 
 
 Galaxy installation
