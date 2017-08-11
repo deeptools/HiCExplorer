@@ -299,7 +299,12 @@
         </param>
     </inputs>
     <outputs>
-        <data name="outFileName" from_work_dir="plot" format="svg, png"/>
+    <data format="png" name="outFileName" from_work_dir="plot">
+            <change_format>
+                <when input="output_format" value="png" format="png" />
+                <when input="output_format" value="svg" format="svg" />
+            </change_format>
+        </data>
     </outputs>
     <tests>
         <test>
@@ -393,6 +398,7 @@
                 </conditional>   
             </repeat>
             <param name="image_file_format" value="png" />
+            <param name="output_format" value="png"  />
             <output name="outFileName" file="hicPlotTADs_result1.png" ftype="png" compare="sim_size" delta="35000" />
         </test>
     </tests>
