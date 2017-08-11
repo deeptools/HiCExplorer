@@ -397,9 +397,9 @@
                     <param name="type" value="vlines" />
                 </conditional>   
             </repeat>
-            <param name="image_file_format" value="png" />
-            <param name="output_format" value="png"  />
-            <output name="outFileName" file="hicPlotTADs_result1.png" ftype="png" compare="sim_size" delta="35000" />
+            <param name="image_file_format" value="svg" />
+            <param name="output_format" value="svg"  />
+            <output name="outFileName" file="hicPlotTADs_result1.svg" ftype="svg" compare="sim_size" delta="35000" />
         </test>
     </tests>
     <help><![CDATA[
