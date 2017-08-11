@@ -82,7 +82,7 @@
         labels = '$track.track_file_style_conditional.labels'
         type = '$track.track_file_style_conditional.type'
         file_type = bed
-        fontsize = '$track.fontsize'
+        fontsize = '$track.track_file_style_conditional.fontsize'
         gene rows = '$track.track_file_style_conditional.gene_rows'
         global max row = '$track.track_file_style_conditional.global_max_rows'
     #end if 
@@ -219,6 +219,8 @@
                     <param name="global_max_row" type="boolean" truevalue="yes" falsevalue="no" checked="false"
                             label="Global max rows" />
                     <param name="gene_rows" type="integer" value="" optional="True" label="Gene rows" />
+                    <param name="fontsize" type="integer" value="" optional="True" label="Fontsize" />
+                    
                 </when>
                 <when value="bigwig_track_option">
                     <expand macro="plot_title" />
