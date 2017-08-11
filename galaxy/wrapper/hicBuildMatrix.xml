@@ -15,7 +15,7 @@
         &&
         && echo slots-4: \${GALAXY_SLOTS:-4}
         && echo slots \$GALAXY_SLOTS
-        hicBuildMatrix
+        && hicBuildMatrix
 
             --samFiles
             #for $repeat in $samFiles:
