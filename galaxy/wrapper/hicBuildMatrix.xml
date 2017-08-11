@@ -11,11 +11,9 @@
 <![CDATA[
 
         mkdir ./QCfolder &&
-        mkdir $qc.files_path
-        &&
-        && echo slots-4: \${GALAXY_SLOTS:-4}
-        && echo slots \$GALAXY_SLOTS
-        && hicBuildMatrix
+        mkdir $qc.files_path &&
+        
+        hicBuildMatrix
 
             --samFiles
             #for $repeat in $samFiles:

@@ -29,10 +29,9 @@
         where = $x_axis.where
     #end if
 #end if
-
 #for $counter, $track in enumerate($tracks):
-
     #if $track.track_file_style_conditional.track_file_style_selector == "hic_matrix_option":
+        
         [hic_section_$counter]
 
         file = '$track.track_file_style_conditional.track_input_h5'
@@ -55,6 +54,7 @@
         scale factor = '$track.track_file_style_conditional.scale_factor'
     #end if 
     #if $track.track_file_style_conditional.track_file_style_selector == "tad_score_track_option":
+        
         [tad_score_$counter]
         file = '$track.track_file_style_conditional.track_input_bedgraph'
         title = '$track.track_file_style_conditional.title'
@@ -65,6 +65,7 @@
         type = lines
     #end if 
     #if $track.track_file_style_conditional.track_file_style_selector == "chrom_states_option":
+        
         [chrom states_$counter]
         file = '$track.track_file_style_conditional.track_input_bed'
         title = '$track.track_file_style_conditional.title'
@@ -74,6 +75,7 @@
         border_color = '$track.track_file_style_conditional.border_color'
     #end if
     #if $track.track_file_style_conditional.track_file_style_selector == "gene_track_option":
+       
         [genes_$counter]
         file = '$track.track_file_style_conditional.track_input_bed'
         title = '$track.track_file_style_conditional.title'
@@ -84,11 +86,10 @@
         file_type = bed
         fontsize = '$track.track_file_style_conditional.fontsize'
         gene rows = '$track.track_file_style_conditional.gene_rows'
-        global max row = '$track.track_file_style_conditional.global_max_rows'
+        global max row = '$track.track_file_style_conditional.global_max_row'
     #end if 
-    
-
     #if $track.track_file_style_conditional.track_file_style_selector == "bigwig_track_option":
+       
         [bigwig_$counter]
         file = '$track.track_file_style_conditional.track_input_bigwig'
         title = '$track.track_file_style_conditional.title'
@@ -118,9 +119,8 @@
         show data range = '$track.track_file_style_conditional.data_range'
         file_type = bigwig
     #end if 
-     
-   
     #if $track.track_file_style_conditional.track_file_style_selector == "bedgraph_matrix_track_option":
+        
         [bedgraph_matrix_$counter]
         file = '$track.track_file_style_conditional.track_input_bedgraph_matrix'
         title = '$track.track_file_style_conditional.title'
@@ -132,13 +132,14 @@
         file_type = bedgraph_matrix
         plot horizontal lines=False
     #end if 
-   
     #if $track.track_file_style_conditional.track_file_style_selector == "vlines_track_option":
+        
         [vlines_$counter]
         file = '$track.track_file_style_conditional.track_input_bed'
         type = vlines
     #end if 
     #if $track.track_file_style_conditional.track_file_style_selector == "spacer_option":
+        
         [spacer]
         width = '$track.track_file_style_conditional.spacer_width'
     #end if 
