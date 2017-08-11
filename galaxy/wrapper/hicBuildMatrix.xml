@@ -58,7 +58,7 @@
                 --danglingSequence '$danglingSequence'
             #end if
 
-            --threads \${GALAXY_SLOTS:-4}
+            --threads 4
             
             --QCfolder ./QCfolder
         &&
