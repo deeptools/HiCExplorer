@@ -31,114 +31,114 @@ where = $x_axis.where
 #for $counter, $track in enumerate($tracks):
 #if $track.track_file_style_conditional.track_file_style_selector == "hic_matrix_option":  
 [hic_section_$counter]
-file = '$track.track_file_style_conditional.track_input_h5'
-title = '$track.track_file_style_conditional.title'
-depth = '$track.track_file_style_conditional.depth'
-colormap = '$track.track_file_style_conditional.colormap'
+file = $track.track_file_style_conditional.track_input_h5
+title = $track.track_file_style_conditional.title
+depth = $track.track_file_style_conditional.depth
+colormap = $track.track_file_style_conditional.colormap
 #if $track.track_file_style_conditional.min_value:
-min_value = '$track.track_file_style_conditional.min_value'
+min_value = $track.track_file_style_conditional.min_value
 #end if
-#if '$track.track_file_style_conditional.max_value': 
-max_value = '$track.track_file_style_conditional.max_value'
+#if $track.track_file_style_conditional.max_value: 
+max_value = $track.track_file_style_conditional.max_value
 #end if
-transform = '$track.track_file_style_conditional.transform'
+transform = $track.track_file_style_conditional.transform
 #if $track.track_file_style_conditional.boundaries_file:
-boundaries_file = '$track.track_file_style_conditional.boundaries_file'
+boundaries_file = $track.track_file_style_conditional.boundaries_file
 #end if
-x labels = '$track.track_file_style_conditional.x_labels'
-type = '$track.track_file_style_conditional.type'
-show_masked_bins = '$track.track_file_style_conditional.show_masked_bins'
-scale factor = '$track.track_file_style_conditional.scale_factor'
+x labels = $track.track_file_style_conditional.x_labels
+type = $track.track_file_style_conditional.type
+show_masked_bins = $track.track_file_style_conditional.show_masked_bins
+scale factor = $track.track_file_style_conditional.scale_factor
 #end if 
 #if $track.track_file_style_conditional.track_file_style_selector == "tad_score_track_option":
 
 [tad_score_$counter]
-file = '$track.track_file_style_conditional.track_input_bedgraph'
-title = '$track.track_file_style_conditional.title'
-color = '$track.track_file_style_conditional.color'
-width = '$track.track_file_style_conditional.width'
-show data range = '$track.track_file_style_conditional.show_data'
+file = $track.track_file_style_conditional.track_input_bedgraph
+title = $track.track_file_style_conditional.title
+color = $track.track_file_style_conditional.color
+width = $track.track_file_style_conditional.width
+show data range = $track.track_file_style_conditional.show_data
 file_type = bedgraph
 type = lines
 #end if 
 #if $track.track_file_style_conditional.track_file_style_selector == "chrom_states_option":
 
 [chrom states_$counter]
-file = '$track.track_file_style_conditional.track_input_bed'
-title = '$track.track_file_style_conditional.title'
-color = '$track.track_file_style_conditional.color'
+file = $track.track_file_style_conditional.track_input_bed
+title = $track.track_file_style_conditional.title
+color = $track.track_file_style_conditional.color
 display = collapsed
-width = '$track.track_file_style_conditional.width'
-border_color = '$track.track_file_style_conditional.border_color'
+width = $track.track_file_style_conditional.width
+border_color = $track.track_file_style_conditional.border_color
 #end if
 #if $track.track_file_style_conditional.track_file_style_selector == "gene_track_option":
 
 [genes_$counter]
-file = '$track.track_file_style_conditional.track_input_bed'
-title = '$track.track_file_style_conditional.title'
-color = '$track.track_file_style_conditional.color'
-width = '$track.track_file_style_conditional.width'
-labels = '$track.track_file_style_conditional.labels'
-type = '$track.track_file_style_conditional.type'
+file = $track.track_file_style_conditional.track_input_bed
+title = $track.track_file_style_conditional.title
+color = $track.track_file_style_conditional.color
+width = $track.track_file_style_conditional.width
+labels = $track.track_file_style_conditional.labels
+type = $track.track_file_style_conditional.type
 file_type = bed
-fontsize = '$track.track_file_style_conditional.fontsize'
-gene rows = '$track.track_file_style_conditional.gene_rows'
-global max row = '$track.track_file_style_conditional.global_max_row'
+fontsize = $track.track_file_style_conditional.fontsize
+gene rows = $track.track_file_style_conditional.gene_rows
+global max row = $track.track_file_style_conditional.global_max_row
 #end if 
 #if $track.track_file_style_conditional.track_file_style_selector == "bigwig_track_option":
 
 [bigwig_$counter]
-file = '$track.track_file_style_conditional.track_input_bigwig'
-title = '$track.track_file_style_conditional.title'
-color = '$track.track_file_style_conditional.color'
-#if '$track.track_file_style_conditional.min_value':
-min_value = '$track.track_file_style_conditional.min_value'
+file = $track.track_file_style_conditional.track_input_bigwig
+title = $track.track_file_style_conditional.title
+color = $track.track_file_style_conditional.color
+#if $track.track_file_style_conditional.min_value:
+min_value = $track.track_file_style_conditional.min_value
 #else:
 min_value = 0
 #end if
-#if '$track.track_file_style_conditional.max_value':
-max_value = '$track.track_file_style_conditional.max_value'
+#if $track.track_file_style_conditional.max_value:
+max_value = $track.track_file_style_conditional.max_value
 #else:
 max_value = auto
 #end if
-width = '$track.track_file_style_conditional.width'
-#if '$track.track_file_style_conditional.number_of_bins':
-number of bins = '$track.track_file_style_conditional.number_of_bins'
+width = $track.track_file_style_conditional.width
+#if $track.track_file_style_conditional.number_of_bins:
+number of bins = $track.track_file_style_conditional.number_of_bins
 #end if
-nans to zeros = '$track.track_file_style_conditional.nans_to_zeros'
-#if '$track.track_file_style_conditional.type_conditional' == 'fill_option':
+nans to zeros = $track.track_file_style_conditional.nans_to_zeros
+#if $track.track_file_style_conditional.type_conditional == 'fill_option':
 type = fill
-#elif '$track.track_file_style_conditional.type_conditional' == 'line_option':
-type = line:'$track.track_file_style_conditional.type_conditional.width'
-#elif '$track.track_file_style_conditional.type_conditional' == 'point_option': 
-type = points:'$track.track_file_style_conditional.type_conditional.width'
+#elif $track.track_file_style_conditional.type_conditional == 'line_option':
+type = line:$track.track_file_style_conditional.type_conditional.width
+#elif $track.track_file_style_conditional.type_conditional == 'point_option': 
+type = points:$track.track_file_style_conditional.type_conditional.width
 #end if
-show data range = '$track.track_file_style_conditional.data_range'
+show data range = $track.track_file_style_conditional.data_range
 file_type = bigwig
 #end if 
 #if $track.track_file_style_conditional.track_file_style_selector == "bedgraph_matrix_track_option":
 
 [bedgraph_matrix_$counter]
-file = '$track.track_file_style_conditional.track_input_bedgraph_matrix'
-title = '$track.track_file_style_conditional.title'
-width = '$track.track_file_style_conditional.width'
+file = $track.track_file_style_conditional.track_input_bedgraph_matrix
+title = $track.track_file_style_conditional.title
+width = $track.track_file_style_conditional.width
 orientation = inverted
-min_value = '$track.track_file_style_conditional.min_value'
-max_value = '$track.track_file_style_conditional.max_value'
-type = '$track.track_file_style_conditional.type_lines'
+min_value = $track.track_file_style_conditional.min_value
+max_value = $track.track_file_style_conditional.max_value
+type = $track.track_file_style_conditional.type_lines
 file_type = bedgraph_matrix
 plot horizontal lines=False
 #end if 
 #if $track.track_file_style_conditional.track_file_style_selector == "vlines_track_option":
 
 [vlines_$counter]
-file = '$track.track_file_style_conditional.track_input_bed'
+file = $track.track_file_style_conditional.track_input_bed
 type = vlines
 #end if 
 #if $track.track_file_style_conditional.track_file_style_selector == "spacer_option":
 
 [spacer]
-width = '$track.track_file_style_conditional.spacer_width'
+width = $track.track_file_style_conditional.spacer_width
 #end if 
 #end for</configfile>
     </configfiles>
@@ -296,7 +296,7 @@ width = '$track.track_file_style_conditional.spacer_width'
         </param>
     </inputs>
     <outputs>
-    <data format="png" name="outFileName" from_work_dir="plot">
+        <data format="png" name="outFileName" from_work_dir="plot">
             <change_format>
                 <when input="output_format" value="png" format="png" />
                 <when input="output_format" value="svg" format="svg" />
