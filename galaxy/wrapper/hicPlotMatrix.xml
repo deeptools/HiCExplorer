@@ -63,7 +63,7 @@
                     --zMax $whatToShow.zMax
                 #end if
             #end if
-        && mv plot.image_file_format plot
+        && mv plot.$image_file_format plot
 ]]>
     </command>
     <inputs>
