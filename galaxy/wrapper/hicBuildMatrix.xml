@@ -12,7 +12,6 @@
 
         mkdir ./QCfolder &&
         mkdir $qc.files_path &&
-        export GALAXY_SLOTS=8
         hicBuildMatrix
 
             --samFiles
@@ -43,8 +42,6 @@
 
             --outFileName ./matrix.h5
             --outBam ./unsorted.bam
-
-           
 
             $removeSelfCircles
 
