@@ -54,7 +54,25 @@
         show_masked_bins = '$track.track_file_style_conditional.show_masked_bins'
         scale factor = '$track.track_file_style_conditional.scale_factor'
     #end if 
-
+    #if $track.track_file_style_conditional.track_file_style_selector == "tad_score_track_option":
+        [tad_score_$counter]
+        file = '$track.track_file_style_conditional.track_input_bedgraph'
+        title = '$track.track_file_style_conditional.title'
+        color = '$track.track_file_style_conditional.color'
+        width = '$track.track_file_style_conditional.width'
+        show data range = '$track.track_file_style_conditional.show_data'
+        file_type = bedgraph
+        type = lines
+    #end if 
+    #if $track.track_file_style_conditional.track_file_style_selector == "chrom_states_option":
+        [chrom states_$counter]
+        file = '$track.track_file_style_conditional.track_input_bed'
+        title = '$track.track_file_style_conditional.title'
+        color = '$track.track_file_style_conditional.color'
+        display = collapsed
+        width = '$track.track_file_style_conditional.width'
+        border_color = '$track.track_file_style_conditional.border_color'
+    #end if
     #if $track.track_file_style_conditional.track_file_style_selector == "gene_track_option":
         [genes_$counter]
         file = '$track.track_file_style_conditional.track_input_bed'
@@ -65,18 +83,11 @@
         type = '$track.track_file_style_conditional.type'
         file_type = bed
         fontsize = '$track.fontsize'
+        gene rows = '$track.track_file_style_conditional.gene_rows'
+        global max row = '$track.track_file_style_conditional.global_max_rows'
     #end if 
     
-    #if $track.track_file_style_conditional.track_file_style_selector == "bed_track_option":
-        [simple bed_$counter]
-        file = '$track.track_file_style_conditional.track_input_bed'
-        title = '$track.track_file_style_conditional.title'
-        color = '$track.track_file_style_conditional.color'
-        border_color = '$track.track_file_style_conditional.border_color'
-        width = '$track.track_file_style_conditional.width'
-        file_type = bed
-    #end if 
-   
+
     #if $track.track_file_style_conditional.track_file_style_selector == "bigwig_track_option":
         [bigwig_$counter]
         file = '$track.track_file_style_conditional.track_input_bigwig'
@@ -107,24 +118,8 @@
         show data range = '$track.track_file_style_conditional.data_range'
         file_type = bigwig
     #end if 
-    #if $track.track_file_style_conditional.track_file_style_selector == "chrom_states_option":
-        [chrom states_$counter]
-        file = '$track.track_file_style_conditional.track_input_bed'
-        title = '$track.track_file_style_conditional.title'
-        color = '$track.track_file_style_conditional.color'
-        display = collapsed
-        width = '$track.track_file_style_conditional.width'
-        border_color = '$track.track_file_style_conditional.border_color'
-    #end if 
-    #if $track.track_file_style_conditional.track_file_style_selector == "bedgraph_track_option":
-        [bedgraph_$counter]
-        file = '$track.track_file_style_conditional.track_input_bedgraph'
-        title = '$track.track_file_style_conditional.title'
-        color = '$track.track_file_style_conditional.color'
-        width = '$track.track_file_style_conditional.width'
-        show data range = '$track.track_file_style_conditional.show_data'
-        file_type = bedgraph
-    #end if 
+     
+   
     #if $track.track_file_style_conditional.track_file_style_selector == "bedgraph_matrix_track_option":
         [bedgraph_matrix_$counter]
         file = '$track.track_file_style_conditional.track_input_bedgraph_matrix'
@@ -157,11 +152,10 @@
             <conditional name="track_file_style_conditional">
                 <param name="track_file_style_selector" type="select" label="Choose style of the track">
                     <option value="hic_matrix_option">TAD visualization</option>
-                    <option value="gene_track_option">Gene track</option>
-                    <option value="bed_track_option">Bed track</option>
-                    <option value="bigwig_track_option">Big wig track</option>
                     <option value="chrom_states_option">Chromatine states</option>
-                    <option value="bedgraph_track_option">Bedgraph track</option>
+                    <option value="tad_score_track_option">TAD score</option>                    
+                    <option value="gene_track_option">Gene track</option>
+                    <option value="bigwig_track_option">Big wig track</option>
                     <option value="bedgraph_matrix_track_option">Bedgraph matrix track</option>
                     <option value="vlines_track_option">Vlines track</option>
                     <option value="spacer_option">Spacer</option>
@@ -191,7 +185,26 @@
                     <param name="x_labels" type="boolean" truevalue="yes" falsevalue="no" optional="True" label="Show x labels" />
 
                 </when>
-                <when value="bed_track_option">
+                 <when value="tad_score_track_option">
+                    <expand macro="plot_title" />
+                    <expand macro="track_input_bedgraph_macro" />
+                    <param name="color" type="color" value="#000000" label="Color of track" optional="True" />
+                    
+                    <param name="width" type="float" value="0.2" optional="True" label="Width"/>
+                    <param name='show_data' type="boolean" truevalue="yes" falsevalue="no" checked="false" optional="True" label="Show visualization of data range" />                   
+                </when>
+                <when value="chrom_states_option">
+                    <expand macro="plot_title" />
+                
+                    <expand macro="track_input_bed_macro" />
+                    <param name="color" type="color" value="#000000" label="Color of track" optional="True" />
+                    
+                    <param name="border_color" type="color" value="#000000" label="Border color" optional="True" />
+                    <param name="width" type="float" value="1.5" optional="True" label="Width"/>
+                     <param name="labels" type="boolean" truevalue="on" falsevalue="off" checked="true"
+                            label="Plot labels" />
+                </when>
+                <when value="gene_track_option">
                     <expand macro="plot_title" />
                 
                     <expand macro="track_input_bed_macro" />
@@ -203,17 +216,9 @@
                         <option value="genes">genes</option>
                         <option value="domains">domains</option>
                     </param>
-                    
-                </when>
-                <when value="peak_track_option">
-                    <expand macro="plot_title" />
-                    <expand macro="track_input_bed_macro" />
-                    
-                    <param name="color" type="color" value="#000000" label="Color of track" optional="True" />
-                    
-                    <param name="border_color" type="color" value="#000000" label="Border color" optional="True" />
-                    <param name="width" type="float" value="1.5" optional="True" label="Width"/>
-                
+                    <param name="global_max_row" type="boolean" truevalue="yes" falsevalue="no" checked="false"
+                            label="Global max rows" />
+                    <param name="gene_rows" type="integer" value="" optional="True" label="Gene rows" />
                 </when>
                 <when value="bigwig_track_option">
                     <expand macro="plot_title" />
@@ -244,24 +249,8 @@
                     </conditional>
                     <param name="data_range" type="boolean" truevalue="yes" falsevalue="no" optional="True" checked="false" />
                 </when>
-                <when value="chrom_states_option">
-                    <expand macro="plot_title" />
                 
-                    <expand macro="track_input_bed_macro" />
-                    <param name="color" type="color" value="#000000" label="Color of track" optional="True" />
-                    
-                    <param name="border_color" type="color" value="#000000" label="Border color" optional="True" />
-                    <param name="width" type="float" value="1.5" optional="True" label="Width"/>
-                    
-                </when>
-                <when value="bedgraph_track_option">
-                    <expand macro="plot_title" />
-                    <expand macro="track_input_bedgraph_macro" />
-                    <param name="color" type="color" value="#000000" label="Color of track" optional="True" />
-                    
-                    <param name="width" type="float" value="0.2" optional="True" label="Width"/>
-                    <param name='show_data' type="boolean" truevalue="yes" falsevalue="no" checked="True" optional="True" label="Show visualization of data range" />                   
-                </when>
+               
                 <when value="bedgraph_matrix_track_option">
                     <expand macro="plot_title" />
                 
@@ -301,10 +290,10 @@
             </when>
             <when value="no" />
         </conditional>
-            <param name="image_file_format" type="select" label="Image output format">
-                    <option value="png">png</option>
-                    <option value="svg">svg</option>
-            </param>
+        <param name="image_file_format" type="select" label="Image output format">
+                <option value="png">png</option>
+                <option value="svg">svg</option>
+        </param>
     </inputs>
     <outputs>
         <data name="outFileName" from_work_dir="plot" format="svg, png"/>
@@ -321,87 +310,86 @@
                     <param name="depth" value="200000" />
                     <param name="transform" value="log1p" />
                     <param name="boundaries_file" value="domains.bed" />
-                </ conditional>   
+                </conditional>   
             </repeat>
-            <repeat>             
+            <repeat name="tracks">             
                 <conditional name="track_file_style_conditional">
                     <param name="track_file_style_selector" value="spacer_option" />
                     <param name="spacer_width" value="0.5" />
-                </ conditional>
+                </conditional>
             </repeat>
             <repeat name="tracks">
                 <conditional name="track_file_style_conditional">
-                    <param name="track_file_style_selector" value="bed_track_option" />
+                    <param name="track_file_style_selector" value="chrom_states_option" />
                     <param name="track_input_bed" value="tad_classification.bed" ftype="bed" />
                     <param name="title" value="TAD state" />
                     <param name="width" value="0.5" />
-                    <param name="display" value="collapsed" />
                     <param name="labels" value="off" />
-                </ conditional>   
+                </conditional>   
             </repeat>
             <repeat name="tracks">
                 <conditional name="track_file_style_conditional">
-                    <param name="track_file_style_selector" value="bedgraph_option" />
+                    <param name="track_file_style_selector" value="tad_score_track_option" />
                     <param name="track_input_bedgraph" value="tad_score.gz" ftype="bedgraph" />
                     <param name="title" value="TAD separation score (Ramirez et al.)" />
                     <param name="width" value="10" />
-                    <param name="type" value="lines" />
-                </ conditional>
+                </conditional>
             </repeat>
-            <repeat>             
+            <repeat name="tracks">             
                 <conditional name="track_file_style_conditional">
                     <param name="track_file_style_selector" value="spacer_option" />
                     <param name="spacer_width" value="1" />
-                </ conditional>
+                </conditional>
             </repeat>
             <repeat name="tracks">
                 <conditional name="track_file_style_conditional">
-                    <param name="track_file_style_selector" value="bed_track_option" />
+                    <param name="track_file_style_selector" value="gene_track_option" />
                     <param name="track_input_bed" value="dm3_genes.bed.gz" ftype="bed" />
                     <param name="title" value="genes" />
                     <param name="width" value="5" />
                     <param name="fontsize" value="10" />
-                </ conditional>   
+                </conditional>   
             </repeat>
-            <repeat>             
+            <repeat name="tracks">             
                 <conditional name="track_file_style_conditional">
                     <param name="track_file_style_selector" value="spacer_option" />
                     <param name="spacer_width" value="1" />
-                </ conditional>
+                </conditional>
             </repeat>
             <repeat name="tracks">
                 <conditional name="track_file_style_conditional">
-                    <param name="track_file_style_selector" value="bed_track_option" />
+                    <param name="track_file_style_selector" value="gene_track_option" />
                     <param name="track_input_bed" value="dm3_genes.bed.gz" ftype="bed" />
                     <param name="title" value="max num rows 3" />
                     <param name="width" value="3" />
                     <param name="fontsize" value="8" />
                     <param name="gene_rows" value="3" />
-                </ conditional>   
+                </conditional>   
             </repeat>
-            <repeat>             
+            <repeat name="tracks">             
                 <conditional name="track_file_style_conditional">
                     <param name="track_file_style_selector" value="spacer_option" />
                     <param name="spacer_width" value="1" />
-                </ conditional>
+                </conditional>
             </repeat>
             <repeat name="tracks">
                 <conditional name="track_file_style_conditional">
-                    <param name="track_file_style_selector" value="bed_track_option" />
+                    <param name="track_file_style_selector" value="gene_track_option" />
                     <param name="track_input_bed" value="dm3_genes.bed6.gz" ftype="bed" />
                     <param name="title" value="bed6 global max row" />
                     <param name="width" value="20" />
                     <param name="fontsize" value="10" />
                     <param name="global_max_row" value="True" />
-                </ conditional>   
+                </conditional>   
             </repeat>
             <repeat name="tracks">
                 <conditional name="track_file_style_conditional">
                     <param name="track_file_style_selector" value="bed_track_option" />
                     <param name="track_input_bed" value="domains.bed" ftype="bed" />
                     <param name="type" value="vlines" />
-                </ conditional>   
+                </conditional>   
             </repeat>
+            <param name="image_file_format" value="png" />
             <output name="outFileName" file="hicPlotTADs_result1.png" ftype="png" compare="sim_size" delta="35000" />
         </test>
     </tests>
