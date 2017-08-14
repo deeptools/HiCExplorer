@@ -5,9 +5,12 @@ from os import unlink
 import numpy as np
 import numpy.testing as nt
 from scipy.sparse import csr_matrix
+import warnings
 
+warnings.filterwarnings("ignore")
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
+
 
 
 def test_save_load():
@@ -46,7 +49,7 @@ def test_convert_to_zscore_matrix():
 
     # make test matrix
     m_size = 100
-    mat = np.triu(np.random.random_integers(0, 100, (m_size, m_size)))
+    mat = np.triu(np.random.randint(0, 101, (m_size, m_size)))
     # add a number of zeros
     mat[mat < 90] = 0
     # import ipdb;ipdb.set_trace()
