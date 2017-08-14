@@ -1,4 +1,4 @@
-Slanguage: python
+language: python
 sudo: false
 
 cache:
@@ -21,7 +21,7 @@ addons:
 
 install:
   # install planemo for Galaxy tool testing
-  - pip install flake8 planemo --user
+  - pip install flake8 planemo
   #- pip install flake8-import-order 
   # install miniconda
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
