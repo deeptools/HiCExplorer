@@ -12,6 +12,11 @@
 
         mkdir ./QCfolder &&
         mkdir $qc.files_path &&
+        #if \${GALAXY_SLOTS:-8} < 3:
+            #set threads = 3
+        #else:
+            #set threads = \${GALAXY_SLOTS:-8}
+        #end if
         hicBuildMatrix
 
             --samFiles
@@ -53,7 +58,7 @@
                 --danglingSequence '$danglingSequence'
             #end if
 
-            --threads 4
+            --threads $threads
             
             --QCfolder ./QCfolder
         &&
