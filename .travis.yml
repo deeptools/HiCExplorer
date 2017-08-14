@@ -1,46 +1,70 @@
-language: c
+Slanguage: python
 sudo: false
-services:
-  - postgresql
-env:
-  - TRAVIS_PYTHON_VERSION=2.7
-os:
-  - linux
-  #- osx
 
-# Setup anaconda
-before_install:
+cache:
+  pip: true
+  directories:
+  - $HOME/.cache/pip
+  #- $HOME/miniconda3
+
+python:
+    - 2.7
+#    - 3.4
+#os:
+#  - linux
+#  #- osx
+
+addons:
+  apt:
+    packages:
+    - samtools
+
+install:
+  # install planemo for Galaxy tool testing
+  - pip install flake8 planemo
+  #- pip install flake8-import-order 
+  # install miniconda
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
+    else
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+    fi
+  - export OLD_PATH=$PATH
+  # we name the conda directory miniconda3, even if we are in conda2, because this is the directory in which Galaxy looks by default
+  - bash miniconda.sh -b -p $HOME/miniconda3
+  - export CONDA_PATH="$HOME/miniconda3/bin/"
+  - export HIC_CONDA_ENV=__hicexplorer@_uv_
+  - export GALAXY_RELEASE=release_17.05
+  - export GALAXY_REPO=https://github.com/galaxyproject/galaxy
   - export HIC_TEST_DATA_DIR="`pwd`/hicexplorer/test/test_data/"
   - echo $HIC_TEST_DATA_DIR
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then pip install virtualenv --user ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then virtualenv planemo_test_env; source planemo_test_env/bin/activate; pip install six; pip install planemo ; deactivate ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh ; fi
-  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi
-  #- if [[ "$TRAVIS_OS_NAME" == "osx" && "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
+
+  - export PATH=$CONDA_PATH:$PATH
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
-
-  # Useful for debugging any issues with conda
+  - conda install conda-build
   - conda info -a
 
-# Install packages
-install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib=2.0.0 nose flake8 pytables biopython pandas
-  - conda install --yes -c bioconda pysam intervaltree
-  - pip install pyBigWig
-  - python setup.py install
 
-# command to run tests
+  # Replace dep1 dep2 ... with your dependencies
+  - conda build ./scripts  -c conda-forge -c bioconda
+  - conda create -y -n $HIC_CONDA_ENV python=$TRAVIS_PYTHON_VERSION
+  - conda create -y -n __samtools@1.3.1 samtools=1.3.1 -c bioconda
+  - source activate $HIC_CONDA_ENV
+  - conda install --yes --file requirements.txt -c conda-forge -c bioconda
+  - conda install --yes --use-local hicexplorer -c conda-forge -c bioconda
+  # isntall HiCExplorer into the conda environment
+  - pip install nose
+  - hicBuildMatrix --version
+
 script:
-  - flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712
-  - export owd=`pwd`
-  - cd ~/ && nosetests --with-doctest -sv hicexplorer
-  - cd ${owd}
-  - echo ${owd}
-  #- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then /home/travis/build/maxplanck-ie/HiCExplorer/foo/bin/planemo lint galaxy/wrapper/ ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then bash .planemo.sh ; fi
-  # - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then bash /home/travis/build/maxplanck-ie/HiCExplorer/.planemo.sh ; fi
+  - flake8 . --exclude=.venv,.build,build --ignore=E501,F403,E402,F999,F405
+  - nosetests --with-doctest
+  - source deactivate
+  - export PATH=$OLD_PATH
+  - echo $PATH
+  - planemo lint ./galaxy/wrapper/
+  - planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/
+
+
