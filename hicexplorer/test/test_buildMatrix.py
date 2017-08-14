@@ -28,7 +28,7 @@ def test_build_matrix():
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
-    args = "-s {} {} -o {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4".format(sam_R1, sam_R2,
+    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4".format(sam_R1, sam_R2,
                                                                                        outfile.name,
                                                                                        qc_folder).split()
     hicBuildMatrix.main(args)
@@ -50,7 +50,7 @@ def test_build_matrix_rf():
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
-    args = "-s {} {} -rs {} -o {}  --QCfolder {} " \
+    args = "-s {} {} -rs {} --outFileName {}  --QCfolder {} " \
            "--restrictionSequence GATC " \
            "--danglingSequence GATC " \
            "--minDistance 150 " \
