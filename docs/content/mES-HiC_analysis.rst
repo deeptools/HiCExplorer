@@ -424,7 +424,7 @@ boundaries.
     hicFindTADs --matrix hicMatrix/replicateMerged.Corrected_20kb.h5 \
     --minDepth 60000 --maxDepth 120000 --numberOfProcessors 8 --step 20000 \
     --outPrefix TADs/marks_et-al_TADs_20kb-Bins  --minBoundaryDistance 80000 \
-    --pvalue 0.05
+    --multipleComparisons fdr --threshold 0.05
 
 As an output we get the boundaries, domains and scores separated files. We will use in the plot below only
 the TAD-score file.
@@ -451,6 +451,7 @@ In following plot we will use the listed track file. Please store it as track.in
     x labels = yes
     type = interaction
     file_type = hic_matrix
+    boundaries_file =  TADs/marks_et-al_TADs_20kb-Bins_domains.bed
    
     [x-axis]
     fontsize=16
