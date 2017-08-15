@@ -27,7 +27,7 @@ def test_find_TADs_fdr():
 
     matrix = ROOT + "small_test_matrix.h5"
     tad_folder = mkdtemp(prefix="test_case_find_tads_fdr")
-    args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 4 --step 20000 \
+    args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
     --outPrefix {}/test_multiFDR --minBoundaryDistance 20000 \
     --multipleComparisons fdr --thresholdComparisons 0.1".format(matrix, tad_folder).split()
 
@@ -52,7 +52,7 @@ def test_find_TADs_bonferroni():
 
     matrix = ROOT + "small_test_matrix.h5"
     tad_folder = mkdtemp(prefix="test_case_find_tads_bonferroni")
-    args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 4 --step 20000 \
+    args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
     --outPrefix {}/test_multiBonferroni --minBoundaryDistance 20000 \
     --multipleComparisons bonferroni --thresholdComparisons 0.1".format(matrix, tad_folder).split()
 
@@ -77,7 +77,7 @@ def test_find_TADs_none():
 
     matrix = ROOT + "small_test_matrix.h5"
     tad_folder = mkdtemp(prefix="test_case_find_tads_none")
-    args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 4 --step 20000 \
+    args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
     --outPrefix {}/test_multiNone --minBoundaryDistance 20000 \
     --multipleComparisons None".format(matrix, tad_folder).split()
 
