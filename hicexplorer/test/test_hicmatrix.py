@@ -12,7 +12,6 @@ warnings.filterwarnings("ignore")
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
 
-
 def test_save_load():
     outfile = '/tmp/matrix.h5'
     cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
