@@ -6,14 +6,7 @@
     </macros>
     <expand macro="requirements" />
     <command detect_errors="exit_code"><![CDATA[
-        #if $mode.mode_selector == 'TAD_score':
-            ln -s '$mode.matrix' matrix.npz.h5 &&
-        #end if
-
-        #if $mode.mode_selector == 'find_TADs':
-            ln -s '$tad_score_zscore_matrix' ./tadScoreFile.tabular_zscore_matrix.h5 &&
-        #end if
-
+        
         hicFindTADs
                 --matrix $matrix
                
@@ -26,17 +19,17 @@
                 --maxDepth $maxDepth
                 --step $step
                 #if $multiple_comparison_conditional.multiple_comparison_selector == 'fdr':
-                    --multipleComparisons $multiple_comparison_conditional.multiple_comparison_selector
+                    --multipleComparisons fdr
                     --threshold $multiple_comparison_conditional.threshold
                 #elif $multiple_comparison_conditional.multiple_comparison_selector == 'bonferroni':
-                    --multipleComparisons $multiple_comparison_conditional.multiple_comparison_selector
+                    --multipleComparisons bonferroni
                     --threshold $multiple_comparison_conditional.threshold
                 #else:
-                    --multipleComparisons $multiple_comparison_conditional.multiple_comparison_selector              
+                    --multipleComparisons None             
                 #end if
 
                 --numberOfProcessors \${GALAXY_SLOTS:-4}
-                --outPrefix "galaxy_find_tads"
+                --outPrefix 'galaxy_find_tads'
     ]]></command>
     <inputs>
         <param argument="--matrix" type="data" format="h5" label="Corrected Hi-C matrix to use for the computations"/>
@@ -48,13 +41,13 @@
                 help="This number should around 6-10 times as large as the bin size of the Hi-C matrix."/>
         <param argument="--step" type="integer" value="10000"
                 label="Step size when moving from minDepth to maxDepth"
-                help="The step size grows exponentially as `maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]`
-                until  it reaches `maxDepth`. For example, selecting step=10,000, minDepth=20,000
+                help="The step size grows exponentially as maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]
+                until  it reaches maxDepth. For example, selecting step=10,000, minDepth=20,000
                 and maxDepth=150,000 will compute TAD-scores for window sizes:
                 20,000, 30,000, 40,000, 70,000 and 100,000"/>
         <conditional name="multiple_comparison_conditional">
             <param name="multiple_comparison_selector" type="select" label="Multiple comparison" >
-                <option value="fdr" selected="true">False discovery rate</option>
+                <option value="fdr" selected="True">False discovery rate</option>
                 <option value="bonferroni">Bonferroni correction</option>
                 <option value="None">No correction</option>
             </param>
@@ -93,7 +86,7 @@
             format="bed" label="${tool.name} on ${on_string}: Boundary information plus score" />
         
         <data name="tad_score" from_work_dir="galaxy_tad_prefix_tad_score.bm"
-            format="bm" label="${tool.name} on ${on_string}: TAD information in bm file" />
+            format="bedgraph" label="${tool.name} on ${on_string}: TAD information in bm file" />
 
         <data name="matrix" from_work_dir="galaxy_tad_prefix_zscore_matrix.h5"
             format="h5" label="${tool.name} on ${on_string}: Z-score matrix in h5" />
@@ -113,7 +106,7 @@
             <output name="boundaries_bin" file="find_TADs/multiFDR_boundaries.gff" ftype="gff" compare="sim_size" delta="35000" />
             <output name="domains" file="find_TADs/multiFDR_domains.bed" ftype="bed" compare="sim_size" delta="35000" />
             <output name="score" file="find_TADs/multiFDR_score.bedgraph" ftype="bedgraph" compare="sim_size" delta="35000" />
-            <output name="tad_score" file="find_TADs/multiFDR_tad_score.bm" ftype="bm" compare="sim_size" delta="35000" />
+            <output name="tad_score" file="find_TADs/multiFDR_tad_score.bm" ftype="bedgraph" compare="sim_size" delta="35000" />
             <output name="matrix" file="find_TADs/multiFDR_zscore_matrix.h5" ftype="h5" compare="sim_size" delta="35000" />
         </test>
     </tests>

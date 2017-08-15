@@ -19,25 +19,23 @@
                 '${repeat.samFile}'
             #end for
 
-            #if str($restrictionCutFileBinSize_conditional.restrictionCutFileBinSize_selector) == "optionRestrictionCutFile":
-                --restrictionCutFile '$restrictionCutFileBinSize_conditional.restrictionCutFile'
-                --minDistance '$restrictionCutFileBinSize_conditional.minDistance'
-                --maxDistance '$restrictionCutFileBinSize_conditional.maxDistance'
-                
-                
+            #if $restrictionCutFileBinSize_conditional.restrictionCutFileBinSize_selector == "optionRestrictionCutFile":
+                --restrictionCutFile $restrictionCutFileBinSize_conditional.restrictionCutFile
+                --minDistance $restrictionCutFileBinSize_conditional.minDistance
+                --maxDistance $restrictionCutFileBinSize_conditional.maxDistance                
             #end if
 
-            #if str($restrictionCutFileBinSize_conditional.restrictionCutFileBinSize_selector) == "optionBinSize":
-                --binSize '$restrictionCutFileBinSize_conditional.binSize'
+            #if $restrictionCutFileBinSize_conditional.restrictionCutFileBinSize_selector == "optionBinSize":
+                --binSize $restrictionCutFileBinSize_conditional.binSize
             #end if
 
 
             #if $restrictionSequence:
-                --restrictionSequence '$restrictionSequence'
+                --restrictionSequence $restrictionSequence
             #end if
 
             #if $region:
-                --region '$region'
+                --region $region
             #end if
 
             --outFileName ./matrix.h5

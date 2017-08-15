@@ -32,7 +32,7 @@ where = $x_axis.where
 #if $track.track_file_style_conditional.track_file_style_selector == "hic_matrix_option":  
 [hic_section_$counter]
 file = $track.track_file_style_conditional.track_input_h5
-file_type = h5
+file_type = hic_matrix
 title = $track.track_file_style_conditional.title
 #if $track.track_file_style_conditional.depth:
 depth = $track.track_file_style_conditional.depth
@@ -78,7 +78,13 @@ width = $track.track_file_style_conditional.width
 #if $track.track_file_style_conditional.show_data:
 show data range = $track.track_file_style_conditional.show_data
 #end if
+
+#set $columns = len(open(str($track.track_file_style_conditional.track_input_bedgraph)).readline().split('\t'))
+#if $columns > 5:
+file_type = bedgraph_matrix
+#else:
 file_type = bedgraph
+#end if
 type = lines
 #end if 
 #if $track.track_file_style_conditional.track_file_style_selector == "chrom_states_option":
