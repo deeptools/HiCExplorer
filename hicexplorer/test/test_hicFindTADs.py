@@ -24,7 +24,7 @@ def are_files_equal(file1, file2, pDifference=10):
 
 
 def test_find_TADs_fdr():
-
+    # full test case with build of the matrix and search for tads
     matrix = ROOT + "small_test_matrix.h5"
     tad_folder = mkdtemp(prefix="test_case_find_tads_fdr")
     args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
@@ -49,24 +49,26 @@ def test_find_TADs_fdr():
 
 
 def test_find_TADs_bonferroni():
-
+    # reduced test case, the z-score matrix is given to decrease run time
     matrix = ROOT + "small_test_matrix.h5"
     tad_folder = mkdtemp(prefix="test_case_find_tads_bonferroni")
+    shutil.copy(ROOT + "find_TADs/multiBonferroni_tad_score.bm", tad_folder + "/test_multiBonferroni_tad_score.bm")
+    shutil.copy(ROOT + 'find_TADs/multiBonferroni_zscore_matrix.h5', tad_folder + "/test_multiBonferroni_zscore_matrix.h5")
     args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
     --outPrefix {}/test_multiBonferroni --minBoundaryDistance 20000 \
     --multipleComparisons bonferroni --thresholdComparisons 0.1".format(matrix, tad_folder).split()
 
     hicFindTADs.main(args)
 
-    new = hm.hiCMatrix(tad_folder + "/test_multiBonferroni_zscore_matrix.h5")
-    test = hm.hiCMatrix(ROOT + 'find_TADs/multiBonferroni_zscore_matrix.h5')
-    nt.assert_equal(test.matrix.data, new.matrix.data)
-    nt.assert_equal(test.cut_intervals, new.cut_intervals)
+    # new = hm.hiCMatrix(tad_folder + "/test_multiBonferroni_zscore_matrix.h5")
+    # test = hm.hiCMatrix(ROOT + 'find_TADs/multiBonferroni_zscore_matrix.h5')
+    # nt.assert_equal(test.matrix.data, new.matrix.data)
+    # nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
     print(tad_folder + "/test_multiBonferroni_boundaries.bed")
     assert are_files_equal(ROOT + "find_TADs/multiBonferroni_boundaries.bed", tad_folder + "/test_multiBonferroni_boundaries.bed", pDifference=10)
     assert are_files_equal(ROOT + "find_TADs/multiBonferroni_domains.bed", tad_folder + "/test_multiBonferroni_domains.bed")
-    assert are_files_equal(ROOT + "find_TADs/multiBonferroni_tad_score.bm", tad_folder + "/test_multiBonferroni_tad_score.bm")
+    # assert are_files_equal(ROOT + "find_TADs/multiBonferroni_tad_score.bm", tad_folder + "/test_multiBonferroni_tad_score.bm")
     assert are_files_equal(ROOT + "find_TADs/multiBonferroni_boundaries.gff", tad_folder + "/test_multiBonferroni_boundaries.gff")
     assert are_files_equal(ROOT + "find_TADs/multiBonferroni_score.bedgraph", tad_folder + "/test_multiBonferroni_score.bedgraph")
 
@@ -74,24 +76,26 @@ def test_find_TADs_bonferroni():
 
 
 def test_find_TADs_none():
-
+    # reduced test case, the z-score matrix is given to decrease run time
     matrix = ROOT + "small_test_matrix.h5"
     tad_folder = mkdtemp(prefix="test_case_find_tads_none")
+    shutil.copy(ROOT + "find_TADs/multiNone_tad_score.bm", tad_folder + "/test_multiNone_tad_score.bm")
+    shutil.copy(ROOT + 'find_TADs/multiNone_zscore_matrix.h5', tad_folder + "/test_multiNone_zscore_matrix.h5")
     args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
     --outPrefix {}/test_multiNone --minBoundaryDistance 20000 \
     --multipleComparisons None".format(matrix, tad_folder).split()
 
     hicFindTADs.main(args)
 
-    new = hm.hiCMatrix(tad_folder + "/test_multiNone_zscore_matrix.h5")
-    test = hm.hiCMatrix(ROOT + 'find_TADs/multiNone_zscore_matrix.h5')
-    nt.assert_equal(test.matrix.data, new.matrix.data)
-    nt.assert_equal(test.cut_intervals, new.cut_intervals)
+    # new = hm.hiCMatrix(tad_folder + "/test_multiNone_zscore_matrix.h5")
+    # test = hm.hiCMatrix(ROOT + 'find_TADs/multiNone_zscore_matrix.h5')
+    # nt.assert_equal(test.matrix.data, new.matrix.data)
+    # nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
     assert are_files_equal(ROOT + "find_TADs/multiNone_boundaries.bed", tad_folder + "/test_multiNone_boundaries.bed")
     assert are_files_equal(ROOT + "find_TADs/multiNone_domains.bed", tad_folder + "/test_multiNone_domains.bed")
-    assert are_files_equal(ROOT + "find_TADs/multiNone_tad_score.bm", tad_folder + "/test_multiNone_tad_score.bm")
+    # assert are_files_equal(ROOT + "find_TADs/multiNone_tad_score.bm", tad_folder + "/test_multiNone_tad_score.bm")
     assert are_files_equal(ROOT + "find_TADs/multiNone_boundaries.gff", tad_folder + "/test_multiNone_boundaries.gff")
     assert are_files_equal(ROOT + "find_TADs/multiNone_score.bedgraph", tad_folder + "/test_multiNone_score.bedgraph")
 
-    shutil.rmtree(tad_folder)
+    # shutil.rmtree(tad_folder)
