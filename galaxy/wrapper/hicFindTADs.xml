@@ -116,39 +116,6 @@
             <output name="tad_score" file="find_TADs/multiFDR_tad_score.bm" ftype="bm" compare="sim_size" delta="35000" />
             <output name="matrix" file="find_TADs/multiFDR_zscore_matrix.h5" ftype="h5" compare="sim_size" delta="35000" />
         </test>
-       <test>
-            <param name="matrix" value="small_test_matrix.h5" ftype="h5" />
-            <param name="minDepth" value="60000"/>
-            <param name="maxDepth" value="180000"/>
-            <param name="step" value="20000"/>
-            <param name="minBoundaryDistance" value="20000" />
-            <conditional name="multiple_comparison_conditional">
-                <param name="multiple_comparison_selector" value="bonferroni"/>
-                <param name="threshold" value="0.1" />
-            </conditional>
-            <output name="boundaries" file="find_TADs/multiBonferroni_boundaries.bed" ftype="bed" compare="sim_size" delta="35000" />
-            <output name="boundaries_bin" file="find_TADs/multiBonferroni_boundaries.gff" ftype="gff" compare="sim_size" delta="35000" />
-            <output name="domains" file="find_TADs/multiBonferroni_domains.bed" ftype="bed" compare="sim_size" delta="35000" />
-            <output name="score" file="find_TADs/multiBonferroni_score.bedgraph" ftype="bedgraph" compare="sim_size" delta="35000" />
-            <output name="tad_score" file="find_TADs/multiBonferroni_tad_score.bm" ftype="bm" compare="sim_size" delta="35000" />
-            <output name="matrix" file="find_TADs/multiBonferroni_zscore_matrix.h5" ftype="h5" compare="sim_size" delta="35000" />
-        </test>
-        <test>
-            <param name="matrix" value="small_test_matrix.h5" ftype="h5" />
-            <param name="minDepth" value="60000"/>
-            <param name="maxDepth" value="180000"/>
-            <param name="step" value="20000"/>
-            <param name="minBoundaryDistance" value="20000" />
-            <conditional name="multiple_comparison_conditional">
-                <param name="multiple_comparison_selector" value="None"/>
-            </conditional>
-            <output name="boundaries" file="find_TADs/multiNone_boundaries.bed" ftype="bed" compare="sim_size" delta="35000" />
-            <output name="boundaries_bin" file="find_TADs/multiNone_boundaries.gff" ftype="gff" compare="sim_size" delta="35000" />
-            <output name="domains" file="find_TADs/multiNone_domains.bed" ftype="bed" compare="sim_size" delta="35000" />
-            <output name="score" file="find_TADs/multiNone_score.bedgraph" ftype="bedgraph" compare="sim_size" delta="35000" />
-            <output name="tad_score" file="find_TADs/multiNone_tad_score.bm" ftype="bm" compare="sim_size" delta="35000" />
-            <output name="matrix" file="find_TADs/multiNone_zscore_matrix.h5" ftype="h5" compare="sim_size" delta="35000" />
-        </test>
     </tests>
     <help><![CDATA[
 
