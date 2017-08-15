@@ -1205,17 +1205,13 @@ class HicFindTads(object):
 
         assert len(pvalues) == len(new_min_idx)
 
-
         # fdr
         if self.multipleComparisons == 'fdr':
             pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
             pvalues_ = sorted(pvalues)
             largest_p_i = 0
-            q_N = self.thresholdComparisons / len(pvalues_)
-            i_fdr = 1
             for i, p in enumerate(pvalues_):
-                foo = (i + 1) * q_N
-                if p < (self.thresholdComparisons * i / len(pvalues_)):
+                if p < (self.thresholdComparisons * (i + 1) / len(pvalues_)):
                     if p > largest_p_i:
                         largest_p_i = p
             self.pvalueFDR = largest_p_i
@@ -1223,7 +1219,6 @@ class HicFindTads(object):
             # bonferroni correction
             pvalues = np.array(pvalues) * len(pvalues)
             pvalues[np.array([e > 1 if ~np.isnan(e) else False for e in pvalues])] = 1
-
 
         return OrderedDict(zip(new_min_idx, pvalues))
 
