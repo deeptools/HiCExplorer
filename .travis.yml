@@ -64,6 +64,7 @@ script:
   - source deactivate
   - export PATH=$OLD_PATH
   - echo $PATH
+  - export GALAXY_SLOTS=4
   - planemo lint ./galaxy/wrapper/
   - travis_wait 30 planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/
 
