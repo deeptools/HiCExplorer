@@ -1,11 +1,14 @@
 Hi-C analysis of mouse ESCs using HiCExplorer
 ==============================================
 
-The following example shows how we can use HiCExplorer to analyse a
+The following example shows how we can use HiCExplorer to analyze a
 published dataset. Here we are using a Hi-C dataset from `Marks et. al.
 2015 <http://www.genomebiology.com/2015/16/1/149>`__, on mouse ESCs.
 
-**Protocol** Collection of the cells for Hi-C and the Hi-C sample
+Protocol
+--------
+
+The collection of the cells for Hi-C and the Hi-C sample
 preparation procedure was performed as previously described
 `Lieberman-Aiden et
 al. <http://www.sciencemag.org/content/326/5950/289.long>`__, with the
@@ -21,7 +24,7 @@ Prepare for analysis
 Download Raw fastq files
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Fastq files can be downloaded from the EBI archive (or NCBI archive). We will store the files in the directory *original_data*.
+The fastq files can be downloaded from the EBI archive (or NCBI archive). We will store the files in the directory *original_data*.
 
 .. code:: bash
 
@@ -37,6 +40,9 @@ Fastq files can be downloaded from the EBI archive (or NCBI archive). We will st
     wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/009/SRR1956529/SRR1956529_2.fastq.gz -O original_data/SRR1956529_2.fastq.gz
 
 
+Create an index 
+~~~~~~~~~~~~~~~
+
 We start with creating an index for our alignment software for the *GRCm38/mm10* genome. 
 As a source we use the mm10 genome from `UCSC <http://hgdownload-test.cse.ucsc.edu/goldenPath/mm10/bigZips/>`__
 
@@ -50,8 +56,7 @@ As a source we use the mm10 genome from `UCSC <http://hgdownload-test.cse.ucsc.e
 We have the mm10 genome stored in one fasta file and can build the index. We tried it successfully with `hisat2`, `bowtie2` and `bwa`. Run the mapping 
 with one of them and do not mix them!
 
-Create an index 
-~~~~~~~~~~~~~~~
+
 
 hisat2
 ^^^^^^^
@@ -144,6 +149,7 @@ Build Hi-C matrix
 :ref:`hicBuildMatrix` builds the matrix of read counts over the bins in the
 genome, considering the sites around the given restriction site. We need
 to provide:
+
 * the input BAM/SAM files: `--samFiles SRR1956527_1.sam SRR1956527_2.sam`
 * binsize: `--binSize 1000`
 * restriction sequence: `--restrictionSequence GATC`
@@ -156,7 +162,7 @@ to provide:
 To decrease the computing time you can set the system environment variable `HICEXPLORER_FILE_BUFFER_DIR` to a RAM disk like `/dev/shm`.
 Be careful: This will consume a sustainable amount of memory i.e. with our BAM/SAM input files and their ~20 GB each, 8 threads and an input buffer size of 400,000 will
 use 20 - 25 GB RAM. If you have a system with lower specifications, decrease the inputBufferSize and / or the number of used threads. It is recommended to not use less
-than 100,000. If the memory is still not enough use a directory on your local hard drive.
+than 100,000 as `inputBufferSize`. If the memory is still not enough use a directory on your local hard drive.
 
 To set the system environment variable run:
 
@@ -232,7 +238,7 @@ Plot the corrected Hi-C matrix
     * logarithmic values for plotting: `--log1p`
     * the resolution of the plot: `--dpi 300`
     * masked bins should not be plotted: `--clearMaskedBins`
-    * the order of the chromomes in the plot: `--chromosomeOrder chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY`
+    * the order of the chromosomes in the plot: `--chromosomeOrder chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY`
     * the color map: `--colorMap jet`
     * the title of the plot: `--title "Hi-C matrix for mESC"`
     * the plot image itself: `--outFileName plots/plot_1Mb_matrix.png`
@@ -262,9 +268,9 @@ Correct Hi-C Matrix
 
 :ref:`hicCorrectMatrix` corrects the matrix counts in an iterative manner.
 For correcting the matrix, it's important to remove the unassembled
-scaffolds (eg NT\_) and keep only chromosomes, as scaffolds create
+scaffolds (e.g. NT\_) and keep only chromosomes, as scaffolds create
 problems with matrix correction. Therefore we use the chromosome names
-(1-19, X, Y) here. **Important** use 'chr1 chr2 chr3 etc.' if your genome index uses
+(1-19, X, Y) here. **Important:** Use 'chr1 chr2 chr3 etc.' if your genome index uses
 chromosome names with the 'chr' prefix.
 
 Matrix correction works in two steps: first a histogram containing the sum of contact per bin (row sum) is
@@ -311,7 +317,7 @@ The threshold parameter needs two values:
 (`Source <https://en.wikipedia.org/wiki/Standard_score#Calculation_from_raw_score>`__). For more information see `wikipedia <https://en.wikipedia.org/wiki/Standard_score>`__. 
 
 .. figure:: ../images/zscore_wikipedia.svg
-   :alt: zscore definition: z = (x - my) / sigma
+   :alt: z-score definition: z = (x - my) / sigma
 
    The z-score definition.
 
@@ -353,16 +359,16 @@ It can happen that the correction stops with:
     This is often caused by bins of low counts. Use a more stringent filtering of bins.`
 
 
-This can be solved by stringenter z-score values for the filter threshold or by a look at the plotted matrix. In our case 
+This can be solved by a more stringent z-score values for the filter threshold or by a look at the plotted matrix. In our case 
 we see that chromosome Y is having more or less 0 counts in its bins. This chromosome can be excluded from the correction by not
-defining it for the set of chromosoms that should be corrected, parameter `--chromosomes`.
+defining it for the set of chromosomes that should be corrected, parameter `--chromosomes`.
 
 
 
 Plot corrected matrix
 ^^^^^^^^^^^^^^^^^^^^^
 
-We can now plot the one of the chromosomes (eg. chromosome X) , with the
+We can now plot the one of the chromosomes (e.g. chromosome X) , with the
 corrected matrix.
 
 New parameter:
@@ -388,7 +394,7 @@ New parameter:
     --log1p --dpi 300 \
     --matrix hicMatrix/replicateMerged.Corrected_20kb.npz \
     --region chrX --title "Corrected Hi-C matrix for mESC : chrX" \
-    --outFileName plots/replicateMerged_Corrected-20kb_plot-chrX_foo.png
+    --outFileName plots/replicateMerged_Corrected-20kb_plot-chrX.png
 
 
 .. figure:: ../images/replicateMerged_Corrected-20kb_plot-chrX.png
@@ -402,7 +408,7 @@ New parameter:
 Plot TADs
 ---------
 
-The partitioning of chromosomes into topologically associating domains (TADs) is an
+"The partitioning of chromosomes into topologically associating domains (TADs) is an
 emerging concept that is reshaping our understanding of gene regulation in the context of
 physical organization of the genome" [`Ramirez et al. 2017 <https://doi.org/10.1101/115063>`__].
 
@@ -459,7 +465,7 @@ In following plot we will use the listed track file. Please store it as track.in
 
     [tad score]
     file = TADs/marks_et-al_TADs_20kb-Bins_score.bedgraph
-    title = "TAD seperation score"
+    title = "TAD separation score"
     width = 2
     type = lines
     color = blue
@@ -483,11 +489,22 @@ Plot
 
 We plot the result with:
 
+(1-19, X, Y) variant:
+
+.. code:: bash
+
+    hicPlotTADs --tracks track.ini --region X:98000000-105000000 \
+    --dpi 300 --outFileName plots/marks_et-al_TADs.png \
+    --title "Marks et. al. TADs on X"
+
+(chr1-ch19, chrX, chrY) variant:
+
 .. code:: bash
 
     hicPlotTADs --tracks track.ini --region chrX:98000000-105000000 \
     --dpi 300 --outFileName plots/marks_et-al_TADs.png \
     --title "Marks et. al. TADs on X"
+
 
 The result is:
 
@@ -527,9 +544,9 @@ The result is:
 .. Comparing Marks et. al. and Dixon et. al.
 .. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. We analysed the mESC Hi-C data from `Dixon et.
+.. We analyzed the mESC Hi-C data from `Dixon et.
 .. al <http://www.nature.com/nature/journal/v485/n7398/full/nature11082.html>`__
-.. using HiCExplorer, and compared it to Marks et. al. dataset. For this
+.. using HiCExplorer, and compared it to Marks et al. dataset. For this
 .. we mapped the reads using bowtie and prepared 20kb matrices. Following
 .. is the plot showing the TADs on the X chromosomes, at 1.2 MB region
 .. around Xist (the X Inactivation Center).
