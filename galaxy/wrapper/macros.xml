@@ -550,7 +550,7 @@ This tool is developed by the `Bioinformatics and Deep-Sequencing Unit`_ at the 
         <param name="track_input_bigwig" type="data" format="bigwig" label="Track file bigwig format"/>
     </xml>
     <xml name="track_input_bedgraph_matrix_macro">
-        <param name="track_input_bedgraph_matrix" type="data" format="bm" label="Track file bigwig format"/>
+        <param name="track_input_bedgraph_matrix" type="data" format="bedgraph" label="Track file bigwig format"/>
     </xml>
     <xml name="track_input_tabular_macro">
         <param name="track_input_tabular" type="data" format="tabular" label="Track file tabular format"/>
