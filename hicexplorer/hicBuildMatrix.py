@@ -740,8 +740,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     iter_num = 0
     hic_matrix = None
     if pOutputBamSet:
-        out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pOutputName), 'wb', template=pTemplate)
-
+        try:
+            out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pOutputName), 'wb', template=pTemplate)
+        except:
+            exit("Could not create output bam file! {}".format(os.path.join(pOutputFileBufferDir, pOutputName)))
     if pMateBuffer1 is None or pMateBuffer2 is None:
 
         pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
@@ -959,9 +961,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
 
 def write_bam(pTemplate, pOutputFileBufferDir, pUniqueHashForBam):
-
-    out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + ".bam"), 'wb', template=pTemplate)
-
+    try:
+        out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + ".bam"), 'wb', template=pTemplate)
+    except:
+        exit("Could not create buffered file: {}".format(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + ".bam")))
     counter = 0
     while not os.path.isfile(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + '.done_processing')) \
             or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done')):
@@ -1019,11 +1022,20 @@ def main(args=None):
     args.samFiles[0].close()
     args.samFiles[1].close()
     if 'HICEXPLORER_FILE_BUFFER_DIR' in os.environ:
+        print("Using HICEXPLORER_FILE_BUFFER_DIR: {}".format(os.environ['HICEXPLORER_FILE_BUFFER_DIR']))
         outputFileBufferDir = os.environ['HICEXPLORER_FILE_BUFFER_DIR']
+        if not os.path.exists(os.path.join(outputFileBufferDir)):
+            exit("Given HICEXPLORER_FILE_BUFFER_DIR: {} does not exist.".format(outputFileBufferDir))
     else:
-        if not os.path.exists('bam_file_buffer_dir'):
-            os.makedirs('bam_file_buffer_dir')
-        outputFileBufferDir = os.path.abspath('bam_file_buffer_dir')
+        if not os.path.exists('./bam_file_buffer_dir'):
+            try:
+                os.makedirs('./bam_file_buffer_dir')
+            except:
+                exit("Could not create buffer directory: {}".format('./bam_file_buffer_dir'))
+        outputFileBufferDir = os.path.abspath('./bam_file_buffer_dir')
+
+        print("Using local buffer dir: {}".format(outputFileBufferDir))
+    
     outputFileBufferDir = os.path.join(outputFileBufferDir)
     unique_hash_for_bam = str(hash(time.time()))
     if args.outBam:
@@ -1239,8 +1251,10 @@ def main(args=None):
                 process[i] = None
                 thread_done[i] = True
                 if args.outBam:
-                    open(os.path.join(outputFileBufferDir, str(result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done'), 'a').close()
-
+                    try:
+                        open(os.path.join(outputFileBufferDir, str(result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done'), 'a').close()
+                    except:
+                        exit("Could not create {}".format(os.path.join(outputFileBufferDir, str(result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done')))
                 # caused by the architecture I try to display this output information after +-1e5 of 1e6 reads.
                 if iter_num % 1e6 < 100000:
                     elapsed_time = time.time() - start_time
