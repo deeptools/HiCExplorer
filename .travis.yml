@@ -1,29 +1,67 @@
 language: python
 sudo: false
 
+services:
+  - postgresql
+
 cache:
   pip: true
   directories:
   - $HOME/.cache/pip
-  #- $HOME/miniconda3
 
 python:
-    - 2.7
-#    - 3.4
-#os:
-#  - linux
-#  #- osx
+  - 2.7
+  #- 3.5
+  #- 3.6
 
 addons:
   apt:
     packages:
     - samtools
 
-install:
-  # install planemo for Galaxy tool testing
-  - pip install flake8 planemo
-  #- pip install flake8-import-order 
-  # install miniconda
+os:
+  - linux
+jobs:
+  include:
+    - stage: lint
+      env:
+        - LINT=1
+      before_install:
+        - curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - PATH_WITHOUT_CONDA="$PATH"
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - hash -r
+        - conda config --set always_yes yes --set changeps1 no
+        - conda update -q conda
+      install:
+        - conda install --yes python=2.7 flake8
+      script:
+        - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712 ; fi
+    - stage: galaxy
+      env:
+        - TESTGALAXY=1
+      before_install: true
+      install: true
+      script:
+        - source activate $HIC_CONDA_ENV
+        - export GALAXY_SLOTS=4
+        - planemo lint ./galaxy/wrapper/
+        - export HICEXPLORER_FILE_BUFFER_DIR=/dev/shm
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicBuildMatrix.xml ; fi
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicCorrectMatrix.xml ; fi
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicCorrelate.xml ; fi
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicFindEnrichedContacts.xml ; fi
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicFindTADs.xml ; fi
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicPlotDistVsCounts.xml ; fi
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicPlotMatrix.xml ; fi
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicPlotTADs.xml ; fi
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicSumMatrices.xml ; fi
+        - source deactivate $HIC_CONDA_ENV
+
+# Setup anaconda and build hicexplorer conda package
+before_install:
+  - pip install planemo
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
       wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
     else
@@ -45,28 +83,22 @@ install:
   - conda update -q conda
   - conda install conda-build
   - conda info -a
-
-
   # Replace dep1 dep2 ... with your dependencies
   - conda build ./scripts  -c conda-forge -c bioconda
   - conda create -y -n $HIC_CONDA_ENV python=$TRAVIS_PYTHON_VERSION
   - conda create -y -n __samtools@1.3.1 samtools=1.3.1 -c bioconda
+ 
+
+# Install packages
+install:
   - source activate $HIC_CONDA_ENV
   - conda install --yes --file requirements.txt -c conda-forge -c bioconda
   - conda install --yes --use-local hicexplorer -c conda-forge -c bioconda
-  # isntall HiCExplorer into the conda environment
-  - pip install nose nose-progressive
+  # install HiCExplorer into the conda environment
   - hicBuildMatrix --version
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7"  ]]; then conda install -y -c bioconda configparser ; fi
 
+# command to run tests
 script:
-  - flake8 . --exclude=.venv,.build,build --ignore=E501,F403,E402,F999,F405
-  - nosetests --with-doctest --with-progressive
-  - source deactivate
-  - export PATH=$OLD_PATH
-  - echo $PATH
-  - export GALAXY_SLOTS=4
-  - planemo lint ./galaxy/wrapper/
-  - export HICEXPLORER_FILE_BUFFER_DIR=/dev/shm
-  - travis_wait 35 planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/
-
-
+  - py.test hicexplorer --doctest-modules
+  - source deactivate $HIC_CONDA_ENV
