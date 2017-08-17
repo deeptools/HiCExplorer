@@ -66,7 +66,8 @@ script:
   - echo $PATH
   - export GALAXY_SLOTS=4
   - planemo lint ./galaxy/wrapper/
-  - export HICEXPLORER_FILE_BUFFER_DIR=/dev/shm
+  - mkdir buffer_dir
+  - export HICEXPLORER_FILE_BUFFER_DIR=./buffer_dir
   - planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicBuildMatrix.xml
   - planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicCorrectMatrix.xml
   - planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicCorrelate.xml
