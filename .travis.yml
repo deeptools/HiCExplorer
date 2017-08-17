@@ -41,7 +41,8 @@ jobs:
     - stage: galaxy
       env:
         - TESTGALAXY=1
-      before_install: true
+      before_install: 
+        - pip install planemo
       install: true
       script:
         - source activate $HIC_CONDA_ENV
@@ -61,7 +62,7 @@ jobs:
 
 # Setup anaconda and build hicexplorer conda package
 before_install:
-  - pip install planemo
+  
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
       wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
     else
