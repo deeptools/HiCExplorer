@@ -39,7 +39,7 @@
             #end if
 
             --outFileName ./matrix.h5
-            --outBam ./unsorted.bam
+            --outBam ./sorted.bam
 
             $removeSelfCircles
 
@@ -58,9 +58,7 @@
         mv ./QCfolder/* $qc.files_path/
         &&
         mv $qc.files_path/hicQC.html $qc
-        &&
-        samtools sort ./unsorted.bam -o sorted.bam
-
+       
 ]]>
     </command>
     <inputs>
@@ -120,10 +118,10 @@
     <tests>
         <test>
             <repeat name="samFiles">
-                <param name="samFile" value="small_test_R1_unsorted.bam" ftype="bam" />
+                <param name="samFile" value="small_test_R1_unsorted.bam" ftype="sam" />
             </repeat>
             <repeat name="samFiles">
-                <param name="samFile" value="small_test_R2_unsorted.bam" ftype="bam"/>
+                <param name="samFile" value="small_test_R2_unsorted.bam" ftype="sam"/>
             </repeat>
             <conditional name="restrictionCutFileBinSize_conditional">
                 <param name="restrictionCutFileBinSize_selector" value="optionBinSize"/>

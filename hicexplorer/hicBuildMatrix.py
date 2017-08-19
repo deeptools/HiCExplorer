@@ -411,7 +411,8 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     assert len(new_end) == len(new_start), "error"
 
     intervals = zip(new_chrom, new_start, new_end)
-    intervals = [(_chrom, _start, _end) for _chrom, _start, _end in intervals if _end - _start >= min_distance]
+    intervals = [(_chrom, _start, _end) for _chrom, _start,
+                 _end in intervals if _end - _start >= min_distance]
     return intervals
 
 
@@ -469,7 +470,8 @@ def get_supplementary_alignment(read, pysam_obj):
     # the SA field contains a list of other alignments as a ';' delimited list in the format
     # rname,pos,strand,CIGAR,mapQ,NM;
     if read.has_tag('SA'):
-        # field always ends in ';' thus last element after split is always empty, hence [0:-1]
+        # field always ends in ';' thus last element after split is always
+        # empty, hence [0:-1]
         other_alignments = read.get_tag('SA').split(";")[0:-1]
         supplementary_alignment = []
         for i in range(len(other_alignments)):
@@ -528,8 +530,10 @@ def get_correct_map(primary, supplement_list):
         else:
             cigartuples = read.cigartuples[:]
 
-        first_mapped.append([x for x, cig in enumerate(cigartuples) if cig[0] == 0][0])
-    # find which read has a cigar string that maps first than any of the others.
+        first_mapped.append(
+            [x for x, cig in enumerate(cigartuples) if cig[0] == 0][0])
+    # find which read has a cigar string that maps first than any of the
+    # others.
     idx_min = first_mapped.index(min(first_mapped))
 
     return read_list[idx_min]
@@ -617,8 +621,10 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
         # check for supplementary alignments
         # (needs to be done before skipping any unmapped reads
         # to keep the order of the two bam files in sync)
-        mate1_supplementary_list = get_supplementary_alignment(mate1, pFileOneIterator)
-        mate2_supplementary_list = get_supplementary_alignment(mate2, pFileTwoIterator)
+        mate1_supplementary_list = get_supplementary_alignment(
+            mate1, pFileOneIterator)
+        mate2_supplementary_list = get_supplementary_alignment(
+            mate2, pFileTwoIterator)
 
         if mate1_supplementary_list:
             mate1 = get_correct_map(mate1, mate1_supplementary_list)
@@ -741,9 +747,11 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     hic_matrix = None
     if pOutputBamSet:
         try:
-            out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pOutputName), 'wb', template=pTemplate)
+            out_bam = pysam.Samfile(os.path.join(
+                pOutputFileBufferDir, pOutputName), 'wb', template=pTemplate)
         except:
-            exit("Could not create output bam file! {}".format(os.path.join(pOutputFileBufferDir, pOutputName)))
+            exit("Could not create output bam file! {}".format(
+                os.path.join(pOutputFileBufferDir, pOutputName)))
     if pMateBuffer1 is None or pMateBuffer2 is None:
 
         pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
@@ -764,7 +772,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
         mate_is_unasigned = False
         for mate in [mate1, mate2]:
             mate_ref = pRefId2name[mate.rname]
-            # find the middle genomic position of the read. This is used to find the bin it belongs to.
+            # find the middle genomic position of the read. This is used to
+            # find the bin it belongs to.
             read_middle = mate.pos + int(mate.qlen / 2)
             try:
                 start, end = pDictBinIntervalTreeIndex[mate_ref]
@@ -786,7 +795,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
             except:
                 # for small contigs it can happen that they are not
-                # in the bin_intval_tree keys if no restriction site is found on the contig.
+                # in the bin_intval_tree keys if no restriction site is found
+                # on the contig.
                 mate_is_unasigned = True
                 break
 
@@ -870,12 +880,16 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + len(pRestrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
+                    frag_start = min(mate1.pos, mate2.pos) + \
+                        len(pRestrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos +
+                                   mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
-                    has_rf = sorted(pRfPositions[mate_ref][frag_start: frag_end])
+                    has_rf = sorted(
+                        pRfPositions[mate_ref][frag_start: frag_end])
 
-                # case when there is no restriction fragment site between the mates
+                # case when there is no restriction fragment site between the
+                # mates
                 if len(has_rf) == 0:
                     same_fragment += 1
                     continue
@@ -917,7 +931,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
         for mate in [mate1, mate2]:
             # fill in coverage vector
             vec_start = max(0, mate.pos - mate_bin.begin) / pBinsize
-            length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
+            length_coverage = pCoverageIndex[mate_bin_id].end - \
+                pCoverageIndex[mate_bin_id].begin
             vec_end = min(length_coverage, vec_start +
                           len(mate.seq) / pBinsize)
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
@@ -962,14 +977,17 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
 def write_bam(pTemplate, pOutputFileBufferDir, pUniqueHashForBam):
     try:
-        out_bam = pysam.Samfile(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + ".bam"), 'wb', template=pTemplate)
+        out_bam = pysam.Samfile(os.path.join(
+            pOutputFileBufferDir, pUniqueHashForBam + ".bam"), 'wb', template=pTemplate)
     except:
-        exit("Could not create buffered file: {}".format(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + ".bam")))
+        exit("Could not create buffered file: {}".format(
+            os.path.join(pOutputFileBufferDir, pUniqueHashForBam + ".bam")))
     counter = 0
     while not os.path.isfile(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + '.done_processing')) \
             or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done')):
         if os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done')):
-            out_put_threads = pysam.Samfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam'), 'rb')
+            out_put_threads = pysam.Samfile(os.path.join(
+                pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam'), 'rb')
             while True:
                 try:
                     data = out_put_threads.next()
@@ -977,14 +995,17 @@ def write_bam(pTemplate, pOutputFileBufferDir, pUniqueHashForBam):
                     break
                 out_bam.write(data)
             out_put_threads.close()
-            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam'))
-            os.remove(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done'))
+            os.remove(os.path.join(pOutputFileBufferDir, str(
+                counter) + "_" + pUniqueHashForBam + '.bam'))
+            os.remove(os.path.join(pOutputFileBufferDir, str(
+                counter) + "_" + pUniqueHashForBam + '.bam_done'))
             counter += 1
         else:
             time.sleep(3)
 
     out_bam.close()
-    os.remove(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + '.done_processing'))
+    os.remove(os.path.join(pOutputFileBufferDir,
+                           pUniqueHashForBam + '.done_processing'))
 
 
 def main(args=None):
@@ -1022,20 +1043,23 @@ def main(args=None):
     args.samFiles[0].close()
     args.samFiles[1].close()
     if 'HICEXPLORER_FILE_BUFFER_DIR' in os.environ:
-        print("Using HICEXPLORER_FILE_BUFFER_DIR: {}".format(os.environ['HICEXPLORER_FILE_BUFFER_DIR']))
+        print("Using HICEXPLORER_FILE_BUFFER_DIR: {}".format(
+            os.environ['HICEXPLORER_FILE_BUFFER_DIR']))
         outputFileBufferDir = os.environ['HICEXPLORER_FILE_BUFFER_DIR']
         if not os.path.exists(os.path.join(outputFileBufferDir)):
-            exit("Given HICEXPLORER_FILE_BUFFER_DIR: {} does not exist.".format(outputFileBufferDir))
+            exit("Given HICEXPLORER_FILE_BUFFER_DIR: {} does not exist.".format(
+                outputFileBufferDir))
     else:
         if not os.path.exists('./bam_file_buffer_dir'):
             try:
                 os.makedirs('./bam_file_buffer_dir')
             except:
-                exit("Could not create buffer directory: {}".format('./bam_file_buffer_dir'))
+                exit("Could not create buffer directory: {}".format(
+                    './bam_file_buffer_dir'))
         outputFileBufferDir = os.path.abspath('./bam_file_buffer_dir')
 
         print("Using local buffer dir: {}".format(outputFileBufferDir))
-    
+
     outputFileBufferDir = os.path.join(outputFileBufferDir)
     unique_hash_for_bam = str(hash(time.time()))
     if args.outBam:
@@ -1082,7 +1106,8 @@ def main(args=None):
         args.restrictionSequence = args.restrictionSequence.upper()
         args.danglingSequence = args.danglingSequence.upper()
         dangling_sequences['pat_forw'] = args.danglingSequence
-        dangling_sequences['pat_rev'] = str(Seq(args.danglingSequence, generic_dna).reverse_complement())
+        dangling_sequences['pat_rev'] = str(
+            Seq(args.danglingSequence, generic_dna).reverse_complement())
 
         sys.stderr.write("dangling sequences to check "
                          "are {}\n".format(dangling_sequences))
@@ -1102,7 +1127,8 @@ def main(args=None):
 
         number_of_elements_coverage += (end - start) / binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
-    pos_coverage = RawArray(C_Coverage, zip(start_pos_coverage, end_pos_coverage))
+    pos_coverage = RawArray(C_Coverage, zip(
+        start_pos_coverage, end_pos_coverage))
     start_pos_coverage = None
     end_pos_coverage = None
     coverage = Array(c_uint, number_of_elements_coverage)
@@ -1159,7 +1185,8 @@ def main(args=None):
     count_call_of_read_input = 0
     computed_pairs = 0
     if args.outBam:
-        process_write_bam_file = Process(target=write_bam, kwargs=dict(pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir, pUniqueHashForBam=unique_hash_for_bam))
+        process_write_bam_file = Process(target=write_bam, kwargs=dict(
+            pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir, pUniqueHashForBam=unique_hash_for_bam))
         process_write_bam_file.start()
     while not all_data_processed or not all_threads_done:
 
@@ -1202,7 +1229,8 @@ def main(args=None):
                     pQueueOut=queue[i],
                     pTemplate=str1,
                     pOutputBamSet=args.outBam,
-                    pOutputName=str(count_output) + "_" + unique_hash_for_bam + '.bam',
+                    pOutputName=str(count_output) + "_" +
+                    unique_hash_for_bam + '.bam',
                     pCounter=count_output,
                     pSharedBinIntvalTree=shared_build_intval_tree,
                     pDictBinIntervalTreeIndex=index_dict,
@@ -1224,9 +1252,11 @@ def main(args=None):
                 if result[0] is not None:
                     elements = result[0][15]
                     if hic_matrix is None:
-                        hic_matrix = coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
+                        hic_matrix = coo_matrix(
+                            (data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
                     else:
-                        hic_matrix += coo_matrix((data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
+                        hic_matrix += coo_matrix(
+                            (data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
 
                     dangling_end += result[0][3]
                     self_circle += result[0][4]
@@ -1252,10 +1282,13 @@ def main(args=None):
                 thread_done[i] = True
                 if args.outBam:
                     try:
-                        open(os.path.join(outputFileBufferDir, str(result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done'), 'a').close()
+                        open(os.path.join(outputFileBufferDir, str(
+                            result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done'), 'a').close()
                     except:
-                        exit("Could not create {}".format(os.path.join(outputFileBufferDir, str(result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done')))
-                # caused by the architecture I try to display this output information after +-1e5 of 1e6 reads.
+                        exit("Could not create {}".format(os.path.join(outputFileBufferDir, str(
+                            result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done')))
+                # caused by the architecture I try to display this output
+                # information after +-1e5 of 1e6 reads.
                 if iter_num % 1e6 < 100000:
                     elapsed_time = time.time() - start_time
                     sys.stderr.write("processing {} lines took {:.2f} "
@@ -1266,7 +1299,8 @@ def main(args=None):
                     sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
                                      "\n".format(pair_added, float(100 * pair_added) / iter_num))
                 if args.doTestRun and iter_num > 1e5:
-                    sys.stderr.write("\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
+                    sys.stderr.write(
+                        "\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
                     all_data_processed = True
                     thread_done[i] = True
                     break
@@ -1287,7 +1321,8 @@ def main(args=None):
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
     if args.outBam:
-        open(os.path.join(outputFileBufferDir, unique_hash_for_bam + '.done_processing'), 'a').close()
+        open(os.path.join(outputFileBufferDir,
+                          unique_hash_for_bam + '.done_processing'), 'a').close()
         print "wait for bam merging process to finish"
         process_write_bam_file.join()
         print "wait for bam merging process to finish...DONE!"
@@ -1323,7 +1358,8 @@ def main(args=None):
 
     if args.outBam:
         # os.path.join(outputFileBufferDir, unique_hash_for_bam + "_" + args.outBam.name)
-        shutil.move(os.path.join(outputFileBufferDir, unique_hash_for_bam + ".bam"), args.outBam.name)
+        shutil.move(os.path.join(outputFileBufferDir,
+                                 unique_hash_for_bam + ".bam"), args.outBam.name)
 
     """
     if args.restrictionCutFile:
@@ -1356,56 +1392,83 @@ Max rest. site distance\t{}\t\t
            args.maxDistance))
 
     log_file.write("Pairs used\t{}\t({:.2f})\t({:.2f})\n".format(pair_added,
-                                                                 100 * float(pair_added) / iter_num,
+                                                                 100 *
+                                                                 float(
+                                                                     pair_added) / iter_num,
                                                                  100 * float(pair_added) / mappable_pairs))
     log_file.write("One mate unmapped\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_unmapped,
-                                                                        100 * float(one_mate_unmapped) / iter_num,
+                                                                        100 *
+                                                                        float(
+                                                                            one_mate_unmapped) / iter_num,
                                                                         100 * float(one_mate_unmapped) / mappable_pairs))
 
     log_file.write("One mate not unique\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_not_unique,
-                                                                          100 * float(one_mate_not_unique) / iter_num,
+                                                                          100 *
+                                                                          float(
+                                                                              one_mate_not_unique) / iter_num,
                                                                           100 * float(one_mate_not_unique) / mappable_pairs))
 
     log_file.write("One mate low quality\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_low_quality,
-                                                                           100 * float(one_mate_low_quality) / iter_num,
+                                                                           100 *
+                                                                           float(
+                                                                               one_mate_low_quality) / iter_num,
                                                                            100 * float(one_mate_low_quality) / mappable_pairs))
 
     log_file.write("dangling end\t{}\t({:.2f})\t({:.2f})\n".format(dangling_end,
-                                                                   100 * float(dangling_end) / iter_num,
+                                                                   100 *
+                                                                   float(
+                                                                       dangling_end) / iter_num,
                                                                    100 * float(dangling_end) / mappable_pairs))
 
     log_file.write("self ligation{}\t{}\t({:.2f})\t({:.2f})\n".format(msg, self_ligation,
-                                                                      100 * float(self_ligation) / iter_num,
+                                                                      100 *
+                                                                      float(
+                                                                          self_ligation) / iter_num,
                                                                       100 * float(self_ligation) / mappable_pairs))
 
     log_file.write("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})\n".format(mate_not_close_to_rf,
-                                                                                      100 * float(mate_not_close_to_rf) / iter_num,
+                                                                                      100 *
+                                                                                      float(
+                                                                                          mate_not_close_to_rf) / iter_num,
                                                                                       100 * float(mate_not_close_to_rf) / mappable_pairs))
 
     log_file.write("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})\n".format(same_fragment,
-                                                                             100 * float(same_fragment) / iter_num,
+                                                                             100 *
+                                                                             float(
+                                                                                 same_fragment) / iter_num,
                                                                              100 * float(same_fragment) / mappable_pairs))
     log_file.write("self circle\t{}\t({:.2f})\t({:.2f})\n".format(self_circle,
-                                                                  100 * float(self_circle) / iter_num,
+                                                                  100 *
+                                                                  float(
+                                                                      self_circle) / iter_num,
                                                                   100 * float(self_circle) / mappable_pairs))
     log_file.write("duplicated pairs\t{}\t({:.2f})\t({:.2f})\n".format(duplicated_pairs,
-                                                                       100 * float(duplicated_pairs) / iter_num,
+                                                                       100 *
+                                                                       float(
+                                                                           duplicated_pairs) / iter_num,
                                                                        100 * float(duplicated_pairs) / mappable_pairs))
     if pair_added > 0:
         log_file.write("Of pairs used:\n")
-        log_file.write("inter chromosomal\t{}\t({:.2f})\n".format(inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
+        log_file.write("inter chromosomal\t{}\t({:.2f})\n".format(
+            inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
 
-        log_file.write("short range < 20kb\t{}\t({:.2f})\n".format(short_range, 100 * float(short_range) / pair_added))
+        log_file.write("short range < 20kb\t{}\t({:.2f})\n".format(
+            short_range, 100 * float(short_range) / pair_added))
 
-        log_file.write("long range\t{}\t({:.2f})\n".format(long_range, 100 * float(long_range) / pair_added))
+        log_file.write("long range\t{}\t({:.2f})\n".format(
+            long_range, 100 * float(long_range) / pair_added))
 
-        log_file.write("inward pairs\t{}\t({:.2f})\n".format(count_inward, 100 * float(count_inward) / pair_added))
+        log_file.write("inward pairs\t{}\t({:.2f})\n".format(
+            count_inward, 100 * float(count_inward) / pair_added))
 
-        log_file.write("outward pairs\t{}\t({:.2f})\n".format(count_outward, 100 * float(count_outward) / pair_added))
+        log_file.write("outward pairs\t{}\t({:.2f})\n".format(
+            count_outward, 100 * float(count_outward) / pair_added))
 
-        log_file.write("left pairs\t{}\t({:.2f})\n".format(count_left, 100 * float(count_left) / pair_added))
+        log_file.write("left pairs\t{}\t({:.2f})\n".format(
+            count_left, 100 * float(count_left) / pair_added))
 
-        log_file.write("right pairs\t{}\t({:.2f})\n".format(count_right, 100 * float(count_right) / pair_added))
+        log_file.write("right pairs\t{}\t({:.2f})\n".format(
+            count_right, 100 * float(count_right) / pair_added))
 
     log_file.close()
     QC.main("-l {} -o {}".format(log_file_name, args.QCfolder).split())
@@ -1417,5 +1480,6 @@ class Tester(object):
         if hic_test_data_dir:
             self.root = hic_test_data_dir
         else:
-            self.root = os.path.dirname(os.path.abspath(__file__)) + "/test/test_data/"
+            self.root = os.path.dirname(
+                os.path.abspath(__file__)) + "/test/test_data/"
         self.bam_file_1 = os.path.join(self.root, "hic.bam")

@@ -1,5 +1,5 @@
 language: python
-sudo: true
+sudo: false
 services:
   - postgresql
 addons:
@@ -59,8 +59,6 @@ jobs:
         - py.test hicexplorer --doctest-modules  
 
     - stage: planemo lint
-      before_install:
-        - if [[ -d "$HOME/.planemo" ]]; then rm -rf $HOME/.planemo ; fi
       install:
         - pip install planemo
       script:
@@ -68,8 +66,8 @@ jobs:
    
     # - stage: planemo galaxy wrapper no_dependency_resolution
     #   before_install:
-    #     - if [[ -d "$HOME/.planemo" ]]; then rm -rf $HOME/.planemo; fi 
-    #     - pip install planemo
+    #     - pip install pip --upgrade
+    #     - pip install planemo --upgrade      
     #     - curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh
     #     - bash miniconda.sh -b -p $HOME/miniconda
     #     - PATH_WITHOUT_CONDA="$PATH"
@@ -86,8 +84,11 @@ jobs:
     #     - mkdir file_buffer_dir
     #     - export HICEXPLORER_FILE_BUFFER_DIR="`pwd`/file_buffer_dir"
     #   script:
+    #     - source activate hicexplorer_dev
     #     - planemo test galaxy/wrapper --no_dependency_resolution
-    
+    #     - source deactivate hicexplorer_dev
+    #     - export PATH=$PATH_WITHOUT_CONDA
+    # 
     - stage: planemo galaxy wrappers 
       env:
         - TESTGALAXY=1
@@ -132,14 +133,14 @@ jobs:
         - source deactivate
         - export PATH=$OLD_PATH
         - export GALAXY_SLOTS=4
-        - mkdir buffer_dir
-        - export HICEXPLORER_FILE_BUFFER_DIR=`pwd`/buffer_dir"
-        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicBuildMatrix.xml ; fi
+        - mkdir $TRAVIS_BUILD_DIR/buffer_dir
+        - export HICEXPLORER_FILE_BUFFER_DIR="/dev/shm"
         - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicCorrectMatrix.xml ; fi
         - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicCorrelate.xml ; fi
-        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicFidEnrichedContacts.xml ; fi
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicFindEnrichedContacts.xml ; fi
         - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicFindTADs.xml ; fi
         - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicPlotDistVsCounts.xml ; fi
         - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicPlotMatrix.xml ; fi
         - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicPlotTADs.xml ; fi
         - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicSumMatrices.xml ; fi
+        - if [[ "$TESTGALAXY" == "1" ]]; then planemo test --conda_dependency_resolution --no_conda_auto_init --conda_use_local --conda_ensure_channels conda-forge  --galaxy_branch "$GALAXY_RELEASE" --galaxy_source "$GALAXY_REPO" ./galaxy/wrapper/hicBuildMatrix.xml ; fi
