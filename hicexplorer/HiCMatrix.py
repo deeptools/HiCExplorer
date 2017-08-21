@@ -51,7 +51,10 @@ class hiCMatrix:
 
         if matrixFile:
             self.nan_bins = np.array([])
-            if not file_format:
+            print("File format: ", file_format)
+            print("Matrix file: ", matrixFile)
+            
+            if file_format is None or file_format == 'hic_matrix':
                 if matrixFile.endswith(".npz"):
                     file_format = 'npz'
                 elif matrixFile.endswith(".h5"):
@@ -63,6 +66,7 @@ class hiCMatrix:
                 # by default assume that the matrix file_format is hd5
                 else:
                     file_format = 'h5'
+            # if file_format == 'hic_matrix':
 
             if file_format == 'h5' or file_format == 'hicexplorer':
                 self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
@@ -1292,27 +1296,27 @@ class hiCMatrix:
                     startList=startList, endList=endList, extraList=extraList,
                     nan_bins=nan_bins)
             except:
-                print("Matrix can not be saved because is too big!")
+                print("Matrix can not be saved because it is too big!")
             exit()
 
     def save(self, pMatrixName):
-    """To save please specifiy the ending of your format i.e. 'output_matrix.format' Supported are: 'dekker', 'ren', 
-        'lieberman', 'npz', 'GInteractions', 'h5' and 'cool'.
-    """
+        """To save please specifiy the ending of your format i.e. 'output_matrix.format' Supported are: 'dekker', 'ren', 
+            'lieberman', 'npz', 'GInteractions', 'h5' and 'cool'.
+        """
         if pMatrixName.endswith('dekker') == 'dekker':
-            hic_ma.save_dekker(args.outFileName)
+            self.save_dekker(pMatrixName)
         elif pMatrixName.endswith('ren'):
-            hic_ma.save_bing_ren(args.outFileName)
+            self.save_bing_ren(pMatrixName)
         elif pMatrixName.endswith('lieberman'):
-            hic_ma.save_lieberman(args.outFileName)
+            self.save_lieberman(pMatrixName)
         elif pMatrixName.endswith('npz'):
-            hic_ma.save_npz(args.outFileName)
+            self.save_npz(pMatrixName)
         elif pMatrixName.endswith('GInteractions'):
-            hic_ma.save_GInteractions(args.outFileName)
+            self.save_GInteractions(pMatrixName)
         elif pMatrixName.endswith('cool'):
-            hic_ma.save_cooler(args.outFileName)
+            self.save_cooler(pMatrixName)
         else:
-            hic_ma.save_hdf5(args.outFileName)
+            self.save_hdf5(pMatrixName)
 
 
     def diagflat(self, value=np.nan):

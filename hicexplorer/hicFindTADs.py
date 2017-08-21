@@ -67,7 +67,7 @@ $ hicFindTads -m hic_matrix.h5 --outPrefix TADs
                              'We call this format a bedgraph matrix and can be plotted using '
                              '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
                              'a different window length starting from --minDepth to --maxDepth. '
-                             '2. <prefix>_zscore_matrix.h5, the zscore matrix used for the computation of '
+                             '2. <prefix>_zscore_matrix.h5 / .cool, the zscore matrix used for the computation of '
                              'the TAD-separation score.  3. < prefix > _boundaries.bed, which'
                              'contains the positions of boundaries. The genomic coordinates in this file '
                              'correspond to the resolution used. Thus, for Hi-C bins of '
@@ -151,6 +151,11 @@ $ hicFindTads -m hic_matrix.h5 --outPrefix TADs
                              'new boundaries will be computed but the values of minDepth, maxDepth and step will '
                              'not be used.',
                         required=False)
+    parser.add_argument('--zscoreMatrixFormat',
+                        help='The output format of the zscore matrix. Choose \'.cool\' or \'.h5\'.',
+                        type=str,
+                        default="cool",
+                        choices=['cool', 'h5'])
     return parser
 
 
@@ -1297,11 +1302,11 @@ def main(args=None):
                      pMultipleComparisons=args.multipleComparisons, pThresholdComparisons=args.thresholdComparisons)
 
     tad_score_file = args.outPrefix + "_tad_score.bm"
-    zscore_matrix_file = args.outPrefix + "_zscore_matrix.h5"
+    zscore_matrix_file = args.outPrefix + "_zscore_matrix." + args.zscoreMatrixFormat
 
     if args.TAD_sep_score_prefix is not None:
         tad_score_file = args.TAD_sep_score_prefix + "_tad_score.bm"
-        zscore_matrix_file = args.TAD_sep_score_prefix + "_zscore_matrix.h5"
+        zscore_matrix_file = args.TAD_sep_score_prefix + "_zscore_matrix." + args.zscoreMatrixFormat
         # check that the given file exists
         if not os.path.isfile(tad_score_file):
             log.error("The given TAD_sep_score_prefix does not contain a valid TAD-separation score. Please check.\n"
@@ -1318,7 +1323,7 @@ def main(args=None):
     elif not os.path.isfile(tad_score_file):
         ft.compute_spectra_matrix()
         # save z-score matrix that is needed for find TADs algorithm
-        ft.hic_ma.save(args.outPrefix + "_zscore_matrix.h5")
+        ft.hic_ma.save(args.outPrefix + "_zscore_matrix." + args.zscoreMatrixFormat)
         ft.save_bedgraph_matrix(tad_score_file)
     else:
         sys.stderr.write("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
