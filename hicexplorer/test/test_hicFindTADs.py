@@ -29,11 +29,35 @@ def test_find_TADs_fdr():
     tad_folder = mkdtemp(prefix="test_case_find_tads_fdr")
     args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
     --outPrefix {}/test_multiFDR --minBoundaryDistance 20000 \
-    --multipleComparisons fdr --thresholdComparisons 0.1".format(matrix, tad_folder).split()
+    --multipleComparisons fdr --thresholdComparisons 0.1 --zscoreMatrixFormat h5".format(matrix, tad_folder).split()
 
     hicFindTADs.main(args)
 
     new = hm.hiCMatrix(tad_folder + "/test_multiFDR_zscore_matrix.h5")
+    test = hm.hiCMatrix(ROOT + 'find_TADs/multiFDR_zscore_matrix.h5')
+    nt.assert_equal(test.matrix.data, new.matrix.data)
+    nt.assert_equal(test.cut_intervals, new.cut_intervals)
+
+    print(tad_folder + "/test_multiFDR_boundaries.bed")
+    assert are_files_equal(ROOT + "find_TADs/multiFDR_boundaries.bed", tad_folder + "/test_multiFDR_boundaries.bed")
+    assert are_files_equal(ROOT + "find_TADs/multiFDR_domains.bed", tad_folder + "/test_multiFDR_domains.bed")
+    assert are_files_equal(ROOT + "find_TADs/multiFDR_tad_score.bm", tad_folder + "/test_multiFDR_tad_score.bm")
+    assert are_files_equal(ROOT + "find_TADs/multiFDR_boundaries.gff", tad_folder + "/test_multiFDR_boundaries.gff")
+    assert are_files_equal(ROOT + "find_TADs/multiFDR_score.bedgraph", tad_folder + "/test_multiFDR_score.bedgraph")
+
+    shutil.rmtree(tad_folder)
+
+def test_find_TADs_fdr_cooler():
+    # full test case with build of the matrix and search for tads
+    matrix = ROOT + "small_test_matrix.h5"
+    tad_folder = mkdtemp(prefix="test_case_find_tads_fdr")
+    args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
+    --outPrefix {}/test_multiFDR --minBoundaryDistance 20000 \
+    --multipleComparisons fdr --thresholdComparisons 0.1 --zscoreMatrixFormat cool".format(matrix, tad_folder).split()
+
+    hicFindTADs.main(args)
+
+    new = hm.hiCMatrix(tad_folder + "/test_multiFDR_zscore_matrix.cool")
     test = hm.hiCMatrix(ROOT + 'find_TADs/multiFDR_zscore_matrix.h5')
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
@@ -56,7 +80,7 @@ def test_find_TADs_bonferroni():
     shutil.copy(ROOT + 'find_TADs/multiBonferroni_zscore_matrix.h5', tad_folder + "/test_multiBonferroni_zscore_matrix.h5")
     args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
     --outPrefix {}/test_multiBonferroni --minBoundaryDistance 20000 \
-    --multipleComparisons bonferroni --thresholdComparisons 0.1".format(matrix, tad_folder).split()
+    --multipleComparisons bonferroni --thresholdComparisons 0.1  --zscoreMatrixFormat h5".format(matrix, tad_folder).split()
 
     hicFindTADs.main(args)
 
@@ -83,7 +107,7 @@ def test_find_TADs_none():
     shutil.copy(ROOT + 'find_TADs/multiNone_zscore_matrix.h5', tad_folder + "/test_multiNone_zscore_matrix.h5")
     args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
     --outPrefix {}/test_multiNone --minBoundaryDistance 20000 \
-    --multipleComparisons None".format(matrix, tad_folder).split()
+    --multipleComparisons None  --zscoreMatrixFormat h5".format(matrix, tad_folder).split()
 
     hicFindTADs.main(args)
 
