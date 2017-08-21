@@ -206,7 +206,7 @@ DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         description='Plots the diagonal,  and some values close to '
-        'the diagonal of a  HiC matrix. The diagonal of the matrix is '
+        'the diagonal of a  Hi-C matrix. The diagonal of the matrix is '
         'plotted horizontally for a region. I will not draw the diagonal '
         'for the whole chromosome',
         usage="%(prog)s --tracks tracks.ini --region chr1:1000000-4000000 -o image.png")

@@ -22,7 +22,7 @@ import matplotlib.gridspec as gridspec
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description='Creates a Heatmap of a HiC matrix')
+    parser = argparse.ArgumentParser(description='Creates a Heatmap of a Hi-C matrix')
 
     # define the arguments
     parser.add_argument('--matrix', '-m',
