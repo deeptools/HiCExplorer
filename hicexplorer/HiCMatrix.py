@@ -118,7 +118,7 @@ class hiCMatrix:
         if pChr is not None:
             fetch_string = pChr
             if pStartRange is not None and pEndRange is not None:
-                fetch_string += ':' + str(pRangeStart) + '-' + str(pEndRange)
+                fetch_string += ':' + str(pStartRange) + '-' + str(pEndRange)
             cut_intervals_data_frame = cooler_file.bins().fetch(fetch_string)
         else:
             cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]

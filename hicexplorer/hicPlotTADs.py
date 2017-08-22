@@ -334,7 +334,7 @@ def get_region(region_string):
 
 
 def main(args=None):
-
+    print("hicPlotTADs")
     args = parse_arguments().parse_args(args)
     trp = hicexplorer.trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
                                            fontsize=args.fontSize, dpi=args.dpi,

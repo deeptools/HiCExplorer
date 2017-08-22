@@ -393,15 +393,17 @@ def plotPerChr(hic_matrix, cmap, args):
 
 
 def main(args=None):
+    print("\nhicPlotMatrix")
     args = parse_arguments().parse_args(args)
     chrom_cooler = None
     region_start_cooler = None
     region_end_cooler = None
-    if args.matrix.endswith('cool'):
-        if args.region:
-            chrom_cooler, region_start_cooler, region_end_cooler = translate_region(args.region)
+    # if args.matrix.endswith('cool'):
+    #     if args.region:
+    #         # pass
+    #         chrom_cooler, region_start_cooler, region_end_cooler = translate_region(args.region)
             
-    ma = HiCMatrix.hiCMatrix(args.matrix, chrom_cooler, region_start_cooler, region_end_cooler)
+    ma = HiCMatrix.hiCMatrix(args.matrix, pChrName=chrom_cooler, pChrStart=region_start_cooler, pChrEnd=region_end_cooler)
     if args.perChromosome and args.region:
         sys.stderr.write('ERROR, choose from the option '
                          '--perChromosome or --region, the two '
