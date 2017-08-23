@@ -745,18 +745,21 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
     iter_num = 0
     hic_matrix = None
-    if pOutputBamSet:
-        try:
-            out_bam = pysam.Samfile(os.path.join(
-                pOutputFileBufferDir, pOutputName), 'wb', template=pTemplate)
-        except:
-            exit("Could not create output bam file! {}".format(
-                os.path.join(pOutputFileBufferDir, pOutputName)))
+
+    out_bam_index_buffer = []
+    
+    # if pOutputBamSet:
+    #     try:
+    #         out_bam = pysam.Samfile(os.path.join(
+    #             pOutputFileBufferDir, pOutputName), 'wb', template=pTemplate)
+    #     except:
+    #         exit("Could not create output bam file! {}".format(
+    #             os.path.join(pOutputFileBufferDir, pOutputName)))
     if pMateBuffer1 is None or pMateBuffer2 is None:
 
         pQueueOut.put([hic_matrix, [one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                                     mate_not_close_to_rf, count_inward, count_outward,
-                                    count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex]])
+                                    count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, iter_num, pResultIndex, out_bam_index_buffer]])
         return
 
     while iter_num < len(pMateBuffer1) and iter_num < len(pMateBuffer2):
@@ -948,64 +951,65 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
         if pOutputBamSet:
             # prepare data for bam output
             # set the flag to point that this data is paired
-            mate1.flag |= 0x1
-            mate2.flag |= 0x1
+            # mate1.flag |= 0x1
+            # mate2.flag |= 0x1
 
-            # set one read as the first in pair and the
-            # other as second
-            mate1.flag |= 0x40
-            mate2.flag |= 0x80
+            # # set one read as the first in pair and the
+            # # other as second
+            # mate1.flag |= 0x40
+            # mate2.flag |= 0x80
 
-            # set chrom of mate
-            mate1.mrnm = mate2.rname
-            mate2.mrnm = mate1.rname
+            # # set chrom of mate
+            # mate1.mrnm = mate2.rname
+            # mate2.mrnm = mate1.rname
 
-            # set position of mate
-            mate1.mpos = mate2.pos
-            mate2.mpos = mate1.pos
-            out_bam.write(mate1)
-            out_bam.write(mate2)
+            # # set position of mate
+            # mate1.mpos = mate2.pos
+            # mate2.mpos = mate1.pos
+            out_bam_index_buffer.append(iter_num - 1)
+            # out_bam.write(mate1)
+            # out_bam.write(mate2)
 
-    if pOutputBamSet:
-        out_bam.close()
+    # if pOutputBamSet:
+    #     out_bam.close()
 
     pQueueOut.put([[one_mate_unmapped, one_mate_low_quality, one_mate_not_unique, dangling_end, self_circle, self_ligation, same_fragment,
                     mate_not_close_to_rf, count_inward, count_outward,
-                    count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter]])
+                    count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter, out_bam_index_buffer]])
     return
 
 
-def write_bam(pTemplate, pOutputFileBufferDir, pUniqueHashForBam):
-    try:
-        out_bam = pysam.Samfile(os.path.join(
-            pOutputFileBufferDir, pUniqueHashForBam + ".bam"), 'wb', template=pTemplate)
-    except:
-        exit("Could not create buffered file: {}".format(
-            os.path.join(pOutputFileBufferDir, pUniqueHashForBam + ".bam")))
-    counter = 0
-    while not os.path.isfile(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + '.done_processing')) \
-            or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done')):
-        if os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done')):
-            out_put_threads = pysam.Samfile(os.path.join(
-                pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam'), 'rb')
-            while True:
-                try:
-                    data = out_put_threads.next()
-                except StopIteration:
-                    break
-                out_bam.write(data)
-            out_put_threads.close()
-            os.remove(os.path.join(pOutputFileBufferDir, str(
-                counter) + "_" + pUniqueHashForBam + '.bam'))
-            os.remove(os.path.join(pOutputFileBufferDir, str(
-                counter) + "_" + pUniqueHashForBam + '.bam_done'))
-            counter += 1
-        else:
-            time.sleep(3)
+# def write_bam(pTemplate, pOutputFileBufferDir, pUniqueHashForBam):
+#     try:
+#         out_bam = pysam.Samfile(os.path.join(
+#             pOutputFileBufferDir, pUniqueHashForBam + ".bam"), 'wb', template=pTemplate)
+#     except:
+#         exit("Could not create buffered file: {}".format(
+#             os.path.join(pOutputFileBufferDir, pUniqueHashForBam + ".bam")))
+#     counter = 0
+#     while not os.path.isfile(os.path.join(pOutputFileBufferDir, pUniqueHashForBam + '.done_processing')) \
+#             or os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done')):
+#         if os.path.isfile(os.path.join(pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam_done')):
+#             out_put_threads = pysam.Samfile(os.path.join(
+#                 pOutputFileBufferDir, str(counter) + "_" + pUniqueHashForBam + '.bam'), 'rb')
+#             while True:
+#                 try:
+#                     data = out_put_threads.next()
+#                 except StopIteration:
+#                     break
+#                 out_bam.write(data)
+#             out_put_threads.close()
+#             os.remove(os.path.join(pOutputFileBufferDir, str(
+#                 counter) + "_" + pUniqueHashForBam + '.bam'))
+#             os.remove(os.path.join(pOutputFileBufferDir, str(
+#                 counter) + "_" + pUniqueHashForBam + '.bam_done'))
+#             counter += 1
+#         else:
+#             time.sleep(3)
 
-    out_bam.close()
-    os.remove(os.path.join(pOutputFileBufferDir,
-                           pUniqueHashForBam + '.done_processing'))
+#     out_bam.close()
+#     os.remove(os.path.join(pOutputFileBufferDir,
+#                            pUniqueHashForBam + '.done_processing'))
 
 
 def main(args=None):
@@ -1042,28 +1046,29 @@ def main(args=None):
 
     args.samFiles[0].close()
     args.samFiles[1].close()
-    if 'HICEXPLORER_FILE_BUFFER_DIR' in os.environ:
-        print("Using HICEXPLORER_FILE_BUFFER_DIR: {}".format(
-            os.environ['HICEXPLORER_FILE_BUFFER_DIR']))
-        outputFileBufferDir = os.environ['HICEXPLORER_FILE_BUFFER_DIR']
-        if not os.path.exists(os.path.join(outputFileBufferDir)):
-            exit("Given HICEXPLORER_FILE_BUFFER_DIR: {} does not exist.".format(
-                outputFileBufferDir))
-    else:
-        if not os.path.exists('./bam_file_buffer_dir'):
-            try:
-                os.makedirs('./bam_file_buffer_dir')
-            except:
-                exit("Could not create buffer directory: {}".format(
-                    './bam_file_buffer_dir'))
-        outputFileBufferDir = os.path.abspath('./bam_file_buffer_dir')
+    # if 'HICEXPLORER_FILE_BUFFER_DIR' in os.environ:
+    #     print("Using HICEXPLORER_FILE_BUFFER_DIR: {}".format(
+    #         os.environ['HICEXPLORER_FILE_BUFFER_DIR']))
+    #     outputFileBufferDir = os.environ['HICEXPLORER_FILE_BUFFER_DIR']
+    #     if not os.path.exists(os.path.join(outputFileBufferDir)):
+    #         exit("Given HICEXPLORER_FILE_BUFFER_DIR: {} does not exist.".format(
+    #             outputFileBufferDir))
+    # else:
+    #     if not os.path.exists('./bam_file_buffer_dir'):
+    #         try:
+    #             os.makedirs('./bam_file_buffer_dir')
+    #         except:
+    #             exit("Could not create buffer directory: {}".format(
+    #                 './bam_file_buffer_dir'))
+    #     outputFileBufferDir = os.path.abspath('./bam_file_buffer_dir')
 
-        print("Using local buffer dir: {}".format(outputFileBufferDir))
+    #     print("Using local buffer dir: {}".format(outputFileBufferDir))
 
-    outputFileBufferDir = os.path.join(outputFileBufferDir)
+    # outputFileBufferDir = os.path.join(outputFileBufferDir)
     unique_hash_for_bam = str(hash(time.time()))
     if args.outBam:
         args.outBam.close()
+        out_bam_file =  pysam.Samfile(args.outBam.name, 'wb', template=str1)
 
     chrom_sizes = get_chrom_sizes(str1)
 
@@ -1134,7 +1139,7 @@ def main(args=None):
     coverage = Array(c_uint, number_of_elements_coverage)
 
     # define global shared ctypes arrays for row, col and data
-    args.threads = args.threads - 2
+    args.threads = args.threads - 1
     row = [None] * args.threads
     col = [None] * args.threads
     data = [None] * args.threads
@@ -1184,10 +1189,10 @@ def main(args=None):
     count_output = 0
     count_call_of_read_input = 0
     computed_pairs = 0
-    if args.outBam:
-        process_write_bam_file = Process(target=write_bam, kwargs=dict(
-            pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir, pUniqueHashForBam=unique_hash_for_bam))
-        process_write_bam_file.start()
+    # if args.outBam:
+    #     process_write_bam_file = Process(target=write_bam, kwargs=dict(
+    #         pTemplate=str1, pOutputFileBufferDir=outputFileBufferDir, pUniqueHashForBam=unique_hash_for_bam))
+    #     process_write_bam_file.start()
     while not all_data_processed or not all_threads_done:
 
         for i in xrange(args.threads):
@@ -1236,15 +1241,14 @@ def main(args=None):
                     pDictBinIntervalTreeIndex=index_dict,
                     pCoverage=coverage,
                     pCoverageIndex=pos_coverage,
-                    pOutputFileBufferDir=outputFileBufferDir,
+                    pOutputFileBufferDir="",
                     pRow=row[i],
                     pCol=col[i],
                     pData=data[i]
                 ))
                 process[i].start()
                 count_output += 1
-                buffer_workers1[i] = None
-                buffer_workers2[i] = None
+               
 
             elif queue[i] is not None and not queue[i].empty():
                 result = queue[i].get()
@@ -1275,18 +1279,43 @@ def main(args=None):
                     pair_added += result[0][15]
                     iter_num += result[0][16]
 
+                for bam_index in result[0][19]:
+                    mate1 = buffer_workers1[i][bam_index]
+                    mate2 = buffer_workers2[i][bam_index]
+
+                    mate1.flag |= 0x1
+                    mate2.flag |= 0x1
+
+                    # set one read as the first in pair and the
+                    # other as second
+                    mate1.flag |= 0x40
+                    mate2.flag |= 0x80
+
+                    # set chrom of mate
+                    mate1.mrnm = mate2.rname
+                    mate2.mrnm = mate1.rname
+
+                    # set position of mate
+                    mate1.mpos = mate2.pos
+                    mate2.mpos = mate1.pos
+
+                    out_bam_file.write(mate1)
+                    out_bam_file.write(mate2)
+
+                buffer_workers1[i] = None
+                buffer_workers2[i] = None
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
                 process[i] = None
                 thread_done[i] = True
-                if args.outBam:
-                    try:
-                        open(os.path.join(outputFileBufferDir, str(
-                            result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done'), 'a').close()
-                    except:
-                        exit("Could not create {}".format(os.path.join(outputFileBufferDir, str(
-                            result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done')))
+                # if args.outBam:
+                #     try:
+                #         open(os.path.join(outputFileBufferDir, str(
+                #             result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done'), 'a').close()
+                #     except:
+                #         exit("Could not create {}".format(os.path.join(outputFileBufferDir, str(
+                #             result[0][-1]) + "_" + unique_hash_for_bam + '.bam_done')))
                 # caused by the architecture I try to display this output
                 # information after +-1e5 of 1e6 reads.
                 if iter_num % 1e6 < 100000:
@@ -1321,11 +1350,12 @@ def main(args=None):
     # and subtract the diagonal to avoid double counting it.
     # The resulting matrix is symmetric.
     if args.outBam:
-        open(os.path.join(outputFileBufferDir,
-                          unique_hash_for_bam + '.done_processing'), 'a').close()
-        print "wait for bam merging process to finish"
-        process_write_bam_file.join()
-        print "wait for bam merging process to finish...DONE!"
+        out_bam_file.close()
+    #     open(os.path.join(outputFileBufferDir,
+    #                       unique_hash_for_bam + '.done_processing'), 'a').close()
+    #     print "wait for bam merging process to finish"
+    #     process_write_bam_file.join()
+    #     print "wait for bam merging process to finish...DONE!"
 
     dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
     hic_matrix = hic_matrix + hic_matrix.T - dia
@@ -1356,10 +1386,10 @@ def main(args=None):
 
     hic_ma.save(args.outFileName.name)
 
-    if args.outBam:
-        # os.path.join(outputFileBufferDir, unique_hash_for_bam + "_" + args.outBam.name)
-        shutil.move(os.path.join(outputFileBufferDir,
-                                 unique_hash_for_bam + ".bam"), args.outBam.name)
+    # if args.outBam:
+    #     # os.path.join(outputFileBufferDir, unique_hash_for_bam + "_" + args.outBam.name)
+    #     shutil.move(os.path.join(outputFileBufferDir,
+    #                              unique_hash_for_bam + ".bam"), args.outBam.name)
 
     """
     if args.restrictionCutFile:
