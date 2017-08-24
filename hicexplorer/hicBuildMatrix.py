@@ -175,15 +175,15 @@ def parse_arguments(args=None):
                         type=genomicRegion
                         )
     # # curently not implemented
-    # parser.add_argument('--removeSelfLigation',
-    #                     # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
-    #                     #     'site in between are removed. Although this reads do not contribute to '
-    #                     #     'any distant contact, they are useful to account for bias in the data.',
-    #                     help=argparse.SUPPRESS,
-    #                     required=False,
-    #                     default=True
-    #                     # action='store_true'
-    #                     )
+    parser.add_argument('--removeSelfLigation',
+                        # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
+                        #     'site in between are removed. Although this reads do not contribute to '
+                        #     'any distant contact, they are useful to account for bias in the data.',
+                        help=argparse.SUPPRESS,
+                        required=False,
+                        default=True
+                        # action='store_true'
+                        )
 
     parser.add_argument('--removeSelfCircles',
                         help='If set, outward facing reads, at a distance '
@@ -747,7 +747,6 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     hic_matrix = None
 
     out_bam_index_buffer = []
-    
 
     if pMateBuffer1 is None or pMateBuffer2 is None:
 
@@ -987,11 +986,11 @@ def main(args=None):
 
     args.samFiles[0].close()
     args.samFiles[1].close()
-  
+
     unique_hash_for_bam = str(hash(time.time()))
     if args.outBam:
         args.outBam.close()
-        out_bam_file =  pysam.Samfile(args.outBam.name, 'wb', template=str1)
+        out_bam_file = pysam.Samfile(args.outBam.name, 'wb', template=str1)
 
     chrom_sizes = get_chrom_sizes(str1)
 
@@ -1112,7 +1111,7 @@ def main(args=None):
     count_output = 0
     count_call_of_read_input = 0
     computed_pairs = 0
-   
+
     while not all_data_processed or not all_threads_done:
 
         for i in xrange(args.threads):
@@ -1166,7 +1165,6 @@ def main(args=None):
                 ))
                 process[i].start()
                 count_output += 1
-               
 
             elif queue[i] is not None and not queue[i].empty():
                 result = queue[i].get()
@@ -1227,7 +1225,7 @@ def main(args=None):
                 process[i].terminate()
                 process[i] = None
                 thread_done[i] = True
-               
+
                 # caused by the architecture I try to display this output
                 # information after +-1e5 of 1e6 reads.
                 if iter_num % 1e6 < 100000:
