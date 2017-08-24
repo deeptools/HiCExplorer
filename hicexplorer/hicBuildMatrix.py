@@ -8,7 +8,7 @@ import os
 import shutil
 import pysam
 from six.moves import xrange
-
+import warnings
 
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
@@ -174,16 +174,16 @@ def parse_arguments(args=None):
                         required=False,
                         type=genomicRegion
                         )
-    # curently not implemented
-    parser.add_argument('--removeSelfLigation',
-                        # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
-                        #     'site in between are removed. Although this reads do not contribute to '
-                        #     'any distant contact, they are useful to account for bias in the data.',
-                        help=argparse.SUPPRESS,
-                        required=False,
-                        default=True
-                        # action='store_true'
-                        )
+    # # curently not implemented
+    # parser.add_argument('--removeSelfLigation',
+    #                     # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
+    #                     #     'site in between are removed. Although this reads do not contribute to '
+    #                     #     'any distant contact, they are useful to account for bias in the data.',
+    #                     help=argparse.SUPPRESS,
+    #                     required=False,
+    #                     default=True
+    #                     # action='store_true'
+    #                     )
 
     parser.add_argument('--removeSelfCircles',
                         help='If set, outward facing reads, at a distance '
@@ -212,7 +212,7 @@ def parse_arguments(args=None):
                         help='Number of threads. Using the python multiprocessing module.'
                         ' One master process which is used to read the input file into the buffer and one process which is merging '
                         'the output bam files of the processes into one output bam file. All other threads do the actual computation.'
-                        ' Minimum value for the \'--thread\' parameter is 3.'
+                        ' Minimum value for the \'--thread\' parameter is 2.'
                         'The usage of 8 threads is optimal if you have an HDD. A higher number of threads is only '
                         'useful if you have a fast SSD. Have in mind that the performance of hicBuildMatrix is influenced by '
                         ' the number of threads, the speed of your hard drive and the inputBufferSize. To clearify: the peformance '
@@ -1033,8 +1033,9 @@ def main(args=None):
     except OSError:
         exit("Can't open/create QC folder path: {}. Please check".format(args.QCfolder))
 
-    if args.threads < 3:
-        exit("\nAt least three threads need to be defined.\n")
+    if args.threads < 2:
+        args.threads = 2
+        warnings.warn("\nAt least two threads need to be defined. Setting --threads = 2!s\n")
 
     if args.danglingSequence and not args.restrictionSequence:
         exit("\nIf --danglingSequence is set, --restrictonSequence needs to be set too.\n")
