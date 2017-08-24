@@ -41,8 +41,10 @@ def test_build_matrix():
     print set(os.listdir(ROOT + "QC/"))
     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
+    assert os.path.getsize(ROOT + "small_test_matrix_result.bam") == os.path.getsize("/tmp/test.bam")
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
+    shutil.rmtree("/tmp/test.bam")
 
 
 def test_build_matrix_rf():

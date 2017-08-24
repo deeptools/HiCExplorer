@@ -5,7 +5,7 @@ from scipy.sparse import coo_matrix, dia_matrix
 import time
 from os import unlink
 import os
-import shutil
+
 import pysam
 from six.moves import xrange
 import warnings
@@ -985,7 +985,6 @@ def main(args=None):
     args.samFiles[0].close()
     args.samFiles[1].close()
 
-    unique_hash_for_bam = str(hash(time.time()))
     if args.outBam:
         args.outBam.close()
         out_bam_file = pysam.Samfile(args.outBam.name, 'wb', template=str1)
@@ -1288,11 +1287,6 @@ def main(args=None):
     unlink(args.outFileName.name)
 
     hic_ma.save(args.outFileName.name)
-
-    # if args.outBam:
-    #     # os.path.join(outputFileBufferDir, unique_hash_for_bam + "_" + args.outBam.name)
-    #     shutil.move(os.path.join(outputFileBufferDir,
-    #                              unique_hash_for_bam + ".bam"), args.outBam.name)
 
     """
     if args.restrictionCutFile:
