@@ -84,9 +84,7 @@ def parse_arguments(args=None):
                      'PE reads are mapped using  the --local '
                      'option, this program reads such file and '
                      'creates a matrix of interactions.'
-                     'It is highly recommended to set the system environment variable'
-                     '\'HICEXPLORER_FILE_BUFFER_DIR\' to a ram disk location (e.g. /dev/shm) to'
-                     'speed up the computation. If it is not set the local directory \'bam_file_buffer_dir\' is used.'))
+                     ))
 
     # define the arguments
     parser.add_argument('--samFiles', '-s',

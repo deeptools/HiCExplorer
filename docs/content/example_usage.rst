@@ -73,17 +73,6 @@ containing the restriction sites, this file can be created with the tool :ref:`f
 :ref:`findRestSite`
 that is part of HiCExplorer.
 
-To decrease the computing time you can set the system environment variable `HICEXPLORER_FILE_BUFFER_DIR` to a RAM disk like `/dev/shm`.
-Be careful: This will consume a sustainable amount of memory i.e. it is recommended to use a system with at least 16 GB, better are 32 GB.
-If your system runs out of memory decrease the inputBufferSize and / or the number of used threads. It is recommended to not use less
-than 100,000. If the memory is still not enough use a directory on your local hard drive.
-
-To set the system environment variable run:
-
-.. code:: bash
-
-    export HICEXPLORER_FILE_BUFFER_DIR=/dev/shm
-
 
 .. code-block:: bash
 
@@ -96,7 +85,7 @@ To set the system environment variable run:
                     --threads 4
                     --inputBufferSize 100000
                     --outBam hic.bam \
-                    -o hic_matrix.npz
+                    -o hic_matrix.h5
                     --QCfolder ./hicQC
 
 
@@ -123,7 +112,7 @@ diagnostic plot as follows:
 
 .. code-block:: bash
 
-   $ hicCorrectMatrix diagnostic_plot -m hic_matrix.npz -o hic_corrected.npz
+   $ hicCorrectMatrix diagnostic_plot -m hic_matrix.h5 -o hic_corrected.h5
 
 
 The plot should look like this:
@@ -146,7 +135,7 @@ Once the thresholds have been decided, the matrix can be corrected
 .. code-block:: bash
 
    # correct Hi-C matrix
-   $ hicCorrectMatrix -m hic_matrix.npz --filterThreshold -1.5 5 -o hic_corrected.npz
+   $ hicCorrectMatrix -m hic_matrix.h5 --filterThreshold -1.5 5 -o hic_corrected.h5
 
 
 Visualization of results
@@ -162,7 +151,7 @@ plot the counts using the `--log1p` option.
 
 .. code-block:: bash
 
-   $ hicPlotMatrix -m hic_corrected.npz -o hic_plot.png --region 1:20000000-80000000 --log1p
+   $ hicPlotMatrix -m hic_corrected.h5 -o hic_plot.png --region 1:20000000-80000000 --log1p
 
 
 
@@ -184,7 +173,7 @@ boundaries.
 
 .. code-block:: bash
 
-   $ hicFindTADs -m hic_corrected.npz --outPrefix hic_corrected --numberOfProcessors 16
+   $ hicFindTADs -m hic_corrected.h5 --outPrefix hic_corrected --numberOfProcessors 16
 
 
 This code will produce several files: 1. The TAD-separation score file, 2. the z-score matrix, 3. a bed file
