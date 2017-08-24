@@ -16,7 +16,7 @@
 
             --samFiles
             #for $repeat in $samFiles:
-                '${repeat.samFile}'
+                ${repeat.samFile}
             #end for
 
             #if $restrictionCutFileBinSize_conditional.restrictionCutFileBinSize_selector == "optionRestrictionCutFile":
@@ -51,13 +51,15 @@
                 --danglingSequence '$danglingSequence'
             #end if
 
-            --threads \${GALAXY_SLOTS:-4}
+            --threads \${GALAXY_SLOTS:-6}
             
             --QCfolder ./QCfolder
         &&
         mv ./QCfolder/* $qc.files_path/
         &&
         mv $qc.files_path/hicQC.html $qc
+        &&
+        samtools sort ./unsorted.bam -o sorted.bam
        
 ]]>
     </command>
@@ -118,10 +120,10 @@
     <tests>
         <test>
             <repeat name="samFiles">
-                <param name="samFile" value="small_test_R1_unsorted.bam" ftype="sam" />
+                <param name="samFile" value="small_test_R1_unsorted.bam" ftype="bam" />
             </repeat>
             <repeat name="samFiles">
-                <param name="samFile" value="small_test_R2_unsorted.bam" ftype="sam"/>
+                <param name="samFile" value="small_test_R2_unsorted.bam" ftype="bam"/>
             </repeat>
             <conditional name="restrictionCutFileBinSize_conditional">
                 <param name="restrictionCutFileBinSize_selector" value="optionBinSize"/>
