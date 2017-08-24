@@ -41,7 +41,6 @@ def test_build_matrix():
     print set(os.listdir(ROOT + "QC/"))
     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
-
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
 

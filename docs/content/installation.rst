@@ -74,17 +74,6 @@ a specific folder using the ``--prefix`` option)
 
 
 
-To decrease the computing time you can set the system environment variable `HICEXPLORER_FILE_BUFFER_DIR` to a RAM disk like `/dev/shm`.
-Be careful: This will consume a sustainable amount of memory i.e. it is recommended to use a system with at least 16 GB, better are 32 GB.
-If your system runs out of memory decrease the inputBufferSize and / or the number of used threads. It is recommended to not use less
-than 100,000. If the memory is still not enough use a directory on your local hard drive.
-
-To set the system environment variable run:
-
-.. code:: bash
-
-    export HICEXPLORER_FILE_BUFFER_DIR=/dev/shm
-
 
 Galaxy installation
 --------------------
