@@ -14,7 +14,7 @@
         mkdir $qc.files_path &&
         hicBuildMatrix
 
-            --samFiles
+            -s
             #for $repeat in $samFiles:
                 ${repeat.samFile}
             #end for
