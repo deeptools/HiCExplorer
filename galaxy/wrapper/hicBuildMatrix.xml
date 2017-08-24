@@ -14,10 +14,7 @@
         mkdir $qc.files_path &&
         hicBuildMatrix
 
-            -s
-            #for $repeat in $samFiles:
-                ${repeat.samFile}
-            #end for
+            --samFiles $samFile_1 $samFile_2 
 
             #if $restrictionCutFileBinSize_conditional.restrictionCutFileBinSize_selector == "optionRestrictionCutFile":
                 --restrictionCutFile $restrictionCutFileBinSize_conditional.restrictionCutFile
@@ -64,9 +61,9 @@
 ]]>
     </command>
     <inputs>
-        <repeat max="2" min="2" name="samFiles" title="Sam/Bam files to process">
-            <param name="samFile" type="data" format="sam,bam"/>
-        </repeat>
+        <param name="samFile_1" type="data" format="sam,bam" label="Sam/Bam file to process"/>
+        <param name="samFile_2" type="data" format="sam,bam" label="Sam/Bam file to process"/>
+    
         <conditional name="restrictionCutFileBinSize_conditional">
             <param name="restrictionCutFileBinSize_selector" type="select" label="Choose to use a restriction cut file or a bin size">
                 <option value="optionRestrictionCutFile">Restriction cut file</option>
@@ -119,12 +116,8 @@
     </outputs>
     <tests>
         <test>
-            <repeat name="samFiles">
-                <param name="samFile" value="small_test_R1_unsorted.bam" ftype="bam" />
-            </repeat>
-            <repeat name="samFiles">
-                <param name="samFile" value="small_test_R2_unsorted.bam" ftype="bam"/>
-            </repeat>
+            <param name="samFile_1" value="small_test_R1_unsorted.bam" ftype="bam" />
+            <param name="samFile_2" value="small_test_R2_unsorted.bam" ftype="bam"/>
             <conditional name="restrictionCutFileBinSize_conditional">
                 <param name="restrictionCutFileBinSize_selector" value="optionBinSize"/>
                 <param name="binSize" value="5000"/>
