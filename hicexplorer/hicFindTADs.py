@@ -910,7 +910,7 @@ class HicFindTads(object):
             # filter by delta and pvalue_thresholds
             if idx not in delta_of_min:
                 delta_of_min[idx] = np.nan
-            if self.correct_for_multiple_testing== 'fdr':
+            if self.correct_for_multiple_testing == 'fdr':
                 if delta_of_min[idx] >= self.delta and pvalue_of_min[idx] <= self.pvalueFDR:
                     filtered_min_idx += [idx]
             elif self.correct_for_multiple_testing == 'bonferroni':
@@ -1201,10 +1201,10 @@ class HicFindTads(object):
                     pval = np.nan
             pvalues += [pval]
 
-
         assert len(pvalues) == len(new_min_idx)
 
         # fdr
+        np.savetxt('pvalues.txt', pvalues)
         if self.correct_for_multiple_testing == 'fdr':
             pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
             pvalues_ = sorted(pvalues)
