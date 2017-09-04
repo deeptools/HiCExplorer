@@ -134,6 +134,12 @@ class hiCMatrix:
         correction_factors = None
         nan_bins = np.array([])
 
+        print("COOL__cut_intervals is empty", len(cut_intervals))
+        print("COOL__nan_bins is empty", len(nan_bins) )
+        print("COOL__distance_counts is None", distance_counts is None)
+        print("COOL__correction_factors is None", correction_factors is None)
+        print("nan_bins", nan_bins[:20])
+        print("cut_intervals", cut_intervals[:20])
         return matrix.tocsr(), cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
@@ -182,7 +188,14 @@ class hiCMatrix:
                 distance_counts = f.root.correction_factors.read()
             else:
                 distance_counts = None
-
+            print("H5__cut_intervals is None", len(cut_intervals))
+            print("H5__cnan_bins is None", len(nan_bins))
+            print("H5__cdistance_counts is None", distance_counts is None)
+            print("H5__ccorrection_factors is None", correction_factors is None)
+            
+            print("nan_bins", nan_bins[:20])
+            print("cut_intervals", cut_intervals[:20])
+            
             return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
@@ -1526,7 +1539,10 @@ class hiCMatrix:
         """
         try:
             self.orig_bin_ids
+            print("ORIG_BIN_IDS")
         except AttributeError:
+            print("__NO__ORIG_BIN_IDS")
+            
             return
         # the rows to add are
         # as an empty sparse matrix
@@ -1552,6 +1568,7 @@ class hiCMatrix:
         self.nan_bins = self.orig_bin_ids[M:]
 
         if self.correction_factors is not None:
+            print("self.correction_factors", len(self.correction_factors))
             # add missing values as nans at end of array
             self.correction_factors = np.concatenate([self.correction_factors,
                                                       np.repeat(np.nan, N)])

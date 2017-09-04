@@ -427,7 +427,7 @@ def main(args=None):
                              "the correct spelling of the chromosome names. \n")
             sys.stderr.write("\n".join(invalid_chromosomes))
 
-    print(list(ma.interval_trees))
+    print("list(ma.interval_trees)",list(ma.interval_trees))
     ma.restoreMaskedBins()
 
     if args.clearMaskedBins:
@@ -468,10 +468,10 @@ def main(args=None):
             chrom2 = chrom
             start_pos2 = start_pos1
         # select only relevant part
-        if args.matrix.endswith('.cool'):
-            matrix = np.asarray(ma.matrix.todense().astype(float))
-        else:
-            matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
+        # if args.matrix.endswith('.cool'):
+        #     matrix = np.asarray(ma.matrix.todense().astype(float))
+        # else:
+        matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
             
     else:
         # TODO make start_pos1

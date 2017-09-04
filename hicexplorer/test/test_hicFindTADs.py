@@ -122,4 +122,4 @@ def test_find_TADs_none():
     assert are_files_equal(ROOT + "find_TADs/multiNone_boundaries.gff", tad_folder + "/test_multiNone_boundaries.gff")
     assert are_files_equal(ROOT + "find_TADs/multiNone_score.bedgraph", tad_folder + "/test_multiNone_score.bedgraph")
 
-    # shutil.rmtree(tad_folder)
+    shutil.rmtree(tad_folder)
