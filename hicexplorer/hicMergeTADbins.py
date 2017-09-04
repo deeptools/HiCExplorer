@@ -36,11 +36,11 @@ its total contacts of all other TADs.""")
 
 def merge_tad_bins(hic, boundary_id_list, filename):
     """
-    Reduces the Hi-C matrix by merging the counts of tad bins.
-    :param hic: Hi-C matrix object
+    Reduces the HiCMatrix by merging the counts of tad bins.
+    :param hic: HiCMatrix object
     :param boundary_id_list list of tad boundary bin ids
     :param filename Name to save the resulting matrix
-    :return: Hi-C matrix object
+    :return: HiCMatrix object
     """
 
     from hicexplorer.reduceMatrix import reduce_matrix
@@ -87,7 +87,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
 
 def get_boundary_bin_id(hic, bed_fh):
     """
-    :param hic: Hi-C matrix object
+    :param hic: HiCMatrix object
     :param bed_fh: file handle of the bed file
     :return: Sorted list of bin indices.
     """
