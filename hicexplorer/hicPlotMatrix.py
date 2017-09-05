@@ -398,10 +398,10 @@ def main(args=None):
     chrom_cooler = None
     region_start_cooler = None
     region_end_cooler = None
-    # if args.matrix.endswith('cool'):
-    #     if args.region:
-    #         # pass
-    #         chrom_cooler, region_start_cooler, region_end_cooler = translate_region(args.region)
+    if args.matrix.endswith('cool'):
+        if args.region:
+            # pass
+            chrom_cooler, region_start_cooler, region_end_cooler = translate_region(args.region)
             
     ma = HiCMatrix.hiCMatrix(args.matrix, pChrName=chrom_cooler, pChrStart=region_start_cooler, pChrEnd=region_end_cooler)
     if args.perChromosome and args.region:
@@ -427,7 +427,7 @@ def main(args=None):
                              "the correct spelling of the chromosome names. \n")
             sys.stderr.write("\n".join(invalid_chromosomes))
 
-    print("list(ma.interval_trees)",list(ma.interval_trees))
+    # print("list(ma.interval_trees)",list(ma.interval_trees))
     ma.restoreMaskedBins()
 
     if args.clearMaskedBins:
@@ -450,7 +450,7 @@ def main(args=None):
         args.region = [chrom, region_start, region_end]
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
                                  x[1] >= region_start and x[2] < region_end])
-        print(chrom, region_start, region_end, idx1, start_pos1)
+        # print(chrom, region_start, region_end, idx1, start_pos1)
         if args.region2:
             chrom2, region_start2, region_end2 = translate_region(args.region2)
             if type(next(iter(ma.interval_trees))) is np.bytes_:

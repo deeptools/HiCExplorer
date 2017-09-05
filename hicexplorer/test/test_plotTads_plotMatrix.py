@@ -171,7 +171,7 @@ def test_hicPlotTads_cool():
            "--outFileName  {1}".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotTADs.main(args)
 
-    res = compare_images(ROOT + '/master_TADs_plot.png', outfile.name, tolerance)
+    res = compare_images(ROOT + '/master_TADs_plot_cool.png', outfile.name, tolerance)
     assert res is None, res
 
     # os.remove(outfile.name)
@@ -184,6 +184,6 @@ def test_hicPlotMatrix_cool():
     args = "--matrix {0}/Li_et_al_2015.cool --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
            "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + '/master_matrix_plot.png', outfile.name, tolerance)
+    res = compare_images(ROOT + '/master_matrix_plot_cool.png', outfile.name, tolerance)
     assert res is None, res
     # os.remove(outfile.name)
