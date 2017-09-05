@@ -171,7 +171,7 @@ def test_hicPlotTads_cool():
            "--outFileName  {1}".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotTADs.main(args)
 
-    res = compare_images(ROOT + '/master_TADs_plot_cool.png', outfile.name, tolerance)
+    res = compare_images(ROOT + '/master_TADs_plot_cool_partial_load.png', outfile.name, tolerance)
     assert res is None, res
 
     # os.remove(outfile.name)

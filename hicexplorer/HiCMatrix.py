@@ -41,8 +41,7 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None,
-                 pChrName=None, pChrStart=None, pChrEnd=None):
+    def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None):
         self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distance_counts = None  # only defined when getCountsByDistance is called
@@ -102,7 +101,7 @@ class hiCMatrix:
                 self.matrix = lieberman_data['matrix']
             elif file_format == 'cool':
                 self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
-                    hiCMatrix.load_cool(matrixFile, pChrName, pChrStart, pChrEnd)
+                    hiCMatrix.load_cool(matrixFile, chrnameList)
                 self.restoreMaskedBins()
             else:
                 exit("matrix format not known.")
@@ -111,29 +110,42 @@ class hiCMatrix:
                 self.intervalListToIntervalTree(self.cut_intervals)
 
     @staticmethod
-    def load_cool(pMatrixFile, pChr=None, pStartRange=None, pEndRange=None):
+    def load_cool(pMatrixFile, pChrnameList=None):
         cooler_file = cooler.Cooler(pMatrixFile)
         cut_intervals_data_frame = None
-        fetch_string = None
-        if pChr is not None:
-            fetch_string = pChr
-            if pStartRange is not None and pEndRange is not None:
-                fetch_string += ':' + str(pStartRange) + '-' + str(pEndRange)
-            cut_intervals_data_frame = cooler_file.bins().fetch(fetch_string)
+
+        test_cut_intervals = cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
+        cut_intervals = [tuple(x) for x in test_cut_intervals.values]
+        print("cut_intervals[:20]", cut_intervals[:20])
+        if pChrnameList is not None:
+            if pChrnameList[0].startswith('chr'):
+                pChrnameList[0] = pChrnameList[0][3:]
+            if len(pChrnameList) == 1:
+                cut_intervals_data_frame = cooler_file.bins().fetch(pChrnameList[0])
+            else:
+                if pChrnameList[1].startswith('chr'):
+                    pChrnameList[1] = pChrnameList[1][3:]
+                cut_intervals_data_frame = cooler_file.bins().fetch(pChrnameList[0])
+                cut_intervals_data_frame.append(cooler_file.bins().fetch(pChrnameList[1]))
+                
         else:
             cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
         nan_bins = np.array([], dtype=np.int32)
+        # try to restore nan_bins. 
+        # if data of interval is < 1 it is assummed to be nan
         for i, interval in enumerate(cut_intervals):
             if interval[3] < 1.0:
                 nan_bins = np.append(nan_bins, i)
            
-        if fetch_string is None:
+        if pChrnameList is None:
             matrix = cooler_file.matrix(balance=False, sparse=True)[:, :]
         else:
-            matrix = cooler_file.matrix(sparse=True).fetch(fetch_string)
-
+            if len(pChrnameList) == 1:
+                matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
+            else:
+                matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0], pChrnameList[1])
                 
         distance_counts = None
         correction_factors = None
