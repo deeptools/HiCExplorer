@@ -245,11 +245,15 @@ def main():
 
     for matrix in args.matrices:
         sys.stderr.write("loading hic matrix {}\n".format(matrix))
-        _mat = hm.hiCMatrix(matrix)
+        # print("args.chromosomes", args.chromosomes)
+        if matrix.endswith('.cool') and len(args.chromosomes) <= 2:
+            _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes)
+        else:
+            _mat = hm.hiCMatrix(matrix)
+            if args.chromosomes:
+                _mat.keepOnlyTheseChr(args.chromosomes)
         _mat.diagflat(0)
         sys.stderr.write("restore masked bins {}\n".format(matrix))
-        if args.chromosomes:
-            _mat.keepOnlyTheseChr(args.chromosomes)
         _mat.filterOutInterChrCounts()
         bin_size = _mat.getBinSize()
         all_nan = np.unique(np.concatenate([all_nan, _mat.nan_bins]))

@@ -41,7 +41,8 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None):
+    def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None,
+                 cooler_only_init=None):
         self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distance_counts = None  # only defined when getCountsByDistance is called
@@ -52,7 +53,7 @@ class hiCMatrix:
             self.nan_bins = np.array([])
             print("File format: ", file_format)
             print("Matrix file: ", matrixFile)
-            
+
             if file_format is None or file_format == 'hic_matrix':
                 if matrixFile.endswith(".npz"):
                     file_format = 'npz'
@@ -100,22 +101,30 @@ class hiCMatrix:
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
             elif file_format == 'cool':
-                self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
-                    hiCMatrix.load_cool(matrixFile, chrnameList)
-                self.restoreMaskedBins()
+                if cooler_only_init:
+                    hicMatrix.load_cool_only_init(matrixFile)
+                else:
+                    self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
+                        hiCMatrix.load_cool(matrixFile, chrnameList)
+                    self.restoreMaskedBins()
             else:
                 exit("matrix format not known.")
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
 
-    @staticmethod
-    def load_cool(pMatrixFile, pChrnameList=None):
-        cooler_file = cooler.Cooler(pMatrixFile)
+
+    def load_cool_only_init(self, pMatrixFile):
+        self.cooler_file = cooler.Cooler(pMatrixFile)
+    def load_cool_chr(self, pChr):
+        cut_intervals_data_frame = self.cooler_file.bins().fetch(pChr)
+        self.cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
+        self.nan_bins = np.array([], dtype=np.int32)
+        
+    def load_cool(self, pMatrixFile, pChrnameList=None):
+        self.cooler_file = cooler.Cooler(pMatrixFile)
         cut_intervals_data_frame = None
 
-        test_cut_intervals = cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
-        cut_intervals = [tuple(x) for x in test_cut_intervals.values]
         print("cut_intervals[:20]", cut_intervals[:20])
         if pChrnameList is not None:
             if pChrnameList[0].startswith('chr'):
@@ -127,18 +136,18 @@ class hiCMatrix:
                     pChrnameList[1] = pChrnameList[1][3:]
                 cut_intervals_data_frame = cooler_file.bins().fetch(pChrnameList[0])
                 cut_intervals_data_frame.append(cooler_file.bins().fetch(pChrnameList[1]))
-                
+
         else:
             cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
         nan_bins = np.array([], dtype=np.int32)
-        # try to restore nan_bins. 
+        # try to restore nan_bins.
         # if data of interval is < 1 it is assummed to be nan
         for i, interval in enumerate(cut_intervals):
             if interval[3] < 1.0:
                 nan_bins = np.append(nan_bins, i)
-           
+
         if pChrnameList is None:
             matrix = cooler_file.matrix(balance=False, sparse=True)[:, :]
         else:
@@ -146,10 +155,10 @@ class hiCMatrix:
                 matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
             else:
                 matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0], pChrnameList[1])
-                
+
         distance_counts = None
         correction_factors = None
-        
+
         return matrix.tocsr(), cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
@@ -202,7 +211,7 @@ class hiCMatrix:
             # print("H5__cnan_bins is None", len(nan_bins))
             # print("H5__cdistance_counts is None", distance_counts is None)
             # print("H5__ccorrection_factors is None", correction_factors is None)
-            
+
             # print("nan_bins", nan_bins[:20])
             # print("cut_intervals", cut_intervals[:20])
             # max_value = 0.0
@@ -1203,7 +1212,7 @@ class hiCMatrix:
                                                               chr_col, int(start_col), int(end_col), counts))
         fileh.close()
 
-    def save_cooler(self, pFileName):
+    def save_cooler(self, pFileName, pAppend=False, pLock=None):
         # create a pandas data frame for cut_intervals
         bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
 
@@ -1217,7 +1226,9 @@ class hiCMatrix:
         matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
         cooler_file = cooler.io.create(cool_uri=pFileName,
                                        bins=bins_data_frame,
-                                       pixels=matrix_data_frame)
+                                       pixels=matrix_data_frame,
+                                       append=pAppend,
+                                       lock=pLock)
 
     def save_hdf5(self, filename):
         """
@@ -1345,7 +1356,6 @@ class hiCMatrix:
             self.save_cooler(pMatrixName)
         else:
             self.save_hdf5(pMatrixName)
-
 
     def diagflat(self, value=np.nan):
         """

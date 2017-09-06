@@ -2,6 +2,8 @@ import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images
 import os.path
+import numpy.testing as nt
+
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 

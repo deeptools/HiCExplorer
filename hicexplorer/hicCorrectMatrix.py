@@ -502,8 +502,8 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
     return sorted(to_remove)
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=none):
+    args = parse_arguments().parse_args(args)
     if args.verbose:
         log.setLevel(logging.INFO)
 

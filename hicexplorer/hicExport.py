@@ -25,7 +25,7 @@ def parse_arguments(args=None):
     parser.add_argument('--inputFormat',
                         help='file format for input file. \n'
                              '(options : hicexplorer, lieberman, npz (file format of previous hicexplorer versions),'
-                             'dekker.',
+                             'dekker, cool.',
                         default='hicexplorer')
 
     parser.add_argument('--chrNameList',
@@ -41,7 +41,7 @@ def parse_arguments(args=None):
 
     parser.add_argument('--chromosomeOrder',
                         help='Chromosomes and order in which the chromosomes should be saved. If not all chromosomes '
-                             'are given, those chromosomes are left out. For example, --chromosomeOrder chrX will '
+                             'are given, the missing chromosomes are left out. For example, --chromosomeOrder chrX will '
                              'export a matrix only containing chromosome X',
                         nargs='+')
 
@@ -149,9 +149,10 @@ def combine_matrices(matrix_list, bplimit=None):
     return final_mat, new_cut_intervals, new_nan_bins, new_correction_factors, new_distance_counts
 
 
-def main():
-    args = parse_arguments().parse_args()
-
+def main(args=None):
+    print args
+    args = parse_arguments().parse_args(args)
+    # print args
     # create hiC matrix with given input format
     # additional file needed for lieberman format
     if args.inputFormat == 'lieberman':

@@ -4,7 +4,7 @@ import argparse
 import numpy as np
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
-
+from multiprocessing import Process
 
 def parse_arguments(args=None):
 

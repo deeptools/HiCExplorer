@@ -404,7 +404,7 @@ def main(args=None):
                          'options at the same time are not '
                          'compatible.')
     
-    if args.matrix.endswith('cool'):
+    if args.matrix.endswith('.cool'):
         chrom, region_start, region_end = translate_region(args.region)
         regionsToRetrieve = None
         if args.region:
