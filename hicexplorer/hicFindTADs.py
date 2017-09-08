@@ -42,7 +42,7 @@ TAD scores at different window sizes. Then, the results of that computation
 are used to call the TADs. This is convenient to test different filtering criteria quickly
 as the demanding step is the computation of TAD-separation scores.
 
- An simple example usage is:
+ A simple example usage is:
 
 $ hicFindTads -m hic_matrix.h5 --outPrefix TADs
 
