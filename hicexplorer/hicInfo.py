@@ -5,13 +5,25 @@ from hicexplorer._version import __version__
 
 def parse_arguments(args=None):
 
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description=('Prints information about a matrix including size, '
-                                                  'number of elements, sum of elements, etc.'))
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="""
+Prints information about a matrix or matrices including matrix size,
+number of elements, sum of elements, etc.
+
+An example usage is:
+
+$ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
+
+""")
 
     parser.add_argument('--matrices', '-m',
-                        help='The matrix (matrices) to get information about.',
-                        metavar='HiCExplorer supports: h5, npz, dekker and lieberman file format.',
+                        help='The matrix (or multiple matrices) to get information about. '
+                             'HiCExplorer supports the following file formats: h5 (native HiCExplorer format), '
+                             'npz (format used by earlier versions of HiCExplorer), '
+                             'dekker (matrix format used in Job Dekker publications), '
+                             'and lieberman (format used by Erez Lieberman Aiden). This last formats may change '
+                             'in the future.',
                         nargs='+',
                         required=True)
 
