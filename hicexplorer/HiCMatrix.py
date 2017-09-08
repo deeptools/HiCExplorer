@@ -24,7 +24,7 @@ except ImportError:
 
 class hiCMatrix:
     """
-    Class to handle HiC matrices
+    Class to handle Hi-C matrices
     contains routines to get intrachromosomal distances
     get sub matrices by chrname.
     """
@@ -253,7 +253,7 @@ class hiCMatrix:
 
     def getDekkerBins(self, fileName):
         """
-        Reads a gziped HiC matrix in Decker's format
+        Reads a gziped Hi-C matrix in Decker's format
         This format has row and column headers and comments
         with the prefix '#'. The following code skips the
         header while saving it in the self.header list

@@ -35,6 +35,9 @@ def parse_arguments(args=None):
 def main():
 
     args = parse_arguments().parse_args()
+    if args.operation not in ['diff', 'ratio', 'log2ratio']:
+        exit("Operation not found. Please use 'diff', 'ratio' or 'log2ratio'.")
+
     hic1 = hm.hiCMatrix(args.matrices[0])
     hic2 = hm.hiCMatrix(args.matrices[1])
 
@@ -55,9 +58,9 @@ def main():
     nan_bins = set(hic1.nan_bins)
     nan_bins = nan_bins.union(hic2.nan_bins)
 
-    if args.operation == 'diff':
+    if args.operation is 'diff':
         new_matrix = hic1.matrix - hic2.matrix
-    else:
+    elif args.operation is 'ratio' or args.operation is 'log2ratio':
         hic2.matrix.data = float(1) / hic2.matrix.data
         new_matrix = hic1.matrix.multiply(hic2.matrix)
         # just in case

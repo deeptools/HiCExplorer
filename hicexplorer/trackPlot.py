@@ -125,7 +125,7 @@ class PlotTracks(object):
         # prepare layout based on the tracks given.
         # The main purpose of the following loop is
         # to get the height of each of the tracks
-        # because for the hi-C the height is variable with respect
+        # because for the Hi-C the height is variable with respect
         # to the range being plotted, the function is called
         # when each plot is going to be printed.
         track_height = []

@@ -24,7 +24,7 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         parents=[heatmap_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Computes pairwise correlations between hic matrices data. '
+        description='Computes pairwise correlations between Hi-C matrices data. '
         'The correlation is computed taking the values from each pair '
         'of matrices and discarding values that are zero in both matrices.')
 
