@@ -102,7 +102,13 @@ class hiCMatrix:
                 self.matrix = lieberman_data['matrix']
             elif file_format == 'cool':
                 if cooler_only_init:
-                    hicMatrix.load_cool_only_init(matrixFile)
+                    self.load_cool_only_init(matrixFile)
+                    self.cut_intervals = None
+                    self.nan_bins = None
+                    self.distance_counts = None
+                    self.correction_factors = None
+                    self.matrix = None
+                    return
                 else:
                     self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
                         hiCMatrix.load_cool(matrixFile, chrnameList)
@@ -116,29 +122,47 @@ class hiCMatrix:
 
     def load_cool_only_init(self, pMatrixFile):
         self.cooler_file = cooler.Cooler(pMatrixFile)
-    def load_cool_chr(self, pChr):
-        cut_intervals_data_frame = self.cooler_file.bins().fetch(pChr)
-        self.cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
-        self.nan_bins = np.array([], dtype=np.int32)
-        
-    def load_cool(self, pMatrixFile, pChrnameList=None):
-        self.cooler_file = cooler.Cooler(pMatrixFile)
-        cut_intervals_data_frame = None
 
-        print("cut_intervals[:20]", cut_intervals[:20])
-        if pChrnameList is not None:
-            if pChrnameList[0].startswith('chr'):
-                pChrnameList[0] = pChrnameList[0][3:]
+    def load_cool_bins(self, pChr):
+        # self.cool_pandas_bins = None
+        return self.cooler_file.bins().fetch(pChr)
+    # def load_cool_chr_matrix(self, pChr):
+    #     self.matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChr)
+    def load_cool_matrix(self, pChr):
+        # self.cool_matrix_pixel = None
+        return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
+
+
+
+    def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None):
+        self.cooler_file = cooler.Cooler(pMatrixFile)
+
+        if pChrnameList is None:
+            matrix = self.cooler_file.matrix(balance=False, sparse=True)[:, :]
+        else:
             if len(pChrnameList) == 1:
-                cut_intervals_data_frame = cooler_file.bins().fetch(pChrnameList[0])
+                matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
             else:
-                if pChrnameList[1].startswith('chr'):
-                    pChrnameList[1] = pChrnameList[1][3:]
-                cut_intervals_data_frame = cooler_file.bins().fetch(pChrnameList[0])
-                cut_intervals_data_frame.append(cooler_file.bins().fetch(pChrnameList[1]))
+                matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0], pChrnameList[1])
+        # if pMatrixOnly:
+        #     return matrix.tocsr(), None, np.array([], dtype=np.int32), None, None
+        
+        cut_intervals_data_frame = None
+        # print("pChrnameList", pChrnameList)
+        # print("cut_intervals[:20]", cut_intervals[:20])
+        if pChrnameList is not None:
+            # if pChrnameList[0].startswith('chr'):
+            #     pChrnameList[0] = pChrnameList[0][3:]
+            if len(pChrnameList) == 1:
+                cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
+            else:
+                # if pChrnameList[1].startswith('chr'):
+                #     pChrnameList[1] = pChrnameList[1][3:]
+                cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
+                cut_intervals_data_frame.append(self.cooler_file.bins().fetch(pChrnameList[1]))
 
         else:
-            cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
+            cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
         nan_bins = np.array([], dtype=np.int32)
@@ -148,14 +172,7 @@ class hiCMatrix:
             if interval[3] < 1.0:
                 nan_bins = np.append(nan_bins, i)
 
-        if pChrnameList is None:
-            matrix = cooler_file.matrix(balance=False, sparse=True)[:, :]
-        else:
-            if len(pChrnameList) == 1:
-                matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
-            else:
-                matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0], pChrnameList[1])
-
+        
         distance_counts = None
         correction_factors = None
 
@@ -1212,7 +1229,34 @@ class hiCMatrix:
                                                               chr_col, int(start_col), int(end_col), counts))
         fileh.close()
 
-    def save_cooler(self, pFileName, pAppend=False, pLock=None):
+
+    def create_empty_cool_file(self, pFileName):
+        bins_data_frame = pd.DataFrame(columns=['chrom', 'start', 'end', 'weight'])
+        matrix_data_frame = pd.DataFrame(columns=['bin1_id', 'bin2_id', 'count'])
+        cooler_file = cooler.io.create(cool_uri=pFileName,
+                                    bins=bins_data_frame,
+                                    pixels=matrix_data_frame)
+
+
+    def save_cool_pandas_append(self, pFileNameOut, pLock=None):
+
+        cooler_file = cooler.io.append(cool_uri=pFileName,
+                                        table='bins',
+                                        data=self.cool_pandas_bins,
+                                        force=False,
+                                        lock=pLock)
+        cooler_file = cooler.io.append(cool_uri=pFileName,
+                                        table='pixels',
+                                        data=self.cool_matrix_pixel,
+                                        force=False,
+                                        lock=True) 
+    
+    def save_cool_pandas(self, pFileName):
+        cooler_file = cooler.io.create(cool_uri=pFileName,
+                                    bins=self.cool_pandas_bins,
+                                    pixels=self.cool_matrix_pixel)
+
+    def save_cooler(self, pFileNames):
         # create a pandas data frame for cut_intervals
         bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
 
@@ -1224,11 +1268,10 @@ class hiCMatrix:
         matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
 
         matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
+       
         cooler_file = cooler.io.create(cool_uri=pFileName,
-                                       bins=bins_data_frame,
-                                       pixels=matrix_data_frame,
-                                       append=pAppend,
-                                       lock=pLock)
+                                    bins=bins_data_frame,
+                                    pixels=matrix_data_frame)
 
     def save_hdf5(self, filename):
         """

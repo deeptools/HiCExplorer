@@ -1,8 +1,12 @@
 from __future__ import division
 import argparse
 from hicexplorer import HiCMatrix as hm
+# from hicexplorer 
 from hicexplorer._version import __version__
-from multiprocessing import Process, Lock
+from multiprocessing import Process, Lock, Queue
+import time
+import os
+import pandas as pd
 
 def parse_arguments(args=None):
 
@@ -21,9 +25,9 @@ def parse_arguments(args=None):
                              'also a .h5 file. But don\'t add the suffix',
                         required=True)
     parser.add_argument('--threads',
-                        help='Number of threads. Using the python multiprocessing module.'
+                        help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
                         ' One master process which is used to read the input file into the buffer and one process which is merging '
-                        'the output bam files of the processes into one output bam file. All other threads do the actual computation.'
+                        'the output bam files of the processes into one output bam file. All other threads do the actual computation.',
                         required=False,
                         default=4,
                         type=int
@@ -33,42 +37,96 @@ def parse_arguments(args=None):
 
     return parser
 
-def sum_matrix(pCoolerMatrix, pCoolerMatrixToAppend, pChr, pLock):
+def sum_cool_matrix(pBinsList, pMatrixList, pQueue, pFileNameOut):
+    
+    # cool_pandas_bins = pd.concat([pBinsList[0], pBinsList[1]]).groupby(["chrom", "start", "end"], as_index=False)["weight"].sum()
+    cool_pandas_bins = pBinsList[0]
+    cool_matrix_pixel = pd.concat([pMatrixList[0], pMatrixList[1]]).groupby(["bin1_id", "bin2_id"], as_index=False)["count"].sum()
 
-    matrix = pCoolerMatrix.matrix(balance=False, sparse=True).fetch(pChr).tocsr()
-    matrix_to_append = pCoolerMatrixToAppend.matrix(balance=False, sparse=True).fetch(pChr).tocsr()
-    matrix = matrix + matrix_to_append
-
-    pCoolerMatrix.
+    pQueue.put([cool_pandas_bins, cool_matrix_pixel])
+    # return
 
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-    if args.format == 'cooler':
-        # hic = hm.hiCMatrix(args.matrices[0], cooler_only_init=True)
-        cooler_file = cooler.Cooler(pMatrixFile)
-        chromosome_list = cooler_file.chromnames
+    if args.matrices[0].endswith('.cool'):
+        hic = hm.hiCMatrix(args.matrices[0], cooler_only_init=True)
+        # cooler_file = cooler.Cooler(pMatrixFile)
+        chromosome_list = hic.cooler_file.chromnames
+        print("chromosome_list", chromosome_list)
         process = [None] * args.threads
         lock = Lock()
+        queue = [None] * args.threads
+        # thread
         for matrix in args.matrices[1:]:
-            cooler_file_to_append = cooler.Cooler(matrix)
-            chromosome_list_to_append = cooler_file_to_append.chromnames
+            hic_to_append = hm.hiCMatrix(matrix, cooler_only_init=True)
+            
+            # cooler_file_to_append = cooler.Cooler(matrix)
+            chromosome_list_to_append = hic_to_append.cooler_file.chromnames
             if chromosome_list != chromosome_list_to_append:
                 exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
                     "{}: {}\n"
                     "{}: {}".format(args.matrices[0], chromosome_list,
                                     matrix, chromosome_list_to_append))
             
-            for i in range(args.threads):
-                for chromosome in chromosome_list:
-                
-                    process[i] = Process(target=summed_matrix, kwargs=dict(
-                                    pCoolerMatrix=cooler_file, 
-                                    pCoolerMatrixToAppend=cooler_file_to_append, 
-                                    pChr=chromosome, 
-                                    pLock=lock
-                                    ))
-                    process[i].start()
+            # len(chromosome_list)
+            # hic.create_empty_cool_file(args.outFileName)
+            chr_element = 0
+            thread_done = [False] * args.threads
+            all_threads_done = False
+            first_to_save = True
+            while chr_element < len(chromosome_list) or not all_threads_done:
+
+                for i in range(args.threads):
+                    if queue[i] is None and chr_element < len(chromosome_list):
+                        queue[i] = Queue()
+                        # print("Hannibal")
+                        # print("chromosome_list[chr_element]", chromosome_list[chr_element])
+            #             pHicMatrix.load_cool_bins(pChr)
+            # pHicMatrixToAppend.load_cool_matrix(pChr)
+
+
+            # pHicMatrix.load_cool_matrix(pChr)
+            # pHicMatrixToAppend.load_cool_matrix(pChr)
+                        chromosome = chromosome_list[chr_element]
+                        process[i] = Process(target=sum_cool_matrix, kwargs=dict(
+                                        pBinsList=[hic.load_cool_bins(chromosome), hic_to_append.load_cool_bins(chromosome)], 
+                                        pMatrixList=[hic.load_cool_matrix(chromosome), hic_to_append.load_cool_matrix(chromosome)], 
+                                        # pChr=chromosome_list[chr_element], 
+                                        # pLock=lock, 
+                                        pQueue=queue[i],
+                                        pFileNameOut=args.outFileName
+                                        ))
+                        process[i].start()
+                        chr_element += 1
+                    elif queue[i] is not None and not queue[i].empty():
+                        # print("DONE", i)
+                        hic_done = queue[i].get()
+                        # if first_to_save:
+                        #     hic_done.save_cool_pandas(args.outFileName)
+                        #     first_to_save = False
+                        # else:
+                        #     hic_done.save_cool_pandas_append(args.outFileName)
+                        # print("110")
+                        queue[i] = None
+                        # print("112")
+                        process[i].join()
+                        # print("114")
+                        process[i].terminate()
+                        # print("116")
+                        process[i] = None
+                        # print("118")
+                        thread_done[i] = True
+                        # print("120")
+                    elif chr_element >= len(chromosome_list) and queue[i] is None:
+                        thread_done[i] = True
+                    else:
+                        time.sleep(1)
+                if chr_element >= len(chromosome_list):
+                    all_threads_done = True
+                    for thread in thread_done:
+                        if not thread:
+                            all_threads_done = False
     else:
         hic = hm.hiCMatrix(args.matrices[0])
         summed_matrix = hic.matrix
