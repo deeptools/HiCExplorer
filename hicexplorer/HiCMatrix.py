@@ -1238,25 +1238,25 @@ class hiCMatrix:
                                     pixels=matrix_data_frame)
 
 
-    def save_cool_pandas_append(self, pFileNameOut, pLock=None):
+    # def save_cool_pandas_append(self, pFileName, pDataFrameBins, pDataFrameMatrix, pLock=None):
 
-        cooler_file = cooler.io.append(cool_uri=pFileName,
-                                        table='bins',
-                                        data=self.cool_pandas_bins,
-                                        force=False,
-                                        lock=pLock)
-        cooler_file = cooler.io.append(cool_uri=pFileName,
-                                        table='pixels',
-                                        data=self.cool_matrix_pixel,
-                                        force=False,
-                                        lock=True) 
+    #     cooler_file = cooler.io.append(cool_uri=pFileName,
+    #                                     table='bins',
+    #                                     data=pDataFrameBins,
+    #                                     force=False,
+    #                                     lock=pLock)
+    #     cooler_file = cooler.io.append(cool_uri=pFileName,
+    #                                     table='pixels',
+    #                                     data=pDataFrameMatrix,
+    #                                     force=False,
+    #                                     lock=pLock) 
     
-    def save_cool_pandas(self, pFileName):
+    def save_cool_pandas(self, pFileName, pDataFrameBins, pDataFrameMatrix):
         cooler_file = cooler.io.create(cool_uri=pFileName,
-                                    bins=self.cool_pandas_bins,
-                                    pixels=self.cool_matrix_pixel)
+                                    bins=pDataFrameBins,
+                                    pixels=pDataFrameMatrix)
 
-    def save_cooler(self, pFileNames):
+    def save_cooler(self, pFileName):
         # create a pandas data frame for cut_intervals
         bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
 

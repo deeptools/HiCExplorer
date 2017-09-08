@@ -1,12 +1,14 @@
 from __future__ import division
 import argparse
 from hicexplorer import HiCMatrix as hm
-# from hicexplorer 
+# from hicexplorer
 from hicexplorer._version import __version__
 from multiprocessing import Process, Lock, Queue
 import time
 import os
 import pandas as pd
+import numpy as np
+
 
 def parse_arguments(args=None):
 
@@ -37,96 +39,189 @@ def parse_arguments(args=None):
 
     return parser
 
-def sum_cool_matrix(pBinsList, pMatrixList, pQueue, pFileNameOut):
-    
-    # cool_pandas_bins = pd.concat([pBinsList[0], pBinsList[1]]).groupby(["chrom", "start", "end"], as_index=False)["weight"].sum()
-    cool_pandas_bins = pBinsList[0]
-    cool_matrix_pixel = pd.concat([pMatrixList[0], pMatrixList[1]]).groupby(["bin1_id", "bin2_id"], as_index=False)["count"].sum()
 
+def sum_cool_matrix(pBinsList, pMatrixList, pQueue):
+
+    cut_intervals_0 = [tuple(x) for x in pBinsList[0].values]
+    cut_intervals_1 = [tuple(x) for x in pBinsList[1].values]
+    cut_intervals_tuple = []
+    pBinsList[0] = None
+    pBinsList[1] = None
+
+    i = 0
+    j = 0
+    while i < len(cut_intervals_0) and j < len(cut_intervals_1):
+
+        if cut_intervals_0[i][1] == cut_intervals_1[j][1] and \
+                cut_intervals_0[i][2] == cut_intervals_1[j][2]:
+            # add only if both are not nan.
+            # if one is nan, use the other. this is either a number or nan too.
+            if not np.isnan(cut_intervals_0[i][3]) and not np.isnan(cut_intervals_1[j][3]):
+                cut_intervals_tuple.append((cut_intervals_0[i][0], cut_intervals_0[i][1], cut_intervals_0[i][2],
+                                            cut_intervals_0[i][3] + cut_intervals_1[j][3]))
+            elif np.isnan(cut_intervals_0[i][3]):
+                cut_intervals_tuple.append((cut_intervals_0[i][0], cut_intervals_0[i][1], cut_intervals_0[i][2],
+                                            cut_intervals_1[j][3]))
+            else:
+                cut_intervals_tuple.append((cut_intervals_0[i][0], cut_intervals_0[i][1], cut_intervals_0[i][2],
+                                            cut_intervals_0[i][3]))
+            cut_intervals_0[i] = None
+            cut_intervals_1[j] = None
+            i += 1
+            j += 1
+
+        elif cut_intervals_0[i][0] == cut_intervals_1[j][0] and \
+                cut_intervals_0[i][1] < cut_intervals_1[j][1]:
+            cut_intervals_tuple.append(cut_intervals_0[i])
+            cut_intervals_0[i] = None
+            i += 1
+        elif cut_intervals_0[i][0] == cut_intervals_1[j][0] and \
+                cut_intervals_0[i][1] > cut_intervals_1[j][1]:
+            cut_intervals_tuple.append(cut_intervals_1[j])
+            cut_intervals_1[j] = None
+            j += 1
+        elif cut_intervals_0[i][0] < cut_intervals_1[j][0]:
+            cut_intervals_tuple.append(cut_intervals_0[i])
+            cut_intervals_0[i] = None
+            i += 1
+        else:
+            cut_intervals_tuple.append(cut_intervals_1[j])
+            cut_intervals_1[j] = None
+            j += 1
+
+    while i < len(cut_intervals_0):
+        cut_intervals_tuple.append(cut_intervals_0[i])
+        cut_intervals_0[i] = None
+        i += 1
+    while j < len(cut_intervals_1):
+        cut_intervals_tuple.append(cut_intervals_1[j])
+        cut_intervals_1[j] = None
+        j += 1
+
+    cool_pandas_bins = pd.DataFrame(cut_intervals_tuple, columns=['chrom', 'start', 'end', 'weight'])
+    cut_intervals_tuple = None
+
+    matrix_0 = [tuple(x) for x in pMatrixList[0].values]
+    matrix_1 = [tuple(x) for x in pMatrixList[1].values]
+    matrix_tuple = []
+    pMatrixList[0] = None
+    pMatrixList[1] = None
+    i = 0
+    j = 0
+
+    while i < len(matrix_0) and j < len(matrix_1):
+        if matrix_0[i][1] == matrix_1[j][1] and \
+                matrix_0[i][2] == matrix_1[j][2]:
+            # if value is nan, do not add and take the other one.
+            if not np.isnan(matrix_0[i][2]) and not np.isnan(matrix_1[j][2]):
+                matrix_tuple.append((matrix_0[i][0], matrix_0[i][1],
+                                     matrix_0[i][2] + matrix_1[j][2]))
+            elif np.isnan(matrix_0[i][2]):
+                matrix_tuple.append((matrix_0[i][0], matrix_0[i][1],
+                                     matrix_1[j][2]))
+            else:
+                matrix_tuple.append((matrix_0[i][0], matrix_0[i][1],
+                                     matrix_0[i][2]))
+            matrix_0[i] = None
+            matrix_1[j] = None
+            i += 1
+            j += 1
+        elif matrix_0[i][0] == matrix_1[j][0] and matrix_0[i][1] < matrix_1[j][1]:
+            matrix_tuple.append(matrix_0[i])
+            matrix_0[i] = None
+            i += 1
+        elif matrix_0[i][0] == matrix_1[j][0] and matrix_0[i][1] > matrix_1[j][1]:
+            matrix_tuple.append(matrix_1[j])
+            cut_intervals_1[j] = None
+            j += 1
+        elif matrix_0[i][0] < matrix_1[j][0]:
+            matrix_tuple.append(matrix_0[i])
+            cut_intervals_0[i] = None
+            i += 1
+        else:
+            matrix_tuple.append(matrix_1[j])
+            cut_intervals_1[j] = None
+            j += 1
+    while i < len(matrix_0):
+        matrix_tuple.append(matrix_0[i])
+        matrix_0[i] = None
+        i += 1
+    while j < len(matrix_1):
+        matrix_tuple.append(matrix_1[j])
+        matrix_1[j] = None
+        j += 1
+
+    cool_matrix_pixel = pd.DataFrame(matrix_tuple, columns=['bin1_id', 'bin2_id', 'count'])
+    matrix_tuple = None
     pQueue.put([cool_pandas_bins, cool_matrix_pixel])
-    # return
+
 
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
     if args.matrices[0].endswith('.cool'):
         hic = hm.hiCMatrix(args.matrices[0], cooler_only_init=True)
-        # cooler_file = cooler.Cooler(pMatrixFile)
         chromosome_list = hic.cooler_file.chromnames
-        print("chromosome_list", chromosome_list)
         process = [None] * args.threads
         lock = Lock()
         queue = [None] * args.threads
-        # thread
+
         for matrix in args.matrices[1:]:
             hic_to_append = hm.hiCMatrix(matrix, cooler_only_init=True)
-            
-            # cooler_file_to_append = cooler.Cooler(matrix)
+
             chromosome_list_to_append = hic_to_append.cooler_file.chromnames
             if chromosome_list != chromosome_list_to_append:
                 exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
-                    "{}: {}\n"
-                    "{}: {}".format(args.matrices[0], chromosome_list,
-                                    matrix, chromosome_list_to_append))
-            
-            # len(chromosome_list)
-            # hic.create_empty_cool_file(args.outFileName)
+                     "{}: {}\n"
+                     "{}: {}".format(args.matrices[0], chromosome_list,
+                                     matrix, chromosome_list_to_append))
+
             chr_element = 0
             thread_done = [False] * args.threads
             all_threads_done = False
             first_to_save = True
-            while chr_element < len(chromosome_list) or not all_threads_done:
+            dataFrameBins = None
+            dataFrameMatrix = None
 
+            while chr_element < len(chromosome_list) or not all_threads_done:
                 for i in range(args.threads):
                     if queue[i] is None and chr_element < len(chromosome_list):
+
                         queue[i] = Queue()
-                        # print("Hannibal")
-                        # print("chromosome_list[chr_element]", chromosome_list[chr_element])
-            #             pHicMatrix.load_cool_bins(pChr)
-            # pHicMatrixToAppend.load_cool_matrix(pChr)
-
-
-            # pHicMatrix.load_cool_matrix(pChr)
-            # pHicMatrixToAppend.load_cool_matrix(pChr)
                         chromosome = chromosome_list[chr_element]
                         process[i] = Process(target=sum_cool_matrix, kwargs=dict(
-                                        pBinsList=[hic.load_cool_bins(chromosome), hic_to_append.load_cool_bins(chromosome)], 
-                                        pMatrixList=[hic.load_cool_matrix(chromosome), hic_to_append.load_cool_matrix(chromosome)], 
-                                        # pChr=chromosome_list[chr_element], 
-                                        # pLock=lock, 
-                                        pQueue=queue[i],
-                                        pFileNameOut=args.outFileName
-                                        ))
+                            pBinsList=[hic.load_cool_bins(chromosome), hic_to_append.load_cool_bins(chromosome)],
+                            pMatrixList=[hic.load_cool_matrix(chromosome), hic_to_append.load_cool_matrix(chromosome)],
+                            pQueue=queue[i]
+                        ))
                         process[i].start()
                         chr_element += 1
                     elif queue[i] is not None and not queue[i].empty():
-                        # print("DONE", i)
-                        hic_done = queue[i].get()
-                        # if first_to_save:
-                        #     hic_done.save_cool_pandas(args.outFileName)
-                        #     first_to_save = False
-                        # else:
-                        #     hic_done.save_cool_pandas_append(args.outFileName)
-                        # print("110")
+                        dataFrameBins_, dataFrameMatrix_ = queue[i].get()
+                        if dataFrameBins is None:
+                            dataFrameBins = dataFrameBins_
+                        else:
+                            dataFrameBins = pd.concat([dataFrameBins, dataFrameBins_], ignore_index=True)  # .append(dataFrameBins_, ignore_index=True)
+                        if dataFrameMatrix is None:
+                            dataFrameMatrix = dataFrameMatrix_
+                        else:
+                            dataFrameMatrix = pd.concat([dataFrameMatrix, dataFrameMatrix_], ignore_index=True)  # .append(dataFrameMatrix_, ignore_index=True)
+                        dataFrameBins_ = None
+                        dataFrameMatrix_ = None
                         queue[i] = None
-                        # print("112")
                         process[i].join()
-                        # print("114")
                         process[i].terminate()
-                        # print("116")
                         process[i] = None
-                        # print("118")
                         thread_done[i] = True
-                        # print("120")
                     elif chr_element >= len(chromosome_list) and queue[i] is None:
                         thread_done[i] = True
-                    else:
-                        time.sleep(1)
                 if chr_element >= len(chromosome_list):
                     all_threads_done = True
                     for thread in thread_done:
                         if not thread:
                             all_threads_done = False
+
+            hic.save_cool_pandas(args.outFileName, dataFrameBins, dataFrameMatrix)
     else:
         hic = hm.hiCMatrix(args.matrices[0])
         summed_matrix = hic.matrix
@@ -135,9 +230,9 @@ def main(args=None):
             hic_to_append = hm.hiCMatrix(matrix)
             if hic.chrBinBoundaries != hic_to_append.chrBinBoundaries:
                 exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
-                    "{}: {}\n"
-                    "{}: {}".format(args.matrices[0], list(hic.chrBinBoundaries),
-                                    matrix, list(hic_to_append.chrBinBoundaries)))
+                     "{}: {}\n"
+                     "{}: {}".format(args.matrices[0], list(hic.chrBinBoundaries),
+                                     matrix, list(hic_to_append.chrBinBoundaries)))
 
             try:
                 summed_matrix = summed_matrix + hic_to_append.matrix
