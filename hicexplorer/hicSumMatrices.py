@@ -97,8 +97,10 @@ def sum_cool_matrix(pBinsList, pMatrixList, pQueue):
         cut_intervals_tuple.append(cut_intervals_1[j])
         cut_intervals_1[j] = None
         j += 1
-
-    cool_pandas_bins = pd.DataFrame(cut_intervals_tuple, columns=['chrom', 'start', 'end', 'weight'])
+    if len(cut_intervals_tuple) > 0:
+        cool_pandas_bins = pd.DataFrame(cut_intervals_tuple, columns=['chrom', 'start', 'end', 'weight'])
+    else:
+        cool_pandas_bins = None
     cut_intervals_tuple = None
 
     matrix_0 = [tuple(x) for x in pMatrixList[0].values]
@@ -151,17 +153,20 @@ def sum_cool_matrix(pBinsList, pMatrixList, pQueue):
         matrix_1[j] = None
         j += 1
 
-    cool_matrix_pixel = pd.DataFrame(matrix_tuple, columns=['bin1_id', 'bin2_id', 'count'])
+    if len(matrix_tuple) > 0:
+        cool_matrix_pixel = pd.DataFrame(matrix_tuple, columns=['bin1_id', 'bin2_id', 'count'])
+    else:
+        cool_matrix_pixel = None
     matrix_tuple = None
     pQueue.put([cool_pandas_bins, cool_matrix_pixel])
 
 
 def main(args=None):
-
     args = parse_arguments().parse_args(args)
     if args.matrices[0].endswith('.cool'):
         hic = hm.hiCMatrix(args.matrices[0], cooler_only_init=True)
         chromosome_list = hic.cooler_file.chromnames
+        # args.threads = args.threads - 1
         process = [None] * args.threads
         lock = Lock()
         queue = [None] * args.threads
@@ -182,7 +187,7 @@ def main(args=None):
             first_to_save = True
             dataFrameBins = None
             dataFrameMatrix = None
-
+            
             while chr_element < len(chromosome_list) or not all_threads_done:
                 for i in range(args.threads):
                     if queue[i] is None and chr_element < len(chromosome_list):
@@ -196,31 +201,35 @@ def main(args=None):
                         ))
                         process[i].start()
                         chr_element += 1
+                        thread_done[i] = False
                     elif queue[i] is not None and not queue[i].empty():
                         dataFrameBins_, dataFrameMatrix_ = queue[i].get()
-                        if dataFrameBins is None:
-                            dataFrameBins = dataFrameBins_
-                        else:
-                            dataFrameBins = pd.concat([dataFrameBins, dataFrameBins_], ignore_index=True)  # .append(dataFrameBins_, ignore_index=True)
-                        if dataFrameMatrix is None:
-                            dataFrameMatrix = dataFrameMatrix_
-                        else:
-                            dataFrameMatrix = pd.concat([dataFrameMatrix, dataFrameMatrix_], ignore_index=True)  # .append(dataFrameMatrix_, ignore_index=True)
+                        if dataFrameBins_ is not None and dataFrameMatrix_ is not None:
+                            if dataFrameBins is None:
+                                dataFrameBins = dataFrameBins_
+                            else:
+                                dataFrameBins = pd.concat([dataFrameBins, dataFrameBins_], ignore_index=True)  # .append(dataFrameBins_, ignore_index=True)
+                            if dataFrameMatrix is None:
+                                dataFrameMatrix = dataFrameMatrix_
+                            else:
+                                dataFrameMatrix = pd.concat([dataFrameMatrix, dataFrameMatrix_], ignore_index=True)  # .append(dataFrameMatrix_, ignore_index=True)
                         dataFrameBins_ = None
                         dataFrameMatrix_ = None
                         queue[i] = None
                         process[i].join()
                         process[i].terminate()
+                        
                         process[i] = None
                         thread_done[i] = True
                     elif chr_element >= len(chromosome_list) and queue[i] is None:
                         thread_done[i] = True
+                    else:
+                        time.sleep(0.1)
                 if chr_element >= len(chromosome_list):
                     all_threads_done = True
                     for thread in thread_done:
                         if not thread:
                             all_threads_done = False
-
             hic.save_cool_pandas(args.outFileName, dataFrameBins, dataFrameMatrix)
     else:
         hic = hm.hiCMatrix(args.matrices[0])
