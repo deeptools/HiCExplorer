@@ -164,9 +164,11 @@ def sum_cool_matrix(pBinsList, pMatrixList, pQueue):
 def main(args=None):
     args = parse_arguments().parse_args(args)
     if args.matrices[0].endswith('.cool'):
+        if args.threads < 2:
+            exit("At least two threads are necessary. Given are: {}.".format(args.threads))
         hic = hm.hiCMatrix(args.matrices[0], cooler_only_init=True)
         chromosome_list = hic.cooler_file.chromnames
-        # args.threads = args.threads - 1
+        args.threads = args.threads - 1
         process = [None] * args.threads
         lock = Lock()
         queue = [None] * args.threads
@@ -232,6 +234,8 @@ def main(args=None):
                             all_threads_done = False
             hic.save_cool_pandas(args.outFileName, dataFrameBins, dataFrameMatrix)
     else:
+        if args.threads:
+            print("Multiple threads are only used if the matrices are in 'cool'-format.")
         hic = hm.hiCMatrix(args.matrices[0])
         summed_matrix = hic.matrix
         nan_bins = set(hic.nan_bins)
