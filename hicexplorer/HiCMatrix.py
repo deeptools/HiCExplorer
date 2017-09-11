@@ -51,8 +51,8 @@ class hiCMatrix:
 
         if matrixFile:
             self.nan_bins = np.array([])
-            print("File format: ", file_format)
-            print("Matrix file: ", matrixFile)
+            # print("File format: ", file_format)
+            # print("Matrix file: ", matrixFile)
 
             if file_format is None or file_format == 'hic_matrix':
                 if matrixFile.endswith(".npz"):
@@ -101,6 +101,8 @@ class hiCMatrix:
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
             elif file_format == 'cool':
+                if not cooler.io.is_cooler(matrixFile):
+                    exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
                 if cooler_only_init:
                     self.load_cool_only_init(matrixFile)
                     self.cut_intervals = None
@@ -1249,7 +1251,7 @@ class hiCMatrix:
     #                                     table='pixels',
     #                                     data=pDataFrameMatrix,
     #                                     force=False,
-    #                                     lock=pLock) 
+    #                                     lock=pLock) ls
     
     def save_cool_pandas(self, pFileName, pDataFrameBins, pDataFrameMatrix):
         cooler_file = cooler.io.create(cool_uri=pFileName,

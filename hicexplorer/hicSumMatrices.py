@@ -47,7 +47,7 @@ def sum_cool_matrix(pBinsList, pMatrixList, pQueue):
     cut_intervals_tuple = []
     pBinsList[0] = None
     pBinsList[1] = None
-
+    # print("cut_intervals_0[:10]", cut_intervals_0[:10])
     i = 0
     j = 0
     while i < len(cut_intervals_0) and j < len(cut_intervals_1):
@@ -70,17 +70,17 @@ def sum_cool_matrix(pBinsList, pMatrixList, pQueue):
             i += 1
             j += 1
 
-        elif cut_intervals_0[i][0] == cut_intervals_1[j][0] and \
-                cut_intervals_0[i][1] < cut_intervals_1[j][1]:
+        elif cut_intervals_0[i][1] == cut_intervals_1[j][1] and \
+                cut_intervals_0[i][2] < cut_intervals_1[j][2]:
             cut_intervals_tuple.append(cut_intervals_0[i])
             cut_intervals_0[i] = None
             i += 1
-        elif cut_intervals_0[i][0] == cut_intervals_1[j][0] and \
-                cut_intervals_0[i][1] > cut_intervals_1[j][1]:
+        elif cut_intervals_0[i][1] == cut_intervals_1[j][1] and \
+                cut_intervals_0[i][2] > cut_intervals_1[j][2]:
             cut_intervals_tuple.append(cut_intervals_1[j])
             cut_intervals_1[j] = None
             j += 1
-        elif cut_intervals_0[i][0] < cut_intervals_1[j][0]:
+        elif cut_intervals_0[i][1] < cut_intervals_1[j][1]:
             cut_intervals_tuple.append(cut_intervals_0[i])
             cut_intervals_0[i] = None
             i += 1
@@ -110,10 +110,11 @@ def sum_cool_matrix(pBinsList, pMatrixList, pQueue):
     pMatrixList[1] = None
     i = 0
     j = 0
+    # print("matrix_0[:10]", matrix_0[:10])
 
     while i < len(matrix_0) and j < len(matrix_1):
-        if matrix_0[i][1] == matrix_1[j][1] and \
-                matrix_0[i][2] == matrix_1[j][2]:
+        if matrix_0[i][0] == matrix_1[j][0] and \
+                matrix_0[i][1] == matrix_1[j][1]:
             # if value is nan, do not add and take the other one.
             if not np.isnan(matrix_0[i][2]) and not np.isnan(matrix_1[j][2]):
                 matrix_tuple.append((matrix_0[i][0], matrix_0[i][1],
@@ -206,11 +207,12 @@ def main(args=None):
                         thread_done[i] = False
                     elif queue[i] is not None and not queue[i].empty():
                         dataFrameBins_, dataFrameMatrix_ = queue[i].get()
-                        if dataFrameBins_ is not None and dataFrameMatrix_ is not None:
+                        if dataFrameBins_ is not None:
                             if dataFrameBins is None:
                                 dataFrameBins = dataFrameBins_
                             else:
                                 dataFrameBins = pd.concat([dataFrameBins, dataFrameBins_], ignore_index=True)  # .append(dataFrameBins_, ignore_index=True)
+                        if dataFrameMatrix_ is not None:
                             if dataFrameMatrix is None:
                                 dataFrameMatrix = dataFrameMatrix_
                             else:
