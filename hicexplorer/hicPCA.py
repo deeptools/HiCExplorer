@@ -46,13 +46,13 @@ Computes PCA eigenvectors for the HiC matrix.
     return parser
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=None):
+    args = parse_arguments().parse_args(args)
 
     ma = hm.hiCMatrix(args.matrix)
-
+    ma.matrix = ma.matrix.asfptype()
     # eigenvectors and eigenvalues for the from the matrix
-    vals, vecs = eigs(ma.matrix, k=2, which='SR')
+    vals, vecs = eigs(ma.matrix, k=2, which='LR', ncv=50)
 
     # save eigenvectors
     chrom, start, end, _ = zip(*ma.cut_intervals)
@@ -61,5 +61,5 @@ def main():
         assert(len(vecs[:, idx]) == len(chrom))
         with open(outfile, 'w') as fh:
             for i, value in enumerate(vecs[:, idx]):
-                fh.write("{}\t{}\t{}\t{}\n".format(chrom[i], start[i], end[i], value))
+                fh.write("{}\t{}\t{}\t{}\n".format(chrom[i], start[i], end[i], value.real))
 
