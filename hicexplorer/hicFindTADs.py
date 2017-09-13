@@ -914,10 +914,10 @@ class HicFindTads(object):
             if self.correct_for_multiple_testing == 'fdr':
                 if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.pvalueFDR:
                     filtered_min_idx += [idx]
-            if self.correct_for_multiple_testing == 'bonferroni':
-                if delta_of_min[idx] >= self.delta and pvalue_of_min[idx] <= self.threshold_comparisons:
+            elif self.correct_for_multiple_testing == 'bonferroni':
+                if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.threshold_comparisons:
                     filtered_min_idx += [idx]
-            elif self.correct_for_multiple_testing == 'None':
+            else:
                 if delta_of_min[idx] >= self.delta:
                     filtered_min_idx += [idx]
         if self.correct_for_multiple_testing == 'fdr':
