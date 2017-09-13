@@ -906,22 +906,23 @@ class HicFindTads(object):
         mean_mat_all = matrix.mean(axis=1)
 
         filtered_min_idx = []
+
         for idx in min_idx:
             # filter by delta and pvalue_thresholds
             if idx not in delta_of_min:
                 delta_of_min[idx] = np.nan
             if self.correct_for_multiple_testing == 'fdr':
-                if delta_of_min[idx] >= self.delta and pvalue_of_min[idx] <= self.pvalueFDR:
+                if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.pvalueFDR:
                     filtered_min_idx += [idx]
-            elif self.correct_for_multiple_testing == 'bonferroni':
+            if self.correct_for_multiple_testing == 'bonferroni':
                 if delta_of_min[idx] >= self.delta and pvalue_of_min[idx] <= self.threshold_comparisons:
                     filtered_min_idx += [idx]
             elif self.correct_for_multiple_testing == 'None':
                 if delta_of_min[idx] >= self.delta:
                     filtered_min_idx += [idx]
         if self.correct_for_multiple_testing == 'fdr':
-            log.info("Number of boundaries for delta {}, qval {} and pval {}: {}".format(self.delta, self.threshold_comparisons, self.pvalueFDR,
-                                                                                         len(filtered_min_idx)))
+            log.info("Number of boundaries for delta {}, qval {}: {}".format(self.delta, self.threshold_comparisons,
+                                                                             len(filtered_min_idx)))
         elif self.correct_for_multiple_testing == 'bonferroni':
             log.info("Number of boundaries for delta {} and pval {}: {}".format(self.delta, self.threshold_comparisons,
                                                                                 len(filtered_min_idx)))
@@ -1204,14 +1205,13 @@ class HicFindTads(object):
         assert len(pvalues) == len(new_min_idx)
 
         # fdr
-        np.savetxt('pvalues.txt', pvalues)
         if self.correct_for_multiple_testing == 'fdr':
             pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
             pvalues_ = sorted(pvalues)
             largest_p_i = 0
             for i, p in enumerate(pvalues_):
-                if p < (self.threshold_comparisons * (i + 1) / len(pvalues_)):
-                    if p > largest_p_i:
+                if p <= (self.threshold_comparisons * (i + 1) / len(pvalues_)):
+                    if p >= largest_p_i:
                         largest_p_i = p
             self.pvalueFDR = largest_p_i
         elif self.correct_for_multiple_testing == 'bonferroni':
