@@ -532,5 +532,13 @@ def main(args=None):
 
 
 def plotEigenvector(pFigure, pArgs):
+    x = np.arange(0, len(values1), 1)
+    plt.fill_between(x, 0, values1)
+    # plt.savefig("pca/pca1_plot.png")
+
+    x = np.arange(0, len(values2), 1)
+    plt.fill_between(x, 0, values2)
+    plt.savefig("pca/pca2_plot.png", dpi=300)
+    
     ax = pFigure.add_axes(1)
     ax.set_title("HANNIBAL")

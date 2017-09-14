@@ -7,7 +7,7 @@ from hicexplorer._version import __version__
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+import pyBigWig
 logging.basicConfig()
 log = logging.getLogger("hicPCA")
 log.setLevel(logging.WARN)
@@ -32,9 +32,15 @@ Computes PCA eigenvectors for the HiC matrix.
                         help='HiCExplorer matrix.',
                         required=True)
 
-    parser.add_argument('--output', '-o',
-                        help='file names for the pca 1 and pca 2 output files.',
-                        nargs=2,
+    parser.add_argument('--outputFileName', '-o',
+                        help='File names for the result of the pca. Number of output file must match the number of computed eigenvectors.',
+                        nargs='+',
+                        default=['pca1', 'pca2'],
+                        required=True)
+    parser.add_argument('--numberOfEigenvectors', '-noe',
+                        help='The number of eigenvectors that the PCA should compute.',
+                        default=2,
+                        type=int,
                         required=True)
 
     parser.add_argument('--format', '-f',
@@ -55,34 +61,49 @@ Computes PCA eigenvectors for the HiC matrix.
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-
+    if int(args.numberOfEigenvectors) != len(args.outputFileName):
+        exit("Number of output file names and number of eigenvectors does not match: {} {}".format(len(args.outputFileName), args.numberOfEigenvectors))
     ma = hm.hiCMatrix(args.matrix)
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
     ma.maskBins(ma.nan_bins)
     ma.matrix = ma.matrix.asfptype()
     # eigenvectors and eigenvalues for the from the matrix
-    vals, vecs = eigs(ma.matrix, k=2, which='LM', ncv=50)
-
+    vals, vecs = eigs(ma.matrix, k=int(args.numberOfEigenvectors), which='LM')
+    
     # save eigenvectors
     chrom, start, end, _ = zip(*ma.cut_intervals)
-    values1 = []
-    values2 = []
-    print("len(vecs)", len(vecs))
-    for idx, outfile in enumerate(args.output):
-        assert(len(vecs[:, idx]) == len(chrom))
-        with open(outfile, 'w') as fh:
+    
+    if args.format == 'bedgraph':
+        for idx, outfile in enumerate(args.outputFileName):
+            assert(len(vecs[:, idx]) == len(chrom))
+            with open(outfile, 'w') as fh:
+                for i, value in enumerate(vecs[:, idx]):
+                    fh.write("{}\t{}\t{}\t{}\n".format(chrom[i], start[i], end[i], value.real))
+    elif args.format == 'bigwig':
+        if not pyBigWig.numpy == 1:
+            exit("ERROR: Your version of pyBigWig is not supporting numpy: {}".format(pyBigWig.__file__))
+        old_chrom = chrom[0]
+        header = []
+        for i, chrom_ in enumerate(chrom):
+            if old_chrom != chrom_:
+                header.append((old_chrom, end[i - 1]))
+            old_chrom = chrom_
+        header.append((chrom[-1], end[-1]))
+       
+        for idx, outfile in enumerate(args.outputFileName):
+            assert(len(vecs[:, idx]) == len(chrom))
+            values = []
+            
+            bw = pyBigWig.open(outfile, 'w')
+            # set big wig header
+            bw.addHeader(header)
+            # create entry lists
             for i, value in enumerate(vecs[:, idx]):
-                fh.write("{}\t{}\t{}\t{}\n".format(chrom[i], start[i], end[i], value.real))
-                if idx == 0:
-                    values1.append(value.real)
-                elif idx == 1:
-                    values2.append(value.real)
-                    
-    x = np.arange(0, len(values1), 1)
-    plt.fill_between(x, 0, values1)
-    # plt.savefig("pca/pca1_plot.png")
-
-    x = np.arange(0, len(values2), 1)
-    plt.fill_between(x, 0, values2)
-    plt.savefig("pca/pca2_plot.png", dpi=300)
+                values.append(value.real)
+            # write entires
+            bw.addEntries(list(chrom), list(start), ends=list(end), values=values)
+            bw.close()
+    else:
+        exit("Output format not known: {}".format(args.format))
+    
