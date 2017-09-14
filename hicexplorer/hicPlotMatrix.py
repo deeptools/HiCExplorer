@@ -5,6 +5,7 @@ import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import writableFile
 from hicexplorer.utilities import toString, toBytes
 from hicexplorer._version import __version__
+from hicexplorer.trackPlot import file_to_intervaltree
 import numpy as np
 
 from builtins import range
@@ -19,6 +20,8 @@ from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
+
+
 
 
 def parse_arguments(args=None):
@@ -109,10 +112,12 @@ def parse_arguments(args=None):
                              'ouput is a raster graphics image (e.g png, jpg)',
                         type=int,
                         default=72)
+
     parser.add_argument('--pca',
-                        help='One eigenvector of the pca as a bigwig file.',
+                        help='List of eigenvector from pca analysis as bigwig or bedgraph files.',
                         type=str,
-                        default=None)
+                        default=None,
+                        nargs='+')
 
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
@@ -388,6 +393,8 @@ def plotPerChr(hic_matrix, cmap, args):
             direction='out')
 
         axis.set_yticklabels(xlabels, size='small')
+        # if args.pca:
+        #     plotEigenvector(axis, pNameOfEigenvectorsList=args.pca, pChromosome=chrname, pRegion=None)
 
     cbar3 = plt.subplot(grids[-1])
     cbar = fig.colorbar(img, cax=cbar3)
@@ -525,20 +532,48 @@ def main(args=None):
                 plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
                             args, fig_width, cmap)
         
-        if args.pca:
-            plotEigenvector(fig, args)
-
+    
+        
     plt.savefig(args.outFileName, dpi=args.dpi)
 
 
-def plotEigenvector(pFigure, pArgs):
-    x = np.arange(0, len(values1), 1)
-    plt.fill_between(x, 0, values1)
+def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=None):
+
+    file_format = pNameOfEigenvectorsList[0].split(".")[-1]
+    if file_format != 'bedgraph' or file_format != 'bigwig':
+        exit("Given eigenvector files are not bedgraph or bigwig")
+
+    for eigenvector in pNameOfEigenvectorsList:
+        if eigenvector.split('.')[-1] != file_format:
+            exit("Eigenvector input files have different formats.")
+    
+    if pChromosome:
+        chrom = pChromosome
+    if pRegion:
+        chrom, region_start, region_end = translate_region(pRegion)
+        
+    if file_format == "bigwig":
+        pass
+    else:
+        for eigenvectorFile in pNameOfEigenvectorsList:
+            interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
+            eigenvector = []
+            if pChromosome:
+                for region in sorted(self.interval_tree[chrom]):
+                    eigenvector.append(float(region.data[0]))
+            elif pRegion:
+                for region in sorted(self.interval_tree[chrom][region_start:region_end]):
+                    eigenvector.append(float(region.data[0]))
+            else:
+                for region in sorted(self.interval_tree):
+                    eigenvector.append(float(region.data[0]))
+            x = np.arange(0, len(eigenvector), 1)
+            pFigure.fill_between(x, 0, eigenvector)
+        
     # plt.savefig("pca/pca1_plot.png")
 
-    x = np.arange(0, len(values2), 1)
-    plt.fill_between(x, 0, values2)
-    plt.savefig("pca/pca2_plot.png", dpi=300)
+    # x = np.arange(0, len(values2), 1)
+    # plt.savefig("pca/pca2_plot.png", dpi=300)
     
-    ax = pFigure.add_axes(1)
-    ax.set_title("HANNIBAL")
+    # ax = pFigure.add_axes(1)
+    # ax.set_title("HANNIBAL")
