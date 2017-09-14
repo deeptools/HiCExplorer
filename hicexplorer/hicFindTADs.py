@@ -200,13 +200,12 @@ def get_idx_of_bins_at_given_distance(hic_matrix, idx, window_len):
     # the range [start:i] should have running window
     # length elements (i is excluded from the range)
     chrom, cut_start, cut_end, _ = hic_matrix.getBinPos(idx)
-    left_start = max(0, cut_start - window_len)
+    left_start = max(cut_start, cut_start - window_len)
     left_idx = hic_matrix.getRegionBinRange(chrom, left_start, left_start + 1)[0]
 
     chr_end_pos = hic_matrix.get_chromosome_sizes()[chrom]
     right_end = min(chr_end_pos, cut_end + window_len) - 1
     right_idx = hic_matrix.getRegionBinRange(chrom, right_end, right_end)[0]
-
     return left_idx, right_idx
 
 
