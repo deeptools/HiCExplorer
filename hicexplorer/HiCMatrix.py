@@ -168,7 +168,7 @@ class hiCMatrix:
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
-        nan_bins = np.array([], dtype=np.int32)
+        nan_bins = np.asarray(matrix.sum(axis=1)).flatten() 
         # try to restore nan_bins.
         # if data of interval is < 1 it is assummed to be nan
         for i, interval in enumerate(cut_intervals):
@@ -1260,6 +1260,8 @@ class hiCMatrix:
                                     pixels=pDataFrameMatrix)
 
     def save_cooler(self, pFileName):
+        self.restoreMaskedBins()
+        
         # create a pandas data frame for cut_intervals
         bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
 
