@@ -159,9 +159,13 @@ def change_chrom_names(chrom):
     return chrom
 
 
-def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
+def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis=None):
 
-    axHeat2 = fig.add_axes(position)
+    if pAxis:
+        axHeat2 = pAxis
+    else:
+        axHeat2 = fig.add_axes(position)
+    
     if args.title:
         axHeat2.set_title(args.title)
     norm = None
@@ -212,9 +216,13 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
 
 
 def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
-                       ylabel=None, start_pos=None, start_pos2=None):
+                       ylabel=None, start_pos=None, start_pos2=None, pAxis=None):
 
-    axHeat2 = fig.add_axes(position)
+    if pAxis:
+        axHeat2 = pAxis
+    else:
+        axHeat2 = fig.add_axes(position)
+
     if args.title:
         axHeat2.set_title(args.title)
     norm = None
@@ -500,6 +508,15 @@ def main(args=None):
             left_margin = (1.0 - width) * 0.4
 
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
+        
+        if args.pca:
+            gs = gridspec.GridSpec(4, 3)
+            ax1 = plt.subplot(gs[:3, :])
+            ax2 = plt.subplot(gs[-1, :])
+        else:
+            gs = gridspec.GridSpec(4, 3)
+            ax1 = plt.subplot(gs[:, :])
+        
         bottom = 0.8 / fig_height
 
         if args.log:
@@ -526,27 +543,32 @@ def main(args=None):
             if args.region:
                 plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
                                    args, cmap, xlabel=chrom, ylabel=chrom2,
-                                   start_pos=start_pos1, start_pos2=start_pos2)
+                                   start_pos=start_pos1, start_pos2=start_pos2, pAxis=ax1)
 
             else:
-                plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
-                            args, fig_width, cmap)
-        
-    
-        
+                plotHeatmap(matrix, ma.chrBinBoundaries, fig,  position,
+                            args, fig_width, cmap, pAxis=ax1)
+        if args.pca:
+            position = [left_margin, bottom, width, height]
+            
+            plotEigenvector(ax2, args.pca, position, pChromosome=None, pRegion=None)
+
     plt.savefig(args.outFileName, dpi=args.dpi)
 
 
-def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=None):
+def plotEigenvector(pFigure, pNameOfEigenvectorsList, pPosition, pChromosome=None, pRegion=None):
 
+    
+    
     file_format = pNameOfEigenvectorsList[0].split(".")[-1]
-    if file_format != 'bedgraph' or file_format != 'bigwig':
+    print("file_format", file_format)
+    if file_format != 'bedgraph' and file_format != 'bigwig':
         exit("Given eigenvector files are not bedgraph or bigwig")
 
     for eigenvector in pNameOfEigenvectorsList:
         if eigenvector.split('.')[-1] != file_format:
             exit("Eigenvector input files have different formats.")
-    
+   
     if pChromosome:
         chrom = pChromosome
     if pRegion:
@@ -555,25 +577,20 @@ def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=
     if file_format == "bigwig":
         pass
     else:
-        for eigenvectorFile in pNameOfEigenvectorsList:
+        for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
+
             interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
             eigenvector = []
             if pChromosome:
-                for region in sorted(self.interval_tree[chrom]):
+                for region in sorted(interval_tree[chrom]):
                     eigenvector.append(float(region.data[0]))
             elif pRegion:
-                for region in sorted(self.interval_tree[chrom][region_start:region_end]):
+                for region in sorted(interval_tree[chrom][region_start:region_end]):
                     eigenvector.append(float(region.data[0]))
             else:
-                for region in sorted(self.interval_tree):
-                    eigenvector.append(float(region.data[0]))
+                for chrom in sorted(interval_tree):
+                    for region in sorted(interval_tree[chrom]):
+                        eigenvector.append(float(region.data[0]))
             x = np.arange(0, len(eigenvector), 1)
             pFigure.fill_between(x, 0, eigenvector)
-        
-    # plt.savefig("pca/pca1_plot.png")
-
-    # x = np.arange(0, len(values2), 1)
-    # plt.savefig("pca/pca2_plot.png", dpi=300)
-    
-    # ax = pFigure.add_axes(1)
-    # ax.set_title("HANNIBAL")
+    # pFigure.set_xscale()
