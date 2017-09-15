@@ -110,7 +110,7 @@ class hiCMatrix:
                     self.nan_bins = None
                     self.distance_counts = None
                     self.correction_factors = None
-                    self.matrix = None
+                    # self.matrix = None
                     return
                 else:
                     self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
@@ -126,28 +126,43 @@ class hiCMatrix:
     def load_cool_only_init(self, pMatrixFile):
         self.cooler_file = cooler.Cooler(pMatrixFile)
         self.cooler_matrix_shape = self.cooler_file.info['nbins']
+        row = []
+        col = []
+        data = []
+        self.matrix = csr_matrix((data, (row, col)), shape=(self.cooler_matrix_shape, self.cooler_matrix_shape))
         # print("self.cooler_file.matrix", self.cooler_file.matrix(sparse=True, balance=False)[:])
         # print("self.cooler_file.info", self.cooler_file.info)
     def load_cool_bins(self, pChr):
         # self.cool_pandas_bins = None
         return self.cooler_file.bins().fetch(pChr)
+
+    def load_cool_cut_intervals(self):
+        cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
+        self.cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
     # def load_cool_chr_matrix(self, pChr):
     #     self.matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChr)
     def load_cool_per_chr_csr(self, pChr):
+        print("Load data for chr: ", pChr)
         matrix = self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
         shape = self.cooler_file.info['nbins']
         row = []
         col = []
         data = []
-
+        print("Prepare csr!")
         for data_ in matrix.values:
             row.append(data_[0])
             col.append(data_[1])
             data.append(data_[2])
+        print("Prepare csr! DONE")
+            
         matrix = csr_matrix((data, (row, col)), shape=(shape, shape))
-
-        return matrix
-
+        print("csr created!")
+        
+        nan_bins = np.asarray(matrix.sum(axis=1)).flatten()
+        print("nan_bins created!")
+        
+        return matrix, nan_bins
+    
     def load_cool_matrix(self, pChr):
         # self.cool_matrix_pixel = None
         matrix = self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
@@ -1471,7 +1486,10 @@ class hiCMatrix:
         self.matrix = ma_coo.tocsr()
         self.matrix.eliminate_zeros()
         return self.matrix
-
+    
+    def setNanBins(self, pNanBins):
+        self.nan_bins = pNanBins
+    
     def setMatrixValues(self, newMatrix):
         """
         replace the current matrix values
