@@ -280,9 +280,12 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         else:
             axHeat2.set_xticklabels(labels, size=8)
 
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(axHeat2)
-    cax = divider.append_axes("right", size="2.5%", pad=0.09)
+    if pPca is None:
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+        divider = make_axes_locatable(axHeat2)
+        cax = divider.append_axes("right", size="2.5%", pad=0.09)
+    else:
+        cax = pPca['axis_colorbar']
     if args.log1p:
         from matplotlib.ticker import LogFormatter
         formatter = LogFormatter(10, labelOnlyBase=False)
@@ -297,6 +300,8 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     cbar.solids.set_edgecolor("face")  # to avoid white lines in the color bar in pdf plots
     if args.scoreName:
         cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
+    # else:
+
     axHeat2.set_ylim(start_pos2[0], start_pos2[-1])
     axHeat2.set_xlim(start_pos[0], start_pos[-1])
 
@@ -509,7 +514,7 @@ def main(args=None):
 
     pca = None
     if args.pca:
-        pca = {'args': args, 'axis': None}
+        pca = {'args': args, 'axis': None, 'axis_colorbar': None}
     if args.perChromosome:
         plotPerChr(ma, cmap, args)
 
@@ -528,11 +533,16 @@ def main(args=None):
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
         
         if args.pca:
-            gs = gridspec.GridSpec(4, 3)
-            gs.update(hspace=0.5)
-            ax1 = plt.subplot(gs[:3, :])
-            ax2 = plt.subplot(gs[-1, :])
+            # len(track_height), 2,
+            # height_ratios=track_height,
+            # width_ratios=self.width_ratios
+            gs = gridspec.GridSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07])
+            gs.update(hspace=0.1)
+            ax1 = plt.subplot(gs[0, 0])
+            ax2 = plt.subplot(gs[1, 0])
+            ax3 = plt.subplot(gs[0, 1])
             pca['axis'] = ax2
+            pca['axis_colorbar'] = ax3
             
         else:
             gs = gridspec.GridSpec(4, 3)
@@ -572,7 +582,8 @@ def main(args=None):
         #     position = [left_margin, bottom, width, height]
             
         #     plotEigenvector(ax2, args.pca, pChromosome=None, pRegion=args.region)
-
+    # fig.tight_layout()
+    plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
     plt.savefig(args.outFileName, dpi=args.dpi)
 
 
@@ -614,15 +625,21 @@ def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=
                         eigenvector.append(float(region.data[0]))
             if pRegion:
                 step = (region_end - region_start) / len(eigenvector)
-                print("step", step)
                 x = np.arange(region_start, region_end, int(step))
-            if pChromosome:
+            elif pChromosome:
                 print("pChromosome", pChromosome)
                 pass
             else:
                 print("non of them")
-                x = np.arange(0, len(eigenvector), 1)
-            pFigure.fill_between(x, 0, eigenvector)
+                # x = np.arange(0, len(eigenvector), 1)
+            pFigure.fill_between(x, 0, eigenvector, edgecolor='none')
+        
+        pFigure.set_frame_on(False)
+        # pFigure.get_xaxis().set_visible(False)
+        # pFigure.get_yaxis().set_visible(False)
+        pFigure.set_xlim(region_start, region_end)
+
+        # pXticks = None
         if pXticks:
             if len(pXticks) == 1:
                 pFigure.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
@@ -635,4 +652,6 @@ def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=
                     pFigure.set_xticklabels(pXticks[0], size=4, rotation=90)
                 else:
                     pFigure.set_xticklabels(pXticks[0], size=8)
+        # pFigure.vlines(x, [0], eigenvector, color='olive', linewidth=0.5)
+
     # pFigure.set_xscale()
