@@ -159,7 +159,7 @@ def change_chrom_names(chrom):
     return chrom
 
 
-def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis=None):
+def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis=None, pPca=None):
 
     if pAxis:
         axHeat2 = pAxis
@@ -214,9 +214,12 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis
 
     axHeat2.get_yaxis().set_visible(False)
 
+    if pPca:
+        pass
+
 
 def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
-                       ylabel=None, start_pos=None, start_pos2=None, pAxis=None):
+                       ylabel=None, start_pos=None, start_pos2=None, pAxis=None, pPca=None):
 
     if pAxis:
         axHeat2 = pAxis
@@ -239,7 +242,7 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=norm)
 
     img3.set_rasterized(True)
-
+    xticks=None
     if args.region:
 
         # relabel xticks
@@ -260,7 +263,7 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         ytick_lables = relabel_ticks(axHeat2.get_yticks())
         axHeat2.get_yaxis().set_tick_params(which='both', bottom='on', direction='out')
         axHeat2.set_yticklabels(ytick_lables, size='small')
-
+        xticks = [xtick_lables]
         """
         axHeat2.set_xticks([0, ma.shape[0]])
         axHeat2.set_xticklabels([args.region[1], args.region[2]], size=4, rotation=90)
@@ -270,6 +273,8 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
         labels = list(chrBinBoundaries)
         axHeat2.set_xticks(ticks)
+        xticks = [labels, ticks]
+        
         if len(labels) > 20:
             axHeat2.set_xticklabels(labels, size=4, rotation=90)
         else:
@@ -300,6 +305,13 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
 
     if xlabel is not None:
         axHeat2.set_xlabel(xlabel)
+    
+    if pPca:
+        # pca = {'args': args, 'axis': None}
+        # def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=None, pXticks=None):
+        axHeat2.xaxis.set_label_position("top") 
+        axHeat2.xaxis.tick_top() 
+        plotEigenvector(pPca['axis'], pPca['args'].pca, pRegion=pPca['args'].region, pXticks=xticks)
 
 
 def translate_region(region_string):
@@ -333,7 +345,7 @@ def translate_region(region_string):
     return chrom, region_start, region_end
 
 
-def plotPerChr(hic_matrix, cmap, args):
+def plotPerChr(hic_matrix, cmap, args, pPca):
     """
     plots each chromosome individually, one after the other
     in one row. scale bar is added at the end
@@ -401,6 +413,9 @@ def plotPerChr(hic_matrix, cmap, args):
             direction='out')
 
         axis.set_yticklabels(xlabels, size='small')
+
+        if pPca:
+            pass
         # if args.pca:
         #     plotEigenvector(axis, pNameOfEigenvectorsList=args.pca, pChromosome=chrname, pRegion=None)
 
@@ -492,6 +507,9 @@ def main(args=None):
     sys.stderr.write("Nan values set to black\n")
     cmap.set_bad('black')
 
+    pca = None
+    if args.pca:
+        pca = {'args': args, 'axis': None}
     if args.perChromosome:
         plotPerChr(ma, cmap, args)
 
@@ -511,12 +529,14 @@ def main(args=None):
         
         if args.pca:
             gs = gridspec.GridSpec(4, 3)
+            gs.update(hspace=0.5)
             ax1 = plt.subplot(gs[:3, :])
             ax2 = plt.subplot(gs[-1, :])
+            pca['axis'] = ax2
+            
         else:
             gs = gridspec.GridSpec(4, 3)
             ax1 = plt.subplot(gs[:, :])
-        
         bottom = 0.8 / fig_height
 
         if args.log:
@@ -543,20 +563,20 @@ def main(args=None):
             if args.region:
                 plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
                                    args, cmap, xlabel=chrom, ylabel=chrom2,
-                                   start_pos=start_pos1, start_pos2=start_pos2, pAxis=ax1)
+                                   start_pos=start_pos1, start_pos2=start_pos2, pAxis=ax1, pPca=pca)
 
             else:
                 plotHeatmap(matrix, ma.chrBinBoundaries, fig,  position,
-                            args, fig_width, cmap, pAxis=ax1)
-        if args.pca:
-            position = [left_margin, bottom, width, height]
+                            args, fig_width, cmap, pAxis=ax1, pPca=pca)
+        # if args.pca:
+        #     position = [left_margin, bottom, width, height]
             
-            plotEigenvector(ax2, args.pca, position, pChromosome=None, pRegion=None)
+        #     plotEigenvector(ax2, args.pca, pChromosome=None, pRegion=args.region)
 
     plt.savefig(args.outFileName, dpi=args.dpi)
 
 
-def plotEigenvector(pFigure, pNameOfEigenvectorsList, pPosition, pChromosome=None, pRegion=None):
+def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=None, pXticks=None):
 
     
     
@@ -572,7 +592,8 @@ def plotEigenvector(pFigure, pNameOfEigenvectorsList, pPosition, pChromosome=Non
     if pChromosome:
         chrom = pChromosome
     if pRegion:
-        chrom, region_start, region_end = translate_region(pRegion)
+        print("pRegion", pRegion)
+        chrom, region_start, region_end = pRegion
         
     if file_format == "bigwig":
         pass
@@ -591,6 +612,27 @@ def plotEigenvector(pFigure, pNameOfEigenvectorsList, pPosition, pChromosome=Non
                 for chrom in sorted(interval_tree):
                     for region in sorted(interval_tree[chrom]):
                         eigenvector.append(float(region.data[0]))
-            x = np.arange(0, len(eigenvector), 1)
+            if pRegion:
+                step = (region_end - region_start) / len(eigenvector)
+                print("step", step)
+                x = np.arange(region_start, region_end, int(step))
+            if pChromosome:
+                print("pChromosome", pChromosome)
+                pass
+            else:
+                print("non of them")
+                x = np.arange(0, len(eigenvector), 1)
             pFigure.fill_between(x, 0, eigenvector)
+        if pXticks:
+            if len(pXticks) == 1:
+                pFigure.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
+                pFigure.set_xticklabels(pXticks[0], size='small', rotation=45)
+            else:
+                pFigure.set_xticks(pXticks[1])
+                # xticks = [labels, ticks]
+                
+                if len(pXticks[0]) > 20:
+                    pFigure.set_xticklabels(pXticks[0], size=4, rotation=90)
+                else:
+                    pFigure.set_xticklabels(pXticks[0], size=8)
     # pFigure.set_xscale()
