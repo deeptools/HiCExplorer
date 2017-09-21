@@ -20,6 +20,8 @@ from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 
 
 
@@ -160,7 +162,6 @@ def change_chrom_names(chrom):
 
 
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis=None, pPca=None):
-
     if pAxis:
         axHeat2 = pAxis
     else:
@@ -181,9 +182,11 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis
                           )
 
     img3.set_rasterized(True)
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(axHeat2)
-    cax = divider.append_axes("right", size="2.5%", pad=0.09)
+    if pPca is None:
+        divider = make_axes_locatable(axHeat2)
+        cax = divider.append_axes("right", size="2.5%", pad=0.09)
+    else:
+        cax = pPca['axis_colorbar']
     cbar = fig.colorbar(img3, cax=cax)
     cbar.solids.set_edgecolor("face")  # to avoid white lines in the color bar in pdf plots
     if args.scoreName:
@@ -203,6 +206,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis
         axHeat2.set_xticks([0, ma.shape[0]])
         axHeat2.set_xticklabels([args.region[1], args.region[2]], size=4, rotation=90)
         axHeat2.set_axis_off()
+        xticks = [[0, ma.shape[0]]]
     else:
         ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
         labels = chrBinBoundaries.keys()
@@ -211,11 +215,14 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis
             axHeat2.set_xticklabels(labels, size=4, rotation=90)
         else:
             axHeat2.set_xticklabels(labels, size=8)
-
+        if pPca:
+            xticks = [labels, ticks]
     axHeat2.get_yaxis().set_visible(False)
 
     if pPca:
-        pass
+        axHeat2.xaxis.set_label_position("top") 
+        axHeat2.xaxis.tick_top() 
+        plotEigenvector(pPca['axis'], pPca['args'].pca, pXticks=xticks)
 
 
 def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
@@ -281,7 +288,6 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
             axHeat2.set_xticklabels(labels, size=8)
 
     if pPca is None:
-        from mpl_toolkits.axes_grid1 import make_axes_locatable
         divider = make_axes_locatable(axHeat2)
         cax = divider.append_axes("right", size="2.5%", pad=0.09)
     else:
@@ -423,9 +429,13 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
             pass
         # if args.pca:
         #     plotEigenvector(axis, pNameOfEigenvectorsList=args.pca, pChromosome=chrname, pRegion=None)
-
+    # if pPca is None:
     cbar3 = plt.subplot(grids[-1])
+    # else:
+        # cbar3 = pPca['axis_colorbar']
     cbar = fig.colorbar(img, cax=cbar3)
+        
+   
     cbar.solids.set_edgecolor("face")  # to avoid white lines in
     # the color bar in pdf plots
     cbar.ax.set_ylabel(args.scoreName, rotation=270, labelpad=20)
@@ -545,8 +555,8 @@ def main(args=None):
             pca['axis_colorbar'] = ax3
             
         else:
-            gs = gridspec.GridSpec(4, 3)
-            ax1 = plt.subplot(gs[:, :])
+            # gs = gridspec.GridSpec(2, 2)
+            ax1 = None
         bottom = 0.8 / fig_height
 
         if args.log:
@@ -576,6 +586,7 @@ def main(args=None):
                                    start_pos=start_pos1, start_pos2=start_pos2, pAxis=ax1, pPca=pca)
 
             else:
+                print("592")
                 plotHeatmap(matrix, ma.chrBinBoundaries, fig,  position,
                             args, fig_width, cmap, pAxis=ax1, pPca=pca)
         # if args.pca:
@@ -583,7 +594,7 @@ def main(args=None):
             
         #     plotEigenvector(ax2, args.pca, pChromosome=None, pRegion=args.region)
     # fig.tight_layout()
-    plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
+    # plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
     plt.savefig(args.outFileName, dpi=args.dpi)
 
 
@@ -630,17 +641,19 @@ def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=
                 print("pChromosome", pChromosome)
                 pass
             else:
-                print("non of them")
-                # x = np.arange(0, len(eigenvector), 1)
+                print()
+                x = np.arange(0, len(eigenvector), 1)
             pFigure.fill_between(x, 0, eigenvector, edgecolor='none')
         
         pFigure.set_frame_on(False)
         # pFigure.get_xaxis().set_visible(False)
         # pFigure.get_yaxis().set_visible(False)
-        pFigure.set_xlim(region_start, region_end)
+        if pRegion:
+            pFigure.set_xlim(region_start, region_end)
 
         # pXticks = None
         if pXticks:
+            print("pXticks", pXticks)
             if len(pXticks) == 1:
                 pFigure.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
                 pFigure.set_xticklabels(pXticks[0], size='small', rotation=45)
