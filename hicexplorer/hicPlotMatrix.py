@@ -376,17 +376,26 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
 
     fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
+    # if pPca:
+    #     inner_grid = gridspec.GridSpecFromSubplotSpec(3, 3,
+    #         subplot_spec=outer_grid[i], wspace=0.0, hspace=0.0)
     norm = None
     if args.log1p:
         norm = LogNorm()
     chrom, start, end, _ = zip(*hic_matrix.cut_intervals)
 
     for idx, chrname in enumerate(chromosomes):
-        row = idx / chrom_per_row
+        row = idx // chrom_per_row
         col = idx % chrom_per_row
-
-        axis = plt.subplot(grids[row, col])
-        axis.set_title(chrname)
+        if pPca:
+            inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07],
+                subplot_spec=grids[row, col], wspace=0.0, hspace=0.1)
+            axis = plt.subplot(inner_grid[0, 0])
+            axis_eigenvector = plt.subplot(inner_grid[1, 0])
+            
+        else:
+            axis = plt.subplot(grids[row, col])
+            axis.set_title(chrname)
         chrom_range = hic_matrix.getChrBinRange(chrname)
         mat = hic_matrix.matrix[chrom_range[0]:chrom_range[1],
                                 chrom_range[0]:chrom_range[1]].todense().astype(float)
@@ -413,6 +422,9 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
             xlabels[-2] = "{} Mb".format(xlabels[-2])
 
         axis.set_xticklabels(xlabels, size='small')
+        axis.xaxis.set_label_position("top") 
+        axis.xaxis.tick_top() 
+        axis.set_xlabel(chrname)
         # yticks = axis.get_yticks()
 
         # ylabels = ["{:.0f}".format(int(x) / 1e6)
@@ -426,7 +438,7 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
         axis.set_yticklabels(xlabels, size='small')
 
         if pPca:
-            pass
+            plotEigenvector(axis_eigenvector, pPca['args'].pca, pChromosome=chrname, pXticks=[xlabels])
         # if args.pca:
         #     plotEigenvector(axis, pNameOfEigenvectorsList=args.pca, pChromosome=chrname, pRegion=None)
     # if pPca is None:
@@ -526,7 +538,7 @@ def main(args=None):
     if args.pca:
         pca = {'args': args, 'axis': None, 'axis_colorbar': None}
     if args.perChromosome:
-        plotPerChr(ma, cmap, args)
+        plotPerChr(ma, cmap, args,pca)
 
     else:
         fig_height = 6
@@ -586,7 +598,6 @@ def main(args=None):
                                    start_pos=start_pos1, start_pos2=start_pos2, pAxis=ax1, pPca=pca)
 
             else:
-                print("592")
                 plotHeatmap(matrix, ma.chrBinBoundaries, fig,  position,
                             args, fig_width, cmap, pAxis=ax1, pPca=pca)
         # if args.pca:
@@ -598,12 +609,13 @@ def main(args=None):
     plt.savefig(args.outFileName, dpi=args.dpi)
 
 
-def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=None, pXticks=None):
+def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosome=None, pRegion=None, pXticks=None):
 
     
+    pAxis.set_frame_on(False)
     
     file_format = pNameOfEigenvectorsList[0].split(".")[-1]
-    print("file_format", file_format)
+    # print("file_format", file_format)
     if file_format != 'bedgraph' and file_format != 'bigwig':
         exit("Given eigenvector files are not bedgraph or bigwig")
 
@@ -614,57 +626,80 @@ def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=
     if pChromosome:
         chrom = pChromosome
     if pRegion:
-        print("pRegion", pRegion)
+        # print("pRegion", pRegion)
         chrom, region_start, region_end = pRegion
-        
+    
     if file_format == "bigwig":
         pass
     else:
         for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
 
             interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
+            if chrom not in interval_tree:
+                return
+            # # region_start = interval_tree[chrom][0]
+            # print("interval_tree[chrom][0]", interval_tree[chrom][0])
+            # print("interval_tree[chrom][0]", interval_tree[chrom][-1][1])
+            
             eigenvector = []
             if pChromosome:
-                for region in sorted(interval_tree[chrom]):
+                for i, region in enumerate(sorted(interval_tree[chrom])):
+                    if i == 0:
+                        region_start = region[0]
+                    region_end = region[1]
                     eigenvector.append(float(region.data[0]))
             elif pRegion:
                 for region in sorted(interval_tree[chrom][region_start:region_end]):
                     eigenvector.append(float(region.data[0]))
             else:
+                i = 0
                 for chrom in sorted(interval_tree):
                     for region in sorted(interval_tree[chrom]):
+                        if i == 0:
+                            region_start = region[0]
+                            i += 1
+                        region_end = region[1]
                         eigenvector.append(float(region.data[0]))
-            if pRegion:
-                step = (region_end - region_start) / len(eigenvector)
-                x = np.arange(region_start, region_end, int(step))
-            elif pChromosome:
-                print("pChromosome", pChromosome)
-                pass
-            else:
-                print()
-                x = np.arange(0, len(eigenvector), 1)
-            pFigure.fill_between(x, 0, eigenvector, edgecolor='none')
+            # if pRegion or pChromosome:
+            step = (region_end - region_start) // len(eigenvector)
+            
+            x = np.arange(region_start, region_end, int(step))
+            while len(x) < len(eigenvector):
+                x = np.append(x[-1] + int(step))
+            while len(eigenvector) < len(x):
+                x = x[:-1]
+            pAxis.set_xlim(region_start, region_end)
+                
+            # elif pChromosome:
+            #     # x = np.arange(0, len(eigenvector), 1)
+            #     x = np.arange(region_start, region_end, int(step))
+                
+            # else:
+            #     # print()
+            #     x = np.arange(0, len(eigenvector), 1)
+            print("len(x)", len(x), "len(eigenvector)", len(eigenvector))
+            pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
         
-        pFigure.set_frame_on(False)
+        # print("region_start", region_start)
+        # print("region_end", region_end)
         # pFigure.get_xaxis().set_visible(False)
         # pFigure.get_yaxis().set_visible(False)
-        if pRegion:
-            pFigure.set_xlim(region_start, region_end)
+        # if pRegion or pChromosome:
 
         # pXticks = None
         if pXticks:
             print("pXticks", pXticks)
             if len(pXticks) == 1:
-                pFigure.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
-                pFigure.set_xticklabels(pXticks[0], size='small', rotation=45)
+                pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
+                pAxis.set_xticklabels(pXticks[0], size='small', rotation=45)
             else:
-                pFigure.set_xticks(pXticks[1])
+                pAxis.set_xticks(pXticks[1])
                 # xticks = [labels, ticks]
                 
                 if len(pXticks[0]) > 20:
-                    pFigure.set_xticklabels(pXticks[0], size=4, rotation=90)
+                    pAxis.set_xticklabels(pXticks[0], size=4, rotation=90)
                 else:
-                    pFigure.set_xticklabels(pXticks[0], size=8)
+                    pAxis.set_xticklabels(pXticks[0], size=8)
         # pFigure.vlines(x, [0], eigenvector, color='olive', linewidth=0.5)
 
     # pFigure.set_xscale()
