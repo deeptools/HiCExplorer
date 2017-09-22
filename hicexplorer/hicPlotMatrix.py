@@ -455,7 +455,7 @@ def main(args=None):
 
         if args.log:
             mask = matrix == 0
-            matrix[mask] = matrix[mask is False].min()
+            matrix[mask] = matrix[mask == False].min()
     #        matrix = -1 *  np.log(matrix)
             matrix = np.log(matrix)
 
