@@ -176,7 +176,7 @@ def change_chrom_names(chrom):
     return chrom
 
 
-def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis=None, pPca=None):
+def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pNorm, pAxis=None, pPca=None):
     if pAxis:
         axHeat2 = pAxis
     else:
@@ -184,16 +184,13 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis
     
     if args.title:
         axHeat2.set_title(args.title)
-    norm = None
-    if args.log1p:
-        ma += 1
-        norm = LogNorm()
+    
 
     img3 = axHeat2.imshow(ma,
                           interpolation='nearest',
                           #                          interpolation='spline16',
                           vmax=args.vMax, vmin=args.vMin, cmap=cmap,
-                          norm=norm
+                          norm=pNorm
                           )
 
     img3.set_rasterized(True)
@@ -241,7 +238,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis
 
 
 def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
-                       ylabel=None, start_pos=None, start_pos2=None, pAxis=None, pPca=None):
+                       ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pPca=None):
     print("PLOT heatmap region")
     if pAxis:
         axHeat2 = pAxis
@@ -250,10 +247,7 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
 
     if args.title:
         axHeat2.set_title(args.title)
-    norm = None
-    if args.log1p:
-        ma += 1
-        norm = LogNorm()
+    
 
     if start_pos is None:
         start_pos = np.arange(ma.shape[0])
@@ -261,7 +255,7 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         start_pos2 = start_pos
 
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-    img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=norm)
+    img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
 
     img3.set_rasterized(True)
     xticks=None
@@ -362,7 +356,7 @@ def translate_region(region_string):
     return chrom, region_start, region_end
 
 
-def plotPerChr(hic_matrix, cmap, args, pPca):
+def plotPerChr(hic_matrix, cmap, args, pNorm, pPca):
     """
     plots each chromosome individually, one after the other
     in one row. scale bar is added at the end
@@ -382,12 +376,6 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
 
     fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
-    # if pPca:
-    #     inner_grid = gridspec.GridSpecFromSubplotSpec(3, 3,
-    #         subplot_spec=outer_grid[i], wspace=0.0, hspace=0.0)
-    norm = None
-    if args.log1p:
-        norm = LogNorm()
     chrom, start, end, _ = zip(*hic_matrix.cut_intervals)
 
     for idx, chrname in enumerate(chromosomes):
@@ -411,7 +399,7 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
         img = axis.imshow(mat, aspect='auto',
                           interpolation='spline16',
                           vmax=args.vMax, vmin=args.vMin, cmap=cmap,
-                          norm=norm,
+                          norm=pNorm,
                           extent=[start[chrom_range[0]], end[chrom_range[1] - 1],
                                   end[chrom_range[1] - 1], start[chrom_range[0]]])
 
@@ -425,10 +413,7 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
         axis.xaxis.set_label_position("top") 
         axis.xaxis.tick_top() 
         axis.set_xlabel(chrname)
-        # yticks = axis.get_yticks()
-
-        # ylabels = ["{:.0f}".format(int(x) / 1e6)
-        #          for x in yticks]
+       
 
         axis.get_xaxis().set_tick_params(
             which='both',
@@ -439,12 +424,11 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
 
         if pPca:
             plotEigenvector(axis_eigenvector, pPca['args'].pca, pChromosome=chrname, pXticks=[xlabels])
-        # if args.pca:
-        #     plotEigenvector(axis, pNameOfEigenvectorsList=args.pca, pChromosome=chrname, pRegion=None)
-    # if pPca is None:
-    cbar3 = plt.subplot(grids[-1])
-    # else:
-        # cbar3 = pPca['axis_colorbar']
+       
+    if pPca is None:
+        cbar3 = plt.subplot(grids[-1])
+    else:
+        cbar3 = pPca['axis_colorbar']
     cbar = fig.colorbar(img, cax=cbar3)
         
    
@@ -573,10 +557,18 @@ def main(args=None):
 
         if args.log:
             mask = matrix == 0
-            matrix[mask] = matrix[mask is False].min()
-    #        matrix = -1 *  np.log(matrix)
+            mask_nan = matrix == np.nan
+            matrix[mask] = matrix[mask == False].min()
+            matrix[mask_nan] = matrix[mask_nan == False].min()
+            
             matrix = np.log(matrix)
-
+        norm = None
+        if args.log1p:
+            mask = matrix == 0
+            matrix[mask] = matrix[mask == False].min()
+            matrix += 1
+            # matrix = np.log1p(matrix)
+            norm = LogNorm()
         if args.whatToShow == '3D':
             position = [left_margin, bottom, width * 1.2, height * 1.2]
             plotHeatmap3D(matrix, fig, position, args, cmap)
@@ -588,18 +580,18 @@ def main(args=None):
             left_margin2 = 5.5 / fig_width + left_margin
             position = [left_margin2, bottom, width, height]
             plotHeatmap(matrix, ma.chrBinBoundaries, fig, position, args,
-                        fig_width, cmap)
+                        fig_width, cmap, pNorm=norm)
 
         if args.whatToShow == 'heatmap':
             position = [left_margin, bottom, width, height]
             if args.region:
                 plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
                                    args, cmap, xlabel=chrom, ylabel=chrom2,
-                                   start_pos=start_pos1, start_pos2=start_pos2, pAxis=ax1, pPca=pca)
+                                   start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pPca=pca)
 
             else:
                 plotHeatmap(matrix, ma.chrBinBoundaries, fig,  position,
-                            args, fig_width, cmap, pAxis=ax1, pPca=pca)
+                            args, fig_width, cmap, pNorm=norm, pAxis=ax1, pPca=pca)
         # if args.pca:
         #     position = [left_margin, bottom, width, height]
             
