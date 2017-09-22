@@ -126,6 +126,21 @@ def parse_arguments(args=None):
 
     return parser
 
+# relabel xticks
+def relabel_ticks(pXTicks):
+    if pXTicks[-1] > 1.5e6:
+        labels = ["{:.2f} ".format(x / 1e6)
+                    for x in pXTicks]
+        labels[-2] += " Mbp"
+    elif pXTicks[-1] > 1500:
+        labels = ["{:.0f}".format(x / 1e3)
+                    for x in pXTicks]
+        labels[-2] += " Kbp"
+    else:
+        labels = ["{:,} ".format((x))
+                    for x in pXTicks]
+        labels[-2] += " bp"
+    return labels
 
 def plotHeatmap3D(ma, fig, position, args, cmap):
     axHeat1 = fig.add_axes(position, projection='3d')
@@ -227,7 +242,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pAxis
 
 def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                        ylabel=None, start_pos=None, start_pos2=None, pAxis=None, pPca=None):
-
+    print("PLOT heatmap region")
     if pAxis:
         axHeat2 = pAxis
     else:
@@ -251,18 +266,7 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     img3.set_rasterized(True)
     xticks=None
     if args.region:
-
-        # relabel xticks
-        def relabel_ticks(ticks):
-            if ticks[-1] - ticks[0] > 100000:
-                labels = ["{:.2f} ".format((x / 1e6))
-                          for x in ticks]
-                labels[-1] += "Mbp"
-            else:
-                labels = ["{:,} ".format((x))
-                          for x in ticks]
-                labels[-1] += "bp"
-            return labels
+        print("Relabel ticks!")
         xtick_lables = relabel_ticks(axHeat2.get_xticks())
         axHeat2.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
         axHeat2.set_xticklabels(xtick_lables, size='small', rotation=45)
@@ -277,6 +281,8 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         axHeat2.set_axis_off()
         """
     else:
+        print("DON'T Relabel ticks!")
+        
         ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
         labels = list(chrBinBoundaries)
         axHeat2.set_xticks(ticks)
@@ -412,14 +418,8 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
         img.set_rasterized(True)
 
         xticks = axis.get_xticks()
-        if xticks[1] < 1e6:
-            xlabels = ["{:.0f}".format(int(x) / 1e3)
-                       for x in xticks]
-            xlabels[-2] = "{} Kb".format(xlabels[-2])
-        else:
-            xlabels = ["{:.0f}".format(int(x) / 1e6)
-                       for x in xticks]
-            xlabels[-2] = "{} Mb".format(xlabels[-2])
+        xlabels = relabel_ticks(xticks)
+        
 
         axis.set_xticklabels(xlabels, size='small')
         axis.xaxis.set_label_position("top") 
