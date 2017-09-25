@@ -100,12 +100,12 @@ def main(args=None):
                             if dataFrameBins is None:
                                 dataFrameBins = dataFrameBins_
                             else:
-                                dataFrameBins = pd.concat([dataFrameBins, dataFrameBins_], ignore_index=True)  # .append(dataFrameBins_, ignore_index=True)
+                                dataFrameBins = pd.concat([dataFrameBins, dataFrameBins_], ignore_index=True)
                         if dataFrameMatrix_ is not None:
                             if dataFrameMatrix is None:
                                 dataFrameMatrix = dataFrameMatrix_
                             else:
-                                dataFrameMatrix = pd.concat([dataFrameMatrix, dataFrameMatrix_], ignore_index=True)  # .append(dataFrameMatrix_, ignore_index=True)
+                                dataFrameMatrix = pd.concat([dataFrameMatrix, dataFrameMatrix_], ignore_index=True)
                         dataFrameBins_ = None
                         dataFrameMatrix_ = None
                         queue[i] = None
