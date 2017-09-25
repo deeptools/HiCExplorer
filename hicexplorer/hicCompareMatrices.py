@@ -8,6 +8,7 @@ from multiprocessing import Process
 from multiprocessing import Process, Lock, Queue
 import pandas as pd
 import operator
+import time
 
 
 
@@ -48,22 +49,7 @@ def parse_arguments(args=None):
     return parser
 
 def compute_cool_matrix(pBinsList, pMatrixList, pQueue, pHic, pOperation):
-    # hic1.matrix.data = hic1.matrix.data.astype(float) / hic1.matrix.data.sum()
-    # hic2.matrix.data = hic2.matrix.data.astype(float) / hic2.matrix.data.sum()
-
-    
-
-    # if args.operation is 'diff':
-    #     new_matrix = hic1.matrix - hic2.matrix
-    # elif args.operation is 'ratio' or args.operation is 'log2ratio':
-    #     hic2.matrix.data = float(1) / hic2.matrix.data
-    #     new_matrix = hic1.matrix.multiply(hic2.matrix)
-    #     # just in case
-    #     new_matrix.eliminate_zeros()
-    #     if args.operation == 'log2ratio':
-    #         new_matrix.data = np.log2(new_matrix.data)
-    #         new_matrix.eliminate_zeros()
-
+   
     # normalize by total matrix sum
     sum_matrix_0 = pMatrixList[0]['count'].sum()
     sum_matrix_1 = pMatrixList[1]['count'].sum()
@@ -71,21 +57,22 @@ def compute_cool_matrix(pBinsList, pMatrixList, pQueue, pHic, pOperation):
     pMatrixList[0]['count'] = pMatrixList[0]['count'].apply(lambda x: x / sum_matrix_0)
     pMatrixList[1]['count'] = pMatrixList[1]['count'].apply(lambda x: x / sum_matrix_0)
 
-    # TODO: 
-    nan_bins = None
-    # nan_bins = set(hic1.nan_bins)
-    # nan_bins = nan_bins.union(hic2.nan_bins)
+    cool_pandas_bins = pHic.compute_dataframe_bins(pBinsList, "+")    
 
+    if pMatrixList[0] is None:
+        print("First is none")
+    if pMatrixList[1] is None:
+        print("Second is none")
     new_matrix = None
-    if pOperation is 'diff':
+    if pOperation == 'diff':
         new_matrix = pHic.compute_dataframe_matrix(pMatrixList, "-")
-    elif pOperation is 'ratio' or pOperation is 'log2ratio':
+    elif pOperation == 'ratio' or pOperation == 'log2ratio':
         pMatrixList[1]['count'] = pMatrixList[1]['count'].apply(lambda x: 1 / x)
         new_matrix = pHic.compute_dataframe_matrix(pMatrixList, "*")
-        if pOperation is 'log2ratio':
-            new_matrix = new_matrix['count'].apply(np.log2)
-            
-    pQueue.put([nan_bins, new_matrix])
+        if pOperation == 'log2ratio':
+            if new_matrix is not None:
+                new_matrix['count'] = new_matrix['count'].apply(np.log2)       
+    pQueue.put([cool_pandas_bins, new_matrix])
     return
 
 
@@ -109,8 +96,12 @@ def main(args=None):
         hic_second_matrix = hm.hiCMatrix(args.matrices[1], cooler_only_init=True)        
         chromosome_list = hic.cooler_file.chromnames
         chromosome_list_second_matrix = hic_second_matrix.cooler_file.chromnames
+        thread_done = [False] * args.threads
+        all_threads_done = False
+        
         dataFrameBins = None
         dataFrameMatrix = None
+        chr_element = 0
         # TODO: shape check is missing
         if chromosome_list != chromosome_list_second_matrix:
             exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
@@ -120,13 +111,14 @@ def main(args=None):
         while chr_element < len(chromosome_list) or not all_threads_done:
             for i in range(args.threads):
                 if queue[i] is None and chr_element < len(chromosome_list):
-
                     queue[i] = Queue()
                     chromosome = chromosome_list[chr_element]
                     process[i] = Process(target=compute_cool_matrix, kwargs=dict(
                         pBinsList=[hic.load_cool_bins(chromosome), hic_second_matrix.load_cool_bins(chromosome)],
                         pMatrixList=[hic.load_cool_matrix(chromosome), hic_second_matrix.load_cool_matrix(chromosome)],
-                        pQueue=queue[i]
+                        pQueue=queue[i],
+                        pHic=hic,
+                        pOperation=args.operation
                     ))
                     process[i].start()
                     chr_element += 1
@@ -162,7 +154,8 @@ def main(args=None):
                             all_threads_done = False
         
         # TODO
-        # create and save computed matrix 
+        hic.save_cool_pandas(args.outFileName, dataFrameBins, dataFrameMatrix)
+
                 
     else:
         hic1 = hm.hiCMatrix(args.matrices[0])
@@ -185,9 +178,9 @@ def main(args=None):
         nan_bins = set(hic1.nan_bins)
         nan_bins = nan_bins.union(hic2.nan_bins)
 
-        if args.operation is 'diff':
+        if args.operation == 'diff':
             new_matrix = hic1.matrix - hic2.matrix
-        elif args.operation is 'ratio' or args.operation is 'log2ratio':
+        elif args.operation == 'ratio' or args.operation == 'log2ratio':
             hic2.matrix.data = float(1) / hic2.matrix.data
             new_matrix = hic1.matrix.multiply(hic2.matrix)
             # just in case
