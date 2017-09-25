@@ -9,8 +9,6 @@ import os
 import pandas as pd
 import numpy as np
 
-from  scipy.sparse import csr_matrix, vstack
-
 import operator
 
 
@@ -45,20 +43,11 @@ def parse_arguments(args=None):
     return parser
 
 
-def sum_cool_matrix(pMatrix, pMatrixToAppend, pNanBins, pNanBinsAppend, pQueue):
+def sum_cool_matrix(pBinsList, pMatrixList, pQueue, pHic):
 
-    matrix = pMatrix + pMatrixToAppend
-    # pNanBins = set(pNanBins)                        
-    nan_bins = np.append(pNanBins, pNanBinsAppend)
-    # if 
-    # print("pMatrixList[0]", pMatrixList[0])
-    # print("pMatrixList[0]", pMatrixList[0])
-    # print pMatrixList[0].values
-    # print csr_matrix(pMatrixList[0], shape=(pHic.cooler_matrix_shape, pHic.cooler_matrix_shape,))
-
-    # cool_pandas_bins = pHic.compute_dataframe_bins(pBinsList, "+")    
-    # cool_matrix_pixel = pHic.compute_dataframe_matrix(pMatrixList, "+")
-    pQueue.put([matrix, nan_bins])
+    cool_pandas_bins = pHic.compute_dataframe_bins(pBinsList, "+")    
+    cool_matrix_pixel = pHic.compute_dataframe_matrix(pMatrixList, "+")
+    pQueue.put([cool_pandas_bins, cool_matrix_pixel])
 
 
 def main(args=None):
@@ -67,7 +56,6 @@ def main(args=None):
         if args.threads < 2:
             exit("At least two threads are necessary. Given are: {}.".format(args.threads))
         hic = hm.hiCMatrix(args.matrices[0], cooler_only_init=True)
-        hic.load_cool_cut_intervals()
         chromosome_list = hic.cooler_file.chromnames
         args.threads = args.threads - 1
         process = [None] * args.threads
@@ -88,42 +76,38 @@ def main(args=None):
             thread_done = [False] * args.threads
             all_threads_done = False
             first_to_save = True
-            # dataFrameBins = None
-            # dataFrameMatrix = None
-            matrix = None
-            nan_bins = None
+            dataFrameBins = None
+            dataFrameMatrix = None
+            
             while chr_element < len(chromosome_list) or not all_threads_done:
                 for i in range(args.threads):
                     if queue[i] is None and chr_element < len(chromosome_list):
-                        print("Computing: ", chromosome_list[chr_element])
-                        
+
                         queue[i] = Queue()
                         chromosome = chromosome_list[chr_element]
-                        matrix_org, nanbins_org = hic.load_cool_per_chr_csr(chromosome)
-                        matrix_append, nanbins_append = hic_to_append.load_cool_per_chr_csr(chromosome)
                         process[i] = Process(target=sum_cool_matrix, kwargs=dict(
-                            pMatrix=matrix_org,
-                            pMatrixToAppend=matrix_append,
-                            pNanBins=nanbins_org,
-                            pNanBinsAppend=nanbins_append,
-                            pQueue=queue[i]
+                            pBinsList=[hic.load_cool_bins(chromosome), hic_to_append.load_cool_bins(chromosome)],
+                            pMatrixList=[hic.load_cool_matrix(chromosome), hic_to_append.load_cool_matrix(chromosome)],
+                            pQueue=queue[i],
+                            pHic=hic
                         ))
                         process[i].start()
                         chr_element += 1
                         thread_done[i] = False
                     elif queue[i] is not None and not queue[i].empty():
-                        matrix_, nan_bins_ = queue[i].get()
-                        # print("matrix_", matrix_)
-                        if matrix is None:
-                            matrix = matrix_
-                        else:
-                            matrix += matrix_
-                        if nan_bins is None:
-                            nan_bins = nan_bins_
-                        else:
-                            nan_bins = np.append(nan_bins, nan_bins_)
-                      
-                        matrix_ = None
+                        dataFrameBins_, dataFrameMatrix_ = queue[i].get()
+                        if dataFrameBins_ is not None:
+                            if dataFrameBins is None:
+                                dataFrameBins = dataFrameBins_
+                            else:
+                                dataFrameBins = pd.concat([dataFrameBins, dataFrameBins_], ignore_index=True)  # .append(dataFrameBins_, ignore_index=True)
+                        if dataFrameMatrix_ is not None:
+                            if dataFrameMatrix is None:
+                                dataFrameMatrix = dataFrameMatrix_
+                            else:
+                                dataFrameMatrix = pd.concat([dataFrameMatrix, dataFrameMatrix_], ignore_index=True)  # .append(dataFrameMatrix_, ignore_index=True)
+                        dataFrameBins_ = None
+                        dataFrameMatrix_ = None
                         queue[i] = None
                         process[i].join()
                         process[i].terminate()
@@ -139,13 +123,7 @@ def main(args=None):
                     for thread in thread_done:
                         if not thread:
                             all_threads_done = False
-
-            # print("matrixFOOF", matrix)
-            
-            hic.setMatrixValues(matrix)
-            nan_bins = set(nan_bins)
-            hic.setNanBins(nan_bins)
-            hic.save(args.outFileName)
+            hic.save_cool_pandas(args.outFileName, dataFrameBins, dataFrameMatrix)
     else:
         if args.threads:
             print("Multiple threads are only used if the matrices are in 'cool'-format.")

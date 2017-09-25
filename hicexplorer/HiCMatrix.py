@@ -110,7 +110,7 @@ class hiCMatrix:
                     self.nan_bins = None
                     self.distance_counts = None
                     self.correction_factors = None
-                    # self.matrix = None
+                    self.matrix = None
                     return
                 else:
                     self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
@@ -125,50 +125,17 @@ class hiCMatrix:
 
     def load_cool_only_init(self, pMatrixFile):
         self.cooler_file = cooler.Cooler(pMatrixFile)
-        self.cooler_matrix_shape = self.cooler_file.info['nbins']
-        row = []
-        col = []
-        data = []
-        self.matrix = csr_matrix((data, (row, col)), shape=(self.cooler_matrix_shape, self.cooler_matrix_shape))
-        # print("self.cooler_file.matrix", self.cooler_file.matrix(sparse=True, balance=False)[:])
-        # print("self.cooler_file.info", self.cooler_file.info)
+
     def load_cool_bins(self, pChr):
         # self.cool_pandas_bins = None
         return self.cooler_file.bins().fetch(pChr)
-
-    def load_cool_cut_intervals(self):
-        cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
-        self.cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
     # def load_cool_chr_matrix(self, pChr):
     #     self.matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChr)
-    def load_cool_per_chr_csr(self, pChr):
-        print("Load data for chr: ", pChr)
-        matrix = self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
-        shape = self.cooler_file.info['nbins']
-        row = []
-        col = []
-        data = []
-        print("Prepare csr!")
-        for data_ in matrix.values:
-            row.append(data_[0])
-            col.append(data_[1])
-            data.append(data_[2])
-        print("Prepare csr! DONE")
-            
-        matrix = csr_matrix((data, (row, col)), shape=(shape, shape))
-        print("csr created!")
-        
-        nan_bins = np.asarray(matrix.sum(axis=1)).flatten()
-        print("nan_bins created!")
-        
-        return matrix, nan_bins
-    
     def load_cool_matrix(self, pChr):
         # self.cool_matrix_pixel = None
-        matrix = self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
-        
-        # self.nan_bins = self.load_cool_get_nan_bins()
         return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
+
+
 
     def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None):
         self.cooler_file = cooler.Cooler(pMatrixFile)
@@ -180,15 +147,20 @@ class hiCMatrix:
                 matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
             else:
                 matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0], pChrnameList[1])
-        
-        nan_bins = np.asarray(matrix.sum(axis=1)).flatten()
+        # if pMatrixOnly:
+        #     return matrix.tocsr(), None, np.array([], dtype=np.int32), None, None
         
         cut_intervals_data_frame = None
+        # print("pChrnameList", pChrnameList)
+        # print("cut_intervals[:20]", cut_intervals[:20])
         if pChrnameList is not None:
-
+            # if pChrnameList[0].startswith('chr'):
+            #     pChrnameList[0] = pChrnameList[0][3:]
             if len(pChrnameList) == 1:
                 cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
             else:
+                # if pChrnameList[1].startswith('chr'):
+                #     pChrnameList[1] = pChrnameList[1][3:]
                 cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
                 cut_intervals_data_frame.append(self.cooler_file.bins().fetch(pChrnameList[1]))
 
@@ -196,10 +168,13 @@ class hiCMatrix:
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
-        
+        nan_bins = np.array([], dtype=np.int32)
         # try to restore nan_bins.
         # if data of interval is < 1 it is assummed to be nan
-        
+        for i, interval in enumerate(cut_intervals):
+            if interval[3] < 1.0:
+                nan_bins = np.append(nan_bins, i)
+
         
         distance_counts = None
         correction_factors = None
@@ -1258,12 +1233,12 @@ class hiCMatrix:
         fileh.close()
 
 
-    # def create_empty_cool_file(self, pFileName):
-    #     bins_data_frame = pd.DataFrame(columns=['chrom', 'start', 'end', 'weight'])
-    #     matrix_data_frame = pd.DataFrame(columns=['bin1_id', 'bin2_id', 'count'])
-    #     cooler_file = cooler.io.create(cool_uri=pFileName,
-    #                                 bins=bins_data_frame,
-    #                                 pixels=matrix_data_frame)
+    def create_empty_cool_file(self, pFileName):
+        bins_data_frame = pd.DataFrame(columns=['chrom', 'start', 'end', 'weight'])
+        matrix_data_frame = pd.DataFrame(columns=['bin1_id', 'bin2_id', 'count'])
+        cooler_file = cooler.io.create(cool_uri=pFileName,
+                                    bins=bins_data_frame,
+                                    pixels=matrix_data_frame)
 
 
     # def save_cool_pandas_append(self, pFileName, pDataFrameBins, pDataFrameMatrix, pLock=None):
@@ -1285,13 +1260,6 @@ class hiCMatrix:
                                     pixels=pDataFrameMatrix)
 
     def save_cooler(self, pFileName):
-        """
-        Saves the matrix using the 'cool'-format.
-        :param pFileName:
-        :return: None
-        """
-        self.restoreMaskedBins()
-        
         # create a pandas data frame for cut_intervals
         bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
 
@@ -1486,10 +1454,7 @@ class hiCMatrix:
         self.matrix = ma_coo.tocsr()
         self.matrix.eliminate_zeros()
         return self.matrix
-    
-    def setNanBins(self, pNanBins):
-        self.nan_bins = pNanBins
-    
+
     def setMatrixValues(self, newMatrix):
         """
         replace the current matrix values

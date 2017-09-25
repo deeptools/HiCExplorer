@@ -153,8 +153,8 @@ def main(args=None):
                     thread_done[i] = True
                 elif chr_element >= len(chromosome_list) and queue[i] is None:
                         thread_done[i] = True
-                else:
-                    time.sleep(0.1)
+                    else:
+                        time.sleep(0.1)
                 if chr_element >= len(chromosome_list):
                     all_threads_done = True
                     for thread in thread_done:
