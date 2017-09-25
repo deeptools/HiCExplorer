@@ -220,8 +220,11 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pNorm
         axHeat2.set_axis_off()
         xticks = [[0, ma.shape[0]]]
     else:
+        
+        print("chrBinBoundaries", chrBinBoundaries)
         ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
         labels = chrBinBoundaries.keys()
+        print (labels)
         axHeat2.set_xticks(ticks)
         if len(labels) > 20:
             axHeat2.set_xticklabels(labels, size=4, rotation=90)
@@ -229,12 +232,14 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pNorm
             axHeat2.set_xticklabels(labels, size=8)
         if pPca:
             xticks = [labels, ticks]
+        print("ticks", ticks)
+        print("label", labels)
     axHeat2.get_yaxis().set_visible(False)
 
     if pPca:
         axHeat2.xaxis.set_label_position("top") 
         axHeat2.xaxis.tick_top() 
-        plotEigenvector(pPca['axis'], pPca['args'].pca, pXticks=xticks)
+        plotEigenvector(pPca['axis'], pPca['args'].pca, pXticks=xticks, pChromosomeList=labels)
 
 
 def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
@@ -423,7 +428,7 @@ def plotPerChr(hic_matrix, cmap, args, pNorm, pPca):
         axis.set_yticklabels(xlabels, size='small')
 
         if pPca:
-            plotEigenvector(axis_eigenvector, pPca['args'].pca, pChromosome=chrname, pXticks=[xlabels])
+            plotEigenvector(axis_eigenvector, pPca['args'].pca, pChromosomeList=[chrname], pXticks=[xlabels])
        
     if pPca is None:
         cbar3 = plt.subplot(grids[-1])
@@ -606,7 +611,7 @@ def main(args=None):
     plt.savefig(args.outFileName, dpi=args.dpi)
 
 
-def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosome=None, pRegion=None, pXticks=None):
+def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegion=None, pXticks=None, pNanBins=None):
 
     
     pAxis.set_frame_on(False)
@@ -620,8 +625,8 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosome=None, pRegion=No
         if eigenvector.split('.')[-1] != file_format:
             exit("Eigenvector input files have different formats.")
    
-    if pChromosome:
-        chrom = pChromosome
+    # if pChromosome:
+    #     chrom = pChromosome
     if pRegion:
         # print("pRegion", pRegion)
         chrom, region_start, region_end = pRegion
@@ -632,7 +637,11 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosome=None, pRegion=No
         for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
 
             interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
-            if pChromosome or pRegion:
+            if pChromosomeList:
+                for chrom in pChromosomeList:
+                    if chrom not in interval_tree:
+                        return
+            if pRegion:
                 if chrom not in interval_tree:
                     return
             # # region_start = interval_tree[chrom][0]
@@ -640,12 +649,13 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosome=None, pRegion=No
             # print("interval_tree[chrom][0]", interval_tree[chrom][-1][1])
             
             eigenvector = []
-            if pChromosome:
-                for i, region in enumerate(sorted(interval_tree[chrom])):
-                    if i == 0:
-                        region_start = region[0]
-                    region_end = region[1]
-                    eigenvector.append(float(region.data[0]))
+            if pChromosomeList:
+                for chrom in pChromosomeList:
+                    for i, region in enumerate(sorted(interval_tree[chrom])):
+                        if i == 0:
+                            region_start = region[0]
+                        region_end = region[1]
+                        eigenvector.append(float(region.data[0]))
             elif pRegion:
                 for region in sorted(interval_tree[chrom][region_start:region_end]):
                     eigenvector.append(float(region.data[0]))
