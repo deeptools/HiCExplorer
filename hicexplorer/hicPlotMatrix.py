@@ -520,9 +520,27 @@ def main(args=None):
 
     pca = None
     if args.pca:
-        pca = {'args': args, 'axis': None, 'axis_colorbar': None}
+        pca = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': ma.nan_bins}
+    if args.log:
+        mask = matrix == 0
+        mask_nan = matrix == np.nan
+        matrix[mask] = matrix[mask == False].min()
+        matrix[mask_nan] = matrix[mask_nan == False].min()
+        
+        matrix = np.log(matrix)
+    norm = None
+    if args.log1p:
+        mask = matrix == 0
+        matrix[mask] = matrix[mask == False].min()
+        mask_nan = matrix == np.nan
+        matrix[mask_nan] = matrix[mask_nan == False].min()
+        
+        matrix += 1
+        # matrix = np.log1p(matrix)
+        norm = LogNorm()
+
     if args.perChromosome:
-        plotPerChr(ma, cmap, args,pca)
+        plotPerChr(ma, cmap, args, pNorm=norm, pPca=pca)
 
     else:
         fig_height = 6
@@ -555,20 +573,7 @@ def main(args=None):
             ax1 = None
         bottom = 0.8 / fig_height
 
-        if args.log:
-            mask = matrix == 0
-            mask_nan = matrix == np.nan
-            matrix[mask] = matrix[mask == False].min()
-            matrix[mask_nan] = matrix[mask_nan == False].min()
-            
-            matrix = np.log(matrix)
-        norm = None
-        if args.log1p:
-            mask = matrix == 0
-            matrix[mask] = matrix[mask == False].min()
-            matrix += 1
-            # matrix = np.log1p(matrix)
-            norm = LogNorm()
+       
         if args.whatToShow == '3D':
             position = [left_margin, bottom, width * 1.2, height * 1.2]
             plotHeatmap3D(matrix, fig, position, args, cmap)
@@ -627,8 +632,9 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosome=None, pRegion=No
         for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
 
             interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
-            if chrom not in interval_tree:
-                return
+            if pChromosome or pRegion:
+                if chrom not in interval_tree:
+                    return
             # # region_start = interval_tree[chrom][0]
             # print("interval_tree[chrom][0]", interval_tree[chrom][0])
             # print("interval_tree[chrom][0]", interval_tree[chrom][-1][1])
