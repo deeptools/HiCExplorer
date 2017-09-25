@@ -168,7 +168,7 @@ class hiCMatrix:
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
-        nan_bins = np.array([], dtype=np.int32)
+        nan_bins = np.asarray(matrix.sum(axis=1)).flatten() 
         # try to restore nan_bins.
         # if data of interval is < 1 it is assummed to be nan
         for i, interval in enumerate(cut_intervals):
@@ -1241,25 +1241,25 @@ class hiCMatrix:
                                     pixels=matrix_data_frame)
 
 
-    # def save_cool_pandas_append(self, pFileName, pDataFrameBins, pDataFrameMatrix, pLock=None):
-
-    #     cooler_file = cooler.io.append(cool_uri=pFileName,
-    #                                     table='bins',
-    #                                     data=pDataFrameBins,
-    #                                     force=False,
-    #                                     lock=pLock)
-    #     cooler_file = cooler.io.append(cool_uri=pFileName,
-    #                                     table='pixels',
-    #                                     data=pDataFrameMatrix,
-    #                                     force=False,
-    #                                     lock=pLock) ls
     
     def save_cool_pandas(self, pFileName, pDataFrameBins, pDataFrameMatrix):
+
+        if pDataFrameBins['start'].dtypes != 'int64':
+            pDataFrameBins['start'] = pDataFrameBins['start'].astype(np.int64)
+        if pDataFrameBins['end'].dtypes != 'int64':
+            pDataFrameBins['end'] = pDataFrameBins['end'].astype(np.int64)
+        if pDataFrameMatrix['bin1_id'].dtypes != 'int64':
+            pDataFrameMatrix['bin1_id'] = pDataFrameMatrix['bin1_id'].astype(np.int64)
+        if pDataFrameMatrix['bin2_id'].dtypes != 'int64':
+            pDataFrameMatrix['bin2_id'] = pDataFrameMatrix['bin2_id'].astype(np.int64)
+        
         cooler_file = cooler.io.create(cool_uri=pFileName,
                                     bins=pDataFrameBins,
                                     pixels=pDataFrameMatrix)
 
     def save_cooler(self, pFileName):
+        self.restoreMaskedBins()
+        
         # create a pandas data frame for cut_intervals
         bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
 
@@ -1548,13 +1548,17 @@ class hiCMatrix:
                 previous_bin_ids = self.orig_bin_ids[M:]
                 # merge new and old masked bins
                 bin_ids = np.unique(np.concatenate([previous_bin_ids, self.orig_bin_ids[bin_ids]]))
+                print("bin_ids_orginal stuff", bin_ids[:10])
                 np.sort(bin_ids)
                 self.restoreMaskedBins()
         except:
             pass
 
+
         # join with existing nan_bins
         if len(self.nan_bins) > 0:
+            print("bin_ids_orginal stuff_1", self.nan_bins[:10])
+            
             print("found existing {} nan bins that will be "
                   "included for masking ".format(len(self.nan_bins)))
             bin_ids = np.unique(np.concatenate([self.nan_bins, bin_ids]))
@@ -1572,7 +1576,10 @@ class hiCMatrix:
 
         self.orig_cut_intervals = \
             new_cut_intervals + [self.cut_intervals[x] for x in bin_ids]
-
+        # print("[loop]",[self.cut_intervals[x] for x in bin_ids][:10])
+        # print("self.cut_intervals", self.cut_intervals[:10])
+        # print("new_cut_intervals", new_cut_intervals[:10])
+        # print("self.orig_cut_intervals", self.orig_cut_intervals[:10])
         self.cut_intervals = new_cut_intervals
 #        self.nan_bins = np.intersect1d(self.nan_bins, rows)
         self.interval_trees, self.chrBinBoundaries = \
@@ -1905,6 +1912,7 @@ class hiCMatrix:
         return cool_matrix_pixel
     @staticmethod
     def compute_dataframe_bins(pBinsList, pOperator):
+        # make union
         if pOperator is None:
             exit("Please define an operator!")
         ops = {'*': operator.imul,
