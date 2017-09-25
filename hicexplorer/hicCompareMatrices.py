@@ -11,7 +11,6 @@ import operator
 import time
 
 
-
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -33,7 +32,7 @@ def parse_arguments(args=None):
     parser.add_argument('--operation',
                         help='Operation to apply for the matrices. Options are: diff, ratio, log2ratio',
                         required=True)
-    
+
     parser.add_argument('--threads',
                         help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
                         ' One master process which is used to read the input file into the buffer and one process which is merging '
@@ -42,14 +41,15 @@ def parse_arguments(args=None):
                         default=4,
                         type=int
                         )
-   
+
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
     return parser
 
+
 def compute_cool_matrix(pBinsList, pMatrixList, pQueue, pHic, pOperation):
-   
+
     # normalize by total matrix sum
     sum_matrix_0 = pMatrixList[0]['count'].sum()
     sum_matrix_1 = pMatrixList[1]['count'].sum()
@@ -57,7 +57,7 @@ def compute_cool_matrix(pBinsList, pMatrixList, pQueue, pHic, pOperation):
     pMatrixList[0]['count'] = pMatrixList[0]['count'].apply(lambda x: x / sum_matrix_0)
     pMatrixList[1]['count'] = pMatrixList[1]['count'].apply(lambda x: x / sum_matrix_0)
 
-    cool_pandas_bins = pHic.compute_dataframe_bins(pBinsList, "+")    
+    cool_pandas_bins = pHic.compute_dataframe_bins(pBinsList, "+")
 
     if pMatrixList[0] is None:
         print("First is none")
@@ -71,10 +71,9 @@ def compute_cool_matrix(pBinsList, pMatrixList, pQueue, pHic, pOperation):
         new_matrix = pHic.compute_dataframe_matrix(pMatrixList, "*")
         if pOperation == 'log2ratio':
             if new_matrix is not None:
-                new_matrix['count'] = new_matrix['count'].apply(np.log2)       
+                new_matrix['count'] = new_matrix['count'].apply(np.log2)
     pQueue.put([cool_pandas_bins, new_matrix])
     return
-
 
 
 def main(args=None):
@@ -86,28 +85,28 @@ def main(args=None):
     if args.matrices[0].endswith('.cool'):
         if args.threads < 2:
             exit("At least two threads are necessary. Given are: {}.".format(args.threads))
-        
+
         args.threads = args.threads - 1
         process = [None] * args.threads
         lock = Lock()
         queue = [None] * args.threads
 
         hic = hm.hiCMatrix(args.matrices[0], cooler_only_init=True)
-        hic_second_matrix = hm.hiCMatrix(args.matrices[1], cooler_only_init=True)        
+        hic_second_matrix = hm.hiCMatrix(args.matrices[1], cooler_only_init=True)
         chromosome_list = hic.cooler_file.chromnames
         chromosome_list_second_matrix = hic_second_matrix.cooler_file.chromnames
         thread_done = [False] * args.threads
         all_threads_done = False
-        
+
         dataFrameBins = None
         dataFrameMatrix = None
         chr_element = 0
         # TODO: shape check is missing
         if chromosome_list != chromosome_list_second_matrix:
             exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
-                    "{}: {}\n"
-                    "{}: {}".format(args.matrices[0], chromosome_list,
-                                    args.matrices[1], chromosome_list_second_matrix))
+                 "{}: {}\n"
+                 "{}: {}".format(args.matrices[0], chromosome_list,
+                                 args.matrices[1], chromosome_list_second_matrix))
         while chr_element < len(chromosome_list) or not all_threads_done:
             for i in range(args.threads):
                 if queue[i] is None and chr_element < len(chromosome_list):
@@ -140,11 +139,11 @@ def main(args=None):
                     queue[i] = None
                     process[i].join()
                     process[i].terminate()
-                    
+
                     process[i] = None
                     thread_done[i] = True
                 elif chr_element >= len(chromosome_list) and queue[i] is None:
-                        thread_done[i] = True
+                    thread_done[i] = True
                 else:
                     time.sleep(0.1)
                 if chr_element >= len(chromosome_list):
@@ -152,24 +151,24 @@ def main(args=None):
                     for thread in thread_done:
                         if not thread:
                             all_threads_done = False
-        
-        # TODO
+
         hic.save_cool_pandas(args.outFileName, dataFrameBins, dataFrameMatrix)
 
-                
     else:
+        if args.threads:
+            print("Multiple threads are only used if the matrices are in 'cool'-format.")
         hic1 = hm.hiCMatrix(args.matrices[0])
         hic2 = hm.hiCMatrix(args.matrices[1])
 
         if hic1.matrix.shape != hic2.matrix.shape:
             exit("The two matrices have different size. Use matrices having the same resolution and created using"
-                "the same parameters. Check the matrix values using the tool `hicInfo`.")
+                 "the same parameters. Check the matrix values using the tool `hicInfo`.")
 
         if hic1.chrBinBoundaries != hic2.chrBinBoundaries:
             exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
-                "{}: {}\n"
-                "{}: {}".format(args.matrices[0], hic1.chrBinBoundaries.keys(),
-                                args.matrices[1], hic2.chrBinBoundaries.keys()))
+                 "{}: {}\n"
+                 "{}: {}".format(args.matrices[0], hic1.chrBinBoundaries.keys(),
+                                 args.matrices[1], hic2.chrBinBoundaries.keys()))
 
         # normalize by total matrix sum
         hic1.matrix.data = hic1.matrix.data.astype(float) / hic1.matrix.data.sum()
