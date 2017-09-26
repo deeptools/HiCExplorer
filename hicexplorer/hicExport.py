@@ -178,7 +178,11 @@ def main(args=None):
             hic_ma.distance_counts = distance_counts
 
     else:
-        hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
+        if args.inputFormat == 'cool':
+            hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
+        else:
+            hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
+            
         if args.bplimit:
             from scipy.sparse import triu
             sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
@@ -187,11 +191,12 @@ def main(args=None):
             hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
             hic_ma.matrix.eliminate_zeros()
 
-    if args.chromosomeOrder:
-        hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
+    if not args.inputFormat == 'cool':
+        if args.chromosomeOrder:
+            hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
 
-    if args.clearMaskedBins:
-        hic_ma.maskBins(hic_ma.nan_bins)
+        if args.clearMaskedBins:
+            hic_ma.maskBins(hic_ma.nan_bins)
 
     if not args.outFileName.endswith(args.outputFormat):
         args.outFileName += "."
