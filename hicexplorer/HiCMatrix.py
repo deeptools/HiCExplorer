@@ -114,7 +114,7 @@ class hiCMatrix:
                     return
                 else:
                     self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
-                        hiCMatrix.load_cool(matrixFile, chrnameList)
+                        self.load_cool(matrixFile, pChrnameList=chrnameList)
                     self.restoreMaskedBins()
             else:
                 exit("matrix format not known.")
@@ -136,7 +136,7 @@ class hiCMatrix:
         return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
 
 
-
+    # @staticmethod
     def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None):
         self.cooler_file = cooler.Cooler(pMatrixFile)
 
@@ -145,8 +145,30 @@ class hiCMatrix:
         else:
             if len(pChrnameList) == 1:
                 matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
-            else:
+            elif len(pChrnameList) == 2:
                 matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0], pChrnameList[1])
+            else:
+                matrix = None
+                for chrom in pChrnameList:
+                    matrix_ = self.cooler_file.matrix(balance=False, as_pixels=True).fetch(chrom)
+                    if matrix is None:
+                        matrix = matrix_
+                    else:
+                        dataFrameMatrix = pd.concat([matrix, matrix_], ignore_index=True)
+                shape = self.cooler_file.info['nbins']
+                row = []
+                col = []
+                data = []
+                
+                print("Prepare csr!")
+                for data_ in matrix.values:
+                    row.append(data_[0])
+                    col.append(data_[1])
+                    data.append(data_[2])
+                print("Prepare csr! DONE")
+                print("matrix"), matrix
+                matrix = csr_matrix((data, (row, col)), shape=(shape, shape))
+                
         # if pMatrixOnly:
         #     return matrix.tocsr(), None, np.array([], dtype=np.int32), None, None
         
@@ -161,8 +183,14 @@ class hiCMatrix:
             else:
                 # if pChrnameList[1].startswith('chr'):
                 #     pChrnameList[1] = pChrnameList[1][3:]
-                cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
-                cut_intervals_data_frame.append(self.cooler_file.bins().fetch(pChrnameList[1]))
+
+                for chrom in pChrnameList:
+                    cut_intervals_data_frame_ = self.cooler_file.bins().fetch(chrom)
+                    if cut_intervals_data_frame is None:
+                        cut_intervals_data_frame = cut_intervals_data_frame_
+                    else:
+                        pd.concat([cut_intervals_data_frame, cut_intervals_data_frame_], ignore_index=True)
+                # cut_intervals_data_frame.append(self.cooler_file.bins().fetch(pChrnameList[1]))
 
         else:
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
