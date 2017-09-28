@@ -405,9 +405,11 @@ def main(args=None):
                          'compatible.')
     
     if args.matrix.endswith('.cool'):
-        chrom, region_start, region_end = translate_region(args.region)
+
+        
         regionsToRetrieve = None
         if args.region:
+            # chrom, region_start, region_end = translate_region(args.region)
             regionsToRetrieve = []
             regionsToRetrieve.append(args.region)
             print("args.region", args.region)
@@ -486,19 +488,19 @@ def main(args=None):
         # if args.matrix.endswith('.cool'):
         #     matrix = np.asarray(ma.matrix.todense().astype(float))
         # else:
-        print("start_pos1", start_pos1)
-        print("len(start_pos1)", len(start_pos1))
-        print("idx1", idx1)
-        print("len(idx1)", len(idx1))
-        print("start_pos2", start_pos2)
-        print("len(start_pos2)", len(start_pos2))
+        # print("start_pos1", start_pos1)
+        # print("len(start_pos1)", len(start_pos1))
+        # print("idx1", idx1)
+        # print("len(idx1)", len(idx1))
+        # print("start_pos2", start_pos2)
+        # print("len(start_pos2)", len(start_pos2))
         
-        print("idx2", idx2)
-        print("len(idx2)", len(idx2))
+        # print("idx2", idx2)
+        # print("len(idx2)", len(idx2))
         
         matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
-        print("matrix", matrix)    
-        print("len(matrix)", len(matrix))
+        # print("matrix", matrix)    
+        # print("len(matrix)", len(matrix))
     else:
         # TODO make start_pos1
         matrix = np.asanyarray(ma.getMatrix().astype(float))
@@ -506,7 +508,7 @@ def main(args=None):
     for matrix_ in matrix:
         if not matrix_length == len(matrix_):
             print("NOT SAME LENGTH")
-    print("matrix_length", matrix_length)
+    # print("matrix_length", matrix_length)
     cmap = cm.get_cmap(args.colorMap)
     sys.stderr.write("Nan values set to black\n")
     cmap.set_bad('black')
