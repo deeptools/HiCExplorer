@@ -132,7 +132,6 @@ def heatmap_options():
                               'on top of the heatmap.',
                          action='store_true',
                          required=False)
-    
     return parser
 
 
@@ -256,7 +255,7 @@ def main(args=None):
     all_nan = []
 
     # parallel load with cooler
-    if args.matrices[0].endwith('.cool'):
+    if args.matrices[0].endswith('.cool'):
         # load each chromosome in parallel. 
         # perform this with DataFrames. 
         # build them after it together
@@ -326,9 +325,11 @@ def main(args=None):
             sys.stderr.write("loading hic matrix {}\n".format(matrix))
             # print("args.chromosomes", args.chromosomes)
             
-            _mat = hm.hiCMatrix(matrix)
+            _mat = hm.hiCMatrix(matrix, pThreads=args.threads)
+            print("load done")
             if args.chromosomes:
                 _mat.keepOnlyTheseChr(args.chromosomes)
+            print("diagflat")
             _mat.diagflat(0)
             sys.stderr.write("restore masked bins {}\n".format(matrix))
             _mat.filterOutInterChrCounts()
