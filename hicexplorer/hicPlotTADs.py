@@ -206,7 +206,7 @@ DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         description='Plots the diagonal,  and some values close to '
-        'the diagonal of a  HiC matrix. The diagonal of the matrix is '
+        'the diagonal of a  Hi-C matrix. The diagonal of the matrix is '
         'plotted horizontally for a region. I will not draw the diagonal '
         'for the whole chromosome',
         usage="%(prog)s --tracks tracks.ini --region chr1:1000000-4000000 -o image.png")
@@ -334,11 +334,11 @@ def get_region(region_string):
 
 
 def main(args=None):
-
+    print("hicPlotTADs")
     args = parse_arguments().parse_args(args)
     trp = hicexplorer.trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
                                            fontsize=args.fontSize, dpi=args.dpi,
-                                           track_label_width=args.trackLabelFraction)
+                                           track_label_width=args.trackLabelFraction, p_region=args.region)
 
     if args.BED:
         count = 0

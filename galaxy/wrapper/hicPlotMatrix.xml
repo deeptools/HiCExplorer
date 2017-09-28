@@ -22,7 +22,7 @@
             #end if
 
 
-            --outFileName plot.svg
+            --outFileName plot.$image_file_format
 
             $perChromosome
             $clearMaskedBins
@@ -63,7 +63,7 @@
                     --zMax $whatToShow.zMax
                 #end if
             #end if
-
+        && mv plot.$image_file_format plot
 ]]>
     </command>
     <inputs>
@@ -107,10 +107,17 @@
 
         <param argument="--vMin" type="float" optional="true" label="vMin"/>
         <param argument="--vMax" type="float" optional="true" label="vMax"/>
-
+        <param name="image_file_format" type="select" label="Image output format">
+            <option value="png" selected="True">png</option>
+            <option value="svg">svg</option>
+        </param>
     </inputs>
     <outputs>
-        <data name="outFileName" from_work_dir="plot.svg" format="svg" label="${tool.name} on ${on_string}"/>
+        <data format="png" name="outFileName" from_work_dir="plot" label="${tool.name} on ${on_string}">
+            <change_format>
+                <when input="image_file_format" value="svg" format="svg" />
+            </change_format>
+        </data>
     </outputs>
     <tests>
         <test>
@@ -120,14 +127,15 @@
             <param name="log1p" value="True"/>
             <param name="clearMaskedBins" value="True"/>
             <param name="whatToShow_select" value="heatmap"/>
-            <output name="outFileName" file="hicPlotMatrix_result1.svg" ftype="svg" compare="sim_size"/>
+            <param name="image_file_format" value="png" />
+            <output name="outFileName" file="hicPlotMatrix_result1.png" ftype="png" compare="sim_size"/>
         </test>
     </tests>
     <help><![CDATA[
 
 **What it does**
 
-Plots a HiC matrix heatmap.
+Plots a Hi-C matrix heatmap.
 
 ]]></help>
     <expand macro="citations" />

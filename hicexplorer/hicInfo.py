@@ -11,8 +11,8 @@ def parse_arguments(args=None):
                                                   'number of elements, sum of elements, etc.'))
 
     parser.add_argument('--matrices', '-m',
-                        help='matrices to add. Must have the same shape.',
-                        metavar='.h5 of .npz file format',
+                        help='The matrix (matrices) to get information about.',
+                        metavar='HiCExplorer supports: h5, npz, dekker and lieberman file format.',
                         nargs='+',
                         required=True)
 
@@ -26,7 +26,6 @@ def main():
 
     args = parse_arguments().parse_args()
     for matrix in args.matrices:
-        print("File:\t{}".format(matrix))
 
         hic_ma = hm.hiCMatrix(matrix)
         size = hic_ma.matrix.shape[0]
@@ -36,8 +35,13 @@ def main():
         num_nan_bins = len(hic_ma.nan_bins)
         min_non_zero = hic_ma.matrix.data.min()
         max_non_zero = hic_ma.matrix.data.max()
-        chromosomes = list(hic_ma.chrBinBoundaries)
+        if not matrix.endswith("lieberman"):
+            chromosomes = hic_ma.chrBinBoundaries.keys()
+        else:
+            chromosomes = list(hic_ma.chrBinBoundaries)
+                
 
+        print("File:\t{}".format(matrix))
         print("Size:\t{:,}".format(size))
         print("Sum:\t{:,}".format(sum_elements))
         print("Bin_length:\t{}".format(bin_length))

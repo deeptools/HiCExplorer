@@ -36,15 +36,15 @@ Our #biorXiv preprint on DNA sequences behind Fly genome architecture is online!
 
 Read the article here : `<http://biorxiv.org/content/early/2017/03/08/115063>`_
 
-In this article, we introduce HiCExplorer : Our easy to use tool for HiC data analysis, also available in `Galaxy <https://galaxyproject.org/>`_.
+In this article, we introduce HiCExplorer : Our easy to use tool for Hi-C data analysis, also available in `Galaxy <https://galaxyproject.org/>`_.
 
-We also introduce `HiCBrowser <https://github.com/maxplanck-ie/HiCBrowser>`_ : A standalone software to visualize HiC along with other genomic datasets.
+We also introduce `HiCBrowser <https://github.com/maxplanck-ie/HiCBrowser>`_ : A standalone software to visualize Hi-C along with other genomic datasets.
 
 Based on HiCExplorer and HiCBrowser, we built a useful resource for anyone to browse and download the chromosome
 conformation datasets in Human, Mouse and Flies. It's called `the chorogenome navigator <http://chorogenome.ie-freiburg.mpg.de/>`_
 
 Along with these resources, we present an analysis of DNA sequences behind 3D genome of Flies. Using high-resolution
-HiC analysis, we find a set of DNA motifs that characterize TAD boundaries in Flies and show the importance of these motifs in genome organization.
+Hi-C analysis, we find a set of DNA motifs that characterize TAD boundaries in Flies and show the importance of these motifs in genome organization.
 
 We hope that these resources and analysis would be useful for the community and welcome any feedback.
 
