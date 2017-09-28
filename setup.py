@@ -103,7 +103,8 @@ install_requires_py = ["numpy >= 1.12.1",
                        "pandas >= 0.20.2",
                        "pyBigWig >=0.3.4",
                        "six >= 1.10.0",
-                       "future >= 0.16.0"
+                       "future >= 0.16.0",
+                       "cooler >= 0.7.4"
                        ]
 
 if sys.version_info[0] == 2 or (sys.version_info[0] == 3 and sys.version_info[1] == 4):

@@ -22,7 +22,7 @@ import matplotlib.gridspec as gridspec
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description='Creates a Heatmap of a HiC matrix')
+    parser = argparse.ArgumentParser(description='Creates a Heatmap of a Hi-C matrix')
 
     # define the arguments
     parser.add_argument('--matrix', '-m',
@@ -218,6 +218,9 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     if start_pos2 is None:
         start_pos2 = start_pos
 
+    # print("plotHeatmap_region___start_pos", start_pos)
+    # print("plotHeatmap_region___start_pos2", start_pos2)
+    
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
     img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=norm)
 
@@ -393,14 +396,34 @@ def plotPerChr(hic_matrix, cmap, args):
 
 
 def main(args=None):
+    print("\nhicPlotMatrix")
     args = parse_arguments().parse_args(args)
-
-    ma = HiCMatrix.hiCMatrix(args.matrix)
     if args.perChromosome and args.region:
         sys.stderr.write('ERROR, choose from the option '
                          '--perChromosome or --region, the two '
                          'options at the same time are not '
                          'compatible.')
+    
+    if args.matrix.endswith('.cool'):
+
+        
+        regionsToRetrieve = None
+        if args.region:
+            # chrom, region_start, region_end = translate_region(args.region)
+            regionsToRetrieve = []
+            regionsToRetrieve.append(args.region)
+            print("args.region", args.region)
+            if args.region2:
+                chrom2, region_start2, region_end2 = translate_region(args.region2)
+                regionsToRetrieve.append(args.region2)
+                print("args.region2", args.region2)
+                
+
+        ma = HiCMatrix.hiCMatrix(args.matrix, chrnameList=regionsToRetrieve)
+        # matrix = np.asarray(ma.matrix.todense().astype(float))
+    else:
+        ma = HiCMatrix.hiCMatrix(args.matrix)
+        
     if args.chromosomeOrder:
         args.region = None
         args.region2 = None
@@ -419,13 +442,15 @@ def main(args=None):
                              "the correct spelling of the chromosome names. \n")
             sys.stderr.write("\n".join(invalid_chromosomes))
 
-    print(list(ma.interval_trees))
+    # print("list(ma.interval_trees)",list(ma.interval_trees))
     ma.restoreMaskedBins()
 
     if args.clearMaskedBins:
         ma.maskBins(ma.nan_bins)
 
     sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
+    # if not args.matrix.endswith('cool'):
+    
     if args.region:
         chrom, region_start, region_end = translate_region(args.region)
 
@@ -441,7 +466,8 @@ def main(args=None):
 
         args.region = [chrom, region_start, region_end]
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
-                                 x[1] >= region_start and x[2] < region_end])
+                                x[1] >= region_start and x[2] < region_end])
+        # print(chrom, region_start, region_end, idx1, start_pos1)
         if args.region2:
             chrom2, region_start2, region_end2 = translate_region(args.region2)
             if type(next(iter(ma.interval_trees))) is np.bytes_:
@@ -453,22 +479,36 @@ def main(args=None):
                 if chrom2 not in list(ma.interval_trees):
                     exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
             idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
-                                     x[1] >= region_start2 and x[2] < region_end2])
+                                    x[1] >= region_start2 and x[2] < region_end2])
         else:
             idx2 = idx1
             chrom2 = chrom
             start_pos2 = start_pos1
         # select only relevant part
+        # if args.matrix.endswith('.cool'):
+        #     matrix = np.asarray(ma.matrix.todense().astype(float))
+        # else:
+        # print("start_pos1", start_pos1)
+        # print("len(start_pos1)", len(start_pos1))
+        # print("idx1", idx1)
+        # print("len(idx1)", len(idx1))
+        # print("start_pos2", start_pos2)
+        # print("len(start_pos2)", len(start_pos2))
+        
+        # print("idx2", idx2)
+        # print("len(idx2)", len(idx2))
+        
         matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
-
+        # print("matrix", matrix)    
+        # print("len(matrix)", len(matrix))
     else:
         # TODO make start_pos1
-        start_pos1 = None
-        start_pos2 = None
-        chrom = None
-        chrom2 = None
         matrix = np.asanyarray(ma.getMatrix().astype(float))
-
+    matrix_length = len(matrix[0])
+    for matrix_ in matrix:
+        if not matrix_length == len(matrix_):
+            print("NOT SAME LENGTH")
+    # print("matrix_length", matrix_length)
     cmap = cm.get_cmap(args.colorMap)
     sys.stderr.write("Nan values set to black\n")
     cmap.set_bad('black')
@@ -513,9 +553,13 @@ def main(args=None):
         if args.whatToShow == 'heatmap':
             position = [left_margin, bottom, width, height]
             if args.region:
+                # if args.matrix.endswith('cool'):
+                    # plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
+                    #                 args, cmap, xlabel=chrom, ylabel=chrom2)
+                # else:
                 plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
-                                   args, cmap, xlabel=chrom, ylabel=chrom2,
-                                   start_pos=start_pos1, start_pos2=start_pos2)
+                                args, cmap, xlabel=chrom, ylabel=chrom2,
+                                start_pos=start_pos1, start_pos2=start_pos2)
 
             else:
                 plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,

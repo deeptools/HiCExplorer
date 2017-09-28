@@ -4,9 +4,9 @@ Importing and Exporting HiCExplorer data
 Exporting HiCExplorer output to Bioconductor
 --------------------------------------------
 
-It's possible to export HiC Matrices produced by HiCExplorer to
+It's possible to export Hi-C Matrices produced by HiCExplorer to
 `bioconductor <http://bioconductor.org/>`__ in R, which allows us to use
-existing bioconductor infrastructure for differential HiC analysis. The
+existing bioconductor infrastructure for differential Hi-C analysis. The
 tool **hicExport** allows us to write Hi-C matrices in a format that can
 eaisily be imported in bioconductor as **GInteractions** object. Below
 is an example.

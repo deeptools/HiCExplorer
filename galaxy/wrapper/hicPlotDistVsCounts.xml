@@ -77,7 +77,7 @@
 
 **What it does**
 
-This program makes a distance vs. hi-c counts plots. It can use several matrix files to compare
+This program makes a distance vs. Hi-C counts plots. It can use several matrix files to compare
 them. If the `--perchr` option is given, each chromosome is plotted independently. In the case
 of more than one matrix, multiple plots are created, one per chromosome. When plotting multiple
 matrices denser matrices are scaled down to match the sum of the smaller matrix.

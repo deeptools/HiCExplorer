@@ -2,10 +2,13 @@ import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images
 import os.path
+import numpy.testing as nt
+
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
-browser_tracks = """
+h5_browser_track = """
+
 [x-axis]
 
 [hic Kc]
@@ -16,6 +19,24 @@ depth = 200000
 transform = log1p
 x labels = yes
 boundaries_file = domains.bed
+
+"""
+
+cool_browser_track = """
+[x-axis]
+
+[hic Kc]
+file = Li_et_al_2015.cool
+title = Kc DpnII (Li et al. 2015)
+colormap = RdYlBu_r
+depth = 200000
+transform = log1p
+x labels = yes
+boundaries_file = domains.bed
+
+"""
+
+browser_tracks = """
 
 [spacer]
 width = 0.05
@@ -109,6 +130,11 @@ type = vlines
 from tempfile import NamedTemporaryFile
 
 with open(ROOT + "browser_tracks.ini", 'w') as fh:
+    fh.write(h5_browser_track)
+    fh.write(browser_tracks)
+
+with open(ROOT + "browser_tracks_cool.ini", 'w') as fh:
+    fh.write(cool_browser_track)
     fh.write(browser_tracks)
 
 tolerance = 13  # default matplotlib pixed difference tolerance
@@ -117,7 +143,7 @@ tolerance = 13  # default matplotlib pixed difference tolerance
 def test_hicPlotTads():
     import hicexplorer.hicPlotTADs
 
-    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_', delete=False)
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
     args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000  " \
            "--outFileName  {1}".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotTADs.main(args)
@@ -131,10 +157,35 @@ def test_hicPlotTads():
 def test_hicPlotMatrix():
     import hicexplorer.hicPlotMatrix
 
-    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_', delete=False)
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
     args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
            "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + '/master_matrix_plot.png', outfile.name, tolerance)
     assert res is None, res
     os.remove(outfile.name)
+
+def test_hicPlotTads_cool():
+    import hicexplorer.hicPlotTADs
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool_', delete=False)
+    args = "--tracks {0}/browser_tracks_cool.ini --region chrX:3000000-3500000  " \
+           "--outFileName  {1}".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotTADs.main(args)
+
+    res = compare_images(ROOT + '/master_TADs_plot_cool_partial_load.png', outfile.name, tolerance)
+    assert res is None, res
+
+    # os.remove(outfile.name)
+
+
+def test_hicPlotMatrix_cool():
+    import hicexplorer.hicPlotMatrix
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+    args = "--matrix {0}/Li_et_al_2015.cool --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
+           "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + '/master_matrix_plot_cool.png', outfile.name, tolerance)
+    assert res is None, res
+    # os.remove(outfile.name)
