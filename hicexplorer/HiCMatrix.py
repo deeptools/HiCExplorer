@@ -127,16 +127,11 @@ class hiCMatrix:
         self.cooler_file = cooler.Cooler(pMatrixFile)
 
     def load_cool_bins(self, pChr):
-        # self.cool_pandas_bins = None
         return self.cooler_file.bins().fetch(pChr)
-    # def load_cool_chr_matrix(self, pChr):
-    #     self.matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChr)
+
     def load_cool_matrix(self, pChr):
-        # self.cool_matrix_pixel = None
         return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
 
-
-    # @staticmethod
     def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None):
         self.cooler_file = cooler.Cooler(pMatrixFile)
 
@@ -160,29 +155,18 @@ class hiCMatrix:
                 col = []
                 data = []
                 
-                print("Prepare csr!")
                 for data_ in matrix.values:
                     row.append(data_[0])
                     col.append(data_[1])
                     data.append(data_[2])
-                print("Prepare csr! DONE")
-                print("matrix"), matrix
+
                 matrix = csr_matrix((data, (row, col)), shape=(shape, shape))
                 
-        # if pMatrixOnly:
-        #     return matrix.tocsr(), None, np.array([], dtype=np.int32), None, None
-        
         cut_intervals_data_frame = None
-        # print("pChrnameList", pChrnameList)
-        # print("cut_intervals[:20]", cut_intervals[:20])
         if pChrnameList is not None:
-            # if pChrnameList[0].startswith('chr'):
-            #     pChrnameList[0] = pChrnameList[0][3:]
             if len(pChrnameList) == 1:
                 cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
             else:
-                # if pChrnameList[1].startswith('chr'):
-                #     pChrnameList[1] = pChrnameList[1][3:]
 
                 for chrom in pChrnameList:
                     cut_intervals_data_frame_ = self.cooler_file.bins().fetch(chrom)
@@ -190,19 +174,18 @@ class hiCMatrix:
                         cut_intervals_data_frame = cut_intervals_data_frame_
                     else:
                         pd.concat([cut_intervals_data_frame, cut_intervals_data_frame_], ignore_index=True)
-                # cut_intervals_data_frame.append(self.cooler_file.bins().fetch(pChrnameList[1]))
 
         else:
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
-        nan_bins = np.asarray(matrix.sum(axis=1)).flatten() 
+        
         # try to restore nan_bins.
-        # if data of interval is < 1 it is assummed to be nan
-        for i, interval in enumerate(cut_intervals):
-            if interval[3] < 1.0:
-                nan_bins = np.append(nan_bins, i)
-
+        try:
+            nan_bins = np.asarray(matrix.sum(axis=1)).flatten() == 0
+            nan_bins = [i for i, value in enumerate(nan_bins) if value == True]
+        except:
+            nan_bins = None
         
         distance_counts = None
         correction_factors = None
@@ -229,8 +212,6 @@ class hiCMatrix:
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
                 intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
             cut_intervals = zip(intvals['chr_list'], intvals['start_list'], intvals['end_list'], intvals['extra_list'])
-            # print(cut_intervals[:10])
-            # exit(1234)
             assert len(cut_intervals) == matrix.shape[0], \
                 "Error loading matrix. Length of bin intervals ({}) is different than the " \
                 "size of the matrix ({})".format(len(cut_intervals), matrix.shape[0])
@@ -255,19 +236,7 @@ class hiCMatrix:
                 distance_counts = f.root.correction_factors.read()
             else:
                 distance_counts = None
-            # print("H5__cut_intervals is None", len(cut_intervals))
-            # print("H5__cnan_bins is None", len(nan_bins))
-            # print("H5__cdistance_counts is None", distance_counts is None)
-            # print("H5__ccorrection_factors is None", correction_factors is None)
-
-            # print("nan_bins", nan_bins[:20])
-            # print("cut_intervals", cut_intervals[:20])
-            # max_value = 0.0
-            # for i in nan_bins:
-            #     print("H5__cut_intervals[i]", i, cut_intervals[i])
-            #     if cut_intervals[i][3] > max_value:
-            #         max_value = cut_intervals[i][3]
-            # print("H5__Maxvalue: ", max_value)
+           
             return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
