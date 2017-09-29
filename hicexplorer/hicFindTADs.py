@@ -48,7 +48,7 @@ TAD scores at different window sizes. Then, the results of that computation
 are used to call the TADs. This is convenient to test different filtering criteria quickly
 as the demanding step is the computation of TAD-separation scores.
 
- An simple example usage is:
+ A simple example usage is:
 
 $ hicFindTads -m hic_matrix.h5 --outPrefix TADs
 
@@ -115,7 +115,7 @@ $ hicFindTads -m hic_matrix.h5 --outPrefix TADs
                         help='Minimum distance between boundaries (in bp). This parameter can be '
                              'used to reduce spurious boundaries caused by noise. ',
                         type=int)
-    parser.add_argument('--multipleComparisons',
+    parser.add_argument('--correctForMultipleTesting',
                         help='Select the bonferroni or false discovery rate for a multiple comparison. Bonferroni '
                         'controlls the familywise error rate (FWER) and needs a p-value. The false discovery rate '
                         '(FDR) controls the likelyhood of type I errors and needs a q-value. As a third option '
@@ -353,7 +353,7 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
 class HicFindTads(object):
 
     def __init__(self, matrix, num_processors=1, max_depth=None, min_depth=None, step=None, delta=0.01,
-                 min_boundary_distance=None, use_zscore=True, pMultipleComparisons="fdr", pThresholdComparisons=0.01):
+                 min_boundary_distance=None, use_zscore=True, p_correct_for_multiple_testing="fdr", p_threshold_comparisons=0.01):
         """
 
         Parameters
@@ -367,7 +367,7 @@ class HicFindTads(object):
         delta
         min_boundary_distance
         use_zscore boolean. By default is true. Set to other option
-        pMultipleComparisons Multiple comparisons method: FDR, Bonferroni or None
+        pCorrectForMultipleTesting Multiple comparisons method: FDR, Bonferroni or None
         pThresholdComparisons The threshold for the Multiple comparisons. It is used as p-value for Bonferroni or as q-value for FDR.
         """
 
@@ -391,8 +391,8 @@ class HicFindTads(object):
         self.bedgraph_matrix = None
         self.boundaries = None
         self.set_variables()
-        self.multipleComparisons = pMultipleComparisons
-        self.thresholdComparisons = pThresholdComparisons
+        self.correct_for_multiple_testing = p_correct_for_multiple_testing
+        self.threshold_comparisons = p_threshold_comparisons
 
     def set_variables(self):
         """
@@ -917,24 +917,25 @@ class HicFindTads(object):
         mean_mat_all = matrix.mean(axis=1)
 
         filtered_min_idx = []
+
         for idx in min_idx:
             # filter by delta and pvalue_thresholds
             if idx not in delta_of_min:
                 delta_of_min[idx] = np.nan
-            if self.multipleComparisons == 'fdr':
-                if delta_of_min[idx] >= self.delta and pvalue_of_min[idx] <= self.pvalueFDR:
+            if self.correct_for_multiple_testing == 'fdr':
+                if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.pvalueFDR:
                     filtered_min_idx += [idx]
-            elif self.multipleComparisons == 'bonferroni':
-                if delta_of_min[idx] >= self.delta and pvalue_of_min[idx] <= self.thresholdComparisons:
+            elif self.correct_for_multiple_testing == 'bonferroni':
+                if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.threshold_comparisons:
                     filtered_min_idx += [idx]
-            elif self.multipleComparisons == 'None':
+            else:
                 if delta_of_min[idx] >= self.delta:
                     filtered_min_idx += [idx]
-        if self.multipleComparisons == 'fdr':
-            log.info("Number of boundaries for delta {}, qval {} and pval {}: {}".format(self.delta, self.thresholdComparisons, self.pvalueFDR,
-                                                                                         len(filtered_min_idx)))
-        elif self.multipleComparisons == 'bonferroni':
-            log.info("Number of boundaries for delta {} and pval {}: {}".format(self.delta, self.thresholdComparisons,
+        if self.correct_for_multiple_testing == 'fdr':
+            log.info("Number of boundaries for delta {}, qval {}: {}".format(self.delta, self.threshold_comparisons,
+                                                                             len(filtered_min_idx)))
+        elif self.correct_for_multiple_testing == 'bonferroni':
+            log.info("Number of boundaries for delta {} and pval {}: {}".format(self.delta, self.threshold_comparisons,
                                                                                 len(filtered_min_idx)))
         else:
             log.info("Number of boundaries for delta {}: {}".format(self.delta, len(filtered_min_idx)))
@@ -1175,7 +1176,7 @@ class HicFindTads(object):
         from scipy.stats import ranksums
 
         new_min_idx = []
-        for i, idx in enumerate(min_idx):
+        for idx in min_idx:
 
             matrix_idx = self.hic_ma.getRegionBinRange(chrom[idx], chr_start[idx], chr_end[idx])
             if matrix_idx is None:
@@ -1212,21 +1213,19 @@ class HicFindTads(object):
                     pval = np.nan
             pvalues += [pval]
 
-        # print("pvalues 1185", pvalues)
-
         assert len(pvalues) == len(new_min_idx)
 
         # fdr
-        if self.multipleComparisons == 'fdr':
+        if self.correct_for_multiple_testing == 'fdr':
             pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
             pvalues_ = sorted(pvalues)
             largest_p_i = 0
             for i, p in enumerate(pvalues_):
-                if p < (self.thresholdComparisons * (i + 1) / len(pvalues_)):
-                    if p > largest_p_i:
+                if p <= (self.threshold_comparisons * (i + 1) / len(pvalues_)):
+                    if p >= largest_p_i:
                         largest_p_i = p
             self.pvalueFDR = largest_p_i
-        elif self.multipleComparisons == 'bonferroni':
+        elif self.correct_for_multiple_testing == 'bonferroni':
             # bonferroni correction
             pvalues = np.array(pvalues) * len(pvalues)
             pvalues[np.array([e > 1 if ~np.isnan(e) else False for e in pvalues])] = 1
@@ -1299,7 +1298,7 @@ def main(args=None):
     ft = HicFindTads(args.matrix, num_processors=args.numberOfProcessors, max_depth=args.maxDepth,
                      min_depth=args.minDepth, step=args.step, delta=args.delta,
                      min_boundary_distance=args.minBoundaryDistance, use_zscore=True,
-                     pMultipleComparisons=args.multipleComparisons, pThresholdComparisons=args.thresholdComparisons)
+                     p_correct_for_multiple_testing=args.correctForMultipleTesting, p_threshold_comparisons=args.thresholdComparisons)
 
     tad_score_file = args.outPrefix + "_tad_score.bm"
     zscore_matrix_file = args.outPrefix + "_zscore_matrix." + args.zscoreMatrixFormat

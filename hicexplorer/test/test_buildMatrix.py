@@ -50,6 +50,7 @@ def test_build_matrix():
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
+    os.unlink("/tmp/test.bam")
 
 def test_build_matrix_cooler():
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)

@@ -159,16 +159,6 @@ to provide:
 * the number of to be used threads. Minimum value is 3: `--threads 8`
 * the buffer size for each thread buffering `inputBufferSize` lines of each input BAM/SAM file: `--inputBufferSize 400000`
 
-To decrease the computing time you can set the system environment variable `HICEXPLORER_FILE_BUFFER_DIR` to a RAM disk like `/dev/shm`.
-Be careful: This will consume a sustainable amount of memory i.e. with our BAM/SAM input files and their ~20 GB each, 8 threads and an input buffer size of 400,000 will
-use 20 - 25 GB RAM. If you have a system with lower specifications, decrease the inputBufferSize and / or the number of used threads. It is recommended to not use less
-than 100,000 as `inputBufferSize`. If the memory is still not enough use a directory on your local hard drive.
-
-To set the system environment variable run:
-
-.. code:: bash
-
-    export HICEXPLORER_FILE_BUFFER_DIR=/dev/shm
 
 To build the Hi-C matrices:
 
@@ -430,7 +420,7 @@ boundaries.
     hicFindTADs --matrix hicMatrix/replicateMerged.Corrected_20kb.h5 \
     --minDepth 60000 --maxDepth 120000 --numberOfProcessors 8 --step 20000 \
     --outPrefix TADs/marks_et-al_TADs_20kb-Bins  --minBoundaryDistance 80000 \
-    --multipleComparisons fdr --threshold 0.05
+    --correctForMultipleTesting fdr --threshold 0.05
 
 As an output we get the boundaries, domains and scores separated files. We will use in the plot below only
 the TAD-score file.
