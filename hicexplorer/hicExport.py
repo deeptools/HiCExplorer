@@ -23,18 +23,13 @@ def parse_arguments(args=None):
                         required=True)
 
     parser.add_argument('--inputFormat',
-<<<<<<< HEAD
-                        help='file format for input file. \n'
-                             '(options : hicexplorer, lieberman, npz (file format of previous hicexplorer versions),'
-                             'dekker, cool.',
-=======
                         help='file format for the matrix file. \n'
                              'The following options are available: `hicexplorer` (native HiCExplorer format, '
                              '`npz` (format used by earlier versions of HiCExplorer), '
                              '`dekker` (matrix format used in Job Dekker publications), '
-                             'and `lieberman` (format used by Erez Lieberman Aiden). This last formats may change '
+                             '`lieberman` (format used by Erez Lieberman Aiden) and
+                             ' `cool`. This last formats may change '
                              'in the future.',
->>>>>>> develop
                         default='hicexplorer')
 
     parser.add_argument('--chrNameList',
