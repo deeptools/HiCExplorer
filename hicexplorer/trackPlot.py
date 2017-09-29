@@ -1851,6 +1851,89 @@ class PlotArcs(TrackPlot):
                       verticalalignment='bottom', transform=label_ax.transAxes)
 
 
+class PlotEigenvector(TrackPlot):
+
+
+    
+    def plot(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegion=None, pXticks=None, pNanBins=None):
+
+        
+        pAxis.set_frame_on(False)
+        
+        file_format = pNameOfEigenvectorsList[0].split(".")[-1]
+        if file_format != 'bedgraph' and file_format != 'bigwig':
+            exit("Given eigenvector files are not bedgraph or bigwig")
+
+        for eigenvector in pNameOfEigenvectorsList:
+            if eigenvector.split('.')[-1] != file_format:
+                exit("Eigenvector input files have different formats.")
+    
+        if pRegion:
+            chrom, region_start, region_end = pRegion
+        
+        if file_format == "bigwig":
+            pass
+        else:
+            for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
+
+                interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
+                if pChromosomeList:
+                    for chrom in pChromosomeList:
+                        if chrom not in interval_tree:
+                            return
+                if pRegion:
+                    if chrom not in interval_tree:
+                        return
+                
+                eigenvector = []
+                if pChromosomeList:
+                    for chrom in pChromosomeList:
+                        for i, region in enumerate(sorted(interval_tree[chrom])):
+                            if i == 0:
+                                region_start = region[0]
+                            region_end = region[1]
+                            eigenvector.append(float(region.data[0]))
+                elif pRegion:
+                    for region in sorted(interval_tree[chrom][region_start:region_end]):
+                        eigenvector.append(float(region.data[0]))
+                else:
+                    i = 0
+                    for chrom in sorted(interval_tree):
+                        for region in sorted(interval_tree[chrom]):
+                            if i == 0:
+                                region_start = region[0]
+                                i += 1
+                            region_end = region[1]
+                            eigenvector.append(float(region.data[0]))
+                # if pRegion or pChromosome:
+                step = (region_end - region_start) // len(eigenvector)
+                
+                x = np.arange(region_start, region_end, int(step))
+                while len(x) < len(eigenvector):
+                    x = np.append(x[-1] + int(step))
+                while len(eigenvector) < len(x):
+                    x = x[:-1]
+                pAxis.set_xlim(region_start, region_end)
+                    
+              
+                print("len(x)", len(x), "len(eigenvector)", len(eigenvector))
+                pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
+            
+            if pXticks:
+                print("pXticks", pXticks)
+                if len(pXticks) == 1:
+                    pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
+                    pAxis.set_xticklabels(pXticks[0], size='small', rotation=45)
+                else:
+                    pAxis.set_xticks(pXticks[1])
+                    # xticks = [labels, ticks]
+                    
+                    if len(pXticks[0]) > 20:
+                        pAxis.set_xticklabels(pXticks[0], size=4, rotation=90)
+                    else:
+                        pAxis.set_xticklabels(pXticks[0], size=8)
+
+
 def change_chrom_names(chrom):
     """
     Changes UCSC chromosome names to ensembl chromosome names
