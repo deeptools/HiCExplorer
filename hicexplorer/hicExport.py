@@ -27,7 +27,7 @@ def parse_arguments(args=None):
                              'The following options are available: `hicexplorer` (native HiCExplorer format, '
                              '`npz` (format used by earlier versions of HiCExplorer), '
                              '`dekker` (matrix format used in Job Dekker publications), '
-                             '`lieberman` (format used by Erez Lieberman Aiden) and
+                             '`lieberman` (format used by Erez Lieberman Aiden) and '
                              ' `cool`. This last formats may change '
                              'in the future.',
                         default='hicexplorer')

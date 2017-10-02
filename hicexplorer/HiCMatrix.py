@@ -1881,15 +1881,21 @@ class hiCMatrix:
                 i += 1
             elif matrix_0[i][0] == matrix_1[j][0] and matrix_0[i][1] > matrix_1[j][1]:
                 matrix_tuple.append(matrix_1[j])
-                cut_intervals_1[j] = None
+                # cut_intervals_1[j] = None
+                matrix_1[i] = None
+                
                 j += 1
             elif matrix_0[i][0] < matrix_1[j][0]:
                 matrix_tuple.append(matrix_0[i])
-                cut_intervals_0[i] = None
+                # cut_intervals_0[i] = None
+                matrix_0[i] = None
+                
                 i += 1
             else:
                 matrix_tuple.append(matrix_1[j])
-                cut_intervals_1[j] = None
+                # cut_intervals_1[j] = None
+                matrix_1[i] = None
+                
                 j += 1
         while i < len(matrix_0):
             matrix_tuple.append(matrix_0[i])
