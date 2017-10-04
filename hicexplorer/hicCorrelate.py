@@ -253,7 +253,6 @@ def main(args=None):
     all_mat = None
     all_nan = []
 
-    
     for i, matrix in enumerate(args.matrices):
         sys.stderr.write("loading hic matrix {}\n".format(matrix))
 
@@ -264,7 +263,7 @@ def main(args=None):
             if args.chromosomes:
                 _mat.keepOnlyTheseChr(args.chromosomes)
             _mat.filterOutInterChrCounts()
-            
+
         _mat.diagflat(0)
         sys.stderr.write("restore masked bins {}\n".format(matrix))
         bin_size = _mat.getBinSize()

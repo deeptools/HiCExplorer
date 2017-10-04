@@ -122,7 +122,6 @@ class hiCMatrix:
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
 
-
     def load_cool_only_init(self, pMatrixFile):
         self.cooler_file = cooler.Cooler(pMatrixFile)
 
@@ -133,16 +132,16 @@ class hiCMatrix:
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
             self.cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
 
-
     def load_cool_matrix(self, pChr):
         return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
+
     def load_cool_matrix_csr(self, pAccessTuple):
         startX = pAccessTuple[0]
         startY = pAccessTuple[1]
         chunkX = pAccessTuple[2]
         chunkY = pAccessTuple[3]
-        
-        return self.cooler_file.matrix(balance=False, sparse=True)[startX:startX+chunkX, startY:startY+chunkY].tocsr()
+
+        return self.cooler_file.matrix(balance=False, sparse=True)[startX:startX + chunkX, startY:startY + chunkY].tocsr()
 
     def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None):
         self.cooler_file = cooler.Cooler(pMatrixFile)
@@ -166,7 +165,7 @@ class hiCMatrix:
                     col.extend(matrix_.nonzero()[1] + offset_sum)
                     data.extend(matrix_.data)
                 matrix = csr_matrix((data, (row, col)))
-                    
+
             else:
                 # matrix = None
                 row = []
@@ -193,7 +192,7 @@ class hiCMatrix:
                         offset_chr_right = self.cooler_file.info['nbins']
 
                     for j in range(i, len(pChrnameList), 1):
-                        
+
                         offset_chr_innerloop = self.cooler_file.offset(pChrnameList[j])
                         chr_right_innerloop = None
                         offset_chr_right_innerloop = None
@@ -217,7 +216,7 @@ class hiCMatrix:
                         data.extend(matrix_.data)
 
                 matrix = csr_matrix((data, (row, col)))
-                
+
         cut_intervals_data_frame = None
         if pChrnameList is not None:
             if len(pChrnameList) == 1:
@@ -235,14 +234,14 @@ class hiCMatrix:
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
-        
+
         # try to restore nan_bins.
         try:
             nan_bins = np.asarray(matrix.sum(axis=1)).flatten() == 0
             nan_bins = [i for i, value in enumerate(nan_bins) if value == True]
         except:
             nan_bins = None
-        
+
         distance_counts = None
         correction_factors = None
 
@@ -292,7 +291,7 @@ class hiCMatrix:
                 distance_counts = f.root.correction_factors.read()
             else:
                 distance_counts = None
-           
+
             return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
@@ -1285,16 +1284,13 @@ class hiCMatrix:
                                                               chr_col, int(start_col), int(end_col), counts))
         fileh.close()
 
-
     def create_empty_cool_file(self, pFileName):
         bins_data_frame = pd.DataFrame(columns=['chrom', 'start', 'end', 'weight'])
         matrix_data_frame = pd.DataFrame(columns=['bin1_id', 'bin2_id', 'count'])
         cooler_file = cooler.io.create(cool_uri=pFileName,
-                                    bins=bins_data_frame,
-                                    pixels=matrix_data_frame)
+                                       bins=bins_data_frame,
+                                       pixels=matrix_data_frame)
 
-
-    
     def save_cool_pandas(self, pFileName, pDataFrameBins, pDataFrameMatrix):
 
         if pDataFrameBins['start'].dtypes != 'int64':
@@ -1305,14 +1301,14 @@ class hiCMatrix:
             pDataFrameMatrix['bin1_id'] = pDataFrameMatrix['bin1_id'].astype(np.int64)
         if pDataFrameMatrix['bin2_id'].dtypes != 'int64':
             pDataFrameMatrix['bin2_id'] = pDataFrameMatrix['bin2_id'].astype(np.int64)
-        
+
         cooler_file = cooler.io.create(cool_uri=pFileName,
-                                    bins=pDataFrameBins,
-                                    pixels=pDataFrameMatrix)
+                                       bins=pDataFrameBins,
+                                       pixels=pDataFrameMatrix)
 
     def save_cooler(self, pFileName):
         self.restoreMaskedBins()
-        
+
         # create a pandas data frame for cut_intervals
         bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
 
@@ -1326,8 +1322,8 @@ class hiCMatrix:
         matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
         # print("matrix_data_frame", matrix_data_frame)
         cooler_file = cooler.io.create(cool_uri=pFileName,
-                                    bins=bins_data_frame,
-                                    pixels=matrix_data_frame)
+                                       bins=bins_data_frame,
+                                       pixels=matrix_data_frame)
 
     def save_hdf5(self, filename):
         """
@@ -1607,11 +1603,10 @@ class hiCMatrix:
         except:
             pass
 
-
         # join with existing nan_bins
         if len(self.nan_bins) > 0:
             print("bin_ids_orginal stuff_1", self.nan_bins[:10])
-            
+
             print("found existing {} nan bins that will be "
                   "included for masking ".format(len(self.nan_bins)))
             bin_ids = np.unique(np.concatenate([self.nan_bins, bin_ids]))
@@ -1894,7 +1889,7 @@ class hiCMatrix:
         chrbin_boundaries[chrom] = (chr_start_id, intval_id)
 
         return cut_int_tree, chrbin_boundaries
-    
+
     # @staticmethod
     # def compute_dataframe_matrix(pMatrixList, pOperator=None):
     #     if pOperator is None:
@@ -1908,12 +1903,12 @@ class hiCMatrix:
     #     matrix_0 = [tuple(x) for x in pMatrixList[0].values]
     #     matrix_1 = [tuple(x) for x in pMatrixList[1].values]
     #     matrix_tuple = []
-        
+
     #     i = 0
     #     j = 0
 
     #     while i < len(matrix_0) and j < len(matrix_1):
-            
+
     #         if matrix_0[i][0] == matrix_1[j][0] and \
     #                 matrix_0[i][1] == matrix_1[j][1]:
     #             # if value is nan, do not add and take the other one.
@@ -1937,17 +1932,17 @@ class hiCMatrix:
     #         elif matrix_0[i][0] == matrix_1[j][0] and matrix_0[i][1] > matrix_1[j][1]:
     #             matrix_tuple.append(matrix_1[j])
     #             matrix_1[j] = None
-                
+
     #             j += 1
     #         elif matrix_0[i][0] < matrix_1[j][0]:
     #             matrix_tuple.append(matrix_0[i])
     #             matrix_0[i] = None
-                
+
     #             i += 1
     #         else:
     #             matrix_tuple.append(matrix_1[j])
     #             matrix_1[j] = None
-                
+
     #             j += 1
     #     while i < len(matrix_0):
     #         matrix_tuple.append(matrix_0[i])

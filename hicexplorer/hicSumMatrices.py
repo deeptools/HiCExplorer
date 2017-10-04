@@ -12,7 +12,6 @@ from scipy.sparse import csr_matrix
 import operator
 
 
-
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -58,6 +57,7 @@ def sum_cool_matrix(pMatrixList, pStartListElement, pQueue, pHic):
 
     pQueue.put([matrix, pStartListElement])
 
+
 def singleCore(args):
     hic = hm.hiCMatrix(args.matrices[0])
     summed_matrix = hic.matrix
@@ -66,9 +66,9 @@ def singleCore(args):
         hic_to_append = hm.hiCMatrix(matrix)
         if hic.chrBinBoundaries != hic_to_append.chrBinBoundaries:
             exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
-                    "{}: {}\n"
-                    "{}: {}".format(args.matrices[0], list(hic.chrBinBoundaries),
-                                    matrix, list(hic_to_append.chrBinBoundaries)))
+                 "{}: {}\n"
+                 "{}: {}".format(args.matrices[0], list(hic.chrBinBoundaries),
+                                 matrix, list(hic_to_append.chrBinBoundaries)))
 
         try:
             summed_matrix = summed_matrix + hic_to_append.matrix
@@ -89,7 +89,7 @@ def singleCore(args):
 def main(args=None):
     args = parse_arguments().parse_args(args)
     if args.matrices[0].endswith('.cool'):
-        
+
         hic = hm.hiCMatrix(args.matrices[0], cooler_only_init=True)
         hic.load_cool_bins()
         dimension = hic.cooler_file.info['nbins']
@@ -113,17 +113,16 @@ def main(args=None):
                 chromosome_list_to_append = hic_to_append.cooler_file.chromnames
                 if chromosome_list != chromosome_list_to_append:
                     exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
-                        "{}: {}\n"
-                        "{}: {}".format(args.matrices[0], chromosome_list,
-                                        matrix, chromosome_list_to_append))
+                         "{}: {}\n"
+                         "{}: {}".format(args.matrices[0], chromosome_list,
+                                         matrix, chromosome_list_to_append))
 
                 chr_element = 0
-                
+
                 thread_done = [False] * args.threads
                 all_threads_done = False
                 first_to_save = True
-            
-                
+
                 chunk_size = args.chunkSize
                 startX = 0
                 startY = 0
@@ -139,8 +138,7 @@ def main(args=None):
                             start_list.append((i, j, chunk_size_x, chunk_size))
                         else:
                             start_list.append((i, j, chunk_size_x, dimension % chunk_size))
-                
-                # print start_list
+
                 col = []
                 row = []
                 data = []
@@ -148,11 +146,8 @@ def main(args=None):
                     for i in range(args.threads):
                         if queue[i] is None and chr_element < len(start_list):
                             print (chr_element, " / ", len(start_list))
-                            # intrachromome interaction
                             queue[i] = Queue()
-                            # chromosome = chromosome_list[chr_element]
                             process[i] = Process(target=sum_cool_matrix, kwargs=dict(
-                                # pBinsList=[hic.load_cool_bins(chromosome), hic_to_append.load_cool_bins(chromosome)],
                                 pMatrixList=[hic.load_cool_matrix_csr(start_list[chr_element]), hic_to_append.load_cool_matrix_csr(start_list[chr_element])],
                                 pStartListElement=chr_element,
                                 pQueue=queue[i],
@@ -161,18 +156,18 @@ def main(args=None):
                             process[i].start()
                             chr_element += 1
                             thread_done[i] = False
-                        
+
                         elif queue[i] is not None and not queue[i].empty():
                             matrix_, index = queue[i].get()
                             row.extend(matrix_.nonzero()[0] + start_list[index][0])
                             col.extend(matrix_.nonzero()[1] + start_list[index][1])
                             data.extend(matrix_.data)
-                            
+
                             matrix_ = None
                             queue[i] = None
                             process[i].join()
                             process[i].terminate()
-                            
+
                             process[i] = None
                             thread_done[i] = True
                         elif chr_element >= len(start_list) and queue[i] is None:
@@ -184,7 +179,6 @@ def main(args=None):
                         for thread in thread_done:
                             if not thread:
                                 all_threads_done = False
-                
 
                 hic.matrix = csr_matrix((data, (row, col)), shape=(len(row), len(col)))
 
