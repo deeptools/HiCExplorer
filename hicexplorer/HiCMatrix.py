@@ -1852,13 +1852,12 @@ class hiCMatrix:
         matrix_0 = [tuple(x) for x in pMatrixList[0].values]
         matrix_1 = [tuple(x) for x in pMatrixList[1].values]
         matrix_tuple = []
-        pMatrixList[0] = None
-        pMatrixList[1] = None
+        
         i = 0
         j = 0
-        # print("matrix_0[:10]", matrix_0[:10])
 
         while i < len(matrix_0) and j < len(matrix_1):
+            
             if matrix_0[i][0] == matrix_1[j][0] and \
                     matrix_0[i][1] == matrix_1[j][1]:
                 # if value is nan, do not add and take the other one.
@@ -1881,20 +1880,17 @@ class hiCMatrix:
                 i += 1
             elif matrix_0[i][0] == matrix_1[j][0] and matrix_0[i][1] > matrix_1[j][1]:
                 matrix_tuple.append(matrix_1[j])
-                # cut_intervals_1[j] = None
-                matrix_1[i] = None
+                matrix_1[j] = None
                 
                 j += 1
             elif matrix_0[i][0] < matrix_1[j][0]:
                 matrix_tuple.append(matrix_0[i])
-                # cut_intervals_0[i] = None
                 matrix_0[i] = None
                 
                 i += 1
             else:
                 matrix_tuple.append(matrix_1[j])
-                # cut_intervals_1[j] = None
-                matrix_1[i] = None
+                matrix_1[j] = None
                 
                 j += 1
         while i < len(matrix_0):
@@ -1914,16 +1910,8 @@ class hiCMatrix:
 
         return cool_matrix_pixel
     @staticmethod
-    def compute_dataframe_bins(pBinsList, pOperator):
+    def compute_dataframe_bins(pBinsList):
         # make union
-        if pOperator is None:
-            exit("Please define an operator!")
-        ops = {'*': operator.imul,
-                '/': operator.idiv,
-                '+': operator.iadd,
-                '-': operator.isub}
-        if pOperator not in ops:
-            exit("Wrong operator given! Possible are +, -, * and /.")
         cut_intervals_0 = [tuple(x) for x in pBinsList[0].values]
         cut_intervals_1 = [tuple(x) for x in pBinsList[1].values]
         cut_intervals_tuple = []

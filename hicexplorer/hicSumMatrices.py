@@ -45,9 +45,9 @@ def parse_arguments(args=None):
 
 def sum_cool_matrix(pBinsList, pMatrixList, pQueue, pHic):
 
-    cool_pandas_bins = pHic.compute_dataframe_bins(pBinsList, "+")    
+    # cool_pandas_bins = pHic.compute_dataframe_bins(pBinsList, "+")    
     cool_matrix_pixel = pHic.compute_dataframe_matrix(pMatrixList, "+")
-    pQueue.put([cool_pandas_bins, cool_matrix_pixel])
+    pQueue.put([pBinsList[0], cool_matrix_pixel])
 
 
 def main(args=None):
