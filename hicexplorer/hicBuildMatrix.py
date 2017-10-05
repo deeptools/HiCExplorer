@@ -969,7 +969,8 @@ def main(args=None):
         QC.make_sure_path_exists(args.QCfolder)
     except OSError:
         exit("Can't open/create QC folder path: {}. Please check".format(args.QCfolder))
-
+    if args.restrictionSequence and args.binSize:
+        exit("Please do not set --restrictionSequence and --binSize at the same time.")
     if args.threads < 2:
         args.threads = 2
         warnings.warn("\nAt least two threads need to be defined. Setting --threads = 2!s\n")
