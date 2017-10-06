@@ -182,15 +182,17 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
     if perchr:
         for chrname in hicmat.getChrNames():
             chr_range = hicmat.getChrBinRange(chrname)
-            chr_submatrix[chrname] = hicmat.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]].tocoo()
-            cut_intervals[chrname] = [hicmat.cut_intervals[x] for x in range(chr_range[0], chr_range[1])]
+            chr_submatrix[chrname] = hicmat.matrix[chr_range[0]                                                   :chr_range[1], chr_range[0]:chr_range[1]].tocoo()
+            cut_intervals[chrname] = [hicmat.cut_intervals[x]
+                                      for x in range(chr_range[0], chr_range[1])]
             chrom_sizes[chrname] = [chr_submatrix[chrname].shape[0]]
             chrom_range[chrname] = (chr_range[0], chr_range[1])
 
     else:
         chr_submatrix['all'] = hicmat.matrix.tocoo()
         cut_intervals['all'] = hicmat.cut_intervals
-        chrom_sizes['all'] = np.array([v[1] - v[0] for k, v in iteritems(hicmat.chrBinBoundaries)])
+        chrom_sizes['all'] = np.array(
+            [v[1] - v[0] for k, v in iteritems(hicmat.chrBinBoundaries)])
         chrom_range['all'] = (0, hicmat.matrix.shape[0])
 
     mean_dict = {}
@@ -208,11 +210,14 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
         # converted to bin distance.
 
         # Because positive integers are needed we add +1 to all bin distances
-        # such that the value of -1 (which means different chromosomes) can now be used
+        # such that the value of -1 (which means different chromosomes) can now
+        # be used
 
         dist_list[dist_list == -1] = -binsize
-        # divide by binsize to get a list of bin distances and add +1 to remove negative values
-        dist_list = (np.array(dist_list).astype(float) / binsize).astype(int) + 1
+        # divide by binsize to get a list of bin distances and add +1 to remove
+        # negative values
+        dist_list = (np.array(dist_list).astype(
+            float) / binsize).astype(int) + 1
 
         # for each distance, return the sum of all values
         sum_counts = np.bincount(dist_list, weights=submatrix.data)
@@ -231,7 +236,8 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
                 continue
 
             if bin_dist_plus_one == 0:
-                total_intra = mat_size ** 2 - sum([size ** 2 for size in chrom_sizes[chrname]])
+                total_intra = mat_size ** 2 - \
+                    sum([size ** 2 for size in chrom_sizes[chrname]])
                 diagonal_length = total_intra / 2
             else:
                 # to compute the average counts per distance we take the sum_counts and divide
@@ -240,7 +246,8 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
                 # chromosome larger than the offset)
                 # In the following example with two chromosomes
                 # the first (main) diagonal has a size equal to the matrix (6),
-                # while the next has 1 value less for each chromosome (4) and the last one has only 2 values
+                # while the next has 1 value less for each chromosome (4) and
+                # the last one has only 2 values
 
                 # 0 1 2 . . .
                 # - 0 1 . . .
@@ -258,8 +265,10 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
             # If the matrix is dense, the distance_len[bin_dist_plus_one] correctly contains the number of values
             # If the matrix is equally spaced, then, the diagonal_length as computed before is accurate.
             # But, if the matrix is both sparse and with unequal bins, then none of the above methods is
-            # accurate but the the diagonal_length as computed before will be closer.
-            diagonal_length = max(diagonal_length, distance_len[bin_dist_plus_one])
+            # accurate but the the diagonal_length as computed before will be
+            # closer.
+            diagonal_length = max(
+                diagonal_length, distance_len[bin_dist_plus_one])
 
             if diagonal_length == 0:
                 mu[bin_dist_plus_one] = np.nan
@@ -267,16 +276,19 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
                 mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
                 if sum_value == 0:
                     zero_value_bins.append(bin_dist_plus_one)
-                    sys.stderr.write("zero value for {}, diagonal len: {}\n".format(bin_dist_plus_one, diagonal_length))
+                    sys.stderr.write("zero value for {}, diagonal len: {}\n".format(
+                        bin_dist_plus_one, diagonal_length))
                 if len(zero_value_bins) > 10:
                     diff = np.diff(zero_value_bins)
                     if len(diff[diff == 1]) > 10:
                         # if too many consecutive bins with zero are found that means that probably no
                         # further counts will be found
-                        sys.stderr.write("skipping rest of chromosome {}. Too many emtpy diagonals\n".format(chrname))
+                        sys.stderr.write(
+                            "skipping rest of chromosome {}. Too many emtpy diagonals\n".format(chrname))
                         break
             if np.isnan(sum_value):
-                sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
+                sys.stderr.write("nan value found for distance {}\n".format(
+                    (bin_dist_plus_one - 1) * binsize))
 
         if maxdepth is None:
             maxdepth = np.inf
@@ -309,15 +321,19 @@ def main(args=None):
         if args.chromosomeExclude is None:
             args.chromosomeExclude = []
 
-        chrtokeep = [x for x in list(hic_ma.interval_trees) if x not in args.chromosomeExclude]
+        chrtokeep = [x for x in list(
+            hic_ma.interval_trees) if x not in args.chromosomeExclude]
         hic_ma.keepOnlyTheseChr(chrtokeep)
 
-        mean_dict[matrix_file] = compute_distance_mean(hic_ma, maxdepth=args.maxdepth, perchr=args.perchr)
-        chroms = chroms.union([k for k in list(mean_dict[matrix_file]) if len(mean_dict[matrix_file][k]) > 1])
+        mean_dict[matrix_file] = compute_distance_mean(
+            hic_ma, maxdepth=args.maxdepth, perchr=args.perchr)
+        chroms = chroms.union(
+            [k for k in list(mean_dict[matrix_file]) if len(mean_dict[matrix_file][k]) > 1])
 
     # compute scale factors such that values are comparable
     min_sum = min(matrix_sum.values())
-    scale_factor = dict([(matrix_file, float(min_sum) / mat_sum) for matrix_file, mat_sum in iteritems(matrix_sum)])
+    scale_factor = dict([(matrix_file, float(min_sum) / mat_sum)
+                         for matrix_file, mat_sum in iteritems(matrix_sum)])
     print("The scale factors used are: {}".format(scale_factor))
     if len(args.matrices) > 1 and args.perchr:
         # in this case, for each chromosome a plot is made that combines the data from the
@@ -341,11 +357,13 @@ def main(args=None):
         idx = 0
         for chrom, mean_values in iteritems(mean_dict[matrix_file]):
             if len(mean_values) <= 1:
-                sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
+                sys.stderr.write(
+                    "No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
             x, y = zip(*[(k, v) for k, v in iteritems(mean_values) if v > 0])
             if len(x) <= 1:
-                sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
+                sys.stderr.write(
+                    "No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
             if args.perchr and len(args.matrices) == 1:
                 col = 0
@@ -395,7 +413,9 @@ def main(args=None):
         ax.legend(prop={'size': 'small'})
         ax.set_xlim(0, args.maxdepth)
         handles, labels = ax.get_legend_handles_labels()
-        lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
+        lgd = ax.legend(handles, labels, loc='center left',
+                        bbox_to_anchor=(1, 0.5))
 
     plt.tight_layout()
-    plt.savefig(args.plotFile.name, bbox_inches='tight', bbox_extra_artists=(lgd,))
+    plt.savefig(args.plotFile.name, bbox_inches='tight',
+                bbox_extra_artists=(lgd,))

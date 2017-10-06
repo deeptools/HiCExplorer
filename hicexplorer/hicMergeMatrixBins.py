@@ -196,7 +196,8 @@ def merge_bins(hic, num_bins):
             [  1,   4, 100]], dtype=int32)
     """
     # get the bins to merge
-    ref_name_list, start_list, end_list, coverage_list = zip(*hic.cut_intervals)
+    ref_name_list, start_list, end_list, coverage_list = zip(
+        *hic.cut_intervals)
     new_bins = []
     bins_to_merge = []
     prev_ref = ref_name_list[0]
@@ -208,10 +209,12 @@ def merge_bins(hic, num_bins):
     for idx, ref in enumerate(ref_name_list):
         if (count > 0 and count % num_bins == 0) or ref != prev_ref:
             if count < num_bins / 2:
-                sys.stderr.write("{} has few bins ({}). Skipping it\n".format(prev_ref, count))
+                sys.stderr.write(
+                    "{} has few bins ({}). Skipping it\n".format(prev_ref, count))
             else:
                 coverage = np.mean(coverage_list[idx_start:idx])
-                new_bins.append((ref_name_list[idx_start], new_start, end_list[idx - 1], coverage))
+                new_bins.append(
+                    (ref_name_list[idx_start], new_start, end_list[idx - 1], coverage))
                 bins_to_merge.append(list(range(idx_start, idx)))
             idx_start = idx
             new_start = start_list[idx]
@@ -249,7 +252,8 @@ def main():
     """
     merged_matrix.matrix.eliminate_zeros()
     if merged_matrix.correction_factors is not None:
-        sys.stderr.write("*WARNING*: The corrections factors are not merged and are set to None\n")
+        sys.stderr.write(
+            "*WARNING*: The corrections factors are not merged and are set to None\n")
         merged_matrix.correction_factors = None
 
     merged_matrix.save(args.outFileName)

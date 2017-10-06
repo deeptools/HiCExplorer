@@ -49,7 +49,8 @@ def getPearson(matrix):
     pMa[:, :] = np.nan
     for row in range(numRows):
         if row % 10 == 0:
-            sys.stderr.write("{} rows processed ({:.2f})\n".format(row, float(row) / numRows))
+            sys.stderr.write("{} rows processed ({:.2f})\n".format(
+                row, float(row) / numRows))
         for col in range(numCols):
             if not np.isnan(pMa[col, row]):
                 pMa[row, col] = pMa[col, row]
@@ -57,7 +58,8 @@ def getPearson(matrix):
             try:
                 # pearsonr returns two values, the first is the
                 # correlation, the second is a pvalue.
-                pMa[row, col] = pearsonr(np.asarray(matrix[row, :])[0], np.asarray(matrix[:, col].T)[0])[0]
+                pMa[row, col] = pearsonr(np.asarray(matrix[row, :])[
+                                         0], np.asarray(matrix[:, col].T)[0])[0]
             except:
                 continue
 
@@ -72,7 +74,8 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
                      'log-norm': _lognormPvalue,
                      'chi-squared': _chi2Pvalue}
 
-    counts_by_distance, cut_intervals = hicma.getCountsByDistance(per_chr=per_chr)
+    counts_by_distance, cut_intervals = hicma.getCountsByDistance(
+        per_chr=per_chr)
     if method in ['nbinom-p-value', 'nbinom-expected', 'nbinom-est-dist']:
         size, prob = fitNegBinom_Rserve(counts_by_distance, per_chr=per_chr,
                                         plot_distribution=True)
@@ -125,14 +128,16 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
 
     else:
         under_noise = 0
-        dist_list, chrom_list = hiCMatrix.getDistList(triu_ma.row, triu_ma.col, cut_intervals)
+        dist_list, chrom_list = hiCMatrix.getDistList(
+            triu_ma.row, triu_ma.col, cut_intervals)
 
         assert len(dist_list) == len(triu_ma.data), "lists not of equal size"
         susprow_list = []
         suspcol_list = []
         transf_ma = np.zeros(len(triu_ma.data))
         start_time = time.time()
-        # transform each value  of the data matrix to p-value, obs/exp, correlation etc.
+        # transform each value  of the data matrix to p-value, obs/exp,
+        # correlation etc.
         sys.stderr.write("computing transform values\n")
         for idx, data in enumerate(triu_ma.data):
             # skip if original value is less than noise level
@@ -281,7 +286,8 @@ def nbinom_est_dist(size, prob, triu_ma, cut_intervals):
         transf_ma[idx] = dist
 
     # set the new values back into the original matrix
-    triu_ma = scipy.sparse.coo_matrix((transf_ma, (row, col)), shape=triu_ma.shape)
+    triu_ma = scipy.sparse.coo_matrix(
+        (transf_ma, (row, col)), shape=triu_ma.shape)
     # fill the lower triangle
     triu_ma = triu_ma + scipy.sparse.triu(triu_ma, 1).T
     triu_ma = triu_ma.tocsr()
@@ -568,7 +574,8 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
         # are float values, but integers are needed for
         # the negative binomial.
 
-        counts_nb = remove_outliers(np.round(countsByDistance[distnc]).astype('int'))
+        counts_nb = remove_outliers(
+            np.round(countsByDistance[distnc]).astype('int'))
 
         # try first using the python fit for the
         # negative binomial
@@ -699,7 +706,8 @@ def fitChisquared(countsByDistance):
                 rand = np.arange(10000)
                 np.random.shuffle(rand)
                 counts = counts[rand]
-            shape[x], loc[x], scale[x] = scipy.stats.chi2.fit(counts, 3, floc=0)
+            shape[x], loc[x], scale[x] = scipy.stats.chi2.fit(
+                counts, 3, floc=0)
             # estimate the fit pvalue
             pval[x] = scipy.stats.wilcoxon(counts,
                                            scipy.stats.chi2.rvs(shape[x],
@@ -707,7 +715,8 @@ def fitChisquared(countsByDistance):
                                                                 scale=scale[x],
                                                                 size=len(counts)))[1]
             if pval[x] < 0.001:
-                print("problem with {}, p-value for log-norm fit: {}".format(x, pval[x]))
+                print(
+                    "problem with {}, p-value for log-norm fit: {}".format(x, pval[x]))
 
     return (shape, loc, scale)
 

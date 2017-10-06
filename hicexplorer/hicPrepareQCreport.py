@@ -93,36 +93,44 @@ def make_figure_pairs_used(table, filename):
     labels = ax.get_xticklabels()
     ax.set_xticklabels(labels, rotation=45, ha='right')
     handles, labels = ax.get_legend_handles_labels()
-    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
+    lgd = ax.legend(handles, labels, loc='center left',
+                    bbox_to_anchor=(1, 0.5))
     ax.set_ylabel("fraction")
-    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
+    plt.savefig(filename, bbox_extra_artists=(
+        lgd,), bbox_inches='tight', dpi=200)
 
 
 def make_figure_distance(table, filename):
 
-    prc_table2 = table[['inter chromosomal', 'short range < 20kb', 'long range']].T / table['Pairs used']
+    prc_table2 = table[['inter chromosomal',
+                        'short range < 20kb', 'long range']].T / table['Pairs used']
     fig = plt.figure(figsize=(5, 4))
     ax = fig.add_subplot(111)
     prc_table2.plot.bar(ax=ax)
     labels = ax.get_xticklabels()
     ax.set_xticklabels(labels, rotation=45, ha='right')
     handles, labels = ax.get_legend_handles_labels()
-    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
+    lgd = ax.legend(handles, labels, loc='center left',
+                    bbox_to_anchor=(1, 0.5))
     ax.set_ylabel("fraction")
 
-    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
+    plt.savefig(filename, bbox_extra_artists=(
+        lgd,), bbox_inches='tight', dpi=200)
 
 
 def make_figure_read_orientation(table, filename):
-    _t = table[[u'inward pairs', u'outward pairs', u'left pairs', u'right pairs']].T
+    _t = table[[u'inward pairs', u'outward pairs',
+                u'left pairs', u'right pairs']].T
     prc_table3 = _t / _t.sum(axis=0)
     fig = plt.figure(figsize=(4, 3))
     ax = fig.add_subplot(111)
     prc_table3.plot.bar(ax=ax)
     handles, labels = ax.get_legend_handles_labels()
-    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
+    lgd = ax.legend(handles, labels, loc='center left',
+                    bbox_to_anchor=(1, 0.5))
     ax.set_ylabel("fraction")
-    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
+    plt.savefig(filename, bbox_extra_artists=(
+        lgd,), bbox_inches='tight', dpi=200)
 
 
 def main(args=None):
@@ -194,9 +202,11 @@ def main(args=None):
 
     table.to_csv(args.outputFolder + "/table.txt", sep="\t")
 
-    make_figure_pairs_considered(table, args.outputFolder + "/pairs_considered.png")
+    make_figure_pairs_considered(
+        table, args.outputFolder + "/pairs_considered.png")
     make_figure_pairs_used(table, args.outputFolder + "/pairs_used.png")
     make_figure_distance(table, args.outputFolder + "/distance.png")
-    make_figure_read_orientation(table, args.outputFolder + "/read_orientation.png")
+    make_figure_read_orientation(
+        table, args.outputFolder + "/read_orientation.png")
 
     save_html(args.outputFolder + "/hicQC.html", table.T.to_html())

@@ -154,7 +154,8 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     # present
     num_nan = len(np.flatnonzero(np.isnan(np.array(ma.data))))
     if num_nan > 0:
-        logging.warning("*Warning*\nmatrix contains {} NaN values.".format(num_nan))
+        logging.warning(
+            "*Warning*\nmatrix contains {} NaN values.".format(num_nan))
 
     # each original col and row index is converted
     # to a new index based on the bins_to_merge.
@@ -162,7 +163,8 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     # then all rows whose value is 1 or 10 are given
     # as new value the index in the bins_to_merge list.
 
-    map_ = np.zeros(ma.shape[0], dtype=int) - 1     # -1 such that all cases not replaced by the next loop
+    # -1 such that all cases not replaced by the next loop
+    map_ = np.zeros(ma.shape[0], dtype=int) - 1
     # can be identified later. Those cases that remain as -1
     # are for the rows/cols not appearing in the bins_to_merge
     for k, v in enumerate(bins_to_merge):
