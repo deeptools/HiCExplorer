@@ -27,8 +27,7 @@ def iterativeCorrection(matrix, v=None, M=50, tolerance=1e-5, verbose=False):
     total_bias = np.ones(matrix.shape[0], 'float64')
 
     if np.isnan(matrix.sum()):
-        log.warn(
-            "[iterative correction] the matrix contains nans, they will be replaced by zeros\n")
+        log.warn("[iterative correction] the matrix contains nans, they will be replaced by zeros\n")
         matrix.data[np.isnan(matrix.data)] = 0
 
     matrix = matrix.astype(float)
@@ -65,17 +64,14 @@ def iterativeCorrection(matrix, v=None, M=50, tolerance=1e-5, verbose=False):
         if verbose:
             if iternum % 5 == 0:
                 end_time = time.time()
-                estimated = (float(M - iternum) *
-                             (end_time - start_time)) / iternum
+                estimated = (float(M - iternum) * (end_time - start_time)) / iternum
                 m, sec = divmod(estimated, 60)
                 h, m = divmod(m, 60)
-                log.info("pass {} Estimated time {:.0f}:{:.0f}:{:.0f}".format(
-                    iternum, h, m, sec))
+                log.info("pass {} Estimated time {:.0f}:{:.0f}:{:.0f}".format(iternum, h, m, sec))
                 log.info("max delta - 1 = {} ".format(deviation))
 
         if deviation < tolerance:
-            log.info(
-                "[iterative correction] {} iterations used\n".format(iternum + 1))
+            log.info("[iterative correction] {} iterations used\n".format(iternum + 1))
             break
 
     # scale the total bias such that the sum is 1.0

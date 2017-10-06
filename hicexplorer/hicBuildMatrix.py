@@ -931,8 +931,7 @@ def process_data(pMateBuffer1, pMateBuffer2,
         for mate in [mate1, mate2]:
             # fill in coverage vector
             vec_start = int(max(0, mate.pos - mate_bin.begin) / pBinsize)
-            length_coverage = pCoverageIndex[mate_bin_id].end - \
-                pCoverageIndex[mate_bin_id].begin
+            length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
             vec_end = min(length_coverage, int(vec_start +
                                                len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
@@ -978,8 +977,7 @@ def main(args=None):
 
     if args.threads < 2:
         args.threads = 2
-        warnings.warn(
-            "\nAt least two threads need to be defined. Setting --threads = 2!s\n")
+        warnings.warn("\nAt least two threads need to be defined. Setting --threads = 2!s\n")
 
     if args.danglingSequence and not args.restrictionSequence:
         exit("\nIf --danglingSequence is set, --restrictonSequence needs to be set too.\n")

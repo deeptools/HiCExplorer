@@ -64,10 +64,8 @@ def main(args=None):
         hic_ma.diagflat()
 
     if args.method == 'obs/exp':
-        hic_ma.convert_to_obs_exp_matrix(
-            maxdepth=args.depth, perchr=args.perchr)
+        hic_ma.convert_to_obs_exp_matrix(maxdepth=args.depth, perchr=args.perchr)
     else:
-        hic_ma.convert_to_zscore_matrix(
-            maxdepth=args.depth, perchr=args.perchr)
+        hic_ma.convert_to_zscore_matrix(maxdepth=args.depth, perchr=args.perchr)
 
     hic_ma.save(args.outFileName)

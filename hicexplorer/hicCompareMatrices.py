@@ -33,10 +33,12 @@ def parse_arguments(args=None):
                         help='Operation to apply for the matrices. Options are: diff, ratio, log2ratio',
                         required=True)
 
+
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
     return parser
+
 
 
 def main(args=None):
@@ -50,13 +52,13 @@ def main(args=None):
 
     if hic1.matrix.shape != hic2.matrix.shape:
         exit("The two matrices have different size. Use matrices having the same resolution and created using"
-             "the same parameters. Check the matrix values using the tool `hicInfo`.")
+                "the same parameters. Check the matrix values using the tool `hicInfo`.")
 
     if hic1.chrBinBoundaries != hic2.chrBinBoundaries:
         exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
-             "{}: {}\n"
-             "{}: {}".format(args.matrices[0], hic1.chrBinBoundaries.keys(),
-                             args.matrices[1], hic2.chrBinBoundaries.keys()))
+                "{}: {}\n"
+                "{}: {}".format(args.matrices[0], hic1.chrBinBoundaries.keys(),
+                                args.matrices[1], hic2.chrBinBoundaries.keys()))
 
     # normalize by total matrix sum
     hic1.matrix.data = hic1.matrix.data.astype(float) / hic1.matrix.data.sum()

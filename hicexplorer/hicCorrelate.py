@@ -257,8 +257,7 @@ def main(args=None):
         sys.stderr.write("loading hic matrix {}\n".format(matrix))
 
         if args.matrices[i].endswith('.cool'):
-            _mat = hm.hiCMatrix(
-                matrix, chrnameList=args.chromosomes, pIntraChromosomalOnly=True)
+            _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes, pIntraChromosomalOnly=True)
         else:
             _mat = hm.hiCMatrix(matrix)
             if args.chromosomes:
@@ -276,8 +275,7 @@ def main(args=None):
             min_dist = int(min_dist)
             max_dist = int(max_dist)
             if max_dist < bin_size:
-                exit("Please specify a max range that is larger than bin size ({})".format(
-                    bin_size))
+                exit("Please specify a max range that is larger than bin size ({})".format(bin_size))
 
             max_depth_in_bins = int(max_dist / bin_size)
             max_dist = int(max_dist) / bin_size
@@ -286,8 +284,7 @@ def main(args=None):
             # max_depth_in_bis
             # (this is done by subtracting a second sparse matrix
             # that contains only the upper matrix that wants to be removed.
-            _mat = triu(_mat, k=0, format='csr') - \
-                triu(_mat, k=max_depth_in_bins, format='csr')
+            _mat = triu(_mat, k=0, format='csr') - triu(_mat, k=max_depth_in_bins, format='csr')
 
             _mat.eliminate_zeros()
 

@@ -25,8 +25,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 warnings.simplefilter(action='ignore', category=ImportWarning)
-warnings.simplefilter(
-    action='ignore', category=tables.exceptions.FlavorWarning)
+warnings.simplefilter(action='ignore', category=tables.exceptions.FlavorWarning)
 
 # try to import pandas if exists
 try:
@@ -45,8 +44,7 @@ class hiCMatrix:
 
     def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None,
                  cooler_only_init=None, pIntraChromosomalOnly=None):
-        # this value is set in case a matrix was iteratively corrected
-        self.correction_factors = None
+        self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distance_counts = None  # only defined when getCountsByDistance is called
         self.bin_size = None
@@ -100,14 +98,12 @@ class hiCMatrix:
                 self.maskBins(np.flatnonzero(row_sum==0))
                 """
             elif file_format == 'lieberman':  # lieberman format needs additional arguments : chrnameList
-                lieberman_data = self.getLiebermanBins(
-                    filenameList=matrixFile, chrnameList=chrnameList)
+                lieberman_data = self.getLiebermanBins(filenameList=matrixFile, chrnameList=chrnameList)
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
             elif file_format == 'cool':
                 if not cooler.io.is_cooler(matrixFile):
-                    exit("Input file ends with '.cool' but is not in cooler file format: {}".format(
-                        matrixFile))
+                    exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
                 if cooler_only_init:
                     self.load_cool_only_init(matrixFile)
                     self.cut_intervals = None
@@ -118,8 +114,7 @@ class hiCMatrix:
                     return
                 else:
                     self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
-                        self.load_cool(matrixFile, pChrnameList=chrnameList,
-                                       pIntraChromosomalOnly=pIntraChromosomalOnly)
+                        self.load_cool(matrixFile, pChrnameList=chrnameList, pIntraChromosomalOnly=pIntraChromosomalOnly)
                     self.restoreMaskedBins()
             else:
                 exit("matrix format not known.")
@@ -134,10 +129,8 @@ class hiCMatrix:
         if pChr:
             return self.cooler_file.bins().fetch(pChr)
         else:
-            cut_intervals_data_frame = self.cooler_file.bins(
-            )[['chrom', 'start', 'end', 'weight']][:]
-            self.cut_intervals = [tuple(x)
-                                  for x in cut_intervals_data_frame.values]
+            cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
+            self.cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
 
     def load_cool_matrix(self, pChr):
         return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
@@ -157,19 +150,16 @@ class hiCMatrix:
             matrix = self.cooler_file.matrix(balance=False, sparse=True)[:, :]
         else:
             if len(pChrnameList) == 1:
-                matrix = self.cooler_file.matrix(
-                    balance=False, sparse=True).fetch(pChrnameList[0])
+                matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
             elif len(pChrnameList) == 2:
-                matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(
-                    pChrnameList[0], pChrnameList[1])
+                matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0], pChrnameList[1])
             elif pIntraChromosomalOnly:
                 row = []
                 col = []
                 data = []
                 offset_sum = 0
                 for chrom in pChrnameList:
-                    matrix_ = self.cooler_file.matrix(
-                        balance=False, sparse=True).fetch(chrom)
+                    matrix_ = self.cooler_file.matrix(balance=False, sparse=True).fetch(chrom)
                     offset_sum += matrix_.shape[0]
                     row.extend(matrix_.nonzero()[0] + offset_sum)
                     col.extend(matrix_.nonzero()[1] + offset_sum)
@@ -203,8 +193,7 @@ class hiCMatrix:
 
                     for j in range(i, len(pChrnameList), 1):
 
-                        offset_chr_innerloop = self.cooler_file.offset(
-                            pChrnameList[j])
+                        offset_chr_innerloop = self.cooler_file.offset(pChrnameList[j])
                         chr_right_innerloop = None
                         offset_chr_right_innerloop = None
                         for k, chrom_ in enumerate(self.cooler_file.chromnames):
@@ -215,17 +204,13 @@ class hiCMatrix:
                                 break
 
                         if chr_right_innerloop:
-                            offset_chr_right_innerloop = self.cooler_file.offset(
-                                chr_right_innerloop)
+                            offset_chr_right_innerloop = self.cooler_file.offset(chr_right_innerloop)
                         else:
                             offset_chr_right_innerloop = self.cooler_file.info['nbins']
-                        matrix_ = self.cooler_file.matrix(balance=False, sparse=True)[
-                            offset_chr:offset_chr_right, offset_chr_innerloop:offset_chr_right_innerloop]
+                        matrix_ = self.cooler_file.matrix(balance=False, sparse=True)[offset_chr:offset_chr_right, offset_chr_innerloop:offset_chr_right_innerloop]
 
-                        offset_sum = offset_sum + \
-                            (offset_chr_right - offset_chr)
-                        offset_sum_innerloop = offset_sum_innerloop + \
-                            (offset_chr_right_innerloop - offset_chr_innerloop)
+                        offset_sum = offset_sum + (offset_chr_right - offset_chr)
+                        offset_sum_innerloop = offset_sum_innerloop + (offset_chr_right_innerloop - offset_chr_innerloop)
                         row.extend(matrix_.nonzero()[0] + offset_sum)
                         col.extend(matrix_.nonzero()[1] + offset_sum_innerloop)
                         data.extend(matrix_.data)
@@ -235,8 +220,7 @@ class hiCMatrix:
         cut_intervals_data_frame = None
         if pChrnameList is not None:
             if len(pChrnameList) == 1:
-                cut_intervals_data_frame = self.cooler_file.bins().fetch(
-                    pChrnameList[0])
+                cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
             else:
 
                 for chrom in pChrnameList:
@@ -244,12 +228,10 @@ class hiCMatrix:
                     if cut_intervals_data_frame is None:
                         cut_intervals_data_frame = cut_intervals_data_frame_
                     else:
-                        pd.concat(
-                            [cut_intervals_data_frame, cut_intervals_data_frame_], ignore_index=True)
+                        pd.concat([cut_intervals_data_frame, cut_intervals_data_frame_], ignore_index=True)
 
         else:
-            cut_intervals_data_frame = self.cooler_file.bins(
-            )[['chrom', 'start', 'end', 'weight']][:]
+            cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
 
@@ -283,14 +265,11 @@ class hiCMatrix:
             # get intervals
             intvals = {}
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
-                intvals[interval_part] = getattr(
-                    f.root.intervals, interval_part).read()
-            cut_intervals = zip(
-                intvals['chr_list'], intvals['start_list'], intvals['end_list'], intvals['extra_list'])
+                intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
+            cut_intervals = zip(intvals['chr_list'], intvals['start_list'], intvals['end_list'], intvals['extra_list'])
             assert len(cut_intervals) == matrix.shape[0], \
                 "Error loading matrix. Length of bin intervals ({}) is different than the " \
-                "size of the matrix ({})".format(
-                    len(cut_intervals), matrix.shape[0])
+                "size of the matrix ({})".format(len(cut_intervals), matrix.shape[0])
 
             # get nan_bins
             if hasattr(f.root, 'nan_bins'):
@@ -404,8 +383,7 @@ class hiCMatrix:
 
         # check that the matrix is squared
         if matrix.shape[0] != matrix.shape[1]:
-            raise Exception(
-                "Matrix is not squared. Shape is {}".format(matrix.shape))
+            raise Exception("Matrix is not squared. Shape is {}".format(matrix.shape))
         if len(cut_intervals) != matrix.shape[0]:
             raise Exception("Length of cut_intervals {} does not match the matrix size {}".format(len(cut_intervals),
                                                                                                   matrix.shape))
@@ -497,8 +475,7 @@ class hiCMatrix:
         value = np.array([])
         cut_intervals = []
         dim = 0
-        # for each chr, append the row, col, value to the first one. Extend the
-        # dim
+        # for each chr, append the row, col, value to the first one. Extend the dim
         for i in range(0, len(filenameList)):
             if pandas is True:
                 chrd = pd.read_csv(filenameList[i], sep="\t", header=None)
@@ -522,8 +499,7 @@ class hiCMatrix:
             dim += chrdim
 
             for _bin in range(chrdim):
-                cut_intervals.append(
-                    (chrnameList[i], _bin * resolution, (_bin + 1) * resolution, 0))
+                cut_intervals.append((chrnameList[i], _bin * resolution, (_bin + 1) * resolution, 0))
 
         final_mat = coo_matrix((value, (row, col)), shape=(dim, dim))
         lieberman_data = dict(cut_intervals=cut_intervals, matrix=final_mat)
@@ -588,10 +564,8 @@ class hiCMatrix:
             exit()
 
         try:
-            startbin = sorted(
-                self.interval_trees[chrname][startpos:startpos + 1])[0].data
-            endbin = sorted(
-                self.interval_trees[chrname][endpos:endpos + 1])[0].data
+            startbin = sorted(self.interval_trees[chrname][startpos:startpos + 1])[0].data
+            endbin = sorted(self.interval_trees[chrname][endpos:endpos + 1])[0].data
         except IndexError:
             return None
 
@@ -799,8 +773,7 @@ class hiCMatrix:
             # This  sparse matrix is then added to self.matrix
             # then, -1 is subtracted to the self.matrix.data, thus effectively
             # adding zeros.
-            diag_mat_ones = diags(
-                np.repeat([1], m_size * depth).reshape(depth, m_size), list(range(depth)))
+            diag_mat_ones = diags(np.repeat([1], m_size * depth).reshape(depth, m_size), list(range(depth)))
 
             self.matrix += diag_mat_ones
 
@@ -814,17 +787,15 @@ class hiCMatrix:
         if perchr:
             for chrname in self.getChrNames():
                 chr_range = self.getChrBinRange(chrname)
-                chr_submatrix[chrname] = self.matrix[chr_range[0]                                                     :chr_range[1], chr_range[0]:chr_range[1]].tocoo()
-                cut_intervals[chrname] = [self.cut_intervals[x]
-                                          for x in range(chr_range[0], chr_range[1])]
+                chr_submatrix[chrname] = self.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]].tocoo()
+                cut_intervals[chrname] = [self.cut_intervals[x] for x in range(chr_range[0], chr_range[1])]
                 chrom_sizes[chrname] = [chr_submatrix[chrname].shape[0]]
                 chrom_range[chrname] = (chr_range[0], chr_range[1])
 
         else:
             chr_submatrix['all'] = self.matrix.tocoo()
             cut_intervals['all'] = self.cut_intervals
-            chrom_sizes['all'] = np.array(
-                [v[1] - v[0] for k, v in iteritems(self.chrBinBoundaries)])
+            chrom_sizes['all'] = np.array([v[1] - v[0] for k, v in iteritems(self.chrBinBoundaries)])
             chrom_range['all'] = (0, self.matrix.shape[0])
 
         for chrname, submatrix in iteritems(chr_submatrix):
@@ -843,14 +814,11 @@ class hiCMatrix:
             # converted to bin distance.
 
             # Because positive integers are needed we add +1 to all bin distances
-            # such that the value of -1 (which means different chromosomes) can
-            # now be used
+            # such that the value of -1 (which means different chromosomes) can now be used
 
             dist_list[dist_list == -1] = -binsize
-            # divide by binsize to get a list of bin distances and add +1 to
-            # remove negative values
-            dist_list = (np.array(dist_list).astype(
-                float) / binsize).astype(int) + 1
+            # divide by binsize to get a list of bin distances and add +1 to remove negative values
+            dist_list = (np.array(dist_list).astype(float) / binsize).astype(int) + 1
 
             # for each distance, return the sum of all values
             sum_counts = np.bincount(dist_list, weights=submatrix.data)
@@ -871,8 +839,7 @@ class hiCMatrix:
                     continue
 
                 if bin_dist_plus_one == 0:
-                    total_intra = mat_size ** 2 - \
-                        sum([size ** 2 for size in chrom_sizes[chrname]])
+                    total_intra = mat_size ** 2 - sum([size ** 2 for size in chrom_sizes[chrname]])
                     diagonal_length = (total_intra / 2).astype(int)
                     # print(type(diagonal_length))
                 else:
@@ -882,8 +849,7 @@ class hiCMatrix:
                     # chromosome larger than the offset)
                     # In the following example with two chromosomes
                     # the first (main) diagonal has a size equal to the matrix (6),
-                    # while the next has 1 value less for each chromosome (4)
-                    # and the last one has only 2 values
+                    # while the next has 1 value less for each chromosome (4) and the last one has only 2 values
 
                     # 0 1 2 . . .
                     # - 0 1 . . .
@@ -894,47 +860,37 @@ class hiCMatrix:
 
                     # idx - 1 because earlier the values where
                     # shifted.
-                    diagonal_length = sum([size - (bin_dist_plus_one - 1)
-                                           for size in chrom_sizes[chrname] if size > (bin_dist_plus_one - 1)])
+                    diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes[chrname] if size > (bin_dist_plus_one - 1)])
                     # print(type(diagonal_length))
 
                 # the diagonal length should contain the number of values at a certain distance.
                 # If the matrix is dense, the distance_len[bin_dist_plus_one] correctly contains the number of values
                 # If the matrix is equally spaced, then, the diagonal_length as computed before is accurate.
                 # But, if the matrix is both sparse and with unequal bins, then none of the above methods is
-                # accurate but the the diagonal_length as computed before will
-                # be closer.
-                diagonal_length = max(
-                    diagonal_length, distance_len[bin_dist_plus_one])
+                # accurate but the the diagonal_length as computed before will be closer.
+                diagonal_length = max(diagonal_length, distance_len[bin_dist_plus_one])
                 # print(type(diagonal_length))
 
                 if diagonal_length == 0:
                     mu[bin_dist_plus_one] = np.nan
                 else:
-                    mu[bin_dist_plus_one] = np.float64(
-                        sum_value) / diagonal_length
+                    mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
 
                 if np.isnan(sum_value):
-                    sys.stderr.write("nan value found for distance {}\n".format(
-                        (bin_dist_plus_one - 1) * binsize))
+                    sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
 
-                # if zscore is needed, compute standard deviation: std =
-                # sqrt(mean(abs(x - x.mean())**2))
+                # if zscore is needed, compute standard deviation: std = sqrt(mean(abs(x - x.mean())**2))
                 if zscore:
                     values_sqrt_diff = \
-                        np.abs(
-                            (submatrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
+                        np.abs((submatrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
                     # the standard deviation is the sum of the differences with mu squared (value variable)
                     # plus all zeros that are not included in the sparse matrix
                     # for which the standard deviation is
                     # (0 - mu)**2 = (mu)**2
-                    # The number of zeros is the diagonal length - the length
-                    # of the non zero values
-                    zero_values_sqrt_diff_sum = (
-                        diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
+                    # The number of zeros is the diagonal length - the length of the non zero values
+                    zero_values_sqrt_diff_sum = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
 
-                    _std = np.sqrt(
-                        (values_sqrt_diff.sum() + zero_values_sqrt_diff_sum) / diagonal_length)
+                    _std = np.sqrt((values_sqrt_diff.sum() + zero_values_sqrt_diff_sum) / diagonal_length)
                     std[bin_dist_plus_one] = _std
 
             # use the expected values to compute obs/exp
@@ -946,14 +902,12 @@ class hiCMatrix:
                     if std[dist_list[idx]] == 0:
                         transf_ma[idx] = np.nan
                     else:
-                        transf_ma[idx] = (
-                            value - mu[dist_list[idx]]) / std[dist_list[idx]]
+                        transf_ma[idx] = (value - mu[dist_list[idx]]) / std[dist_list[idx]]
                 else:
                     transf_ma[idx] = value / mu[dist_list[idx]]
 
             submatrix.data = transf_ma
-            trasf_matrix[chrom_range[chrname][0]:chrom_range[chrname][1],
-                         chrom_range[chrname][0]:chrom_range[chrname][1]] = submatrix.tolil()
+            trasf_matrix[chrom_range[chrname][0]:chrom_range[chrname][1], chrom_range[chrname][0]:chrom_range[chrname][1]] = submatrix.tolil()
 
         self.matrix = trasf_matrix.tocsr()
 
@@ -1204,8 +1158,7 @@ class hiCMatrix:
 
         # update correction factors
         if self.correction_factors is not None:
-            self.correction_factors = [
-                self.correction_factors[x] for x in sel_id]
+            self.correction_factors = [self.correction_factors[x] for x in sel_id]
 
         # keep track of nan bins
         if len(self.nan_bins):
@@ -1234,8 +1187,7 @@ class hiCMatrix:
         method which is chrom_name\tstart_bin\tend_bin\tvalues...
         """
         if os.path.isdir(fileName):
-            exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(
-                fileName))
+            exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(fileName))
 
         if fileName[-3:] != '.gz':
             fileName += '.gz'
@@ -1262,8 +1214,7 @@ class hiCMatrix:
         Saves the matrix using dekker format
         """
         if os.path.isdir(fileName):
-            exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(
-                fileName))
+            exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(fileName))
 
         if fileName[-3:] != '.gz':
             fileName += '.gz'
@@ -1277,8 +1228,7 @@ class hiCMatrix:
         colNames = []
         for x in range(self.matrix.shape[0]):
             chrom, start, end = self.cut_intervals[x][0:3]
-            # adds dm3 to the end (?problem..)
-            colNames.append("{}|--|{}:{}-{}".format(x, chrom, start, end))
+            colNames.append("{}|--|{}:{}-{}".format(x, chrom, start, end))  # adds dm3 to the end (?problem..)
 
         fileh.write("#converted from hicexplorer\n")
         fileh.write("\t" + "\t".join(colNames) + "\n")
@@ -1297,8 +1247,7 @@ class hiCMatrix:
         """
 
         if os.path.isfile(fileName):
-            exit("a file with the same name as the given path exists ({}). Please choose a folder.".format(
-                fileName))
+            exit("a file with the same name as the given path exists ({}). Please choose a folder.".format(fileName))
 
         if not os.path.isdir(fileName):
             os.mkdir(fileName)
@@ -1320,8 +1269,7 @@ class hiCMatrix:
                 fileh = gzip.open("{}/chr{}.gz".format(fileName, chrom), 'w')
                 fileh.write("#converted from HiCExplorer format\n")
                 for idx in range(len(start)):
-                    fileh.write("{}\t{}\t{}\n".format(
-                        start[idx], end[idx], chrwise_mat_coo.data[idx]))
+                    fileh.write("{}\t{}\t{}\n".format(start[idx], end[idx], chrwise_mat_coo.data[idx]))
                 fileh.close()
 
     def save_GInteractions(self, fileName):
@@ -1337,40 +1285,37 @@ class hiCMatrix:
         fileh.close()
 
     def create_empty_cool_file(self, pFileName):
-        bins_data_frame = pd.DataFrame(
-            columns=['chrom', 'start', 'end', 'weight'])
-        matrix_data_frame = pd.DataFrame(
-            columns=['bin1_id', 'bin2_id', 'count'])
+        bins_data_frame = pd.DataFrame(columns=['chrom', 'start', 'end', 'weight'])
+        matrix_data_frame = pd.DataFrame(columns=['bin1_id', 'bin2_id', 'count'])
         cooler_file = cooler.io.create(cool_uri=pFileName,
                                        bins=bins_data_frame,
                                        pixels=matrix_data_frame)
 
     # def save_cool_pandas(self, pFileName, pDataFrameBins, pDataFrameMatrix):
 
+        
+        
     #     cooler_file = cooler.io.create(cool_uri=pFileName,
     #                                    bins=pDataFrameBins,
     #                                    pixels=pDataFrameMatrix)
 
     def save_cooler(self, pFileName, pDataFrameBins=None, pDataFrameMatrix=None):
+        
 
         if pDataFrameBins:
             if pDataFrameBins['start'].dtypes != 'int64':
-                pDataFrameBins['start'] = pDataFrameBins['start'].astype(
-                    np.int64)
+                pDataFrameBins['start'] = pDataFrameBins['start'].astype(np.int64)
             if pDataFrameBins['end'].dtypes != 'int64':
                 pDataFrameBins['end'] = pDataFrameBins['end'].astype(np.int64)
             bins_data_frame = pDataFrameBins
         else:
             # create a pandas data frame for cut_intervals
-            bins_data_frame = pd.DataFrame(self.cut_intervals, columns=[
-                                           'chrom', 'start', 'end', 'weight'])
+            bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
         if pDataFrameMatrix:
             if pDataFrameMatrix['bin1_id'].dtypes != 'int64':
-                pDataFrameMatrix['bin1_id'] = pDataFrameMatrix['bin1_id'].astype(
-                    np.int64)
+                pDataFrameMatrix['bin1_id'] = pDataFrameMatrix['bin1_id'].astype(np.int64)
             if pDataFrameMatrix['bin2_id'].dtypes != 'int64':
-                pDataFrameMatrix['bin2_id'] = pDataFrameMatrix['bin2_id'].astype(
-                    np.int64)
+                pDataFrameMatrix['bin2_id'] = pDataFrameMatrix['bin2_id'].astype(np.int64)
             matrix_data_frame = pDataFrameMatrix
         else:
             self.restoreMaskedBins()
@@ -1379,11 +1324,9 @@ class hiCMatrix:
             # create a tuple list and use it to create a data frame
             instances, features = upper_triangle.nonzero()
             data = upper_triangle.data.tolist()
-            matrix_tuple_list = zip(
-                instances.tolist(), features.tolist(), data)
+            matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
 
-            matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=[
-                                             'bin1_id', 'bin2_id', 'count'])
+            matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
         # print("matrix_data_frame", matrix_data_frame)
         cooler_file = cooler.io.create(cool_uri=pFileName,
                                        bins=bins_data_frame,
@@ -1428,8 +1371,7 @@ class hiCMatrix:
 
             # save the matrix intervals
             intervals_group = h5file.create_group("/", "intervals", )
-            chr_list, start_list, end_list, extra_list = zip(
-                *self.cut_intervals)
+            chr_list, start_list, end_list, extra_list = zip(*self.cut_intervals)
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
                 arr = np.array(eval(interval_part))
                 atom = tables.Atom.from_dtype(arr.dtype)
@@ -1661,8 +1603,7 @@ class hiCMatrix:
                 M = self.matrix.shape[0]
                 previous_bin_ids = self.orig_bin_ids[M:]
                 # merge new and old masked bins
-                bin_ids = np.unique(np.concatenate(
-                    [previous_bin_ids, self.orig_bin_ids[bin_ids]]))
+                bin_ids = np.unique(np.concatenate([previous_bin_ids, self.orig_bin_ids[bin_ids]]))
                 print("bin_ids_orginal stuff", bin_ids[:10])
                 np.sort(bin_ids)
                 self.restoreMaskedBins()
@@ -1712,11 +1653,9 @@ class hiCMatrix:
         :return:
         """
         if hasattr(self, 'orig_bin_ids'):
-            raise Exception(
-                "matrix contains masked bins. Restore masked bins first")
+            raise Exception("matrix contains masked bins. Restore masked bins first")
 
-        assert len(
-            new_cut_intervals) == new_matrix.shape[0], "matrix shape and len of cut intervals do not match"
+        assert len(new_cut_intervals) == new_matrix.shape[0], "matrix shape and len of cut intervals do not match"
 
         self.matrix = new_matrix
         self.cut_intervals = new_cut_intervals
@@ -1777,8 +1716,7 @@ class hiCMatrix:
                      the section moved
         """
 
-        rows = np.delete(
-            list(range(self.matrix.shape[1])), range(orig[0], orig[1]))
+        rows = np.delete(list(range(self.matrix.shape[1])), range(orig[0], orig[1]))
 
         if dest > orig[1]:
             dest = dest - (orig[1] - orig[0])

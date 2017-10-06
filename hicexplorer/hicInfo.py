@@ -51,6 +51,7 @@ def main():
             chromosomes = hic_ma.chrBinBoundaries.keys()
         else:
             chromosomes = list(hic_ma.chrBinBoundaries)
+                
 
         print("File:\t{}".format(matrix))
         print("Size:\t{:,}".format(size))

@@ -49,8 +49,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
 
     from hicexplorer.reduceMatrix import reduce_matrix
     hic.restoreMaskedBins()
-    ref_name_list, start_list, end_list, coverage_list = zip(
-        *hic.cut_intervals)
+    ref_name_list, start_list, end_list, coverage_list = zip(*hic.cut_intervals)
     new_bins = []
     bins_to_merge = []
     prev_ref = ref_name_list[0]
@@ -117,8 +116,7 @@ def get_boundary_bin_id(hic, bed_fh):
                   "an integer.\nError message: {}".format(line_number, detail)
             sys.exit(msg)
 
-        assert start <= end, "Error in line #{}, end1 larger than start1 in {}".format(
-            line_number, line)
+        assert start <= end, "Error in line #{}, end1 larger than start1 in {}".format(line_number, line)
 
         # check the overlap of the region with the hic matrix bins
         start_bin, end_bin = hic.getRegionBinRange(chrom, start, end)

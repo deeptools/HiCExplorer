@@ -425,7 +425,7 @@ def plot_total_contact_dist(hic_ma, args):
             log.info("Plotting chromosome {}".format(chrname))
 
             chr_range = hic_ma.getChrBinRange(chrname)
-            chr_submatrix = hic_ma.matrix[chr_range[0]                                          :chr_range[1], chr_range[0]:chr_range[1]]
+            chr_submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
 
             row_sum = np.asarray(chr_submatrix.sum(axis=1)).flatten()
             row_sum = row_sum - chr_submatrix.diagonal()
@@ -479,8 +479,7 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
             # and not only self interactions that are the dominant count
             row_sum = row_sum - chr_submatrix.diagonal()
             mad = MAD(row_sum)
-            problematic = np.flatnonzero(
-                mad.is_outlier(lower_threshold, upper_threshold))
+            problematic = np.flatnonzero(mad.is_outlier(lower_threshold, upper_threshold))
 
             # because the problematic indices are specific for the given chromosome
             # they need to be updated to match the large matrix indices
@@ -498,8 +497,7 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
         # and not only self interactions that are the dominant count
         row_sum = row_sum - hic_ma.matrix.diagonal()
         mad = MAD(row_sum)
-        to_remove = np.flatnonzero(mad.is_outlier(
-            lower_threshold, upper_threshold))
+        to_remove = np.flatnonzero(mad.is_outlier(lower_threshold, upper_threshold))
 
     return sorted(to_remove)
 
@@ -514,7 +512,7 @@ def main(args=None):
         ma = hm.hiCMatrix(args.matrix, chrnameList=args.chromosomes)
     else:
         ma = hm.hiCMatrix(args.matrix)
-
+        
         if args.chromosomes:
             ma.reorderChromosomes(args.chromosomes)
 
@@ -536,13 +534,11 @@ def main(args=None):
     if args.skipDiagonal:
         ma.diagflat(value=0)
 
-    outlier_regions = filter_by_zscore(
-        ma, args.filterThreshold[0], args.filterThreshold[1], perchr=args.perchr)
+    outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1], perchr=args.perchr)
     # compute and print some statistics
     pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
     ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%) "
-                                               "out of".format(
-                                                   pct_outlier, ma.matrix.shape[0]),
+                                               "out of".format(pct_outlier, ma.matrix.shape[0]),
                         restore_masked_bins=False)
 
     assert matrix_shape == ma.matrix.shape
@@ -558,8 +554,7 @@ def main(args=None):
         failed_bins = np.flatnonzero(
             np.array(coverage) < args.sequencedCountCutoff)
 
-        ma.printchrtoremove(
-            failed_bins, label="Bins with low coverage", restore_masked_bins=False)
+        ma.printchrtoremove(failed_bins, label="Bins with low coverage", restore_masked_bins=False)
         ma.maskBins(failed_bins)
         total_filtered_out = set(failed_bins)
         """
@@ -582,24 +577,21 @@ def main(args=None):
         # normalize each chromosome independently
         for chrname in list(ma.interval_trees):
             chr_range = ma.getChrBinRange(chrname)
-            chr_submatrix = ma.matrix[chr_range[0]                                      :chr_range[1], chr_range[0]:chr_range[1]]
+            chr_submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
             _matrix, _corr_factors = iterative_correction(chr_submatrix, args)
-            corrected_matrix[chr_range[0]:chr_range[1],
-                             chr_range[0]:chr_range[1]] = _matrix
+            corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = _matrix
             correction_factors.append(_corr_factors)
         correction_factors = np.concatenate(correction_factors)
 
     else:
-        corrected_matrix, correction_factors = iterative_correction(
-            ma.matrix, args)
+        corrected_matrix, correction_factors = iterative_correction(ma.matrix, args)
 
     ma.setMatrixValues(corrected_matrix)
     ma.setCorrectionFactors(correction_factors)
     if args.inflationCutoff and args.inflationCutoff > 0:
         after_row_sum = np.asarray(corrected_matrix.sum(axis=1)).flatten()
         # identify rows that were expanded more than args.inflationCutoff times
-        to_remove = np.flatnonzero(
-            after_row_sum / pre_row_sum >= args.inflationCutoff)
+        to_remove = np.flatnonzero(after_row_sum / pre_row_sum >= args.inflationCutoff)
         ma.printchrtoremove(to_remove,
                             label="inflated >={} "
                             "regions".format(args.inflationCutoff), restore_masked_bins=False)
