@@ -512,7 +512,7 @@ def main(args=None):
         ma = hm.hiCMatrix(args.matrix, chrnameList=args.chromosomes)
     else:
         ma = hm.hiCMatrix(args.matrix)
-        
+
         if args.chromosomes:
             ma.reorderChromosomes(args.chromosomes)
 

@@ -186,7 +186,7 @@ def main(args=None):
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
-            
+
         if args.bplimit:
             from scipy.sparse import triu
             sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
@@ -205,7 +205,7 @@ def main(args=None):
     if not args.outFileName.endswith(args.outputFormat):
         args.outFileName += "."
         args.outFileName += args.outputFormat
-        
+
     if args.outputFormat == 'dekker':
         print('saving as dekker...')
         hic_ma.save_dekker(args.outFileName)

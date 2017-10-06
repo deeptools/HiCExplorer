@@ -835,11 +835,11 @@ class PlotHiCMatrix(TrackPlot):
         self.properties = properties_dict
 
         print("self.properties", self.properties)
-        if p_region is None: #or not self.properties['file'].endswith('.cool'):
+        if p_region is None:  # or not self.properties['file'].endswith('.cool'):
             self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'])
         else:
             self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'], chrnameList=[p_region])
-            
+
         if len(self.hic_ma.matrix.data) == 0:
             exit("Matrix {} is empty".format(self.properties['file']))
         if 'show_masked_bins' in self.properties and self.properties['show_masked_bins'] == 'yes':
