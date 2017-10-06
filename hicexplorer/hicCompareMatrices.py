@@ -47,9 +47,6 @@ def main(args=None):
     if args.operation not in ['diff', 'ratio', 'log2ratio']:
         exit("Operation not found. Please use 'diff', 'ratio' or 'log2ratio'.")
 
-    
-    if args.threads:
-        print("Multiple threads are only used if the matrices are in 'cool'-format.")
     hic1 = hm.hiCMatrix(args.matrices[0])
     hic2 = hm.hiCMatrix(args.matrices[1])
 

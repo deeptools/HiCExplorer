@@ -1291,35 +1291,42 @@ class hiCMatrix:
                                        bins=bins_data_frame,
                                        pixels=matrix_data_frame)
 
-    def save_cool_pandas(self, pFileName, pDataFrameBins, pDataFrameMatrix):
+    # def save_cool_pandas(self, pFileName, pDataFrameBins, pDataFrameMatrix):
 
-        if pDataFrameBins['start'].dtypes != 'int64':
-            pDataFrameBins['start'] = pDataFrameBins['start'].astype(np.int64)
-        if pDataFrameBins['end'].dtypes != 'int64':
-            pDataFrameBins['end'] = pDataFrameBins['end'].astype(np.int64)
-        if pDataFrameMatrix['bin1_id'].dtypes != 'int64':
-            pDataFrameMatrix['bin1_id'] = pDataFrameMatrix['bin1_id'].astype(np.int64)
-        if pDataFrameMatrix['bin2_id'].dtypes != 'int64':
-            pDataFrameMatrix['bin2_id'] = pDataFrameMatrix['bin2_id'].astype(np.int64)
+        
+        
+    #     cooler_file = cooler.io.create(cool_uri=pFileName,
+    #                                    bins=pDataFrameBins,
+    #                                    pixels=pDataFrameMatrix)
 
-        cooler_file = cooler.io.create(cool_uri=pFileName,
-                                       bins=pDataFrameBins,
-                                       pixels=pDataFrameMatrix)
+    def save_cooler(self, pFileName, pDataFrameBins=None, pDataFrameMatrix=None):
+        
 
-    def save_cooler(self, pFileName):
-        self.restoreMaskedBins()
+        if pDataFrameBins:
+            if pDataFrameBins['start'].dtypes != 'int64':
+                pDataFrameBins['start'] = pDataFrameBins['start'].astype(np.int64)
+            if pDataFrameBins['end'].dtypes != 'int64':
+                pDataFrameBins['end'] = pDataFrameBins['end'].astype(np.int64)
+            bins_data_frame = pDataFrameBins
+        else:
+            # create a pandas data frame for cut_intervals
+            bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
+        if pDataFrameMatrix:
+            if pDataFrameMatrix['bin1_id'].dtypes != 'int64':
+                pDataFrameMatrix['bin1_id'] = pDataFrameMatrix['bin1_id'].astype(np.int64)
+            if pDataFrameMatrix['bin2_id'].dtypes != 'int64':
+                pDataFrameMatrix['bin2_id'] = pDataFrameMatrix['bin2_id'].astype(np.int64)
+            matrix_data_frame = pDataFrameMatrix
+        else:
+            self.restoreMaskedBins()
+            # get only the upper triangle of the matrix to save to disk
+            upper_triangle = triu(self.matrix, k=0, format='csr')
+            # create a tuple list and use it to create a data frame
+            instances, features = upper_triangle.nonzero()
+            data = upper_triangle.data.tolist()
+            matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
 
-        # create a pandas data frame for cut_intervals
-        bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
-
-        # get only the upper triangle of the matrix to save to disk
-        upper_triangle = triu(self.matrix, k=0, format='csr')
-        # create a tuple list and use it to create a data frame
-        instances, features = upper_triangle.nonzero()
-        data = upper_triangle.data.tolist()
-        matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
-
-        matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
+            matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
         # print("matrix_data_frame", matrix_data_frame)
         cooler_file = cooler.io.create(cool_uri=pFileName,
                                        bins=bins_data_frame,
