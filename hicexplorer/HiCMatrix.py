@@ -228,12 +228,25 @@ class hiCMatrix:
                     if cut_intervals_data_frame is None:
                         cut_intervals_data_frame = cut_intervals_data_frame_
                     else:
-                        pd.concat([cut_intervals_data_frame, cut_intervals_data_frame_], ignore_index=True)
+                        cut_intervals_data_frame = pd.concat([cut_intervals_data_frame, cut_intervals_data_frame_], ignore_index=True)
 
         else:
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
-        cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
+        # cut intervals
+        # check for duplicates
+        # check for start / end within range
+        duplicate_check = set()
+        cut_intervals = []
+
+        for values in cut_intervals_data_frame.values:
+            if values[1] in duplicate_check:
+                continue
+            else:
+                duplicate_check.add(values[1])
+                cut_intervals.append(tuple(values))
+                
+        # cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
 
         # try to restore nan_bins.
         try:
@@ -244,7 +257,7 @@ class hiCMatrix:
 
         distance_counts = None
         correction_factors = None
-
+        matrix = hiCMatrix.fillLowerTriangle(matrix)
         return matrix.tocsr(), cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
@@ -1301,7 +1314,8 @@ class hiCMatrix:
 
     def save_cooler(self, pFileName, pDataFrameBins=None, pDataFrameMatrix=None):
         
-
+        self.restoreMaskedBins()
+        
         if pDataFrameBins:
             if pDataFrameBins['start'].dtypes != 'int64':
                 pDataFrameBins['start'] = pDataFrameBins['start'].astype(np.int64)
@@ -1318,7 +1332,6 @@ class hiCMatrix:
                 pDataFrameMatrix['bin2_id'] = pDataFrameMatrix['bin2_id'].astype(np.int64)
             matrix_data_frame = pDataFrameMatrix
         else:
-            self.restoreMaskedBins()
             # get only the upper triangle of the matrix to save to disk
             upper_triangle = triu(self.matrix, k=0, format='csr')
             # create a tuple list and use it to create a data frame
