@@ -8,11 +8,12 @@ import numpy.testing as nt
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/hicExport/"
 
-DEKKER_MATRIX = ROOT + "matrix.dekker.gz"
-REN_MATRIX = ROOT + "matrix.ren.gz"
-LIEBERMAN_MATRIX = ROOT + "matrix.lieberman"
+# DEKKER_MATRIX = ROOT + "matrix.dekker.gz"
+# REN_MATRIX = ROOT + "matrix.ren.gz"
+# LIEBERMAN_MATRIX = ROOT + "matrix.lieberman"
+# GINTERACTIONS_MATRIX = ROOT + "matrix.GInteractions.tsv"
+
 NPZ_MATRIX = ROOT + "matrix.npz"
-GINTERACTIONS_MATRIX = ROOT + "matrix.GInteractions.tsv"
 COOL_MATRIX = ROOT + "matrix.cool"
 H5_MATRIX = ROOT + "matrix.h5"
 
