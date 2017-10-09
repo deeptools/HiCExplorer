@@ -220,8 +220,13 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
 
     # print("plotHeatmap_region___start_pos", start_pos)
     # print("plotHeatmap_region___start_pos2", start_pos2)
-
+    
+    print("start_pos", start_pos)
+    print("start_pos2", start_pos2)
+    
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
+    print("len(xmesh)", len(xmesh))
+    print("len(ymesh)", len(ymesh))
     img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=norm)
 
     img3.set_rasterized(True)
@@ -394,6 +399,55 @@ def plotPerChr(hic_matrix, cmap, args):
     # the color bar in pdf plots
     cbar.ax.set_ylabel(args.scoreName, rotation=270, labelpad=20)
 
+def getRegion(args, ma):
+    chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
+    chrom, region_start, region_end = translate_region(args.region)
+
+    print("len(cut_intervals)", len(ma.cut_intervals))
+    if type(next(iter(ma.interval_trees))) is np.bytes_:
+        chrom = toBytes(chrom)
+
+    if chrom not in list(ma.interval_trees):
+        chrom = change_chrom_names(chrom)
+        if type(next(iter(ma.interval_trees))) is np.bytes_:
+            chrom = toBytes(chrom)
+        if chrom not in list(ma.interval_trees):
+            exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
+
+    args.region = [chrom, region_start, region_end]
+    if args.matrix.endswith(".cool"):
+        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
+                                ((x[1] >= region_start and x[2] < region_end) or  \
+                                (x[1] < region_end and x[2] < region_end and x[2] > region_start) or \
+                                (x[1] > region_start and x[1] < region_end)) ])
+    else:
+        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
+                                x[1] >= region_start and x[2] < region_end])
+    # print(chrom, region_start, region_end, idx1, start_pos1)
+    if args.region2:
+        chrom2, region_start2, region_end2 = translate_region(args.region2)
+        if type(next(iter(ma.interval_trees))) is np.bytes_:
+            chrom2 = toBytes(chrom)
+        if chrom2 not in list(ma.interval_trees):
+            chrom2 = change_chrom_names(chrom2)
+            if type(next(iter(ma.interval_trees))) is np.bytes_:
+                chrom2 = toBytes(chrom)
+            if chrom2 not in list(ma.interval_trees):
+                exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
+        if args.matrix.endswith(".cool"):
+            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
+                                    ((x[1] >= region_start2 and x[2] < region_end2) or  \
+                                    (x[1] < region_end2 and x[2] < region_end2 and x[2] > region_start2) or \
+                                    (x[1] > region_start2 and x[1] < region_end2)) ])
+        else:
+            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
+                                    x[1] >= region_start2 and x[2] < region_end2])
+    else:
+        idx2 = idx1
+        chrom2 = chrom
+        start_pos2 = start_pos1
+    
+    return chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2
 
 def main(args=None):
     print("\nhicPlotMatrix")
@@ -416,97 +470,71 @@ def main(args=None):
                 chrom2, region_start2, region_end2 = translate_region(args.region2)
                 regionsToRetrieve.append(args.region2)
                 print("args.region2", args.region2)
+        if args.chromosomeOrder:
+            args.region = None
+            args.region2 = None
+            regionsToRetrieve = args.chromosomeOrder
 
+        
         ma = HiCMatrix.hiCMatrix(args.matrix, chrnameList=regionsToRetrieve)
-        # matrix = np.asarray(ma.matrix.todense().astype(float))
+
+        
+            
+        ma.restoreMaskedBins()
+
+        if args.clearMaskedBins:
+            ma.maskBins(ma.nan_bins)
+        
+        if args.region:
+            chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
+
+        matrix = np.asarray(ma.matrix.todense().astype(float))
+        
     else:
         ma = HiCMatrix.hiCMatrix(args.matrix)
 
-    if args.chromosomeOrder:
-        args.region = None
-        args.region2 = None
+        if args.chromosomeOrder:
+            args.region = None
+            args.region2 = None
 
-        valid_chromosomes = []
-        invalid_chromosomes = []
-        for chrom in args.chromosomeOrder:
-            if chrom in ma.chrBinBoundaries:
-                valid_chromosomes.append(chrom)
-            else:
-                invalid_chromosomes.append(chrom)
+            valid_chromosomes = []
+            invalid_chromosomes = []
+            for chrom in args.chromosomeOrder:
+                if chrom in ma.chrBinBoundaries:
+                    valid_chromosomes.append(chrom)
+                else:
+                    invalid_chromosomes.append(chrom)
 
-        ma.reorderChromosomes(valid_chromosomes)
-        if len(invalid_chromosomes) > 0:
-            sys.stderr.write("WARNING: The following chromosome/scaffold names were not found. Please check"
-                             "the correct spelling of the chromosome names. \n")
-            sys.stderr.write("\n".join(invalid_chromosomes))
+            ma.reorderChromosomes(valid_chromosomes)
+            if len(invalid_chromosomes) > 0:
+                sys.stderr.write("WARNING: The following chromosome/scaffold names were not found. Please check"
+                                "the correct spelling of the chromosome names. \n")
+                sys.stderr.write("\n".join(invalid_chromosomes))
 
-    # print("list(ma.interval_trees)",list(ma.interval_trees))
-    ma.restoreMaskedBins()
+        # print("list(ma.interval_trees)",list(ma.interval_trees))
+        # ma.restoreMaskedBins()
 
-    if args.clearMaskedBins:
-        ma.maskBins(ma.nan_bins)
+        if args.clearMaskedBins:
+            ma.maskBins(ma.nan_bins)
 
-    sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
-    # if not args.matrix.endswith('cool'):
+        sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
+        # if not args.matrix.endswith('cool'):
 
-    if args.region:
-        chrom, region_start, region_end = translate_region(args.region)
+        if args.region:
+            chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
 
-        if type(next(iter(ma.interval_trees))) is np.bytes_:
-            chrom = toBytes(chrom)
-
-        if chrom not in list(ma.interval_trees):
-            chrom = change_chrom_names(chrom)
-            if type(next(iter(ma.interval_trees))) is np.bytes_:
-                chrom = toBytes(chrom)
-            if chrom not in list(ma.interval_trees):
-                exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
-
-        args.region = [chrom, region_start, region_end]
-        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
-                                 x[1] >= region_start and x[2] < region_end])
-        # print(chrom, region_start, region_end, idx1, start_pos1)
-        if args.region2:
-            chrom2, region_start2, region_end2 = translate_region(args.region2)
-            if type(next(iter(ma.interval_trees))) is np.bytes_:
-                chrom2 = toBytes(chrom)
-            if chrom2 not in list(ma.interval_trees):
-                chrom2 = change_chrom_names(chrom2)
-                if type(next(iter(ma.interval_trees))) is np.bytes_:
-                    chrom2 = toBytes(chrom)
-                if chrom2 not in list(ma.interval_trees):
-                    exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
-            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
-                                     x[1] >= region_start2 and x[2] < region_end2])
+            matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
+            
         else:
-            idx2 = idx1
-            chrom2 = chrom
-            start_pos2 = start_pos1
-        # select only relevant part
-        # if args.matrix.endswith('.cool'):
-        #     matrix = np.asarray(ma.matrix.todense().astype(float))
-        # else:
-        # print("start_pos1", start_pos1)
-        # print("len(start_pos1)", len(start_pos1))
-        # print("idx1", idx1)
-        # print("len(idx1)", len(idx1))
-        # print("start_pos2", start_pos2)
-        # print("len(start_pos2)", len(start_pos2))
-
-        # print("idx2", idx2)
-        # print("len(idx2)", len(idx2))
-
-        matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
-        # print("matrix", matrix)
-        # print("len(matrix)", len(matrix))
-    else:
-        # TODO make start_pos1
-        matrix = np.asanyarray(ma.getMatrix().astype(float))
+            # TODO make start_pos1
+            matrix = np.asanyarray(ma.getMatrix().astype(float))
+    print("len(matrix[0])", len(matrix[0]))
+    print("len(matrix)", len(matrix))
+    
     matrix_length = len(matrix[0])
     for matrix_ in matrix:
         if not matrix_length == len(matrix_):
             print("NOT SAME LENGTH")
-    # print("matrix_length", matrix_length)
     cmap = cm.get_cmap(args.colorMap)
     sys.stderr.write("Nan values set to black\n")
     cmap.set_bad('black')
