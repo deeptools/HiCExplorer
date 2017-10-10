@@ -72,6 +72,9 @@ class hiCMatrix:
             if file_format == 'h5' or file_format == 'hicexplorer':
                 self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
                     hiCMatrix.load_h5(matrixFile)
+                
+                print("self.matrix.shape", self.matrix.shape)
+                print("len(self.cut_intervals)", len(self.cut_intervals))
                 self.restoreMaskedBins()
 
             elif file_format == 'npz':
@@ -121,7 +124,11 @@ class hiCMatrix:
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
-
+            print("self.matrix.shape", self.matrix.shape)
+            print("len(self.cut_intervals)", len(self.cut_intervals))
+            print("len(nan_bins)", len(self.nan_bins))
+            print("nan_bins", self.nan_bins)
+            
     def load_cool_only_init(self, pMatrixFile):
         self.cooler_file = cooler.Cooler(pMatrixFile)
 
@@ -152,6 +159,7 @@ class hiCMatrix:
             if len(pChrnameList) == 1:
                 matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
             elif len(pChrnameList) == 2:
+                # print("GETTING VALUES")
                 matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0], pChrnameList[1])
             elif pIntraChromosomalOnly:
                 row = []
@@ -236,6 +244,7 @@ class hiCMatrix:
         # cut intervals
         # check for duplicates
         # check for start / end within range
+        # print("cut_intervals_data_frame", cut_intervals_data_frame)
         duplicate_check = set()
         cut_intervals = []
 
@@ -245,18 +254,44 @@ class hiCMatrix:
             else:
                 duplicate_check.add(values[1])
                 cut_intervals.append(tuple(values))
-                
+
+        # print("cut_intervals", cut_intervals)
         # cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
 
         # try to restore nan_bins.
+        i = 1
+        j = 0
+        is_nan = True
         try:
-            nan_bins = np.asarray(matrix.sum(axis=1)).flatten() == 0
-            nan_bins = [i for i, value in enumerate(nan_bins) if value == True]
+            # print(matrix)
+            matrix = matrix.tocsr()
+            # print("NAN_BINS restore")
+            nan_bins = []
+            # print("matrix.indptr", matrix.indptr)
+            # print("matrix.data", matrix.data)
+            
+            while j < len(matrix.data):
+                if j == matrix.indptr[i]:
+                    if is_nan:
+                        nan_bins.append(i - 1)
+                        # print("APPEND:", i)
+                    i += 1
+                    is_nan = True
+                if not np.isnan(matrix.data[j]):
+                    is_nan = False
+                    j = matrix.indptr[i] 
+                    # print("NOT APPEND")
+                else:
+                    j += 1
         except:
+            # print("FAILED: i", i, " j:", j, " is_nan", is_nan)
             nan_bins = None
 
         distance_counts = None
         correction_factors = None
+        print("LOAD__matrix.shape", matrix.shape)
+        print("LOAD__len(cut_intervals)", len(cut_intervals))
+        # print("cut_intervals_COOL", cut_intervals)
         matrix = hiCMatrix.fillLowerTriangle(matrix)
         return matrix.tocsr(), cut_intervals, nan_bins, distance_counts, correction_factors
 
@@ -1306,16 +1341,19 @@ class hiCMatrix:
 
     # def save_cool_pandas(self, pFileName, pDataFrameBins, pDataFrameMatrix):
 
-        
-        
     #     cooler_file = cooler.io.create(cool_uri=pFileName,
     #                                    bins=pDataFrameBins,
     #                                    pixels=pDataFrameMatrix)
 
     def save_cooler(self, pFileName, pDataFrameBins=None, pDataFrameMatrix=None):
-        
+
+        # for value in self.nan_bins:
         self.restoreMaskedBins()
         
+        self.matrix[self.nan_bins, :] = np.nan
+        self.matrix[:, self.nan_bins] = np.nan
+        
+
         if pDataFrameBins:
             if pDataFrameBins['start'].dtypes != 'int64':
                 pDataFrameBins['start'] = pDataFrameBins['start'].astype(np.int64)
@@ -1605,19 +1643,18 @@ class hiCMatrix:
         and keep the information about the intervals
         as masked
         """
+        # print("self.cut_intervalsMASKBINS___START", self.cut_intervals)
+        
         if len(bin_ids) == 0:
             return
-
         self.printchrtoremove(bin_ids, restore_masked_bins=False)
         try:
             # check if a masked bin already exists
             if len(self.orig_bin_ids) > 0:
-                print("Masked bins already present")
                 M = self.matrix.shape[0]
                 previous_bin_ids = self.orig_bin_ids[M:]
                 # merge new and old masked bins
                 bin_ids = np.unique(np.concatenate([previous_bin_ids, self.orig_bin_ids[bin_ids]]))
-                print("bin_ids_orginal stuff", bin_ids[:10])
                 np.sort(bin_ids)
                 self.restoreMaskedBins()
         except:
@@ -1625,36 +1662,45 @@ class hiCMatrix:
 
         # join with existing nan_bins
         if len(self.nan_bins) > 0:
-            print("bin_ids_orginal stuff_1", self.nan_bins[:10])
-
             print("found existing {} nan bins that will be "
                   "included for masking ".format(len(self.nan_bins)))
             bin_ids = np.unique(np.concatenate([self.nan_bins, bin_ids]))
             self.nan_bins = []
         rows = cols = np.delete(list(range(self.matrix.shape[1])), bin_ids)
+
+        
+        
         self.matrix = self.matrix[rows, :][:, cols]
 
         # to keep track of removed bins
         # I add their ids to the end of the rows vector
         # to reverse the changes, I just need to do an argsort
         # to put the removed bins in place
+        # print("bins_ids", bin_ids)
         self.orig_bin_ids = np.concatenate([rows, bin_ids])
+        print("bin_ids", bin_ids)
+        print("rows", rows)
+        new_cut_intervals = []
 
-        new_cut_intervals = [self.cut_intervals[x] for x in rows]
-
+        for i in range(len(self.cut_intervals)):
+            if i not in bin_ids:
+                new_cut_intervals.append(self.cut_intervals[i])
+        # new_cut_intervals = [self.cut_intervals[x] for x in rows]
+        # if new_cut_intervals[-1] == self.cut_intervals[-]
+        # new_cut_intervals.extend([self.cut_intervals[x] for x in range(rows[:-1], len(self.cut_intervals), 1) ])
+        # print("MASKBINS_MIDDEL__new_cut_intervals", new_cut_intervals)
         self.orig_cut_intervals = \
             new_cut_intervals + [self.cut_intervals[x] for x in bin_ids]
-        # print("[loop]",[self.cut_intervals[x] for x in bin_ids][:10])
-        # print("self.cut_intervals", self.cut_intervals[:10])
-        # print("new_cut_intervals", new_cut_intervals[:10])
-        # print("self.orig_cut_intervals", self.orig_cut_intervals[:10])
         self.cut_intervals = new_cut_intervals
-#        self.nan_bins = np.intersect1d(self.nan_bins, rows)
         self.interval_trees, self.chrBinBoundaries = \
             self.intervalListToIntervalTree(self.cut_intervals)
 
         if self.correction_factors is not None:
             self.correction_factors = self.correction_factors[rows]
+        
+        # print("self.cut_intervalsMASKBINS__END", self.cut_intervals)
+        # print("len(self.cut_intervals)", len(self.cut_intervals))
+        
 
     def update_matrix(self, new_matrix, new_cut_intervals):
         """

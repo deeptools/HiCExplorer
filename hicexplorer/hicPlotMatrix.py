@@ -205,6 +205,10 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
 def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                        ylabel=None, start_pos=None, start_pos2=None):
 
+    print("start_pos", start_pos)
+    
+    print("len(start_pos)", len(start_pos))
+
     axHeat2 = fig.add_axes(position)
     if args.title:
         axHeat2.set_title(args.title)
@@ -223,10 +227,23 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     
     print("start_pos", start_pos)
     print("start_pos2", start_pos2)
+    print("len(start_pos)", len(start_pos))
+    print("len(start_pos2)", len(start_pos2))
+    
     
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-    print("len(xmesh)", len(xmesh))
-    print("len(ymesh)", len(ymesh))
+    foo = np.unique(start_pos)
+    # print("foo", foo)
+    # print("len(foo)", len(foo))
+    # print("xmesh", xmesh)
+    # print("ymesh", ymesh)
+    
+    # print("len(xmesh)", len(xmesh))
+    # print("len(xmesh[0])", len(xmesh[0]))
+    
+    # print("len(ymesh)", len(ymesh))
+    # print("len(ymesh[0])", len(ymesh[0]))
+
     img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=norm)
 
     img3.set_rasterized(True)
@@ -426,6 +443,8 @@ def getRegion(args, ma):
     # print(chrom, region_start, region_end, idx1, start_pos1)
     if args.region2:
         chrom2, region_start2, region_end2 = translate_region(args.region2)
+        # print("GOOO: regiom_start2", region_start2, " region_end2", region_end2)
+        # print("ma.cut_intervals", ma.cut_intervals)
         if type(next(iter(ma.interval_trees))) is np.bytes_:
             chrom2 = toBytes(chrom)
         if chrom2 not in list(ma.interval_trees):
@@ -480,14 +499,15 @@ def main(args=None):
 
         
             
-        ma.restoreMaskedBins()
+        # ma.restoreMaskedBins()
 
         if args.clearMaskedBins:
             ma.maskBins(ma.nan_bins)
-        
+        # print("len(ma.cut_intervals", len(ma.cut_intervals))
         if args.region:
             chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
 
+            # print("Len(start_pos1)", len(start_pos1))
         matrix = np.asarray(ma.matrix.todense().astype(float))
         
     else:
@@ -530,6 +550,7 @@ def main(args=None):
             matrix = np.asanyarray(ma.getMatrix().astype(float))
     print("len(matrix[0])", len(matrix[0]))
     print("len(matrix)", len(matrix))
+    print("len(ma.cut_intervals)", len(ma.cut_intervals))
     
     matrix_length = len(matrix[0])
     for matrix_ in matrix:
@@ -583,6 +604,8 @@ def main(args=None):
                     # plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
                     #                 args, cmap, xlabel=chrom, ylabel=chrom2)
                 # else:
+                print("Len(start_pos1)___587", len(start_pos1))
+                
                 plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
                                    args, cmap, xlabel=chrom, ylabel=chrom2,
                                    start_pos=start_pos1, start_pos2=start_pos2)
