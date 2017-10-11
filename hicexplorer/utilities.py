@@ -338,7 +338,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
     defined as those having a z-score higher than 3.4. This
     number as defined after exploring different values
     of z-scores and estimating the best goodness of fit.
-    The HiC data is expected to contain outliers but they
+    The Hi-C data is expected to contain outliers but they
     are problematic to fit and test the goodness of fit of a
     distribution, that's why there are removed.
     """
@@ -533,7 +533,7 @@ def fitNegBinom(countsByDistance):
 def fitDistribution(countsByDistance, distribution, plot_distribution=False):
     """
     Generic method to fit continuous
-    distributions to the  HiC countsByDistance
+    distributions to the  Hi-C countsByDistance
     The distribution names are the ones supported
     by scipy.
     """
@@ -785,10 +785,10 @@ def enlarge_bins(bin_intervals):
     end and start of consecutive bins
     is the same.
 
-    >>> bin_intervals = [('chr1', 10, 30, 1), ('chr1', 50, 80, 2),
-    ... ('chr2', 10, 60, 3), ('chr2', 60, 90, 4)]
+    >>> bin_intervals = [('chr1', 10, 50, 1), ('chr1', 50, 80, 2),
+    ... ('chr2', 10, 60, 3), ('chr2', 70, 90, 4)]
     >>> enlarge_bins(bin_intervals)
-    [('chr1', 0, 40, 1), ('chr1', 40, 80, 2), ('chr2', 0, 60, 3), ('chr2', 60, 90, 4)]
+    [('chr1', 0, 50, 1), ('chr1', 50, 80, 2), ('chr2', 0, 65, 3), ('chr2', 65, 90, 4)]
     """
     # enlarge remaining bins
     chr_start = True
@@ -798,14 +798,13 @@ def enlarge_bins(bin_intervals):
         if chr_start is True:
             start = 0
             chr_start = False
-        if chrom == chrom_next and \
-                end != start_next:
+            bin_intervals[idx] = (chrom, start, end, extra)
+        if chrom == chrom_next and end != start_next:
             middle = start_next - int((start_next - end) / 2)
             bin_intervals[idx] = (chrom, start, middle, extra)
             bin_intervals[idx + 1] = (chrom, middle, end_next, extra_next)
         if chrom != chrom_next:
-            bin_intervals[idx] = (chrom, start, end, extra)
-            bin_intervals[idx + 1] = (chrom_next, 0, end_next, extra_next)
+            chr_start = True
 
     chrom, start, end, extra = bin_intervals[-1]
     bin_intervals[-1] = (chrom, start, end, extra)

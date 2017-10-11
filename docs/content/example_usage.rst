@@ -73,6 +73,7 @@ containing the restriction sites, this file can be created with the tool :ref:`f
 :ref:`findRestSite`
 that is part of HiCExplorer.
 
+
 .. code-block:: bash
 
    # build matrix from independently mated read pairs
@@ -81,8 +82,10 @@ that is part of HiCExplorer.
    $ hicBuildMatrix --samFiles mate_R1.bam mate_R2.bam \
                     --binSize 10000 \
                     --restrictionSequence GATC \
+                    --threads 4
+                    --inputBufferSize 100000
                     --outBam hic.bam \
-                    -o hic_matrix.npz
+                    -o hic_matrix.h5
                     --QCfolder ./hicQC
 
 
@@ -109,7 +112,7 @@ diagnostic plot as follows:
 
 .. code-block:: bash
 
-   $ hicCorrectMatrix diagnostic_plot -m hic_matrix.npz -o hic_corrected.npz
+   $ hicCorrectMatrix diagnostic_plot -m hic_matrix.h5 -o hic_corrected.h5
 
 
 The plot should look like this:
@@ -132,7 +135,7 @@ Once the thresholds have been decided, the matrix can be corrected
 .. code-block:: bash
 
    # correct Hi-C matrix
-   $ hicCorrectMatrix -m hic_matrix.npz --filterThreshold -1.5 5 -o hic_corrected.npz
+   $ hicCorrectMatrix -m hic_matrix.h5 --filterThreshold -1.5 5 -o hic_corrected.h5
 
 
 Visualization of results
@@ -148,7 +151,7 @@ plot the counts using the `--log1p` option.
 
 .. code-block:: bash
 
-   $ hicPlotMatrix -m hic_corrected.npz -o hic_plot.png --region 1:20000000-80000000 --log1p
+   $ hicPlotMatrix -m hic_corrected.h5 -o hic_plot.png --region 1:20000000-80000000 --log1p
 
 
 
@@ -157,3 +160,34 @@ plot the counts using the `--log1p` option.
     :align: center
 
     Corrected Hi-C counts in log scale.
+
+
+TAD calling
+^^^^^^^^^^^
+
+To call TADs a corrected matrix is needed. Restriction fragment resolution matrices provide the best results.
+TAD calling works in two steps: First HiCExplorer computes a TAD-separation score based on a z-score matrix for
+all bins. Then those bins having a local minimum of the TAD-separation score are evaluated with respect to the
+surrounding bins to decide assign a p-value. Then a cutoff is applied to select the bins more likely to be TAD
+boundaries.
+
+.. code-block:: bash
+
+   $ hicFindTADs -m hic_corrected.h5 --outPrefix hic_corrected --numberOfProcessors 16
+
+
+This code will produce several files: 1. The TAD-separation score file, 2. the z-score matrix, 3. a bed file
+with the boundary location, 4. a bed file with the domains, 5. a bedgraph file with the TAD-score that can be
+visualized in a genome browser.
+
+The TAD-separation score and the matrix can be visualized using :ref:`hicPlotTADs`.
+
+.. figure:: ../images/chorogenome_example.jpg
+    :scale: 90 %
+    :align: center
+
+    Example output from hicPlotTADs from http://chorogenome.ie-freiburg.mpg.de/
+
+
+
+

@@ -20,7 +20,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         conflict_handler='resolve',
         description="""
-Iterative correction for a hic matrix (see Imakaev et al. 2012
+Iterative correction for a Hi-C matrix (see Imakaev et al. 2012
 Nature Methods for details). For the method to work correctly, bins
 with low or too high coverage need to be filtered. For this, it is
 recommended to first run some diagnostic plots to determine the
@@ -193,7 +193,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
     for the iterative correction is that is best to put
     something in contrast to not put anything
 
-    hic_ma: hic matrix object
+    hic_ma:  Hi-C matrix object
     failed_bins: list of bin ids
     fill_contiguous: If True, stretches of masked rows/cols are filled.
                      Otherwise, these cases are skipped

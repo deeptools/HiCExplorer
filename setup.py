@@ -96,7 +96,7 @@ class install(_install):
 setup(
     name='HiCExplorer',
     version=get_version(),
-    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning',
+    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff',
     author_email='deeptools@googlegroups.com',
     packages=['hicexplorer'],
     scripts=['bin/findRestSite', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
@@ -115,15 +115,16 @@ setup(
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Bio-Informatics'],
     install_requires=[
-        "numpy >= 1.10.4",
-        "scipy >= 0.17.1",
-        "matplotlib >= 1.5.3",
-        "pysam >= 0.8.3",
+        "numpy >= 1.12.1",
+        "scipy >= 0.19.0",
+        "matplotlib >= 2.0.0",
+        "pysam >= 0.11.2",
         "intervaltree >= 2.1.0",
-        "biopython >= 1.65",
-        "tables >= 3.2.2",
-        "pandas >= 0.19.2",
-        "pyBigWig >=0.2.8"],
+        "biopython >= 1.68",
+        "tables >= 3.3.0",
+        "pandas >= 0.20.2",
+        "pyBigWig >=0.3.4",
+        "six >= 1.10.0"],
     zip_safe=False,
     cmdclass={'sdist': sdist, 'install': install}
 )

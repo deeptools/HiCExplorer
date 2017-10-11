@@ -8,14 +8,18 @@ Requirements
 -------------
 
 * Python 2.7
-* numpy >= 1.10.4
-* scipy >= 0.17.1
-* matplotlib >= 1.5.3
-* pysam >= 0.8.3
+* numpy >= 1.12.1
+* scipy >= 0.19.0
+* matplotlib >= 2.0.0
+* pysam >= 0.11.2
 * intervaltree >= 2.1.0
-* biopython >= 1.65
-* tables >= 3.2.2
-* pyBigWig >=0.2.8
+* biopython >= 1.68
+* pytables >= 3.3.0
+* pandas >= 0.20.2
+* pybigwig >= 0.3.4
+
+Command line installation using ``conda``
+-----------------------------------------
 
 The fastet way to obtain **Python 2.7 together with numpy and scipy** is
 via the `Anaconda Scientific Python
@@ -67,6 +71,8 @@ a specific folder using the ``--prefix`` option)
 ::
 
 	$ python setup.py install --prefix /User/Tools/hicexplorer
+
+
 
 
 Galaxy installation

@@ -15,7 +15,7 @@ import matplotlib.gridspec as gridspec
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description='Creates a Heatmap of a HiC matrix')
+    parser = argparse.ArgumentParser(description='Creates a Heatmap of a Hi-C matrix')
 
     # define the arguments
     parser.add_argument('--matrix', '-m',
@@ -389,7 +389,20 @@ def main(args=None):
     if args.chromosomeOrder:
         args.region = None
         args.region2 = None
-        ma.reorderChromosomes(args.chromosomeOrder)
+
+        valid_chromosomes = []
+        invalid_chromosomes = []
+        for chrom in args.chromosomeOrder:
+            if chrom in ma.chrBinBoundaries:
+                valid_chromosomes.append(chrom)
+            else:
+                invalid_chromosomes.append(chrom)
+
+        ma.reorderChromosomes(valid_chromosomes)
+        if len(invalid_chromosomes) > 0:
+            sys.stderr.write("WARNING: The following chromosome/scaffold names were not found. Please check"
+                             "the correct spelling of the chromosome names. \n")
+            sys.stderr.write("\n".join(invalid_chromosomes))
 
     print ma.interval_trees.keys()
     ma.restoreMaskedBins()
@@ -455,7 +468,7 @@ def main(args=None):
 
         if args.log:
             mask = matrix == 0
-            matrix[mask] = matrix[mask == False].min()
+            matrix[mask] = matrix[mask == False].min()  # noqa
     #        matrix = -1 *  np.log(matrix)
             matrix = np.log(matrix)
 

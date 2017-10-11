@@ -12,7 +12,7 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
 Uses a BED file of domains or TAD boundaries to merge
-the bin counts of a HiCMatrix.
+the bin counts of a Hi-C matrix.
 
 In this matrix only contains the total counts in each TAD and
 its total contacts of all other TADs.""")
@@ -36,11 +36,11 @@ its total contacts of all other TADs.""")
 
 def merge_tad_bins(hic, boundary_id_list, filename):
     """
-    Reduces the HiC matrix by merging the counts of tad bins.
-    :param hic: hicMatrix object
+    Reduces the HiCMatrix by merging the counts of tad bins.
+    :param hic: HiCMatrix object
     :param boundary_id_list list of tad boundary bin ids
     :param filename Name to save the resulting matrix
-    :return: hicMatrix object
+    :return: HiCMatrix object
     """
 
     from hicexplorer.reduceMatrix import reduce_matrix
