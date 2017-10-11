@@ -159,7 +159,6 @@ class hiCMatrix:
             if len(pChrnameList) == 1:
                 matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
             elif len(pChrnameList) == 2:
-                # print("GETTING VALUES")
                 matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0], pChrnameList[1])
             elif pIntraChromosomalOnly:
                 row = []
@@ -175,7 +174,6 @@ class hiCMatrix:
                 matrix = csr_matrix((data, (row, col)))
 
             else:
-                # matrix = None
                 row = []
                 col = []
                 data = []
@@ -255,43 +253,34 @@ class hiCMatrix:
                 duplicate_check.add(values[1])
                 cut_intervals.append(tuple(values))
 
-        # print("cut_intervals", cut_intervals)
-        # cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
-
         # try to restore nan_bins.
-        i = 1
-        j = 0
-        is_nan = True
+       
         try:
-            # print(matrix)
-            matrix = matrix.tocsr()
-            # print("NAN_BINS restore")
-            nan_bins = []
-            # print("matrix.indptr", matrix.indptr)
-            # print("matrix.data", matrix.data)
+            matrix = matrix.tocsc()
+            shape = matrix.shape[0] if matrix.shape[0] < matrix.shape[1] else matrix.shape[1] 
+            nan_bins = np.array(range(shape))
+            nan_bins = np.setxor1d(nan_bins, matrix.indices)
             
-            while j < len(matrix.data):
-                if j == matrix.indptr[i]:
-                    if is_nan:
-                        nan_bins.append(i - 1)
-                        # print("APPEND:", i)
-                    i += 1
-                    is_nan = True
-                if not np.isnan(matrix.data[j]):
-                    is_nan = False
-                    j = matrix.indptr[i] 
-                    # print("NOT APPEND")
-                else:
-                    j += 1
+            i = 0
+            while i < len(nan_bins):
+                if nan_bins[i] >= shape:
+                    break
+                i += 1
+            nan_bins = nan_bins[:i]
+
         except:
-            # print("FAILED: i", i, " j:", j, " is_nan", is_nan)
             nan_bins = None
+
+        print("matrix.shape", matrix.shape)
+        print("nan_bins", nan_bins)
+        matrix = matrix.tolil()
+        
+        matrix[nan_bins, :] = np.nan
+        matrix[:, nan_bins] = np.nan
+        
 
         distance_counts = None
         correction_factors = None
-        print("LOAD__matrix.shape", matrix.shape)
-        print("LOAD__len(cut_intervals)", len(cut_intervals))
-        # print("cut_intervals_COOL", cut_intervals)
         matrix = hiCMatrix.fillLowerTriangle(matrix)
         return matrix.tocsr(), cut_intervals, nan_bins, distance_counts, correction_factors
 
@@ -1349,10 +1338,16 @@ class hiCMatrix:
 
         # for value in self.nan_bins:
         self.restoreMaskedBins()
+        self.matrix = self.matrix.tolil()
+        self.matrix[self.nan_bins, :] = 0
+        self.matrix[:, self.nan_bins] = 0
+        self.matrix = self.matrix.tocsr()
         
-        self.matrix[self.nan_bins, :] = np.nan
-        self.matrix[:, self.nan_bins] = np.nan
+        for i in range(len(self.matrix.data)):
+            if np.isnan(self.matrix.data[i]):
+                self.matrix.data[i] = 0
         
+        self.matrix.eliminate_zeros()
 
         if pDataFrameBins:
             if pDataFrameBins['start'].dtypes != 'int64':
@@ -1371,10 +1366,10 @@ class hiCMatrix:
             matrix_data_frame = pDataFrameMatrix
         else:
             # get only the upper triangle of the matrix to save to disk
-            upper_triangle = triu(self.matrix, k=0, format='csr')
+            # upper_triangle = triu(self.matrix, k=0, format='csr')
             # create a tuple list and use it to create a data frame
-            instances, features = upper_triangle.nonzero()
-            data = upper_triangle.data.tolist()
+            instances, features = self.matrix.nonzero()
+            data = self.matrix.data.tolist()
             matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
 
             matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
