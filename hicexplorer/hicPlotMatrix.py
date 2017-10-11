@@ -230,9 +230,12 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     print("len(start_pos)", len(start_pos))
     print("len(start_pos2)", len(start_pos2))
     
-    
+    if len(start_pos) >= ma.shape[0]:
+        start_pos = start_pos[:ma.shape[0]]
+    if len(start_pos2) >= ma.shape[1]:
+        start_pos2 = start_pos2[:ma.shape[1]]
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-    foo = np.unique(start_pos)
+    # foo = np.unique(start_pos)
     # print("foo", foo)
     # print("len(foo)", len(foo))
     # print("xmesh", xmesh)
