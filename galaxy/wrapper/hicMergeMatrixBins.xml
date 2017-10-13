@@ -36,7 +36,7 @@
 
 **What it does**
 
-Combines Hi-C matrices of the same size.
+Merges neighboring bins in a Hi-C matrix.
 
 ]]></help>
     <expand macro="citations" />
