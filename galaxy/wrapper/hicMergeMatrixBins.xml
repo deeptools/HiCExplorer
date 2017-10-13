@@ -20,14 +20,14 @@
     <inputs>
         <param argument="--matrix" type="data" format="h5" label="Matrix to reduce" />
         <param argument="--numBins" type="integer" min="1" value="3" label="Number of bins to merge" />
-        <param argument="--runningWindow" type="boolean" truevalue="" falsevalue="--runningWindow" label="Merge using a running window of length --numBins" />
+        <param argument="--runningWindow" type="boolean" falsevalue="" truevalue="--runningWindow" label="Merge using a running window of length --numBins" />
     </inputs>
     <outputs>
         <data name="outFileName" from_work_dir="out.npz.h5" format="h5"/>
     </outputs>
     <tests>
         <test>
-            <param name="matrix" value="test-data/hicBuildMatrix_result1.h5" />
+            <param name="matrix" value="hicBuildMatrix_result1.h5" />
             <param name="numBins" value="5" />
             <output name="outFileName" file="hicMergeMatrixBins_result1.npz.h5" ftype="h5" compare="sim_size" delta="70000" />
         </test>
