@@ -1,0 +1,43 @@
+<tool id="hicexplorer_hicmergematrixbins" name="@BINARY@" version="@WRAPPER_VERSION@.0">
+    <description>Merges bins from a Hi-C matrix</description>
+    <macros>
+        <token name="@BINARY@">hicMergeMatrixBins</token>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements" />
+    <command>
+<![CDATA[
+        ln -s '$matrix' input.npz.h5 &&
+
+        hicMergeMatrixBins
+            --matrix input.npz.h5
+            --numBins $numBins
+            $runningWindow
+            --outFileName ./out.npz.h5
+
+]]>
+    </command>
+    <inputs>
+        <param argument="--matrix" type="data" format="h5" label="Matrix to reduce" />
+        <param argument="--numBins" type="integer" min="1" value="3" label="Number of bins to merge" />
+        <param argument="--runningWindow" type="boolean" falsevalue="" truevalue="--runningWindow" label="Merge using a running window of length --numBins" />
+    </inputs>
+    <outputs>
+        <data name="outFileName" from_work_dir="out.npz.h5" format="h5"/>
+    </outputs>
+    <tests>
+        <test>
+            <param name="matrix" value="hicBuildMatrix_result1.h5" />
+            <param name="numBins" value="5" />
+            <output name="outFileName" file="hicMergeMatrixBins_result1.npz.h5" ftype="h5" compare="sim_size" delta="16000" />
+        </test>
+    </tests>
+    <help><![CDATA[
+
+**What it does**
+
+Merges neighboring bins in a Hi-C matrix.
+
+]]></help>
+    <expand macro="citations" />
+</tool>
