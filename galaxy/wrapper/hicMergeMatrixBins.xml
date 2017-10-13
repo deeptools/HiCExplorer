@@ -29,7 +29,7 @@
         <test>
             <param name="matrix" value="hicBuildMatrix_result1.h5" />
             <param name="numBins" value="5" />
-            <output name="outFileName" file="hicMergeMatrixBins_result1.npz.h5" ftype="h5" compare="sim_size" delta="70000" />
+            <output name="outFileName" file="hicMergeMatrixBins_result1.npz.h5" ftype="h5" compare="sim_size" delta="16000" />
         </test>
     </tests>
     <help><![CDATA[
