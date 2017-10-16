@@ -153,7 +153,7 @@ def parse_arguments(args=None):
                              '"dangling-ends". If not given, such statistics will '
                              'not be available.')
 
-    parser.add_argument('--outFileName',
+    parser.add_argument('--outFileName', '-o',
                         help='Output file name for the Hi-C matrix',
                         metavar='FILENAME',
                         type=argparse.FileType('w'),
