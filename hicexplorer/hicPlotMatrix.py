@@ -454,9 +454,6 @@ def main(args=None):
         chrom2 = None
         matrix = np.asarray(ma.getMatrix().astype(float))
        
-        
-        
-
     cmap = cm.get_cmap(args.colorMap)
     sys.stderr.write("Nan values set to black\n")
     cmap.set_bad('black')
@@ -551,42 +548,29 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
         chrom, region_start, region_end = pRegion
     
     if file_format == "bigwig":
-        pass
+        raise NotImplementedError
     else:
         for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
             interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
-            if pChromosomeList:
-                for chrom in pChromosomeList:
-                    
-                    if chrom not in interval_tree:
-                        exit("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}".format(chrom))
-                        return
-            if pRegion:
-                if chrom not in interval_tree:
-                    return
-            
             eigenvector = []
             if pChromosomeList:
                 for chrom in pChromosomeList:
+                    if chrom not in interval_tree:
+                        exit("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}".format(chrom))
+                        return
                     for i, region in enumerate(sorted(interval_tree[chrom])):
                         if i == 0:
                             region_start = region[0]
                         region_end = region[1]
                         eigenvector.append(float(region.data[0]))
+                x = np.arange(0, len(eigenvector), 1)
+                
             elif pRegion:
+                if chrom not in interval_tree:
+                    exit("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}".format(chrom))
+                    return
                 for region in sorted(interval_tree[chrom][region_start:region_end]):
                     eigenvector.append(float(region.data[0]))
-            else:
-                i = 0
-                for chrom in sorted(interval_tree):
-                    for region in sorted(interval_tree[chrom]):
-                        if i == 0:
-                            region_start = region[0]
-                            i += 1
-                        region_end = region[1]
-                        eigenvector.append(float(region.data[0]))
-            
-            if pRegion:
                 step = (region_end - region_start) // len(eigenvector)
                 
                 x = np.arange(region_start, region_end, int(step))
@@ -595,10 +579,8 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                 while len(eigenvector) < len(x):
                     x = x[:-1]
               
-            if pRegion:
                 pAxis.set_xlim(region_start, region_end)
-            else:
-                x = np.arange(0, len(eigenvector), 1)
+
             pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
         
         if pXticks:
@@ -606,7 +588,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                 pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
                 pAxis.set_xticklabels(pXticks[0], size='small', rotation=45)
             else:
-                pAxis.set_xlim(0, pXticks[1][-1])
+                pAxis.set_xlim(0, len(eigenvector))
                 pAxis.set_xticks(pXticks[1])
                 pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
                 
