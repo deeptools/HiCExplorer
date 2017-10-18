@@ -132,7 +132,6 @@ def heatmap_options():
                               'on top of the heatmap.',
                          action='store_true',
                          required=False)
-    
     return parser
 
 
@@ -229,8 +228,7 @@ def get_vectors(mat1, mat2):
 
     return values1, values2
 
-def load_cool_matrix(pBinsList, pMatrixList, pQueue):
-    pass
+
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
@@ -255,128 +253,64 @@ def main(args=None):
     all_mat = None
     all_nan = []
 
-    # parallel load with cooler
-    if args.matrices[0].endwith('.cool'):
-        # load each chromosome in parallel. 
-        # perform this with DataFrames. 
-        # build them after it together
-        if args.threads < 2:
-            exit("At least two threads are necessary. Given are: {}.".format(args.threads))
-        args.threads = args.threads - 1
-        process = [None] * args.threads
-        lock = Lock()
-        queue = [None] * args.threads
-        thread_done = [False] * args.threads
-        all_threads_done = False
-        chromosome_list = []
-        if args.chromosomes: 
-            chromosome_list.extend(args.chromosomes)
-        if args.range:
-            chromosome_list = [s + args.range for s in chromosome_list]
+    for i, matrix in enumerate(args.matrices):
+        sys.stderr.write("loading hic matrix {}\n".format(matrix))
 
-        for matrix in args.matrices:
-            hic = hm.hiCMatrix(matrix, cooler_only_init=True)
-            
-            if len(chromosome_list) == 0:
-                chromosome_list = hic.cooler_file.chromnames
-            while chr_element < len(chromosome_list) or not all_threads_done:
-                for i in range(args.threads):
-                    if queue[i] is None and chr_element < len(chromosome_list):
-                        queue[i] = Queue()
-                        chromosome = chromosome_list[chr_element]
-                        process[i] = Process(target=load_cool_matrix, kwargs=dict(
-                            pBinsList=hic.load_cool_bins(chromosome),
-                            pMatrixList=hic.load_cool_matrix(chromosome),
-                            pQueue=queue[i]
-                        ))
-                        process[i].start()
-                        chr_element += 1
-                        thread_done[i] = False
-                    elif queue[i] is not None and not queue[i].empty():
-                        # get result and append to 
-                        # hic_mat_list.append(_mat)
-                        _mat = queue[i].get()
-                        if _mat is not None:
-                            hic_mat_list.append(_mat)
-                        queue[i] = None
-                        process[i].join()
-                        process[i].terminate()
-                        
-                        process[i] = None
-                        thread_done[i] = True
-                    elif chr_element >= len(fetch_string) and queue[i] is None:
-                            thread_done[i] = True
-                    else:
-                        time.sleep(0.1)
-                    if chr_element >= len(fetch_string):
-                        all_threads_done = True
-                        for thread in thread_done:
-                            if not thread:
-                                all_threads_done = False
-
-
-                process = [None] * args.threads
-                queue = [None] * args.threads
-                thread_done = [False] * args.threads
-                all_threads_done = False
-
-    else:
-        # load and compute matrices with non-cooler formats
-        for matrix in args.matrices:
-            sys.stderr.write("loading hic matrix {}\n".format(matrix))
-            # print("args.chromosomes", args.chromosomes)
-            
+        if args.matrices[i].endswith('.cool'):
+            _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes, pIntraChromosomalOnly=True)
+        else:
             _mat = hm.hiCMatrix(matrix)
             if args.chromosomes:
                 _mat.keepOnlyTheseChr(args.chromosomes)
-            _mat.diagflat(0)
-            sys.stderr.write("restore masked bins {}\n".format(matrix))
             _mat.filterOutInterChrCounts()
-            bin_size = _mat.getBinSize()
-            all_nan = np.unique(np.concatenate([all_nan, _mat.nan_bins]))
 
-            _mat = triu(_mat.matrix, k=0, format='csr')
-            if args.range:
-                min_dist, max_dist = args.range.split(":")
-                min_dist = int(min_dist)
-                max_dist = int(max_dist)
-                if max_dist < bin_size:
-                    exit("Please specify a max range that is larger than bin size ({})".format(bin_size))
+        _mat.diagflat(0)
+        sys.stderr.write("restore masked bins {}\n".format(matrix))
+        bin_size = _mat.getBinSize()
+        all_nan = np.unique(np.concatenate([all_nan, _mat.nan_bins]))
 
-                max_depth_in_bins = int(max_dist / bin_size)
-                max_dist = int(max_dist) / bin_size
-                # work only with the upper matrix
-                # and remove all pixels that are beyond
-                # max_depth_in_bis
-                # (this is done by subtracting a second sparse matrix
-                # that contains only the upper matrix that wants to be removed.
-                _mat = triu(_mat, k=0, format='csr') - triu(_mat, k=max_depth_in_bins, format='csr')
+        _mat = triu(_mat.matrix, k=0, format='csr')
+        if args.range:
+            min_dist, max_dist = args.range.split(":")
+            min_dist = int(min_dist)
+            max_dist = int(max_dist)
+            if max_dist < bin_size:
+                exit("Please specify a max range that is larger than bin size ({})".format(bin_size))
 
-                _mat.eliminate_zeros()
+            max_depth_in_bins = int(max_dist / bin_size)
+            max_dist = int(max_dist) / bin_size
+            # work only with the upper matrix
+            # and remove all pixels that are beyond
+            # max_depth_in_bis
+            # (this is done by subtracting a second sparse matrix
+            # that contains only the upper matrix that wants to be removed.
+            _mat = triu(_mat, k=0, format='csr') - triu(_mat, k=max_depth_in_bins, format='csr')
 
-                _mat_coo = _mat.tocoo()
-                dist = _mat_coo.col - _mat_coo.row
-                keep = np.flatnonzero((dist <= max_dist) & (dist >= min_dist))
-                _mat_coo.data = _mat_coo.data[keep]
-                _mat_coo.row = _mat_coo.row[keep]
-                _mat_coo.col = _mat_coo.col[keep]
-                _mat = _mat_coo.tocsr()
-            else:
-                _mat = triu(_mat, k=0, format='csr')
+            _mat.eliminate_zeros()
 
-            if args.log1p:
-                _mat.data = np.log1p(_mat.data)
-            if all_mat is None:
-                all_mat = _mat
-            else:
-                all_mat = all_mat + _mat
+            _mat_coo = _mat.tocoo()
+            dist = _mat_coo.col - _mat_coo.row
+            keep = np.flatnonzero((dist <= max_dist) & (dist >= min_dist))
+            _mat_coo.data = _mat_coo.data[keep]
+            _mat_coo.row = _mat_coo.row[keep]
+            _mat_coo.col = _mat_coo.col[keep]
+            _mat = _mat_coo.tocsr()
+        else:
+            _mat = triu(_mat, k=0, format='csr')
 
-            if max_value is None or max_value < _mat.data.max():
-                max_value = _mat.data.max()
-            if min_value is None or min_value > _mat.data.min():
-                min_value = _mat.data.min()
+        if args.log1p:
+            _mat.data = np.log1p(_mat.data)
+        if all_mat is None:
+            all_mat = _mat
+        else:
+            all_mat = all_mat + _mat
 
-            hic_mat_list.append(_mat)
+        if max_value is None or max_value < _mat.data.max():
+            max_value = _mat.data.max()
+        if min_value is None or min_value > _mat.data.min():
+            min_value = _mat.data.min()
+
+        hic_mat_list.append(_mat)
 
     # remove nan bins
     rows_keep = cols_keep = np.delete(list(range(all_mat.shape[1])), all_nan)

@@ -158,6 +158,8 @@ def test_hicPlotMatrix():
     import hicexplorer.hicPlotMatrix
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
+    print ("\n\n\nH5\n\n")
+    
     args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
            "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
@@ -165,11 +167,51 @@ def test_hicPlotMatrix():
     assert res is None, res
     os.remove(outfile.name)
 
+
+# add test cases for all parameters
+
+# # chromosome order
+    # outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+    # args = "--matrix {0}/Li_et_al_2015.cool" \
+    #        "--outFileName  {1}".format(ROOT, outfile.name).split()
+    # hicexplorer.hicPlotMatrix.main(args)
+    # res = compare_images(ROOT + '/master_matrix_plot_cool_chromosomeOrder.png', outfile.name, tolerance)
+    # assert res is None, res
+    # os.remove(outfile.name)
+
+    # # log1p
+    # outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+    # args = "--matrix {0}/Li_et_al_2015.cool" \
+    #        "--outFileName  {1}".format(ROOT, outfile.name).split()
+    # hicexplorer.hicPlotMatrix.main(args)
+    # res = compare_images(ROOT + '/master_matrix_plot_cool_log1p.png', outfile.name, tolerance)
+    # assert res is None, res
+    # os.remove(outfile.name)
+
+    # # log
+    # outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+    # args = "--matrix {0}/Li_et_al_2015.cool" \
+    #        "--outFileName  {1}".format(ROOT, outfile.name).split()
+    # hicexplorer.hicPlotMatrix.main(args)
+    # res = compare_images(ROOT + '/master_matrix_plot_cool_log.png', outfile.name, tolerance)
+    # assert res is None, res
+    # os.remove(outfile.name)
+
+    # # color map
+    # outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+    # args = "--matrix {0}/Li_et_al_2015.cool" \
+    #        "--outFileName  {1}".format(ROOT, outfile.name).split()
+    # hicexplorer.hicPlotMatrix.main(args)
+    # res = compare_images(ROOT + '/master_matrix_plot_cool_colormap.png', outfile.name, tolerance)
+    # assert res is None, res
+    # os.remove(outfile.name)
+
+
 def test_hicPlotTads_cool():
     import hicexplorer.hicPlotTADs
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool_', delete=False)
-    args = "--tracks {0}/browser_tracks_cool.ini --region chrX:3000000-3500000  " \
+    args = "--tracks {0}/browser_tracks_cool.ini --region X:3000000-3500000  " \
            "--outFileName  {1}".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotTADs.main(args)
 
@@ -183,7 +225,15 @@ def test_hicPlotMatrix_cool():
     import hicexplorer.hicPlotMatrix
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
-    args = "--matrix {0}/Li_et_al_2015.cool --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
+    
+
+    # args = "--matrix {0}/Li_et_al_2015.cool --region X:3000000-3500000 --region2 X:3100000-3600000 " \
+    #        "--outFileName  {1} --log1p".format(ROOT, outfile.name).split()
+    # hicexplorer.hicPlotMatrix.main(args)
+    # res = compare_images(ROOT + '/master_matrix_plot_cool.png', outfile.name, tolerance)
+    # assert res is None, res
+    print ("\n\n\nCOOL\n\n")
+    args = "--matrix {0}/Li_et_al_2015.cool --region X:3000000-3500000 --region2 X:3100000-3600000 " \
            "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + '/master_matrix_plot_cool.png', outfile.name, tolerance)

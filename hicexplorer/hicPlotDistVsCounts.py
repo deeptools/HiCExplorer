@@ -105,7 +105,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
 
     Parameters
     ----------
-    hicmat: Hi-C matrix object
+    hicmat: HiCMatrix object
     maxdepth: maximum distance from the diagonal to consider. All contacts beyond this distance will not
                      be considered.
     perchr: bool to indicate if computations should be perform per chromosome

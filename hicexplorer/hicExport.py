@@ -23,9 +23,13 @@ def parse_arguments(args=None):
                         required=True)
 
     parser.add_argument('--inputFormat',
-                        help='file format for input file. \n'
-                             '(options : hicexplorer, lieberman, npz (file format of previous hicexplorer versions),'
-                             'dekker, cool.',
+                        help='file format for the matrix file. \n'
+                             'The following options are available: `hicexplorer` (native HiCExplorer format, '
+                             '`npz` (format used by earlier versions of HiCExplorer), '
+                             '`dekker` (matrix format used in Job Dekker publications), '
+                             '`lieberman` (format used by Erez Lieberman Aiden) and '
+                             ' `cool`. This last formats may change '
+                             'in the future.',
                         default='hicexplorer')
 
     parser.add_argument('--chrNameList',
@@ -64,7 +68,7 @@ def parse_arguments(args=None):
                              'The "ren" format is a list of tuples of the form '
                              'chrom, bin_star, bin_end, values. '
                              'The lieberman format writes separate files for each chromosome,'
-                             'with three columns : contact start, contact end, and raw observed score. '
+                             'with three columns: contact start, contact end, and raw observed score. '
                              'This corresponds to the RawObserved files from lieberman group. The '
                              'hicexplorer format stores the data using a hdf5 format. Optionally, '
                              'the numpy npz format can be used for small datasets (< 4GB).'
@@ -182,7 +186,7 @@ def main(args=None):
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
-            
+
         if args.bplimit:
             from scipy.sparse import triu
             sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
@@ -201,7 +205,7 @@ def main(args=None):
     if not args.outFileName.endswith(args.outputFormat):
         args.outFileName += "."
         args.outFileName += args.outputFormat
-        
+
     if args.outputFormat == 'dekker':
         print('saving as dekker...')
         hic_ma.save_dekker(args.outFileName)
