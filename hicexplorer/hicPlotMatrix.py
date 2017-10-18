@@ -225,7 +225,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pNorm
         ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
         labels = chrBinBoundaries.keys()
         print (labels)
-        axHeat2.set_xticks(ticks)
         if len(labels) > 20:
             axHeat2.set_xticklabels(labels, size=4, rotation=90)
         else:
@@ -234,9 +233,16 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pNorm
             xticks = [labels, ticks]
         print("ticks", ticks)
         print("label", labels)
+    print(ma.shape[0])
+    
+        
     axHeat2.get_yaxis().set_visible(False)
 
     if pPca:
+        # axHeat2.set_xlim(ticks[0], ticks[-1])
+        # axHeat2.set_ylim(ticks[0], ticks[-1])
+        axHeat2.set_xticks(ticks)
+        
         axHeat2.xaxis.set_label_position("top") 
         axHeat2.xaxis.tick_top() 
         plotEigenvector(pPca['axis'], pPca['args'].pca, pXticks=xticks, pChromosomeList=labels)
@@ -635,11 +641,12 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
         pass
     else:
         for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
-
             interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
             if pChromosomeList:
                 for chrom in pChromosomeList:
+                    
                     if chrom not in interval_tree:
+                        exit("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}".format(chrom))
                         return
             if pRegion:
                 if chrom not in interval_tree:
@@ -669,17 +676,28 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                         region_end = region[1]
                         eigenvector.append(float(region.data[0]))
             # if pRegion or pChromosome:
-            step = (region_end - region_start) // len(eigenvector)
             
-            x = np.arange(region_start, region_end, int(step))
-            while len(x) < len(eigenvector):
-                x = np.append(x[-1] + int(step))
-            while len(eigenvector) < len(x):
-                x = x[:-1]
-            pAxis.set_xlim(region_start, region_end)
+            if pRegion:
+                step = (region_end - region_start) // len(eigenvector)
                 
+                x = np.arange(region_start, region_end, int(step))
+                while len(x) < len(eigenvector):
+                    x = np.append(x[-1] + int(step))
+                while len(eigenvector) < len(x):
+                    x = x[:-1]
+                print("region_start", region_start)
+                print("region_end", region_end)
+                print("len(eigenvector)", len(eigenvector))
+                print("x", x, len(x))
+            if pRegion:
+                # pass
+                pAxis.set_xlim(region_start, region_end)
+            
+            else:
+                x = np.arange(0, len(eigenvector), 1)
+
             # elif pChromosome:
-            #     # x = np.arange(0, len(eigenvector), 1)
+            #     # 
             #     x = np.arange(region_start, region_end, int(step))
                 
             # else:
@@ -701,7 +719,13 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                 pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
                 pAxis.set_xticklabels(pXticks[0], size='small', rotation=45)
             else:
+                # pAxis.set_xlim(x[0], x[-1])
+                pAxis.set_xlim(0, pXticks[1][-1])
+                
                 pAxis.set_xticks(pXticks[1])
+                
+                pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
+                
                 # xticks = [labels, ticks]
                 
                 if len(pXticks[0]) > 20:
