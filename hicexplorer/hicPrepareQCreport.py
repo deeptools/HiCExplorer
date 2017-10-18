@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from hicexplorer._version import __version__
+import pandas as pd
 
 
 def parse_arguments():
@@ -40,12 +41,20 @@ def parse_arguments():
     return parser
 
 
-def save_html(filename, html_table):
+def save_html(filename, unmap_table, discard_table, distance_table, orientation_table, all_table):
     root = os.path.dirname(os.path.abspath(__file__))
 
     html = open(os.path.join(root, "qc_template.html"), "r").read()
     # the html code has a placeholder for the html table
-    html = html.replace("%%TABLE%%", html_table)
+    html = html.replace("%%TABLE_UNMAP%%", unmap_table.style
+                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+    html = html.replace("%%TABLE_DISCARDED%%", discard_table.style
+                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+    html = html.replace("%%TABLE_DISTANCE%%", distance_table.style
+                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+    html = html.replace("%%TABLE_ORIENTATION%%", orientation_table.style
+                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+    html = html.replace("%%TABLE%%", all_table.style.render())
     with open(filename, 'w') as fh:
         fh.write(html)
 
@@ -58,30 +67,23 @@ def make_sure_path_exists(path):
             raise
 
 
-def make_figure_pairs_considered(table, filename):
-
-    fig = plt.figure(figsize=(8, 3))
-    ax = fig.add_subplot(111)
-    table['Pairs considered'].plot.bar(ax=ax, color='#999999')
-    xticks = ax.get_xticks()
-    if xticks[-1] > 1e6:
-        labels = ["{:.0f}".format(float(x) / 1e6) for x in xticks]
-        labels[-1] += 'M'
-    else:
-        labels = ["{:,}".format(int(x)) for x in xticks]
-
-    ax.set_xticklabels(labels)
-    ax.set_ylabel("")
-    ax.set_xlabel("Number of reads")
-    plt.tight_layout()
-    plt.savefig(filename, dpi=200)
-
-
 def make_figure_pairs_used(table, filename):
+    prc_table = table[['Pairs considered', 'Pairs used']] / 1e6
+
+    prc_table = prc_table.rename(columns={'Pairs considered': 'Pairs sequenced'})
+    fig = plt.figure(figsize=(7, 5))
+    ax = fig.add_subplot(111)
+    prc_table.plot(kind='barh', ax=ax)
+    handles, labels = ax.get_legend_handles_labels()
+    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.set_xlabel("Number of reads in millions")
+    ax.set_ylabel("")
+    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
+
+
+def make_figure_umappable_non_unique_reads(table, filename):
     prc_table = table[['Pairs used', 'One mate low quality', 'One mate not unique',
-                       'One mate not close to rest site', 'One mate unmapped', 'dangling end', 'duplicated pairs',
-                       'same fragment (800 bp)', 'self circle',
-                       'self ligation (removed)']].T / table['Pairs considered']
+                       'One mate unmapped']].T / table['Pairs considered']
 
     fig = plt.figure(figsize=(7, 5))
     ax = fig.add_subplot(111)
@@ -90,8 +92,44 @@ def make_figure_pairs_used(table, filename):
     ax.set_xticklabels(labels, rotation=45, ha='right')
     handles, labels = ax.get_legend_handles_labels()
     lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
-    ax.set_ylabel("fraction")
+    ax.set_ylabel("fraction w.r.t. pairs sequenced")
     plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
+
+    # merge the counts table with the percentages table
+    ret_table = table[['Pairs used', 'One mate low quality', 'One mate not unique',
+                       'One mate unmapped']].join(prc_table.T, rsuffix='_%')
+
+    return ret_table[[u'Pairs used', u'Pairs used_%', u'One mate low quality',
+                      u'One mate low quality_%', u'One mate not unique',
+                      u'One mate not unique_%',
+                      u'One mate unmapped', u'One mate unmapped_%']]
+
+
+def make_figure_pairs_discarded(table, filename):
+    prc_table = table[['One mate not close to rest site', 'dangling end', 'duplicated pairs',
+                       'same fragment (800 bp)', 'self circle',
+                       'self ligation (removed)']].T / (table['Pairs considered'] -
+                                                        table[['One mate low quality', 'One mate not unique',
+                                                              'One mate unmapped']].T.sum())
+    fig = plt.figure(figsize=(7, 5))
+    ax = fig.add_subplot(111)
+    prc_table.plot.bar(ax=ax)
+    labels = ax.get_xticklabels()
+    ax.set_xticklabels(labels, rotation=45, ha='right')
+    handles, labels = ax.get_legend_handles_labels()
+    lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.set_ylabel("fraction w.r.t. mappable and unique pairs")
+    plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
+
+    # merge the counts table with the percentages table
+    ret_table = table[['One mate not close to rest site', 'dangling end', 'duplicated pairs',
+                       'same fragment (800 bp)', 'self circle',
+                       'self ligation (removed)']].join(prc_table.T, rsuffix=' %')
+
+    return ret_table[['One mate not close to rest site', 'One mate not close to rest site %',
+                      'dangling end', 'dangling end %', 'duplicated pairs', 'duplicated pairs %',
+                      'same fragment (800 bp)', 'same fragment (800 bp) %',
+                      'self circle', 'self circle %', 'self ligation (removed)', 'self ligation (removed) %']]
 
 
 def make_figure_distance(table, filename):
@@ -104,9 +142,14 @@ def make_figure_distance(table, filename):
     ax.set_xticklabels(labels, rotation=45, ha='right')
     handles, labels = ax.get_legend_handles_labels()
     lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
-    ax.set_ylabel("fraction")
+    ax.set_ylabel("fraction w.r.t. valid pairs used")
 
     plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
+
+    # merge the counts table with the percentages table
+    ret_table = table[['inter chromosomal', 'short range < 20kb', 'long range']].join(prc_table2.T, rsuffix=' %')
+
+    return ret_table[['inter chromosomal', 'inter chromosomal %', 'short range < 20kb', 'short range < 20kb %', 'long range', 'long range %']]
 
 
 def make_figure_read_orientation(table, filename):
@@ -117,8 +160,14 @@ def make_figure_read_orientation(table, filename):
     prc_table3.plot.bar(ax=ax)
     handles, labels = ax.get_legend_handles_labels()
     lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
-    ax.set_ylabel("fraction")
+    ax.set_ylabel("fraction w.r.t. valid pairs used")
     plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
+
+    # merge the counts table with the percentages table
+    ret_table = table[[u'inward pairs', u'outward pairs', u'left pairs', u'right pairs']].join(_t.T, rsuffix=' %')
+
+    return ret_table[[u'inward pairs', u'inward pairs %', u'outward pairs', u'outward pairs %',
+                      u'left pairs', u'left pairs %', u'right pairs', u'right pairs %']]
 
 
 def main(args=None):
@@ -177,7 +226,6 @@ def main(args=None):
                 except ValueError:
                     params[fields[0]].append(fields[1])
 
-    import pandas as pd
     table = pd.DataFrame(params)
     if args.labels and len(args.labels) == len(args.logfiles):
             try:
@@ -190,11 +238,19 @@ def main(args=None):
     else:
         table = table.set_index('File')
 
-    table.to_csv(args.outputFolder + "/table.txt", sep="\t")
 
-    make_figure_pairs_considered(table, args.outputFolder + "/pairs_considered.png")
-    make_figure_pairs_used(table, args.outputFolder + "/pairs_used.png")
-    make_figure_distance(table, args.outputFolder + "/distance.png")
-    make_figure_read_orientation(table, args.outputFolder + "/read_orientation.png")
+    make_figure_pairs_used(table, args.outputFolder + "/pairs_sequenced.png")
+    unmap_table = make_figure_umappable_non_unique_reads(table, args.outputFolder + "/unmappable_and_non_unique.png")
 
-    save_html(args.outputFolder + "/hicQC.html", table.T.to_html())
+    discarded_table = make_figure_pairs_discarded(table, args.outputFolder + "/pairs_discarded.png")
+    distance_table = make_figure_distance(table, args.outputFolder + "/distance.png")
+    read_orientation_table = make_figure_read_orientation(table, args.outputFolder + "/read_orientation.png")
+
+    save_html(args.outputFolder + "/hicQC.html", unmap_table, discarded_table, distance_table,
+              read_orientation_table, table)
+
+    unmap_table.to_csv(args.outputFolder + "/unmapable_table.txt", sep="\t")
+    discarded_table.to_csv(args.outputFolder + "/discarded_table.txt", sep="\t")
+    distance_table.to_csv(args.outputFolder + "/distance_table.txt", sep="\t")
+    read_orientation_table.to_csv(args.outputFolder + "/read_orientation_table.txt", sep="\t")
+    table.to_csv(args.outputFolder + "/QC_table.txt", sep="\t")
