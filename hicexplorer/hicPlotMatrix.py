@@ -175,80 +175,7 @@ def change_chrom_names(chrom):
 
     return chrom
 
-
-def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap, pNorm, pAxis=None, pPca=None):
-    if pAxis:
-        axHeat2 = pAxis
-    else:
-        axHeat2 = fig.add_axes(position)
-    
-    if args.title:
-        axHeat2.set_title(args.title)
-    
-
-    img3 = axHeat2.imshow(ma,
-                          interpolation='nearest',
-                          #                          interpolation='spline16',
-                          vmax=args.vMax, vmin=args.vMin, cmap=cmap,
-                          norm=pNorm
-                          )
-
-    img3.set_rasterized(True)
-    if pPca is None:
-        divider = make_axes_locatable(axHeat2)
-        cax = divider.append_axes("right", size="2.5%", pad=0.09)
-    else:
-        cax = pPca['axis_colorbar']
-    cbar = fig.colorbar(img3, cax=cax)
-    cbar.solids.set_edgecolor("face")  # to avoid white lines in the color bar in pdf plots
-    if args.scoreName:
-        cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
-
-    if args.region:
-        """
-        ticks = axHeat2.get_xticks()
-        labels = ["{:.3f} Mbp".format((x / 1e6))
-                  for x in ticks]
-        axHeat2.get_xaxis().set_tick_params(
-            which='both',
-            bottom='on')
-        axHeat2.set_xticklabels(labels, size='small')
-        """
-
-        axHeat2.set_xticks([0, ma.shape[0]])
-        axHeat2.set_xticklabels([args.region[1], args.region[2]], size=4, rotation=90)
-        axHeat2.set_axis_off()
-        xticks = [[0, ma.shape[0]]]
-    else:
-        
-        print("chrBinBoundaries", chrBinBoundaries)
-        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
-        labels = chrBinBoundaries.keys()
-        print (labels)
-        if len(labels) > 20:
-            axHeat2.set_xticklabels(labels, size=4, rotation=90)
-        else:
-            axHeat2.set_xticklabels(labels, size=8)
-        if pPca:
-            xticks = [labels, ticks]
-        print("ticks", ticks)
-        print("label", labels)
-    print(ma.shape[0])
-    
-        
-    axHeat2.get_yaxis().set_visible(False)
-
-    if pPca:
-        # axHeat2.set_xlim(ticks[0], ticks[-1])
-        # axHeat2.set_ylim(ticks[0], ticks[-1])
-        axHeat2.set_xticks(ticks)
-        
-        axHeat2.xaxis.set_label_position("top") 
-        axHeat2.xaxis.tick_top() 
-        plotEigenvector(pPca['axis'], pPca['args'].pca, pXticks=xticks, pChromosomeList=labels)
-
-
-def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
+def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                        ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pPca=None):
     print("PLOT heatmap region")
     if pAxis:
@@ -265,13 +192,13 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     if start_pos2 is None:
         start_pos2 = start_pos
 
+    
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
     img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
 
     img3.set_rasterized(True)
     xticks=None
     if args.region:
-        print("Relabel ticks!")
         xtick_lables = relabel_ticks(axHeat2.get_xticks())
         axHeat2.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
         axHeat2.set_xticklabels(xtick_lables, size='small', rotation=45)
@@ -286,17 +213,21 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         axHeat2.set_axis_off()
         """
     else:
-        print("DON'T Relabel ticks!")
         
         ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
         labels = list(chrBinBoundaries)
         axHeat2.set_xticks(ticks)
+        axHeat2.set_yticks(ticks)
         xticks = [labels, ticks]
         
         if len(labels) > 20:
             axHeat2.set_xticklabels(labels, size=4, rotation=90)
+            axHeat2.set_yticklabels(labels, size=4)
+            
         else:
             axHeat2.set_xticklabels(labels, size=8)
+            axHeat2.set_yticklabels(labels, size=8)
+            
 
     if pPca is None:
         divider = make_axes_locatable(axHeat2)
@@ -317,10 +248,7 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     cbar.solids.set_edgecolor("face")  # to avoid white lines in the color bar in pdf plots
     if args.scoreName:
         cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
-    # else:
-
-    axHeat2.set_ylim(start_pos2[0], start_pos2[-1])
-    axHeat2.set_xlim(start_pos[0], start_pos[-1])
+    
 
     if ylabel is not None:
         axHeat2.set_ylabel(ylabel)
@@ -329,11 +257,13 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         axHeat2.set_xlabel(xlabel)
     
     if pPca:
-        # pca = {'args': args, 'axis': None}
-        # def plotEigenvector(pFigure, pNameOfEigenvectorsList, pChromosome=None, pRegion=None, pXticks=None):
         axHeat2.xaxis.set_label_position("top") 
         axHeat2.xaxis.tick_top() 
-        plotEigenvector(pPca['axis'], pPca['args'].pca, pRegion=pPca['args'].region, pXticks=xticks)
+        if args.region:
+            plotEigenvector(pPca['axis'], pPca['args'].pca, pRegion=pPca['args'].region, pXticks=xticks)
+        else:
+            plotEigenvector(pPca['axis'], pPca['args'].pca, pXticks=xticks, pChromosomeList=labels)
+        
 
 
 def translate_region(region_string):
@@ -474,17 +404,17 @@ def main(args=None):
             sys.stderr.write("WARNING: The following chromosome/scaffold names were not found. Please check"
                              "the correct spelling of the chromosome names. \n")
             sys.stderr.write("\n".join(invalid_chromosomes))
-
-    print(list(ma.interval_trees))
+       
     ma.restoreMaskedBins()
 
     if args.clearMaskedBins:
         ma.maskBins(ma.nan_bins)
 
     sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
+    start_pos1 = None
+    start_pos2 = None
     if args.region:
         chrom, region_start, region_end = translate_region(args.region)
-
         if type(next(iter(ma.interval_trees))) is np.bytes_:
             chrom = toBytes(chrom)
 
@@ -498,8 +428,10 @@ def main(args=None):
         args.region = [chrom, region_start, region_end]
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
                                  x[1] >= region_start and x[2] < region_end])
+        
         if args.region2:
             chrom2, region_start2, region_end2 = translate_region(args.region2)
+
             if type(next(iter(ma.interval_trees))) is np.bytes_:
                 chrom2 = toBytes(chrom)
             if chrom2 not in list(ma.interval_trees):
@@ -518,12 +450,12 @@ def main(args=None):
         matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
 
     else:
-        # TODO make start_pos1
-        start_pos1 = None
-        start_pos2 = None
         chrom = None
         chrom2 = None
-        matrix = np.asanyarray(ma.getMatrix().astype(float))
+        matrix = np.asarray(ma.getMatrix().astype(float))
+       
+        
+        
 
     cmap = cm.get_cmap(args.colorMap)
     sys.stderr.write("Nan values set to black\n")
@@ -547,7 +479,6 @@ def main(args=None):
         matrix[mask_nan] = matrix[mask_nan == False].min()
         
         matrix += 1
-        # matrix = np.log1p(matrix)
         norm = LogNorm()
 
     if args.perChromosome:
@@ -568,9 +499,6 @@ def main(args=None):
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
         
         if args.pca:
-            # len(track_height), 2,
-            # height_ratios=track_height,
-            # width_ratios=self.width_ratios
             gs = gridspec.GridSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07])
             gs.update(hspace=0.1)
             ax1 = plt.subplot(gs[0, 0])
@@ -580,7 +508,6 @@ def main(args=None):
             pca['axis_colorbar'] = ax3
             
         else:
-            # gs = gridspec.GridSpec(2, 2)
             ax1 = None
         bottom = 0.8 / fig_height
 
@@ -600,20 +527,10 @@ def main(args=None):
 
         if args.whatToShow == 'heatmap':
             position = [left_margin, bottom, width, height]
-            if args.region:
-                plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
-                                   args, cmap, xlabel=chrom, ylabel=chrom2,
-                                   start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pPca=pca)
+            plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
+                                args, cmap, xlabel=chrom, ylabel=chrom2,
+                                start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pPca=pca)
 
-            else:
-                plotHeatmap(matrix, ma.chrBinBoundaries, fig,  position,
-                            args, fig_width, cmap, pNorm=norm, pAxis=ax1, pPca=pca)
-        # if args.pca:
-        #     position = [left_margin, bottom, width, height]
-            
-        #     plotEigenvector(ax2, args.pca, pChromosome=None, pRegion=args.region)
-    # fig.tight_layout()
-    # plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
     plt.savefig(args.outFileName, dpi=args.dpi)
 
 
@@ -623,7 +540,6 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
     pAxis.set_frame_on(False)
     
     file_format = pNameOfEigenvectorsList[0].split(".")[-1]
-    # print("file_format", file_format)
     if file_format != 'bedgraph' and file_format != 'bigwig':
         exit("Given eigenvector files are not bedgraph or bigwig")
 
@@ -631,10 +547,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
         if eigenvector.split('.')[-1] != file_format:
             exit("Eigenvector input files have different formats.")
    
-    # if pChromosome:
-    #     chrom = pChromosome
     if pRegion:
-        # print("pRegion", pRegion)
         chrom, region_start, region_end = pRegion
     
     if file_format == "bigwig":
@@ -651,9 +564,6 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
             if pRegion:
                 if chrom not in interval_tree:
                     return
-            # # region_start = interval_tree[chrom][0]
-            # print("interval_tree[chrom][0]", interval_tree[chrom][0])
-            # print("interval_tree[chrom][0]", interval_tree[chrom][-1][1])
             
             eigenvector = []
             if pChromosomeList:
@@ -675,7 +585,6 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                             i += 1
                         region_end = region[1]
                         eigenvector.append(float(region.data[0]))
-            # if pRegion or pChromosome:
             
             if pRegion:
                 step = (region_end - region_start) // len(eigenvector)
@@ -685,53 +594,23 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                     x = np.append(x[-1] + int(step))
                 while len(eigenvector) < len(x):
                     x = x[:-1]
-                print("region_start", region_start)
-                print("region_end", region_end)
-                print("len(eigenvector)", len(eigenvector))
-                print("x", x, len(x))
+              
             if pRegion:
-                # pass
                 pAxis.set_xlim(region_start, region_end)
-            
             else:
                 x = np.arange(0, len(eigenvector), 1)
-
-            # elif pChromosome:
-            #     # 
-            #     x = np.arange(region_start, region_end, int(step))
-                
-            # else:
-            #     # print()
-            #     x = np.arange(0, len(eigenvector), 1)
-            print("len(x)", len(x), "len(eigenvector)", len(eigenvector))
             pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
         
-        # print("region_start", region_start)
-        # print("region_end", region_end)
-        # pFigure.get_xaxis().set_visible(False)
-        # pFigure.get_yaxis().set_visible(False)
-        # if pRegion or pChromosome:
-
-        # pXticks = None
         if pXticks:
-            print("pXticks", pXticks)
             if len(pXticks) == 1:
                 pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
                 pAxis.set_xticklabels(pXticks[0], size='small', rotation=45)
             else:
-                # pAxis.set_xlim(x[0], x[-1])
                 pAxis.set_xlim(0, pXticks[1][-1])
-                
                 pAxis.set_xticks(pXticks[1])
-                
                 pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
-                
-                # xticks = [labels, ticks]
                 
                 if len(pXticks[0]) > 20:
                     pAxis.set_xticklabels(pXticks[0], size=4, rotation=90)
                 else:
                     pAxis.set_xticklabels(pXticks[0], size=8)
-        # pFigure.vlines(x, [0], eigenvector, color='olive', linewidth=0.5)
-
-    # pFigure.set_xscale()
