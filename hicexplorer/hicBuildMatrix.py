@@ -110,7 +110,8 @@ def parse_arguments(args=None):
     group.add_argument('--binSize', '-bs',
                        help='Size in bp for the bins. The bin size depends '
                             'on the depth of sequencing. Use a larger bin size for '
-                            'libraries sequenced with lower depth.',
+                            'libraries sequenced with lower depth. Alternatively, the location of '
+                            'the restriction sites can be given (see --restrictionCutFile). ',
                        type=int,
                        default=10000)
 
@@ -153,7 +154,7 @@ def parse_arguments(args=None):
                              '"dangling-ends". If not given, such statistics will '
                              'not be available.')
 
-    parser.add_argument('--outFileName',
+    parser.add_argument('--outFileName', '-o',
                         help='Output file name for the Hi-C matrix',
                         metavar='FILENAME',
                         type=argparse.FileType('w'),
