@@ -131,7 +131,7 @@ class PlotTracks(object):
             elif properties['file_type'] == 'boundaries':
                 self.track_obj_list.append(PlotBoundaries(properties))
             
-             elif properties['file_type'] == 'pca':
+            elif properties['file_type'] == 'pca':
                 self.track_obj_list.append(PlotEigenvector(properties))
 
             if 'title' in properties:
