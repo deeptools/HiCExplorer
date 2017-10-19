@@ -22,6 +22,7 @@ import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+from collections import OrderedDict
 
 
 
@@ -297,7 +298,7 @@ def translate_region(region_string):
     return chrom, region_start, region_end
 
 
-def plotPerChr(hic_matrix, cmap, args, pNorm, pPca):
+def plotPerChr(hic_matrix, cmap, args, pPca):
     """
     plots each chromosome individually, one after the other
     in one row. scale bar is added at the end
@@ -327,55 +328,41 @@ def plotPerChr(hic_matrix, cmap, args, pNorm, pPca):
                 subplot_spec=grids[row, col], wspace=0.0, hspace=0.1)
             axis = plt.subplot(inner_grid[0, 0])
             axis_eigenvector = plt.subplot(inner_grid[1, 0])
+            axis_scale = plt.subplot(inner_grid[0, 1])
             
         else:
             axis = plt.subplot(grids[row, col])
             axis.set_title(chrname)
         chrom_range = hic_matrix.getChrBinRange(chrname)
-        mat = hic_matrix.matrix[chrom_range[0]:chrom_range[1],
-                                chrom_range[0]:chrom_range[1]].todense().astype(float)
+        matrix = np.asarray(hic_matrix.matrix[chrom_range[0]:chrom_range[1],
+                                chrom_range[0]:chrom_range[1]].todense().astype(float))
 
+        norm = None
+        if args.log or args.log1p:
+            mask = matrix == 0
+            mask_nan = matrix == np.nan
+            try:
+                matrix[mask] = matrix[mask == False].min()
+                matrix[mask_nan] = matrix[mask_nan == False].min()
+                matrix = np.log(matrix)
+            except:
+                pass
         if args.log1p:
-            mat += 1
-        img = axis.imshow(mat, aspect='auto',
-                          interpolation='spline16',
-                          vmax=args.vMax, vmin=args.vMin, cmap=cmap,
-                          norm=pNorm,
-                          extent=[start[chrom_range[0]], end[chrom_range[1] - 1],
-                                  end[chrom_range[1] - 1], start[chrom_range[0]]])
-
-        img.set_rasterized(True)
-
-        xticks = axis.get_xticks()
-        xlabels = relabel_ticks(xticks)
-        
-
-        axis.set_xticklabels(xlabels, size='small')
-        axis.xaxis.set_label_position("top") 
-        axis.xaxis.tick_top() 
-        axis.set_xlabel(chrname)
+            matrix += 1
+            norm = LogNorm()
        
-
-        axis.get_xaxis().set_tick_params(
-            which='both',
-            bottom='on',
-            direction='out')
-
-        axis.set_yticklabels(xlabels, size='small')
-
+        pca = None
         if pPca:
-            plotEigenvector(axis_eigenvector, pPca['args'].pca, pChromosomeList=[chrname], pXticks=[xlabels])
+            pca = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': hic_matrix.nan_bins}
+            pca['axis'] = axis_eigenvector
+            pca['axis_colorbar'] = axis_scale
+
+        chr_bin_boundary = OrderedDict()
+        chr_bin_boundary[chrname] = hic_matrix.chrBinBoundaries[chrname]
+        plotHeatmap(matrix, chr_bin_boundary, fig, None,
+                                args, cmap, xlabel=chrname, ylabel=chrname,
+                                start_pos=None, start_pos2=None, pNorm=norm, pAxis=axis, pPca=pca)
        
-    if pPca is None:
-        cbar3 = plt.subplot(grids[-1])
-    else:
-        cbar3 = pPca['axis_colorbar']
-    cbar = fig.colorbar(img, cax=cbar3)
-        
-   
-    cbar.solids.set_edgecolor("face")  # to avoid white lines in
-    # the color bar in pdf plots
-    cbar.ax.set_ylabel(args.scoreName, rotation=270, labelpad=20)
 
 
 def main(args=None):
@@ -461,27 +448,27 @@ def main(args=None):
     pca = None
     if args.pca:
         pca = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': ma.nan_bins}
-    if args.log:
-        mask = matrix == 0
-        mask_nan = matrix == np.nan
-        matrix[mask] = matrix[mask == False].min()
-        matrix[mask_nan] = matrix[mask_nan == False].min()
-        
-        matrix = np.log(matrix)
-    norm = None
-    if args.log1p:
-        mask = matrix == 0
-        matrix[mask] = matrix[mask == False].min()
-        mask_nan = matrix == np.nan
-        matrix[mask_nan] = matrix[mask_nan == False].min()
-        
-        matrix += 1
-        norm = LogNorm()
+    
 
     if args.perChromosome:
-        plotPerChr(ma, cmap, args, pNorm=norm, pPca=pca)
+        plotPerChr(ma, cmap, args, pPca=pca)
 
     else:
+        norm = None
+        
+        if args.log or args.log1p:
+            mask = matrix == 0
+            mask_nan = matrix == np.nan
+            try:
+                matrix[mask] = matrix[mask == False].min()
+                matrix[mask_nan] = matrix[mask_nan == False].min()
+                matrix = np.log(matrix)
+            except:
+                pass
+        if args.log1p:
+            matrix += 1
+            norm = LogNorm()
+
         fig_height = 6
         height = 4.8 / fig_height
         if args.whatToShow == 'both':
