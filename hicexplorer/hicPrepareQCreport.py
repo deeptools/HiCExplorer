@@ -164,7 +164,7 @@ def make_figure_read_orientation(table, filename):
     plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=200)
 
     # merge the counts table with the percentages table
-    ret_table = table[[u'inward pairs', u'outward pairs', u'left pairs', u'right pairs']].join(_t.T, rsuffix=' %')
+    ret_table = table[[u'inward pairs', u'outward pairs', u'left pairs', u'right pairs']].join(prc_table3.T, rsuffix=' %')
 
     return ret_table[[u'inward pairs', u'inward pairs %', u'outward pairs', u'outward pairs %',
                       u'left pairs', u'left pairs %', u'right pairs', u'right pairs %']]
