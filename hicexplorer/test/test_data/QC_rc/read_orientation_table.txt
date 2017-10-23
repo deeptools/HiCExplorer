@@ -1,0 +1,2 @@
+File	inward pairs	inward pairs %	outward pairs	outward pairs %	left pairs	left pairs %	right pairs	right pairs %
+small_test_rf_matrix.h5	6977	0.231909589496	8907	0.296061160047	7012	0.233072959947	7189	0.23895629051
