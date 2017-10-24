@@ -1,0 +1,2 @@
+File	One mate not close to rest site	One mate not close to rest site %	dangling end	dangling end %	duplicated pairs	duplicated pairs %	same fragment (800 bp)	same fragment (800 bp) %	self circle	self circle %	self ligation (removed)	self ligation (removed) %
+small_test_matrix.h5	0	0.0	0	0.0	12	0.000227591700489	15393	0.291943253803	0	0.0	0	0.0
