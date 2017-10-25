@@ -56,4 +56,4 @@ jobs:
 
       # command to run tests
       script:
-        - py.test hicexplorer --doctest-modules
+        - py.test hicexplorer --doctest-modules -s
