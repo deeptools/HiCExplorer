@@ -11,6 +11,9 @@ from intervaltree import IntervalTree, Interval
 
 import gzip
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 # try to import pandas if exists
 try:
     import pandas as pd
@@ -21,7 +24,7 @@ except ImportError:
 
 class hiCMatrix:
     """
-    Class to handle HiC matrices
+    Class to handle Hi-C matrices
     contains routines to get intrachromosomal distances
     get sub matrices by chrname.
     """
@@ -196,6 +199,20 @@ class hiCMatrix:
 
         return matrix
 
+    def setCutIntervals(self, cut_intervals):
+        """
+        Replace the cut_intervals of a matrix
+        """
+
+        # check that the matrix is squared
+        if len(cut_intervals) != self.matrix.shape[0]:
+            raise Exception("Length of cut_intervals {} does not match the "
+                            "matrix size {}".format(len(cut_intervals), self.matrix.shape))
+
+        self.cut_intervals = cut_intervals
+        self.interval_trees, self.chrBinBoundaries = \
+            self.intervalListToIntervalTree(self.cut_intervals)
+
     def setMatrix(self, matrix, cut_intervals):
         """
         Initialize a matrix with a given matrix
@@ -206,6 +223,9 @@ class hiCMatrix:
         # check that the matrix is squared
         if matrix.shape[0] != matrix.shape[1]:
             raise Exception("Matrix is not squared. Shape is {}".format(matrix.shape))
+        if len(cut_intervals) != matrix.shape[0]:
+            raise Exception("Length of cut_intervals {} does not match the matrix size {}".format(len(cut_intervals),
+                                                                                                  matrix.shape))
         self.matrix = matrix
         self.cut_intervals = cut_intervals
         self.interval_trees, self.chrBinBoundaries = \
@@ -233,7 +253,7 @@ class hiCMatrix:
 
     def getDekkerBins(self, fileName):
         """
-        Reads a gziped HiC matrix in Decker's format
+        Reads a gziped Hi-C matrix in Decker's format
         This format has row and column headers and comments
         with the prefix '#'. The following code skips the
         header while saving it in the self.header list

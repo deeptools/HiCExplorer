@@ -18,14 +18,14 @@ from hicexplorer._version import __version__
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
-        description='This program makes a distance vs. hi-c counts plots. It can use several matrix files to compare '
+        description='This program makes a distance vs. Hi-C counts plots. It can use several matrix files to compare '
                     'them. If the `--perchr` option is given, each chromosome is plotted independently. In the case '
                     'of more than one matrix, multiple plots are created, one per chromosome. When plotting multiple '
                     'matrices denser matrices are scaled down to match the sum of the smaller matrix.')
 
     # define the arguments
     parser.add_argument('--matrices', '-m',
-                        help='HiC normalized (corrected) matrices. Each path should be separated by a space.',
+                        help='Hi-C normalized (corrected) matrices. Each path should be separated by a space.',
                         nargs="+",
                         required=True)
 
@@ -57,7 +57,7 @@ def parse_arguments(args=None):
                         default=int(3e6))
 
     parser.add_argument('--perchr',
-                        help='generate plots per chromosome. If more than one HiC matrix is given to `--matrices` then'
+                        help='generate plots per chromosome. If more than one Hi-C matrix is given to `--matrices` then'
                              'for each chromosome a new plot is made. Otherewise, a single plot with one line per'
                              'chromosome is created',
                         action='store_true')
@@ -313,7 +313,7 @@ def main(args=None):
     # compute scale factors such that values are comparable
     min_sum = min(matrix_sum.values())
     scale_factor = dict([(matrix_file, float(min_sum) / mat_sum) for matrix_file, mat_sum in matrix_sum.iteritems()])
-
+    print "The scale factors used are: {}".format(scale_factor)
     if len(args.matrices) > 1 and args.perchr:
         # in this case, for each chromosome a plot is made that combines the data from the
         # hic matrices

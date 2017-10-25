@@ -15,6 +15,9 @@ from matplotlib.patches import Rectangle
 import textwrap
 import os.path
 
+import warnings
+warnings.filterwarnings('error')
+
 
 import scipy.sparse
 from collections import OrderedDict
@@ -122,7 +125,7 @@ class PlotTracks(object):
         # prepare layout based on the tracks given.
         # The main purpose of the following loop is
         # to get the height of each of the tracks
-        # because for the hi-C the height is variable with respect
+        # because for the Hi-C the height is variable with respect
         # to the range being plotted, the function is called
         # when each plot is going to be printed.
         track_height = []
@@ -255,7 +258,7 @@ class PlotTracks(object):
             elif section_name.endswith('[x-axis]'):
                 track_options['x-axis'] = True
             for name, value in parser.items(section_name):
-                if name in ['max_value', 'min_value', 'depth', 'width', 'line width', 'fontsize'] and value != 'auto':
+                if name in ['max_value', 'min_value', 'depth', 'width', 'line width', 'fontsize', 'scale factor', 'number of bins'] and value != 'auto':
                     track_options[name] = literal_eval(value)
                 else:
                     track_options[name] = value
@@ -667,50 +670,56 @@ class PlotBigWig(TrackPlot):
                              "{}\n\nPlease check that the chromosome name is part of the bigwig file "
                              "and that the region is valid".format(formated_region, self.properties['file']))
 
-        if end_region - start_region < 2e6:
-            scores = self.bw.values(chrom_region, start_region, end_region)
+        # on rare occasions pyBigWig may throw an error, apparently caused by a corruption
+        # of the memory. This only occurs when calling trackPlot from different
+        # processors. Reloading the file solves the problem.
+        num_tries = 0
+        while num_tries < 5:
+            num_tries += 1
+            try:
+                scores_per_bin = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
+            except Exception as e:
+                import pyBigWig
+                self.bw = pyBigWig.open(self.properties['file'])
 
-            if 'nans to zeros' in self.properties and self.properties['nans to zeros'] is True:
-                scores[np.isnan(scores)] = 0
+                print "error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries)
+                pass
+            else:
+                if num_tries > 1:
+                    print "After {} the scores could be computed".format(num_tries)
+                break
 
-            scores = np.ma.masked_invalid(scores)
+        x_values = np.linspace(start_region, end_region, num_bins)
 
-            lins = np.linspace(0, len(scores), num_bins).astype(int)
-            scores_per_bin = [np.mean(scores[lins[x]:lins[x + 1]]) for x in range(len(lins) - 1)]
-            _x = lins + start_region
-            x_values = [float(_x[x] + _x[x + 1]) / 2 for x in range(len(lins) - 1)]
-            if 'type' in self.properties and self.properties['type'] == 'line':
-                self.ax.plot(x_values, scores_per_bin, linewidth=0.1, color=self.properties['color'])
+        if 'type' in self.properties and self.properties != 'fill':
+            if self.properties['type'].find(":") > 0:
+                plot_type, size = self.properties['type'].split(":")
+                try:
+                    size = float(size)
+                except ValueError:
+                    exit("Invalid value: 'type = {}' in section: {}\n"
+                         "A number was expected and found '{}'".format(self.properties['type'],
+                                                                       self.properties['section_name'],
+                                                                       size))
+            else:
+                plot_type = self.properties['type']
+                size = None
+
+            if plot_type == 'line':
+                self.ax.plot(x_values, scores_per_bin, '-', linewidth=size, color=self.properties['color'])
+
+            elif plot_type == 'points':
+                self.ax.plot(x_values, scores_per_bin, '.', markersize=size, color=self.properties['color'])
 
             else:
-                self.ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
-                                     color=self.properties['color'],
-                                     facecolor=self.properties['color'])
-
+                exit("Invalid: 'type = {}' in section: {}\n".format(self.properties['type'],
+                                                                    self.properties['section_name'],
+                                                                    size))
         else:
-            # on rare occasions pyBigWig may throw an error, apparently caused by a corruption
-            # of the memory. This only occurs when calling trackPlot from different
-            # processors. Reloading the file solves the problem.
-            num_tries = 0
-            while num_tries < 5:
-                num_tries += 1
-                try:
-                    scores = np.array(self.bw.stats(chrom_region, start_region, end_region, nBins=num_bins)).astype(float)
-                except Exception as e:
-                    import pyBigWig
-                    self.bw = pyBigWig.open(self.properties['file'])
-
-                    print "error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries)
-                    pass
-                else:
-                    if num_tries > 1:
-                        print "After {} the scores could be computed".format(num_tries)
-                    break
-
-            x_values = np.linspace(start_region, end_region, num_bins)
-            self.ax.fill_between(x_values, scores, linewidth=0.1,
+            self.ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
                                  color=self.properties['color'],
-                                 facecolor=self.properties['color'], zorder=1)
+                                 facecolor=self.properties['color'])
+
         self.ax.set_xlim(start_region, end_region)
         ymin, ymax = self.ax.get_ylim()
         if 'max_value' in self.properties and self.properties['max_value'] != 'auto':
@@ -814,8 +823,8 @@ class PlotHiCMatrix(TrackPlot):
         # with an array containing the max value found
         # in the matrix
         if sum(self.hic_ma.matrix.diagonal()) == 0:
-            sys.stderr.write("Filling main diagonal because is empty and "
-                             "otherwise it looks bad...\n")
+            sys.stderr.write("Filling main diagonal with max value "
+                             "because it empty and looks bad...\n")
             max_value = self.hic_ma.matrix.data.max()
             main_diagonal = scipy.sparse.dia_matrix(([max_value] * self.hic_ma.matrix.shape[0], [0]),
                                                     shape=self.hic_ma.matrix.shape)
@@ -880,6 +889,8 @@ class PlotHiCMatrix(TrackPlot):
             # remove from matrix all data points that are not visible.
             matrix = matrix - scipy.sparse.triu(matrix, k=depth_in_bins, format='csr')
         matrix = np.asarray(matrix.todense().astype(float))
+        if 'scale factor' in self.properties:
+            matrix = matrix * self.properties['scale factor']
 
         if 'transform' in self.properties:
             if self.properties['transform'] == 'log1p':
@@ -908,7 +919,17 @@ class PlotHiCMatrix(TrackPlot):
         else:
             if depth_in_bins > matrix.shape[0]:
                 depth_in_bins = matrix.shape[0] - 5
-            vmin = np.median(matrix.diagonal(int(region_len / self.hic_ma.getBinSize())))
+
+            # if the region length is large with respect to the chromosome length, the diagonal may have
+            # very few values or none. Thus, the following lines reduce the number of bins until the
+            # diagonal is at least length 5
+            num_bins_from_diagonal = int(region_len / self.hic_ma.getBinSize())
+            for num_bins in range(0, num_bins_from_diagonal)[::-1]:
+                distant_diagonal_values = matrix.diagonal(num_bins)
+                if len(distant_diagonal_values) > 5:
+                    break
+
+            vmin = np.median(distant_diagonal_values)
 
         sys.stderr.write("setting min, max values for track {} to: {}, {}\n".format(self.properties['section_name'],
                                                                                     vmin, vmax))
@@ -952,13 +973,21 @@ class PlotHiCMatrix(TrackPlot):
         try:
             if 'transform' in self.properties and \
                     self.properties['transform'] in ['log', 'log1p']:
-                from matplotlib.ticker import LogFormatter
-                formatter = LogFormatter(10, labelOnlyBase=False)
                 # get a useful log scale
                 # that looks like [1, 2, 5, 10, 20, 50, 100, ... etc]
+
+                # The following code is problematic with some versions of matplotlib.
+                # Should be uncommented once the problem is clarified
+                from matplotlib.ticker import LogFormatter
+                formatter = LogFormatter(10, labelOnlyBase=False)
                 aa = np.array([1, 2, 5])
                 tick_values = np.concatenate([aa * 10**x for x in range(10)])
                 cobar = plt.colorbar(img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
+                """
+                aa = np.array([0, 1, 2, 3, 4, 5])
+                tick_values = set(np.concatenate([aa * 10**x for x in range(10)]))
+                cobar = plt.colorbar(img, ticks=list(tick_values), ax=self.cbar_ax, fraction=0.95)
+                """
             else:
                 cobar = plt.colorbar(img, ax=self.cbar_ax, fraction=0.95)
             cobar.solids.set_edgecolor("face")
@@ -1019,17 +1048,21 @@ class PlotXAxis(TrackPlot):
         ax.set_xlim(region_start, region_end)
         ticks = ax.get_xticks()
         if ticks[-1] - ticks[1] <= 1e5:
-            labels = ["{:.0f} kb".format((x / 1e3))
+            labels = ["{:,.0f}".format((x / 1e3))
                       for x in ticks]
+            labels[-2] += " Kb"
 
         elif 1e5 < ticks[-1] - ticks[1] < 4e6:
-            labels = ["{:,.0f} kb".format((x / 1e3))
+            labels = ["{:,.0f}".format((x / 1e3))
                       for x in ticks]
+            labels[-2] += " Kb"
         else:
-            labels = ["{:,.1f} Mbp".format((x / 1e6))
+            labels = ["{:,.1f} ".format((x / 1e6))
                       for x in ticks]
-            # labels[-1] += "Mbp"
+            labels[-2] += " Mbp"
 
+        print ticks
+        print labels
         ax.axis["x"] = ax.new_floating_axis(0, 0.5)
 
         ax.axis["x"].axis.set_ticklabels(labels)

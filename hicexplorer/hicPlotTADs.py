@@ -20,7 +20,9 @@ file_type = hic_matrix
 # the default is to extend neighboring bins to
 # obtain an aesthetically pleasant output
 show_masked_bins = yes
-
+# optional if the values in the matrix need to be scaled the
+# following parameter can be used
+scale factor = 1
 [x-axis]
 #optional
 fontsize=20
@@ -38,8 +40,13 @@ min_value = 0
 width = 1.5
 number of bins = 500
 nans to zeros = True
-# optional. If type is not specified, then a fill curve is plotted.
+# options are: line, points, fill. Default is fill
+# to add the preferred line width or point size use:
+# type = line:lw where lw (linewidth) is float
+# similary points:ms sets the point size (markersize (ms) to the given float
 type = line
+# type = line:0.5
+# type = points:0.5
 #optional in case it can not be guessed by the file ending
 file_type = bigwig
 
@@ -192,7 +199,7 @@ DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         description='Plots the diagonal,  and some values close to '
-        'the diagonal of a  HiC matrix. The diagonal of the matrix is '
+        'the diagonal of a  Hi-C matrix. The diagonal of the matrix is '
         'plotted horizontally for a region. I will not draw the diagonal '
         'for the whole chromosome',
         usage="%(prog)s --tracks tracks.ini --region chr1:1000000-4000000 -o image.png")
