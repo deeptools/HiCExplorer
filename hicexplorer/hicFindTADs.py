@@ -44,7 +44,7 @@ as the demanding step is the computation of TAD-separation scores.
 
  A simple example usage is:
 
-$ hicFindTads -m hic_matrix.h5 --outPrefix TADs
+$ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting frd
 
 """)
 
