@@ -124,7 +124,8 @@ setup(
         "tables >= 3.3.0",
         "pandas >= 0.20.2",
         "pyBigWig >=0.3.4",
-        "six >= 1.10.0"],
+        "six >= 1.10.0",
+        "jinja2 >= 2.9.6"],
     zip_safe=False,
     cmdclass={'sdist': sdist, 'install': install}
 )
