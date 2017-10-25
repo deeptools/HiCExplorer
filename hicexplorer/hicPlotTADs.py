@@ -20,7 +20,9 @@ file_type = hic_matrix
 # the default is to extend neighboring bins to
 # obtain an aesthetically pleasant output
 show_masked_bins = yes
-
+# optional if the values in the matrix need to be scaled the
+# following parameter can be used
+scale factor = 1
 [x-axis]
 #optional
 fontsize=20
@@ -38,13 +40,22 @@ min_value = 0
 width = 1.5
 number of bins = 500
 nans to zeros = True
+# options are: line, points, fill. Default is fill
+# to add the preferred line width or point size use:
+# type = line:lw where lw (linewidth) is float
+# similary points:ms sets the point size (markersize (ms) to the given float
+type = line
+# type = line:0.5
+# type = points:0.5
 #optional in case it can not be guessed by the file ending
 file_type = bigwig
 
 [simple bed]
 file = file.bed
 title = peaks
-color = read
+color = red
+# optional boder color. Set to none for no border color
+border_color = black
 width = 0.5
 # optional. If not given is guessed from the file ending
 file_type = bed
@@ -101,6 +112,8 @@ title = chromatin states
 # color is replaced by the color in the bed file
 # in this case
 color = black
+# optional boder color. Set to none for no border color
+border_color = black
 # default behaviour when plotting intervals from a
 # bed file is to 'expand' them such that they
 # do not overlap. The display = collapsed
@@ -166,11 +179,18 @@ type = vlines
 from __future__ import division
 import sys
 import argparse
+from past.builtins import map
 import matplotlib
 matplotlib.use('Agg')
 
 import hicexplorer.trackPlot
 from hicexplorer._version import __version__
+
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=DeprecationWarning)
+warnings.simplefilter(action='ignore', category=ImportWarning)
 
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'
@@ -179,7 +199,7 @@ DEFAULT_MATRIX_COLORMAP = 'RdYlBu_r'
 DEFAULT_TRACK_HEIGHT = 3  # in centimeters
 DEFAULT_FIGURE_WIDTH = 40  # in centimeters
 # proportion of width dedicated to (figure, legends)
-#DEFAULT_WIDTH_RATIOS = (0.95, 0.05)
+# DEFAULT_WIDTH_RATIOS = (0.95, 0.05)
 DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 
 
@@ -204,8 +224,8 @@ def parse_arguments(args=None):
 
     group.add_argument('--BED',
                        help='Instead of a region, a file containing the regions to plot, in BED format, '
-                             'can be given. If this is the case, multiple files will be created using a prefix '
-                             'the value of --outFileName',
+                       'can be given. If this is the case, multiple files will be created using a prefix '
+                       'the value of --outFileName',
                        type=argparse.FileType('r')
                        )
 
@@ -277,8 +297,24 @@ def get_region(region_string):
     The region_string format is chr:start-end
     """
     if region_string:
-        region_string = region_string.translate(
-            None, ",.;|!{}()").replace("-", ":")
+
+        if sys.version_info[0] == 2:
+            region_string = region_string.translate(
+                None, ",.;|!{}()").replace("-", ":")
+        if sys.version_info[0] == 3:
+            region_string = region_string.replace(",", "")
+            region_string = region_string.replace(".", "")
+            region_string = region_string.replace(";", "")
+            region_string = region_string.replace("|", "")
+            region_string = region_string.replace("!", "")
+            region_string = region_string.replace("{", "")
+            region_string = region_string.replace("}", "")
+            region_string = region_string.replace("(", "")
+            region_string = region_string.replace(")", "")
+            region_string = region_string.replace("-", ":")
+
+        # region_string = region_string.translate(
+        #     None, ",.;|!{}()").replace("-", ":")
         region = region_string.split(":")
         chrom = region[0]
         try:

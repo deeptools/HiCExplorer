@@ -1,7 +1,11 @@
+from __future__ import division
+
 import argparse
 import sys
 import os
 import numpy as np
+from builtins import range
+from past.builtins import map
 from scipy.sparse import triu
 from scipy.stats import pearsonr, spearmanr
 
@@ -20,7 +24,7 @@ from matplotlib.ticker import FixedLocator
 def parse_arguments(args=None):
 
     heatmap_parser = heatmap_options()
-    
+
     parser = argparse.ArgumentParser(
         parents=[heatmap_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -30,18 +34,22 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--matrices', '-m',
-                        help='matrices to correlate.',
+                        help='Matrices to correlate (usually .h5 but other formats are allowed). '
+                             'hicCorrelate is better used on un-corrected matrices in order to '
+                             'exclude any changes introduced by the correction.',
                         nargs='+',
                         required=True)
 
     # define the arguments
-    parser.add_argument('--method', 
+    parser.add_argument('--method',
                         help='Correlation method to use.',
                         choices=['pearson', 'spearman'],
                         default='pearson')
 
     parser.add_argument('--log1p',
-                        help='Use the log1p of the matrix values.',
+                        help='If set, then the log1p of the matrix values is used. This parameter has no '
+                             'effect for Spearman correlations but changes the output of Pearson correlation '
+                             'and, for the scatter plot, if set, the visualization of the values is easier.',
                         action='store_true')
 
     parser.add_argument('--labels', '-l',
@@ -65,7 +73,7 @@ def parse_arguments(args=None):
                         help='File name to save the resulting scatter plot',
                         required=True)
 
-    parser.add_argument('--chromosomes', 
+    parser.add_argument('--chromosomes',
                         help='List of chromosomes to be included in the '
                         'correlation.',
                         default=None,
@@ -86,12 +94,13 @@ def heatmap_options():
     heatmap.add_argument('--zMin', '-min',
                          default=None,
                          help='Minimum value for the heat map intensities. '
-                              'If not specified the value is set automatically')
+                              'If not specified the value is set automatically',
+                         type=float)
     heatmap.add_argument('--zMax', '-max',
                          default=None,
                          help='Maximum value for the heat map intensities.'
-                              'If not specified the value is set automatically')
-
+                              'If not specified the value is set automatically',
+                         type=float)
 
     heatmap.add_argument(
         '--colorMap', default='jet',
@@ -132,7 +141,7 @@ def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
     axdendro = fig.add_axes([0.02, 0.1, 0.1, 0.7])
     axdendro.set_axis_off()
     y_var = sch.linkage(corr_matrix, method='complete')
-    z_var = sch.dendrogram(y_var, orientation='right',
+    z_var = sch.dendrogram(y_var, orientation='left',
                            link_color_func=lambda k: 'black')
     axdendro.set_xticks([])
     axdendro.set_yticks([])
@@ -154,11 +163,11 @@ def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
                                cmap=cmap, extent=(0, num_rows, 0, num_rows),
                                vmax=vmax, vmin=vmin)
     axmatrix.yaxis.tick_right()
-    axmatrix.set_yticks(np.arange(corr_matrix.shape[0])+0.5)
+    axmatrix.set_yticks(np.arange(corr_matrix.shape[0]) + 0.5)
     axmatrix.set_yticklabels(np.array(labels).astype('str')[index],
                              fontsize=14)
 
-    axmatrix.set_xticks(np.arange(corr_matrix.shape[0])+0.5)
+    axmatrix.set_xticks(np.arange(corr_matrix.shape[0]) + 0.5)
     axmatrix.set_xticklabels(np.array(labels).astype('str')[index],
                              fontsize=14,
                              rotation=45,
@@ -170,7 +179,7 @@ def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
     plt.colorbar(img_mat, cax=axcolor, orientation='horizontal')
     for row in range(num_rows):
         for col in range(num_rows):
-            axmatrix.text(row+0.5, col+0.5,
+            axmatrix.text(row + 0.5, col + 0.5,
                           "{:.2f}".format(corr_matrix[row, col]),
                           ha='center', va='center')
 
@@ -215,14 +224,13 @@ def main():
     args = parse_arguments().parse_args()
 
     if args.labels and len(args.matrices) != len(args.labels):
-        print "The number of labels does not match the number of matrices."
+        print("The number of labels does not match the number of matrices.")
         exit(0)
     if not args.labels:
         args.labels = map(lambda x: os.path.basename(x), args.matrices)
 
     num_files = len(args.matrices)
-    labels = map(lambda x: os.path.basename(x), args.matrices)
-
+    map(lambda x: os.path.basename(x), args.matrices)
     # initialize results matrix
     results = np.zeros((num_files, num_files), dtype='float')
 
@@ -247,17 +255,24 @@ def main():
         all_nan = np.unique(np.concatenate([all_nan, _mat.nan_bins]))
 
         _mat = triu(_mat.matrix, k=0, format='csr')
-        """
-        # estimate noise level
-        noise_cutoff = np.percentile(_mat.data,70)
-        print "noise threshold set to: {}".format(noise_cutoff)
-        _mat.data[_mat.data<=noise_cutoff] = 0
-        _mat.eliminate_zeros()
-        """
         if args.range:
             min_dist, max_dist = args.range.split(":")
-            min_dist = int(min_dist) / bin_size
+            min_dist = int(min_dist)
+            max_dist = int(max_dist)
+            if max_dist < bin_size:
+                exit("Please specify a max range that is larger than bin size ({})".format(bin_size))
+
+            max_depth_in_bins = int(max_dist / bin_size)
             max_dist = int(max_dist) / bin_size
+            # work only with the upper matrix
+            # and remove all pixels that are beyond
+            # max_depth_in_bis
+            # (this is done by subtracting a second sparse matrix
+            # that contains only the upper matrix that wants to be removed.
+            _mat = triu(_mat, k=0, format='csr') - triu(_mat, k=max_depth_in_bins, format='csr')
+
+            _mat.eliminate_zeros()
+
             _mat_coo = _mat.tocoo()
             dist = _mat_coo.col - _mat_coo.row
             keep = np.flatnonzero((dist <= max_dist) & (dist >= min_dist))
@@ -265,6 +280,9 @@ def main():
             _mat_coo.row = _mat_coo.row[keep]
             _mat_coo.col = _mat_coo.col[keep]
             _mat = _mat_coo.tocsr()
+        else:
+            _mat = triu(_mat, k=0, format='csr')
+
         if args.log1p:
             _mat.data = np.log1p(_mat.data)
         if all_mat is None:
@@ -280,13 +298,13 @@ def main():
         hic_mat_list.append(_mat)
 
     # remove nan bins
-    rows_keep = cols_keep = np.delete(range(all_mat.shape[1]), all_nan)
+    rows_keep = cols_keep = np.delete(list(range(all_mat.shape[1])), all_nan)
     all_mat = all_mat[rows_keep, :][:, cols_keep]
 
     # make large matrix to correlate by
     # using sparse matrix tricks
 
-    print len(all_nan)
+    print(len(all_nan))
     big_mat = None
     for mat in hic_mat_list:
         mat = mat[rows_keep, :][:, cols_keep]
@@ -301,7 +319,7 @@ def main():
 
     grids = gridspec.GridSpec(num_files, num_files)
     grids.update(wspace=0, hspace=0)
-    fig = plt.figure(figsize=(2*num_files, 2*num_files))
+    fig = plt.figure(figsize=(2 * num_files, 2 * num_files))
     plt.rcParams['font.size'] = 8.0
 
     min_value = int(big_mat.min())
@@ -312,23 +330,23 @@ def main():
         max_value += 1
 
     if args.log1p:
-        major_locator = FixedLocator(range(min_value, max_value, 2))
-        minor_locator = FixedLocator(range(min_value, max_value, 1))
+        major_locator = FixedLocator(list(range(min_value, max_value, 2)))
+        minor_locator = FixedLocator(list(range(min_value, max_value, 1)))
 
-    for index in xrange(len(rows)):
+    for index in range(len(rows)):
         row = rows[index]
         col = cols[index]
         if row == col:
             results[row, col] = 1
 
-            # add titles as 
+            # add titles as
             # empty plot in the diagonal
             ax = fig.add_subplot(grids[row, col])
             ax.text(0.6, 0.6, args.labels[row],
                     verticalalignment='center',
                     horizontalalignment='center',
                     fontsize=10, fontweight='bold',
-                    transform=ax.transAxes) 
+                    transform=ax.transAxes)
             ax.set_axis_off()
             continue
 
@@ -344,7 +362,7 @@ def main():
 
         results[row, col] = correlation_opts[args.method](vector1, vector2)[0]
 
-        ##### scatter plots
+        # scatter plots
         ax = fig.add_subplot(grids[row, col])
         if args.log1p:
             ax.xaxis.set_major_locator(major_locator)
@@ -387,22 +405,9 @@ def main():
         else:
             ax.set_xticklabels([])
 
-        ax.hist2d(vector1, vector2, bins=200, cmin=0.1)
-        # downsample for plotting
-#        choice_idx = np.random.randint(0,len(vector1),min(len(vector1), 500000))
-#        ax.plot(vector1[choice_idx], vector2[choice_idx], '.', markersize=1,
-#                 alpha=0.2, color='darkblue',
-#                 markeredgecolor='none')
-
-
-#        ax.set_ylim(min_value, max_value)
-#        ax.set_xlim(min_value,max_value)
-#        ax.set_ylim(-1, ax.get_ylim()[1])
-#        ax.set_xlim(-1, ax.get_xlim()[1])
-#        ax.set_ylim(min_value, ax.get_ylim()[1])
-#        ax.set_xlim(min_value, ax.get_xlim()[1])
+        ax.hist2d(vector1, vector2, bins=150, cmin=0.1)
     fig.tight_layout()
-    print "saving {}".format(args.outFileNameScatter)
+    print("saving {}".format(args.outFileNameScatter))
     fig.savefig(args.outFileNameScatter, bbox_inches='tight')
 
     results = results + np.triu(results, 1).T

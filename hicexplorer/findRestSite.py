@@ -22,7 +22,7 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--searchPattern', '-p',
-                        help='Search pattern. For example, for HindII this pattern is "AAGCTT". '
+                        help='Search pattern. For example, for HindIII this pattern is "AAGCTT". '
                              'Both, forward and reverse strand are searched for a match. The pattern '
                              'is a regexp and can contain regexp specif syntax '
                              '(see https://docs.python.org/2/library/re.html). For example the pattern'
@@ -66,14 +66,14 @@ def find_pattern(pattern, fasta_file, out_file):
                          Csp6I
 
     >>> fa = open("/tmp/test.fa", 'w')
-    >>> fa.write(">chr1\nCTACGGTACGAACGTACGGTACGcgtaCGNAGTCATG\n")
+    >>> foo = fa.write(">chr1\nCTACGGTACGAACGTACGGTACGcgtaCGNAGTCATG\n")
     >>> fa.close()
-    >>> find_pattern("GTAC", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
+    >>> find_pattern("GTAC", "/tmp/test.fa", open("/tmp/test.bed", 'wb'))
     >>> open("/tmp/test.bed", 'r').readlines()
     ['chr1\t5\t9\t.\t0\t+\n', 'chr1\t13\t17\t.\t0\t+\n', 'chr1\t18\t22\t.\t0\t+\n', 'chr1\t24\t28\t.\t0\t+\n']
 
     Test with non palindromic sequence with regexp
-    >>> find_pattern("CG.AG", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
+    >>> find_pattern("CG.AG", "/tmp/test.fa", open("/tmp/test.bed", 'wb'))
     >>> open("/tmp/test.bed", 'r').readlines()
     ['chr1\t0\t5\t.\t0\t-\n', 'chr1\t27\t32\t.\t0\t+\n']
 
@@ -82,19 +82,19 @@ def find_pattern(pattern, fasta_file, out_file):
     # get the reverse complement of the pattern
     rev_compl = str(Seq(pattern, generic_dna).reverse_complement())
 
-    temp = NamedTemporaryFile(suffix=".bed", delete=False)
+    temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='w')
     for record in SeqIO.parse(fasta_file, 'fasta', generic_dna):
         # find all the occurrences of pattern
         for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
-            temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                      match.start(),
-                                                      match.end()))
+            _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
+                                                          match.start(),
+                                                          match.end()))
         if rev_compl != pattern:
             # search for the reverse complement only if the pattern is not palindromic
             for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
-                temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
-                                                          match.start(),
-                                                          match.end()))
+                _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
+                                                              match.start(),
+                                                              match.end()))
 
     sys.stderr.write("Sorting file ...\n")
     tmpfile_name = temp.name
@@ -103,7 +103,7 @@ def find_pattern(pattern, fasta_file, out_file):
     # sort bed file using system tools
     cmd = 'sort -k1,1 -k2,2n -u {}'.format(tmpfile_name)
     # LC_ALL=C is to set the appropriate collation order
-    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL':' C'})
+    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL': ' C'})
     stdout, _ = proc.communicate()
 
     out_file.write(stdout)

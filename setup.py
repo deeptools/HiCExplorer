@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import os
 import sys
@@ -19,24 +19,24 @@ __version__ = '%s'
 
 def update_version_py():
     if not os.path.isdir(".git"):
-        print "This does not appear to be a Git repository."
+        print("This does not appear to be a Git repository.")
         return
     try:
         p = subprocess.Popen(["git", "describe",
                               "--tags", "--always"],
                              stdout=subprocess.PIPE)
     except EnvironmentError:
-        print "unable to run git, leaving hicexplorer/_version.py alone"
+        print("unable to run git, leaving hicexplorer/_version.py alone")
         return
     stdout = p.communicate()[0]
     if p.returncode != 0:
-        print "unable to run git, leaving hicexplorer/_version.py alone"
+        print("unable to run git, leaving hicexplorer/_version.py alone")
         return
     ver = stdout.strip()
     f = open("hicexplorer/_version.py", "w")
     f.write(VERSION_PY % ver)
     f.close()
-    print "set hicexplorer/_version.py to '%s'" % ver
+    print("set hicexplorer/_version.py to '%s'" % ver)
 
 
 def get_version():
@@ -51,18 +51,21 @@ def get_version():
             return ver
     return None
 
+
 class sdist(_sdist):
 
     def run(self):
-        update_version_py()
+        # update_version_py()
         self.distribution.metadata.version = get_version()
         return _sdist.run(self)
 
 # Install class to check for external dependencies from OS environment
+
+
 class install(_install):
 
     def run(self):
-        update_version_py()
+        # update_version_py()
         self.distribution.metadata.version = get_version()
         _install.run(self)
         return
@@ -89,31 +92,45 @@ class install(_install):
         except Exception as e:
             sys.stderr.write("Error: {}".format(e))
 
+
+install_requires_py = ["numpy >= 1.12.1",
+                       "scipy >= 0.19.0",
+                       "matplotlib >= 2.0.0",
+                       "pysam >= 0.11.2.2",
+                       "intervaltree >= 2.1.0",
+                       "biopython >= 1.68",
+                       "tables >= 3.3.0",
+                       "pandas >= 0.20.2",
+                       "pyBigWig >=0.3.4",
+                       "six >= 1.10.0",
+                       "future >= 0.16.0"
+                       ]
+
+if sys.version_info[0] == 2 or (sys.version_info[0] == 3 and sys.version_info[1] == 4):
+    install_requires_py.append("configparser >= 3.5.0")
+
 setup(
     name='HiCExplorer',
     version=get_version(),
-    author='Fidel Ramirez',
-    author_email='ramirez@ie-freiburg.mpg.de',
+    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff',
+    author_email='deeptools@googlegroups.com',
     packages=['hicexplorer'],
     scripts=['bin/findRestSite', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindEnrichedContacts', 'bin/hicFindTADs',
              'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
-             'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport', 'bin/hicInfo'],
+             'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport', 'bin/hicInfo', 'bin/hicexplorer',
+             'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA'],
     include_package_data=True,
-    package_data={'': ['config/hicexplorer.cfg']},
+    package_dir={'hicexplorer': 'hicexplorer'},
+    package_data={'hicexplorer': ['qc_template.html']},
     url='http://hicexplorer.readthedocs.io',
     license='LICENSE.txt',
-    description='Set of programms to process, analyze and visualize Hi-C data',
+    description='Set of programs to process, analyze and visualize Hi-C data',
     long_description=open('README.rst').read(),
-    install_requires=[
-        "numpy >= 1.10.4",
-        "scipy >= 0.17.1",
-        "matplotlib >= 1.5.3",
-        "pysam >= 0.8.3",
-        "intervaltree >= 2.1.0",
-        "biopython >= 1.65",
-        "tables >= 3.2.2",
-        "pyBigWig >=0.2.8"],
+    classifiers=[
+        'Intended Audience :: Science/Research',
+        'Topic :: Scientific/Engineering :: Bio-Informatics'],
+    install_requires=install_requires_py,
     zip_safe=False,
     cmdclass={'sdist': sdist, 'install': install}
 )
