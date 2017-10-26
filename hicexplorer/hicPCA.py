@@ -33,7 +33,8 @@ Computes PCA eigenvectors for the HiC matrix.
                         required=True)
 
     parser.add_argument('--outputFileName', '-o',
-                        help='File names for the result of the pca. Number of output file must match the number of computed eigenvectors.',
+                        help='File names for the result of the pca. Number of output file '
+                             'must match the number of computed eigenvectors.',
                         nargs='+',
                         default=['pca1', 'pca2'],
                         required=True)
@@ -64,9 +65,9 @@ def main(args=None):
     if int(args.numberOfEigenvectors) != len(args.outputFileName):
         exit("Number of output file names and number of eigenvectors does not match: {} {}".format(len(args.outputFileName), args.numberOfEigenvectors))
     ma = hm.hiCMatrix(args.matrix)
+    ma.maskBins(ma.nan_bins)
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
-    ma.maskBins(ma.nan_bins)
     ma.matrix = ma.matrix.asfptype()
     # eigenvectors and eigenvalues for the from the matrix
     vals, vecs = eigs(ma.matrix, k=int(args.numberOfEigenvectors), which='LM')
