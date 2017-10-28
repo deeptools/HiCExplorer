@@ -12,7 +12,9 @@ from intervaltree import IntervalTree, Interval
 import gzip
 
 import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action="ignore", category=FutureWarning)
+warnings.filterwarnings(action="ignore", message="numpy.dtype size changed")
+warnings.filterwarnings(action="ignore", message="numpy.ndarray size changed")
 
 # try to import pandas if exists
 try:
