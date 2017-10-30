@@ -1,0 +1,46 @@
+
+package:
+    name: hicexplorer
+    version: 1.7.3
+source:
+    path: ../.
+build:
+    number: '0'
+requirements:
+    build:
+        - python
+        - setuptools
+        - numpy >=1.12.1
+        - scipy >=0.19.0
+        - matplotlib >=2.0.0
+        - pysam >=0.11.2
+        - intervaltree >=2.1.0
+        - biopython >=1.68
+        - pytables >=3.3.0
+        - pandas >=0.20.2
+        - pybigwig >=0.3.4
+        - six >=1.10.0
+        - future >=0.16.0
+    run:
+        - python
+        - numpy >=1.12.1
+        - scipy >=0.19.0
+        - matplotlib >=2.0.0
+        - pysam >=0.11.2
+        - intervaltree >=2.1.0
+        - biopython >=1.68
+        - pytables >=3.3.0
+        - pandas >=0.20.2
+        - pybigwig >=0.3.4
+        - six >=1.10.0
+        - future >=0.16.0
+test:
+    commands:
+        - hicBuildMatrix --version
+        - hicCorrelate --version
+    imports:
+        - hicexplorer
+about:
+    home: https://github.com/maxplanck-ie/HiCExplorer
+    license: GPL3
+    summary: Test package for development of hicexplorer. Do not use it in a productive environment.

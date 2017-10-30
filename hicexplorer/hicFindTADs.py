@@ -14,6 +14,12 @@ import numpy as np
 import multiprocessing
 from hicexplorer._version import __version__
 
+# python 2 / 3 compatibility
+from past.builtins import zip
+from six import iteritems
+from builtins import range
+from past.builtins import map
+
 logging.basicConfig()
 log = logging.getLogger("hicFindTADs")
 log.setLevel(logging.INFO)
@@ -469,12 +475,12 @@ class HicFindTads(object):
             x_axis = np.arange(len(y_axis))
 
         if len(y_axis) != len(x_axis):
-            raise (ValueError, 'Input vectors y_axis and x_axis must have same length')
+            raise ValueError('Input vectors y_axis and x_axis must have same length')
 
         # store data length for later use
 
         if not (np.isscalar(delta) and delta >= 0):
-            raise (ValueError, "delta must be a positive number")
+            raise ValueError("delta must be a positive number")
 
         # maximum and minimum candidates are temporarily stored in
         # min_x and min_y respectively
@@ -790,7 +796,7 @@ class HicFindTads(object):
             return
 
         count = 0
-        for chrom, values in Z.iteritems():
+        for chrom, values in iteritems(Z):
             for id_a, id_b, distance, num_clusters, pos_a, pos_b in values:
                 count += 1
                 file_h.write('{}\t{}\t{}\tclust_{}'
@@ -863,7 +869,7 @@ class HicFindTads(object):
         :param file_prefix: file prefix to save the resulting bed files
         :return: list of file names created
         """
-        for cutoff, intervals in clusters.iteritems():
+        for cutoff, intervals in iteritems(clusters):
             fileh = open("{}_{}.bed".format(file_prefix, cutoff), 'w')
             for chrom, start, end in intervals:
                 fileh.write("{}\t{}\t{}\t.\t0\t.\n".format(chrom, start, end))
@@ -1027,7 +1033,7 @@ class HicFindTads(object):
             self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = self.hic_ma.intervalListToIntervalTree(new_intervals)
             self.hic_ma.cut_intervals = new_intervals
             self.hic_ma.orig_cut_intervals = new_intervals
-            self.hic_ma.orig_bin_ids = range(len(new_intervals))
+            self.hic_ma.orig_bin_ids = list(range(len(new_intervals)))
             self.hic_ma.nan_bins = []
 
         if self.min_depth % self.hic_ma.getBinSize() != 0:
@@ -1079,8 +1085,8 @@ class HicFindTads(object):
         # to speed up parallel computation the self.hic_ma (HiCMatrix object) is converted into a global object.
         global hic_ma
         hic_ma = self.hic_ma
-        for chrom in self.hic_ma.chrBinBoundaries.keys():
-            bins_to_consider.extend(range(*self.hic_ma.chrBinBoundaries[chrom]))
+        for chrom in list(self.hic_ma.chrBinBoundaries):
+            bins_to_consider.extend(list(range(*self.hic_ma.chrBinBoundaries[chrom])))
 
         for idx_array in np.array_split(bins_to_consider, self.num_processors):
             TASKS.append((idx_array, self.min_depth, self.max_depth, self.step))
@@ -1117,7 +1123,7 @@ class HicFindTads(object):
         end_list = []
         with open(filename, 'r') as fh:
             for line in fh:
-                if line.startswith("#"):
+                if line.startswith(b"#"):
                     # recover the parameters used to generate the spectrum_matrix
                     parameters = json.loads(line[1:].strip())
                     continue
@@ -1231,7 +1237,7 @@ class HicFindTads(object):
 
         lookahead = int(self.min_boundary_distance / avg_bin_size)
         if lookahead < 1:
-            raise (ValueError, "minBoundaryDistance must be '1' or above in value")
+            raise ValueError("minBoundaryDistance must be '1' or above in value")
 
         min_idx, delta = HicFindTads.find_consensus_minima(self.bedgraph_matrix['matrix'], lookahead=lookahead,
                                                            chrom=self.bedgraph_matrix['chrom'])

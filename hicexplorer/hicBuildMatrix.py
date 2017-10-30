@@ -1,3 +1,5 @@
+from __future__ import division
+
 import argparse
 import sys
 import numpy as np
@@ -5,10 +7,12 @@ from scipy.sparse import coo_matrix, dia_matrix
 import time
 from os import unlink
 import os
-
-import pysam
-from six.moves import xrange
 import warnings
+import pysam
+
+from six.moves import xrange
+from collections import OrderedDict
+from future.utils import listitems
 
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
@@ -288,8 +292,8 @@ def get_bins(bin_size, chrom_size, region=None):
 
     >>> test = Tester()
     >>> chrom_size = get_chrom_sizes(pysam.Samfile(test.bam_file_1))
-    >>> get_bins(50000, chrom_size)
-    [('contig-2', 0, 3345), ('contig-1', 0, 7125)]
+    >>> sorted(get_bins(50000, chrom_size))
+    [('contig-1', 0, 7125), ('contig-2', 0, 3345)]
     >>> get_bins(50000, chrom_size, region='contig-1')
     [('contig-1', 0, 7125)]
     """
@@ -316,10 +320,12 @@ def bed2interval_list(bed_file_handler):
 
     Make a temporary BED file
     >>> _file = tempfile.NamedTemporaryFile(delete=False)
-    >>> _file.write('chr1\t10\t20\tH1\t0\n')
-    >>> _file.write("chr1\t60\t70\tH2\t0\n")
     >>> _file.close()
-    >>> bed2interval_list(open(_file.name))
+    >>> file_tmp = open(_file.name, 'w')
+    >>> foo = file_tmp.write('chr1\t10\t20\tH1\t0\n')
+    >>> foo = file_tmp.write("chr1\t60\t70\tH2\t0\n")
+    >>> file_tmp.close()
+    >>> bed2interval_list(open(_file.name, 'r'))
     [('chr1', 10, 20), ('chr1', 60, 70)]
     >>> os.remove(_file.name)
     """
@@ -369,7 +375,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
                      "restriction sites is {}\nMax "
                      "distance: {}\n".format(min_distance, max_distance))
 
-    chrom, start, end = zip(*rf_cut_intervals)
+    chrom, start, end = list(zip(*rf_cut_intervals))
     rest_site_len = end[0] - start[0]
 
     # find sites that are less than min_distance apart
@@ -424,15 +430,15 @@ def get_chrom_sizes(bam_handle):
 
     >>> test = Tester()
     >>> get_chrom_sizes(pysam.Samfile(test.bam_file_1, 'rb'))
-    [('contig-2', 3345), ('contig-1', 7125)]
+    [('contig-1', 7125), ('contig-2', 3345)]
     """
 
     # in some cases there are repeated entries in
     # the bam file. Thus, I first convert to dict,
     # then to list.
-    list_chrom_sizes = dict(zip(bam_handle.references,
-                                bam_handle.lengths))
-    return list_chrom_sizes.items()
+    list_chrom_sizes = OrderedDict(zip(bam_handle.references,
+                                       bam_handle.lengths))
+    return listitems(list_chrom_sizes)
 
 
 def check_dangling_end(read, dangling_sequences):
@@ -443,16 +449,17 @@ def check_dangling_end(read, dangling_sequences):
     read ends with the dangling sequence.
     """
     ds = dangling_sequences
+    # check if keys are existing, return false otherwise
+    if 'pat_forw' not in ds or 'pat_rev' not in ds:
+        return False
     # skip forward read that stars with the restriction sequence
     if not read.is_reverse and \
             read.seq.upper().startswith(ds['pat_forw']):
-            # read.seq.upper()[0:len(ds['pat_forw'])] == ds['pat_forw']:
         return True
 
     # skip reverse read that ends with the restriction sequence
     if read.is_reverse and \
             read.seq.upper().endswith(ds['pat_rev']):
-            # read.seq.upper()[-len(ds['pat_rev']):] == ds['pat_rev']:
         return True
 
     return False
@@ -474,7 +481,7 @@ def get_supplementary_alignment(read, pysam_obj):
         other_alignments = read.get_tag('SA').split(";")[0:-1]
         supplementary_alignment = []
         for i in range(len(other_alignments)):
-            _sup = pysam_obj.next()
+            _sup = next(pysam_obj)
             if _sup.is_supplementary and _sup.qname == read.qname:
                 supplementary_alignment.append(_sup)
 
@@ -563,7 +570,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
             chr_start = False
         if chrom == chrom_next and \
                 end != start_next:
-            middle = start_next - (start_next - end) / 2
+            middle = start_next - int((start_next - end) / 2)
             bin_intervals[idx] = (chrom, start, middle)
             bin_intervals[idx + 1] = (chrom, middle, end_next)
         if chrom != chrom_next:
@@ -591,8 +598,8 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
     iter_num = 0
     while j < pNumberOfItemsPerBuffer:
         try:
-            mate1 = pFileOneIterator.next()
-            mate2 = pFileTwoIterator.next()
+            mate1 = next(pFileOneIterator)
+            mate2 = next(pFileTwoIterator)
         except StopIteration:
             all_data_read = True
             break
@@ -601,13 +608,13 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
         # skip 'not primary' alignments
         while mate1.flag & 256 == 256:
             try:
-                mate1 = pFileOneIterator.next()
+                mate1 = next(pFileOneIterator)
             except StopIteration:
                 all_data_read = True
                 break
         while mate2.flag & 256 == 256:
             try:
-                mate2 = pFileTwoIterator.next()
+                mate2 = next(pFileTwoIterator)
             except StopIteration:
                 all_data_read = True
                 break
@@ -942,11 +949,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
-            vec_start = max(0, mate.pos - mate_bin.begin) / pBinsize
-            length_coverage = pCoverageIndex[mate_bin_id].end - \
-                pCoverageIndex[mate_bin_id].begin
-            vec_end = min(length_coverage, vec_start +
-                          len(mate.seq) / pBinsize)
+            vec_start = int(max(0, mate.pos - mate_bin.begin) / pBinsize)
+            length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
+            vec_end = min(length_coverage, int(vec_start +
+                                               len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
             for i in xrange(coverage_index, coverage_end, 1):
@@ -1067,10 +1073,10 @@ def main(args=None):
     for chrom, start, end in bin_intervals:
         start_pos_coverage.append(number_of_elements_coverage)
 
-        number_of_elements_coverage += (end - start) / binsize
+        number_of_elements_coverage += (end - start) // binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
-    pos_coverage = RawArray(C_Coverage, zip(
-        start_pos_coverage, end_pos_coverage))
+    pos_coverage = RawArray(C_Coverage, list(zip(
+        start_pos_coverage, end_pos_coverage)))
     start_pos_coverage = None
     end_pos_coverage = None
     coverage = Array(c_uint, number_of_elements_coverage)
@@ -1088,8 +1094,8 @@ def main(args=None):
     start_time = time.time()
 
     iter_num = 0
-    pair_added = 0
-    hic_matrix = None
+    # pair_added = 0
+    # hic_matrix = None
 
     one_mate_unmapped = 0
     one_mate_low_quality = 0
@@ -1294,8 +1300,8 @@ def main(args=None):
         else:
             bin_max.append(max_element)
 
-    chr_name_list, start_list, end_list = zip(*bin_intervals)
-    bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
+    chr_name_list, start_list, end_list = list(zip(*bin_intervals))
+    bin_intervals = list(zip(chr_name_list, start_list, end_list, bin_max))
     hic_ma = hm.hiCMatrix()
     hic_ma.setMatrix(hic_matrix, cut_intervals=bin_intervals)
 

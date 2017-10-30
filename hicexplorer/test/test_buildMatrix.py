@@ -33,12 +33,12 @@ def test_build_matrix():
                                                                                                   qc_folder).split()
     hicBuildMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "small_test_matrix.h5")
+    test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
     new = hm.hiCMatrix(outfile.name)
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
-
-    print set(os.listdir(ROOT + "QC/"))
+    # print("MATRIX NAME:", outfile.name)
+    print(set(os.listdir(ROOT + "QC/")))
     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
     assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize("/tmp/test.bam")) < 1000
@@ -60,12 +60,14 @@ def test_build_matrix_rf():
                                                    qc_folder).split()
     hicBuildMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix.h5")
+    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix_parallel.h5")
     new = hm.hiCMatrix(outfile.name)
+    # print("MATRIX NAME RF:", outfile.name)
+
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
-    print set(os.listdir(ROOT + "QC_rc/"))
+    print(set(os.listdir(ROOT + "QC_rc/")))
     assert are_files_equal(ROOT + "QC_rc/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC_rc/")) == set(os.listdir(qc_folder))
 
