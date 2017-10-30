@@ -1123,7 +1123,8 @@ class HicFindTads(object):
         end_list = []
         with open(filename, 'r') as fh:
             for line in fh:
-                if line.startswith(b"#"):
+                # if type(line)
+                if line.startswith("#"):
                     # recover the parameters used to generate the spectrum_matrix
                     parameters = json.loads(line[1:].strip())
                     continue

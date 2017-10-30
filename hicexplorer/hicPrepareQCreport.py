@@ -54,13 +54,13 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
     html = open(os.path.join(root, "qc_template.html"), "r")
     html_content = html.read()
     # the html code has a placeholder for the html table
-    html = html.replace("%%TABLE_UNMAP%%", unmap_table.style
+    html_content = html_content.replace("%%TABLE_UNMAP%%", unmap_table.style
                         .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
-    html = html.replace("%%TABLE_DISCARDED%%", discard_table.style
+    html_content = html_content.replace("%%TABLE_DISCARDED%%", discard_table.style
                         .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
-    html = html.replace("%%TABLE_DISTANCE%%", distance_table.style
+    html_content = html_content.replace("%%TABLE_DISTANCE%%", distance_table.style
                         .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
-    html = html.replace("%%TABLE_ORIENTATION%%", orientation_table.style
+    html_content = html_content.replace("%%TABLE_ORIENTATION%%", orientation_table.style
                         .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
 
     all_table = all_table[['Pairs considered', 'Pairs mappable, unique and high quality', 'Pairs used',
@@ -69,7 +69,7 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
                            'self circle', 'duplicated pairs', 'inter chromosomal', 'short range < 20kb',
                            'long range', 'inward pairs', 'outward pairs', 'left pairs', 'right pairs']]
 
-    html = html.replace("%%TABLE%%", all_table.style.render())
+    html_content = html_content.replace("%%TABLE%%", all_table.style.render())
     with open(filename, 'w') as fh:
         fh.write(html_content)
     html.close()

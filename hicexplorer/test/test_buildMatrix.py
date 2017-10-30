@@ -60,7 +60,7 @@ def test_build_matrix_rf():
                                                    qc_folder).split()
     hicBuildMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix_parallel.h5")
+    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix.h5")
     new = hm.hiCMatrix(outfile.name)
     # print("MATRIX NAME RF:", outfile.name)
 

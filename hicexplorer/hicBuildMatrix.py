@@ -1079,7 +1079,7 @@ def main(args=None):
         start_pos_coverage, end_pos_coverage)))
     start_pos_coverage = None
     end_pos_coverage = None
-    coverage = Array(c_uint, number_of_elements_coverage)
+    coverage = Array(c_uint, [0] * number_of_elements_coverage)
 
     # define global shared ctypes arrays for row, col and data
     args.threads = args.threads - 1

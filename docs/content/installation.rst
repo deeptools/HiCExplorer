@@ -37,7 +37,7 @@ Command line installation using ``pip``
 
 Install HiCExplorer using the following command:
 ::
-
+--
 	$ pip install hicexplorer
 
 All python requirements should be automatically installed.

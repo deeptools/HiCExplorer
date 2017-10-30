@@ -746,11 +746,11 @@ class PlotBigWig(TrackPlot):
                 import pyBigWig
                 self.bw = pyBigWig.open(self.properties['file'])
 
-                print "error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries)
+                print("error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries))
                 pass
             else:
                 if num_tries > 1:
-                    print "After {} the scores could be computed".format(num_tries)
+                    print("After {} the scores could be computed".format(num_tries))
                 break
 
         x_values = np.linspace(start_region, end_region, num_bins)

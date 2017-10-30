@@ -283,7 +283,13 @@ class hiCMatrix:
         self.header = []
         try:
             for line in gzip.open(fileName, 'r').readlines():
-                if line.startswith(b"#"):
+                if type(line) is bytes:
+                    query = b"#"
+                    
+                if type(line) is str:
+                    query = "#"
+                
+                if line.startswith(query):
                     self.header.append(line)
                     continue
                 i += 1
