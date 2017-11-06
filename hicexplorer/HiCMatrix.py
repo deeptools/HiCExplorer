@@ -400,6 +400,15 @@ class hiCMatrix:
         """
 
         try:
+            # chromosome_size = hic_matrix.get_chromosome_sizes()
+            if type(next(iter(self.interval_trees))) != type(chrname):
+                if type(next(iter(self.interval_trees))) is str:
+                    chrname = toString(chrname)
+                elif type(next(iter(self.interval_trees))) is bytes:
+                    chrname = toBytes(chrname)
+                elif type(next(iter(self.interval_trees))) is np.bytes_:
+                    chrname = toBytes(chrname)
+            # chr_end_pos = chromosome_size[chrname]
             self.interval_trees[chrname]
         except KeyError:
             """
@@ -1676,3 +1685,32 @@ class hiCMatrix:
         chrbin_boundaries[chrom] = (chr_start_id, intval_id)
 
         return cut_int_tree, chrbin_boundaries
+
+def toString(s):
+    """
+    This takes care of python2/3 differences
+    """
+    if isinstance(s, str):
+        return s
+    if isinstance(s, bytes):
+        if sys.version_info[0] == 2:
+            return str(s)
+        return s.decode('ascii')
+    if isinstance(s, list):
+        return [toString(x) for x in s]
+    return s
+
+
+def toBytes(s):
+    """
+    Like toString, but for functions requiring bytes in python3
+    """
+    if sys.version_info[0] == 2:
+        return s
+    if isinstance(s, bytes):
+        return s
+    if isinstance(s, str):
+        return bytes(s, 'ascii')
+    if isinstance(s, list):
+        return [toBytes(x) for x in s]
+    return s
