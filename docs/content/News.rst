@@ -1,8 +1,28 @@
 News and Developments
 =====================
 
-Release 1.7.2
+Release 1.8
 -----------
+
+**October 25, 2017**
+
+This release is adding new features and fixes many bugs:
+
+ * hicBuildMatrix: Added multicore support, new parameters --threads and --inputBufferSize
+ * hicFindTADs:
+  * One call instead of two: hicFindTADs TAD_score and hicFindTADs find_TADs merged to hicFindTADs.
+  * New multiple correction method supported: False discovery rate. Call it with --correctForMultipleTesting fdr and --threshold 0.05.
+ * Update of the tutorial: mES-HiC analysis.
+ * Additional test cases and docstrings to improve the software quality
+ * Fixed a bug occurring with bigwig files with frequent NaN values which resulted in only NaN averages
+ * hicPlotTADs: Support for plotting points
+ * Moved galaxy wrappers to https://github.com/galaxyproject/tools-iuc
+ * Fixed multiple bugs with saving matrices
+ * hicCorrelate: Changes direction of dendograms to left
+
+Release 1.7.2
+-------------
+
 **April 3, 2017**
 
  * Added option to plot bigwig files as a line hicPlotTADs

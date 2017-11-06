@@ -17,6 +17,8 @@ Requirements
 * pytables >= 3.3.0
 * pandas >= 0.20.2
 * pybigwig >= 0.3.4
+* six >= 1.10.0
+* jinja2 >= 2.9.6
 
 Command line installation using ``conda``
 -----------------------------------------
