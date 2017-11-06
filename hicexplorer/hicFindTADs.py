@@ -13,6 +13,7 @@ from scipy import sparse
 import numpy as np
 import multiprocessing
 from hicexplorer._version import __version__
+from hicexplorer.utilities import toString, toBytes
 
 # python 2 / 3 compatibility
 from past.builtins import zip
@@ -154,19 +155,19 @@ $ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting frd
     return parser
 
 
-def toBytes(s):
-    """
-    Like toString, but for functions requiring bytes in python3
-    """
-    if sys.version_info[0] == 2:
-        return s
-    if isinstance(s, bytes):
-        return s
-    if isinstance(s, str):
-        return bytes(s, 'ascii')
-    if isinstance(s, list):
-        return [toBytes(x) for x in s]
-    return s
+# def toBytes(s):
+#     """
+#     Like toString, but for functions requiring bytes in python3
+#     """
+#     if sys.version_info[0] == 2:
+#         return s
+#     if isinstance(s, bytes):
+#         return s
+#     if isinstance(s, str):
+#         return bytes(s, 'ascii')
+#     if isinstance(s, list):
+#         return [toBytes(x) for x in s]
+#     return s
 
 
 def compute_matrix_wrapper(args):
@@ -843,22 +844,22 @@ class HicFindTads(object):
         None
         """
         # get params to save as part of the bedgraph file
-        params = dict()
+        params = OrderedDict()
+        params['step'] = self.step
         params['minDepth'] = self.min_depth
         params['maxDepth'] = self.max_depth
-        params['step'] = self.step
         params['binsize'] = self.binsize
         params_str = json.dumps(params, separators=(',', ':'))
 
         with open(outfile, 'w') as f:
-            f.write(toBytes("#" + params_str + "\n"))
+            f.write("#" + params_str + "\n")
             for idx in range(len(self.bedgraph_matrix['chrom'])):
                 matrix_values = "\t".join(np.char.mod('%f', self.bedgraph_matrix['matrix'][idx, :]))
 
-                f.write("{}\t{}\t{}\t{}\n".format(self.bedgraph_matrix['chrom'][idx],
-                                                  self.bedgraph_matrix['chr_start'][idx],
-                                                  self.bedgraph_matrix['chr_end'][idx],
-                                                  matrix_values))
+                f.write("{}\t{}\t{}\t{}\n".format(toString(self.bedgraph_matrix['chrom'][idx]),
+                                                  toString(self.bedgraph_matrix['chr_start'][idx]),
+                                                  toString(self.bedgraph_matrix['chr_end'][idx]),
+                                                  toString(matrix_values)))
 
     def save_clusters(clusters, file_prefix):
         """
@@ -925,6 +926,7 @@ class HicFindTads(object):
             else:
                 if delta_of_min[idx] >= self.delta:
                     filtered_min_idx += [idx]
+        
         if self.correct_for_multiple_testing == 'fdr':
             log.info("Number of boundaries for delta {}, qval {}: {}".format(self.delta, self.threshold_comparisons,
                                                                              len(filtered_min_idx)))
@@ -953,16 +955,16 @@ class HicFindTads(object):
                     continue
 
                 # 2. save the position of the boundary range
-                file_boundary_bin.write("{}\t{}\t{}\tB{:05d}\t{}\t.\n".format(chrom[min_bin_id],
+                file_boundary_bin.write("{}\t{}\t{}\tB{:05d}\t{:.12f}\t.\n".format(toString(chrom[min_bin_id]),
                                                                               left_bin_center,
                                                                               right_bin_center,
                                                                               min_bin_id,
                                                                               mean_mat_all[min_bin_id]))
 
                 # safe gff file that can contain more information
-                gff.write("{chrom}\tHiCExplorer\tboundary\t{start}\t{end}\t{score}"
-                          "\t.\t.\tID=B{id:05d};delta={delta};pvalue={pvalue};"
-                          "tad_sep={score}\n".format(chrom=chrom[min_bin_id],
+                gff.write("{chrom}\tHiCExplorer\tboundary\t{start}\t{end}\t{score:.12f}"
+                          "\t.\t.\tID=B{id:05d};delta={delta:.12f};pvalue={pvalue:.12f};"
+                          "tad_sep={score:.12f}\n".format(chrom=toString(chrom[min_bin_id]),
                                                      start=left_bin_center,
                                                      end=right_bin_center,
                                                      delta=delta_of_min[min_bin_id],
@@ -983,7 +985,7 @@ class HicFindTads(object):
                 else:
                     rgb = '31,120,180'
 
-                file_domains.write("{0}\t{1}\t{2}\tID_{6}_{3}\t{4}\t.\t{1}\t{2}\t{5}\n".format(chrom[min_bin_id],
+                file_domains.write("{0}\t{1}\t{2}\tID_{6}_{3}\t{4:.12f}\t.\t{1}\t{2}\t{5}\n".format(toString(chrom[min_bin_id]),
                                                                                                start, end, count,
                                                                                                mean_mat_all[min_bin_id],
                                                                                                rgb, self.delta))
@@ -998,7 +1000,7 @@ class HicFindTads(object):
                 if right_bin_center < left_bin_center:
                     # this condition happens at chromosome borders
                     continue
-                tad_score.write("{}\t{}\t{}\t{}\n".format(chrom[idx], left_bin_center, right_bin_center,
+                tad_score.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom[idx]), left_bin_center, right_bin_center,
                                                           mean_mat_all[idx]))
 
     def compute_spectra_matrix(self):
@@ -1210,6 +1212,7 @@ class HicFindTads(object):
 
         assert len(pvalues) == len(new_min_idx)
 
+        print('len(pvalues)', len(pvalues))
         # fdr
         if self.correct_for_multiple_testing == 'fdr':
             pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
@@ -1224,7 +1227,8 @@ class HicFindTads(object):
             # bonferroni correction
             pvalues = np.array(pvalues) * len(pvalues)
             pvalues[np.array([e > 1 if ~np.isnan(e) else False for e in pvalues])] = 1
-
+        
+        
         return OrderedDict(zip(new_min_idx, pvalues))
 
     def find_boundaries(self):
