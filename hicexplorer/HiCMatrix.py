@@ -282,30 +282,25 @@ class hiCMatrix:
         i = 0
         self.header = []
         try:
-            for line in gzip.open(fileName, 'r').readlines():
-                if type(line) is bytes:
-                    query = b"#"
-                    
-                if type(line) is str:
-                    query = "#"
+            for line in gzip.open(fileName, 'rb').readlines():
                 
-                if line.startswith(query):
+                if line.startswith(b"#"):
                     self.header.append(line)
                     continue
                 i += 1
                 if i == 1:  # this is the first line that is not
                             # a comment which contains the column headers
                             # that are equal to the row headers
-                    colLabels = line.split("\t")
+                    colLabels = line.split(b"\t")
                     nameList = []
                     startList = []
                     endList = []
                     binIdList = []
 
                     for lab in colLabels[1:]:
-                        (binId, species, position) = lab.split("|")
-                        (chrName, pos) = position.split(":")
-                        (start, end) = pos.split("-")
+                        (binId, species, position) = lab.split(b"|")
+                        (chrName, pos) = position.split(b":")
+                        (start, end) = pos.split(b"-")
                         binIdList.append(binId)
                         nameList.append(chrName)
                         startList.append(int(start))
