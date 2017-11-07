@@ -17,11 +17,12 @@ Requirements
 * pytables >= 3.3.0
 * pandas >= 0.20.2
 * pybigwig >= 0.3.4
+* future >= 0.16.0
 
 Command line installation using ``conda``
 -----------------------------------------
 
-The fastet way to obtain **Python 2.7 together with numpy and scipy** is
+The fastet way to obtain **Python 3.6 together with numpy and scipy** is
 via the `Anaconda Scientific Python
 Distribution <https://store.continuum.io/cshop/anaconda/>`_.
 Just download the version that's suitable for your operating system and
@@ -36,7 +37,7 @@ Command line installation using ``pip``
 
 Install HiCExplorer using the following command:
 ::
-
+--
 	$ pip install hicexplorer
 
 All python requirements should be automatically installed.

@@ -1,3 +1,4 @@
+from __future__ import division
 import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
@@ -47,7 +48,7 @@ def main():
         min_non_zero = hic_ma.matrix.data.min()
         max_non_zero = hic_ma.matrix.data.max()
         if not matrix.endswith("lieberman"):
-            chromosomes = hic_ma.chrBinBoundaries.keys()
+            chromosomes = list(hic_ma.chrBinBoundaries)
 
         print("File:\t{}".format(matrix))
         print("Size:\t{:,}".format(size))

@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import division
 
 import sys
 import argparse
-import numpy as np
 from hicexplorer import HiCMatrix as Hm
+from past.builtins import zip
+from builtins import range
+import numpy as np
+from hicexplorer.utilities import toString
 
 
 def parse_arguments():
@@ -59,7 +63,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
             coverage = np.mean(coverage_list[idx_start:idx])
             new_bins.append((ref_name_list[idx_start], new_start,
                              end_list[idx - 1], coverage))
-            bins_to_merge.append(range(idx_start, idx))
+            bins_to_merge.append(list(range(idx_start, idx)))
             idx_start = idx
             new_start = start_list[idx]
             count = 0
@@ -71,7 +75,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
     if len(bins_to_merge) > 0:
         coverage = np.mean(coverage_list[idx_start:])
         new_bins.append((ref, new_start, end_list[idx], coverage))
-        bins_to_merge.append(range(idx_start, idx + 1))
+        bins_to_merge.append(list(range(idx_start, idx + 1)))
         # remove correction factors otherwise they are
         # saved but they no longer correspond to the
         # size of the matrix.
@@ -95,6 +99,7 @@ def get_boundary_bin_id(hic, bed_fh):
     boundaries = set()
     for line in bed_fh.readlines():
         line_number += 1
+        line = toString(line)
         if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
             continue
         try:

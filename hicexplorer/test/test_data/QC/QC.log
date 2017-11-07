@@ -4,17 +4,22 @@ Pairs considered	99983
 Min rest. site distance	300		
 Max rest. site distance	800		
 
-Pairs used	37321	(37.33)	(40.92)
-One mate unmapped	8777	(8.78)	(9.62)
-One mate not unique	3603	(3.60)	(3.95)
-One mate low quality	34877	(34.88)	(38.24)
-dangling end	0	(0.00)	(0.00)
-self ligation (removed)	0	(0.00)	(0.00)
-One mate not close to rest site	0	(0.00)	(0.00)
-same fragment (800 bp)	15393	(15.40)	(16.88)
-self circle	4335	(4.34)	(4.75)
-duplicated pairs	12	(0.01)	(0.01)
-Of pairs used:
+#	count	(percentage w.r.t. total sequenced reads)
+Pairs mappable, unique and high quality	52726	(52.73)
+Pairs used	37321	(37.33)
+One mate unmapped	8777	(8.78)
+One mate not unique	3603	(3.60)
+One mate low quality	34877	(34.88)
+
+#	count	(percentage w.r.t. mappable, unique and high quality pairs)
+dangling end	0	(0.00)
+self ligation (removed)	0	(0.00)
+One mate not close to rest site	0	(0.00)
+same fragment (800 bp)	15393	(29.19)
+self circle	0	(0.00)
+duplicated pairs	12	(0.02)
+
+#	count	(percentage w.r.t. total valid pairs used)
 inter chromosomal	5955	(15.96)
 short range < 20kb	8853	(23.72)
 long range	22513	(60.32)

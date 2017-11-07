@@ -1,0 +1,2 @@
+File	inward pairs	inward pairs %	outward pairs	outward pairs %	left pairs	left pairs %	right pairs	right pairs %
+small_test_matrix.h5	7145	0.227794427087	9731	0.310240387681	7156	0.228145125295	7334	0.233820059938

@@ -83,15 +83,18 @@ rule get_DpnII_bed:
 
 rule make_hic_matrix_rf:
 	input: "bam/{sample}_1.bam", "bam/{sample}_2.bam", RESTRICTION_FILE
-	output: "hic/{sample}_rf.h5", bam="bam/{sample}_R12.bam"
+	output: "hic/{sample}_rf.h5"
 	log: "hic/{sample}.log"
+        params: QCfolder="hic/{sample}_QC/"
+        threads: 16	
 	shell:
 		"""
 	        {HICEXPLORER_PATH}/hicBuildMatrix -s {input[0]} {input[1]} -rs {input[2]} \
 	        --restrictionSequence {RESTRICTION_SEQUENCE} \
+               --danglingSequence {DANGLING_SEQUENCE} \
 	        --minDistance {MIN_RS_DISTANCE} \
 	        --maxDistance {MAX_RS_DISTANCE} \
-	        -b {output.bam} -o {output[0]} &> {log} 
+	        --threads {threads} -o {output[0]} --QCfolder {params.QCfolder} &> {log} 
 		"""
 
 

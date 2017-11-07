@@ -1,3 +1,5 @@
+from __future__ import division
+
 import argparse
 import sys
 import numpy as np
@@ -5,10 +7,12 @@ from scipy.sparse import coo_matrix, dia_matrix
 import time
 from os import unlink
 import os
-
-import pysam
-from six.moves import xrange
 import warnings
+import pysam
+
+from six.moves import xrange
+from collections import OrderedDict
+from future.utils import listitems
 
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
@@ -110,7 +114,8 @@ def parse_arguments(args=None):
     group.add_argument('--binSize', '-bs',
                        help='Size in bp for the bins. The bin size depends '
                             'on the depth of sequencing. Use a larger bin size for '
-                            'libraries sequenced with lower depth.',
+                            'libraries sequenced with lower depth. Alternatively, the location of '
+                            'the restriction sites can be given (see --restrictionCutFile). ',
                        type=int,
                        default=10000)
 
@@ -153,7 +158,7 @@ def parse_arguments(args=None):
                              '"dangling-ends". If not given, such statistics will '
                              'not be available.')
 
-    parser.add_argument('--outFileName',
+    parser.add_argument('--outFileName', '-o',
                         help='Output file name for the Hi-C matrix',
                         metavar='FILENAME',
                         type=argparse.FileType('w'),
@@ -183,15 +188,15 @@ def parse_arguments(args=None):
                         # action='store_true'
                         )
 
-    parser.add_argument('--removeSelfCircles',
-                        help='If set, outward facing reads, at a distance '
-                        'of less than 25kbs are removed.',
+    parser.add_argument('--keepSelfCircles',
+                        help='If set, outward facing reads without any restriction fragment (self circles) are kept. '
+                             'They will be counted and shown in the QC plots.',
                         required=False,
                         action='store_true'
                         )
 
     parser.add_argument('--minMappingQuality',
-                        help='minimun mapping quality for reads to be accepted. '
+                        help='minimum mapping quality for reads to be accepted. '
                              'Because the restriction enzyme site could be located '
                              'on top of the read, this may reduce the '
                              'reported quality of the read. Thus, this parameter '
@@ -287,8 +292,8 @@ def get_bins(bin_size, chrom_size, region=None):
 
     >>> test = Tester()
     >>> chrom_size = get_chrom_sizes(pysam.Samfile(test.bam_file_1))
-    >>> get_bins(50000, chrom_size)
-    [('contig-2', 0, 3345), ('contig-1', 0, 7125)]
+    >>> sorted(get_bins(50000, chrom_size))
+    [('contig-1', 0, 7125), ('contig-2', 0, 3345)]
     >>> get_bins(50000, chrom_size, region='contig-1')
     [('contig-1', 0, 7125)]
     """
@@ -315,10 +320,12 @@ def bed2interval_list(bed_file_handler):
 
     Make a temporary BED file
     >>> _file = tempfile.NamedTemporaryFile(delete=False)
-    >>> _file.write('chr1\t10\t20\tH1\t0\n')
-    >>> _file.write("chr1\t60\t70\tH2\t0\n")
     >>> _file.close()
-    >>> bed2interval_list(open(_file.name))
+    >>> file_tmp = open(_file.name, 'w')
+    >>> foo = file_tmp.write('chr1\t10\t20\tH1\t0\n')
+    >>> foo = file_tmp.write("chr1\t60\t70\tH2\t0\n")
+    >>> file_tmp.close()
+    >>> bed2interval_list(open(_file.name, 'r'))
     [('chr1', 10, 20), ('chr1', 60, 70)]
     >>> os.remove(_file.name)
     """
@@ -368,7 +375,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
                      "restriction sites is {}\nMax "
                      "distance: {}\n".format(min_distance, max_distance))
 
-    chrom, start, end = zip(*rf_cut_intervals)
+    chrom, start, end = list(zip(*rf_cut_intervals))
     rest_site_len = end[0] - start[0]
 
     # find sites that are less than min_distance apart
@@ -423,15 +430,15 @@ def get_chrom_sizes(bam_handle):
 
     >>> test = Tester()
     >>> get_chrom_sizes(pysam.Samfile(test.bam_file_1, 'rb'))
-    [('contig-2', 3345), ('contig-1', 7125)]
+    [('contig-1', 7125), ('contig-2', 3345)]
     """
 
     # in some cases there are repeated entries in
     # the bam file. Thus, I first convert to dict,
     # then to list.
-    list_chrom_sizes = dict(zip(bam_handle.references,
-                                bam_handle.lengths))
-    return list_chrom_sizes.items()
+    list_chrom_sizes = OrderedDict(zip(bam_handle.references,
+                                       bam_handle.lengths))
+    return listitems(list_chrom_sizes)
 
 
 def check_dangling_end(read, dangling_sequences):
@@ -442,16 +449,17 @@ def check_dangling_end(read, dangling_sequences):
     read ends with the dangling sequence.
     """
     ds = dangling_sequences
+    # check if keys are existing, return false otherwise
+    if 'pat_forw' not in ds or 'pat_rev' not in ds:
+        return False
     # skip forward read that stars with the restriction sequence
     if not read.is_reverse and \
             read.seq.upper().startswith(ds['pat_forw']):
-            # read.seq.upper()[0:len(ds['pat_forw'])] == ds['pat_forw']:
         return True
 
     # skip reverse read that ends with the restriction sequence
     if read.is_reverse and \
             read.seq.upper().endswith(ds['pat_rev']):
-            # read.seq.upper()[-len(ds['pat_rev']):] == ds['pat_rev']:
         return True
 
     return False
@@ -473,7 +481,7 @@ def get_supplementary_alignment(read, pysam_obj):
         other_alignments = read.get_tag('SA').split(";")[0:-1]
         supplementary_alignment = []
         for i in range(len(other_alignments)):
-            _sup = pysam_obj.next()
+            _sup = next(pysam_obj)
             if _sup.is_supplementary and _sup.qname == read.qname:
                 supplementary_alignment.append(_sup)
 
@@ -562,7 +570,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
             chr_start = False
         if chrom == chrom_next and \
                 end != start_next:
-            middle = start_next - (start_next - end) / 2
+            middle = start_next - int((start_next - end) / 2)
             bin_intervals[idx] = (chrom, start, middle)
             bin_intervals[idx + 1] = (chrom, middle, end_next)
         if chrom != chrom_next:
@@ -590,8 +598,8 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
     iter_num = 0
     while j < pNumberOfItemsPerBuffer:
         try:
-            mate1 = pFileOneIterator.next()
-            mate2 = pFileTwoIterator.next()
+            mate1 = next(pFileOneIterator)
+            mate2 = next(pFileTwoIterator)
         except StopIteration:
             all_data_read = True
             break
@@ -600,13 +608,13 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
         # skip 'not primary' alignments
         while mate1.flag & 256 == 256:
             try:
-                mate1 = pFileOneIterator.next()
+                mate1 = next(pFileOneIterator)
             except StopIteration:
                 all_data_read = True
                 break
         while mate2.flag & 256 == 256:
             try:
-                mate2 = pFileTwoIterator.next()
+                mate2 = next(pFileTwoIterator)
             except StopIteration:
                 all_data_read = True
                 break
@@ -678,7 +686,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
 
 
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
-                 pRemoveSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
+                 pKeepSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
                  pRfPositions, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex,
                  pQueueOut, pTemplate, pOutputBamSet, pCounter,
@@ -694,7 +702,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     pMateBuffer1 : List of n reads of type 'pysam.libcalignedsegment.AlignedSegment' of sam input file 1
     pMateBuffer2 : List of n reads of type 'pysam.libcalignedsegment.AlignedSegment' of sam input file 2
     pMinMappingQuality : integer, minimum mapping quality of a read
-    pRemoveSelfCircles : boolean, if self circles should be removed
+    pKeepSelfCircles : boolean, if self circles should be kept
     pRestrictionSequence : String, the restriction sequence
     pRemoveSelfLigation : If self ligations should be removed
     pMatrixSize : integer, the size of the interaction matrix
@@ -845,12 +853,29 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                 orientation = 'same-strand-right'
 
             # check self-circles
-            # self circles are defined as pairs within 25kb
-            # with 'outward' orientation (Jin et al. 2013. Nature)
+            # self circles are defined as outward pairs that do not
+            # have a restriction sequence in between. The distance of < 25kb is
+            # used to only check close outward pairs as far apart pairs can not be self-circles
             if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
-                self_circle += 1
-                if pRemoveSelfCircles:
-                    continue
+                if pRfPositions and pRestrictionSequence:
+                    # check if in between the two mate
+                    # ends the restriction fragment is found.
+
+                    # the interval used is:
+                    # start of fragment + length of restriction sequence
+                    # end of fragment - length of restriction sequence
+                    # the restriction sequence length is subtracted
+                    # such that only fragments internally containing
+                    # the restriction site are identified
+                    frag_start = min(mate1.pos, mate2.pos) + len(pRestrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
+                    mate_ref = pRefId2name[mate1.rname]
+                    has_rf = sorted(pRfPositions[mate_ref][frag_start: frag_end])
+
+                    if len(has_rf) == 0:
+                        self_circle += 1
+                        if not pKeepSelfCircles:
+                            continue
 
             # check for dangling ends if the restriction sequence
             # is known:
@@ -924,11 +949,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
         for mate in [mate1, mate2]:
             # fill in coverage vector
-            vec_start = max(0, mate.pos - mate_bin.begin) / pBinsize
-            length_coverage = pCoverageIndex[mate_bin_id].end - \
-                pCoverageIndex[mate_bin_id].begin
-            vec_end = min(length_coverage, vec_start +
-                          len(mate.seq) / pBinsize)
+            vec_start = int(max(0, mate.pos - mate_bin.begin) / pBinsize)
+            length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
+            vec_end = min(length_coverage, int(vec_start +
+                                               len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
             for i in xrange(coverage_index, coverage_end, 1):
@@ -1050,13 +1074,13 @@ def main(args=None):
     for chrom, start, end in bin_intervals:
         start_pos_coverage.append(number_of_elements_coverage)
 
-        number_of_elements_coverage += (end - start) / binsize
+        number_of_elements_coverage += (end - start) // binsize
         end_pos_coverage.append(number_of_elements_coverage - 1)
-    pos_coverage = RawArray(C_Coverage, zip(
-        start_pos_coverage, end_pos_coverage))
+    pos_coverage = RawArray(C_Coverage, list(zip(
+        start_pos_coverage, end_pos_coverage)))
     start_pos_coverage = None
     end_pos_coverage = None
-    coverage = Array(c_uint, number_of_elements_coverage)
+    coverage = Array(c_uint, [0] * number_of_elements_coverage)
 
     # define global shared ctypes arrays for row, col and data
     args.threads = args.threads - 1
@@ -1071,8 +1095,8 @@ def main(args=None):
     start_time = time.time()
 
     iter_num = 0
-    pair_added = 0
-    hic_matrix = None
+    # pair_added = 0
+    # hic_matrix = None
 
     one_mate_unmapped = 0
     one_mate_low_quality = 0
@@ -1139,7 +1163,7 @@ def main(args=None):
                     pMateBuffer1=buffer_workers1[i],
                     pMateBuffer2=buffer_workers2[i],
                     pMinMappingQuality=args.minMappingQuality,
-                    pRemoveSelfCircles=args.removeSelfCircles,
+                    pKeepSelfCircles=args.keepSelfCircles,
                     pRestrictionSequence=args.restrictionSequence,
                     pRemoveSelfLigation=args.removeSelfLigation,
                     pMatrixSize=matrix_size,
@@ -1277,8 +1301,8 @@ def main(args=None):
         else:
             bin_max.append(max_element)
 
-    chr_name_list, start_list, end_list = zip(*bin_intervals)
-    bin_intervals = zip(chr_name_list, start_list, end_list, bin_max)
+    chr_name_list, start_list, end_list = list(zip(*bin_intervals))
+    bin_intervals = list(zip(chr_name_list, start_list, end_list, bin_max))
     hic_ma = hm.hiCMatrix()
     hic_ma.setMatrix(hic_matrix, cut_intervals=bin_intervals)
 
@@ -1306,7 +1330,7 @@ def main(args=None):
     else:
         msg = " (not removed)"
 
-    mappable_pairs = iter_num - one_mate_unmapped
+    mappable_unique_high_quality_pairs = iter_num - (one_mate_unmapped + one_mate_low_quality + one_mate_not_unique)
 
     log_file_name = os.path.join(args.QCfolder, "QC.log")
     log_file = open(log_file_name, 'w')
@@ -1319,84 +1343,66 @@ Max rest. site distance\t{}\t\t
 """.format(args.outFileName.name, iter_num, args.minDistance,
            args.maxDistance))
 
-    log_file.write("Pairs used\t{}\t({:.2f})\t({:.2f})\n".format(pair_added,
-                                                                 100 *
-                                                                 float(
-                                                                     pair_added) / iter_num,
-                                                                 100 * float(pair_added) / mappable_pairs))
-    log_file.write("One mate unmapped\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_unmapped,
-                                                                        100 *
-                                                                        float(
-                                                                            one_mate_unmapped) / iter_num,
-                                                                        100 * float(one_mate_unmapped) / mappable_pairs))
+    log_file.write("#\tcount\t(percentage w.r.t. total sequenced reads)\n")
 
-    log_file.write("One mate not unique\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_not_unique,
-                                                                          100 *
-                                                                          float(
-                                                                              one_mate_not_unique) / iter_num,
-                                                                          100 * float(one_mate_not_unique) / mappable_pairs))
+    log_file.write("Pairs mappable, unique and high quality\t{}\t({:.2f})\n".
+                   format(mappable_unique_high_quality_pairs,
+                          100 * float(mappable_unique_high_quality_pairs) / iter_num))
 
-    log_file.write("One mate low quality\t{}\t({:.2f})\t({:.2f})\n".format(one_mate_low_quality,
-                                                                           100 *
-                                                                           float(
-                                                                               one_mate_low_quality) / iter_num,
-                                                                           100 * float(one_mate_low_quality) / mappable_pairs))
+    log_file.write("Pairs used\t{}\t({:.2f})\n".
+                   format(pair_added, 100 * float(pair_added) / iter_num))
 
-    log_file.write("dangling end\t{}\t({:.2f})\t({:.2f})\n".format(dangling_end,
-                                                                   100 *
-                                                                   float(
-                                                                       dangling_end) / iter_num,
-                                                                   100 * float(dangling_end) / mappable_pairs))
+    log_file.write("One mate unmapped\t{}\t({:.2f})\n".
+                   format(one_mate_unmapped, 100 * float(one_mate_unmapped) / iter_num))
 
-    log_file.write("self ligation{}\t{}\t({:.2f})\t({:.2f})\n".format(msg, self_ligation,
-                                                                      100 *
-                                                                      float(
-                                                                          self_ligation) / iter_num,
-                                                                      100 * float(self_ligation) / mappable_pairs))
+    log_file.write("One mate not unique\t{}\t({:.2f})\n".
+                   format(one_mate_not_unique, 100 * float(one_mate_not_unique) / iter_num))
 
-    log_file.write("One mate not close to rest site\t{}\t({:.2f})\t({:.2f})\n".format(mate_not_close_to_rf,
-                                                                                      100 *
-                                                                                      float(
-                                                                                          mate_not_close_to_rf) / iter_num,
-                                                                                      100 * float(mate_not_close_to_rf) / mappable_pairs))
+    log_file.write("One mate low quality\t{}\t({:.2f})\n".
+                   format(one_mate_low_quality, 100 * float(one_mate_low_quality) / iter_num))
 
-    log_file.write("same fragment (800 bp)\t{}\t({:.2f})\t({:.2f})\n".format(same_fragment,
-                                                                             100 *
-                                                                             float(
-                                                                                 same_fragment) / iter_num,
-                                                                             100 * float(same_fragment) / mappable_pairs))
-    log_file.write("self circle\t{}\t({:.2f})\t({:.2f})\n".format(self_circle,
-                                                                  100 *
-                                                                  float(
-                                                                      self_circle) / iter_num,
-                                                                  100 * float(self_circle) / mappable_pairs))
-    log_file.write("duplicated pairs\t{}\t({:.2f})\t({:.2f})\n".format(duplicated_pairs,
-                                                                       100 *
-                                                                       float(
-                                                                           duplicated_pairs) / iter_num,
-                                                                       100 * float(duplicated_pairs) / mappable_pairs))
+    log_file.write("\n#\tcount\t(percentage w.r.t. mappable, unique and high quality pairs)\n")
+
+    log_file.write("dangling end\t{}\t({:.2f})\n".
+                   format(dangling_end, 100 * float(dangling_end) / mappable_unique_high_quality_pairs))
+
+    log_file.write("self ligation{}\t{}\t({:.2f})\n".
+                   format(msg, self_ligation, 100 * float(self_ligation) / mappable_unique_high_quality_pairs))
+
+    log_file.write("One mate not close to rest site\t{}\t({:.2f})\n".
+                   format(mate_not_close_to_rf, 100 * float(mate_not_close_to_rf) / mappable_unique_high_quality_pairs))
+
+    log_file.write("same fragment (800 bp)\t{}\t({:.2f})\n".
+                   format(same_fragment, 100 * float(same_fragment) / mappable_unique_high_quality_pairs))
+
+    log_file.write("self circle\t{}\t({:.2f})\n".
+                   format(self_circle, 100 * float(self_circle) / mappable_unique_high_quality_pairs))
+
+    log_file.write("duplicated pairs\t{}\t({:.2f})\n".
+                   format(duplicated_pairs, 100 * float(duplicated_pairs) / mappable_unique_high_quality_pairs))
+
     if pair_added > 0:
-        log_file.write("Of pairs used:\n")
-        log_file.write("inter chromosomal\t{}\t({:.2f})\n".format(
-            inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
+        log_file.write("\n#\tcount\t(percentage w.r.t. total valid pairs used)\n")
+        log_file.write("inter chromosomal\t{}\t({:.2f})\n".
+                       format(inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
 
-        log_file.write("short range < 20kb\t{}\t({:.2f})\n".format(
-            short_range, 100 * float(short_range) / pair_added))
+        log_file.write("short range < 20kb\t{}\t({:.2f})\n".
+                       format(short_range, 100 * float(short_range) / pair_added))
 
-        log_file.write("long range\t{}\t({:.2f})\n".format(
-            long_range, 100 * float(long_range) / pair_added))
+        log_file.write("long range\t{}\t({:.2f})\n".
+                       format(long_range, 100 * float(long_range) / pair_added))
 
-        log_file.write("inward pairs\t{}\t({:.2f})\n".format(
-            count_inward, 100 * float(count_inward) / pair_added))
+        log_file.write("inward pairs\t{}\t({:.2f})\n".
+                       format(count_inward, 100 * float(count_inward) / pair_added))
 
-        log_file.write("outward pairs\t{}\t({:.2f})\n".format(
-            count_outward, 100 * float(count_outward) / pair_added))
+        log_file.write("outward pairs\t{}\t({:.2f})\n".
+                       format(count_outward, 100 * float(count_outward) / pair_added))
 
-        log_file.write("left pairs\t{}\t({:.2f})\n".format(
-            count_left, 100 * float(count_left) / pair_added))
+        log_file.write("left pairs\t{}\t({:.2f})\n".
+                       format(count_left, 100 * float(count_left) / pair_added))
 
-        log_file.write("right pairs\t{}\t({:.2f})\n".format(
-            count_right, 100 * float(count_right) / pair_added))
+        log_file.write("right pairs\t{}\t({:.2f})\n".
+                       format(count_right, 100 * float(count_right) / pair_added))
 
     log_file.close()
     QC.main("-l {} -o {}".format(log_file_name, args.QCfolder).split())
