@@ -179,11 +179,18 @@ type = vlines
 from __future__ import division
 import sys
 import argparse
+from past.builtins import map
 import matplotlib
 matplotlib.use('Agg')
 
 import hicexplorer.trackPlot
 from hicexplorer._version import __version__
+
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=DeprecationWarning)
+warnings.simplefilter(action='ignore', category=ImportWarning)
 
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'
@@ -199,7 +206,7 @@ DEFAULT_MARGINS = {'left': 0.04, 'right': 0.92, 'bottom': 0.12, 'top': 0.9}
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         description='Plots the diagonal,  and some values close to '
-        'the diagonal of a  HiC matrix. The diagonal of the matrix is '
+        'the diagonal of a  Hi-C matrix. The diagonal of the matrix is '
         'plotted horizontally for a region. I will not draw the diagonal '
         'for the whole chromosome',
         usage="%(prog)s --tracks tracks.ini --region chr1:1000000-4000000 -o image.png")
@@ -290,8 +297,24 @@ def get_region(region_string):
     The region_string format is chr:start-end
     """
     if region_string:
-        region_string = region_string.translate(
-            None, ",.;|!{}()").replace("-", ":")
+
+        if sys.version_info[0] == 2:
+            region_string = region_string.translate(
+                None, ",.;|!{}()").replace("-", ":")
+        if sys.version_info[0] == 3:
+            region_string = region_string.replace(",", "")
+            region_string = region_string.replace(".", "")
+            region_string = region_string.replace(";", "")
+            region_string = region_string.replace("|", "")
+            region_string = region_string.replace("!", "")
+            region_string = region_string.replace("{", "")
+            region_string = region_string.replace("}", "")
+            region_string = region_string.replace("(", "")
+            region_string = region_string.replace(")", "")
+            region_string = region_string.replace("-", ":")
+
+        # region_string = region_string.translate(
+        #     None, ",.;|!{}()").replace("-", ":")
         region = region_string.split(":")
         chrom = region[0]
         try:

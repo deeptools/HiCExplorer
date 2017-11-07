@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+from __future__ import division
 import argparse
 import sys
 from hicexplorer._version import __version__
@@ -10,7 +10,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
-HiCexplorer addresses the common tasks of Hi-C analysis from processing to visualization.
+HiCExplorer addresses the common tasks of Hi-C analysis from processing to visualization.
 Each tool should be called by its own name as in the following example:
 
  $ hicPlotMatrix -m hic_matrix.h5 -o plot.pdf
@@ -38,7 +38,7 @@ The following is the list of tools:
    hicSumMatrices	        Adds Hi-C matrices of the same size
    hicPlotDistVsCounts	    Plots distance vs. Hi-C counts of corrected data
    hicExport	            Export matrix to text formats
-   hicInfo                  Shows information about a hicMatrix (no. of bins, bin length, sum, max, min, etc)
+   hicInfo                  Shows information about a Hi-C matrix (no. of bins, bin length, sum, max, min, etc)
    hicCompareMatrices       Computes difference or ratio between two matrices
 
 For more information visit: http://hicexplorer.readthedocs.org

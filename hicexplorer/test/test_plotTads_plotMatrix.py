@@ -1,7 +1,6 @@
 import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images
-from tempfile import NamedTemporaryFile
 import os.path
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
@@ -107,6 +106,9 @@ file = domains.bed
 type = vlines
 
 """
+from tempfile import NamedTemporaryFile
+from sys import platform
+from sys import version_info
 with open(ROOT + "browser_tracks.ini", 'w') as fh:
     fh.write(browser_tracks)
 
@@ -117,11 +119,18 @@ def test_hicPlotTads():
     import hicexplorer.hicPlotTADs
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_', delete=False)
-    args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000  " \
-           "--outFileName  {1}".format(ROOT, outfile.name).split()
+    if platform == "darwin" and version_info[0] == 3:
+        args = "--tracks {0}/browser_tracks.ini --region chrX:300000-350000  " \
+            "--outFileName  {1}".format(ROOT, outfile.name).split()
+        test_image_path = ROOT + '/plot_matrix_python3_osx/tads_plot.png'
+    else:
+        args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000  " \
+            "--outFileName  {1}".format(ROOT, outfile.name).split()
+        test_image_path = ROOT + '/master_TADs_plot.png'
+            
     hicexplorer.hicPlotTADs.main(args)
 
-    res = compare_images(ROOT + '/master_TADs_plot.png', outfile.name, tolerance)
+    res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
     os.remove(outfile.name)
@@ -131,9 +140,18 @@ def test_hicPlotMatrix():
     import hicexplorer.hicPlotMatrix
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_', delete=False)
-    args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
-           "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
+    if platform == "darwin" and version_info[0] == 3:    
+        args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:300000-350000 --region2 chrX:310000-360000 " \
+            "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
+        test_image_path = ROOT + '/plot_matrix_python3_osx/matrix_plot.png'
+            
+    else:
+        args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
+            "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
+        test_image_path = ROOT + '/master_matrix_plot.png'
+  
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + '/master_matrix_plot.png', outfile.name, tolerance)
+    res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
+    
     os.remove(outfile.name)

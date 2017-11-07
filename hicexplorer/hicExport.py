@@ -23,9 +23,12 @@ def parse_arguments(args=None):
                         required=True)
 
     parser.add_argument('--inputFormat',
-                        help='file format for input file. \n'
-                             '(options : hicexplorer, lieberman, npz (file format of previous hicexplorer versions),'
-                             'dekker.',
+                        help='file format for the matrix file. \n'
+                             'The following options are available: `hicexplorer` (native HiCExplorer format, '
+                             '`npz` (format used by earlier versions of HiCExplorer), '
+                             '`dekker` (matrix format used in Job Dekker publications), '
+                             'and `lieberman` (format used by Erez Lieberman Aiden). This last formats may change '
+                             'in the future.',
                         default='hicexplorer')
 
     parser.add_argument('--chrNameList',
@@ -64,7 +67,7 @@ def parse_arguments(args=None):
                              'The "ren" format is a list of tuples of the form '
                              'chrom, bin_star, bin_end, values. '
                              'The lieberman format writes separate files for each chromosome,'
-                             'with three columns : contact start, contact end, and raw observed score. '
+                             'with three columns: contact start, contact end, and raw observed score. '
                              'This corresponds to the RawObserved files from lieberman group. The '
                              'hicexplorer format stores the data using a hdf5 format. Optionally, '
                              'the numpy npz format can be used for small datasets (< 4GB).'
@@ -111,7 +114,7 @@ def combine_matrices(matrix_list, bplimit=None):
 
         # trim matrix if bplimit given
         if bplimit is not None:
-            limit = int(bplimit / hic.getBinSize())
+            limit = bplimit // hic.getBinSize()
             matrix = (triu(hic.matrix, k=-limit) - triu(hic.matrix, k=limit)).tocoo()
         else:
             matrix = hic.matrix.tocoo()
@@ -182,7 +185,7 @@ def main():
             from scipy.sparse import triu
             sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
-            limit = int(args.bplimit / hic_ma.getBinSize())
+            limit = args.bplimit // hic_ma.getBinSize()
             hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
             hic_ma.matrix.eliminate_zeros()
 

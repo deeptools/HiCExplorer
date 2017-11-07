@@ -1,5 +1,7 @@
+from __future__ import division
 import sys
 import argparse
+from past.builtins import zip
 from scipy.sparse import lil_matrix
 import logging
 
@@ -20,7 +22,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         conflict_handler='resolve',
         description="""
-Iterative correction for a hic matrix (see Imakaev et al. 2012
+Iterative correction for a Hi-C matrix (see Imakaev et al. 2012
 Nature Methods for details). For the method to work correctly, bins
 with low or too high coverage need to be filtered. For this, it is
 recommended to first run some diagnostic plots to determine the
@@ -193,7 +195,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
     for the iterative correction is that is best to put
     something in contrast to not put anything
 
-    hic_ma: hic matrix object
+    hic_ma:  Hi-C matrix object
     failed_bins: list of bin ids
     fill_contiguous: If True, stretches of masked rows/cols are filled.
                      Otherwise, these cases are skipped
@@ -401,9 +403,9 @@ def plot_total_contact_dist(hic_ma, args):
             ymin, ymax = ax2.get_ylim()
             ax2.vlines(mad_threshold, ymin, ymax)
             if title:
-                print "{}: mad threshold {}".format(title, mad_threshold)
+                print("{}: mad threshold {}".format(title, mad_threshold))
             else:
-                print "mad threshold {}".format(mad_threshold)
+                print("mad threshold {}".format(mad_threshold))
 
     # replace nan by 0
     hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
@@ -464,7 +466,7 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
     """
     to_remove = []
     if perchr:
-        for chrname in hic_ma.interval_trees.keys():
+        for chrname in list(hic_ma.interval_trees):
             chr_range = hic_ma.getChrBinRange(chrname)
             chr_submatrix = hic_ma.matrix[chr_range[0]:chr_range[1],
                                           chr_range[0]:chr_range[1]]
@@ -569,7 +571,7 @@ def main():
     if args.perchr:
         corrected_matrix = lil_matrix(ma.matrix.shape)
         # normalize each chromosome independently
-        for chrname in ma.interval_trees.keys():
+        for chrname in list(ma.interval_trees):
             chr_range = ma.getChrBinRange(chrname)
             chr_submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
             _matrix, _corr_factors = iterative_correction(chr_submatrix, args)
