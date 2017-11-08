@@ -131,7 +131,9 @@ $ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting frd
                              'is estimated by comparing the distribution (Wilcoxon ranksum) of '
                              'the  zscores between the left and right '
                              'regions (diamond) at the local minimum with the matrix zscores for a '
-                             'diamond at --minDepth to the left and a diamond --minDepth to the right. ',
+                             'diamond at --minDepth to the left and a diamond --minDepth to the right. '
+                             'If --correctForMultipleTesting is \'None\' the threshold is applied on the '
+                             'raw p-values without any multiple testing correction. Set it to \'1\' if no threshold should be used.',
                         type=float,
                         default=0.01)
 
@@ -934,18 +936,19 @@ class HicFindTads(object):
             elif self.correct_for_multiple_testing == 'bonferroni':
                 if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.threshold_comparisons:
                     filtered_min_idx += [idx]
-            else:
-                if delta_of_min[idx] >= self.delta:
+            elif self.correct_for_multiple_testing == 'None':
+                if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.threshold_comparisons:
                     filtered_min_idx += [idx]
         
         if self.correct_for_multiple_testing == 'fdr':
-            log.info("Number of boundaries for delta {}, qval {}: {}".format(self.delta, self.threshold_comparisons,
+            log.info("FDR correction. Number of boundaries for delta {}, qval {}: {}".format(self.delta, self.threshold_comparisons,
                                                                              len(filtered_min_idx)))
         elif self.correct_for_multiple_testing == 'bonferroni':
-            log.info("Number of boundaries for delta {} and pval {}: {}".format(self.delta, self.threshold_comparisons,
+            log.info("Bonferroni correction. Number of boundaries for delta {} and pval {}: {}".format(self.delta, self.threshold_comparisons,
                                                                                 len(filtered_min_idx)))
         else:
-            log.info("Number of boundaries for delta {}: {}".format(self.delta, len(filtered_min_idx)))
+            log.info("No multiple testing correction. Number of boundaries for delta {}: {}, used threshold: {}".format(self.delta, len(filtered_min_idx), self.threshold_comparisons))
+        
         count = 1
         with open(prefix + '_boundaries.bed', 'w') as file_boundary_bin, open(prefix + '_domains.bed', 'w') as file_domains, open(prefix + '_boundaries.gff', 'w') as gff:
             for idx, min_bin_id in enumerate(filtered_min_idx):
