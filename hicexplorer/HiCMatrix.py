@@ -22,7 +22,9 @@ import cooler
 import operator
 
 import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action="ignore", category=FutureWarning)
+warnings.filterwarnings(action="ignore", message="numpy.dtype size changed")
+warnings.filterwarnings(action="ignore", message="numpy.ndarray size changed")
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 warnings.simplefilter(action='ignore', category=ImportWarning)
 warnings.simplefilter(action='ignore', category=tables.exceptions.FlavorWarning)
@@ -171,7 +173,7 @@ class hiCMatrix:
                     row.extend(matrix_.nonzero()[0] + offset_sum)
                     col.extend(matrix_.nonzero()[1] + offset_sum)
                     data.extend(matrix_.data)
-                matrix = csr_matrix((data, (row, col)))
+                matrix = csr_matrix((data, (row, col)), dtype=np.float32)
 
             else:
                 row = []
@@ -271,12 +273,13 @@ class hiCMatrix:
         except:
             nan_bins = None
 
-        print("matrix.shape", matrix.shape)
-        print("nan_bins", nan_bins)
-        matrix = matrix.tolil()
-        
-        matrix[nan_bins, :] = np.nan
-        matrix[:, nan_bins] = np.nan
+        # print("matrix.shape", matrix.shape)
+        # print("nan_bins", nan_bins)
+        # matrix.data = matrix.data.astype(np.float32)
+        # matrix = matrix.tolil()
+    
+        # matrix[nan_bins, :] = np.nan
+        # matrix[:, nan_bins] = np.nan
         
 
         distance_counts = None
@@ -467,7 +470,8 @@ class hiCMatrix:
         i = 0
         self.header = []
         try:
-            for line in gzip.open(fileName, 'r').readlines():
+            for line in gzip.open(fileName, 'rb').readlines():
+                
                 if line.startswith(b"#"):
                     self.header.append(line)
                     continue
@@ -475,16 +479,16 @@ class hiCMatrix:
                 if i == 1:  # this is the first line that is not
                             # a comment which contains the column headers
                             # that are equal to the row headers
-                    colLabels = line.split("\t")
+                    colLabels = line.split(b"\t")
                     nameList = []
                     startList = []
                     endList = []
                     binIdList = []
 
                     for lab in colLabels[1:]:
-                        (binId, species, position) = lab.split("|")
-                        (chrName, pos) = position.split(":")
-                        (start, end) = pos.split("-")
+                        (binId, species, position) = lab.split(b"|")
+                        (chrName, pos) = position.split(b":")
+                        (start, end) = pos.split(b"-")
                         binIdList.append(binId)
                         nameList.append(chrName)
                         startList.append(int(start))
@@ -584,6 +588,15 @@ class hiCMatrix:
         """
 
         try:
+            # chromosome_size = hic_matrix.get_chromosome_sizes()
+            if type(next(iter(self.interval_trees))) != type(chrname):
+                if type(next(iter(self.interval_trees))) is str:
+                    chrname = toString(chrname)
+                elif type(next(iter(self.interval_trees))) is bytes:
+                    chrname = toBytes(chrname)
+                elif type(next(iter(self.interval_trees))) is np.bytes_:
+                    chrname = toBytes(chrname)
+            # chr_end_pos = chromosome_size[chrname]
             self.interval_trees[chrname]
         except KeyError:
             """
@@ -1339,8 +1352,9 @@ class hiCMatrix:
         # for value in self.nan_bins:
         self.restoreMaskedBins()
         self.matrix = self.matrix.tolil()
-        self.matrix[self.nan_bins, :] = 0
-        self.matrix[:, self.nan_bins] = 0
+        if self.nan_bins:
+            self.matrix[self.nan_bins, :] = 0
+            self.matrix[:, self.nan_bins] = 0
         self.matrix = self.matrix.tocsr()
         
         for i in range(len(self.matrix.data)):
@@ -1951,138 +1965,31 @@ class hiCMatrix:
 
         return cut_int_tree, chrbin_boundaries
 
-    # @staticmethod
-    # def compute_dataframe_matrix(pMatrixList, pOperator=None):
-    #     if pOperator is None:
-    #         exit("Please define an operator!")
-    #     ops = {'*': operator.imul,
-    #             '/': operator.idiv,
-    #             '+': operator.iadd,
-    #             '-': operator.isub}
-    #     if pOperator not in ops:
-    #         exit("Wrong operator given! Possible are +, -, * and /.")
-    #     matrix_0 = [tuple(x) for x in pMatrixList[0].values]
-    #     matrix_1 = [tuple(x) for x in pMatrixList[1].values]
-    #     matrix_tuple = []
+def toString(s):
+    """
+    This takes care of python2/3 differences
+    """
+    if isinstance(s, str):
+        return s
+    if isinstance(s, bytes):
+        if sys.version_info[0] == 2:
+            return str(s)
+        return s.decode('ascii')
+    if isinstance(s, list):
+        return [toString(x) for x in s]
+    return s
 
-    #     i = 0
-    #     j = 0
 
-    #     while i < len(matrix_0) and j < len(matrix_1):
-
-    #         if matrix_0[i][0] == matrix_1[j][0] and \
-    #                 matrix_0[i][1] == matrix_1[j][1]:
-    #             # if value is nan, do not add and take the other one.
-    #             if not np.isnan(matrix_0[i][2]) and not np.isnan(matrix_1[j][2]):
-    #                 matrix_tuple.append((matrix_0[i][0], matrix_0[i][1],
-    #                                     ops[pOperator](matrix_0[i][2], matrix_1[j][2])))
-    #             elif np.isnan(matrix_0[i][2]):
-    #                 matrix_tuple.append((matrix_0[i][0], matrix_0[i][1],
-    #                                     matrix_1[j][2]))
-    #             else:
-    #                 matrix_tuple.append((matrix_0[i][0], matrix_0[i][1],
-    #                                     matrix_0[i][2]))
-    #             matrix_0[i] = None
-    #             matrix_1[j] = None
-    #             i += 1
-    #             j += 1
-    #         elif matrix_0[i][0] == matrix_1[j][0] and matrix_0[i][1] < matrix_1[j][1]:
-    #             matrix_tuple.append(matrix_0[i])
-    #             matrix_0[i] = None
-    #             i += 1
-    #         elif matrix_0[i][0] == matrix_1[j][0] and matrix_0[i][1] > matrix_1[j][1]:
-    #             matrix_tuple.append(matrix_1[j])
-    #             matrix_1[j] = None
-
-    #             j += 1
-    #         elif matrix_0[i][0] < matrix_1[j][0]:
-    #             matrix_tuple.append(matrix_0[i])
-    #             matrix_0[i] = None
-
-    #             i += 1
-    #         else:
-    #             matrix_tuple.append(matrix_1[j])
-    #             matrix_1[j] = None
-
-    #             j += 1
-    #     while i < len(matrix_0):
-    #         matrix_tuple.append(matrix_0[i])
-    #         matrix_0[i] = None
-    #         i += 1
-    #     while j < len(matrix_1):
-    #         matrix_tuple.append(matrix_1[j])
-    #         matrix_1[j] = None
-    #         j += 1
-
-    #     if len(matrix_tuple) > 0:
-    #         cool_matrix_pixel = pd.DataFrame(matrix_tuple, columns=['bin1_id', 'bin2_id', 'count'])
-    #     else:
-    #         cool_matrix_pixel = None
-    #     matrix_tuple = None
-
-    #     return cool_matrix_pixel
-    # @staticmethod
-    # def compute_dataframe_bins(pBinsList):
-    #     # make union
-    #     cut_intervals_0 = [tuple(x) for x in pBinsList[0].values]
-    #     cut_intervals_1 = [tuple(x) for x in pBinsList[1].values]
-    #     cut_intervals_tuple = []
-    #     pBinsList[0] = None
-    #     pBinsList[1] = None
-    #     # print("cut_intervals_0[:10]", cut_intervals_0[:10])
-    #     i = 0
-    #     j = 0
-    #     while i < len(cut_intervals_0) and j < len(cut_intervals_1):
-
-    #         if cut_intervals_0[i][1] == cut_intervals_1[j][1] and \
-    #                 cut_intervals_0[i][2] == cut_intervals_1[j][2]:
-    #             # add only if both are not nan.
-    #             # if one is nan, use the other. this is either a number or nan too.
-    #             if not np.isnan(cut_intervals_0[i][3]) and not np.isnan(cut_intervals_1[j][3]):
-    #                 cut_intervals_tuple.append((cut_intervals_0[i][0], cut_intervals_0[i][1], cut_intervals_0[i][2],
-    #                                             ops[pOperator](cut_intervals_0[i][3], cut_intervals_1[j][3])))
-    #             elif np.isnan(cut_intervals_0[i][3]):
-    #                 cut_intervals_tuple.append((cut_intervals_0[i][0], cut_intervals_0[i][1], cut_intervals_0[i][2],
-    #                                             cut_intervals_1[j][3]))
-    #             else:
-    #                 cut_intervals_tuple.append((cut_intervals_0[i][0], cut_intervals_0[i][1], cut_intervals_0[i][2],
-    #                                             cut_intervals_0[i][3]))
-    #             cut_intervals_0[i] = None
-    #             cut_intervals_1[j] = None
-    #             i += 1
-    #             j += 1
-
-    #         elif cut_intervals_0[i][1] == cut_intervals_1[j][1] and \
-    #                 cut_intervals_0[i][2] < cut_intervals_1[j][2]:
-    #             cut_intervals_tuple.append(cut_intervals_0[i])
-    #             cut_intervals_0[i] = None
-    #             i += 1
-    #         elif cut_intervals_0[i][1] == cut_intervals_1[j][1] and \
-    #                 cut_intervals_0[i][2] > cut_intervals_1[j][2]:
-    #             cut_intervals_tuple.append(cut_intervals_1[j])
-    #             cut_intervals_1[j] = None
-    #             j += 1
-    #         elif cut_intervals_0[i][1] < cut_intervals_1[j][1]:
-    #             cut_intervals_tuple.append(cut_intervals_0[i])
-    #             cut_intervals_0[i] = None
-    #             i += 1
-    #         else:
-    #             cut_intervals_tuple.append(cut_intervals_1[j])
-    #             cut_intervals_1[j] = None
-    #             j += 1
-
-    #     while i < len(cut_intervals_0):
-    #         cut_intervals_tuple.append(cut_intervals_0[i])
-    #         cut_intervals_0[i] = None
-    #         i += 1
-    #     while j < len(cut_intervals_1):
-    #         cut_intervals_tuple.append(cut_intervals_1[j])
-    #         cut_intervals_1[j] = None
-    #         j += 1
-    #     if len(cut_intervals_tuple) > 0:
-    #         cool_pandas_bins = pd.DataFrame(cut_intervals_tuple, columns=['chrom', 'start', 'end', 'weight'])
-    #     else:
-    #         cool_pandas_bins = None
-    #     cut_intervals_tuple = None
-
-    #     return cool_pandas_bins
+def toBytes(s):
+    """
+    Like toString, but for functions requiring bytes in python3
+    """
+    if sys.version_info[0] == 2:
+        return s
+    if isinstance(s, bytes):
+        return s
+    if isinstance(s, str):
+        return bytes(s, 'ascii')
+    if isinstance(s, list):
+        return [toBytes(x) for x in s]
+    return s

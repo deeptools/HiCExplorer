@@ -583,8 +583,8 @@ def main(args=None):
 
         if args.log:
             mask = matrix == 0
-            matrix[mask] = matrix[mask == False].min()  # noqa
-    #        matrix = -1 *  np.log(matrix)
+            matrix[mask] = matrix[mask == False].min()  # noqa: E712
+            # matrix = -1 *  np.log(matrix)
             matrix = np.log(matrix)
 
         if args.whatToShow == '3D':

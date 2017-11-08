@@ -48,8 +48,6 @@ def main():
         min_non_zero = hic_ma.matrix.data.min()
         max_non_zero = hic_ma.matrix.data.max()
         if not matrix.endswith("lieberman"):
-            chromosomes = hic_ma.chrBinBoundaries.keys()
-        else:
             chromosomes = list(hic_ma.chrBinBoundaries)
 
         print("File:\t{}".format(matrix))

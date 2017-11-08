@@ -5,9 +5,9 @@ from os import unlink
 import numpy as np
 import numpy.testing as nt
 from scipy.sparse import csr_matrix
+import warnings
 from past.builtins import zip
 from six import iteritems
-import warnings
 
 warnings.filterwarnings("ignore")
 

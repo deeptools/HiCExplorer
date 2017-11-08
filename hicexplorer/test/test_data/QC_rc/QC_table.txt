@@ -1,0 +1,2 @@
+File	Max rest. site distance	Min rest. site distance	One mate low quality	One mate not close to rest site	One mate not unique	One mate unmapped	Pairs considered	Pairs mappable, unique and high quality	Pairs used	dangling end	duplicated pairs	inter chromosomal	inward pairs	left pairs	long range	outward pairs	right pairs	same fragment (800 bp)	self circle	self ligation (removed)	short range < 20kb
+small_test_rf_matrix.h5	1500	150	34877	751	3603	8777	99983	52726	35934	209	12	5849	6977	7012	22014	8907	7189	10146	618	5056	8071
