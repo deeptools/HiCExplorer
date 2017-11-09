@@ -205,9 +205,9 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
 def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                        ylabel=None, start_pos=None, start_pos2=None):
 
-    print("start_pos", start_pos)
+    # print("start_pos", start_pos)
     
-    print("len(start_pos)", len(start_pos))
+    # print("len(start_pos)", len(start_pos))
 
     axHeat2 = fig.add_axes(position)
     if args.title:
@@ -225,10 +225,10 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     # print("plotHeatmap_region___start_pos", start_pos)
     # print("plotHeatmap_region___start_pos2", start_pos2)
     
-    print("start_pos", start_pos)
-    print("start_pos2", start_pos2)
-    print("len(start_pos)", len(start_pos))
-    print("len(start_pos2)", len(start_pos2))
+    # print("start_pos", start_pos)
+    # print("start_pos2", start_pos2)
+    # print("len(start_pos)", len(start_pos))
+    # print("len(start_pos2)", len(start_pos2))
     
     if len(start_pos) >= ma.shape[0]:
         start_pos = start_pos[:ma.shape[0]]
@@ -423,7 +423,7 @@ def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
     chrom, region_start, region_end = translate_region(args.region)
 
-    print("len(cut_intervals)", len(ma.cut_intervals))
+    # print("len(cut_intervals)", len(ma.cut_intervals))
     if type(next(iter(ma.interval_trees))) is np.bytes_:
         chrom = toBytes(chrom)
 
@@ -480,18 +480,18 @@ def main(args=None):
                          'options at the same time are not '
                          'compatible.')
 
-    if args.matrix.endswith('.cool'):
+    if args.matrix.endswith('.cool') and not args.region2:
 
         regionsToRetrieve = None
         if args.region:
             # chrom, region_start, region_end = translate_region(args.region)
             regionsToRetrieve = []
             regionsToRetrieve.append(args.region)
-            print("args.region", args.region)
+            # print("args.region", args.region)
             if args.region2:
                 chrom2, region_start2, region_end2 = translate_region(args.region2)
                 regionsToRetrieve.append(args.region2)
-                print("args.region2", args.region2)
+                # print("args.region2", args.region2)
         if args.chromosomeOrder:
             args.region = None
             args.region2 = None
@@ -551,9 +551,9 @@ def main(args=None):
         else:
             # TODO make start_pos1
             matrix = np.asanyarray(ma.getMatrix().astype(float))
-    print("len(matrix[0])", len(matrix[0]))
-    print("len(matrix)", len(matrix))
-    print("len(ma.cut_intervals)", len(ma.cut_intervals))
+    # print("len(matrix[0])", len(matrix[0]))
+    # print("len(matrix)", len(matrix))
+    # print("len(ma.cut_intervals)", len(ma.cut_intervals))
     
     matrix_length = len(matrix[0])
     for matrix_ in matrix:
@@ -607,7 +607,7 @@ def main(args=None):
                     # plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
                     #                 args, cmap, xlabel=chrom, ylabel=chrom2)
                 # else:
-                print("Len(start_pos1)___587", len(start_pos1))
+                # print("Len(start_pos1)___587", len(start_pos1))
                 
                 plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
                                    args, cmap, xlabel=chrom, ylabel=chrom2,

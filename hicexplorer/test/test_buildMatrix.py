@@ -57,6 +57,16 @@ def test_build_matrix_cooler():
 
     test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
     new = hm.hiCMatrix(outfile.name)
+    # nt.assert_equal(test.matrix.data * 2, new.matrix.data)
+    print("H5__test.matrix.data[:20]", test.matrix.data[:20])
+    print("COOL__snew.matrix.data[:20]", new.matrix.data[:20])
+    print("SHAPE H5", test.matrix.shape)
+    print("SHAPE COOL", new.matrix.shape)
+
+    print("len(test.matrix.data)", len(test.matrix.data))
+    print("len(new.matrix.data)", len(new.matrix.data))
+    
+    
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
     # print("MATRIX NAME:", outfile.name)

@@ -154,27 +154,8 @@ $ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting frd
                              'new boundaries will be computed but the values of minDepth, maxDepth and step will '
                              'not be used.',
                         required=False)
-    parser.add_argument('--zscoreMatrixFormat',
-                        help='The output format of the zscore matrix. Choose \'.cool\' or \'.h5\'.',
-                        type=str,
-                        default="cool",
-                        choices=['cool', 'h5'])
     return parser
 
-
-# def toBytes(s):
-#     """
-#     Like toString, but for functions requiring bytes in python3
-#     """
-#     if sys.version_info[0] == 2:
-#         return s
-#     if isinstance(s, bytes):
-#         return s
-#     if isinstance(s, str):
-#         return bytes(s, 'ascii')
-#     if isinstance(s, list):
-#         return [toBytes(x) for x in s]
-#     return s
 
 
 def compute_matrix_wrapper(args):
@@ -1323,11 +1304,11 @@ def main(args=None):
                      p_correct_for_multiple_testing=args.correctForMultipleTesting, p_threshold_comparisons=args.thresholdComparisons)
 
     tad_score_file = args.outPrefix + "_tad_score.bm"
-    zscore_matrix_file = args.outPrefix + "_zscore_matrix." + args.zscoreMatrixFormat
+    zscore_matrix_file = args.outPrefix + "_zscore_matrix.h5"
 
     if args.TAD_sep_score_prefix is not None:
         tad_score_file = args.TAD_sep_score_prefix + "_tad_score.bm"
-        zscore_matrix_file = args.TAD_sep_score_prefix + "_zscore_matrix." + args.zscoreMatrixFormat
+        zscore_matrix_file = args.TAD_sep_score_prefix + "_zscore_matrix.h5"
         # check that the given file exists
         if not os.path.isfile(tad_score_file):
             log.error("The given TAD_sep_score_prefix does not contain a valid TAD-separation score. Please check.\n"
@@ -1344,7 +1325,7 @@ def main(args=None):
     elif not os.path.isfile(tad_score_file):
         ft.compute_spectra_matrix()
         # save z-score matrix that is needed for find TADs algorithm
-        ft.hic_ma.save(args.outPrefix + "_zscore_matrix." + args.zscoreMatrixFormat)
+        ft.hic_ma.save(args.outPrefix + "_zscore_matrix.h5")
         ft.save_bedgraph_matrix(tad_score_file)
     else:
         sys.stderr.write("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))

@@ -40,12 +40,12 @@ def run_compare(pInputFile, pInputFormat, pOutputFormat, pChrNameList=None):
     return True
 
 
-def test_npz_to_cool():
-    return run_compare(pInputFile=NPZ_MATRIX, pInputFormat='npz', pOutputFormat='cool')
+# def test_npz_to_cool():
+#     return run_compare(pInputFile=NPZ_MATRIX, pInputFormat='npz', pOutputFormat='cool')
 
 
-def test_npz_to_h5():
-    return run_compare(pInputFile=NPZ_MATRIX, pInputFormat='npz', pOutputFormat='h5')
+# def test_npz_to_h5():
+#     return run_compare(pInputFile=NPZ_MATRIX, pInputFormat='npz', pOutputFormat='h5')
 
 
 def test_cool_to_npz():
