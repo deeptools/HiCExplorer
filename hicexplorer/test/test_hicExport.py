@@ -1,17 +1,11 @@
 from hicexplorer import hicExport
-from hicexplorer import hicBuildMatrix as hicBuildMatrix
 from hicexplorer import HiCMatrix as hm
 
-from tempfile import NamedTemporaryFile, mkdtemp
+from tempfile import NamedTemporaryFile
 import os
 import numpy.testing as nt
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/hicExport/"
-
-# DEKKER_MATRIX = ROOT + "matrix.dekker.gz"
-# REN_MATRIX = ROOT + "matrix.ren.gz"
-# LIEBERMAN_MATRIX = ROOT + "matrix.lieberman"
-# GINTERACTIONS_MATRIX = ROOT + "matrix.GInteractions.tsv"
 
 NPZ_MATRIX = ROOT + "matrix.npz"
 COOL_MATRIX = ROOT + "matrix.cool"
@@ -40,12 +34,12 @@ def run_compare(pInputFile, pInputFormat, pOutputFormat, pChrNameList=None):
     return True
 
 
-# def test_npz_to_cool():
-#     return run_compare(pInputFile=NPZ_MATRIX, pInputFormat='npz', pOutputFormat='cool')
+def test_npz_to_cool():
+    return run_compare(pInputFile=NPZ_MATRIX, pInputFormat='npz', pOutputFormat='cool')
 
 
-# def test_npz_to_h5():
-#     return run_compare(pInputFile=NPZ_MATRIX, pInputFormat='npz', pOutputFormat='h5')
+def test_npz_to_h5():
+    return run_compare(pInputFile=NPZ_MATRIX, pInputFormat='npz', pOutputFormat='h5')
 
 
 def test_cool_to_npz():

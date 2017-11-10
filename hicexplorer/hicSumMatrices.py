@@ -1,16 +1,7 @@
 from __future__ import division
 import argparse
 from hicexplorer import HiCMatrix as hm
-# from hicexplorer
 from hicexplorer._version import __version__
-from multiprocessing import Process, Lock, Queue
-import time
-import os
-import pandas as pd
-import numpy as np
-from scipy.sparse import csr_matrix
-import operator
-import math
 
 
 def parse_arguments(args=None):

@@ -46,6 +46,7 @@ def test_build_matrix():
     shutil.rmtree(qc_folder)
     os.unlink("/tmp/test.bam")
 
+
 def test_build_matrix_cooler():
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
@@ -57,26 +58,16 @@ def test_build_matrix_cooler():
 
     test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
     new = hm.hiCMatrix(outfile.name)
-    # nt.assert_equal(test.matrix.data * 2, new.matrix.data)
-    print("H5__test.matrix.data[:20]", test.matrix.data[:20])
-    print("COOL__snew.matrix.data[:20]", new.matrix.data[:20])
-    print("SHAPE H5", test.matrix.shape)
-    print("SHAPE COOL", new.matrix.shape)
 
-    print("len(test.matrix.data)", len(test.matrix.data))
-    print("len(new.matrix.data)", len(new.matrix.data))
-    
-    
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
-    # print("MATRIX NAME:", outfile.name)
     print(set(os.listdir(ROOT + "QC/")))
     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
-
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
+
 
 def test_build_matrix_rf():
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
@@ -93,7 +84,6 @@ def test_build_matrix_rf():
 
     test = hm.hiCMatrix(ROOT + "small_test_rf_matrix.h5")
     new = hm.hiCMatrix(outfile.name)
-    # print("MATRIX NAME RF:", outfile.name)
 
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)

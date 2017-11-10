@@ -206,7 +206,7 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
                        ylabel=None, start_pos=None, start_pos2=None):
 
     # print("start_pos", start_pos)
-    
+
     # print("len(start_pos)", len(start_pos))
 
     axHeat2 = fig.add_axes(position)
@@ -224,12 +224,12 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
 
     # print("plotHeatmap_region___start_pos", start_pos)
     # print("plotHeatmap_region___start_pos2", start_pos2)
-    
+
     # print("start_pos", start_pos)
     # print("start_pos2", start_pos2)
     # print("len(start_pos)", len(start_pos))
     # print("len(start_pos2)", len(start_pos2))
-    
+
     if len(start_pos) >= ma.shape[0]:
         start_pos = start_pos[:ma.shape[0]]
     if len(start_pos2) >= ma.shape[1]:
@@ -240,10 +240,10 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     # print("len(foo)", len(foo))
     # print("xmesh", xmesh)
     # print("ymesh", ymesh)
-    
+
     # print("len(xmesh)", len(xmesh))
     # print("len(xmesh[0])", len(xmesh[0]))
-    
+
     # print("len(ymesh)", len(ymesh))
     # print("len(ymesh[0])", len(ymesh[0]))
 
@@ -419,6 +419,7 @@ def plotPerChr(hic_matrix, cmap, args):
     # the color bar in pdf plots
     cbar.ax.set_ylabel(args.scoreName, rotation=270, labelpad=20)
 
+
 def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
     chrom, region_start, region_end = translate_region(args.region)
@@ -437,12 +438,12 @@ def getRegion(args, ma):
     args.region = [chrom, region_start, region_end]
     if args.matrix.endswith(".cool"):
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
-                                ((x[1] >= region_start and x[2] < region_end) or  \
-                                (x[1] < region_end and x[2] < region_end and x[2] > region_start) or \
-                                (x[1] > region_start and x[1] < region_end)) ])
+                                 ((x[1] >= region_start and x[2] < region_end) or
+                                  (x[1] < region_end and x[2] < region_end and x[2] > region_start) or
+                                  (x[1] > region_start and x[1] < region_end))])
     else:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
-                                x[1] >= region_start and x[2] < region_end])
+                                 x[1] >= region_start and x[2] < region_end])
     # print(chrom, region_start, region_end, idx1, start_pos1)
     if args.region2:
         chrom2, region_start2, region_end2 = translate_region(args.region2)
@@ -458,18 +459,19 @@ def getRegion(args, ma):
                 exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
         if args.matrix.endswith(".cool"):
             idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
-                                    ((x[1] >= region_start2 and x[2] < region_end2) or  \
-                                    (x[1] < region_end2 and x[2] < region_end2 and x[2] > region_start2) or \
-                                    (x[1] > region_start2 and x[1] < region_end2)) ])
+                                     ((x[1] >= region_start2 and x[2] < region_end2) or
+                                      (x[1] < region_end2 and x[2] < region_end2 and x[2] > region_start2) or
+                                      (x[1] > region_start2 and x[1] < region_end2))])
         else:
             idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
-                                    x[1] >= region_start2 and x[2] < region_end2])
+                                     x[1] >= region_start2 and x[2] < region_end2])
     else:
         idx2 = idx1
         chrom2 = chrom
         start_pos2 = start_pos1
-    
+
     return chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2
+
 
 def main(args=None):
     print("\nhicPlotMatrix")
@@ -497,11 +499,8 @@ def main(args=None):
             args.region2 = None
             regionsToRetrieve = args.chromosomeOrder
 
-        
         ma = HiCMatrix.hiCMatrix(args.matrix, chrnameList=regionsToRetrieve)
 
-        
-            
         # ma.restoreMaskedBins()
 
         if args.clearMaskedBins:
@@ -512,7 +511,7 @@ def main(args=None):
 
             # print("Len(start_pos1)", len(start_pos1))
         matrix = np.asarray(ma.matrix.todense().astype(float))
-        
+
     else:
         ma = HiCMatrix.hiCMatrix(args.matrix)
 
@@ -531,7 +530,7 @@ def main(args=None):
             ma.reorderChromosomes(valid_chromosomes)
             if len(invalid_chromosomes) > 0:
                 sys.stderr.write("WARNING: The following chromosome/scaffold names were not found. Please check"
-                                "the correct spelling of the chromosome names. \n")
+                                 "the correct spelling of the chromosome names. \n")
                 sys.stderr.write("\n".join(invalid_chromosomes))
 
         # print("list(ma.interval_trees)",list(ma.interval_trees))
@@ -547,14 +546,14 @@ def main(args=None):
             chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
 
             matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
-            
+
         else:
             # TODO make start_pos1
             matrix = np.asanyarray(ma.getMatrix().astype(float))
     # print("len(matrix[0])", len(matrix[0]))
     # print("len(matrix)", len(matrix))
     # print("len(ma.cut_intervals)", len(ma.cut_intervals))
-    
+
     matrix_length = len(matrix[0])
     for matrix_ in matrix:
         if not matrix_length == len(matrix_):
@@ -608,7 +607,7 @@ def main(args=None):
                     #                 args, cmap, xlabel=chrom, ylabel=chrom2)
                 # else:
                 # print("Len(start_pos1)___587", len(start_pos1))
-                
+
                 plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
                                    args, cmap, xlabel=chrom, ylabel=chrom2,
                                    start_pos=start_pos1, start_pos2=start_pos2)

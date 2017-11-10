@@ -4,11 +4,6 @@ import argparse
 import numpy as np
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
-from multiprocessing import Process
-from multiprocessing import Process, Lock, Queue
-import pandas as pd
-import operator
-import time
 
 
 def parse_arguments(args=None):

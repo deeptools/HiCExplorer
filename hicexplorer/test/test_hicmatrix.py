@@ -94,7 +94,6 @@ def test_convert_to_zscore_matrix_2():
     m_size = mat.shape[0]
     # compute matrix values per distance
     chrom, start, end, extra = zip(*hm.hiCMatrix.fit_cut_intervals(hic.cut_intervals))
-#    chrom, start, end, extra = zip(*hic.cut_intervals)
     dist_values = {}
     sys.stderr.write("Computing values per distance for each matrix entry\n")
 
@@ -133,7 +132,6 @@ def test_convert_to_zscore_matrix_2():
     assert_almost_equal(hic.matrix.todense().diagonal(0).A1, zscore_mat.diagonal(0))
 
 
-
 def test_save_load_cooler_format():
     outfile = '/tmp/matrix.cool'
     cut_intervals = [(b'a', 0, 10, 1), (b'a', 10, 20, 1),
@@ -150,8 +148,6 @@ def test_save_load_cooler_format():
     # make matrix symmetric
     hic.setMatrix(hic.matrix, cut_intervals)
     hic.matrix = hm.hiCMatrix.fillLowerTriangle(hic.matrix)
-    # hic.correction_factors = np.array([0.5, 1, 2, 3, 4])
-    # hic.nan_bins = np.array([4])
 
     hic.save(outfile)
 
@@ -160,10 +156,7 @@ def test_save_load_cooler_format():
     nt.assert_equal(hic.matrix.indices, matrix_cool.matrix.indices)
     nt.assert_equal(hic.matrix.indptr, matrix_cool.matrix.indptr)
 
-    ### nan_bins and correction_factor are not supported by cool-format
-    # nt.assert_equal(hic.nan_bins, matrix_cool.nan_bins)
-    # nt.assert_equal(hic.correction_factors, matrix_cool.correction_factors)
-    
+    # nan_bins and correction_factor are not supported by cool-format
+
     nt.assert_equal(hic.cut_intervals, matrix_cool.cut_intervals)
     unlink(outfile)
-
