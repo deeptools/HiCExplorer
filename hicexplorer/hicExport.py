@@ -154,7 +154,7 @@ def combine_matrices(matrix_list, bplimit=None):
 
 
 def main(args=None):
-    print args
+    # print args
     args = parse_arguments().parse_args(args)
     # print args
     # create hiC matrix with given input format

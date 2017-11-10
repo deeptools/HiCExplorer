@@ -105,35 +105,35 @@ hisat2
 
 .. code:: bash
 
-    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956527_1.fastq --reorder -S SRR1956527_1.sam 
-    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956527_2.fastq --reorder -S SRR1956527_2.sam 
-    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956528_1.fastq --reorder -S SRR1956528_1.sam 
-    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956528_2.fastq --reorder -S SRR1956528_2.sam 
-    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956529_1.fastq --reorder -S SRR1956529_1.sam 
-    hisat2 -x hisat2/mm10_index --threads 8 ../original_data/SRR1956529_2.fastq --reorder -S SRR1956529_2.sam 
+    hisat2 -x hisat2/mm10_index --threads 8 -U ../original_data/SRR1956527_1.fastq.gz --reorder | samtools view -Shb - > SRR1956527_1.bam 
+    hisat2 -x hisat2/mm10_index --threads 8 -U ../original_data/SRR1956527_2.fastq.gz --reorder | samtools view -Shb - > SRR1956527_2.bam 
+    hisat2 -x hisat2/mm10_index --threads 8 -U ../original_data/SRR1956528_1.fastq.gz --reorder | samtools view -Shb - > SRR1956528_1.bam 
+    hisat2 -x hisat2/mm10_index --threads 8 -U ../original_data/SRR1956528_2.fastq.gz --reorder | samtools view -Shb - > SRR1956528_2.bam 
+    hisat2 -x hisat2/mm10_index --threads 8 -U ../original_data/SRR1956529_1.fastq.gz --reorder | samtools view -Shb - > SRR1956529_1.bam 
+    hisat2 -x hisat2/mm10_index --threads 8 -U ../original_data/SRR1956529_2.fastq.gz --reorder | samtools view -Shb - > SRR1956529_2.bam 
     
 bowtie2
 ^^^^^^^^
 
 .. code:: bash
 
-    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956527_1.fastq --reorder -S SRR1956527_1.sam 
-    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956527_2.fastq --reorder -S SRR1956527_2.sam 
-    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956528_1.fastq --reorder -S SRR1956528_1.sam 
-    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956528_2.fastq --reorder -S SRR1956528_2.sam 
-    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956529_1.fastq --reorder -S SRR1956529_1.sam 
-    bowtie2 -x bowtie2/mm10_index --threads 8 ../original_data/SRR1956529_2.fastq --reorder -S SRR1956529_2.sam 
+    bowtie2 -x bowtie2/mm10_index --threads 8 -U ../original_data/SRR1956527_1.fastq.gz --reorder | samtools view -Shb - > SRR1956527_1.bam
+    bowtie2 -x bowtie2/mm10_index --threads 8 -U ../original_data/SRR1956527_2.fastq.gz --reorder | samtools view -Shb - > SRR1956527_2.bam 
+    bowtie2 -x bowtie2/mm10_index --threads 8 -U ../original_data/SRR1956528_1.fastq.gz --reorder | samtools view -Shb - > SRR1956528_1.bam 
+    bowtie2 -x bowtie2/mm10_index --threads 8 -U ../original_data/SRR1956528_2.fastq.gz --reorder | samtools view -Shb - > SRR1956528_2.bam 
+    bowtie2 -x bowtie2/mm10_index --threads 8 -U ../original_data/SRR1956529_1.fastq.gz --reorder | samtools view -Shb - > SRR1956529_1.bam 
+    bowtie2 -x bowtie2/mm10_index --threads 8 -U ../original_data/SRR1956529_2.fastq.gz --reorder | samtools view -Shb - > SRR1956529_2.bam 
     
 
 .. code:: bash
 
-    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956527_1.fastq > SRR1956527_1.sam 
-    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956527_2.fastq > SRR1956527_2.sam 
-    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956528_1.fastq > SRR1956528_1.sam 
-    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956528_2.fastq > SRR1956528_2.sam 
-    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956529_1.fastq > SRR1956529_1.sam 
-    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956529_2.fastq > SRR1956529_2.sam 
-    
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956527_1.fastq.gz | samtools view -Shb - > SRR1956527_1.bam 
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956527_2.fastq.gz | samtools view -Shb - > SRR1956527_2.bam 
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956528_1.fastq.gz | samtools view -Shb - > SRR1956528_1.bam 
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956528_2.fastq.gz | samtools view -Shb - > SRR1956528_2.bam 
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956529_1.fastq.gz | samtools view -Shb - > SRR1956529_1.bam 
+    bwa mem -A 1 -B 4 -E 50 -L 0 -t 8 bwa/mm10_index original_data/SRR1956529_2.fastq.gz | samtools view -Shb - > SRR1956529_2.bam 
+
 
 
 Build, visualize and correct Hi-C matrix
@@ -165,9 +165,9 @@ To build the Hi-C matrices:
 .. code:: bash
 
     mkdir hicMatrix
-    hicBuildMatrix --samFiles SRR1956527_1.sam SRR1956527_2.sam --binSize 10000 --restrictionSequence GATC --outBam SRR1956527_ref.bam --outFileName hicMatrix/SRR1956527_10kb.h5 --QCfolder hicMatrix/SRR1956527_10kb_QC --threads 8 --inputBufferSize 400000
-    hicBuildMatrix --samFiles SRR1956528_1.sam SRR1956528_2.sam --binSize 10000 --restrictionSequence GATC --outBam SRR1956528_ref.bam --outFileName hicMatrix/SRR1956528_10kb.h5 --QCfolder hicMatrix/SRR1956528_10kb_QC --threads 8 --inputBufferSize 400000
-    hicBuildMatrix --samFiles SRR1956529_1.sam SRR1956529_2.sam --binSize 10000 --restrictionSequence GATC --outBam SRR1956529_ref.bam --outFileName hicMatrix/SRR1956529_10kb.h5 --QCfolder hicMatrix/SRR1956529_10kb_QC --threads 8 --inputBufferSize 400000
+    hicBuildMatrix --samFiles SRR1956527_1.bam SRR1956527_2.bam --binSize 10000 --restrictionSequence GATC --outBam SRR1956527_ref.bam --outFileName hicMatrix/SRR1956527_10kb.h5 --QCfolder hicMatrix/SRR1956527_10kb_QC --threads 8 --inputBufferSize 400000
+    hicBuildMatrix --samFiles SRR1956528_1.bam SRR1956528_2.bam --binSize 10000 --restrictionSequence GATC --outBam SRR1956528_ref.bam --outFileName hicMatrix/SRR1956528_10kb.h5 --QCfolder hicMatrix/SRR1956528_10kb_QC --threads 8 --inputBufferSize 400000
+    hicBuildMatrix --samFiles SRR1956529_1.bam SRR1956529_2.bam --binSize 10000 --restrictionSequence GATC --outBam SRR1956529_ref.bam --outFileName hicMatrix/SRR1956529_10kb.h5 --QCfolder hicMatrix/SRR1956529_10kb_QC --threads 8 --inputBufferSize 400000
     
 
 The output bam files show that we have around 34M, 54M and 58M selected

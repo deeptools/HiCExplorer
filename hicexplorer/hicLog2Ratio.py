@@ -11,7 +11,8 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Converts between different matrix file formats')
+        description='Computes the log2 ratio between two matrices. The larger matrix is scaled down to match the '
+                    'total sum of the smaller matrix. ')
 
     # define the arguments
     parser.add_argument('--treatment', '-t',

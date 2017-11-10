@@ -163,13 +163,13 @@ class ReadBed(object):
             assert len(line_data) == 12, "File type detected is bed12 but line {}: {} does " \
                                          "not have 12 fields.".format(self.line_number, bed_line)
 
-        elif self.file_handle == 'bed3':
+        elif self.file_type == 'bed3':
             assert len(line_data) == 3, "File type detected is bed3 but line {}: {} does " \
                 "not have 3 fields.".format(self.line_number, bed_line)
 
-        elif self.file_handle == 'bed6':
+        elif self.file_type == 'bed6':
             assert len(line_data) == 6, "File type detected is bed6 but line {}: {} does " \
-                "not have 3 fields.".format(self.line_number, bed_line)
+                "not have 6 fields.".format(self.line_number, bed_line)
         line_values = []
         for idx, r in enumerate(line_data):
             # first field is always chromosome/contig name

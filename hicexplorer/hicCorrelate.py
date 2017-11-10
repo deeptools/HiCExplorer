@@ -20,8 +20,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import FixedLocator
 
-from multiprocessing import Process, Lock, Queue
-
 
 def parse_arguments(args=None):
 

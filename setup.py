@@ -104,10 +104,11 @@ install_requires_py = ["numpy >= 1.12.1",
                        "pyBigWig >=0.3.4",
                        "six >= 1.10.0",
                        "future >= 0.16.0",
-                       "cooler >= 0.7.4"
+                       "cooler >= 0.7.4",
+                       "jinja2 >= 2.9.6"
                        ]
 
-if sys.version_info[0] == 2 or (sys.version_info[0] == 3 and sys.version_info[1] == 4):
+if sys.version_info[0] == 2:
     install_requires_py.append("configparser >= 3.5.0")
 
 setup(
