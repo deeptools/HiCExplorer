@@ -110,8 +110,8 @@ class hiCMatrix:
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
             elif file_format == 'cool':
-                if not cooler.io.is_cooler(matrixFile):
-                    exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
+                # if not cooler.io.is_cooler(matrixFile):
+                #     exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
                 if cooler_only_init:
                     self.load_cool_only_init(matrixFile)
                     self.cut_intervals = None
@@ -160,84 +160,13 @@ class hiCMatrix:
 
         if pChrnameList is None:
             matrix = self.cooler_file.matrix(balance=False, sparse=True)[:].tocsr()
-            print("matrix.data[:20]", matrix.data[:20])
-            print("after load: len(matrix.data)", len(matrix.data))
-            print("after load: len(matrix.row)", len(matrix.indptr))
-            print("after load: len(matrix.col)", len(matrix.indices))
-            print("after load: dtype", matrix.dtype)
 
         else:
             if len(pChrnameList) == 1:
-
                 matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
-                print("ELSE: matrix.data[:20]", matrix.data[:20])
-
-            # elif len(pChrnameList) == 2:
-            #     matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0], pChrnameList[1])
             else:
                 exit("Operation to load more as two regions is not supported.")
-            # elif pIntraChromosomalOnly:
-            #     row = []
-            #     col = []
-            #     data = []
-            #     offset_sum = 0
-            #     for chrom in pChrnameList:
-            #         matrix_ = self.cooler_file.matrix(balance=False, sparse=True).fetch(chrom)
-            #         offset_sum += matrix_.shape[0]
-            #         row.extend(matrix_.nonzero()[0] + offset_sum)
-            #         col.extend(matrix_.nonzero()[1] + offset_sum)
-            #         data.extend(matrix_.data)
-            #     matrix = csr_matrix((data, (row, col)), dtype=np.float32)
-
-            # else:
-            #     row = []
-            #     col = []
-            #     data = []
-            #     offset_sum = 0
-            #     offset_sum_innerloop = 0
-            #     for i, chrom in enumerate(pChrnameList):
-            #         # offset of this chromome
-            #         offset_chr = self.cooler_file.offset(chrom)
-            #         # offset of chromosome next to it.
-            #         chr_right = None
-            #         offset_chr_right = None
-            #         for j, chrom_ in enumerate(self.cooler_file.chromnames):
-            #             if chrom_ != chrom:
-            #                 continue
-            #             if j < len(self.cooler_file.chromnames - 1):
-            #                 chr_right = self.cooler_file.chromnames[j + 1]
-            #                 break
-
-            #         if chr_right:
-            #             offset_chr_right = self.cooler_file.offset(chr_right)
-            #         else:
-            #             offset_chr_right = self.cooler_file.info['nbins']
-
-            #         for j in range(i, len(pChrnameList), 1):
-
-            #             offset_chr_innerloop = self.cooler_file.offset(pChrnameList[j])
-            #             chr_right_innerloop = None
-            #             offset_chr_right_innerloop = None
-            #             for k, chrom_ in enumerate(self.cooler_file.chromnames):
-            #                 if chrom_ != pChrnameList[j]:
-            #                     continue
-            #                 if k < len(self.cooler_file.chromnames - 1):
-            #                     chr_right_innerloop = self.cooler_file.chromnames[k + 1]
-            #                     break
-
-            #             if chr_right_innerloop:
-            #                 offset_chr_right_innerloop = self.cooler_file.offset(chr_right_innerloop)
-            #             else:
-            #                 offset_chr_right_innerloop = self.cooler_file.info['nbins']
-            #             matrix_ = self.cooler_file.matrix(balance=False, sparse=True)[offset_chr:offset_chr_right, offset_chr_innerloop:offset_chr_right_innerloop]
-
-            #             offset_sum = offset_sum + (offset_chr_right - offset_chr)
-            #             offset_sum_innerloop = offset_sum_innerloop + (offset_chr_right_innerloop - offset_chr_innerloop)
-            #             row.extend(matrix_.nonzero()[0] + offset_sum)
-            #             col.extend(matrix_.nonzero()[1] + offset_sum_innerloop)
-            #             data.extend(matrix_.data)
-
-            #     matrix = csr_matrix((data, (row, col)))
+            
 
         cut_intervals_data_frame = None
         if pChrnameList is not None:
@@ -245,43 +174,22 @@ class hiCMatrix:
                 cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
             else:
                 exit("Operation to load more than one chr from bins is not supported.")
-        #         for chrom in pChrnameList:
-        #             cut_intervals_data_frame_ = self.cooler_file.bins().fetch(chrom)
-        #             if cut_intervals_data_frame is None:
-        #                 cut_intervals_data_frame = cut_intervals_data_frame_
-        #             else:
-        #                 cut_intervals_data_frame = pd.concat([cut_intervals_data_frame, cut_intervals_data_frame_], ignore_index=True)
-
+        
         else:
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
         cut_intervals = []
 
         for values in cut_intervals_data_frame.values:
-            cut_intervals.append(tuple(values))
-
-        # cut intervals
-        # check for duplicates
-        # check for start / end within range
-        # print("cut_intervals_data_frame", cut_intervals_data_frame)
-        # duplicate_check = set()
-        # cut_intervals = []
-
-        # for values in cut_intervals_data_frame.values:
-        #     if values[1] in duplicate_check:
-        #         continue
-        #     else:
-        #         duplicate_check.add(values[1])
-        #         cut_intervals.append(tuple(values))
-
+            # print('values', values)
+            if sys.version_info[0] == 3:
+                cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], values[3]]))
+            else:
+                cut_intervals.append(tuple(values))
+                
+            # print([toString(values[0]), values[1], values[2], values[3]])
         # try to restore nan_bins.
-
         try:
-            print("TO_CSC_matrix.data[:20]", matrix.data[:20])
-
-            # matrix = matrix.tocsc()
-            print("AFTER TO_CSCmatrix.data[:20]", matrix.data[:20])
-
             shape = matrix.shape[0] if matrix.shape[0] < matrix.shape[1] else matrix.shape[1]
             nan_bins = np.array(range(shape))
             nan_bins = np.setxor1d(nan_bins, matrix.indices)
@@ -296,23 +204,9 @@ class hiCMatrix:
         except:
             nan_bins = None
 
-        # print("matrix.shape", matrix.shape)
-        # print("nan_bins", nan_bins)
-        # matrix.data = matrix.data.astype(np.float32)
-        # matrix = matrix.tolil()
-
-        # matrix[nan_bins, :] = 0
-        # matrix[:, nan_bins] = 0
-
-        # matrix = matrix.tocsr()
-        print("306::len(data)", len(matrix.data))
 
         distance_counts = None
         correction_factors = None
-        print("BEFORE TRIANGLE: matrix.data[:20]", matrix.data[:20])
-
-        # matrix = hiCMatrix.fillLowerTriangle(matrix)
-        print("AFTER_TRIANGLE__smatrix.data[:20]", matrix.data[:20])
 
         return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
@@ -334,7 +228,22 @@ class hiCMatrix:
             # get intervals
             intvals = {}
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
-                intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
+                if toString(interval_part) == toString('chr_list'):
+                    chrom_list = getattr(f.root.intervals, interval_part).read()
+                    print(toString(chrom_list))
+                    intvals[interval_part] = toString(chrom_list)
+                else:
+                    print("interval_part", interval_part)
+                    intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
+                    
+                # intvals[interval_part][0] = toString(intvals[interval_part][0])
+            print("LOAD H5__intvals['chr_list'][:20]", intvals['chr_list'][:20])
+            # map(toString, intvals['chr_list'])
+            # print("LOAD H5__intvals['chr_list'][:20]", intvals['chr_list'][:20])
+            
+            # for i in range(len(intvals['chr_list'])):
+
+            #     intvals['chr_list'][i] = toString(intvals['chr_list'][i])
             cut_intervals = zip(intvals['chr_list'], intvals['start_list'], intvals['end_list'], intvals['extra_list'])
             assert len(cut_intervals) == matrix.shape[0], \
                 "Error loading matrix. Length of bin intervals ({}) is different than the " \
@@ -365,13 +274,14 @@ class hiCMatrix:
 
     @staticmethod
     def load_npz(matrixFile):
-        _ma = np.load(matrixFile)
+        _ma = np.load(matrixFile, fix_imports=True, encoding="latin1")
         matrix = hiCMatrix.fillLowerTriangle(_ma['matrix'].tolist())
         if 'dist_counts' not in _ma:
             distance_counts = None
         else:
             distance_counts = _ma['dist_counts'].tolist()
 
+        map(toString, _ma['chrNameList'])
         cut_intervals = zip(_ma['chrNameList'], _ma['startList'],
                             _ma['endList'], _ma['extraList'])
 
@@ -1992,14 +1902,27 @@ def toString(s):
     """
     This takes care of python2/3 differences
     """
+    if type(s) is np.bytes_:
+        foo = s.decode('UTF-8')
+        
+        # print("Numpy.bytes_s")
+        # print(foo)
+        return foo
     if isinstance(s, str):
+        # print("str")
+        # print(s)
         return s
     if isinstance(s, bytes):
+        # print("bytes")
+        
         if sys.version_info[0] == 2:
             return str(s)
         return s.decode('ascii')
     if isinstance(s, list):
+        # print("list")
+        
         return [toString(x) for x in s]
+    # print("None")
     return s
 
 
@@ -2014,5 +1937,6 @@ def toBytes(s):
     if isinstance(s, str):
         return bytes(s, 'ascii')
     if isinstance(s, list):
+        print("to bytes")
         return [toBytes(x) for x in s]
     return s
