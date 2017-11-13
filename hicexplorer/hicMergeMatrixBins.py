@@ -232,6 +232,22 @@ def main():
 
     args = parse_arguments().parse_args()
     hic = hm.hiCMatrix(args.matrix)
+    if len(hic.nan_bins):
+        # Usually, only corrected matrices contain NaN bins.
+        # this need to be removed before merging the bins.
+        hic.maskBins(hic.nan_bins)
+
+        # NaN bins are problematic when merging bins because they
+        # become non consecutive. Ideally, is better to merge bins on
+        # uncorrected matrices and correct again.
+
+        # Remove the information about NaN bins because they can not be merged
+        hic.orig_bin_ids = []
+        hic.orig_cut_intervals = []
+
+        sys.stderr.write("*WARNING*: The matrix is probably a corrected matrix that contains NaN bins. This bins "
+                         "can not be merged and are removed. It is preferable to first merge bins in a uncorrected  "
+                         "matrix and then correct the matrix.\n")
     if args.runningWindow:
         merged_matrix = running_window_merge(hic, args.numBins)
     else:
