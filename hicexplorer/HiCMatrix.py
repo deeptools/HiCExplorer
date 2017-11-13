@@ -38,6 +38,11 @@ class hiCMatrix:
         self.bin_size = None
         self.bin_size_homogeneous = None  # track if the bins are equally spaced or not
 
+        # when NaN bins are masked, this variable becomes contains the bin index
+        # needed to put the masked bins back into the matrix.
+        self.orig_bin_ids = []
+        self.orig_cut_intervals = []  # similar to orig_bin_ids. Used to identify the position of masked nan bins
+
         if matrixFile:
             self.nan_bins = np.array([])
             if not file_format:
@@ -1334,18 +1339,15 @@ class hiCMatrix:
             return
 
         self.printchrtoremove(bin_ids, restore_masked_bins=False)
-        try:
-            # check if a masked bin already exists
-            if len(self.orig_bin_ids) > 0:
-                print "Masked bins already present"
-                M = self.matrix.shape[0]
-                previous_bin_ids = self.orig_bin_ids[M:]
-                # merge new and old masked bins
-                bin_ids = np.unique(np.concatenate([previous_bin_ids, self.orig_bin_ids[bin_ids]]))
-                np.sort(bin_ids)
-                self.restoreMaskedBins()
-        except:
-            pass
+        # check if a masked bin already exists
+        if len(self.orig_bin_ids) > 0:
+            print "Masked bins already present"
+            M = self.matrix.shape[0]
+            previous_bin_ids = self.orig_bin_ids[M:]
+            # merge new and old masked bins
+            bin_ids = np.unique(np.concatenate([previous_bin_ids, self.orig_bin_ids[bin_ids]]))
+            np.sort(bin_ids)
+            self.restoreMaskedBins()
 
         # join with existing nan_bins
         if len(self.nan_bins) > 0:
@@ -1364,13 +1366,11 @@ class hiCMatrix:
 
         new_cut_intervals = [self.cut_intervals[x] for x in rows]
 
-        self.orig_cut_intervals = \
-            new_cut_intervals + [self.cut_intervals[x] for x in bin_ids]
+        self.orig_cut_intervals = new_cut_intervals + [self.cut_intervals[x] for x in bin_ids]
 
         self.cut_intervals = new_cut_intervals
 #        self.nan_bins = np.intersect1d(self.nan_bins, rows)
-        self.interval_trees, self.chrBinBoundaries = \
-            self.intervalListToIntervalTree(self.cut_intervals)
+        self.interval_trees, self.chrBinBoundaries = self.intervalListToIntervalTree(self.cut_intervals)
 
         if self.correction_factors is not None:
             self.correction_factors = self.correction_factors[rows]
@@ -1384,7 +1384,7 @@ class hiCMatrix:
         (chrom, start, end, coverage)
         :return:
         """
-        if hasattr(self, 'orig_bin_ids'):
+        if len(self.orig_bin_ids) > 0:
             raise Exception("matrix contains masked bins. Restore masked bins first")
 
         assert len(new_cut_intervals) == new_matrix.shape[0], "matrix shape and len of cut intervals do not match"
@@ -1401,10 +1401,49 @@ class hiCMatrix:
         """
         Puts backs into the matrix the bins
         removed
+
+
+        Examples
+        --------
+        >>> from scipy.sparse import coo_matrix
+        >>> row, col = np.triu_indices(5)
+        >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
+        ... ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
+        >>> hic = hiCMatrix()
+        >>> hic.nan_bins = []
+        >>> matrix = np.array([
+        ... [ 0, 10,  5, 3, 0],
+        ... [ 0,  0, 15, 5, 1],
+        ... [ 0,  0,  0, 7, 3],
+        ... [ 0,  0,  0, 0, 1],
+        ... [ 0,  0,  0, 0, 0]])
+
+        make the matrix symmetric:
+        >>> hic.matrix = csr_matrix(matrix + matrix.T)
+        >>> hic.setMatrix(csr_matrix(matrix + matrix.T), cut_intervals)
+
+        Add masked bins masked bins
+        >>> hic.maskBins([3])
+        >>> hic.matrix.todense()
+        matrix([[ 0, 10,  5,  0],
+                [10,  0, 15,  1],
+                [ 5, 15,  0,  3],
+                [ 0,  1,  3,  0]])
+        >>> hic.cut_intervals
+        [('a', 0, 10, 1), ('a', 10, 20, 1), ('a', 20, 30, 1), ('b', 40, 50, 1)]
+
+        >>> hic.restoreMaskedBins()
+        >>> hic.matrix.todense()
+        matrix([[  0.,  10.,   5.,   0.,   0.],
+                [ 10.,   0.,  15.,   0.,   1.],
+                [  5.,  15.,   0.,   0.,   3.],
+                [  0.,   0.,   0.,   0.,   0.],
+                [  0.,   1.,   3.,   0.,   0.]])
+
+        >>> hic.cut_intervals
+        [('a', 0, 10, 1), ('a', 10, 20, 1), ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
         """
-        try:
-            self.orig_bin_ids
-        except AttributeError:
+        if len(self.orig_bin_ids) == 0:
             return
         # the rows to add are
         # as an empty sparse matrix
@@ -1435,7 +1474,10 @@ class hiCMatrix:
                                                       np.repeat(np.nan, N)])
             # reorder array
             self.correction_factors = self.correction_factors[rows]
-        del(self.orig_cut_intervals, self.orig_bin_ids)
+
+        # reset orig bins ids and cut intervals
+        self.orig_bin_ids = []
+        self.orig_cut_intervals = []
         sys.stderr.write("masked bins were restored\n")
 
     def reorderMatrix(self, orig, dest):
@@ -1551,13 +1593,10 @@ class hiCMatrix:
             return
 
         if restore_masked_bins:
-            try:
-                # check if a masked bin already exists
-                if len(self.orig_bin_ids) > 0:
-                    print "Masked bins already present"
-                    self.restoreMaskedBins()
-            except:
-                pass
+            # check if a masked bin already exists
+            if len(self.orig_bin_ids) > 0:
+                print "Masked bins already present"
+                self.restoreMaskedBins()
         for idx in to_remove:
             chrom = self.cut_intervals[idx][0]
             if chrom not in cnt:

@@ -46,6 +46,28 @@ def parse_arguments(args=None):
     return parser
 
 
+def remove_nans_if_needed(hic):
+    if len(hic.nan_bins):
+        # Usually, only corrected matrices contain NaN bins.
+        # this need to be removed before merging the bins.
+        hic.maskBins(hic.nan_bins)
+
+        # NaN bins are problematic when merging bins because they
+        # become non consecutive. Ideally, is better to merge bins on
+        # uncorrected matrices and correct again.
+
+        # Remove the information about NaN bins because they can not be merged
+        hic.orig_bin_ids = []
+        hic.orig_cut_intervals = []
+        hic.correction_factors = None
+
+        sys.stderr.write("*WARNING*: The matrix is probably a corrected matrix that contains NaN bins. This bins "
+                         "can not be merged and are removed. It is preferable to first merge bins in a uncorrected  "
+                         "matrix and then correct the matrix. Correction factors, if present, are removed as well.\n")
+
+    return hic
+
+
 def running_window_merge(hic_matrix, num_bins):
     """Creates a 'running window' merge without changing the
     original resolution of the matrix. The window size is
@@ -98,6 +120,7 @@ def running_window_merge(hic_matrix, num_bins):
             [4, 6, 5, 3]])
     """
 
+    hic_matrix = remove_nans_if_needed(hic_matrix)
     if num_bins == 1:
         return hic_matrix
 
@@ -142,6 +165,7 @@ def running_window_merge(hic_matrix, num_bins):
 
     hic_matrix.matrix = new_ma
     hic_matrix.nan_bins = np.flatnonzero(hic_matrix.matrix.sum(0).A == 0)
+    hic_matrix.matrix.eliminate_zeros()
 
     return hic_matrix
 
@@ -193,6 +217,8 @@ def merge_bins(hic, num_bins):
             [ 28, 177,   4],
             [  1,   4, 100]])
     """
+
+    hic = remove_nans_if_needed(hic)
     # get the bins to merge
     ref_name_list, start_list, end_list, coverage_list = zip(*hic.cut_intervals)
     new_bins = []
@@ -222,6 +248,7 @@ def merge_bins(hic, num_bins):
     bins_to_merge.append(range(idx_start, idx + 1))
 
     hic.matrix = reduce_matrix(hic.matrix, bins_to_merge, diagonal=True)
+    hic.matrix.eliminate_zeros()
     hic.cut_intervals = new_bins
     hic.nan_bins = np.flatnonzero(hic.matrix.sum(0).A == 0)
 
@@ -232,22 +259,10 @@ def main():
 
     args = parse_arguments().parse_args()
     hic = hm.hiCMatrix(args.matrix)
+
     if args.runningWindow:
         merged_matrix = running_window_merge(hic, args.numBins)
     else:
         merged_matrix = merge_bins(hic, args.numBins)
-
-    print 'saving matrix'
-    # there is a pickle problem with large arrays
-    # To increase the sparsity of the matrix and
-    # overcome the problem
-    # I transform al ones into zeros.
-    """
-    merged_matrix.matrix.data = merged_matrix.matrix.data - 1
-    """
-    merged_matrix.matrix.eliminate_zeros()
-    if merged_matrix.correction_factors is not None:
-        sys.stderr.write("*WARNING*: The corrections factors are not merged and are set to None\n")
-        merged_matrix.correction_factors = None
 
     merged_matrix.save(args.outFileName)
