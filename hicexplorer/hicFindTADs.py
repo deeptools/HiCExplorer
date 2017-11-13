@@ -396,7 +396,7 @@ class HicFindTads(object):
             if self.binsize < 1000:
                 self.max_depth = self.binsize * 60
             elif 1000 <= self.binsize < 20000:
-                self.max_depth = self.binsize * 20
+                self.max_depth = self.binsize * 40
             else:
                 self.max_depth = self.binsize * 10
         elif self.max_depth < self.binsize * 5:
@@ -995,7 +995,7 @@ class HicFindTads(object):
                 tad_score.write("{}\t{}\t{}\t{}\n".format(chrom[idx], left_bin_center, right_bin_center,
                                                           mean_mat_all[idx]))
 
-    def compute_spectra_matrix(self):
+    def compute_spectra_matrix(self, perchr=True):
         """
         Uses multiple processors to compute the TAD-score
 
@@ -1016,7 +1016,7 @@ class HicFindTads(object):
         if self.use_zscore:
             # use zscore matrix
             log.info("Computing z-score matrix...\n")
-            self.hic_ma.convert_to_zscore_matrix(maxdepth=self.max_depth * 2.5, perchr=True)
+            self.hic_ma.convert_to_zscore_matrix(maxdepth=self.max_depth * 2.5, perchr=perchr)
 
         # extend remaining bins to remove gaps in
         # the matrix
