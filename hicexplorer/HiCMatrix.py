@@ -37,8 +37,10 @@ class hiCMatrix:
         self.distance_counts = None  # only defined when getCountsByDistance is called
         self.bin_size = None
         self.bin_size_homogeneous = None  # track if the bins are equally spaced or not
-        self.orig_bin_ids = []  # when NaN bins are masked, this variable becomes contains the bin index
-                                # needed to put the masked bins back into the matrix.
+
+        # when NaN bins are masked, this variable becomes contains the bin index
+        # needed to put the masked bins back into the matrix.
+        self.orig_bin_ids = []
         self.orig_cut_intervals = []  # similar to orig_bin_ids. Used to identify the position of masked nan bins
 
         if matrixFile:
