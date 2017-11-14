@@ -424,14 +424,16 @@ def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
     chrom, region_start, region_end = translate_region(args.region)
 
-    # print("len(cut_intervals)", len(ma.cut_intervals))
-    if type(next(iter(ma.interval_trees))) is np.bytes_:
+    if type(next(iter(ma.interval_trees))) is np.bytes_ or type(next(iter(ma.interval_trees))) is bytes:
         chrom = toBytes(chrom)
-
+        
     if chrom not in list(ma.interval_trees):
+        
         chrom = change_chrom_names(chrom)
-        if type(next(iter(ma.interval_trees))) is np.bytes_:
+        
+        if type(next(iter(ma.interval_trees))) is np.bytes_ or type(next(iter(ma.interval_trees))) is bytes:
             chrom = toBytes(chrom)
+            
         if chrom not in list(ma.interval_trees):
             exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 
@@ -449,11 +451,11 @@ def getRegion(args, ma):
         chrom2, region_start2, region_end2 = translate_region(args.region2)
         # print("GOOO: regiom_start2", region_start2, " region_end2", region_end2)
         # print("ma.cut_intervals", ma.cut_intervals)
-        if type(next(iter(ma.interval_trees))) is np.bytes_:
+        if type(next(iter(ma.interval_trees))) is np.bytes_ or type(next(iter(ma.interval_trees))) is bytes:
             chrom2 = toBytes(chrom)
         if chrom2 not in list(ma.interval_trees):
             chrom2 = change_chrom_names(chrom2)
-            if type(next(iter(ma.interval_trees))) is np.bytes_:
+            if type(next(iter(ma.interval_trees))) is np.bytes_ or type(next(iter(ma.interval_trees))) is bytes:
                 chrom2 = toBytes(chrom)
             if chrom2 not in list(ma.interval_trees):
                 exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))

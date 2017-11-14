@@ -163,7 +163,12 @@ class hiCMatrix:
 
         else:
             if len(pChrnameList) == 1:
-                matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
+            
+                try:
+                    matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
+                except:
+                    exit("Wrong chromosome format. Please check UCSC / ensembl notation.")
+                    
             else:
                 exit("Operation to load more as two regions is not supported.")
             
