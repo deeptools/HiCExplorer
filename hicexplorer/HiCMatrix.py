@@ -1476,7 +1476,7 @@ class hiCMatrix:
         ... [ 0,  0, 15, 5, 1],
         ... [ 0,  0,  0, 7, 3],
         ... [ 0,  0,  0, 0, 1],
-        ... [ 0,  0,  0, 0, 0]])
+        ... [ 0,  0,  0, 0, 0]], dtype=np.int32)
 
         make the matrix symmetric:
         >>> hic.matrix = csr_matrix(matrix + matrix.T)
@@ -1488,7 +1488,7 @@ class hiCMatrix:
         matrix([[ 0, 10,  5,  0],
                 [10,  0, 15,  1],
                 [ 5, 15,  0,  3],
-                [ 0,  1,  3,  0]])
+                [ 0,  1,  3,  0]], dtype=int32)
         >>> hic.cut_intervals
         [('a', 0, 10, 1), ('a', 10, 20, 1), ('a', 20, 30, 1), ('b', 40, 50, 1)]
 
