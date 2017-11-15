@@ -110,8 +110,8 @@ class hiCMatrix:
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
             elif file_format == 'cool':
-                # if not cooler.io.is_cooler(matrixFile):
-                #     exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
+                if not cooler.io.is_cooler(matrixFile):
+                    exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
                 if cooler_only_init:
                     self.load_cool_only_init(matrixFile)
                     self.cut_intervals = None

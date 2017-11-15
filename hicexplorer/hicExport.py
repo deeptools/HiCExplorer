@@ -62,7 +62,7 @@ def parse_arguments(args=None):
 
     parser.add_argument('--outputFormat',
                         help='Output format. The possibilities are "dekker",  "ren", "h5, '
-                             'npz (former hicexplorer format) and "GInteractoins". '
+                             'npz (former hicexplorer format), "GInteractoins" and "cool". '
                              'The dekker format outputs the whole matrix where the '
                              'first column and first row are the bin widths and labels. '
                              'The "ren" format is a list of tuples of the form '
