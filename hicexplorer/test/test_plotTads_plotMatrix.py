@@ -138,7 +138,8 @@ with open(ROOT + "browser_tracks_cool.ini", 'w') as fh:
 
 tolerance = 13  # default matplotlib pixed difference tolerance
 
-
+@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+                    reason="Travis has too less memory to run it.")
 def test_hicPlotTads():
     import hicexplorer.hicPlotTADs
 
@@ -160,7 +161,8 @@ def test_hicPlotTads():
 
     os.remove(outfile.name)
 
-
+@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+                    reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix():
     import hicexplorer.hicPlotMatrix
 
@@ -221,7 +223,8 @@ def test_hicPlotMatrix():
     # assert res is None, res
     # os.remove(outfile.name)
 
-
+@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+                    reason="Travis has too less memory to run it.")
 def test_hicPlotTads_cool():
     import hicexplorer.hicPlotTADs
 
@@ -235,7 +238,8 @@ def test_hicPlotTads_cool():
 
     os.remove(outfile.name)
 
-
+@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+                    reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_cool():
     import hicexplorer.hicPlotMatrix
 

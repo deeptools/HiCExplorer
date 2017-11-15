@@ -1942,6 +1942,5 @@ def toBytes(s):
     if isinstance(s, str):
         return bytes(s, 'ascii')
     if isinstance(s, list):
-        print("to bytes")
         return [toBytes(x) for x in s]
     return s
