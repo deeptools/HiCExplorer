@@ -18,6 +18,11 @@ Requirements
 * pyBigWig >=0.2.8
 * future >= 0.16.0
 * cooler >= 0.7.6
+* six >= 1.10.0
+* jinja2 >= 2.9.6
+
+Command line installation using ``conda``
+-----------------------------------------
 
 The fastet way to obtain **Python 3.6 together with numpy and scipy** is
 via the `Anaconda Scientific Python
