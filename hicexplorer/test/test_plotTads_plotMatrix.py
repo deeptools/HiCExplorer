@@ -2,6 +2,8 @@ import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images
 import os.path
+import pytest
+import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
@@ -138,7 +140,8 @@ with open(ROOT + "browser_tracks_cool.ini", 'w') as fh:
 
 tolerance = 13  # default matplotlib pixed difference tolerance
 
-
+@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+                    reason="Travis has too less memory to run it.")
 def test_hicPlotTads():
     import hicexplorer.hicPlotTADs
 
@@ -160,7 +163,8 @@ def test_hicPlotTads():
 
     os.remove(outfile.name)
 
-
+@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+                    reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix():
     import hicexplorer.hicPlotMatrix
 
@@ -221,7 +225,8 @@ def test_hicPlotMatrix():
     # assert res is None, res
     # os.remove(outfile.name)
 
-
+@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+                    reason="Travis has too less memory to run it.")
 def test_hicPlotTads_cool():
     import hicexplorer.hicPlotTADs
 
@@ -230,26 +235,21 @@ def test_hicPlotTads_cool():
            "--outFileName  {1}".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotTADs.main(args)
 
-    res = compare_images(ROOT + '/master_TADs_plot_cool_partial_load.png', outfile.name, tolerance)
+    res = compare_images(ROOT + '/master_TADs_plot_cool_partial_load.png', outfile.name, tol=40)
     assert res is None, res
 
-    # os.remove(outfile.name)
+    os.remove(outfile.name)
 
-
+@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+                    reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_cool():
     import hicexplorer.hicPlotMatrix
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
 
-    # args = "--matrix {0}/Li_et_al_2015.cool --region X:3000000-3500000 --region2 X:3100000-3600000 " \
-    #        "--outFileName  {1} --log1p".format(ROOT, outfile.name).split()
-    # hicexplorer.hicPlotMatrix.main(args)
-    # res = compare_images(ROOT + '/master_matrix_plot_cool.png', outfile.name, tolerance)
-    # assert res is None, res
-    print ("\n\n\nCOOL\n\n")
-    args = "--matrix {0}/Li_et_al_2015.cool --region X:3000000-3500000 --region2 X:3100000-3600000 " \
+    args = "--matrix {0}/Li_et_al_2015.cool --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
            "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + '/master_matrix_plot.png', outfile.name, tol=40)
     assert res is None, res
-    # os.remove(outfile.name)
+    os.remove(outfile.name)

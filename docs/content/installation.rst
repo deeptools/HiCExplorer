@@ -17,6 +17,7 @@ Requirements
 * pytables >= 3.2.2
 * pyBigWig >=0.2.8
 * future >= 0.16.0
+* cooler >= 0.7.6
 
 The fastet way to obtain **Python 3.6 together with numpy and scipy** is
 via the `Anaconda Scientific Python

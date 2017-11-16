@@ -104,7 +104,7 @@ install_requires_py = ["numpy >= 1.12.1",
                        "pyBigWig >=0.3.4",
                        "six >= 1.10.0",
                        "future >= 0.16.0",
-                       "cooler >= 0.7.4",
+                       "cooler >= 0.7.6",
                        "jinja2 >= 2.9.6"
                        ]
 

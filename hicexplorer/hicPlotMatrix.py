@@ -424,14 +424,16 @@ def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
     chrom, region_start, region_end = translate_region(args.region)
 
-    # print("len(cut_intervals)", len(ma.cut_intervals))
-    if type(next(iter(ma.interval_trees))) is np.bytes_:
+    if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
         chrom = toBytes(chrom)
-
+        
     if chrom not in list(ma.interval_trees):
+        
         chrom = change_chrom_names(chrom)
-        if type(next(iter(ma.interval_trees))) is np.bytes_:
+        
+        if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
             chrom = toBytes(chrom)
+            
         if chrom not in list(ma.interval_trees):
             exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 
@@ -449,11 +451,11 @@ def getRegion(args, ma):
         chrom2, region_start2, region_end2 = translate_region(args.region2)
         # print("GOOO: regiom_start2", region_start2, " region_end2", region_end2)
         # print("ma.cut_intervals", ma.cut_intervals)
-        if type(next(iter(ma.interval_trees))) is np.bytes_:
+        if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
             chrom2 = toBytes(chrom)
         if chrom2 not in list(ma.interval_trees):
             chrom2 = change_chrom_names(chrom2)
-            if type(next(iter(ma.interval_trees))) is np.bytes_:
+            if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
                 chrom2 = toBytes(chrom)
             if chrom2 not in list(ma.interval_trees):
                 exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
@@ -474,7 +476,6 @@ def getRegion(args, ma):
 
 
 def main(args=None):
-    print("\nhicPlotMatrix")
     args = parse_arguments().parse_args(args)
     if args.perChromosome and args.region:
         sys.stderr.write('ERROR, choose from the option '
@@ -602,11 +603,6 @@ def main(args=None):
         if args.whatToShow == 'heatmap':
             position = [left_margin, bottom, width, height]
             if args.region:
-                # if args.matrix.endswith('cool'):
-                    # plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
-                    #                 args, cmap, xlabel=chrom, ylabel=chrom2)
-                # else:
-                # print("Len(start_pos1)___587", len(start_pos1))
 
                 plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
                                    args, cmap, xlabel=chrom, ylabel=chrom2,
