@@ -426,14 +426,14 @@ def getRegion(args, ma):
 
     if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
         chrom = toBytes(chrom)
-        
+
     if chrom not in list(ma.interval_trees):
-        
+
         chrom = change_chrom_names(chrom)
-        
+
         if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
             chrom = toBytes(chrom)
-            
+
         if chrom not in list(ma.interval_trees):
             exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 

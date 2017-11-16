@@ -163,15 +163,14 @@ class hiCMatrix:
 
         else:
             if len(pChrnameList) == 1:
-            
+
                 try:
                     matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
                 except:
                     exit("Wrong chromosome format. Please check UCSC / ensembl notation.")
-                    
+
             else:
                 exit("Operation to load more as two regions is not supported.")
-            
 
         cut_intervals_data_frame = None
         if pChrnameList is not None:
@@ -179,7 +178,7 @@ class hiCMatrix:
                 cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
             else:
                 exit("Operation to load more than one chr from bins is not supported.")
-        
+
         else:
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
 
@@ -191,7 +190,7 @@ class hiCMatrix:
                 cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], values[3]]))
             else:
                 cut_intervals.append(tuple(values))
-                
+
             # print([toString(values[0]), values[1], values[2], values[3]])
         # try to restore nan_bins.
         try:
@@ -208,7 +207,6 @@ class hiCMatrix:
 
         except:
             nan_bins = None
-
 
         distance_counts = None
         correction_factors = None
@@ -240,12 +238,12 @@ class hiCMatrix:
                 else:
                     print("interval_part", interval_part)
                     intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
-                    
+
                 # intvals[interval_part][0] = toString(intvals[interval_part][0])
             print("LOAD H5__intvals['chr_list'][:20]", intvals['chr_list'][:20])
             # map(toString, intvals['chr_list'])
             # print("LOAD H5__intvals['chr_list'][:20]", intvals['chr_list'][:20])
-            
+
             # for i in range(len(intvals['chr_list'])):
 
             #     intvals['chr_list'][i] = toString(intvals['chr_list'][i])
@@ -1908,26 +1906,16 @@ def toString(s):
     This takes care of python2/3 differences
     """
     if type(s) is np.bytes_:
-        foo = s.decode('UTF-8')
-        
-        # print("Numpy.bytes_s")
-        # print(foo)
-        return foo
+        return s.decode('UTF-8')
     if isinstance(s, str):
-        # print("str")
-        # print(s)
         return s
     if isinstance(s, bytes):
-        # print("bytes")
-        
+
         if sys.version_info[0] == 2:
             return str(s)
         return s.decode('ascii')
     if isinstance(s, list):
-        # print("list")
-        
         return [toString(x) for x in s]
-    # print("None")
     return s
 
 

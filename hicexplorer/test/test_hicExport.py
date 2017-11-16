@@ -28,12 +28,10 @@ def run_compare(pInputFile, pInputFormat, pOutputFormat, pChrNameList=None):
 
     test = hm.hiCMatrix(inputMatrix)
     new = hm.hiCMatrix(outfile.name)
-    print(pInputFormat, test.cut_intervals[:20])
-    print(pOutputFormat, new.cut_intervals[:20])
-    
+
     nt.assert_equal(new.matrix.data, test.matrix.data)
     nt.assert_equal(new.cut_intervals, test.cut_intervals)
-    # os.unlink(outfile.name)
+    os.unlink(outfile.name)
     return True
 
 

@@ -376,7 +376,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
                      "distance: {}\n".format(min_distance, max_distance))
 
     chrom, start, end = list(zip(*rf_cut_intervals))
-   
+
     rest_site_len = end[0] - start[0]
 
     # find sites that are less than min_distance apart
