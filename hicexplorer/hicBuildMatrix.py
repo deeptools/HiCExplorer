@@ -135,6 +135,10 @@ def parse_arguments(args=None):
                         default=300,
                         required=False)
 
+    parser.add_argument('--maxDistance',
+                        help='This parameter is now obsolete. Use --maxLibraryInsertSize instead',
+                        type=int)
+
     parser.add_argument('--maxLibraryInsertSize',
                         help='The maximum library insert size defines different cut offs based on the maximum expected '
                              'library size. *This is not the average fragment size* but the higher end of the '
@@ -988,6 +992,10 @@ def main(args=None):
     """
 
     args = parse_arguments().parse_args(args)
+
+    # for backwards compatibility
+    if args.maxDistance is not None:
+        args.maxLibraryInsertSize = args.maxDistance
     try:
         QC.make_sure_path_exists(args.QCfolder)
     except OSError:
