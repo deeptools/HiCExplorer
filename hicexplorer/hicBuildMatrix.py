@@ -475,7 +475,7 @@ def get_supplementary_alignment(read, pysam_obj):
         supplementary_alignment = []
         for i in range(len(other_alignments)):
             _sup = pysam_obj.next()
-            if _sup.is_supplementary and _sup.qname == read.qname:
+            if _sup.qname == read.qname:
                 supplementary_alignment.append(_sup)
 
         return supplementary_alignment
