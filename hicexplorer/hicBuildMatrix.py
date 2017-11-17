@@ -5,6 +5,7 @@ from scipy.sparse import coo_matrix, dia_matrix
 import time
 from os import unlink
 import os
+import itertools
 
 import pysam
 from six.moves import xrange
@@ -530,7 +531,7 @@ def get_correct_map(primary, supplement_list):
             cigartuples = read.cigartuples[:]
 
         first_mapped.append(
-            [x for x, cig in enumerate(cigartuples) if cig[0] == 0][0])
+            sum(count for op, count in itertools.takewhile(lambda (op, count): op != 0, cigartuples)))
     # find which read has a cigar string that maps first than any of the
     # others.
     idx_min = first_mapped.index(min(first_mapped))
