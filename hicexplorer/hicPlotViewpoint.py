@@ -1,17 +1,13 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
-
 import argparse
 
 import numpy as np
 import hicexplorer.HiCMatrix as hm
 import matplotlib.pyplot as plt
-
 import os
-def parseArguments(args=None):
-    parser = argparse.ArgumentParser(description='Returns the values in a HiC '
-                                     'matrix corresping to the given region. The '
-                                     'output is in bedgraph format')
+
+
+def parse_arguments(args=None):
+    parser = argparse.ArgumentParser(description='Plots the number of interactions around a given reference point in a region.')
 
     parser.add_argument('--matrix', '-m',
                         help='path of the Hi-C matrices to plot',
@@ -27,14 +23,16 @@ def parseArguments(args=None):
 
     parser.add_argument('--chromosome', '-C',
                         help='Only show results for this chromosome.')
+
     parser.add_argument('--referencePoint', '-rp', help='Reference point.',
                         required=True)
+
     parser.add_argument('--dpi',
                         help='Resolution for the image in case the'
                              'ouput is a raster graphics image (e.g png, jpg)',
                         type=int,
                         default=300)
-    return(parser.parse_args(args))
+    return parser
 
 
 def relabelTicks(pTick):
@@ -45,7 +43,9 @@ def relabelTicks(pTick):
     return xlabels
 
 
-def main(args):
+def main(args=None):
+    args = parse_arguments().parse_args(args)
+
     hic = hm.hiCMatrix(args.matrix)
     if args.chromosome:
         hic.keepOnlyTheseChr(args.chromosome)
@@ -81,13 +81,7 @@ def main(args):
     right = left + width
     top = bottom + height
     ax.text(right, top, os.path.basename(args.matrix),
-        verticalalignment='bottom', horizontalalignment='right',
-        transform=ax.transAxes,
-        color='black', fontsize=8)
+            verticalalignment='bottom', horizontalalignment='right',
+            transform=ax.transAxes,
+            color='black', fontsize=8)
     plt.savefig(args.outFileName, dpi=args.dpi)
-
-
-
-if __name__ == "__main__":
-    args = parseArguments()
-    main(args)
