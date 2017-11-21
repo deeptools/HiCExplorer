@@ -1378,8 +1378,7 @@ Max library insert size\t{}\t\t
                    format(mate_not_close_to_rf, 100 * float(mate_not_close_to_rf) / mappable_unique_high_quality_pairs))
 
     log_file.write("same fragment\t{}\t({:.2f})\n".
-                   format(args.maxLibraryInsertSize,
-                          same_fragment, 100 * float(same_fragment) / mappable_unique_high_quality_pairs))
+                   format(same_fragment, 100 * float(same_fragment) / mappable_unique_high_quality_pairs))
 
     log_file.write("self circle\t{}\t({:.2f})\n".
                    format(self_circle, 100 * float(self_circle) / mappable_unique_high_quality_pairs))
