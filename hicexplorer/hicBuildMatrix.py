@@ -879,7 +879,6 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                         if not pKeepSelfCircles:
                             continue
 
-
             if abs(mate2.pos - mate1.pos) < pMaxInsertSize and orientation == 'inward':
                 # check for dangling ends if the restriction sequence is known and if they look
                 # like 'same fragment'
