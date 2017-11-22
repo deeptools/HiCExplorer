@@ -530,8 +530,11 @@ def get_correct_map(primary, supplement_list):
         else:
             cigartuples = read.cigartuples[:]
 
+        # For each read in read_list, calculate the position of the first match (operation M in CIGAR string) in the read sequence.
+        # The calculation is done by adding up the lengths of all the operations until the first match.
+        # CIGAR string is a list of tuples of (operation, length). Match is stored as CMATCH.
         first_mapped.append(
-            sum(count for op, count in itertools.takewhile(lambda (op, count): op != 0, cigartuples)))
+            sum(count for op, count in itertools.takewhile(lambda (op, count): op != pysam.CMATCH, cigartuples)))
     # find which read has a cigar string that maps first than any of the
     # others.
     idx_min = first_mapped.index(min(first_mapped))
