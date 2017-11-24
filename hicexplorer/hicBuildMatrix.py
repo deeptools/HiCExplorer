@@ -137,11 +137,18 @@ def parse_arguments(args=None):
                         required=False)
 
     parser.add_argument('--maxDistance',
-                        help='Maximum distance (in bp) from restriction site '
-                        'to read, to consider a read a valid one. This option '
-                        'only applies if --restrictionCutFile is given.',
+                        help='This parameter is now obsolete. Use --maxLibraryInsertSize instead',
+                        type=int)
+
+    parser.add_argument('--maxLibraryInsertSize',
+                        help='The maximum library insert size defines different cut offs based on the maximum expected '
+                             'library size. *This is not the average fragment size* but the higher end of the '
+                             'which usually is between 800 to 1500 bp. If this value if not known use the default of '
+                             '1000. The insert value is used to decide if a two mates belong to the same fragment (by '
+                             'checking if they are within this max insert size) and to decide if a mate is too far '
+                             'away from the nearest restriction site.',
                         type=int,
-                        default=800,
+                        default=1000,
                         required=False)
 
     parser.add_argument('--restrictionSequence', '-seq',
@@ -688,7 +695,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pDanglingSequences, pBinsize, pResultIndex,
                  pQueueOut, pTemplate, pOutputBamSet, pCounter,
                  pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex,
-                 pOutputFileBufferDir, pRow, pCol, pData):
+                 pOutputFileBufferDir, pRow, pCol, pData,
+                 pMaxInsertSize):
     """
     This function computes for a given number of elements in pMateBuffer1 and pMaterBuffer2 a partial interaction matrix.
     This function is used by multiple processes to speed up the computation.
@@ -724,7 +732,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     pOutputFileBufferDir : String, the directory where the partial output bam files are buffered. Default is '/dev/shm/'
     pRow : multiprocessing.sharedctype.RawArray of c_uint, Stores the row index information. It is available for all processes and does not need to be copied.
     pCol : multiprocessing.sharedctype.RawArray of c_uint, stores the column index information. It is available for all processes and does not need to be copied.
-    pDat : multiprocessing.sharedctype.RawArray of c_ushort, stores a 1 for each row - column pair. It is available for all processes and does not need to be copied.
+    pData : multiprocessing.sharedctype.RawArray of c_ushort, stores a 1 for each row - column pair. It is available for all processes and does not need to be copied.
+    pMaxInsertSize : maximum illumina insert size
     """
 
     one_mate_unmapped = 0
@@ -807,7 +816,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             mate_bins.append(mate_bin_id)
 
         # if a mate is unassigned, it means it is not close
-        # to a restriction sites
+        # to a restriction site
         if mate_is_unasigned is True:
             mate_not_close_to_rf += 1
             continue
@@ -874,16 +883,15 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                         if not pKeepSelfCircles:
                             continue
 
-            # check for dangling ends if the restriction sequence
-            # is known:
-            if pRestrictionSequence:
-                if pDanglingSequences:
-                    if check_dangling_end(mate1, pDanglingSequences) or \
-                            check_dangling_end(mate2, pDanglingSequences):
-                        dangling_end += 1
-                        continue
-
-            if abs(mate2.pos - mate1.pos) < 1000 and orientation == 'inward':
+            if abs(mate2.pos - mate1.pos) < pMaxInsertSize and orientation == 'inward':
+                # check for dangling ends if the restriction sequence is known and if they look
+                # like 'same fragment'
+                if pRestrictionSequence:
+                    if pDanglingSequences:
+                        if check_dangling_end(mate1, pDanglingSequences) or \
+                                check_dangling_end(mate2, pDanglingSequences):
+                            dangling_end += 1
+                            continue
                 has_rf = []
 
                 if pRfPositions and pRestrictionSequence:
@@ -987,6 +995,10 @@ def main(args=None):
     """
 
     args = parse_arguments().parse_args(args)
+
+    # for backwards compatibility
+    if args.maxDistance is not None:
+        args.maxLibraryInsertSize = args.maxDistance
     try:
         QC.make_sure_path_exists(args.QCfolder)
     except OSError:
@@ -1021,7 +1033,7 @@ def main(args=None):
         rf_interval = bed2interval_list(args.restrictionCutFile)
         bin_intervals = get_rf_bins(rf_interval,
                                     min_distance=args.minDistance,
-                                    max_distance=args.maxDistance)
+                                    max_distance=args.maxLibraryInsertSize)
 
         rf_positions = intervalListToIntervalTree(rf_interval)
     else:
@@ -1180,7 +1192,8 @@ def main(args=None):
                     pOutputFileBufferDir="",
                     pRow=row[i],
                     pCol=col[i],
-                    pData=data[i]
+                    pData=data[i],
+                    pMaxInsertSize=args.maxLibraryInsertSize
                 ))
                 process[i].start()
                 count_output += 1
@@ -1335,10 +1348,9 @@ def main(args=None):
 File\t{}\t\t
 Pairs considered\t{}\t\t
 Min rest. site distance\t{}\t\t
-Max rest. site distance\t{}\t\t
+Max library insert size\t{}\t\t
 
-""".format(args.outFileName.name, iter_num, args.minDistance,
-           args.maxDistance))
+""".format(args.outFileName.name, iter_num, args.minDistance, args.maxLibraryInsertSize))
 
     log_file.write("#\tcount\t(percentage w.r.t. total sequenced reads)\n")
 
@@ -1369,7 +1381,7 @@ Max rest. site distance\t{}\t\t
     log_file.write("One mate not close to rest site\t{}\t({:.2f})\n".
                    format(mate_not_close_to_rf, 100 * float(mate_not_close_to_rf) / mappable_unique_high_quality_pairs))
 
-    log_file.write("same fragment (800 bp)\t{}\t({:.2f})\n".
+    log_file.write("same fragment\t{}\t({:.2f})\n".
                    format(same_fragment, 100 * float(same_fragment) / mappable_unique_high_quality_pairs))
 
     log_file.write("self circle\t{}\t({:.2f})\n".

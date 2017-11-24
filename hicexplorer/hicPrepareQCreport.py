@@ -62,7 +62,7 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
 
     all_table = all_table[['Pairs considered', 'Pairs mappable, unique and high quality', 'Pairs used',
                            'One mate unmapped', 'One mate not unique', 'One mate low quality', 'dangling end',
-                           'self ligation (removed)', 'One mate not close to rest site', 'same fragment (800 bp)',
+                           'self ligation (removed)', 'One mate not close to rest site', 'same fragment',
                            'self circle', 'duplicated pairs', 'inter chromosomal', 'short range < 20kb',
                            'long range', 'inward pairs', 'outward pairs', 'left pairs', 'right pairs']]
 
@@ -118,7 +118,7 @@ def make_figure_umappable_non_unique_reads(table, filename, dpi):
 
 def make_figure_pairs_discarded(table, filename, dpi):
     prc_table = table[['One mate not close to rest site', 'dangling end', 'duplicated pairs',
-                       'same fragment (800 bp)', 'self circle',
+                       'same fragment', 'self circle',
                        'self ligation (removed)']].T / table['Pairs mappable, unique and high quality']
 
     fig = plt.figure(figsize=(7, 5))
@@ -133,12 +133,12 @@ def make_figure_pairs_discarded(table, filename, dpi):
 
     # merge the counts table with the percentages table
     ret_table = table[['One mate not close to rest site', 'dangling end', 'duplicated pairs',
-                       'same fragment (800 bp)', 'self circle',
+                       'same fragment', 'self circle',
                        'self ligation (removed)']].join(prc_table.T, rsuffix=' %')
 
     return ret_table[['One mate not close to rest site', 'One mate not close to rest site %',
                       'dangling end', 'dangling end %', 'duplicated pairs', 'duplicated pairs %',
-                      'same fragment (800 bp)', 'same fragment (800 bp) %',
+                      'same fragment', 'same fragment %',
                       'self circle', 'self circle %', 'self ligation (removed)', 'self ligation (removed) %']]
 
 
@@ -203,7 +203,7 @@ def main(args=None):
     dangling end    209     (0.40)
     self ligation (removed) 5056    (9.59)
     One mate not close to rest site 751     (1.42)
-    same fragment (800 bp)  10146   (19.24)
+    same fragment  10146   (19.24)
     self circle     4274    (8.11)
     duplicated pairs        12      (0.02)
 
@@ -256,6 +256,10 @@ def main(args=None):
         table['Pairs mappable, unique and high quality'] = \
             table['Pairs considered'] - (table['One mate unmapped'] + table['One mate not unique'] +
                                          table['One mate low quality'])
+
+    if 'same fragment (800 bp)' in table.columns:
+        # older versions of the QC used the label 'same fragment (800 bp)'
+        table['same fragment'] = table['same fragment (800 bp)']
 
     make_figure_pairs_used(table, args.outputFolder + "/pairs_sequenced.png", args.dpi)
     unmap_table = make_figure_umappable_non_unique_reads(table, args.outputFolder + "/unmappable_and_non_unique.png",
