@@ -195,8 +195,12 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         start_pos2 = start_pos
 
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-    img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
+    # print(xmesh)
+    # print(xmesh.T)
 
+    img3 = axHeat2.pcolormesh(ymesh, xmesh, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
+    # img3 = axHeat2.imshow(ma, cmap=cmap, vmin=args.vMin, vmax=args.vMax, interpolation='nearest', norm=pNorm)
+    axHeat2.invert_yaxis()
     img3.set_rasterized(True)
     xticks = None
     if args.region:

@@ -43,25 +43,30 @@ def getObsExp(hicma):
 def getPearson(matrix):
     matrix = convertNansToZeros(matrix).todense()
     from scipy.stats import pearsonr
+    from scipy.sparse import csr_matrix
     numRows, numCols = matrix.shape
     # create matrix to hold computed pval
     pMa = np.zeros(shape=(numCols, numRows))
-    pMa[:, :] = np.nan
+    pMa[:, :] = 0
     for row in range(numRows):
         if row % 10 == 0:
             sys.stderr.write("{} rows processed ({:.2f})\n".format(row, float(row) / numRows))
         for col in range(numCols):
-            if not np.isnan(pMa[col, row]):
-                pMa[row, col] = pMa[col, row]
-                continue
+            # if not np.isnan(pMa[col, row]):
+            #     pMa[row, col] = pMa[col, row]
+            #     continue
             try:
                 # pearsonr returns two values, the first is the
                 # correlation, the second is a pvalue.
                 pMa[row, col] = pearsonr(np.asarray(matrix[row, :])[0], np.asarray(matrix[:, col].T)[0])[0]
             except:
+                print("exception")
+                
                 continue
-
-    return pMa
+    
+    print("pMa", pMa)
+    print('pMa.shape', pMa.shape)
+    return convertNansToZeros(csr_matrix(pMa))
 
 
 def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in_bins=None):

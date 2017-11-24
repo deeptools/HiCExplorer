@@ -690,7 +690,7 @@ class hiCMatrix:
 
                 if bin_dist_plus_one == 0:
                     total_intra = mat_size ** 2 - sum([size ** 2 for size in chrom_sizes[chrname]])
-                    diagonal_length = (total_intra / 2).astype(int)
+                    diagonal_length = total_intra // 2
                     # print(type(diagonal_length))
                 else:
                     # to compute the average counts per distance we take the sum_counts and divide
@@ -1134,7 +1134,7 @@ class hiCMatrix:
                                                               chr_col, int(start_col), int(end_col), counts))
         fileh.close()
 
-    def save(self, filename):
+    def save(self, filename, pSymmetric=True):
         """
         Saves a matrix using hdf5 format
         :param filename:
@@ -1157,8 +1157,11 @@ class hiCMatrix:
         except:
             nan_bins = np.array([])
         # save only the upper triangle of the
-        # symmetric matrix
-        matrix = triu(self.matrix, k=0, format='csr')
+        if pSymmetric:
+            # symmetric matrix
+            matrix = triu(self.matrix, k=0, format='csr')
+        else:
+            matrix = self.matrix
         filters = tables.Filters(complevel=5, complib='blosc')
         with tables.open_file(filename, mode="w", title="HiCExplorer matrix") as h5file:
             matrix_group = h5file.create_group("/", "matrix", )
