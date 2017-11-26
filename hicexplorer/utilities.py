@@ -66,7 +66,7 @@ def getPearson(matrix):
     
     print("pMa", pMa)
     print('pMa.shape', pMa.shape)
-    return convertNansToZeros(csr_matrix(pMa))
+    return convertNansToZeros(csr_matrix(pMa)).todense()
 
 
 def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in_bins=None):

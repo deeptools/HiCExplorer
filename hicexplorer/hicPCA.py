@@ -1,6 +1,7 @@
 import sys
 import argparse
-from scipy.sparse.linalg import eigs
+# from scipy.sparse.linalg import eigs
+
 from scipy.linalg import matrix_balance
 from scipy.sparse import csr_matrix, lil_matrix
 import logging
@@ -91,14 +92,16 @@ def main(args=None):
         ma.keepOnlyTheseChr(chrname)
         chr_submatrix = ma.convert_to_obs_exp_matrix()
         # chr_submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
-        # observed_expected_normalization_matrix =
 
         chr_submatrix = getPearson(chr_submatrix)
-
+        # chr_submatrix = matrix_balance(chr_submatrix)
         # eigenvectors and eigenvalues for the from the matrix
-        vals, vecs = eigs(chr_submatrix, k=int(args.numberOfEigenvectors), which='LM')
+        # chr_submatrix = convertNansToZeros(chr_submatrix).todense()
+        vals, vecs = np.linalg.eig(chr_submatrix)#, k=int(args.numberOfEigenvectors), which='LM')
+        k = int(args.numberOfEigenvectors)
+        vals = vals[:k]
+        vecs = vecs[:, :k]
         chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:chr_range[1]])
-        # print("vals", vals, "vecs", vecs)
         vecs_list += vecs.tolist()
         chrom_list += chrom
         start_list += start
