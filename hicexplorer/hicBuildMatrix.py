@@ -142,7 +142,8 @@ def parse_arguments(args=None):
 
     parser.add_argument('--maxLibraryInsertSize',
                         help='The maximum library insert size defines different cut offs based on the maximum expected '
-                             'library size. *This is not the average fragment size* but the higher end of the '
+                             'library size. *This is not the average fragment size* but the higher end of the fragment '
+                             'size distribution (obtained using for example Fragment Analyzer) '
                              'which usually is between 800 to 1500 bp. If this value if not known use the default of '
                              '1000. The insert value is used to decide if a two mates belong to the same fragment (by '
                              'checking if they are within this max insert size) and to decide if a mate is too far '
