@@ -540,7 +540,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
             if pChromosomeList:
                 for chrom in pChromosomeList:
                     if chrom not in interval_tree:
-                        exit("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}".format(chrom))
+                        print("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                         return
                     for i, region in enumerate(sorted(interval_tree[chrom])):
                         if i == 0:
@@ -551,20 +551,19 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
 
             elif pRegion:
                 if chrom not in interval_tree:
-                    exit("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}".format(chrom))
+                    print("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                     return
                 for region in sorted(interval_tree[chrom][region_start:region_end]):
                     eigenvector.append(float(region.data[0]))
-                step = (region_end - region_start) // len(eigenvector)
+                step = (region_end*2 - region_start) // len(eigenvector)
 
-                x = np.arange(region_start, region_end, int(step))
+                x = np.arange(region_start, region_end*2, int(step))
                 while len(x) < len(eigenvector):
                     x = np.append(x[-1] + int(step))
                 while len(eigenvector) < len(x):
                     x = x[:-1]
 
-                pAxis.set_xlim(region_start, region_end)
-
+                pAxis.set_xlim(region_start, region_end*2)
             pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
 
         if pXticks:
