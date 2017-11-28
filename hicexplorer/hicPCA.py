@@ -5,14 +5,18 @@ import argparse
 from scipy.linalg import matrix_balance
 from scipy.sparse import csr_matrix, lil_matrix
 import logging
-
+from scipy import linalg, dot, cov
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 from utilities import getPearson
 from utilities import convertNansToZeros
 import matplotlib.pyplot as plt
 import numpy as np
+from copy import deepcopy
+from scipy import cov
+
 import pyBigWig
+
 logging.basicConfig()
 log = logging.getLogger("hicPCA")
 log.setLevel(logging.WARN)
@@ -76,8 +80,6 @@ def main(args=None):
     ma = hm.hiCMatrix(args.matrix)
     ma.maskBins(ma.nan_bins)
 
-    if len(args.chromosomes) > 1:
-        exit("Only one chromosome or all is supported right now.")
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
 
@@ -89,20 +91,27 @@ def main(args=None):
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
 
-        ma.keepOnlyTheseChr(chrname)
-        chr_submatrix = ma.convert_to_obs_exp_matrix()
-        # chr_submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+        corrmatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
 
-        chr_submatrix = getPearson(chr_submatrix)
-        # chr_submatrix = matrix_balance(chr_submatrix)
-        # eigenvectors and eigenvalues for the from the matrix
-        # chr_submatrix = convertNansToZeros(chr_submatrix).todense()
-        vals, vecs = np.linalg.eig(chr_submatrix)#, k=int(args.numberOfEigenvectors), which='LM')
+        # similar to Lieberman-Aiden 2009
+        corrmatrix = np.corrcoef(corrmatrix.todense())
+        corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
+
+        copymatrix = deepcopy(corrmatrix)
+        for row in range(copymatrix.shape[0]):
+            row_value = float(sum(corrmatrix[row, :].tolist()[0]))
+
+            for col in range(copymatrix.shape[1]):
+                copymatrix[row, col] = float(corrmatrix[row, col]) - (row_value / corrmatrix.shape[0])
+
+        corrmatrix = cov(copymatrix)
+
+        corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
+        evals, eigs = linalg.eig(corrmatrix)
         k = int(args.numberOfEigenvectors)
-        vals = vals[:k]
-        vecs = vecs[:, :k]
+
         chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:chr_range[1]])
-        vecs_list += vecs.tolist()
+        vecs_list += eigs[:, :k].tolist()
         chrom_list += chrom
         start_list += start
         end_list += end
@@ -113,7 +122,8 @@ def main(args=None):
 
             with open(outfile, 'w') as fh:
                 for i, value in enumerate(vecs_list):
-                    fh.write("{}\t{}\t{}\t{}\n".format(chrom_list[i], start_list[i], end_list[i], value[idx].real))
+                    if len(value) == int(args.numberOfEigenvectors):
+                        fh.write("{}\t{}\t{}\t{}\n".format(chrom_list[i], start_list[i], end_list[i], value[idx]))
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
             exit("ERROR: Your version of pyBigWig is not supporting numpy: {}".format(pyBigWig.__file__))
