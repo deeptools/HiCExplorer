@@ -157,7 +157,7 @@ class hiCMatrix:
 
                 try:
                     matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0]).tocsr()
-                except:
+                except ValueError:
                     exit("Wrong chromosome format. Please check UCSC / ensembl notation.")
 
             else:
@@ -194,7 +194,7 @@ class hiCMatrix:
                 i += 1
             nan_bins = nan_bins[:i]
 
-        except:
+        except Exception:
             nan_bins = None
 
         distance_counts = None
@@ -529,7 +529,7 @@ class hiCMatrix:
         try:
             startpos = int(startpos)
             endpos = int(endpos)
-        except:
+        except ValueError:
             print("{} or {}  are not valid "
                   "position values.".format(startpos, endpos))
             exit()
@@ -1165,7 +1165,7 @@ class hiCMatrix:
 
         try:
             fileh = gzip.open(fileName, 'w')
-        except:
+        except IOError:
             msg = "{} file can't be opened for writing".format(fileName)
             raise msg
 
@@ -1192,7 +1192,7 @@ class hiCMatrix:
 
         try:
             fileh = gzip.open(fileName, 'w')
-        except:
+        except IOError:
             msg = "{} file can't be opened for writing".format(fileName)
             raise msg
 
@@ -1329,7 +1329,7 @@ class hiCMatrix:
             unlink(filename)
         try:
             nan_bins = np.array(self.nan_bins)
-        except:
+        except Exception:
             nan_bins = np.array([])
         # save only the upper triangle of the
         # symmetric matrix
@@ -1390,7 +1390,7 @@ class hiCMatrix:
         chrNameList, startList, endList, extraList = zip(*self.cut_intervals)
         try:
             nan_bins = self.nan_bins
-        except:
+        except Exception:
             nan_bins = np.array([])
         # save only the upper triangle of the
         # symmetric matrix
@@ -1413,7 +1413,7 @@ class hiCMatrix:
                     filename, matrix=matrix, chrNameList=chrNameList,
                     startList=startList, endList=endList, extraList=extraList,
                     nan_bins=nan_bins)
-            except:
+            except Exception:
                 print("Matrix can not be saved because it is too big!")
             exit()
 
@@ -1583,7 +1583,7 @@ class hiCMatrix:
                 bin_ids = np.unique(np.concatenate([previous_bin_ids, self.orig_bin_ids[bin_ids]]))
                 np.sort(bin_ids)
                 self.restoreMaskedBins()
-        except:
+        except Exception:
             pass
 
         # join with existing nan_bins
@@ -1826,7 +1826,7 @@ class hiCMatrix:
         cnt = {}
         try:
             self.prev_to_remove
-        except:
+        except Exception:
             self.prev_to_remove = np.array([])
 
         # if the same information was already printed don't
@@ -1840,7 +1840,7 @@ class hiCMatrix:
                 if len(self.orig_bin_ids) > 0:
                     print("Masked bins already present")
                     self.restoreMaskedBins()
-            except:
+            except Exception:
                 pass
         for idx in to_remove:
             chrom = self.cut_intervals[idx][0]

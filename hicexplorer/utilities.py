@@ -14,7 +14,7 @@ from hicexplorer.HiCMatrix import hiCMatrix
 def writableFile(string):
     try:
         open(string, 'w').close()
-    except:
+    except IOError:
         msg = "{} file can be opened for writing".format(string)
         raise argparse.ArgumentTypeError(msg)
     return string
@@ -58,7 +58,7 @@ def getPearson(matrix):
                 # pearsonr returns two values, the first is the
                 # correlation, the second is a pvalue.
                 pMa[row, col] = pearsonr(np.asarray(matrix[row, :])[0], np.asarray(matrix[:, col].T)[0])[0]
-            except:
+            except Exception:
                 continue
 
     return pMa
@@ -362,7 +362,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
         conn = pyRserve.connect()
         conn.r('library("MASS")')
 
-    except:
+    except Exception:
         print("Could not connect to Rserve. Check that Rserve is up and running")
         exit(1)
     size = {}
@@ -400,7 +400,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
             # try with R..
             try:
                 res = conn.r.fitdistr(counts_int, 'negative binomial')
-            except:
+            except Exception:
                 continue
             size[dist] = res[0]['size']
             mu[dist] = res[0]['mu']
@@ -548,7 +548,7 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
     try:
         conn = pyRserve.connect()
         conn.r('library("MASS")')
-    except:
+    except Exception:
         print("Could not connect to Rserve. Check that Rserve is up and running")
         exit(1)
 

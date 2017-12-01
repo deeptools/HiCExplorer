@@ -45,7 +45,7 @@ def main(args=None):
             summed_matrix = summed_matrix + hic_to_append.matrix
             if len(hic_to_append.nan_bins):
                 nan_bins = nan_bins.union(hic_to_append.nan_bins)
-        except:
+        except Exception:
             print(
                 "\nMatrix {} seems to be corrupted or of different shape".format(matrix))
             exit(1)

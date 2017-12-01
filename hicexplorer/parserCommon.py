@@ -14,7 +14,7 @@ def getParentArgParse(args=None):
 def writableFile(string):
     try:
         open(string, 'w').close()
-    except:
+    except IOError:
         msg = "{} file can be opened for writting".format(string)
         raise argparse.ArgumentTypeError(msg)
     return string

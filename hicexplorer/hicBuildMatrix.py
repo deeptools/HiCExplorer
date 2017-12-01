@@ -811,7 +811,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                         middle_pos = int((start + end) / 2)
                         mate_is_unasigned = True
 
-            except:
+            except KeyError:
                 # for small contigs it can happen that they are not
                 # in the bin_intval_tree keys if no restriction site is found
                 # on the contig.

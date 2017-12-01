@@ -205,7 +205,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
 def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                        ylabel=None, start_pos=None, start_pos2=None):
 
-
     axHeat2 = fig.add_axes(position)
     if args.title:
         axHeat2.set_title(args.title)
@@ -470,7 +469,6 @@ def main(args=None):
 
         ma = HiCMatrix.hiCMatrix(args.matrix, chrnameList=regionsToRetrieve)
 
-
         if args.clearMaskedBins:
             ma.maskBins(ma.nan_bins)
         if args.region:
@@ -498,7 +496,6 @@ def main(args=None):
                 sys.stderr.write("WARNING: The following chromosome/scaffold names were not found. Please check"
                                  "the correct spelling of the chromosome names. \n")
                 sys.stderr.write("\n".join(invalid_chromosomes))
-
 
         if args.clearMaskedBins:
             ma.maskBins(ma.nan_bins)
