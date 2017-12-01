@@ -254,8 +254,8 @@ def main(args=None):
     for i, matrix in enumerate(args.matrices):
         sys.stderr.write("loading hic matrix {}\n".format(matrix))
 
-        if args.matrices[i].endswith('.cool'):
-            _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes, pIntraChromosomalOnly=True)
+        if args.matrices[i].endswith('.cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
+            _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes)
         else:
             _mat = hm.hiCMatrix(matrix)
             if args.chromosomes:

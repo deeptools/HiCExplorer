@@ -205,9 +205,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
 def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                        ylabel=None, start_pos=None, start_pos2=None):
 
-    # print("start_pos", start_pos)
-
-    # print("len(start_pos)", len(start_pos))
 
     axHeat2 = fig.add_axes(position)
     if args.title:
@@ -222,30 +219,11 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     if start_pos2 is None:
         start_pos2 = start_pos
 
-    # print("plotHeatmap_region___start_pos", start_pos)
-    # print("plotHeatmap_region___start_pos2", start_pos2)
-
-    # print("start_pos", start_pos)
-    # print("start_pos2", start_pos2)
-    # print("len(start_pos)", len(start_pos))
-    # print("len(start_pos2)", len(start_pos2))
-
     if len(start_pos) >= ma.shape[0]:
         start_pos = start_pos[:ma.shape[0]]
     if len(start_pos2) >= ma.shape[1]:
         start_pos2 = start_pos2[:ma.shape[1]]
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-    # foo = np.unique(start_pos)
-    # print("foo", foo)
-    # print("len(foo)", len(foo))
-    # print("xmesh", xmesh)
-    # print("ymesh", ymesh)
-
-    # print("len(xmesh)", len(xmesh))
-    # print("len(xmesh[0])", len(xmesh[0]))
-
-    # print("len(ymesh)", len(ymesh))
-    # print("len(ymesh[0])", len(ymesh[0]))
 
     img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=norm)
 
@@ -401,10 +379,6 @@ def plotPerChr(hic_matrix, cmap, args):
             xlabels[-2] = "{} Mb".format(xlabels[-2])
 
         axis.set_xticklabels(xlabels, size='small')
-        # yticks = axis.get_yticks()
-
-        # ylabels = ["{:.0f}".format(int(x) / 1e6)
-        #          for x in yticks]
 
         axis.get_xaxis().set_tick_params(
             which='both',
@@ -446,11 +420,8 @@ def getRegion(args, ma):
     else:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
                                  x[1] >= region_start and x[2] < region_end])
-    # print(chrom, region_start, region_end, idx1, start_pos1)
     if args.region2:
         chrom2, region_start2, region_end2 = translate_region(args.region2)
-        # print("GOOO: regiom_start2", region_start2, " region_end2", region_end2)
-        # print("ma.cut_intervals", ma.cut_intervals)
         if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
             chrom2 = toBytes(chrom)
         if chrom2 not in list(ma.interval_trees):
@@ -487,14 +458,11 @@ def main(args=None):
 
         regionsToRetrieve = None
         if args.region:
-            # chrom, region_start, region_end = translate_region(args.region)
             regionsToRetrieve = []
             regionsToRetrieve.append(args.region)
-            # print("args.region", args.region)
             if args.region2:
                 chrom2, region_start2, region_end2 = translate_region(args.region2)
                 regionsToRetrieve.append(args.region2)
-                # print("args.region2", args.region2)
         if args.chromosomeOrder:
             args.region = None
             args.region2 = None
@@ -502,15 +470,12 @@ def main(args=None):
 
         ma = HiCMatrix.hiCMatrix(args.matrix, chrnameList=regionsToRetrieve)
 
-        # ma.restoreMaskedBins()
 
         if args.clearMaskedBins:
             ma.maskBins(ma.nan_bins)
-        # print("len(ma.cut_intervals", len(ma.cut_intervals))
         if args.region:
             chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
 
-            # print("Len(start_pos1)", len(start_pos1))
         matrix = np.asarray(ma.matrix.todense().astype(float))
 
     else:
@@ -534,14 +499,11 @@ def main(args=None):
                                  "the correct spelling of the chromosome names. \n")
                 sys.stderr.write("\n".join(invalid_chromosomes))
 
-        # print("list(ma.interval_trees)",list(ma.interval_trees))
-        # ma.restoreMaskedBins()
 
         if args.clearMaskedBins:
             ma.maskBins(ma.nan_bins)
 
         sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
-        # if not args.matrix.endswith('cool'):
 
         if args.region:
             chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
@@ -551,9 +513,6 @@ def main(args=None):
         else:
             # TODO make start_pos1
             matrix = np.asanyarray(ma.getMatrix().astype(float))
-    # print("len(matrix[0])", len(matrix[0]))
-    # print("len(matrix)", len(matrix))
-    # print("len(ma.cut_intervals)", len(ma.cut_intervals))
 
     matrix_length = len(matrix[0])
     for matrix_ in matrix:

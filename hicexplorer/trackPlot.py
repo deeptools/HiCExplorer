@@ -285,8 +285,9 @@ class PlotTracks(object):
 
         from configparser import ConfigParser
         parser = ConfigParser(dict_type=MultiDict, strict=False)
-        parser.read_file(open(tracks_file, 'r'))
-
+        with open(tracks_file, 'r') as file_h:
+            parser.read_file(file_h)
+        print("tracks_file", tracks_file)
         tracks_file_path = os.path.dirname(tracks_file)
 
         track_list = []
@@ -329,6 +330,7 @@ class PlotTracks(object):
         self.track_list = updated_track_list
         if self.vlines_properties:
             self.vlines_intval_tree, __, __ = file_to_intervaltree(self.vlines_properties['file'])
+        # tracks_file.close()
 
     @staticmethod
     def check_file_exists(track_dict, tracks_path):
@@ -1315,7 +1317,8 @@ class PlotBed(TrackPlot):
         else:
             self.len_w = 1
 
-        bed_file_h = ReadBed(opener(self.properties['file']))
+        bed_file_obj = opener(self.properties['file'])
+        bed_file_h = ReadBed(bed_file_obj)
         self.bed_type = bed_file_h.file_type
         valid_intervals = 0
         self.max_num_row = {}
@@ -1386,7 +1389,7 @@ class PlotBed(TrackPlot):
                 self.max_num_row[bed.chromosome] = free_row
 
         print(self.max_num_row)
-
+        bed_file_obj.close()
         if valid_intervals == 0:
             sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file_name']))
 

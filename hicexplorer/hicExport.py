@@ -182,7 +182,7 @@ def main(args=None):
             hic_ma.distance_counts = distance_counts
 
     else:
-        if args.inputFormat == 'cool':
+        if args.inputFormat == 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) == 1:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
@@ -195,7 +195,7 @@ def main(args=None):
             hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
             hic_ma.matrix.eliminate_zeros()
 
-    if not args.inputFormat == 'cool':
+    if not args.inputFormat == 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) == 1:
         if args.chromosomeOrder:
             hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
 

@@ -501,14 +501,14 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
 
     return sorted(to_remove)
 
-
+ 
 def main(args=None):
     args = parse_arguments().parse_args(args)
     if args.verbose:
         log.setLevel(logging.INFO)
 
     # args.chromosomes
-    if args.matrix.endswith('.cool'):
+    if args.matrix.endswith('.cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
         ma = hm.hiCMatrix(args.matrix, chrnameList=args.chromosomes)
     else:
         ma = hm.hiCMatrix(args.matrix)

@@ -68,7 +68,7 @@ $ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting frd
                              'We call this format a bedgraph matrix and can be plotted using '
                              '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
                              'a different window length starting from --minDepth to --maxDepth. '
-                             '2. <prefix>_zscore_matrix.h5 / .cool, the zscore matrix used for the computation of '
+                             '2. <prefix>_zscore_matrix.h5, the zscore matrix used for the computation of '
                              'the TAD-separation score.  3. < prefix > _boundaries.bed, which'
                              'contains the positions of boundaries. The genomic coordinates in this file '
                              'correspond to the resolution used. Thus, for Hi-C bins of '
@@ -996,7 +996,7 @@ class HicFindTads(object):
             for idx in range(1, len(chrom)):
                 right_bin_center = chr_start[idx] + int((chr_end[idx] - chr_start[idx]) / 2)
                 left_bin_center = chr_start[idx - 1] + int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
-                if right_bin_center < left_bin_center:
+                if right_bin_center <= left_bin_center:
                     # this condition happens at chromosome borders
                     continue
                 tad_score.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom[idx]), left_bin_center, right_bin_center,
