@@ -74,7 +74,7 @@ class MultiDict(OrderedDict):
 class PlotTracks(object):
 
     def __init__(self, tracks_file, fig_width=DEFAULT_FIGURE_WIDTH,
-                 fig_height=None, fontsize=None, dpi=None, track_label_width=None):
+                 fig_height=None, fontsize=None, dpi=None, track_label_width=None, p_region=None):
         self.fig_width = fig_width
         self.fig_height = fig_height
         self.dpi = dpi
@@ -122,7 +122,7 @@ class PlotTracks(object):
                 self.track_obj_list.append(PlotBedGraphMatrix(properties))
 
             elif properties['file_type'] == 'hic_matrix':
-                self.track_obj_list.append(PlotHiCMatrix(properties))
+                self.track_obj_list.append(PlotHiCMatrix(properties, p_region=p_region))
 
             elif properties['file_type'] == 'bed':
                 self.track_obj_list.append(PlotBed(properties))
@@ -379,7 +379,7 @@ class PlotTracks(object):
         file = track_dict['file'].strip()
         if file.endswith(".bed") or file.endswith(".bed.gz"):
             file_type = 'bed'
-        elif file.endswith(".npz") or file.endswith(".h5"):
+        elif file.endswith(".npz") or file.endswith(".h5") or file.endswith(".cool"):
             file_type = 'hic_matrix'
         elif file.endswith(".bw"):
             file_type = 'bigwig'
@@ -830,13 +830,18 @@ class PlotBigWig(TrackPlot):
 
 class PlotHiCMatrix(TrackPlot):
 
-    def __init__(self, properties_dict):
+    def __init__(self, properties_dict, p_region=None):
         # to avoid the color bar to span all the
         # width of the axis I pass two axes
         # to plot_matrix
         self.properties = properties_dict
 
-        self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'])
+        print("self.properties", self.properties)
+        if p_region is None:  # or not self.properties['file'].endswith('.cool'):
+            self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'])
+        else:
+            self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'], chrnameList=[p_region])
+
         if len(self.hic_ma.matrix.data) == 0:
             exit("Matrix {} is empty".format(self.properties['file']))
         if 'show_masked_bins' in self.properties and self.properties['show_masked_bins'] == 'yes':

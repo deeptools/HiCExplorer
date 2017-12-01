@@ -34,9 +34,9 @@ def parse_arguments(args=None):
     return parser
 
 
-def main():
+def main(args=None):
 
-    args = parse_arguments().parse_args()
+    args = parse_arguments().parse_args(args)
     if args.operation not in ['diff', 'ratio', 'log2ratio']:
         exit("Operation not found. Please use 'diff', 'ratio' or 'log2ratio'.")
 
@@ -62,7 +62,7 @@ def main():
 
     if args.operation == 'diff':
         new_matrix = hic1.matrix - hic2.matrix
-    elif args.operation in ['ratio', 'log2ratio']:
+    elif args.operation == 'ratio' or args.operation == 'log2ratio':
         hic2.matrix.data = float(1) / hic2.matrix.data
         new_matrix = hic1.matrix.multiply(hic2.matrix)
         # just in case

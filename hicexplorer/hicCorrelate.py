@@ -78,6 +78,14 @@ def parse_arguments(args=None):
                         'correlation.',
                         default=None,
                         nargs='+')
+    parser.add_argument('--threads',
+                        help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
+                        ' One master process which is used to read the input file into the buffer and one process which is merging '
+                        'the output bam files of the processes into one output bam file. All other threads do the actual computation.',
+                        required=False,
+                        default=4,
+                        type=int
+                        )
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -219,9 +227,9 @@ def get_vectors(mat1, mat2):
     return values1, values2
 
 
-def main():
+def main(args=None):
 
-    args = parse_arguments().parse_args()
+    args = parse_arguments().parse_args(args)
 
     if args.labels and len(args.matrices) != len(args.labels):
         print("The number of labels does not match the number of matrices.")
@@ -243,14 +251,19 @@ def main():
     all_mat = None
     all_nan = []
 
-    for matrix in args.matrices:
+    for i, matrix in enumerate(args.matrices):
         sys.stderr.write("loading hic matrix {}\n".format(matrix))
-        _mat = hm.hiCMatrix(matrix)
+
+        if args.matrices[i].endswith('.cool'):
+            _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes, pIntraChromosomalOnly=True)
+        else:
+            _mat = hm.hiCMatrix(matrix)
+            if args.chromosomes:
+                _mat.keepOnlyTheseChr(args.chromosomes)
+            _mat.filterOutInterChrCounts()
+
         _mat.diagflat(0)
         sys.stderr.write("restore masked bins {}\n".format(matrix))
-        if args.chromosomes:
-            _mat.keepOnlyTheseChr(args.chromosomes)
-        _mat.filterOutInterChrCounts()
         bin_size = _mat.getBinSize()
         all_nan = np.unique(np.concatenate([all_nan, _mat.nan_bins]))
 

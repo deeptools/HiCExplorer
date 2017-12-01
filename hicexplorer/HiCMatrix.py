@@ -9,14 +9,15 @@ import sys
 import os
 
 from collections import OrderedDict
-from scipy.sparse import csr_matrix, dia_matrix, coo_matrix
+from scipy.sparse import csr_matrix, dia_matrix, coo_matrix, triu, tril
 from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
-from scipy.sparse import triu, tril
 import tables
 from intervaltree import IntervalTree, Interval
 
 import gzip
+
+import cooler
 
 import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -41,12 +42,18 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None):
+    def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None,
+                 cooler_only_init=None, pIntraChromosomalOnly=None):
         self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distance_counts = None  # only defined when getCountsByDistance is called
         self.bin_size = None
         self.bin_size_homogeneous = None  # track if the bins are equally spaced or not
+        # self.cut_intervals = None
+        self.nan_bins = np.array([])
+        # self.distance_counts = None
+        # self.correction_factors = None
+        # self.matrix = None
 
         # when NaN bins are masked, this variable becomes contains the bin index
         # needed to put the masked bins back into the matrix.
@@ -55,13 +62,18 @@ class hiCMatrix:
 
         if matrixFile:
             self.nan_bins = np.array([])
-            if not file_format:
+            # print("File format: ", file_format)
+            # print("Matrix file: ", matrixFile)
+
+            if file_format is None or file_format == 'hic_matrix':
                 if matrixFile.endswith(".npz"):
                     file_format = 'npz'
                 elif matrixFile.endswith(".h5"):
                     file_format = 'h5'
                 elif matrixFile.endswith('.gz'):
                     file_format = 'dekker'
+                elif matrixFile.endswith('.cool'):
+                    file_format = 'cool'
                 # by default assume that the matrix file_format is hd5
                 else:
                     file_format = 'h5'
@@ -85,6 +97,7 @@ class hiCMatrix:
                     np.loadtxt(matrixFile,
                                skiprows=skiprows,
                                usecols=list(range(1, len(self.cut_intervals) + 1))))
+
                 """
                 # convert nans to zeros
                 self.matrix.data[np.isnan(self.matrix.data)] = 0
@@ -97,12 +110,109 @@ class hiCMatrix:
                 lieberman_data = self.getLiebermanBins(filenameList=matrixFile, chrnameList=chrnameList)
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
-
+            elif file_format == 'cool':
+                if not cooler.io.is_cooler(matrixFile):
+                    exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
+                if cooler_only_init:
+                    self.load_cool_only_init(matrixFile)
+                    self.cut_intervals = None
+                    self.nan_bins = None
+                    self.distance_counts = None
+                    self.correction_factors = None
+                    self.matrix = None
+                    return
+                else:
+                    self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
+                        self.load_cool(matrixFile, pChrnameList=chrnameList, pIntraChromosomalOnly=pIntraChromosomalOnly)
+                    self.restoreMaskedBins()
             else:
                 exit("matrix format not known.")
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
+            # print("self.matrix.shape", self.matrix.shape)
+            # print("len(self.cut_intervals)", len(self.cut_intervals))
+            # print("len(nan_bins)", len(self.nan_bins))
+            # print("nan_bins", self.nan_bins)
+
+    def load_cool_only_init(self, pMatrixFile):
+        self.cooler_file = cooler.Cooler(pMatrixFile)
+
+    def load_cool_bins(self, pChr=None):
+        if pChr:
+            return self.cooler_file.bins().fetch(pChr)
+        else:
+            cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
+            self.cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
+
+    def load_cool_matrix(self, pChr):
+        return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
+
+    def load_cool_matrix_csr(self, pAccessTuple):
+        startX = pAccessTuple[0]
+        startY = pAccessTuple[1]
+        chunkX = pAccessTuple[2]
+        chunkY = pAccessTuple[3]
+
+        return self.cooler_file.matrix(balance=False, sparse=True)[startX:startX + chunkX, startY:startY + chunkY].tocsr()
+
+    def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None):
+        self.cooler_file = cooler.Cooler(pMatrixFile)
+
+        if pChrnameList is None:
+            matrix = self.cooler_file.matrix(balance=False, sparse=True)[:].tocsr()
+
+        else:
+            if len(pChrnameList) == 1:
+
+                try:
+                    matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0])
+                except:
+                    exit("Wrong chromosome format. Please check UCSC / ensembl notation.")
+
+            else:
+                exit("Operation to load more as two regions is not supported.")
+
+        cut_intervals_data_frame = None
+        if pChrnameList is not None:
+            if len(pChrnameList) == 1:
+                cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
+            else:
+                exit("Operation to load more than one chr from bins is not supported.")
+
+        else:
+            cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
+
+        cut_intervals = []
+
+        for values in cut_intervals_data_frame.values:
+            # print('values', values)
+            if sys.version_info[0] == 3:
+                cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], values[3]]))
+            else:
+                cut_intervals.append(tuple(values))
+
+            # print([toString(values[0]), values[1], values[2], values[3]])
+        # try to restore nan_bins.
+        try:
+            shape = matrix.shape[0] if matrix.shape[0] < matrix.shape[1] else matrix.shape[1]
+            nan_bins = np.array(range(shape))
+            nan_bins = np.setxor1d(nan_bins, matrix.indices)
+
+            i = 0
+            while i < len(nan_bins):
+                if nan_bins[i] >= shape:
+                    break
+                i += 1
+            nan_bins = nan_bins[:i]
+
+        except:
+            nan_bins = None
+
+        distance_counts = None
+        correction_factors = None
+
+        return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
     def load_h5(matrix_filename):
@@ -122,7 +232,22 @@ class hiCMatrix:
             # get intervals
             intvals = {}
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
-                intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
+                if toString(interval_part) == toString('chr_list'):
+                    chrom_list = getattr(f.root.intervals, interval_part).read()
+                    print(toString(chrom_list))
+                    intvals[interval_part] = toString(chrom_list)
+                else:
+                    print("interval_part", interval_part)
+                    intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
+
+                # intvals[interval_part][0] = toString(intvals[interval_part][0])
+            print("LOAD H5__intvals['chr_list'][:20]", intvals['chr_list'][:20])
+            # map(toString, intvals['chr_list'])
+            # print("LOAD H5__intvals['chr_list'][:20]", intvals['chr_list'][:20])
+
+            # for i in range(len(intvals['chr_list'])):
+
+            #     intvals['chr_list'][i] = toString(intvals['chr_list'][i])
             cut_intervals = zip(intvals['chr_list'], intvals['start_list'], intvals['end_list'], intvals['extra_list'])
             assert len(cut_intervals) == matrix.shape[0], \
                 "Error loading matrix. Length of bin intervals ({}) is different than the " \
@@ -153,13 +278,14 @@ class hiCMatrix:
 
     @staticmethod
     def load_npz(matrixFile):
-        _ma = np.load(matrixFile)
+        _ma = np.load(matrixFile, fix_imports=True, encoding="latin1")
         matrix = hiCMatrix.fillLowerTriangle(_ma['matrix'].tolist())
         if 'dist_counts' not in _ma:
             distance_counts = None
         else:
             distance_counts = _ma['dist_counts'].tolist()
 
+        map(toString, _ma['chrNameList'])
         cut_intervals = zip(_ma['chrNameList'], _ma['startList'],
                             _ma['endList'], _ma['extraList'])
 
@@ -288,7 +414,7 @@ class hiCMatrix:
         self.header = []
         try:
             for line in gzip.open(fileName, 'rb').readlines():
-                
+
                 if line.startswith(b"#"):
                     self.header.append(line)
                     continue
@@ -1095,7 +1221,7 @@ class hiCMatrix:
         colNames = []
         for x in range(self.matrix.shape[0]):
             chrom, start, end = self.cut_intervals[x][0:3]
-            colNames.append("{}|--|{}:{}-{}".format(x, chrom, start, end))  # adds dm3 to the end (?problem..)
+            colNames.append("{}|--|{}:{}-{}".format(x, toString(chrom), start, end))  # adds dm3 to the end (?problem..)
 
         fileh.write("#converted from hicexplorer\n")
         fileh.write("\t" + "\t".join(colNames) + "\n")
@@ -1151,7 +1277,61 @@ class hiCMatrix:
                                                               chr_col, int(start_col), int(end_col), counts))
         fileh.close()
 
-    def save(self, filename):
+    def create_empty_cool_file(self, pFileName):
+        bins_data_frame = pd.DataFrame(columns=['chrom', 'start', 'end', 'weight'])
+        matrix_data_frame = pd.DataFrame(columns=['bin1_id', 'bin2_id', 'count'])
+        cooler.io.create(cool_uri=pFileName,
+                         bins=bins_data_frame,
+                         pixels=matrix_data_frame)
+
+    def save_cooler(self, pFileName, pDataFrameBins=None, pDataFrameMatrix=None):
+
+        # for value in self.nan_bins:
+        self.restoreMaskedBins()
+        self.matrix = self.matrix.tolil()
+        if self.nan_bins is not None:
+            self.matrix[self.nan_bins, :] = 0
+            self.matrix[:, self.nan_bins] = 0
+        self.matrix = self.matrix.tocsr()
+
+        for i in range(len(self.matrix.data)):
+            if np.isnan(self.matrix.data[i]):
+                self.matrix.data[i] = 0
+
+        self.matrix.eliminate_zeros()
+        matrix = triu(self.matrix, k=0, format='csr')
+
+        if pDataFrameBins:
+            if pDataFrameBins['start'].dtypes != 'int64':
+                pDataFrameBins['start'] = pDataFrameBins['start'].astype(np.int64)
+            if pDataFrameBins['end'].dtypes != 'int64':
+                pDataFrameBins['end'] = pDataFrameBins['end'].astype(np.int64)
+            bins_data_frame = pDataFrameBins
+        else:
+            # create a pandas data frame for cut_intervals
+            bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
+        if pDataFrameMatrix:
+            if pDataFrameMatrix['bin1_id'].dtypes != 'int64':
+                pDataFrameMatrix['bin1_id'] = pDataFrameMatrix['bin1_id'].astype(np.int64)
+            if pDataFrameMatrix['bin2_id'].dtypes != 'int64':
+                pDataFrameMatrix['bin2_id'] = pDataFrameMatrix['bin2_id'].astype(np.int64)
+            matrix_data_frame = pDataFrameMatrix
+        else:
+            # get only the upper triangle of the matrix to save to disk
+            # upper_triangle = triu(self.matrix, k=0, format='csr')
+            # create a tuple list and use it to create a data frame
+            instances, features = matrix.nonzero()
+
+            data = matrix.data.tolist()
+            matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
+
+            matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
+
+        cooler.io.create(cool_uri=pFileName,
+                         bins=bins_data_frame,
+                         pixels=matrix_data_frame)
+
+    def save_hdf5(self, filename):
         """
         Saves a matrix using hdf5 format
         :param filename:
@@ -1256,8 +1436,27 @@ class hiCMatrix:
                     startList=startList, endList=endList, extraList=extraList,
                     nan_bins=nan_bins)
             except:
-                print("Matrix can not be saved because is too big!")
+                print("Matrix can not be saved because it is too big!")
             exit()
+
+    def save(self, pMatrixName):
+        """To save please specifiy the ending of your format i.e. 'output_matrix.format' Supported are: 'dekker', 'ren',
+            'lieberman', 'npz', 'GInteractions', 'h5' and 'cool'.
+        """
+        if pMatrixName.endswith('dekker') == 'dekker':
+            self.save_dekker(pMatrixName)
+        elif pMatrixName.endswith('ren'):
+            self.save_bing_ren(pMatrixName)
+        elif pMatrixName.endswith('lieberman'):
+            self.save_lieberman(pMatrixName)
+        elif pMatrixName.endswith('npz'):
+            self.save_npz(pMatrixName)
+        elif pMatrixName.endswith('GInteractions'):
+            self.save_GInteractions(pMatrixName)
+        elif pMatrixName.endswith('cool'):
+            self.save_cooler(pMatrixName)
+        else:
+            self.save_hdf5(pMatrixName)
 
     def diagflat(self, value=np.nan):
         """
@@ -1385,21 +1584,21 @@ class hiCMatrix:
         self.interval_trees, self.chrBinBoundaries = \
             self.intervalListToIntervalTree(self.cut_intervals)
 
-    def maskBins(self, bin_ids):
+    def maskBins(self, bin_ids=None):
         """
         Mask the list of bins given. Mask means
         to remove the bins from the matrix,
         and keep the information about the intervals
         as masked
         """
-        if len(bin_ids) == 0:
-            return
+        # print("self.cut_intervalsMASKBINS___START", self.cut_intervals)
 
+        if bin_ids is None or len(bin_ids) == 0:
+            return
         self.printchrtoremove(bin_ids, restore_masked_bins=False)
         try:
             # check if a masked bin already exists
             if len(self.orig_bin_ids) > 0:
-                print("Masked bins already present")
                 M = self.matrix.shape[0]
                 previous_bin_ids = self.orig_bin_ids[M:]
                 # merge new and old masked bins
@@ -1416,12 +1615,14 @@ class hiCMatrix:
             bin_ids = np.unique(np.concatenate([self.nan_bins, bin_ids]))
             self.nan_bins = []
         rows = cols = np.delete(list(range(self.matrix.shape[1])), bin_ids)
+
         self.matrix = self.matrix[rows, :][:, cols]
 
         # to keep track of removed bins
         # I add their ids to the end of the rows vector
         # to reverse the changes, I just need to do an argsort
         # to put the removed bins in place
+        # print("bins_ids", bin_ids)
         self.orig_bin_ids = np.concatenate([rows, bin_ids])
 
         new_cut_intervals = [self.cut_intervals[x] for x in rows]
@@ -1434,6 +1635,9 @@ class hiCMatrix:
 
         if self.correction_factors is not None:
             self.correction_factors = self.correction_factors[rows]
+
+        # print("self.cut_intervalsMASKBINS__END", self.cut_intervals)
+        # print("len(self.cut_intervals)", len(self.cut_intervals))
 
     def update_matrix(self, new_matrix, new_cut_intervals):
         """
@@ -1731,13 +1935,17 @@ class hiCMatrix:
 
         return cut_int_tree, chrbin_boundaries
 
+
 def toString(s):
     """
     This takes care of python2/3 differences
     """
+    if type(s) is np.bytes_:
+        return s.decode('UTF-8')
     if isinstance(s, str):
         return s
     if isinstance(s, bytes):
+
         if sys.version_info[0] == 2:
             return str(s)
         return s.decode('ascii')

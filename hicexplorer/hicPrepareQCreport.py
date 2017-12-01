@@ -11,7 +11,6 @@ import pandas as pd
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from hicexplorer._version import __version__
-import pandas as pd
 
 
 def parse_arguments():
@@ -55,13 +54,13 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
     html_content = html.read()
     # the html code has a placeholder for the html table
     html_content = html_content.replace("%%TABLE_UNMAP%%", unmap_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
     html_content = html_content.replace("%%TABLE_DISCARDED%%", discard_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
     html_content = html_content.replace("%%TABLE_DISTANCE%%", distance_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
     html_content = html_content.replace("%%TABLE_ORIENTATION%%", orientation_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
 
     all_table = all_table[['Pairs considered', 'Pairs mappable, unique and high quality', 'Pairs used',
                            'One mate unmapped', 'One mate not unique', 'One mate low quality', 'dangling end',

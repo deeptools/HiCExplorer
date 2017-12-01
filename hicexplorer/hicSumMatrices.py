@@ -12,7 +12,7 @@ def parse_arguments(args=None):
 
     parser.add_argument('--matrices', '-m',
                         help='matrices to add. Must have the same shape.',
-                        metavar='.h5 file format',
+                        metavar='.h5 or cooler file format',
                         nargs='+',
                         required=True)
 
@@ -27,9 +27,9 @@ def parse_arguments(args=None):
     return parser
 
 
-def main():
+def main(args=None):
+    args = parse_arguments().parse_args(args)
 
-    args = parse_arguments().parse_args()
     hic = hm.hiCMatrix(args.matrices[0])
     summed_matrix = hic.matrix
     nan_bins = set(hic.nan_bins)
@@ -46,7 +46,8 @@ def main():
             if len(hic_to_append.nan_bins):
                 nan_bins = nan_bins.union(hic_to_append.nan_bins)
         except:
-            print("\nMatrix {} seems to be corrupted or of different shape".format(matrix))
+            print(
+                "\nMatrix {} seems to be corrupted or of different shape".format(matrix))
             exit(1)
 
     # save only the upper triangle of the
@@ -54,3 +55,4 @@ def main():
     hic.setMatrixValues(summed_matrix)
     hic.maskBins(sorted(nan_bins))
     hic.save(args.outFileName)
+    return

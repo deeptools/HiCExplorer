@@ -502,15 +502,19 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
     return sorted(to_remove)
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=None):
+    args = parse_arguments().parse_args(args)
     if args.verbose:
         log.setLevel(logging.INFO)
 
-    ma = hm.hiCMatrix(args.matrix)
+    # args.chromosomes
+    if args.matrix.endswith('.cool'):
+        ma = hm.hiCMatrix(args.matrix, chrnameList=args.chromosomes)
+    else:
+        ma = hm.hiCMatrix(args.matrix)
 
-    if args.chromosomes:
-        ma.reorderChromosomes(args.chromosomes)
+        if args.chromosomes:
+            ma.reorderChromosomes(args.chromosomes)
 
     # mask all zero value bins
     row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()

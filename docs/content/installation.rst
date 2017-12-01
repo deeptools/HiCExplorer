@@ -7,17 +7,17 @@ Installation
 Requirements
 -------------
 
-* Python 2.7
-* numpy >= 1.12.1
-* scipy >= 0.19.0
+* Python 3.6
+* numpy >= 1.10.4
+* scipy >= 0.17.1
 * matplotlib >= 2.0.0
-* pysam >= 0.11.2
+* pysam >= 0.8.3
 * intervaltree >= 2.1.0
-* biopython >= 1.68
-* pytables >= 3.3.0
-* pandas >= 0.20.2
-* pybigwig >= 0.3.4
+* biopython >= 1.65
+* pytables >= 3.2.2
+* pyBigWig >=0.2.8
 * future >= 0.16.0
+* cooler >= 0.7.6
 * six >= 1.10.0
 * jinja2 >= 2.9.6
 

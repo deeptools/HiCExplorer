@@ -68,7 +68,7 @@ $ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting frd
                              'We call this format a bedgraph matrix and can be plotted using '
                              '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
                              'a different window length starting from --minDepth to --maxDepth. '
-                             '2. <prefix>_zscore_matrix.h5, the zscore matrix used for the computation of '
+                             '2. <prefix>_zscore_matrix.h5 / .cool, the zscore matrix used for the computation of '
                              'the TAD-separation score.  3. < prefix > _boundaries.bed, which'
                              'contains the positions of boundaries. The genomic coordinates in this file '
                              'correspond to the resolution used. Thus, for Hi-C bins of '
@@ -155,21 +155,6 @@ $ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting frd
                              'not be used.',
                         required=False)
     return parser
-
-
-# def toBytes(s):
-#     """
-#     Like toString, but for functions requiring bytes in python3
-#     """
-#     if sys.version_info[0] == 2:
-#         return s
-#     if isinstance(s, bytes):
-#         return s
-#     if isinstance(s, str):
-#         return bytes(s, 'ascii')
-#     if isinstance(s, list):
-#         return [toBytes(x) for x in s]
-#     return s
 
 
 def compute_matrix_wrapper(args):
@@ -939,16 +924,16 @@ class HicFindTads(object):
             elif self.correct_for_multiple_testing == 'None':
                 if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.threshold_comparisons:
                     filtered_min_idx += [idx]
-        
+
         if self.correct_for_multiple_testing == 'fdr':
             log.info("FDR correction. Number of boundaries for delta {}, qval {}: {}".format(self.delta, self.threshold_comparisons,
-                                                                             len(filtered_min_idx)))
+                                                                                             len(filtered_min_idx)))
         elif self.correct_for_multiple_testing == 'bonferroni':
             log.info("Bonferroni correction. Number of boundaries for delta {} and pval {}: {}".format(self.delta, self.threshold_comparisons,
-                                                                                len(filtered_min_idx)))
+                                                                                                       len(filtered_min_idx)))
         else:
             log.info("No multiple testing correction. Number of boundaries for delta {}: {}, used threshold: {}".format(self.delta, len(filtered_min_idx), self.threshold_comparisons))
-        
+
         count = 1
         with open(prefix + '_boundaries.bed', 'w') as file_boundary_bin, open(prefix + '_domains.bed', 'w') as file_domains, open(prefix + '_boundaries.gff', 'w') as gff:
             for idx, min_bin_id in enumerate(filtered_min_idx):
@@ -970,21 +955,21 @@ class HicFindTads(object):
 
                 # 2. save the position of the boundary range
                 file_boundary_bin.write("{}\t{}\t{}\tB{:05d}\t{:.12f}\t.\n".format(toString(chrom[min_bin_id]),
-                                                                              left_bin_center,
-                                                                              right_bin_center,
-                                                                              min_bin_id,
-                                                                              mean_mat_all[min_bin_id]))
+                                                                                   left_bin_center,
+                                                                                   right_bin_center,
+                                                                                   min_bin_id,
+                                                                                   mean_mat_all[min_bin_id]))
 
                 # safe gff file that can contain more information
                 gff.write("{chrom}\tHiCExplorer\tboundary\t{start}\t{end}\t{score:.12f}"
                           "\t.\t.\tID=B{id:05d};delta={delta:.12f};pvalue={pvalue:.12f};"
                           "tad_sep={score:.12f}\n".format(chrom=toString(chrom[min_bin_id]),
-                                                     start=left_bin_center,
-                                                     end=right_bin_center,
-                                                     delta=delta_of_min[min_bin_id],
-                                                     pvalue=pvalue_of_min[min_bin_id],
-                                                     score=mean_mat_all[min_bin_id],
-                                                     id=min_bin_id))
+                                                          start=left_bin_center,
+                                                          end=right_bin_center,
+                                                          delta=delta_of_min[min_bin_id],
+                                                          pvalue=pvalue_of_min[min_bin_id],
+                                                          score=mean_mat_all[min_bin_id],
+                                                          id=min_bin_id))
 
                 start = chr_start[min_bin_id]
                 # check that the next boundary exists and is in the same chromosome
@@ -1000,9 +985,9 @@ class HicFindTads(object):
                     rgb = '31,120,180'
 
                 file_domains.write("{0}\t{1}\t{2}\tID_{6}_{3}\t{4:.12f}\t.\t{1}\t{2}\t{5}\n".format(toString(chrom[min_bin_id]),
-                                                                                               start, end, count,
-                                                                                               mean_mat_all[min_bin_id],
-                                                                                               rgb, self.delta))
+                                                                                                    start, end, count,
+                                                                                                    mean_mat_all[min_bin_id],
+                                                                                                    rgb, self.delta))
 
                 count += 1
 
@@ -1015,7 +1000,7 @@ class HicFindTads(object):
                     # this condition happens at chromosome borders
                     continue
                 tad_score.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom[idx]), left_bin_center, right_bin_center,
-                                                          mean_mat_all[idx]))
+                                                               mean_mat_all[idx]))
 
     def compute_spectra_matrix(self, perchr=True):
         """
@@ -1203,7 +1188,7 @@ class HicFindTads(object):
             left = get_cut_weight(self.hic_ma, left_idx, window_len)
             right = get_cut_weight(self.hic_ma, right_idx, window_len)
             boundary = get_cut_weight(self.hic_ma, matrix_idx, window_len)
-            
+
             if left is None:
                 left = []
             if right is None:
@@ -1214,9 +1199,9 @@ class HicFindTads(object):
 
             elif boundary is None or len(boundary) == 0 or len(left) == 0 or len(right) == 0:
                 pval = np.nan
-                
+
             else:
-                
+
                 try:
                     pval1 = ranksums(boundary, left)[1]
                     pval2 = ranksums(boundary, right)[1]
@@ -1230,7 +1215,7 @@ class HicFindTads(object):
 
         # fdr
         if self.correct_for_multiple_testing == 'fdr':
-            
+
             pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
             pvalues_ = sorted(pvalues)
             largest_p_i = 0
@@ -1245,8 +1230,7 @@ class HicFindTads(object):
             to_one_index_values = np.array([e > 1 if ~np.isnan(e) else False for e in pvalues])
             if len(to_one_index_values) > 0:
                 pvalues[to_one_index_values] = 1
-        
-        
+
         return OrderedDict(zip(new_min_idx, pvalues))
 
     def find_boundaries(self):
