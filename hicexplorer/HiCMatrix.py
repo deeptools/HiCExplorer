@@ -55,6 +55,8 @@ class hiCMatrix:
                     file_format = 'h5'
                 elif matrixFile.endswith('.gz'):
                     file_format = 'dekker'
+                elif matrixFile.endswith('.txt'):
+                    file_format = 'lieberman'
                 # by default assume that the matrix file_format is hd5
                 else:
                     file_format = 'h5'
@@ -86,16 +88,53 @@ class hiCMatrix:
                 row_sum = np.asarray(self.matrix.sum(axis=1)).flatten()
                 self.maskBins(np.flatnonzero(row_sum==0))
                 """
+            # elif file_format == 'lieberman':  # lieberman format needs additional arguments : chrnameList
+            #     lieberman_data = self.getLiebermanBins(filenameList=matrixFile, chrnameList=chrnameList)
+            #     self.cut_intervals = lieberman_data['cut_intervals']
+            #     self.matrix = lieberman_data['matrix']
             elif file_format == 'lieberman':  # lieberman format needs additional arguments : chrnameList
-                lieberman_data = self.getLiebermanBins(filenameList=matrixFile, chrnameList=chrnameList)
-                self.cut_intervals = lieberman_data['cut_intervals']
-                self.matrix = lieberman_data['matrix']
-
+                lieberman_data = hiCMatrix.load_lieberman(pMatrix=matrixFile)
+                self.cut_intervals = lieberman_data[1]
+                self.matrix = lieberman_data[0]
             else:
                 exit("matrix format not known.")
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
+    
+    @staticmethod
+    def load_lieberman(pMatrix):
+        "Loads a lieberman matrix published with 2009 paper."
+        if pandas is True:
+                chrd = pd.read_csv(pMatrix, sep="\t", header=1)
+                chrdata = chrd.as_matrix()
+        else:
+            print("Pandas unavailable. Reading files using numpy (slower)..")
+            chrdata = np.loadtxt(pMatrix)
+
+        # row = 
+        # col = 
+        # data =  
+
+        # print("len(chrdata)",len(chrdata))
+        # print("len(chrdata[:, 1:0])",chrdata[:, 1:].tolist())
+        # print("chrdata[]", chrdata)
+        matrix = csr_matrix(chrdata[:, 1:].tolist())
+        
+        cut_intervals = []
+        for i in range(matrix.shape[0]):
+            first_entry = chrdata[i, 0].split('|')
+            # print("first_entry", first_entry)
+            chromosome = first_entry[-1].split(':')
+            start, end = chromosome[-1].split('-')
+            cut_intervals.append((chromosome[0], int(start), int(end), 0))
+
+        # cut_intervals = []
+        # # resolution = 
+
+        # for _bin in range(matrix.shape[0]):
+        #         cut_intervals.append((chrnameList[i], _bin * resolution, (_bin + 1) * resolution, 0))
+        return matrix, cut_intervals
 
     @staticmethod
     def load_h5(matrix_filename):

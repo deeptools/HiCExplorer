@@ -64,8 +64,8 @@ def getPearson(matrix):
                 
                 continue
     
-    print("pMa", pMa)
-    print('pMa.shape', pMa.shape)
+    # print("pMa", pMa)
+    # print('pMa.shape', pMa.shape)
     return convertNansToZeros(csr_matrix(pMa)).todense()
 
 

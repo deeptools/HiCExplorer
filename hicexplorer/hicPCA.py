@@ -1,3 +1,5 @@
+from __future__ import division
+
 import sys
 import argparse
 # from scipy.sparse.linalg import eigs
@@ -67,6 +69,34 @@ Computes PCA eigenvectors for the HiC matrix.
 
     return parser
 
+def expected_interactions_in_distance(pLength_chromosome_dict, pCopy_submatrix):
+    print("expected_interactions_in_distance...")
+    expected_interactions = np.zeros(pCopy_submatrix.shape[0])
+    for distance in range(pCopy_submatrix.shape[0]):
+        row = 0
+        col = distance
+        sum_distance = 0.0
+        while row < pCopy_submatrix.shape[0] and col < pCopy_submatrix.shape[1]:
+            sum_distance += pCopy_submatrix[row, col]
+            row += 1
+            col += 1
+        sum_distance_genome = 0.0
+        for element in pLength_chromosome_dict:
+            sum_distance_genome += pLength_chromosome_dict[element] - distance
+        expected_interactions[distance] = sum_distance / sum_distance_genome
+    print("expected_interactions_in_distance...Done")
+        
+    return expected_interactions
+
+def exp_obs_matrix(pSubmatrix, pLength_chromosome_dict):
+    copy_submatrix = deepcopy(pSubmatrix)
+    pSubmatrix = pSubmatrix.todense().astype(float)
+    expected_interactions_in_distance_ = expected_interactions_in_distance(pLength_chromosome_dict, copy_submatrix)
+    for row in range(pSubmatrix.shape[0]):
+        for col in range(pSubmatrix.shape[1]):
+            distance = abs(row - col)
+            pSubmatrix[row, col] = pSubmatrix[row, col] / expected_interactions_in_distance_[distance]
+    return pSubmatrix
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -88,33 +118,68 @@ def main(args=None):
     start_list = []
     end_list = []
     # PCA is computed per chromosome
+    length_chromosome_dict = {}
+    for chrname in ma.getChrNames():
+        chr_range = ma.getChrBinRange(chrname)
+        length_chromosome_dict[chrname] = chr_range[1] - chr_range[0]
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
 
-        corrmatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+        submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
 
-        # similar to Lieberman-Aiden 2009
-        corrmatrix = np.corrcoef(corrmatrix.todense())
-        corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
 
-        copymatrix = deepcopy(corrmatrix)
-        for row in range(copymatrix.shape[0]):
-            row_value = float(sum(corrmatrix[row, :].tolist()[0]))
+        exp_obs_matrix_ = exp_obs_matrix(submatrix, length_chromosome_dict)
+        exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
+        pearson_correlation_matrix = np.corrcoef(exp_obs_matrix_)
+        pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
+        
+        # # similar to Lieberman-Aiden 2009
+       
+        # corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
+        
+        # copymatrix = deepcopy(corrmatrix)
+        # for row in range(copymatrix.shape[0]):
+        #     # print(corrmatrix[row, :].tolist())
+        #     # print("bla", type((corrmatrix[row, :].tolist())) )
+        #     # exit()
+        #     row_value = float(sum(corrmatrix[row, :].tolist()[0]))
+        #     for col in range(copymatrix.shape[1]):
+        #         copymatrix[row, col] = float(corrmatrix[row, col]) / (row_value / corrmatrix.shape[0])
 
-            for col in range(copymatrix.shape[1]):
-                copymatrix[row, col] = float(corrmatrix[row, col]) - (row_value / corrmatrix.shape[0])
+        corrmatrix = cov(pearson_correlation_matrix)
 
-        corrmatrix = cov(copymatrix)
+        # corrmatrix = np.corrcoef(corrmatrix.todense())
 
-        corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
+        # corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
         evals, eigs = linalg.eig(corrmatrix)
         k = int(args.numberOfEigenvectors)
 
+        # vectors_eigen = [[]] * k
+        # for idx in range(k):
+        #     for i, value in enumerate(eigs[:, :k]):
+        #         vectors_eigen[idx].append(value[idx])
+        #     vectors_eigen[idx] = np.gradient(vectors_eigen[idx], 2)
+        #     print(len(vectors_eigen[1]))
+        #     print(len(eigs[1][idx]))
+        #     for i in range(len(vecs_list)):
+        #         eigs[i][idx] = vectors_eigen[idx][i]
+
+
         chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:chr_range[1]])
         vecs_list += eigs[:, :k].tolist()
+
+        # vecs_list += vectors_eigen[:, :].tolist()
         chrom_list += chrom
         start_list += start
         end_list += end
+
+    # vectors_eigen = [[]] * k
+    # for idx in range(k):
+    #     for i, value in enumerate(vecs_list):
+    #         vectors_eigen[idx].append(value[idx])
+    #     vectors_eigen[idx] = np.gradient(vectors_eigen[idx])
+    #     for i in range(len(vecs_list)):
+    #         vecs_list[i][idx] = vectors_eigen[idx][i]
 
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):

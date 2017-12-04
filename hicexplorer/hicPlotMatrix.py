@@ -546,7 +546,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                         if i == 0:
                             region_start = region[0]
                         region_end = region[1]
-                        eigenvector.append(float(region.data[0]))
+                        eigenvector.append(complex(region.data[0]).real)
                 x = np.arange(0, len(eigenvector), 1)
 
             elif pRegion:
