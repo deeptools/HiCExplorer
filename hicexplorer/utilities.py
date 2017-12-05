@@ -61,9 +61,9 @@ def getPearson(matrix):
                 pMa[row, col] = pearsonr(np.asarray(matrix[row, :])[0], np.asarray(matrix[:, col].T)[0])[0]
             except:
                 print("exception")
-                
+
                 continue
-    
+
     # print("pMa", pMa)
     # print('pMa.shape', pMa.shape)
     return convertNansToZeros(csr_matrix(pMa)).todense()

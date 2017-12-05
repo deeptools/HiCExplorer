@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from copy import deepcopy
 from scipy import cov
-
+from math import ceil
 import pyBigWig
 
 logging.basicConfig()
@@ -69,8 +69,11 @@ Computes PCA eigenvectors for the HiC matrix.
 
     return parser
 
+
 def expected_interactions_in_distance(pLength_chromosome_dict, pCopy_submatrix):
-    print("expected_interactions_in_distance...")
+    """
+        Computes the function I_chrom(s) for a given chromosome.
+    """
     expected_interactions = np.zeros(pCopy_submatrix.shape[0])
     for distance in range(pCopy_submatrix.shape[0]):
         row = 0
@@ -84,29 +87,30 @@ def expected_interactions_in_distance(pLength_chromosome_dict, pCopy_submatrix):
         for element in pLength_chromosome_dict:
             sum_distance_genome += pLength_chromosome_dict[element] - distance
         expected_interactions[distance] = sum_distance / sum_distance_genome
-    print("expected_interactions_in_distance...Done")
-        
+
     return expected_interactions
 
+
 def exp_obs_matrix(pSubmatrix, pLength_chromosome_dict):
+    """Creates normalized contact matrix M* by 
+        dividing each entry by the gnome-wide
+        expected contacts for loci at
+        that genomic distance"""
     copy_submatrix = deepcopy(pSubmatrix)
     pSubmatrix = pSubmatrix.todense().astype(float)
     expected_interactions_in_distance_ = expected_interactions_in_distance(pLength_chromosome_dict, copy_submatrix)
     for row in range(pSubmatrix.shape[0]):
         for col in range(pSubmatrix.shape[1]):
-            distance = abs(row - col)
+            distance = int(abs(row - col) / 2)
             pSubmatrix[row, col] = pSubmatrix[row, col] / expected_interactions_in_distance_[distance]
     return pSubmatrix
+
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
     if int(args.numberOfEigenvectors) != len(args.outputFileName):
         exit("Number of output file names and number of eigenvectors does not match: {} {}".format(len(args.outputFileName), args.numberOfEigenvectors))
 
-    # normalized contact matrix M* is missing.
-    # dividing each entry by the gnome-wide
-    # average contact probability for loci at
-    # that genomic distance
     ma = hm.hiCMatrix(args.matrix)
     ma.maskBins(ma.nan_bins)
 
@@ -127,59 +131,22 @@ def main(args=None):
 
         submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
 
-
         exp_obs_matrix_ = exp_obs_matrix(submatrix, length_chromosome_dict)
         exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
         pearson_correlation_matrix = np.corrcoef(exp_obs_matrix_)
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
-        
-        # # similar to Lieberman-Aiden 2009
-       
-        # corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
-        
-        # copymatrix = deepcopy(corrmatrix)
-        # for row in range(copymatrix.shape[0]):
-        #     # print(corrmatrix[row, :].tolist())
-        #     # print("bla", type((corrmatrix[row, :].tolist())) )
-        #     # exit()
-        #     row_value = float(sum(corrmatrix[row, :].tolist()[0]))
-        #     for col in range(copymatrix.shape[1]):
-        #         copymatrix[row, col] = float(corrmatrix[row, col]) / (row_value / corrmatrix.shape[0])
 
         corrmatrix = cov(pearson_correlation_matrix)
 
-        # corrmatrix = np.corrcoef(corrmatrix.todense())
-
-        # corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
         evals, eigs = linalg.eig(corrmatrix)
         k = int(args.numberOfEigenvectors)
-
-        # vectors_eigen = [[]] * k
-        # for idx in range(k):
-        #     for i, value in enumerate(eigs[:, :k]):
-        #         vectors_eigen[idx].append(value[idx])
-        #     vectors_eigen[idx] = np.gradient(vectors_eigen[idx], 2)
-        #     print(len(vectors_eigen[1]))
-        #     print(len(eigs[1][idx]))
-        #     for i in range(len(vecs_list)):
-        #         eigs[i][idx] = vectors_eigen[idx][i]
-
 
         chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:chr_range[1]])
         vecs_list += eigs[:, :k].tolist()
 
-        # vecs_list += vectors_eigen[:, :].tolist()
         chrom_list += chrom
         start_list += start
         end_list += end
-
-    # vectors_eigen = [[]] * k
-    # for idx in range(k):
-    #     for i, value in enumerate(vecs_list):
-    #         vectors_eigen[idx].append(value[idx])
-    #     vectors_eigen[idx] = np.gradient(vectors_eigen[idx])
-    #     for i in range(len(vecs_list)):
-    #         vecs_list[i][idx] = vectors_eigen[idx][i]
 
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):
