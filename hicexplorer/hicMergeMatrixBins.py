@@ -251,7 +251,7 @@ def merge_bins(hic, num_bins):
 
     hic.matrix = reduce_matrix(hic.matrix, bins_to_merge, diagonal=True)
     hic.matrix.eliminate_zeros()
-    hic.cut_intervals = new_bins
+    hic.setCutIntervals(new_bins)
     hic.nan_bins = np.flatnonzero(hic.matrix.sum(0).A == 0)
 
     return hic
