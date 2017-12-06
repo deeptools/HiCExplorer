@@ -1,23 +1,19 @@
 from __future__ import division
 
-import sys
 import argparse
-# from scipy.sparse.linalg import eigs
 
-from scipy.linalg import matrix_balance
-from scipy.sparse import csr_matrix, lil_matrix
-import logging
-from scipy import linalg, dot, cov
+from scipy.sparse import csr_matrix
+from scipy import linalg
+
+import numpy as np
+import pyBigWig
+
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
-from utilities import getPearson
+from utilities import exp_obs_matrix_lieberman
 from utilities import convertNansToZeros
-import matplotlib.pyplot as plt
-import numpy as np
-from copy import deepcopy
-from scipy import cov
-from math import ceil
-import pyBigWig
+
+import logging
 
 logging.basicConfig()
 log = logging.getLogger("hicPCA")
@@ -70,42 +66,6 @@ Computes PCA eigenvectors for the HiC matrix.
     return parser
 
 
-def expected_interactions_in_distance(pLength_chromosome_dict, pCopy_submatrix):
-    """
-        Computes the function I_chrom(s) for a given chromosome.
-    """
-    expected_interactions = np.zeros(pCopy_submatrix.shape[0])
-    for distance in range(pCopy_submatrix.shape[0]):
-        row = 0
-        col = distance
-        sum_distance = 0.0
-        while row < pCopy_submatrix.shape[0] and col < pCopy_submatrix.shape[1]:
-            sum_distance += pCopy_submatrix[row, col]
-            row += 1
-            col += 1
-        sum_distance_genome = 0.0
-        for element in pLength_chromosome_dict:
-            sum_distance_genome += pLength_chromosome_dict[element] - distance
-        expected_interactions[distance] = sum_distance / sum_distance_genome
-
-    return expected_interactions
-
-
-def exp_obs_matrix(pSubmatrix, pLength_chromosome_dict):
-    """Creates normalized contact matrix M* by 
-        dividing each entry by the gnome-wide
-        expected contacts for loci at
-        that genomic distance"""
-    copy_submatrix = deepcopy(pSubmatrix)
-    pSubmatrix = pSubmatrix.todense().astype(float)
-    expected_interactions_in_distance_ = expected_interactions_in_distance(pLength_chromosome_dict, copy_submatrix)
-    for row in range(pSubmatrix.shape[0]):
-        for col in range(pSubmatrix.shape[1]):
-            distance = int(abs(row - col) / 2)
-            pSubmatrix[row, col] = pSubmatrix[row, col] / expected_interactions_in_distance_[distance]
-    return pSubmatrix
-
-
 def main(args=None):
     args = parse_arguments().parse_args(args)
     if int(args.numberOfEigenvectors) != len(args.outputFileName):
@@ -122,24 +82,27 @@ def main(args=None):
     start_list = []
     end_list = []
     # PCA is computed per chromosome
-    length_chromosome_dict = {}
+    length_chromosome = 0
+    chromosome_count = len(ma.getChrNames())
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
-        length_chromosome_dict[chrname] = chr_range[1] - chr_range[0]
+        length_chromosome += chr_range[1] - chr_range[0]
+
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
+        log.debug("Computing pca for chromosome: %s", chrname)
 
         submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
 
-        exp_obs_matrix_ = exp_obs_matrix(submatrix, length_chromosome_dict)
-        exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
+        exp_obs_matrix_ = exp_obs_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
+        exp_obs_matrix_ = convertNansToZeros(exp_obs_matrix_).todense()
         pearson_correlation_matrix = np.corrcoef(exp_obs_matrix_)
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
 
-        corrmatrix = cov(pearson_correlation_matrix)
+        corrmatrix = np.cov(pearson_correlation_matrix)
 
         evals, eigs = linalg.eig(corrmatrix)
-        k = int(args.numberOfEigenvectors)
+        k = args.numberOfEigenvectors
 
         chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:chr_range[1]])
         vecs_list += eigs[:, :k].tolist()
@@ -154,7 +117,7 @@ def main(args=None):
 
             with open(outfile, 'w') as fh:
                 for i, value in enumerate(vecs_list):
-                    if len(value) == int(args.numberOfEigenvectors):
+                    if len(value) == args.numberOfEigenvectors:
                         fh.write("{}\t{}\t{}\t{}\n".format(chrom_list[i], start_list[i], end_list[i], value[idx]))
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:

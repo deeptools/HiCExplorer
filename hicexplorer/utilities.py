@@ -926,6 +926,39 @@ def fit_nbinom(k):
     return n, p
 
 
+def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSubmatrix):
+    """
+        Computes the function I_chrom(s) for a given chromosome.
+    """
+    expected_interactions = np.zeros(pSubmatrix.shape[0])
+    row, col = pSubmatrix.nonzero()
+    distance = np.absolute(row - col)
+    for i, distance_ in enumerate(distance):
+        expected_interactions[distance_] += pSubmatrix.data[i]
+
+    for i in range(len(expected_interactions)):
+        expected_interactions[i] /= pLength_chromosome - (pChromosome_count * i)
+
+    return expected_interactions
+
+
+def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
+    """
+        Creates normalized contact matrix M* by 
+        dividing each entry by the gnome-wide
+        expected contacts for loci at
+        that genomic distance
+    """
+
+    expected_interactions_in_distance_ = expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSubmatrix)
+    row, col = pSubmatrix.nonzero()
+    distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
+    for i in range(len(pSubmatrix.data)):
+        pSubmatrix.data[i] = pSubmatrix.data[i] / expected_interactions_in_distance_[distance[i]]
+
+    return pSubmatrix
+
+
 def toString(s):
     """
     This takes care of python2/3 differences
