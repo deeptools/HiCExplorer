@@ -811,8 +811,7 @@ class hiCMatrix:
 
                 if bin_dist_plus_one == 0:
                     total_intra = mat_size ** 2 - sum([size ** 2 for size in chrom_sizes[chrname]])
-                    diagonal_length = (total_intra / 2).astype(int)
-                    # print(type(diagonal_length))
+                    diagonal_length = int(total_intra / 2)
                 else:
                     # to compute the average counts per distance we take the sum_counts and divide
                     # by the number of values on the respective diagonal
