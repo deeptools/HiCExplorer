@@ -766,8 +766,16 @@ def _nbinomExpected(value, size, prob):
 
 
 def convertNansToZeros(ma):
-    ma.data[np.flatnonzero(np.isnan(ma.data))] = 0
-    # ma[np.where(np.isnan(ma) == True)] = 0
+    nan_elements = np.flatnonzero(np.isnan(ma.data))
+    if len(nan_elements) > 0:
+        ma.data[nan_elements] = 0
+    return ma
+
+
+def convertInfsToZeros(ma):
+    inf_elements = np.flatnonzero(np.isinf(ma.data))
+    if len(inf_elements) > 0:
+        ma.data[inf_elements] = 0
     return ma
 
 

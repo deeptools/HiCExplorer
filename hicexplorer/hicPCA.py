@@ -10,8 +10,8 @@ import pyBigWig
 
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
-from utilities import exp_obs_matrix_lieberman
-from utilities import convertNansToZeros
+from hicexplorer.utilities import exp_obs_matrix_lieberman
+from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 import logging
 
@@ -95,10 +95,12 @@ def main(args=None):
         submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
 
         exp_obs_matrix_ = exp_obs_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
-        exp_obs_matrix_ = convertNansToZeros(exp_obs_matrix_).todense()
+        exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
+        exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
+        
         pearson_correlation_matrix = np.corrcoef(exp_obs_matrix_)
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
-
+        pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense() 
         corrmatrix = np.cov(pearson_correlation_matrix)
 
         evals, eigs = linalg.eig(corrmatrix)

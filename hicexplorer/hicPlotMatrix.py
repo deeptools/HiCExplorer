@@ -380,6 +380,7 @@ def main(args=None):
 
         valid_chromosomes = []
         invalid_chromosomes = []
+        args.chromosomeOrder = toBytes(args.chromosomeOrder)
         for chrom in args.chromosomeOrder:
             if chrom in ma.chrBinBoundaries:
                 valid_chromosomes.append(chrom)
@@ -393,7 +394,6 @@ def main(args=None):
             sys.stderr.write("\n".join(invalid_chromosomes))
 
     ma.restoreMaskedBins()
-
     if args.clearMaskedBins:
         ma.maskBins(ma.nan_bins)
 
