@@ -346,7 +346,7 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
                 matrix[mask] = matrix[mask == False].min()
                 matrix[mask_nan] = matrix[mask_nan == False].min()
                 matrix = np.log(matrix)
-            except:
+            except Exception:
                 pass
         if args.log1p:
             matrix += 1
@@ -363,6 +363,7 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
         plotHeatmap(matrix, chr_bin_boundary, fig, None,
                     args, cmap, xlabel=chrname, ylabel=chrname,
                     start_pos=None, start_pos2=None, pNorm=norm, pAxis=axis, pPca=pca)
+
 
 def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
@@ -415,13 +416,14 @@ def getRegion(args, ma):
 
     return chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2
 
+
 def main(args=None):
     args = parse_arguments().parse_args(args)
     chrom = None
     start_pos1 = None
     chrom2 = None
     start_pos2 = None
-    
+
     if args.perChromosome and args.region:
         sys.stderr.write('ERROR, choose from the option '
                          '--perChromosome or --region, the two '
@@ -467,14 +469,12 @@ def main(args=None):
                 else:
                     invalid_chromosomes.append(chrom)
 
-            
             if len(invalid_chromosomes) > 0:
                 sys.stderr.write("WARNING: The following chromosome/scaffold names were not found. Please check"
                                  "the correct spelling of the chromosome names. \n")
                 sys.stderr.write("\n".join(invalid_chromosomes))
             # ma.keepOnlyTheseChr(valid_chromosomes)
             ma.reorderChromosomes(valid_chromosomes)
-        
 
         sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
 
@@ -521,7 +521,7 @@ def main(args=None):
 
         fig_height = 6
         height = 4.8 / fig_height
-      
+
         fig_width = 7
         width = 5.0 / fig_width
         left_margin = (1.0 - width) * 0.4
@@ -541,7 +541,6 @@ def main(args=None):
             ax1 = None
         bottom = 0.8 / fig_height
 
-      
         position = [left_margin, bottom, width, height]
         plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
@@ -589,27 +588,13 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                     return
                 for region in sorted(interval_tree[chrom][region_start:region_end]):
                     eigenvector.append(float(region.data[0]))
-                step = (region_end*2 - region_start) // len(eigenvector)
+                step = (region_end * 2 - region_start) // len(eigenvector)
 
-                x = np.arange(region_start, region_end*2, int(step))
+                x = np.arange(region_start, region_end * 2, int(step))
                 while len(x) < len(eigenvector):
                     x = np.append(x[-1] + int(step))
                 while len(eigenvector) < len(x):
                     x = x[:-1]
 
-                pAxis.set_xlim(region_start, region_end*2)
+                pAxis.set_xlim(region_start, region_end * 2)
             pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
-
-        if pXticks:
-            if len(pXticks) == 1:
-                pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
-                pAxis.set_xticklabels(pXticks[0], size='small', rotation=45)
-            else:
-                pAxis.set_xlim(0, len(eigenvector))
-                pAxis.set_xticks(pXticks[1])
-                pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
-
-                if len(pXticks[0]) > 20:
-                    pAxis.set_xticklabels(pXticks[0], size=4, rotation=90)
-                else:
-                    pAxis.set_xticklabels(pXticks[0], size=8)

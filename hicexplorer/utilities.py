@@ -950,7 +950,7 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
 
 def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
-        Creates normalized contact matrix M* by 
+        Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
         expected contacts for loci at
         that genomic distance

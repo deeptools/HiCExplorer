@@ -74,7 +74,7 @@ def main(args=None):
             chr_range = hic_ma.getChrBinRange(chrname)
             submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
             exp_obs_matrix_ = exp_obs_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
-            exp_obs_matrix_ = convertNansToZeros(ecsr_matrix(exp_obs_matrix_))
+            exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_))
             exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
 
             trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = exp_obs_matrix_.tolil()
@@ -88,7 +88,7 @@ def main(args=None):
 
             pearson_correlation_matrix = np.corrcoef(submatrix.todense())
             pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix))
-            pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense() 
+            pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
 
             trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(pearson_correlation_matrix)
     elif args.covariance:
