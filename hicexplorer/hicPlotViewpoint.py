@@ -1,5 +1,6 @@
 import argparse
 
+import numpy as np
 import hicexplorer.HiCMatrix as hm
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
@@ -60,20 +61,40 @@ def main(args=None):
     args.referencePoint = args.referencePoint.translate(None, ",.;|!{}()").replace("-", ":")
     referencePoint = args.referencePoint.split(":")
 
-    view_point = hic.getRegionBinRange(referencePoint[0], int(referencePoint[1]), int(referencePoint[1]))[0]
+    if len(referencePoint) == 2:
+        view_point_start, view_point_end = hic.getRegionBinRange(referencePoint[0], int(referencePoint[1]), int(referencePoint[1]))
+    elif len(referencePoint) == 3:
+        view_point_start, view_point_end = hic.getRegionBinRange(referencePoint[0], int(referencePoint[1]), int(referencePoint[2]))
+    else:
+        exit("No valid reference point given. {}".format(referencePoint))
+
     view_point_range = hic.getRegionBinRange(chrom, start, end)
-    data_list = []
-    for idx in range(view_point_range[0], view_point_range[1], 1):
-        data = hic.matrix[view_point, idx]
-        data_list.append(data)
+    elements_of_viewpoint = view_point_range[1] - view_point_range[0]
+    data_list = np.zeros(elements_of_viewpoint)
+    view_point_start_ = view_point_start
+    while view_point_start_ <= view_point_end:
+        for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
+
+            data_list[j] += hic.matrix[view_point_start_, idx]
+        view_point_start_ += 1
 
     ax = plt.subplot(111)
     ax.plot(range(len(data_list)), data_list)
-    ax.set_xticks([0, view_point - view_point_range[0], view_point_range[1] - view_point_range[0]])
-    xticklabels = [None] * 3
-    xticklabels[0] = relabelTicks((int(referencePoint[1]) - start) * (-1))
-    xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
-    xticklabels[2] = relabelTicks(end - int(referencePoint[1]))
+    if len(referencePoint) == 2:
+        ax.set_xticks([0, view_point_start - view_point_range[0], view_point_range[1] - view_point_range[0]])
+        xticklabels = [None] * 3
+        xticklabels[0] = relabelTicks((int(referencePoint[1]) - start) * (-1))
+        xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
+        xticklabels[2] = relabelTicks(end - int(referencePoint[1]))
+    elif len(referencePoint) == 3:
+        # fit scale: start coordinate is 0 --> view_point_range[0]
+        ax.set_xticks([0, view_point_start - view_point_range[0], view_point_end - view_point_range[0], view_point_range[1] - view_point_range[0]])
+        xticklabels = [None] * 4
+        xticklabels[0] = relabelTicks((int(referencePoint[1]) - start) * (-1))
+        xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
+        xticklabels[2] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[2]))
+        xticklabels[3] = relabelTicks(end - int(referencePoint[1]))
+
     ax.set_xticklabels(xticklabels)
     ax.set_ylabel('Number of interactions')
     left, width = .45, .5
