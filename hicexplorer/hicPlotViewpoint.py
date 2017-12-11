@@ -1,6 +1,5 @@
 import argparse
 
-import numpy as np
 import hicexplorer.HiCMatrix as hm
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
