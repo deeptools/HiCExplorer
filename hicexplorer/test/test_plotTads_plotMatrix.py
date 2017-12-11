@@ -186,7 +186,7 @@ def test_hicPlotMatrix():
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
-    os.remove(outfile.name)
+    # os.remove(outfile.name)
 
 
 # add test cases for all parameters
@@ -255,4 +255,4 @@ def test_hicPlotMatrix_cool():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + '/master_matrix_plot.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    # os.remove(outfile.name)

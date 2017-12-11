@@ -100,6 +100,10 @@ class hiCMatrix:
                 row_sum = np.asarray(self.matrix.sum(axis=1)).flatten()
                 self.maskBins(np.flatnonzero(row_sum==0))
                 """
+            # elif file_format == 'lieberman':  # lieberman format needs additional arguments : chrnameList
+            #     lieberman_data = self.getLiebermanBins(filenameList=matrixFile, chrnameList=chrnameList)
+            #     self.cut_intervals = lieberman_data['cut_intervals']
+            #     self.matrix = lieberman_data['matrix']
             elif file_format == 'lieberman':  # lieberman format needs additional arguments : chrnameList
                 lieberman_data = self.getLiebermanBins(filenameList=matrixFile, chrnameList=chrnameList)
                 self.cut_intervals = lieberman_data['cut_intervals']
@@ -1261,7 +1265,7 @@ class hiCMatrix:
                          bins=bins_data_frame,
                          pixels=matrix_data_frame)
 
-    def save_cooler(self, pFileName, pDataFrameBins=None, pDataFrameMatrix=None):
+    def save_cooler(self, pFileName, pDataFrameBins=None, pDataFrameMatrix=None, pSymmetric=True):
 
         # for value in self.nan_bins:
         self.restoreMaskedBins()
@@ -1276,7 +1280,13 @@ class hiCMatrix:
                 self.matrix.data[i] = 0
 
         self.matrix.eliminate_zeros()
-        matrix = triu(self.matrix, k=0, format='csr')
+        # save only the upper triangle of the
+        if pSymmetric:
+            # symmetric matrix
+            matrix = triu(self.matrix, k=0, format='csr')
+        else:
+            matrix = self.matrix
+        # matrix = triu(self.matrix, k=0, format='csr')
 
         if pDataFrameBins:
             if pDataFrameBins['start'].dtypes != 'int64':
@@ -1308,7 +1318,7 @@ class hiCMatrix:
                          bins=bins_data_frame,
                          pixels=matrix_data_frame)
 
-    def save_hdf5(self, filename):
+    def save_hdf5(self, filename, pSymmetric=True):
         """
         Saves a matrix using hdf5 format
         :param filename:
@@ -1331,8 +1341,11 @@ class hiCMatrix:
         except Exception:
             nan_bins = np.array([])
         # save only the upper triangle of the
-        # symmetric matrix
-        matrix = triu(self.matrix, k=0, format='csr')
+        if pSymmetric:
+            # symmetric matrix
+            matrix = triu(self.matrix, k=0, format='csr')
+        else:
+            matrix = self.matrix
         filters = tables.Filters(complevel=5, complib='blosc')
         with tables.open_file(filename, mode="w", title="HiCExplorer matrix") as h5file:
             matrix_group = h5file.create_group("/", "matrix", )
@@ -1416,7 +1429,7 @@ class hiCMatrix:
                 print("Matrix can not be saved because it is too big!")
             exit()
 
-    def save(self, pMatrixName):
+    def save(self, pMatrixName, pSymmetric=True):
         """To save please specifiy the ending of your format i.e. 'output_matrix.format' Supported are: 'dekker', 'ren',
             'lieberman', 'npz', 'GInteractions', 'h5' and 'cool'.
         """
@@ -1431,9 +1444,9 @@ class hiCMatrix:
         elif pMatrixName.endswith('GInteractions'):
             self.save_GInteractions(pMatrixName)
         elif pMatrixName.endswith('cool'):
-            self.save_cooler(pMatrixName)
+            self.save_cooler(pMatrixName, pSymmetric=pSymmetric)
         else:
-            self.save_hdf5(pMatrixName)
+            self.save_hdf5(pMatrixName, pSymmetric=pSymmetric)
 
     def diagflat(self, value=np.nan):
         """

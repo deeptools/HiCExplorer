@@ -132,6 +132,9 @@ class PlotTracks(object):
 
             elif properties['file_type'] == 'boundaries':
                 self.track_obj_list.append(PlotBoundaries(properties))
+            
+            elif properties['file_type'] == 'pca':
+                self.track_obj_list.append(PlotEigenvector(properties))
 
             if 'title' in properties:
                 # adjust titles that are too long
@@ -1846,6 +1849,79 @@ class PlotArcs(TrackPlot):
         label_ax.text(0.3, 0.0, self.properties['title'],
                       horizontalalignment='left', size='large',
                       verticalalignment='bottom', transform=label_ax.transAxes)
+
+
+class PlotEigenvector(TrackPlot):
+
+    def __init__(self, *args, **kwarg):
+        raise NotImplementedError
+    
+    def plot(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegion=None, pXticks=None, pNanBins=None):
+
+        
+        pAxis.set_frame_on(False)
+    
+        file_format = pNameOfEigenvectorsList[0].split(".")[-1]
+        if file_format != 'bedgraph' and file_format != 'bigwig':
+            exit("Given eigenvector files are not bedgraph or bigwig")
+
+        for eigenvector in pNameOfEigenvectorsList:
+            if eigenvector.split('.')[-1] != file_format:
+                exit("Eigenvector input files have different formats.")
+    
+        if pRegion:
+            chrom, region_start, region_end = pRegion
+        
+        if file_format == "bigwig":
+            raise NotImplementedError
+        else:
+            for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
+                interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
+                eigenvector = []
+                if pChromosomeList:
+                    for chrom in pChromosomeList:
+                        if chrom not in interval_tree:
+                            exit("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}".format(chrom))
+                            return
+                        for i, region in enumerate(sorted(interval_tree[chrom])):
+                            if i == 0:
+                                region_start = region[0]
+                            region_end = region[1]
+                            eigenvector.append(float(region.data[0]))
+                    x = np.arange(0, len(eigenvector), 1)
+                    
+                elif pRegion:
+                    if chrom not in interval_tree:
+                        exit("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}".format(chrom))
+                        return
+                    for region in sorted(interval_tree[chrom][region_start:region_end]):
+                        eigenvector.append(float(region.data[0]))
+                    step = (region_end - region_start) // len(eigenvector)
+                    
+                    x = np.arange(region_start, region_end, int(step))
+                    while len(x) < len(eigenvector):
+                        x = np.append(x[-1] + int(step))
+                    while len(eigenvector) < len(x):
+                        x = x[:-1]
+                
+                    pAxis.set_xlim(region_start, region_end)
+
+                pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
+            
+            if pXticks:
+                if len(pXticks) == 1:
+                    pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
+                    pAxis.set_xticklabels(pXticks[0], size='small', rotation=45)
+                else:
+                    pAxis.set_xlim(0, len(eigenvector))
+                    pAxis.set_xticks(pXticks[1])
+                    pAxis.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
+                    
+                    if len(pXticks[0]) > 20:
+                        pAxis.set_xticklabels(pXticks[0], size=4, rotation=90)
+                    else:
+                        pAxis.set_xticklabels(pXticks[0], size=8)
+
 
 
 def change_chrom_names(chrom):
