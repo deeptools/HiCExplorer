@@ -186,6 +186,11 @@ matplotlib.use('Agg')
 import hicexplorer.trackPlot
 from hicexplorer._version import __version__
 
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("hicPlotTADs")
+log.setLevel(logging.WARN)
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -334,7 +339,7 @@ def get_region(region_string):
 
 
 def main(args=None):
-    print("hicPlotTADs")
+    log.debug("hicPlotTADs")
     args = parse_arguments().parse_args(args)
     trp = hicexplorer.trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
                                            fontsize=args.fontSize, dpi=args.dpi,
@@ -351,12 +356,12 @@ def main(args=None):
             try:
                 start, end = map(int, [start, end])
             except ValueError as detail:
-                sys.stderr.write("Invalid value found at line\t{}\t. {}\n".format(line, detail))
+                log.exception("Invalid value found at line\t{}\t. {}\n".format(line, detail))
             file_name = "{}_{}:{}-{}".format(args.outFileName, chrom, start, end)
             if end - start < 200000:
                 start -= 100000
                 end += 100000
-            sys.stderr.write("saving {}'\n".format(file_name))
+            log.info("saving {}'\n".format(file_name))
             trp.plot(file_name, chrom, start, end, title=args.title)
     else:
         region = get_region(args.region)

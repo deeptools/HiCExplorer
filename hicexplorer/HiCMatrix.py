@@ -19,6 +19,11 @@ import gzip
 
 import cooler
 
+import logging
+logging.basicConfig()
+log = logging.getLogger("HiCMatrix")
+log.setLevel(logging.WARN)
+
 import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
 warnings.filterwarnings(action="ignore", message="numpy.dtype size changed")
@@ -26,6 +31,7 @@ warnings.filterwarnings(action="ignore", message="numpy.ndarray size changed")
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 warnings.simplefilter(action='ignore', category=ImportWarning)
 warnings.simplefilter(action='ignore', category=tables.exceptions.FlavorWarning)
+
 
 # try to import pandas if exists
 try:
@@ -375,7 +381,7 @@ class hiCMatrix:
             if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
                 self.bin_size_homogeneous = False
                 if self.non_homogeneous_warning_already_printed is False:
-                    sys.stderr.write('WARNING: bin size is not homogeneous. \
+                    log.warning('WARNING: bin size is not homogeneous. \
                                       Median {}\n'.format(median))
                     self.non_homogeneous_warning_already_printed = True
             self.bin_size = median
@@ -421,8 +427,8 @@ class hiCMatrix:
                     break
 
         except IOError:
-            print("Error reading {}.\nDoes the file exists? "
-                  "Is it gzipped?".format(fileName))
+            log.exception("Error reading {}.\nDoes the file exists? "
+                          "Is it gzipped?".format(fileName))
             exit(1)
 
         return zip(nameList, startList, endList, binIdList)
@@ -447,7 +453,7 @@ class hiCMatrix:
                 chrd = pd.read_csv(filenameList[i], sep="\t", header=None)
                 chrdata = chrd.as_matrix()
             else:
-                print("Pandas unavailable. Reading files using numpy (slower)..")
+                log.info("Pandas unavailable. Reading files using numpy (slower)..")
                 chrdata = np.loadtxt(filenameList[i])
 
             # define resolution as the median of the difference of the rows
@@ -524,24 +530,25 @@ class hiCMatrix:
             # chr_end_pos = chromosome_size[chrname]
             self.interval_trees[chrname]
         except KeyError:
-            """
-            print "chromosome: {} name not found in matrix".format(chrName)
-            print "valid names are:"
-            print interval_trees.keys()
-            """
+
+            log.exception("chromosome: {} name not found in matrix".format(chrname))
+            log.exception("valid names are:")
+            log.exception(self.interval_trees.keys())
+
             return None
         try:
             startpos = int(startpos)
             endpos = int(endpos)
         except ValueError:
-            print("{} or {}  are not valid "
-                  "position values.".format(startpos, endpos))
-            exit()
+            log.exeption("{} or {}  are not valid "
+                         "position values.".format(startpos, endpos))
+            exit(1)
 
         try:
             startbin = sorted(self.interval_trees[chrname][startpos:startpos + 1])[0].data
             endbin = sorted(self.interval_trees[chrname][endpos:endpos + 1])[0].data
         except IndexError:
+            log.exception("Index error")
             return None
 
         return startbin, endbin
@@ -631,9 +638,9 @@ class hiCMatrix:
             start = [snap_nearest_multiple(x, median) for x in start]
             end = [snap_nearest_multiple(x, median) for x in end]
             cut_intervals = zip(chrom, start, end, extra)
-            sys.stderr.write('[getCountsByDistance] Bin size is not '
-                             'homogeneous, setting \n'
-                             'the bin distance to the median: {}\n'.format(median))
+            log.info('[getCountsByDistance] Bin size is not '
+                     'homogeneous, setting \n'
+                     'the bin distance to the median: {}\n'.format(median))
         return cut_intervals
 
     def convert_to_zscore_matrix(self, maxdepth=None, perchr=False):
@@ -734,9 +741,9 @@ class hiCMatrix:
                 depth = m_size
                 estimated_size_dense_matrix = m_size**2 * 8
                 if estimated_size_dense_matrix > 100e6:
-                    sys.stderr.write("To compute z-scores a dense matrix is required. This will use \n"
-                                     "{} Mb of memory.\n To reduce memory use the maxdeph option."
-                                     "".format(estimated_size_dense_matrix / 1e6))
+                    log.info("To compute z-scores a dense matrix is required. This will use \n"
+                             "{} Mb of memory.\n To reduce memory use the maxdeph option."
+                             "".format(estimated_size_dense_matrix / 1e6))
 
             # to compute zscore the zero values need to be accounted and the matrix
             # need to become dense. This is only practical if only up to certain distance
@@ -774,7 +781,7 @@ class hiCMatrix:
             chrom_range['all'] = (0, self.matrix.shape[0])
 
         for chrname, submatrix in iteritems(chr_submatrix):
-            sys.stderr.write("processing chromosome {}\n".format(chrname))
+            log.info("processing chromosome {}\n".format(chrname))
             if zscore is True:
                 # this step has to be done after tocoo()
                 submatrix.data -= 1
@@ -835,7 +842,7 @@ class hiCMatrix:
                     # idx - 1 because earlier the values where
                     # shifted.
                     diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes[chrname] if size > (bin_dist_plus_one - 1)])
-                    # print(type(diagonal_length))
+                    log.debug(type(diagonal_length))
 
                 # the diagonal length should contain the number of values at a certain distance.
                 # If the matrix is dense, the distance_len[bin_dist_plus_one] correctly contains the number of values
@@ -843,7 +850,7 @@ class hiCMatrix:
                 # But, if the matrix is both sparse and with unequal bins, then none of the above methods is
                 # accurate but the the diagonal_length as computed before will be closer.
                 diagonal_length = max(diagonal_length, distance_len[bin_dist_plus_one])
-                # print(type(diagonal_length))
+                log.debug(type(diagonal_length))
 
                 if diagonal_length == 0:
                     mu[bin_dist_plus_one] = np.nan
@@ -851,7 +858,7 @@ class hiCMatrix:
                     mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
 
                 if np.isnan(sum_value):
-                    sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
+                    log.info("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
 
                 # if zscore is needed, compute standard deviation: std = sqrt(mean(abs(x - x.mean())**2))
                 if zscore:
@@ -999,9 +1006,9 @@ class hiCMatrix:
         # convert nans to zeros. Otherwise the computations will fail
         if np.any(np.isnan(data)):
             num_nan = len(np.flatnonzero(np.isnan(data)))
-            sys.stderr.write("converting {} ({:.2f}) nans "
-                             "to zeros".format(num_nan,
-                                               float(num_nan) / len(data)))
+            log.info("converting {} ({:.2f}) nans "
+                     "to zeros".format(num_nan,
+                                       float(num_nan) / len(data)))
             data[np.isnan(data)] = 0
 
         # get a vector of all distances. The order is the same
@@ -1228,15 +1235,15 @@ class hiCMatrix:
 
         resolution = self.getBinSize()
         if not self.bin_size_homogeneous:
-            sys.stderr.write("*WARNING* The hic matrix contains bins of difference size but\n"
-                             "the 'lieberman' format requires equally spaced bins. The program\n"
-                             "will proceed but the results may be unreliable.\n")
+            log.warning("*WARNING* The hic matrix contains bins of difference size but\n"
+                        "the 'lieberman' format requires equally spaced bins. The program\n"
+                        "will proceed but the results may be unreliable.\n")
 
         for chrom in list(self.interval_trees):
             chrstart, chrend = self.getChrBinRange(chrom)
             chrwise_mat = self.matrix[chrstart:chrend, chrstart:chrend]
             if len(chrwise_mat.data) > 0:
-                sys.stderr.write("Saving chromosome {}...\n".format(chrom))
+                log.info("Saving chromosome {}...\n".format(chrom))
                 chrwise_mat_coo = triu(chrwise_mat, k=0, format='csr').tocoo()
                 start = chrwise_mat_coo.row * resolution
                 end = chrwise_mat_coo.col * resolution
@@ -1248,7 +1255,7 @@ class hiCMatrix:
 
     def save_GInteractions(self, fileName):
         self.restoreMaskedBins()
-        print(self.matrix.shape)
+        log.debug(self.matrix.shape)
         mat_coo = triu(self.matrix, k=0, format='csr').tocoo()
         fileh = open("{}.tsv".format(fileName), 'w')
         for idx, counts in enumerate(mat_coo.data):
@@ -1331,8 +1338,8 @@ class hiCMatrix:
         # if the file name already exists
         # try to find a new suitable name
         if os.path.isfile(filename):
-            sys.stderr.write("*WARNING* File already exists {}\n "
-                             "Overwriting ...\n".format(filename))
+            log.warning("*WARNING* File already exists {}\n "
+                        "Overwriting ...\n".format(filename))
 
             from os import unlink
             unlink(filename)
@@ -1413,10 +1420,10 @@ class hiCMatrix:
                 startList=startList, endList=endList, extraList=extraList,
                 nan_bins=nan_bins, correction_factors=self.correction_factors)
         except Exception as e:
-            print("error saving matrix: {}".format(e))
+            log.exception("error saving matrix: {}".format(e))
             try:
-                print("Matrix can not be saved because is too big!")
-                print("Eliminating entries with only one count.")
+                log.info("Matrix can not be saved because is too big!")
+                log.version_info("Eliminating entries with only one count.")
 
                 # try to remove noise by deleting 1
                 matrix.data = matrix.data - 1
@@ -1426,7 +1433,7 @@ class hiCMatrix:
                     startList=startList, endList=endList, extraList=extraList,
                     nan_bins=nan_bins)
             except Exception:
-                print("Matrix can not be saved because it is too big!")
+                log.exception("Try failed. Matrix can not be saved because it is too big!")
             exit()
 
     def save(self, pMatrixName, pSymmetric=True):
@@ -1600,8 +1607,8 @@ class hiCMatrix:
 
         # join with existing nan_bins
         if self.nan_bins is not None and len(self.nan_bins) > 0:
-            print("found existing {} nan bins that will be "
-                  "included for masking ".format(len(self.nan_bins)))
+            log.info("found existing {} nan bins that will be "
+                     "included for masking ".format(len(self.nan_bins)))
             bin_ids = np.unique(np.concatenate([self.nan_bins, bin_ids]))
             self.nan_bins = []
         rows = cols = np.delete(list(range(self.matrix.shape[1])), bin_ids)
@@ -1612,7 +1619,7 @@ class hiCMatrix:
         # I add their ids to the end of the rows vector
         # to reverse the changes, I just need to do an argsort
         # to put the removed bins in place
-        # print("bins_ids", bin_ids)
+        log.debug("bins_ids", bin_ids)
         self.orig_bin_ids = np.concatenate([rows, bin_ids])
 
         new_cut_intervals = [self.cut_intervals[x] for x in rows]
@@ -1620,14 +1627,11 @@ class hiCMatrix:
         self.orig_cut_intervals = new_cut_intervals + [self.cut_intervals[x] for x in bin_ids]
 
         self.cut_intervals = new_cut_intervals
-#        self.nan_bins = np.intersect1d(self.nan_bins, rows)
+
         self.interval_trees, self.chrBinBoundaries = self.intervalListToIntervalTree(self.cut_intervals)
 
         if self.correction_factors is not None:
             self.correction_factors = self.correction_factors[rows]
-
-        # print("self.cut_intervalsMASKBINS__END", self.cut_intervals)
-        # print("len(self.cut_intervals)", len(self.cut_intervals))
 
     def update_matrix(self, new_matrix, new_cut_intervals):
         """
@@ -1732,7 +1736,7 @@ class hiCMatrix:
         # reset orig bins ids and cut intervals
         self.orig_bin_ids = []
         self.orig_cut_intervals = []
-        sys.stderr.write("masked bins were restored\n")
+        log.info("masked bins were restored\n")
 
     def reorderMatrix(self, orig, dest):
         """
@@ -1825,7 +1829,7 @@ class hiCMatrix:
             [np.unique(np.sort(chrom), return_index=True)[1],
              [len(chrom)]]))
         chr_dict = dict(zip(chrom[chr_count], chr_count))
-        sys.stderr.write('num poor regions to remove {}\n{}\n'.format(
+        log.info('num poor regions to remove {}\n{}\n'.format(
             len(to_remove),
             chr_dict))
         self.maskBins(to_remove)
@@ -1839,6 +1843,7 @@ class hiCMatrix:
         try:
             self.prev_to_remove
         except Exception:
+            log.exception("No self.prev_to_remove defined, defining it now.")
             self.prev_to_remove = np.array([])
 
         # if the same information was already printed don't
@@ -1850,7 +1855,7 @@ class hiCMatrix:
             try:
                 # check if a masked bin already exists
                 if len(self.orig_bin_ids) > 0:
-                    print("Masked bins already present")
+                    log.info("Masked bins already present")
                     self.restoreMaskedBins()
             except Exception:
                 pass
@@ -1860,7 +1865,7 @@ class hiCMatrix:
                 cnt[chrom] = 0
             cnt[chrom] += 1
 
-        sys.stderr.write('{}: {}\n{}\n'.format(label, len(to_remove), cnt))
+        log.info('{}: {}\n{}\n'.format(label, len(to_remove), cnt))
         self.prev_to_remove = to_remove
 
     def removeBySequencedCount(self, sequencedFraction=0.5):

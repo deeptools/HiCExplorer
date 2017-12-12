@@ -7,6 +7,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("hicPlotViewpoint")
+log.setLevel(logging.WARN)
+
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(description='Plots the number of interactions around a given reference point in a region.')
@@ -60,7 +66,7 @@ def main(args=None):
         args.region = args.region.translate(None, ",.;|!{}()").replace("-", ":")
         region = args.region.split(":")
         if len(region) != 3:
-            print("Region format is invalid {}".format(args.region))
+            log.error("Region format is invalid {}".format(args.region))
             exit(0)
         chrom, start, end = region[0], int(region[1]), int(region[2])
 

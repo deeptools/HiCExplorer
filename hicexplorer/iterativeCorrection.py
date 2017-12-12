@@ -4,7 +4,7 @@ import time
 import logging
 
 logging.basicConfig()
-log = logging.getLogger("iterative correction")
+log = logging.getLogger("iterativeCorrection")
 log.setLevel(logging.WARN)
 
 

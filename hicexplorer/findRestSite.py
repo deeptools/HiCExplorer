@@ -1,4 +1,3 @@
-import sys
 import argparse
 import re
 from tempfile import NamedTemporaryFile
@@ -7,6 +6,12 @@ import subprocess
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
+
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("findRestSite")
+log.setLevel(logging.WARN)
 
 
 def parse_arguments(args=None):
@@ -95,8 +100,7 @@ def find_pattern(pattern, fasta_file, out_file):
                 _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
                                                               match.start(),
                                                               match.end()))
-
-    sys.stderr.write("Sorting file ...\n")
+    log.info("Sorting file ...")
     tmpfile_name = temp.name
     temp.close()
     subprocess.check_output(["cat", tmpfile_name])

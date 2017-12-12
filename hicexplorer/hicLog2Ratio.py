@@ -4,6 +4,11 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 import numpy as np
 
+import logging
+logging.basicConfig()
+log = logging.getLogger("hicLog2Ratio")
+log.setLevel(logging.WARN)
+
 
 def parse_arguments(args=None):
     """
@@ -60,9 +65,9 @@ def main():
 
     Requires two sparse matrices as input
     """
-    assert hic_t.matrix.shape == hic_c.matrix.shape, "Matrices have different shapes."
+    assert hic_t.matrix.shape == hic_c.matrix.shape, log.error("Matrices have different shapes.")
 
-    assert (hic_t.matrix - hic_c.matrix).sum() != 0, "Matrices are identical."
+    assert (hic_t.matrix - hic_c.matrix).sum() != 0, log.error("Matrices are identical.")
 
     # create a new matrix that is the sum of the two
     # matrices to compare. The goal is to have

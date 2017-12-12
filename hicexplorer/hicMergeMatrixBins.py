@@ -1,16 +1,17 @@
 from __future__ import division
-import sys
 import argparse
 import numpy as np
 from past.builtins import zip
 from builtins import range
 
+import logging
+logging.basicConfig()
+log = logging.getLogger("hicMergeMatrixBins")
+log.setLevel(logging.WARN)
 
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
 from hicexplorer._version import __version__
-
-debug = 0
 
 
 def parse_arguments(args=None):
@@ -21,7 +22,6 @@ def parse_arguments(args=None):
         'using a matrix containing 5bk bins, a matrix '
         'of 50 kb bins can be derived. ')
 
-    # define the arguments
     parser.add_argument('--matrix', '-m',
                         help='Matrix to reduce.',
                         metavar='.h5 fileformat',
@@ -65,9 +65,9 @@ def remove_nans_if_needed(hic):
         hic.orig_cut_intervals = []
         hic.correction_factors = None
 
-        sys.stderr.write("*WARNING*: The matrix is probably a corrected matrix that contains NaN bins. This bins "
-                         "can not be merged and are removed. It is preferable to first merge bins in a uncorrected  "
-                         "matrix and then correct the matrix. Correction factors, if present, are removed as well.\n")
+        log.warning("*WARNING*: The matrix is probably a corrected matrix that contains NaN bins. This bins "
+                    "can not be merged and are removed. It is preferable to first merge bins in a uncorrected  "
+                    "matrix and then correct the matrix. Correction factors, if present, are removed as well.\n")
 
     return hic
 
@@ -234,7 +234,7 @@ def merge_bins(hic, num_bins):
     for idx, ref in enumerate(ref_name_list):
         if (count > 0 and count % num_bins == 0) or ref != prev_ref:
             if count < num_bins / 2:
-                sys.stderr.write("{} has few bins ({}). Skipping it\n".format(prev_ref, count))
+                log.debug("{} has few bins ({}). Skipping it\n".format(prev_ref, count))
             else:
                 coverage = np.mean(coverage_list[idx_start:idx])
                 new_bins.append((ref_name_list[idx_start], new_start, end_list[idx - 1], coverage))

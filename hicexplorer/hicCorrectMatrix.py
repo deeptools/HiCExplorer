@@ -1,9 +1,8 @@
 from __future__ import division
-import sys
 import argparse
 from past.builtins import zip
 from scipy.sparse import lil_matrix
-import logging
+
 
 from hicexplorer.iterativeCorrection import iterativeCorrection
 from hicexplorer import HiCMatrix as hm
@@ -11,6 +10,8 @@ from hicexplorer._version import __version__
 
 import numpy as np
 debug = 0
+
+import logging
 logging.basicConfig()
 log = logging.getLogger("hicCorrectMatrix")
 log.setLevel(logging.WARN)
@@ -222,7 +223,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
         discontinuous_failed = [x for idx, x in enumerate(failed_bins)
                                 if idx not in consecutive_failed_idx]
 
-    sys.stderr.write("Filling {} failed bins\n".format(
+    log.info("Filling {} failed bins\n".format(
         len(discontinuous_failed)))
 
     """
@@ -230,7 +231,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
         if 0 < missing_bin < mat_size - 1:
             for idx in range(1, mat_size - 2):
                 if idx % 100 == 0:
-                    sys.stderr.write(".")
+                    log.info(".")
                 # the new row value is the mean between the upper
                 # and lower bins corresponding to the same diagonal
                 fill_ma[missing_bin, idx :] = \
@@ -403,9 +404,9 @@ def plot_total_contact_dist(hic_ma, args):
             ymin, ymax = ax2.get_ylim()
             ax2.vlines(mad_threshold, ymin, ymax)
             if title:
-                print("{}: mad threshold {}".format(title, mad_threshold))
+                log.info("{}: mad threshold {}".format(title, mad_threshold))
             else:
-                print("mad threshold {}".format(mad_threshold))
+                log.info("mad threshold {}".format(mad_threshold))
 
     # replace nan by 0
     hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
@@ -413,9 +414,9 @@ def plot_total_contact_dist(hic_ma, args):
     if args.perchr:
         chroms = hic_ma.getChrNames()
         if len(chroms) > 30:
-            sys.stderr.write("The matrix contains {} chromosomes. It is not practical to plot "
-                             "each. Try using --chromosomes to select some chromosomes or "
-                             "plot a single histogram.")
+            log.warning("The matrix contains {} chromosomes. It is not practical to plot "
+                        "each. Try using --chromosomes to select some chromosomes or "
+                        "plot a single histogram.")
         num_rows = int(np.ceil(float(len(chroms)) / 5))
         num_cols = min(len(chroms), 5)
         grids = gridspec.GridSpec(num_rows, num_cols)
@@ -524,7 +525,7 @@ def main(args=None):
 
     if 'plotName' in args:
         plot_total_contact_dist(ma, args)
-        sys.stderr.write("Saving diagnostic plot {}\n".format(args.plotName))
+        log.info("Saving diagnostic plot {}\n".format(args.plotName))
         exit()
 
     log.info("matrix contains {} data points. Sparsity {:.3f}.".format(
@@ -559,7 +560,7 @@ def main(args=None):
         total_filtered_out = set(failed_bins)
         """
         ma.matrix, to_remove = fill_gaps(ma, failed_bins)
-        sys.stderr.write("From {} failed bins, {} could "
+        log.warning("From {} failed bins, {} could "
                          "not be filled\n".format(len(failed_bins),
                                                   len(to_remove)))
         ma.maskBins(to_remove)

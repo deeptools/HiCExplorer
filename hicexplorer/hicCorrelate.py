@@ -1,7 +1,6 @@
 from __future__ import division
 
 import argparse
-import sys
 import os
 import numpy as np
 from builtins import range
@@ -19,6 +18,11 @@ mplt_use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import FixedLocator
+
+import logging
+logging.basicConfig()
+log = logging.getLogger("hicCorrelate")
+log.setLevel(logging.WARN)
 
 
 def parse_arguments(args=None):
@@ -232,7 +236,7 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     if args.labels and len(args.matrices) != len(args.labels):
-        print("The number of labels does not match the number of matrices.")
+        log.error("The number of labels does not match the number of matrices.")
         exit(0)
     if not args.labels:
         args.labels = map(lambda x: os.path.basename(x), args.matrices)
@@ -252,7 +256,7 @@ def main(args=None):
     all_nan = []
 
     for i, matrix in enumerate(args.matrices):
-        sys.stderr.write("loading hic matrix {}\n".format(matrix))
+        log.info("loading hic matrix {}\n".format(matrix))
 
         if args.matrices[i].endswith('.cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
             _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes)
@@ -263,7 +267,7 @@ def main(args=None):
             _mat.filterOutInterChrCounts()
 
         _mat.diagflat(0)
-        sys.stderr.write("restore masked bins {}\n".format(matrix))
+        log.info("restore masked bins {}\n".format(matrix))
         bin_size = _mat.getBinSize()
         all_nan = np.unique(np.concatenate([all_nan, _mat.nan_bins]))
 
@@ -273,8 +277,8 @@ def main(args=None):
             min_dist = int(min_dist)
             max_dist = int(max_dist)
             if max_dist < bin_size:
-                exit("Please specify a max range that is larger than bin size ({})".format(bin_size))
-
+                log.error("Please specify a max range that is larger than bin size ({})".format(bin_size))
+                exit()
             max_depth_in_bins = int(max_dist / bin_size)
             max_dist = int(max_dist) / bin_size
             # work only with the upper matrix
@@ -317,7 +321,7 @@ def main(args=None):
     # make large matrix to correlate by
     # using sparse matrix tricks
 
-    print(len(all_nan))
+    # print(len(all_nan))
     big_mat = None
     for mat in hic_mat_list:
         mat = mat[rows_keep, :][:, cols_keep]
@@ -363,8 +367,8 @@ def main(args=None):
             ax.set_axis_off()
             continue
 
-        sys.stderr.write("comparing {} and {}\n".format(args.matrices[row],
-                                                        args.matrices[col]))
+        log.info("comparing {} and {}\n".format(args.matrices[row],
+                                                args.matrices[col]))
 
         # remove cases in which both are zero or one is zero and
         # the other is one
@@ -420,7 +424,7 @@ def main(args=None):
 
         ax.hist2d(vector1, vector2, bins=150, cmin=0.1)
     fig.tight_layout()
-    print("saving {}".format(args.outFileNameScatter))
+    log.info("saving {}".format(args.outFileNameScatter))
     fig.savefig(args.outFileNameScatter, bbox_inches='tight')
 
     results = results + np.triu(results, 1).T

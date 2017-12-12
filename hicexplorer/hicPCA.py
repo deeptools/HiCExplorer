@@ -69,7 +69,8 @@ Computes PCA eigenvectors for the HiC matrix.
 def main(args=None):
     args = parse_arguments().parse_args(args)
     if int(args.numberOfEigenvectors) != len(args.outputFileName):
-        exit("Number of output file names and number of eigenvectors does not match: {} {}".format(len(args.outputFileName), args.numberOfEigenvectors))
+        log.error("Number of output file names and number of eigenvectors does not match: {} {}".format(len(args.outputFileName), args.numberOfEigenvectors))
+        exit(1)
 
     ma = hm.hiCMatrix(args.matrix)
     ma.maskBins(ma.nan_bins)
@@ -123,7 +124,8 @@ def main(args=None):
                         fh.write("{}\t{}\t{}\t{}\n".format(chrom_list[i], start_list[i], end_list[i], value[idx]))
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
-            exit("ERROR: Your version of pyBigWig is not supporting numpy: {}".format(pyBigWig.__file__))
+            log.error("ERROR: Your version of pyBigWig is not supporting numpy: {}".format(pyBigWig.__file__))
+            exit(1)
         old_chrom = chrom[0]
         header = []
         for i, chrom_ in enumerate(chrom_list):
@@ -146,4 +148,5 @@ def main(args=None):
             bw.addEntries(list(chrom_list), list(start_list), ends=list(end_list), values=values)
             bw.close()
     else:
-        exit("Output format not known: {}".format(args.format))
+        log.error("Output format not known: {}".format(args.format))
+        exit(1)

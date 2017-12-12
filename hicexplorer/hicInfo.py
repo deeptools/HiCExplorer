@@ -3,6 +3,11 @@ import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
+import logging
+logging.basicConfig()
+log = logging.getLogger("hicFindTADs")
+log.setLevel(logging.WARN)
+
 
 def parse_arguments(args=None):
 
@@ -48,15 +53,16 @@ def main():
         min_non_zero = hic_ma.matrix.data.min()
         max_non_zero = hic_ma.matrix.data.max()
         if not matrix.endswith("lieberman"):
+            log.debug("lieberman matrix")
             chromosomes = list(hic_ma.chrBinBoundaries)
 
-        print("File:\t{}".format(matrix))
-        print("Size:\t{:,}".format(size))
-        print("Sum:\t{:,}".format(sum_elements))
-        print("Bin_length:\t{}".format(bin_length))
-        print("Chromosomes:\t{}".format(", ".join(chromosomes)))
-        print("Non-zero elements:\t{:,}".format(num_non_zero))
-        print("Minimum (non zero):\t{}".format(min_non_zero))
-        print("Maximum:\t{}".format(max_non_zero))
-        print("NaN bins:\t{}".format(num_nan_bins))
-        print("")
+        log.info("File:\t{}".format(matrix))
+        log.info("Size:\t{:,}".format(size))
+        log.info("Sum:\t{:,}".format(sum_elements))
+        log.info("Bin_length:\t{}".format(bin_length))
+        log.info("Chromosomes:\t{}".format(", ".join(chromosomes)))
+        log.info("Non-zero elements:\t{:,}".format(num_non_zero))
+        log.info("Minimum (non zero):\t{}".format(min_non_zero))
+        log.info("Maximum:\t{}".format(max_non_zero))
+        log.info("NaN bins:\t{}".format(num_nan_bins))
+        log.info("")

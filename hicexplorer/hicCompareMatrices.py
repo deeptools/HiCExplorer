@@ -5,6 +5,12 @@ import numpy as np
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("hicCompareMatrices")
+log.setLevel(logging.WARN)
+
 
 def parse_arguments(args=None):
 

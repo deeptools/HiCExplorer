@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 
-import sys
 import os.path
 import numpy as np
 import argparse
@@ -19,6 +18,12 @@ from scipy.sparse import triu
 
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer._version import __version__
+
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("hicPlotDistVsCounts")
+log.setLevel(logging.WARN)
 
 
 def parse_arguments(args=None):
@@ -196,7 +201,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
     mean_dict = {}
 
     for chrname, submatrix in iteritems(chr_submatrix):
-        sys.stderr.write("processing chromosome {}\n".format(chrname))
+        log.info("processing chromosome {}\n".format(chrname))
 
         dist_list, chrom_list = hicmat.getDistList(submatrix.row, submatrix.col,
                                                    HiCMatrix.hiCMatrix.fit_cut_intervals(cut_intervals[chrname]))
@@ -267,16 +272,16 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
                 mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
                 if sum_value == 0:
                     zero_value_bins.append(bin_dist_plus_one)
-                    sys.stderr.write("zero value for {}, diagonal len: {}\n".format(bin_dist_plus_one, diagonal_length))
+                    log.info("zero value for {}, diagonal len: {}\n".format(bin_dist_plus_one, diagonal_length))
                 if len(zero_value_bins) > 10:
                     diff = np.diff(zero_value_bins)
                     if len(diff[diff == 1]) > 10:
                         # if too many consecutive bins with zero are found that means that probably no
                         # further counts will be found
-                        sys.stderr.write("skipping rest of chromosome {}. Too many emtpy diagonals\n".format(chrname))
+                        log.info("skipping rest of chromosome {}. Too many emtpy diagonals\n".format(chrname))
                         break
             if np.isnan(sum_value):
-                sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
+                log.info("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
 
         if maxdepth is None:
             maxdepth = np.inf
@@ -318,7 +323,7 @@ def main(args=None):
     # compute scale factors such that values are comparable
     min_sum = min(matrix_sum.values())
     scale_factor = dict([(matrix_file, float(min_sum) / mat_sum) for matrix_file, mat_sum in iteritems(matrix_sum)])
-    print("The scale factors used are: {}".format(scale_factor))
+    log.info("The scale factors used are: {}".format(scale_factor))
     if len(args.matrices) > 1 and args.perchr:
         # in this case, for each chromosome a plot is made that combines the data from the
         # hic matrices
@@ -341,11 +346,11 @@ def main(args=None):
         idx = 0
         for chrom, mean_values in iteritems(mean_dict[matrix_file]):
             if len(mean_values) <= 1:
-                sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
+                log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
             x, y = zip(*[(k, v) for k, v in iteritems(mean_values) if v > 0])
             if len(x) <= 1:
-                sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
+                log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
             if args.perchr and len(args.matrices) == 1:
                 col = 0

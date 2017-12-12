@@ -1,9 +1,13 @@
 from __future__ import division
-import sys
 import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 import numpy as np
+
+import logging
+logging.basicConfig()
+log = logging.getLogger("hicExport")
+log.setLevel(logging.WARN)
 
 
 def parse_arguments(args=None):
@@ -154,20 +158,20 @@ def combine_matrices(matrix_list, bplimit=None):
 
 
 def main(args=None):
-    # print args
+    log.debug(args)
     args = parse_arguments().parse_args(args)
-    # print args
     # create hiC matrix with given input format
     # additional file needed for lieberman format
     if args.inputFormat == 'lieberman':
         if args.chrNameList is None:
-            exit("Error: --chrNameList is required when the input format is lieberman. ")
+            log.error("Error: --chrNameList is required when the input format is lieberman.")
+            exit()
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile, file_format='lieberman', chrnameList=args.chrNameList)
 
     elif args.inputFormat == 'npz' and len(args.inFile) > 1:  # assume hicexplorer_multi format
         if args.bplimit:
-            sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
+            log.info("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
         matrix, cut_intervals, nan_bins, corrections_factors, distance_counts = \
             combine_matrices(args.inFile, bplimit=args.bplimit)
@@ -189,7 +193,7 @@ def main(args=None):
 
         if args.bplimit:
             from scipy.sparse import triu
-            sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
+            log.info("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
             limit = args.bplimit // hic_ma.getBinSize()
             hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
@@ -207,25 +211,26 @@ def main(args=None):
         args.outFileName += args.outputFormat
 
     if args.outputFormat == 'dekker':
-        print('saving as dekker...')
+        log.info('saving as dekker...')
         hic_ma.save_dekker(args.outFileName)
     elif args.outputFormat == 'ren':
-        print('saving as ren...')
+        log.info('saving as ren...')
         hic_ma.save_bing_ren(args.outFileName)
     elif args.outputFormat == 'lieberman':
-        print('saving as lieberman...')
+        log.info('saving as lieberman...')
         hic_ma.save_lieberman(args.outFileName)
     elif args.outputFormat == 'npz':
-        print('saving as npz...')
+        log.info('saving as npz...')
         hic_ma.save_npz(args.outFileName)
     elif args.outputFormat == 'GInteractions':
-        print('saving as GInteractions...')
+        log.info('saving as GInteractions...')
         hic_ma.save_GInteractions(args.outFileName)
     elif args.outputFormat == 'cool':
-        print('saving as cool...')
+        log.info('saving as cool...')
         hic_ma.save_cooler(args.outFileName)
     elif args.outputFormat == 'h5':
-        print('saving as h5...')
+        log.info('saving as h5...')
         hic_ma.save(args.outFileName)
     else:
-        exit("An error occurred. hicExport aborted!")
+        log.error("An error occurred. hicExport aborted!")
+        exit()

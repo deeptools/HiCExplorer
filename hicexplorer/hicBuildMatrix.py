@@ -1,7 +1,6 @@
 from __future__ import division
 
 import argparse
-import sys
 import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix
 import time
@@ -30,6 +29,12 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 import hicexplorer.hicPrepareQCreport as QC
+
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("hicBuildMatrix")
+log.setLevel(logging.WARN)
 
 
 class C_Interval(Structure):
@@ -347,7 +352,7 @@ def bed2interval_list(bed_file_handler):
         try:
             chrom, start, end = fields[0], int(fields[1]), int(fields[2])
         except IndexError:
-            sys.stderr.write("error reading BED file at line {}".format(count))
+            log.error("error reading BED file at line {}".format(count))
 
         interval_list.append((chrom, start, end))
     return interval_list
@@ -381,9 +386,9 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     >>> get_rf_bins(rf_cut_interval, min_distance=10, max_distance=20)
     [('chr1', 0, 40), ('chr1', 40, 90), ('chr2', 0, 60), ('chr2', 60, 100)]
     """
-    sys.stderr.write("Minimum distance considered between "
-                     "restriction sites is {}\nMax "
-                     "distance: {}\n".format(min_distance, max_distance))
+    log.info("Minimum distance considered between "
+             "restriction sites is {}\nMax "
+             "distance: {}\n".format(min_distance, max_distance))
 
     chrom, start, end = list(zip(*rf_cut_intervals))
 
@@ -1020,8 +1025,8 @@ def main(args=None):
     if args.danglingSequence and not args.restrictionSequence:
         exit("\nIf --danglingSequence is set, --restrictonSequence needs to be set too.\n")
 
-    sys.stderr.write("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
-                                                                      args.samFiles[1].name))
+    log.info("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
+                                                              args.samFiles[1].name))
     str1 = pysam.Samfile(args.samFiles[0].name, 'rb')
     str2 = pysam.Samfile(args.samFiles[1].name, 'rb')
 
@@ -1076,8 +1081,8 @@ def main(args=None):
         dangling_sequences['pat_rev'] = str(
             Seq(args.danglingSequence, generic_dna).reverse_complement())
 
-        sys.stderr.write("dangling sequences to check "
-                         "are {}\n".format(dangling_sequences))
+        log.info("dangling sequences to check "
+                 "are {}\n".format(dangling_sequences))
 
     # initialize coverage vectors that
     # save the number of reads that overlap
@@ -1271,15 +1276,15 @@ def main(args=None):
                 # information after +-1e5 of 1e6 reads.
                 if iter_num % 1e6 < 100000:
                     elapsed_time = time.time() - start_time
-                    sys.stderr.write("processing {} lines took {:.2f} "
-                                     "secs ({:.1f} lines per "
-                                     "second)\n".format(iter_num,
-                                                        elapsed_time,
-                                                        iter_num / elapsed_time))
-                    sys.stderr.write("{} ({:.2f}%) valid pairs added to matrix"
-                                     "\n".format(pair_added, float(100 * pair_added) / iter_num))
+                    log.info("processing {} lines took {:.2f} "
+                             "secs ({:.1f} lines per "
+                             "second)\n".format(iter_num,
+                                                elapsed_time,
+                                                iter_num / elapsed_time))
+                    log.info("{} ({:.2f}%) valid pairs added to matrix"
+                             "\n".format(pair_added, float(100 * pair_added) / iter_num))
                 if args.doTestRun and iter_num > 1e5:
-                    sys.stderr.write(
+                    log.debug(
                         "\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
                     all_data_processed = True
                     thread_done[i] = True

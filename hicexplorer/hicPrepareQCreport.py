@@ -4,13 +4,18 @@ from __future__ import division
 
 import argparse
 import os
-import sys
 import errno
 import matplotlib
 import pandas as pd
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from hicexplorer._version import __version__
+
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("hicPrepareQCreport")
+log.setLevel(logging.WARN)
 
 
 def parse_arguments():
@@ -224,7 +229,7 @@ def main(args=None):
     make_sure_path_exists(args.outputFolder)
     for fh in args.logfiles:
         in_log_part = False
-        sys.stderr.write('Processing {}\n'.format(fh.name))
+        log.debug('Processing {}\n'.format(fh.name))
         for line in fh.readlines():
             if line.startswith("File"):
                 in_log_part = True
@@ -247,8 +252,9 @@ def main(args=None):
         try:
             table['Labels'] = args.labels
         except ValueError:
-            exit("*ERROR* Some log files may not be valid. Please check that the log files contain "
-                 "at the end the summary information.")
+            log.error("*ERROR* Some log files may not be valid. Please check that the log files contain "
+                      "at the end the summary information.")
+            exit()
 
         table = table.set_index('Labels')
     else:

@@ -2,7 +2,12 @@ from __future__ import division
 from scipy.sparse import coo_matrix, dia_matrix, triu
 import numpy as np
 import time
+
 import logging
+
+logging.basicConfig()
+log = logging.getLogger("reduceMatrix")
+log.setLevel(logging.WARN)
 
 
 def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
@@ -154,7 +159,7 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     # present
     num_nan = len(np.flatnonzero(np.isnan(np.array(ma.data))))
     if num_nan > 0:
-        logging.warning("*Warning*\nmatrix contains {} NaN values.".format(num_nan))
+        log.warning("*Warning*\nmatrix contains {} NaN values.".format(num_nan))
 
     # each original col and row index is converted
     # to a new index based on the bins_to_merge.
@@ -192,7 +197,7 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
 
     elapsed_time = time.time() - start_time
     start_time = time.time()
-    logging.debug("time complex unique: {:.5f}".format(elapsed_time))
+    log.debug("time complex unique: {:.5f}".format(elapsed_time))
     # sum the bins. For each bin, all values associated
     # to the bin members are added. Those values are in
     # the ma.data array.
@@ -209,7 +214,7 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
                         shape=(M, M), dtype=ma.dtype)
     elapsed_time = time.time() - start_time
 
-    logging.debug("time create sparse matrix: {:.5f}".format(elapsed_time))
+    log.debug("time create sparse matrix: {:.5f}".format(elapsed_time))
 
     if use_triu:
         diagmatrix = dia_matrix(([result.diagonal()], [0]),

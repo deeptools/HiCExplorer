@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import division
-import sys
 import os.path
 import logging
 import argparse
@@ -23,7 +22,7 @@ from past.builtins import map
 
 logging.basicConfig()
 log = logging.getLogger("hicFindTADs")
-log.setLevel(logging.INFO)
+log.setLevel(logging.WARN)
 
 # this is a holder vor the
 hic_ma = None
@@ -371,7 +370,8 @@ class HicFindTads(object):
             self.hic_ma = matrix
 
         if max_depth is not None and min_depth is not None and max_depth <= min_depth:
-            exit("Please check that maxDepth is larger than minDepth.")
+            log.error("Please check that maxDepth is larger than minDepth.")
+            exit()
 
         self.num_processors = num_processors
         self.max_depth = max_depth
@@ -430,10 +430,10 @@ class HicFindTads(object):
             exit(1)
 
         # print parameters used
-        sys.stderr.write("max depth:\t{}\n".format(self.max_depth))
-        sys.stderr.write("min depth:\t{}\n".format(self.min_depth))
-        sys.stderr.write("step:\t{}\n".format(self.step))
-        sys.stderr.write("bin size:\t{}\n".format(self.binsize))
+        log.debug("max depth:\t{}\n".format(self.max_depth))
+        log.debug("min depth:\t{}\n".format(self.min_depth))
+        log.debug("step:\t{}\n".format(self.step))
+        log.debug("bin size:\t{}\n".format(self.binsize))
 
     @staticmethod
     def peakdetect(y_axis, x_axis=None, lookahead=3, delta=0, chrom=None):
@@ -1051,7 +1051,8 @@ class HicFindTads(object):
         max_depth_in_bins = int(self.max_depth / self.binsize)
         step_in_bins = int(self.step / self.binsize)
         if step_in_bins == 0:
-            exit("Please select a step size larger than {}".format(self.binsize))
+            log.error("Please select a step size larger than {}".format(self.binsize))
+            exit(1)
 
         incremental_step = get_incremental_step_size(self.min_depth, self.max_depth, self.step)
 
@@ -1269,7 +1270,8 @@ class HicFindTads(object):
                                                     m_mean, m_median, m_25, m_75))
 
             if len(min_idx) == 0:
-                exit("\n*ERROR*\nNo boundaries were found. {}".format(msg))
+                log.error("\n*ERROR*\nNo boundaries were found. {}".format(msg))
+                exit(1)
             else:
                 log.info("Only {} boundaries found. {}".format(len(min_idx), msg))
 
@@ -1290,7 +1292,7 @@ def print_args(args):
 
     """
     for key, value in args._get_kwargs():
-        sys.stderr.write("{}:\t{}\n".format(key, value))
+        log.info("{}:\t{}\n".format(key, value))
 
 
 def main(args=None):
@@ -1316,7 +1318,7 @@ def main(args=None):
             log.error("The given TAD_sep_score_prefix does not contain a valid z-score matrix. Please check.\n"
                       "Could not find file {}".format(zscore_matrix_file))
             exit(1)
-        sys.stderr.write("\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
+        log.info("\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
         ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
         ft.load_bedgraph_matrix(tad_score_file)
 
@@ -1326,8 +1328,8 @@ def main(args=None):
         ft.hic_ma.save(args.outPrefix + "_zscore_matrix.h5")
         ft.save_bedgraph_matrix(tad_score_file)
     else:
-        sys.stderr.write("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
-        sys.stderr.write("This file will be used\n")
+        log.info("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
+        log.info("This file will be used\n")
         ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
         ft.load_bedgraph_matrix(tad_score_file)
 

@@ -1,4 +1,9 @@
 import argparse
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("parserCommon")
+log.setLevel(logging.WARN)
 
 
 def getParentArgParse(args=None):
@@ -16,5 +21,6 @@ def writableFile(string):
         open(string, 'w').close()
     except IOError:
         msg = "{} file can be opened for writting".format(string)
+        log.exception(msg)
         raise argparse.ArgumentTypeError(msg)
     return string

@@ -3,6 +3,12 @@ import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("hicSumMatrices")
+log.setLevel(logging.WARN)
+
 
 def parse_arguments(args=None):
 
@@ -36,17 +42,18 @@ def main(args=None):
     for matrix in args.matrices[1:]:
         hic_to_append = hm.hiCMatrix(matrix)
         if hic.chrBinBoundaries != hic_to_append.chrBinBoundaries:
-            exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
-                 "{}: {}\n"
-                 "{}: {}".format(args.matrices[0], list(hic.chrBinBoundaries),
-                                 matrix, list(hic_to_append.chrBinBoundaries)))
+            log.error("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
+                      "{}: {}\n"
+                      "{}: {}".format(args.matrices[0], list(hic.chrBinBoundaries),
+                                      matrix, list(hic_to_append.chrBinBoundaries)))
+            exit(1)
 
         try:
             summed_matrix = summed_matrix + hic_to_append.matrix
             if len(hic_to_append.nan_bins):
                 nan_bins = nan_bins.union(hic_to_append.nan_bins)
         except Exception:
-            print(
+            log.exception(
                 "\nMatrix {} seems to be corrupted or of different shape".format(matrix))
             exit(1)
 

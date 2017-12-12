@@ -24,6 +24,12 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from collections import OrderedDict
 
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("hicPlotMatrix")
+log.setLevel(logging.WARN)
+
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(description='Creates a Heatmap of a HiC matrix')
@@ -180,7 +186,7 @@ def change_chrom_names(chrom):
 
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                 ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pPca=None):
-    print("PLOT heatmap region")
+    log.debug("plotting heatmap")
     if pAxis is not None:
         axHeat2 = pAxis
     else:
@@ -195,11 +201,8 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         start_pos2 = start_pos
 
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-    # print(xmesh)
-    # print(xmesh.T)
 
     img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
-    # img3 = axHeat2.imshow(ma, cmap=cmap, vmin=args.vMin, vmax=args.vMax, interpolation='nearest', norm=pNorm)
     axHeat2.invert_yaxis()
     img3.set_rasterized(True)
     xticks = None
@@ -425,10 +428,11 @@ def main(args=None):
     start_pos2 = None
 
     if args.perChromosome and args.region:
-        sys.stderr.write('ERROR, choose from the option '
-                         '--perChromosome or --region, the two '
-                         'options at the same time are not '
-                         'compatible.')
+        log.error('ERROR, choose from the option '
+                  '--perChromosome or --region, the two '
+                  'options at the same time are not '
+                  'compatible.')
+        exit(1)
 
     if args.matrix.endswith('.cool') and not args.region2:
 
@@ -470,13 +474,13 @@ def main(args=None):
                     invalid_chromosomes.append(chrom)
 
             if len(invalid_chromosomes) > 0:
-                sys.stderr.write("WARNING: The following chromosome/scaffold names were not found. Please check"
-                                 "the correct spelling of the chromosome names. \n")
-                sys.stderr.write("\n".join(invalid_chromosomes))
+                log.warning("WARNING: The following chromosome/scaffold names were not found. Please check"
+                            "the correct spelling of the chromosome names. \n")
+                log.warning("\n".join(invalid_chromosomes))
             # ma.keepOnlyTheseChr(valid_chromosomes)
             ma.reorderChromosomes(valid_chromosomes)
 
-        sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
+        log.info("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
 
         if args.region:
             chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
@@ -489,10 +493,10 @@ def main(args=None):
     matrix_length = len(matrix[0])
     for matrix_ in matrix:
         if not matrix_length == len(matrix_):
-            print("NOT SAME LENGTH")
+            log.error("Matrices do not have the same length: {} , {}".format(matrix_length, len(matrix_)))
 
     cmap = cm.get_cmap(args.colorMap)
-    sys.stderr.write("Nan values set to black\n")
+    log.debug("Nan values set to black\n")
     cmap.set_bad('black')
 
     pca = None
@@ -550,16 +554,18 @@ def main(args=None):
 
 
 def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegion=None, pXticks=None):
-
+    log.debug('plotting eigenvector')
     pAxis.set_frame_on(False)
 
     file_format = pNameOfEigenvectorsList[0].split(".")[-1]
     if file_format != 'bedgraph' and file_format != 'bigwig':
-        exit("Given eigenvector files are not bedgraph or bigwig")
+        log.error("Given eigenvector files are not bedgraph or bigwig")
+        exit()
 
     for eigenvector in pNameOfEigenvectorsList:
         if eigenvector.split('.')[-1] != file_format:
-            exit("Eigenvector input files have different formats.")
+            log.error("Eigenvector input files have different formats.")
+            exit()
 
     if pRegion:
         chrom, region_start, region_end = pRegion
@@ -573,7 +579,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
             if pChromosomeList:
                 for chrom in pChromosomeList:
                     if chrom not in interval_tree:
-                        print("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                        log.error("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                         return
                     for i, region in enumerate(sorted(interval_tree[chrom])):
                         if i == 0:
@@ -584,7 +590,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
 
             elif pRegion:
                 if chrom not in interval_tree:
-                    print("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                    log.error("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                     return
                 for region in sorted(interval_tree[chrom][region_start:region_end]):
                     eigenvector.append(float(region.data[0]))

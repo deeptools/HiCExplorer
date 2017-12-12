@@ -5,6 +5,12 @@ import argparse
 import sys
 from hicexplorer._version import __version__
 
+import logging
+
+logging.basicConfig()
+log = logging.getLogger("list_tools")
+log.setLevel(logging.WARN)
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
