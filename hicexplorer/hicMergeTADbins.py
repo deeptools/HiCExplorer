@@ -143,5 +143,5 @@ def main(args=None):
     boundary_id_list = get_boundary_bin_id(hic_ma, args.domains)
 
     # make a reduce matrix by merging the TAD bins
-    log.info("Generating matrix with merged bins\n")
+    log.info("Generating matrix with merged bins")
     merge_tad_bins(hic_ma, boundary_id_list, args.outFile)

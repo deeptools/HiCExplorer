@@ -67,7 +67,7 @@ def remove_nans_if_needed(hic):
 
         log.warning("*WARNING*: The matrix is probably a corrected matrix that contains NaN bins. This bins "
                     "can not be merged and are removed. It is preferable to first merge bins in a uncorrected  "
-                    "matrix and then correct the matrix. Correction factors, if present, are removed as well.\n")
+                    "matrix and then correct the matrix. Correction factors, if present, are removed as well.")
 
     return hic
 

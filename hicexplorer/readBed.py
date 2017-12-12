@@ -92,11 +92,11 @@ class ReadBed(object):
         elif len(line_values) > 6:
             # assume bed6
             self.file_type = 'bed6'
-            log.debug("Number of fields in BED file is not standard. Assuming bed6\n")
+            log.debug("Number of fields in BED file is not standard. Assuming bed6.")
         else:
             # assume bed3
             self.file_type = 'bed3'
-            log.debug("Number of fields in BED file is not standard. Assuming bed3\n")
+            log.debug("Number of fields in BED file is not standard. Assuming bed3.")
         return self.file_type
 
     def next(self):

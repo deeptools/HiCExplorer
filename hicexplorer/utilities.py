@@ -14,7 +14,7 @@ import logging
 
 logging.basicConfig()
 log = logging.getLogger("utilities")
-log.setLevel(logging.WARN)
+log.setLevel(logging.DEBUG)
 
 
 def writableFile(string):
@@ -123,7 +123,7 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
         log.debug('noise error set to {}\n'.format(noise_level))
     else:
         noise_level = None
-    log.debug("finish computing fitting parameters\n")
+    log.debug("finish computing fitting parameters")
 
     ########################
     # after the distributions are fitted
@@ -964,7 +964,16 @@ def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     row, col = pSubmatrix.nonzero()
     distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
     for i in range(len(pSubmatrix.data)):
-        pSubmatrix.data[i] = pSubmatrix.data[i] / expected_interactions_in_distance_[distance[i]]
+        try:
+            if expected_interactions_in_distance_[distance[i]] == 0:
+                pSubmatrix.data[i] = 0.0
+            else:
+                pSubmatrix.data[i] = pSubmatrix.data[i] / expected_interactions_in_distance_[distance[i]]
+        except Exception:
+            log.debug("pSubmatrix.data[i]: {}".format(pSubmatrix.data[i] ))
+            log.debug("distance[i]: {}".format(distance[i] ))
+            log.debug("expected_interactions_in_distance_[distance[i]]: {} ".format(expected_interactions_in_distance_[distance[i]]))
+            exit(1)
 
     return pSubmatrix
 

@@ -842,7 +842,7 @@ class hiCMatrix:
                     # idx - 1 because earlier the values where
                     # shifted.
                     diagonal_length = sum([size - (bin_dist_plus_one - 1) for size in chrom_sizes[chrname] if size > (bin_dist_plus_one - 1)])
-                    log.debug(type(diagonal_length))
+                    log.debug("Type of diagonal_length {}".format(type(diagonal_length)))
 
                 # the diagonal length should contain the number of values at a certain distance.
                 # If the matrix is dense, the distance_len[bin_dist_plus_one] correctly contains the number of values
@@ -850,7 +850,7 @@ class hiCMatrix:
                 # But, if the matrix is both sparse and with unequal bins, then none of the above methods is
                 # accurate but the the diagonal_length as computed before will be closer.
                 diagonal_length = max(diagonal_length, distance_len[bin_dist_plus_one])
-                log.debug(type(diagonal_length))
+                log.debug("Type of diagonal_length {}".format(type(diagonal_length)))
 
                 if diagonal_length == 0:
                     mu[bin_dist_plus_one] = np.nan
@@ -1619,7 +1619,7 @@ class hiCMatrix:
         # I add their ids to the end of the rows vector
         # to reverse the changes, I just need to do an argsort
         # to put the removed bins in place
-        log.debug("bins_ids", bin_ids)
+        log.debug("bins_ids {}".format(bin_ids))
         self.orig_bin_ids = np.concatenate([rows, bin_ids])
 
         new_cut_intervals = [self.cut_intervals[x] for x in rows]

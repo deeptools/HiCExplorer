@@ -91,7 +91,7 @@ def main(args=None):
 
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
-        log.debug("Computing pca for chromosome: %s", chrname)
+        log.debug("Computing pca for chromosome: {}".format(chrname))
 
         submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
 

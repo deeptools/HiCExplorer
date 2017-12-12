@@ -293,16 +293,15 @@ class PlotTracks(object):
         parser = ConfigParser(dict_type=MultiDict, strict=False)
         with open(tracks_file, 'r') as file_h:
             parser.read_file(file_h)
-        log.debug("tracks_file", tracks_file)
+        log.debug("tracks_file {}".format(tracks_file))
         tracks_file_path = os.path.dirname(tracks_file)
 
         track_list = []
         for section_name in parser.sections():
             track_options = dict({"section_name": section_name})
-            log.debug("sectionname: ", section_name)
+            log.debug("sectionname: {}".format(section_name))
             if section_name.endswith('[spacer]'):
                 track_options['spacer'] = True
-                log.debug("sectionname TRUE: ")
             elif section_name.endswith('[x-axis]'):
                 track_options['x-axis'] = True
             for name, value in parser.items(section_name):
@@ -459,7 +458,7 @@ def file_to_intervaltree(file_name):
         if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
             continue
         fields = line.strip().split('\t')
-        log.debug("fields: ", fields[0:3], type(fields))
+        log.debug("fields: {}, {}".format(fields[0:3], type(fields)))
         try:
             chrom, start, end = fields[0:3]
         except Exception as detail:
