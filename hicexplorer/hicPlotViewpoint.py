@@ -2,8 +2,9 @@ import argparse
 
 import numpy as np
 import hicexplorer.HiCMatrix as hm
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-plt.switch_backend('agg')
 import os
 
 
@@ -18,18 +19,23 @@ def parse_arguments(args=None):
                         help='The format is chr:start-end ',
                         required=True)
 
-    parser.add_argument('--outFileName', '-out',
+    parser.add_argument('--outFileName', '-o',
                         help='File name to save the image.',
                         required=True)
 
-    parser.add_argument('--chromosome', '-C',
-                        help='Only show results for this chromosome.')
-
-    parser.add_argument('--referencePoint', '-rp', help='Reference point.',
+    parser.add_argument('--referencePoint', '-rp', help='Reference point. Needs to be in the format: \'chr:100\' for a '
+                        'single reference point or \'chr:100-200\' for a reference region.',
                         required=True)
 
+    parser.add_argument('--chromosome', '-C',
+                        help='Optional parameter: Only show results for this chromosome.')
+
+    parser.add_argument('--interactionOutFileName', '-i', help='Optional parameter:  If set a bedgraph file with all interaction'
+                        ' will be created.',
+                        required=False)
+
     parser.add_argument('--dpi',
-                        help='Resolution for the image in case the'
+                        help='Optional parameter: Resolution for the image in case the'
                              'ouput is a raster graphics image (e.g png, jpg)',
                         type=int,
                         default=300)
@@ -72,10 +78,16 @@ def main(args=None):
     elements_of_viewpoint = view_point_range[1] - view_point_range[0]
     data_list = np.zeros(elements_of_viewpoint)
     view_point_start_ = view_point_start
+    interactions_list = None
+    if args.interactionOutFileName is not None:
+        interactions_list = []
     while view_point_start_ <= view_point_end:
+        chrom, start, end, _ = hic.getBinPos(view_point_start_)
         for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
-
             data_list[j] += hic.matrix[view_point_start_, idx]
+            if interactions_list is not None:
+                chrom_second, start_second, end_second, _ = hic.getBinPos(idx)
+                interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, hic.matrix[view_point_start_, idx]))
         view_point_start_ += 1
 
     ax = plt.subplot(111)
@@ -106,3 +118,8 @@ def main(args=None):
             transform=ax.transAxes,
             color='black', fontsize=8)
     plt.savefig(args.outFileName, dpi=args.dpi)
+
+    if interactions_list is not None:
+        with open(args.interactionOutFileName, 'w') as fh:
+            for interaction in interactions_list:
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(interaction[0], interaction[1], interaction[2], interaction[3], interaction[4], interaction[5], interaction[6]))
