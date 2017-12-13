@@ -26,7 +26,11 @@ def parse_arguments(args=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description='Computes pairwise correlations between Hi-C matrices data. '
         'The correlation is computed taking the values from each pair '
-        'of matrices and discarding values that are zero in both matrices.')
+        'of matrices and discarding values that are zero in both matrices.'
+        'Correlations are usually very high because of the comparison '
+        'of absence of signal at long ranges between matrices.' 
+        'One might thus consider to select meaningful genomic regions prior to the correlation analysis'
+        'or to use the --range option at a reasonable scale according to the matrices.')
 
     # define the arguments
     parser.add_argument('--matrices', '-m',
