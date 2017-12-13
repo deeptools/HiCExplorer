@@ -970,8 +970,8 @@ def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
             else:
                 pSubmatrix.data[i] = pSubmatrix.data[i] / expected_interactions_in_distance_[distance[i]]
         except Exception:
-            log.debug("pSubmatrix.data[i]: {}".format(pSubmatrix.data[i] ))
-            log.debug("distance[i]: {}".format(distance[i] ))
+            log.debug("pSubmatrix.data[i]: {}".format(pSubmatrix.data[i]))
+            log.debug("distance[i]: {}".format(distance[i]))
             log.debug("expected_interactions_in_distance_[distance[i]]: {} ".format(expected_interactions_in_distance_[distance[i]]))
             exit(1)
 
