@@ -1863,7 +1863,7 @@ class hiCMatrix:
                 cnt[chrom] = 0
             cnt[chrom] += 1
 
-        log.info('{}: {}\n{}\n'.format(label, len(to_remove), cnt))
+        log.info('{}: {} {}'.format(label, len(to_remove), cnt))
         self.prev_to_remove = to_remove
 
     def removeBySequencedCount(self, sequencedFraction=0.5):

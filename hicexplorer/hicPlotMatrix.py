@@ -7,7 +7,7 @@ from hicexplorer.utilities import toString, toBytes
 from hicexplorer._version import __version__
 from hicexplorer.trackPlot import file_to_intervaltree
 import numpy as np
-
+import pyBigWig
 from builtins import range
 from past.builtins import zip
 from future.utils import itervalues
@@ -431,6 +431,10 @@ def main(args=None):
                   'compatible.')
         exit(1)
 
+    if args.region and args.region2 and args.pca:
+        log.error("Inter-chromosomal pca is not supported.")
+        exit(1)
+
     if args.matrix.endswith('.cool') and not args.region2:
 
         regionsToRetrieve = None
@@ -474,7 +478,6 @@ def main(args=None):
                 log.warning("WARNING: The following chromosome/scaffold names were not found. Please check"
                             "the correct spelling of the chromosome names. \n")
                 log.warning("\n".join(invalid_chromosomes))
-            # ma.keepOnlyTheseChr(valid_chromosomes)
             ma.reorderChromosomes(valid_chromosomes)
 
         log.info("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
@@ -520,12 +523,12 @@ def main(args=None):
             matrix += 1
             norm = LogNorm()
 
-        fig_height = 6
+        fig_height = 7
         height = 4.8 / fig_height
 
-        fig_width = 7
+        fig_width = 8
         width = 5.0 / fig_width
-        left_margin = (1.0 - width) * 0.4
+        left_margin = (1.0 - width) * 0.5
 
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
@@ -540,7 +543,7 @@ def main(args=None):
 
         else:
             ax1 = None
-        bottom = 0.8 / fig_height
+        bottom = 1.3 / fig_height
 
         position = [left_margin, bottom, width, height]
         plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
@@ -555,7 +558,8 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
     pAxis.set_frame_on(False)
 
     file_format = pNameOfEigenvectorsList[0].split(".")[-1]
-    if file_format != 'bedgraph' and file_format != 'bigwig':
+    if file_format != 'bedgraph' and not file_format != 'bigwig' and file_format != 'bw':
+
         log.error("Given eigenvector files are not bedgraph or bigwig")
         exit()
 
@@ -566,9 +570,54 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
 
     if pRegion:
         chrom, region_start, region_end = pRegion
+    x = None
+    eigenvector = None
+    if file_format == "bigwig" or file_format == 'bw':
+        for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
+            bw = pyBigWig.open(eigenvectorFile)
+            eigenvector = []
+            if pChromosomeList:
+                for chrom in pChromosomeList:
+                    try:
+                        bins_list = bw.intervals(chrom)
+                    except Exception:
+                        log.error("Chromosome {} not found!".format(chrom))
+                        return
+                    for i, bin_ in enumerate(bins_list):
+                        if i == 0:
+                            region_start = bin_[0]
+                        eigenvector.append(complex(bin_[2]).real)
+                    region_end = bins_list[-1][1]
 
-    if file_format == "bigwig":
-        raise NotImplementedError
+                x = np.arange(0, len(eigenvector), 1)
+                pAxis.set_xlim(0, len(eigenvector))
+
+            elif pRegion:
+                try:
+                    if region_start == 0 and region_end == 1e15:
+                        log.debug("chrom == pRegion")
+                        bins_list = bw.intervals(chrom)
+                        region_start = bins_list[0][0]
+                        region_end = bins_list[-1][1]
+                    else:
+                        log.debug("chrom: {}, region_start: {}, region_end: {}".format(chrom, region_start, region_end))
+                        log.debug("pRegion: {}".format(pRegion))
+                        bins_list = bw.intervals(chrom, region_start, region_end)
+                except Exception:
+                    log.error("Chromosome {} not found!".format(chrom))
+                    return
+                for bin_ in bins_list:
+                    eigenvector.append(complex(bin_[2]).real)
+                step = (region_end * 2 - region_start) // len(eigenvector)
+
+                x = np.arange(region_start, region_end * 2, int(step))
+                while len(x) < len(eigenvector):
+                    x = np.append(x[-1] + int(step))
+                while len(eigenvector) < len(x):
+                    x = x[:-1]
+
+                pAxis.set_xlim(region_start, region_end * 2)
+
     else:
         for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
             interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
@@ -599,5 +648,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                 while len(eigenvector) < len(x):
                     x = x[:-1]
 
-                pAxis.set_xlim(region_start, region_end * 2)
-            pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
+            pAxis.set_xlim(region_start, region_end * 2)
+    if x is not None and eigenvector is not None:
+        pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
+    pAxis.get_xaxis().set_visible(False)

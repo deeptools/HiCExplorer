@@ -22,11 +22,11 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         conflict_handler='resolve',
-        usage="%(prog)s --matrix hic_matrix -o pca1.bw pca2.bw ",
+        usage="%(prog)s --matrix hic_matrix -o pca1.bedgraph pca2.bedgraph ",
         description="""
 Computes PCA eigenvectors for the HiC matrix.
 
-    $ hicPCA --matrix hic_matrix -o pca1.bw pca2.bw
+    $ hicPCA --matrix hic_matrix -o pca1.bedgraph pca2.bedgraph
 
 """
     )
@@ -41,22 +41,25 @@ Computes PCA eigenvectors for the HiC matrix.
                         nargs='+',
                         default=['pca1', 'pca2'],
                         required=True)
+
     parser.add_argument('--numberOfEigenvectors', '-noe',
                         help='The number of eigenvectors that the PCA should compute.',
                         default=2,
                         type=int,
-                        required=True)
+                        required=False)
 
     parser.add_argument('--format', '-f',
-                        help='output format. Either bigwig (default) or bedgraph.',
+                        help='output format. Either bedgraph (default) or bigwig.',
                         choices=['bedgraph', 'bigwig'],
-                        default='bigwig',
+                        default='bedgraph',
                         required=False)
+
     parser.add_argument('--chromosomes',
                         help='List of chromosomes to be included in the '
                         'correlation.',
                         default=None,
                         nargs='+')
+
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -85,7 +88,6 @@ def main(args=None):
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
         length_chromosome += chr_range[1] - chr_range[0]
-
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
         log.debug("Computing pca for chromosome: {}".format(chrname))
@@ -123,26 +125,27 @@ def main(args=None):
         if not pyBigWig.numpy == 1:
             log.error("ERROR: Your version of pyBigWig is not supporting numpy: {}".format(pyBigWig.__file__))
             exit(1)
-        old_chrom = chrom[0]
+        old_chrom = chrom_list[0]
         header = []
         for i, chrom_ in enumerate(chrom_list):
             if old_chrom != chrom_:
                 header.append((old_chrom, end_list[i - 1]))
             old_chrom = chrom_
-        header.append((chrom_list[-1], end_list[-1]))
 
+        header.append((chrom_list[-1], end_list[-1]))
         for idx, outfile in enumerate(args.outputFileName):
-            assert(len(vecs_list[:, idx]) == len(chrom_list))
+            assert(len(vecs_list) == len(chrom_list))
             values = []
 
             bw = pyBigWig.open(outfile, 'w')
             # set big wig header
             bw.addHeader(header)
             # create entry lists
-            for i, value in enumerate(vecs_list[:, idx]):
-                values.append(value.real)
+            for i, value in enumerate(vecs_list):
+                values.append(value[idx].real)
             # write entries
-            bw.addEntries(list(chrom_list), list(start_list), ends=list(end_list), values=values)
+
+            bw.addEntries(chrom_list, start_list, ends=end_list, values=values)
             bw.close()
     else:
         log.error("Output format not known: {}".format(args.format))
