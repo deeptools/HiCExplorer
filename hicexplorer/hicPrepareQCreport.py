@@ -14,9 +14,9 @@ import pandas as pd
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Tabulates and plots QC measures from  '
-                                                 'hicBuildMatrix log files.',
-                                     usage='%(prog)s --logfiles matrix1.h5 matrix2.h5 '
-                                           '--labels "sample 1" "sample 2" -outFile QC.txt)')
+                                                 'hicBuildMatrix log files within an HTML output',
+                                     usage='%(prog)s --logfiles matrix1_QCfolder/QC.log matrix2_QCfolder/QC.log '
+                                           '--labels "sample 1" "sample 2" --outputFolder QC_all_samples)')
 
     # define the arguments
     parser.add_argument('--logfiles', '-l',
