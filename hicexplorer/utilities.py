@@ -11,10 +11,8 @@ mplt_use('Agg')
 from hicexplorer.HiCMatrix import hiCMatrix
 
 import logging
+log = logging.getLogger(__name__)
 
-logging.basicConfig()
-log = logging.getLogger("utilities")
-log.setLevel(logging.DEBUG)
 
 
 def writableFile(string):
@@ -390,7 +388,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
             log.debug("no counts for bins at distance {}".format(dist))
             continue
         if np.any(np.isnan(countsByDistance[dist])) is True:
-            log.error("ERROR: matrix contains NaN values\n")
+            log.error("matrix contains NaN values\n")
 
         counts = remove_outliers(countsByDistance[dist])
         if len(counts) <= 20:

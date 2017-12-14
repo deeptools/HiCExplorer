@@ -25,10 +25,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from collections import OrderedDict
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("hicPlotMatrix")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):

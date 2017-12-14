@@ -11,10 +11,8 @@ from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 
 import logging
+log = logging.getLogger(__name__)
 
-logging.basicConfig()
-log = logging.getLogger("hicTransform")
-log.setLevel(logging.INFO)
 
 
 def parse_arguments(args=None):
@@ -71,6 +69,7 @@ def __pearson(pSubmatrix):
 
 
 def main(args=None):
+    
     args = parse_arguments().parse_args(args)
 
     hic_ma = hm.hiCMatrix(matrixFile=args.matrix)

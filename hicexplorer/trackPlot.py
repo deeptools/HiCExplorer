@@ -22,10 +22,8 @@ from .readBed import ReadBed
 import copy
 
 import logging
+log = logging.getLogger(__name__)
 
-logging.basicConfig()
-log = logging.getLogger("trackPlot")
-log.setLevel(logging.WARN)
 
 import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")

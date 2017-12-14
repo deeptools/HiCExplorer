@@ -11,9 +11,7 @@ import numpy as np
 from hicexplorer.utilities import toString
 
 import logging
-logging.basicConfig()
-log = logging.getLogger("hicMergeMatrixBins")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments():

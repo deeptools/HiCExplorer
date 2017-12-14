@@ -1,9 +1,7 @@
 import argparse
 import logging
+log = logging.getLogger(__name__)
 
-logging.basicConfig()
-log = logging.getLogger("parserCommon")
-log.setLevel(logging.WARN)
 
 
 def getParentArgParse(args=None):

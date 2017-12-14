@@ -8,10 +8,7 @@ import matplotlib.pyplot as plt
 import os
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("hicPlotViewpoint")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):

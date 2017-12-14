@@ -14,10 +14,7 @@ from hicexplorer.utilities import exp_obs_matrix_lieberman
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("hicPCA")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments():

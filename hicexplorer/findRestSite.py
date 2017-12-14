@@ -8,10 +8,7 @@ from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("findRestSite")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):

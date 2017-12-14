@@ -12,9 +12,7 @@ import numpy as np
 debug = 0
 
 import logging
-logging.basicConfig()
-log = logging.getLogger("hicCorrectMatrix")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
@@ -202,7 +200,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
                      Otherwise, these cases are skipped
 
     """
-    log.info("starting fill gaps")
+    log.debug("starting fill gaps")
     mat_size = hic_ma.matrix.shape[0]
     fill_ma = hic_ma.matrix.copy().tolil()
     if fill_contiguous is True:
@@ -223,7 +221,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
         discontinuous_failed = [x for idx, x in enumerate(failed_bins)
                                 if idx not in consecutive_failed_idx]
 
-    log.info("Filling {} failed bins\n".format(
+    log.debug("Filling {} failed bins\n".format(
         len(discontinuous_failed)))
 
     """

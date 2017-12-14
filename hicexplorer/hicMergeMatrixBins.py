@@ -5,9 +5,7 @@ from past.builtins import zip
 from builtins import range
 
 import logging
-logging.basicConfig()
-log = logging.getLogger("hicMergeMatrixBins")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix

@@ -6,10 +6,7 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("hicCompareMatrices")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):

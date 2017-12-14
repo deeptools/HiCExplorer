@@ -124,7 +124,7 @@ setup(
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint'],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
-    package_data={'hicexplorer': ['qc_template.html']},
+    package_data={'hicexplorer': ['qc_template.html'], '': ['logging.ini']},
     url='http://hicexplorer.readthedocs.io',
     license='LICENSE.txt',
     description='Set of programs to process, analyze and visualize Hi-C data',

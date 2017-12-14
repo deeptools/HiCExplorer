@@ -20,10 +20,7 @@ import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer._version import __version__
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("hicPlotDistVsCounts")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):

@@ -20,9 +20,7 @@ import gzip
 import cooler
 
 import logging
-logging.basicConfig()
-log = logging.getLogger("HiCMatrix")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -381,7 +379,7 @@ class hiCMatrix:
             if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
                 self.bin_size_homogeneous = False
                 if self.non_homogeneous_warning_already_printed is False:
-                    log.warning('WARNING: bin size is not homogeneous. \
+                    log.warning('Bin size is not homogeneous. \
                                       Median {}\n'.format(median))
                     self.non_homogeneous_warning_already_printed = True
             self.bin_size = median

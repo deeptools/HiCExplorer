@@ -4,10 +4,8 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
 import logging
+log = logging.getLogger(__name__)
 
-logging.basicConfig()
-log = logging.getLogger("hicSumMatrices")
-log.setLevel(logging.WARN)
 
 
 def parse_arguments(args=None):

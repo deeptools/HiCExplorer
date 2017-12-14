@@ -187,10 +187,7 @@ import hicexplorer.trackPlot
 from hicexplorer._version import __version__
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("hicPlotTADs")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)

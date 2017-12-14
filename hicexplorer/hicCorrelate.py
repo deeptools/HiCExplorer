@@ -20,9 +20,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.ticker import FixedLocator
 
 import logging
-logging.basicConfig()
-log = logging.getLogger("hicCorrelate")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):

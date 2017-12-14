@@ -5,9 +5,7 @@ from hicexplorer._version import __version__
 import numpy as np
 
 import logging
-logging.basicConfig()
-log = logging.getLogger("hicExport")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):

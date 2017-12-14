@@ -2,10 +2,8 @@ from __future__ import division
 import numpy as np
 import time
 import logging
+log = logging.getLogger(__name__)
 
-logging.basicConfig()
-log = logging.getLogger("iterativeCorrection")
-log.setLevel(logging.WARN)
 
 
 def iterativeCorrection(matrix, v=None, M=50, tolerance=1e-5, verbose=False):
@@ -27,7 +25,7 @@ def iterativeCorrection(matrix, v=None, M=50, tolerance=1e-5, verbose=False):
     total_bias = np.ones(matrix.shape[0], 'float64')
 
     if np.isnan(matrix.sum()):
-        log.warn("[iterative correction] the matrix contains nans, they will be replaced by zeros\n")
+        log.warn("[iterative correction] the matrix contains nans, they will be replaced by zeros.")
         matrix.data[np.isnan(matrix.data)] = 0
 
     matrix = matrix.astype(float)

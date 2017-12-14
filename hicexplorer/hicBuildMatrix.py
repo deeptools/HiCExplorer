@@ -31,10 +31,7 @@ from hicexplorer._version import __version__
 import hicexplorer.hicPrepareQCreport as QC
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("hicBuildMatrix")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 class C_Interval(Structure):

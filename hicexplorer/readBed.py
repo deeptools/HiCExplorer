@@ -4,10 +4,7 @@ from past.builtins import map
 from hicexplorer.utilities import toString
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("readBed")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 class ReadBed(object):
