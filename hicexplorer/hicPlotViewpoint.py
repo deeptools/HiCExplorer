@@ -117,10 +117,10 @@ def main(args=None):
         # fit scale: start coordinate is 0 --> view_point_range[0]
         ax.set_xticks([0, view_point_start - view_point_range[0], view_point_end - view_point_range[0], view_point_range[1] - view_point_range[0]])
         xticklabels = [None] * 4
-        xticklabels[0] = relabelTicks((int(referencePoint[1]) - start) * (-1))
+        xticklabels[0] = relabelTicks((int(referencePoint[1]) - region_start) * (-1))
         xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
         xticklabels[2] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[2]))
-        xticklabels[3] = relabelTicks(end - int(referencePoint[1]))
+        xticklabels[3] = relabelTicks(region_end - int(referencePoint[1]))
 
     ax.set_xticklabels(xticklabels)
     ax.set_ylabel('Number of interactions')
