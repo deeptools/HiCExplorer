@@ -532,8 +532,7 @@ class hiCMatrix:
             log.exception("chromosome: {} name not found in matrix".format(chrname))
             log.exception("valid names are:")
             log.exception(self.interval_trees.keys())
-
-            return None
+            exit(1)
         try:
             startpos = int(startpos)
             endpos = int(endpos)
