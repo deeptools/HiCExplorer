@@ -364,7 +364,7 @@ class PlotTracks(object):
                             open(name_with_tracks_path, 'r').close()
                             full_path_file_names.append(name_with_tracks_path)
                         except IOError:
-                            log.exception("\n*ERROR*\nFile in section [{}] "
+                            log.exception("File in section [{}] "
                                           "not found:\n{}\n\n".format(track_dict['section_name'],
                                                                       file_name))
                             sys.exit(1)
@@ -582,8 +582,8 @@ class PlotBedGraph(TrackPlot):
             try:
                 self.ax.fill_between(pos_list, score_list, facecolor=self.properties['color'])
             except ValueError:
-                log.exception("Invalid color {} for {}. "
-                              "Using gray instead.".format(self.properties['color'], self.properties['file']))
+                log.debug("Invalid color {} for {}. "
+                          "Using gray instead.".format(self.properties['color'], self.properties['file']))
                 self.ax.fill_between(pos_list, score_list, facecolor='gray')
 
         self.ax.set_frame_on(False)
@@ -751,7 +751,7 @@ class PlotBigWig(TrackPlot):
                 import pyBigWig
                 self.bw = pyBigWig.open(self.properties['file'])
 
-                log.exception("error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries))
+                log.debug("error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries))
                 pass
             else:
                 if num_tries > 1:
@@ -766,10 +766,10 @@ class PlotBigWig(TrackPlot):
                 try:
                     size = float(size)
                 except ValueError:
-                    log.exception("Invalid value: 'type = {}' in section: {}\n"
-                                  "A number was expected and found '{}'".format(self.properties['type'],
-                                                                                self.properties['section_name'],
-                                                                                size))
+                    log.debug("Invalid value: 'type = {}' in section: {}\n"
+                              "A number was expected and found '{}'".format(self.properties['type'],
+                                                                            self.properties['section_name'],
+                                                                            size))
             else:
                 plot_type = self.properties['type']
                 size = None

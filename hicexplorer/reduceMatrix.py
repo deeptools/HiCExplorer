@@ -7,7 +7,6 @@ import logging
 log = logging.getLogger(__name__)
 
 
-
 def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     """
     This function sums the rows and columns corresponding

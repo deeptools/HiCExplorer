@@ -14,13 +14,12 @@ import logging
 log = logging.getLogger(__name__)
 
 
-
 def writableFile(string):
     try:
         open(string, 'w').close()
     except IOError:
         msg = "{} file can be opened for writing".format(string)
-        log.exception(msg)
+        log.debug(msg)
         raise argparse.ArgumentTypeError(msg)
     return string
 
@@ -512,8 +511,8 @@ def fitNegBinom(countsByDistance):
         try:
             size[dist], prob[dist] = fit_nbinom(counts)
         except ValueError as error:
-            log.exception("could not compute pval for dist={}. "
-                          "Message:\n {}".format(dist, error))
+            log.debug("could not compute pval for dist={}. "
+                      "Message:\n {}".format(dist, error))
 
         if np.isnan(size[dist]) or np.isnan(prob[dist]):
             log.debug("for dist={}, size={}, prob={}, len={}".format(dist,

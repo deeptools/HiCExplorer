@@ -210,8 +210,8 @@ class ReadBed(object):
                     try:
                         r = map(int, rgb)
                     except ValueError as detail:
-                        log.exception("Error reading line: #{}. The rgb field {} is not "
-                                      "valid.\nError message: {}\n".format(self.line_number, r, detail))
+                        log.debug("Error reading line: #{}. The rgb field {} is not "
+                                  "valid.\nError message: {}\n".format(self.line_number, r, detail))
                 line_values.append(r)
 
             elif idx in [10, 11]:
@@ -222,8 +222,8 @@ class ReadBed(object):
                 try:
                     r = [int(x) for x in r_parts if x != '']
                 except ValueError as detail:
-                    log.exception("Error reading line #{}. The block field {} is not "
-                                  "valid.\nError message: {}\n".format(self.line_number, r, detail))
+                    log.debug("Error reading line #{}. The block field {} is not "
+                              "valid.\nError message: {}\n".format(self.line_number, r, detail))
                 line_values.append(r)
 
             else:

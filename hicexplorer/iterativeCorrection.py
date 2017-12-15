@@ -5,7 +5,6 @@ import logging
 log = logging.getLogger(__name__)
 
 
-
 def iterativeCorrection(matrix, v=None, M=50, tolerance=1e-5, verbose=False):
     """
     adapted from cytonised version in mirnylab

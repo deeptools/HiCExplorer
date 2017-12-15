@@ -353,7 +353,7 @@ def main(args=None):
             try:
                 start, end = map(int, [start, end])
             except ValueError as detail:
-                log.exception("Invalid value found at line\t{}\t. {}\n".format(line, detail))
+                log.debug("Invalid value found at line\t{}\t. {}\n".format(line, detail))
             file_name = "{}_{}:{}-{}".format(args.outFileName, chrom, start, end)
             if end - start < 200000:
                 start -= 100000

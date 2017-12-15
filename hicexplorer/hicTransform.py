@@ -14,7 +14,6 @@ import logging
 log = logging.getLogger(__name__)
 
 
-
 def parse_arguments(args=None):
     """
     get command line arguments
@@ -69,7 +68,7 @@ def __pearson(pSubmatrix):
 
 
 def main(args=None):
-    
+
     args = parse_arguments().parse_args(args)
 
     hic_ma = hm.hiCMatrix(matrixFile=args.matrix)

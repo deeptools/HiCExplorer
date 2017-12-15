@@ -7,7 +7,6 @@ import logging
 log = logging.getLogger(__name__)
 
 
-
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,

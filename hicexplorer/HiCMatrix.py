@@ -1417,7 +1417,7 @@ class hiCMatrix:
                 startList=startList, endList=endList, extraList=extraList,
                 nan_bins=nan_bins, correction_factors=self.correction_factors)
         except Exception as e:
-            log.exception("error saving matrix: {}".format(e))
+            log.debug("error saving matrix: {}".format(e))
             try:
                 log.info("Matrix can not be saved because is too big!")
                 log.version_info("Eliminating entries with only one count.")
@@ -1840,7 +1840,7 @@ class hiCMatrix:
         try:
             self.prev_to_remove
         except Exception:
-            log.exception("No self.prev_to_remove defined, defining it now.")
+            log.debug("No self.prev_to_remove defined, defining it now.")
             self.prev_to_remove = np.array([])
 
         # if the same information was already printed don't
