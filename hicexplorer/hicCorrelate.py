@@ -280,7 +280,8 @@ def main(args=None):
                 log.error("Please specify a max range that is larger than bin size ({})".format(bin_size))
                 exit()
             max_depth_in_bins = int(max_dist / bin_size)
-            max_dist = int(max_dist) / bin_size
+            max_dist = int(max_dist) // bin_size
+            min_dist = int(min_dist) // bin_size
             # work only with the upper matrix
             # and remove all pixels that are beyond
             # max_depth_in_bis
