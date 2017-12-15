@@ -20,9 +20,7 @@ from six import iteritems
 from builtins import range
 from past.builtins import map
 
-logging.basicConfig()
-log = logging.getLogger("hicFindTADs")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 # this is a holder vor the
 hic_ma = None

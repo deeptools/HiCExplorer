@@ -4,10 +4,7 @@ import numpy as np
 import time
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("reduceMatrix")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):

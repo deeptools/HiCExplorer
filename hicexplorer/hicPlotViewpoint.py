@@ -8,10 +8,7 @@ import matplotlib.pyplot as plt
 import os
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("hicPlotViewpoint")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
@@ -68,7 +65,7 @@ def main(args=None):
         if len(region) != 3:
             log.error("Region format is invalid {}".format(args.region))
             exit(0)
-        chrom, start, end = region[0], int(region[1]), int(region[2])
+        chrom, region_start, region_end = region[0], int(region[1]), int(region[2])
 
     args.referencePoint = args.referencePoint.translate(None, ",.;|!{}()").replace("-", ":")
     referencePoint = args.referencePoint.split(":")
@@ -78,9 +75,10 @@ def main(args=None):
     elif len(referencePoint) == 3:
         view_point_start, view_point_end = hic.getRegionBinRange(referencePoint[0], int(referencePoint[1]), int(referencePoint[2]))
     else:
-        exit("No valid reference point given. {}".format(referencePoint))
+        log.error("No valid reference point given. {}".format(referencePoint))
+        exit(1)
 
-    view_point_range = hic.getRegionBinRange(chrom, start, end)
+    view_point_range = hic.getRegionBinRange(chrom, region_start, region_end)
     elements_of_viewpoint = view_point_range[1] - view_point_range[0]
     data_list = np.zeros(elements_of_viewpoint)
     view_point_start_ = view_point_start
@@ -99,19 +97,30 @@ def main(args=None):
     ax = plt.subplot(111)
     ax.plot(range(len(data_list)), data_list)
     if len(referencePoint) == 2:
+        log.debug("Single reference point mode: {}".format(referencePoint))
+        log.debug("length interactions_list {}".format(len(interactions_list)))
+
         ax.set_xticks([0, view_point_start - view_point_range[0], view_point_range[1] - view_point_range[0]])
         xticklabels = [None] * 3
-        xticklabels[0] = relabelTicks((int(referencePoint[1]) - start) * (-1))
+        xticklabels[0] = relabelTicks((int(referencePoint[1]) - region_start) * (-1))
         xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
-        xticklabels[2] = relabelTicks(end - int(referencePoint[1]))
+        xticklabels[2] = relabelTicks(region_end - int(referencePoint[1]))
+        log.debug("label 0: {}".format((int(referencePoint[1]) - region_start) * (-1)))
+        log.debug("referencePoint[1]: {}".format(referencePoint[1]))
+        log.debug("region_start: {}".format(region_start))
+        log.debug("label 1: {}".format(referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))))
+        log.debug("label 2: {}".format(region_end - int(referencePoint[1])))
+
     elif len(referencePoint) == 3:
+        log.debug("Range mode: {}".format(referencePoint))
+
         # fit scale: start coordinate is 0 --> view_point_range[0]
         ax.set_xticks([0, view_point_start - view_point_range[0], view_point_end - view_point_range[0], view_point_range[1] - view_point_range[0]])
         xticklabels = [None] * 4
-        xticklabels[0] = relabelTicks((int(referencePoint[1]) - start) * (-1))
+        xticklabels[0] = relabelTicks((int(referencePoint[1]) - region_start) * (-1))
         xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
         xticklabels[2] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[2]))
-        xticklabels[3] = relabelTicks(end - int(referencePoint[1]))
+        xticklabels[3] = relabelTicks(region_end - int(referencePoint[1]))
 
     ax.set_xticklabels(xticklabels)
     ax.set_ylabel('Number of interactions')

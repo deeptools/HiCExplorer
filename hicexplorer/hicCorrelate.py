@@ -20,9 +20,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.ticker import FixedLocator
 
 import logging
-logging.basicConfig()
-log = logging.getLogger("hicCorrelate")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
@@ -322,7 +320,6 @@ def main(args=None):
     # make large matrix to correlate by
     # using sparse matrix tricks
 
-    # print(len(all_nan))
     big_mat = None
     for mat in hic_mat_list:
         mat = mat[rows_keep, :][:, cols_keep]

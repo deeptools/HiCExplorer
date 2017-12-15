@@ -11,10 +11,7 @@ mplt_use('Agg')
 from hicexplorer.HiCMatrix import hiCMatrix
 
 import logging
-
-logging.basicConfig()
-log = logging.getLogger("utilities")
-log.setLevel(logging.DEBUG)
+log = logging.getLogger(__name__)
 
 
 def writableFile(string):
@@ -22,7 +19,7 @@ def writableFile(string):
         open(string, 'w').close()
     except IOError:
         msg = "{} file can be opened for writing".format(string)
-        log.exception(msg)
+        log.debug(msg)
         raise argparse.ArgumentTypeError(msg)
     return string
 
@@ -390,7 +387,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
             log.debug("no counts for bins at distance {}".format(dist))
             continue
         if np.any(np.isnan(countsByDistance[dist])) is True:
-            log.error("ERROR: matrix contains NaN values\n")
+            log.error("matrix contains NaN values\n")
 
         counts = remove_outliers(countsByDistance[dist])
         if len(counts) <= 20:
@@ -514,8 +511,8 @@ def fitNegBinom(countsByDistance):
         try:
             size[dist], prob[dist] = fit_nbinom(counts)
         except ValueError as error:
-            log.exception("could not compute pval for dist={}. "
-                          "Message:\n {}".format(dist, error))
+            log.debug("could not compute pval for dist={}. "
+                      "Message:\n {}".format(dist, error))
 
         if np.isnan(size[dist]) or np.isnan(prob[dist]):
             log.debug("for dist={}, size={}, prob={}, len={}".format(dist,
@@ -970,8 +967,8 @@ def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
             else:
                 pSubmatrix.data[i] = pSubmatrix.data[i] / expected_interactions_in_distance_[distance[i]]
         except Exception:
-            log.debug("pSubmatrix.data[i]: {}".format(pSubmatrix.data[i] ))
-            log.debug("distance[i]: {}".format(distance[i] ))
+            log.debug("pSubmatrix.data[i]: {}".format(pSubmatrix.data[i]))
+            log.debug("distance[i]: {}".format(distance[i]))
             log.debug("expected_interactions_in_distance_[distance[i]]: {} ".format(expected_interactions_in_distance_[distance[i]]))
             exit(1)
 

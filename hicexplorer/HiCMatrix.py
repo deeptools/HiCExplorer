@@ -20,9 +20,7 @@ import gzip
 import cooler
 
 import logging
-logging.basicConfig()
-log = logging.getLogger("HiCMatrix")
-log.setLevel(logging.WARN)
+log = logging.getLogger(__name__)
 
 import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -381,7 +379,7 @@ class hiCMatrix:
             if len(np.flatnonzero(diff != median)) > (len(diff) * 0.01):
                 self.bin_size_homogeneous = False
                 if self.non_homogeneous_warning_already_printed is False:
-                    log.warning('WARNING: bin size is not homogeneous. \
+                    log.warning('Bin size is not homogeneous. \
                                       Median {}\n'.format(median))
                     self.non_homogeneous_warning_already_printed = True
             self.bin_size = median
@@ -534,8 +532,7 @@ class hiCMatrix:
             log.exception("chromosome: {} name not found in matrix".format(chrname))
             log.exception("valid names are:")
             log.exception(self.interval_trees.keys())
-
-            return None
+            exit(1)
         try:
             startpos = int(startpos)
             endpos = int(endpos)
@@ -1420,7 +1417,7 @@ class hiCMatrix:
                 startList=startList, endList=endList, extraList=extraList,
                 nan_bins=nan_bins, correction_factors=self.correction_factors)
         except Exception as e:
-            log.exception("error saving matrix: {}".format(e))
+            log.debug("error saving matrix: {}".format(e))
             try:
                 log.info("Matrix can not be saved because is too big!")
                 log.version_info("Eliminating entries with only one count.")
@@ -1843,7 +1840,7 @@ class hiCMatrix:
         try:
             self.prev_to_remove
         except Exception:
-            log.exception("No self.prev_to_remove defined, defining it now.")
+            log.debug("No self.prev_to_remove defined, defining it now.")
             self.prev_to_remove = np.array([])
 
         # if the same information was already printed don't
@@ -1865,7 +1862,7 @@ class hiCMatrix:
                 cnt[chrom] = 0
             cnt[chrom] += 1
 
-        log.info('{}: {}\n{}\n'.format(label, len(to_remove), cnt))
+        log.info('{}: {} {}'.format(label, len(to_remove), cnt))
         self.prev_to_remove = to_remove
 
     def removeBySequencedCount(self, sequencedFraction=0.5):
