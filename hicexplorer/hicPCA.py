@@ -102,7 +102,8 @@ def main(args=None):
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
         pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
         corrmatrix = np.cov(pearson_correlation_matrix)
-
+        corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
+        corrmatrix = convertInfsToZeros(csr_matrix(corrmatrix)).todense()
         evals, eigs = linalg.eig(corrmatrix)
         k = args.numberOfEigenvectors
 
@@ -134,7 +135,13 @@ def main(args=None):
 
         header.append((chrom_list[-1], end_list[-1]))
         for idx, outfile in enumerate(args.outputFileName):
+            log.debug("bigwig: len(vecs_list) {}".format(len(vecs_list)))
+            log.debug("bigwig: len(chrom_list) {}".format(len(chrom_list)))
+            
             assert(len(vecs_list) == len(chrom_list))
+            chrom_list_ = []
+            start_list_ = []
+            end_list_ = []
             values = []
 
             bw = pyBigWig.open(outfile, 'w')
@@ -142,10 +149,16 @@ def main(args=None):
             bw.addHeader(header)
             # create entry lists
             for i, value in enumerate(vecs_list):
-                values.append(value[idx].real)
-            # write entries
+                # it can happen that some 'value' is having less dimensions than it should
+                if len(value) == args.numberOfEigenvectors:
+                    values.append(value[idx])
+                    chrom_list_.append(chrom_list[i])
+                    start_list_.append(start_list[i])
+                    end_list_.append(end_list[i])
+                
 
-            bw.addEntries(chrom_list, start_list, ends=end_list, values=values)
+            # write entries
+            bw.addEntries(chrom_list_, start_list_, ends=end_list_, values=values)
             bw.close()
     else:
         log.error("Output format not known: {}".format(args.format))

@@ -1616,7 +1616,7 @@ class hiCMatrix:
         # I add their ids to the end of the rows vector
         # to reverse the changes, I just need to do an argsort
         # to put the removed bins in place
-        log.debug("bins_ids {}".format(bin_ids))
+        # log.debug("bins_ids {}".format(bin_ids))
         self.orig_bin_ids = np.concatenate([rows, bin_ids])
 
         new_cut_intervals = [self.cut_intervals[x] for x in rows]
