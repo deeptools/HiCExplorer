@@ -28,6 +28,7 @@ from Bio.Alphabet import generic_dna
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
+from hicexplorer.parserCommon import CustomFormatter
 import hicexplorer.hicPrepareQCreport as QC
 
 import logging
@@ -86,13 +87,20 @@ class ReadPositionMatrix(object):
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description=('Using an alignment from a program that supports '
-                     'local alignment (eg. Bowtie2) where both '
-                     'PE reads are mapped using  the --local '
-                     'option, this program reads such file and '
-                     'creates a matrix of interactions.'
-                     ))
+        formatter_class=CustomFormatter,
+        usage="%(prog)s --samFiles reads_R1.bam reads_R2.bam -bs 10000 --restrictionSequence AAGCTT -o hic_matrix.h5  ",
+        description="""
+hicBuildMatrix creates a contact matrix based on Hi-C read pairs. It requires two sam or bam
+files corresponding to the first and second mates of the paired-end H-C reads. The sam and bam files
+should not be sorted by position. There are two main options to create the Hi-C contact matrix,
+either by fixed bin size (eg. 10.000 bp) or by bins of variable restriction fragment size
+length. hicBuildMatrix generates a quality control output that can be used to analyze the
+quality of the Hi-C reads.
+
+
+    $ hicBuildMatrix --samFiles reads_R1.bam reads_R2.bam -bs 10000 --restrictionSequence AAGCTT -o hic_matrix.h5
+
+""")
 
     # define the arguments
     parser.add_argument('--samFiles', '-s',
