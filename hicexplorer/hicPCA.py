@@ -71,7 +71,7 @@ def main(args=None):
     if int(args.numberOfEigenvectors) != len(args.outputFileName):
         log.error("Number of output file names and number of eigenvectors does not match. Please"
                   "provide the name of each file.\nFiles: {}\nNumber of eigenvectors: {}".format(args.outputFileName,
-                                                                                           args.numberOfEigenvectors))
+                                                                                                 args.numberOfEigenvectors))
         exit(1)
 
     ma = hm.hiCMatrix(args.matrix)
@@ -139,7 +139,7 @@ def main(args=None):
         for idx, outfile in enumerate(args.outputFileName):
             log.debug("bigwig: len(vecs_list) {}".format(len(vecs_list)))
             log.debug("bigwig: len(chrom_list) {}".format(len(chrom_list)))
-            
+
             assert(len(vecs_list) == len(chrom_list))
             chrom_list_ = []
             start_list_ = []
@@ -157,7 +157,6 @@ def main(args=None):
                     chrom_list_.append(chrom_list[i])
                     start_list_.append(start_list[i])
                     end_list_.append(end_list[i])
-                
 
             # write entries
             bw.addEntries(chrom_list_, start_list_, ends=end_list_, values=values)
