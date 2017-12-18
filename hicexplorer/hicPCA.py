@@ -12,15 +12,15 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import exp_obs_matrix_lieberman
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
+from hicexplorer.parserCommon import CustomFormatter
 
 import logging
 log = logging.getLogger(__name__)
 
 
 def parse_arguments():
-
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=CustomFormatter,
         conflict_handler='resolve',
         usage="%(prog)s --matrix hic_matrix -o pca1.bedgraph pca2.bedgraph ",
         description="""
@@ -49,7 +49,7 @@ Computes PCA eigenvectors for the HiC matrix.
                         required=False)
 
     parser.add_argument('--format', '-f',
-                        help='output format. Either bedgraph (default) or bigwig.',
+                        help='output format. Either bedgraph or bigwig.',
                         choices=['bedgraph', 'bigwig'],
                         default='bedgraph',
                         required=False)
@@ -69,7 +69,9 @@ Computes PCA eigenvectors for the HiC matrix.
 def main(args=None):
     args = parse_arguments().parse_args(args)
     if int(args.numberOfEigenvectors) != len(args.outputFileName):
-        log.error("Number of output file names and number of eigenvectors does not match: {} {}".format(len(args.outputFileName), args.numberOfEigenvectors))
+        log.error("Number of output file names and number of eigenvectors does not match. Please"
+                  "provide the name of each file.\nFiles: {}\nNumber of eigenvectors: {}".format(args.outputFileName,
+                                                                                           args.numberOfEigenvectors))
         exit(1)
 
     ma = hm.hiCMatrix(args.matrix)
