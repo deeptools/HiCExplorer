@@ -98,18 +98,19 @@ def main(args=None):
     ax.plot(range(len(data_list)), data_list)
     if len(referencePoint) == 2:
         log.debug("Single reference point mode: {}".format(referencePoint))
-        log.debug("length interactions_list {}".format(len(interactions_list)))
+        if interactions_list is not None:
+            log.debug("length interactions_list {}".format(len(interactions_list)))
+        log.debug("label 0: {}".format((int(referencePoint[1]) - region_start) * (-1)))
+        log.debug("referencePoint[1]: {}".format(referencePoint[1]))
+        log.debug("region_start: {}".format(region_start))
+        log.debug("label 1: {}".format(referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))))
+        log.debug("label 2: {}".format(region_end - int(referencePoint[1])))
 
         ax.set_xticks([0, view_point_start - view_point_range[0], view_point_range[1] - view_point_range[0]])
         xticklabels = [None] * 3
         xticklabels[0] = relabelTicks((int(referencePoint[1]) - region_start) * (-1))
         xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
         xticklabels[2] = relabelTicks(region_end - int(referencePoint[1]))
-        log.debug("label 0: {}".format((int(referencePoint[1]) - region_start) * (-1)))
-        log.debug("referencePoint[1]: {}".format(referencePoint[1]))
-        log.debug("region_start: {}".format(region_start))
-        log.debug("label 1: {}".format(referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))))
-        log.debug("label 2: {}".format(region_end - int(referencePoint[1])))
 
     elif len(referencePoint) == 3:
         log.debug("Range mode: {}".format(referencePoint))
