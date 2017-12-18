@@ -13,6 +13,7 @@ from hicexplorer._version import __version__
 from hicexplorer.utilities import exp_obs_matrix_lieberman
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.parserCommon import CustomFormatter
+from hicexplorer.utilities import toString
 
 import logging
 log = logging.getLogger(__name__)
@@ -123,7 +124,7 @@ def main(args=None):
             with open(outfile, 'w') as fh:
                 for i, value in enumerate(vecs_list):
                     if len(value) == args.numberOfEigenvectors:
-                        fh.write("{}\t{}\t{}\t{}\n".format(chrom_list[i], start_list[i], end_list[i], value[idx]))
+                        fh.write("{}\t{}\t{}\t{}\n".format(toString(chrom_list[i]), start_list[i], end_list[i], value[idx]))
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
             log.error("ERROR: Your version of pyBigWig is not supporting numpy: {}".format(pyBigWig.__file__))
@@ -132,10 +133,10 @@ def main(args=None):
         header = []
         for i, chrom_ in enumerate(chrom_list):
             if old_chrom != chrom_:
-                header.append((old_chrom, end_list[i - 1]))
+                header.append((toString(old_chrom), end_list[i - 1]))
             old_chrom = chrom_
 
-        header.append((chrom_list[-1], end_list[-1]))
+        header.append((toString(chrom_list[-1]), end_list[-1]))
         for idx, outfile in enumerate(args.outputFileName):
             log.debug("bigwig: len(vecs_list) {}".format(len(vecs_list)))
             log.debug("bigwig: len(chrom_list) {}".format(len(chrom_list)))
@@ -154,7 +155,7 @@ def main(args=None):
                 # it can happen that some 'value' is having less dimensions than it should
                 if len(value) == args.numberOfEigenvectors:
                     values.append(value[idx])
-                    chrom_list_.append(chrom_list[i])
+                    chrom_list_.append(toString(chrom_list[i]))
                     start_list_.append(start_list[i])
                     end_list_.append(end_list[i])
 

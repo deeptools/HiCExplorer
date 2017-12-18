@@ -27,7 +27,7 @@ def test_plot_single_point():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint1', delete=False)
     matrix = ROOT + 'Li_et_al_2015.h5'
-    args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {}".format(matrix, outfile.name).split()
+    args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {} --dpi 300".format(matrix, outfile.name).split()
     hicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32Mb.png', outfile.name, tol=40)
@@ -42,7 +42,7 @@ def test_plot_single_point_interaction_file():
     outfile_interactions = NamedTemporaryFile(suffix='.bedgraph', prefix='viewpoint_interactons', delete=False)
     matrix = ROOT + 'Li_et_al_2015.h5'
 
-    args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {} -i {}".format(matrix, outfile.name, outfile_interactions.name).split()
+    args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {} -i {} --dpi 300".format(matrix, outfile.name, outfile_interactions.name).split()
     hicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32Mb.png', outfile.name, tol=40)
@@ -57,7 +57,7 @@ def test_plot_region():
     outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint3', delete=False)
     matrix = ROOT + 'Li_et_al_2015.h5'
 
-    args = "--matrix {} --region X:3000000-3500000 -rp X:3200000-3300000 --outFileName {}".format(matrix, outfile.name).split()
+    args = "--matrix {} --region X:3000000-3500000 -rp X:3200000-3300000 --outFileName {} --dpi 300".format(matrix, outfile.name).split()
     hicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32-33Mb.png', outfile.name, tol=40)
@@ -73,11 +73,11 @@ def test_plot_region_interaction_file():
     outfile_interactions = NamedTemporaryFile(suffix='.bedgraph', prefix='viewpoint_interactons', delete=False)
     matrix = ROOT + 'Li_et_al_2015.h5'
 
-    args = "--matrix {} --region X:3000000-3500000 -rp X:3200000-3300000  --outFileName {} -i {}".format(matrix, outfile.name, outfile_interactions.name).split()
+    args = "--matrix {} --region X:3000000-3500000 -rp X:3200000-3300000  --outFileName {} -i {} --dpi 300".format(matrix, outfile.name, outfile_interactions.name).split()
     hicPlotViewpoint.main(args)
 
-    res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32-33Mb.png', outfile.name, tol=40)
+    res = compare_images(ROOT + 'hicPlotViewpoint/li_viewpoint_32-33Mb.png', outfile.name, tol=40)
     assert res is None, res
-    assert are_files_equal(ROOT + '/hicPlotViewpoint/li_32-33mb_interactions.bedgraph', outfile_interactions.name)
+    assert are_files_equal(ROOT + 'hicPlotViewpoint/li_32-33mb_interactions.bedgraph', outfile_interactions.name)
     os.remove(outfile.name)
     os.remove(outfile_interactions.name)

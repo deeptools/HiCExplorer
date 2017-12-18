@@ -4,6 +4,7 @@ import sys
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import writableFile
 from hicexplorer.utilities import toString, toBytes
+
 from hicexplorer._version import __version__
 from hicexplorer.trackPlot import file_to_intervaltree
 import numpy as np
@@ -447,6 +448,10 @@ def main(args=None):
 
             valid_chromosomes = []
             invalid_chromosomes = []
+            log.debug('args.chromosomeOrder: {}'.format(args.chromosomeOrder))
+            log.debug("ma.chrBinBoundaries {}".format(ma.chrBinBoundaries))
+            if sys.version_info[0] == 3:
+                args.chromosomeOrder = toBytes(args.chromosomeOrder)
             for chrom in args.chromosomeOrder:
                 if chrom in ma.chrBinBoundaries:
                     valid_chromosomes.append(chrom)
@@ -488,16 +493,19 @@ def main(args=None):
     else:
         norm = None
 
-        if args.log:
+        if args.log or args.log1p:
             mask = matrix == 0
             mask_nan = matrix == np.nan
+            mask_inf = matrix == np.inf
+
             try:
                 matrix[mask] = matrix[mask == False].min()
                 matrix[mask_nan] = matrix[mask_nan == False].min()
+                matrix[mask_inf] = matrix[mask_inf == False].min()
                 if args.log:
                     matrix = np.log(matrix)
             except Exception:
-                pass
+                log.debug("Clearing of matrix failed.")
         if args.log1p:
             matrix += 1
             norm = LogNorm()
