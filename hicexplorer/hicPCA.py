@@ -120,6 +120,8 @@ def main(args=None):
             with open(outfile, 'w') as fh:
                 for i, value in enumerate(vecs_list):
                     if len(value) == args.numberOfEigenvectors:
+                        if isinstance(value[idx], np.complex):
+                            value[idx] = value[idx].real
                         fh.write("{}\t{}\t{}\t{}\n".format(chrom_list[i], start_list[i], end_list[i], value[idx]))
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
