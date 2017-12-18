@@ -23,7 +23,6 @@ def writableFile(string):
     return string
 
 
-
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     """
     This class allows to use defaultsHelpFormatter and RawDescription at the same time.

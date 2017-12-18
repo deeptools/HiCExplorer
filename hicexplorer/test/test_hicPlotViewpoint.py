@@ -25,7 +25,7 @@ def are_files_equal(file1, file2):
 
 def test_plot_single_point():
 
-    outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint', delete=False)
+    outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint1', delete=False)
     matrix = ROOT + 'Li_et_al_2015.h5'
     args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {}".format(matrix, outfile.name).split()
     hicPlotViewpoint.main(args)
@@ -38,7 +38,7 @@ def test_plot_single_point():
 
 def test_plot_single_point_interaction_file():
 
-    outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint', delete=False)
+    outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint2', delete=False)
     outfile_interactions = NamedTemporaryFile(suffix='.bedgraph', prefix='viewpoint_interactons', delete=False)
     matrix = ROOT + 'Li_et_al_2015.h5'
 
@@ -54,7 +54,7 @@ def test_plot_single_point_interaction_file():
 
 def test_plot_region():
 
-    outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint', delete=False)
+    outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint3', delete=False)
     matrix = ROOT + 'Li_et_al_2015.h5'
 
     args = "--matrix {} --region X:3000000-3500000 -rp X:3200000-3300000 --outFileName {}".format(matrix, outfile.name).split()
@@ -68,7 +68,7 @@ def test_plot_region():
 
 def test_plot_region_interaction_file():
 
-    outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint', delete=False)
+    outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint4', delete=False)
 
     outfile_interactions = NamedTemporaryFile(suffix='.bedgraph', prefix='viewpoint_interactons', delete=False)
     matrix = ROOT + 'Li_et_al_2015.h5'

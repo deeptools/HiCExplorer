@@ -179,4 +179,3 @@ def test_hicPlotTads_cool():
     assert res is None, res
 
     os.remove(outfile.name)
-
