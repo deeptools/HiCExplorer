@@ -50,7 +50,7 @@ before_install:
 install:
   - conda create --name hicexplorer_pytest --yes python=$TRAVIS_PYTHON_VERSION pytest
   - source activate hicexplorer_pytest
-  - conda install --yes -c defaults -c conda-forge -c bioconda --file requirements.txt
+  - conda install --yes  -c bioconda -c conda-forge -c defaults --file requirements.txt
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then conda install --yes -c defaults -c conda-forge -c bioconda configparser ; fi
   - python setup.py install
 
