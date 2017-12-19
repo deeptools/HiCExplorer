@@ -124,7 +124,10 @@ def main(args=None):
             with open(outfile, 'w') as fh:
                 for i, value in enumerate(vecs_list):
                     if len(value) == args.numberOfEigenvectors:
+                        if isinstance(value[idx], np.complex):
+                            value[idx] = value[idx].real
                         fh.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_list[i]), start_list[i], end_list[i], value[idx]))
+
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
             log.error("ERROR: Your version of pyBigWig is not supporting numpy: {}".format(pyBigWig.__file__))
@@ -154,6 +157,8 @@ def main(args=None):
             for i, value in enumerate(vecs_list):
                 # it can happen that some 'value' is having less dimensions than it should
                 if len(value) == args.numberOfEigenvectors:
+                    if isinstance(value[idx], np.complex):
+                        value[idx] = value[idx].real
                     values.append(value[idx])
                     chrom_list_.append(toString(chrom_list[i]))
                     start_list_.append(start_list[i])
