@@ -44,8 +44,11 @@ def are_files_equal_bigwig(file1, file2):
         except Exception:
             log.debug("Chrom not found: {}", chrom)
         # sometimes the values are + / - flipped
-        if bins_list_file1 is not None and bins_list_file1[0] != bins_list_file2[0]:
-            bins_list_file1 *= -1
+
+        if bins_list_file1 is not None and bins_list_file1[0][2] != bins_list_file2[0][2]:
+            bins_list_file1 = np.array(bins_list_file1)
+            bins_list_file2 = np.array(bins_list_file2)
+            bins_list_file1[:][2] *= -1
         nt.assert_equal(bins_list_file1, bins_list_file2)
     return True
 
