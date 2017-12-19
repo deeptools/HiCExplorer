@@ -7,7 +7,7 @@ import time
 from os import unlink
 import os
 import warnings
-import itertools
+# import itertools
 
 import pysam
 from collections import OrderedDict
@@ -505,7 +505,7 @@ def get_supplementary_alignment(read, pysam_obj):
 
 
 def get_correct_map(primary, supplement_list):
-    """
+    r"""
     Decides which of the mappings, the primary or supplement, is correct. In the case of
     long reads (eg. 150bp) the restriction enzyme site could split the read into two parts
     but only the mapping corresponding to the start of the read should be considered as
@@ -535,6 +535,27 @@ def get_correct_map(primary, supplement_list):
     :param supplement_list: list of pysam AlignedSegment for secondary mapping
 
     :return: pysam AlignedSegment that is mapped correctly
+
+    Examples
+    --------
+    >>> sam_file_name = "/tmp/test.sam"
+    >>> sam_file = open(sam_file_name, 'w')
+    >>> _ = sam_file.write('''@HD\tVN:1.0
+    ... @SQ\tSN:chr1\tLN:1575\tAH:chr1:5000000-5010000
+    ... read\t65\tchr1\t33\t20\t10S1D25M\t=\t200\t167\tAGCTTAGCTAGCTACCTATATCTTGGTCTTGGCCG\t<<<<<<<<<<<<<<<<<<<<<:<9/,&,22;;<<<\t
+    ... read\t2113\tchr1\t88\t30\t1S34M\t=\t500\t412\tACCTATATCTTGGCCTTGGCCGATGCGGCCTTGCA\t<<<<<;<<<<7;:<<<6;<<<<<<<<<<<<7<<<<\t
+    ... read\t2113\tchr1\t120\t30\t5S30M\t=\t500\t412\tACCTATATCTTGGCCTTGGCCGATGCGGCCTTGCA\t<<<<<;<<<<7;:<<<6;<<<<<<<<<<<<7<<<<''')
+    >>> sam_file.close()
+    >>> sam = pysam.Samfile(sam_file_name, "r")
+    >>> read_list = [read for read in sam]
+    >>> primary = read_list[0]
+    >>> secondary_list = read_list[1:]
+    >>> first_mapped = get_correct_map(primary, secondary_list)
+
+    The first mapped read is the first secondary at position 88 (sam 1-based) = 87 (0-based)
+    >>> print(first_mapped.pos)
+    87
+
     """
 
     for supplement in supplement_list:
@@ -552,9 +573,13 @@ def get_correct_map(primary, supplement_list):
         # For each read in read_list, calculate the position of the first match (operation M in CIGAR string) in the read sequence.
         # The calculation is done by adding up the lengths of all the operations until the first match.
         # CIGAR string is a list of tuples of (operation, length). Match is stored as CMATCH.
-        first_mapped.append(
-            sum(count for op, count in itertools.takewhile(lambda (op, count): op != pysam.CMATCH, cigartuples)))
+        match_sum = 0
+        for op, count in cigartuples:
+            if op == pysam.CMATCH:
+                break
+            match_sum += count
 
+        first_mapped.append(match_sum)
     # find which read has a cigar string that maps first than any of the
     # others.
     idx_min = first_mapped.index(min(first_mapped))

@@ -3,6 +3,7 @@ from hicexplorer import hicPCA
 from tempfile import NamedTemporaryFile
 import os
 import numpy.testing as nt
+import numpy as np
 import pyBigWig
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
@@ -17,6 +18,12 @@ def are_files_equal(file1, file2):
             if x.startswith('File'):
                 continue
             if x != y:
+                # handle the case of flipped values
+                split_x = x.split('\t')
+                split_y = y.split('\t')
+                if split_x[0] == split_y[0] and split_x[1] == split_y[1] and split_x[2] == split_y[2]:
+                    if float(split_x[3]) == float(split_y[3]) * -1:
+                        continue
                 equal = False
                 break
     return equal
@@ -37,9 +44,13 @@ def are_files_equal_bigwig(file1, file2):
             bins_list_file2 = bw_file2.intervals(chrom)
         except Exception:
             log.debug("Chrom not found: {}", chrom)
+        # sometimes the values are + / - flipped
 
+        if bins_list_file1 is not None and bins_list_file1[0][2] != bins_list_file2[0][2]:
+            bins_list_file1 = np.array(bins_list_file1)
+            bins_list_file2 = np.array(bins_list_file2)
+            bins_list_file1[:][2] *= -1
         nt.assert_equal(bins_list_file1, bins_list_file2)
-
     return True
 
 
