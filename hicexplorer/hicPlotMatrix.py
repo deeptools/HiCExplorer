@@ -4,6 +4,7 @@ import sys
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import writableFile
 from hicexplorer.utilities import toString, toBytes
+
 from hicexplorer._version import __version__
 from hicexplorer.trackPlot import file_to_intervaltree
 import numpy as np
@@ -106,11 +107,6 @@ def parse_arguments(args=None):
                         type=float,
                         default=None)
 
-    # parser.add_argument('--zMax',
-    #                     help='zMax for 3D plot',
-    #                     type=float,
-    #                     default=None)
-
     parser.add_argument('--dpi',
                         help='Resolution for the image in case the'
                              'ouput is a raster graphics image (e.g png, jpg)',
@@ -145,23 +141,6 @@ def relabel_ticks(pXTicks):
                   for x in pXTicks]
         labels[-2] += " bp"
     return labels
-
-
-# def plotHeatmap3D(ma, fig, position, args, cmap):
-#     axHeat1 = fig.add_axes(position, projection='3d')
-#     axHeat1.view_init(50, -45)
-#     axHeat1.margins(0)
-
-#     X, Y = np.meshgrid(list(range(ma.shape[0])), list(range(ma.shape[0])))
-#     ma = np.ma.array(ma, mask=np.isnan(ma))
-#     Z = ma.copy()
-
-#     Z[np.where(np.tril(Z) == 0)] = np.nan
-
-#     axHeat1.plot_surface(X, Y, Z, rstride=1, cstride=1, linewidth=0, cmap=cmap,
-#                          vmax=args.vMax, vmin=args.vMin)
-#     if args.zMax:
-#         axHeat1.set_zlim(0, args.zMax)
 
 
 def change_chrom_names(chrom):
@@ -345,7 +324,8 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
             try:
                 matrix[mask] = matrix[mask == False].min()
                 matrix[mask_nan] = matrix[mask_nan == False].min()
-                matrix = np.log(matrix)
+                if args.log:
+                    matrix = np.log(matrix)
             except Exception:
                 pass
         if args.log1p:
@@ -468,6 +448,10 @@ def main(args=None):
 
             valid_chromosomes = []
             invalid_chromosomes = []
+            log.debug('args.chromosomeOrder: {}'.format(args.chromosomeOrder))
+            log.debug("ma.chrBinBoundaries {}".format(ma.chrBinBoundaries))
+            if sys.version_info[0] == 3:
+                args.chromosomeOrder = toBytes(args.chromosomeOrder)
             for chrom in args.chromosomeOrder:
                 if chrom in ma.chrBinBoundaries:
                     valid_chromosomes.append(chrom)
@@ -509,16 +493,19 @@ def main(args=None):
     else:
         norm = None
 
-        if args.log:
+        if args.log or args.log1p:
             mask = matrix == 0
             mask_nan = matrix == np.nan
+            mask_inf = matrix == np.inf
+
             try:
                 matrix[mask] = matrix[mask == False].min()
                 matrix[mask_nan] = matrix[mask_nan == False].min()
+                matrix[mask_inf] = matrix[mask_inf == False].min()
                 if args.log:
                     matrix = np.log(matrix)
             except Exception:
-                pass
+                log.debug("Clearing of matrix failed.")
         if args.log1p:
             matrix += 1
             norm = LogNorm()
@@ -581,7 +568,10 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                     try:
                         bins_list = bw.intervals(chrom)
                     except Exception:
-                        log.error("Chromosome {} not found!".format(chrom))
+                        log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                        return
+                    if bins_list is None:
+                        log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                         return
                     for i, bin_ in enumerate(bins_list):
                         if i == 0:
@@ -604,7 +594,10 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                         log.debug("pRegion: {}".format(pRegion))
                         bins_list = bw.intervals(chrom, region_start, region_end)
                 except Exception:
-                    log.error("Chromosome {} not found!".format(chrom))
+                    log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                    return
+                if bins_list is None:
+                    log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                     return
                 for bin_ in bins_list:
                     eigenvector.append(complex(bin_[2]).real)
@@ -625,7 +618,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
             if pChromosomeList:
                 for chrom in pChromosomeList:
                     if chrom not in interval_tree:
-                        log.error("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                        log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                         return
                     for i, region in enumerate(sorted(interval_tree[chrom])):
                         if i == 0:
@@ -633,10 +626,11 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                         region_end = region[1]
                         eigenvector.append(complex(region.data[0]).real)
                 x = np.arange(0, len(eigenvector), 1)
+                pAxis.set_xlim(0, len(eigenvector))
 
             elif pRegion:
                 if chrom not in interval_tree:
-                    log.error("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                    log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                     return
                 for region in sorted(interval_tree[chrom][region_start:region_end]):
                     eigenvector.append(float(region.data[0]))
@@ -648,7 +642,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                 while len(eigenvector) < len(x):
                     x = x[:-1]
 
-            pAxis.set_xlim(region_start, region_end * 2)
+                pAxis.set_xlim(region_start, region_end * 2)
     if x is not None and eigenvector is not None:
         pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
     pAxis.get_xaxis().set_visible(False)

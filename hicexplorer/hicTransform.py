@@ -1,5 +1,6 @@
 from __future__ import division
 import argparse
+from os.path import basename, dirname
 
 from scipy.sparse import csr_matrix, lil_matrix
 import numpy as np
@@ -122,13 +123,20 @@ def main(args=None):
             trasf_matrix_corr[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
 
         hic_ma.setMatrix(trasf_matrix_obs_exp.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save("obs_exp_" + args.outFileName, pSymmetric=False)
+
+        basename_outFileName = basename(args.outFileName)
+        basename_obs_exp = "obs_exp_" + basename_outFileName
+        basename_pearson = "pearson_" + basename_outFileName
+        basename_covariance = "covariance_" + basename_outFileName
+        path = dirname(args.outFileName)
+
+        hic_ma.save(path + "/" + basename_obs_exp, pSymmetric=False)
 
         hic_ma.setMatrix(trasf_matrix_pearson.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save("pearson_" + args.outFileName, pSymmetric=False)
+        hic_ma.save(path + "/" + basename_pearson, pSymmetric=False)
 
         hic_ma.setMatrix(trasf_matrix_corr.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save("covariance_" + args.outFileName, pSymmetric=False)
+        hic_ma.save(path + "/" + basename_covariance, pSymmetric=False)
 
     if not args.method == 'all':
         hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)

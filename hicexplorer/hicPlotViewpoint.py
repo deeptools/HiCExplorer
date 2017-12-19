@@ -1,7 +1,9 @@
 import argparse
-
+import sys
 import numpy as np
 import hicexplorer.HiCMatrix as hm
+from hicexplorer.utilities import toString
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -60,14 +62,26 @@ def main(args=None):
     if args.chromosome:
         hic.keepOnlyTheseChr(args.chromosome)
     if args.region:
-        args.region = args.region.translate(None, ",.;|!{}()").replace("-", ":")
+        if sys.version_info[0] == 2:
+            args.region = args.region.translate(None, ",.;|!{}()").replace("-", ":")
+        if sys.version_info[0] == 3:
+            args.region = args.region.replace(",", "")
+            args.region = args.region.replace(";", "")
+            args.region = args.region.replace("!", "")
+            args.region = args.region.replace("-", ":")
         region = args.region.split(":")
         if len(region) != 3:
             log.error("Region format is invalid {}".format(args.region))
             exit(0)
         chrom, region_start, region_end = region[0], int(region[1]), int(region[2])
 
-    args.referencePoint = args.referencePoint.translate(None, ",.;|!{}()").replace("-", ":")
+    if sys.version_info[0] == 2:
+        args.referencePoint = args.referencePoint.translate(None, ",.;|!{}()").replace("-", ":")
+    if sys.version_info[0] == 3:
+        args.referencePoint = args.referencePoint.replace(",", "")
+        args.referencePoint = args.referencePoint.replace(";", "")
+        args.referencePoint = args.referencePoint.replace("!", "")
+        args.referencePoint = args.referencePoint.replace("-", ":")
     referencePoint = args.referencePoint.split(":")
 
     if len(referencePoint) == 2:
@@ -94,22 +108,24 @@ def main(args=None):
                 interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, hic.matrix[view_point_start_, idx]))
         view_point_start_ += 1
 
+    plt.figure(figsize=(6.4, 4.8))
     ax = plt.subplot(111)
     ax.plot(range(len(data_list)), data_list)
     if len(referencePoint) == 2:
         log.debug("Single reference point mode: {}".format(referencePoint))
-        log.debug("length interactions_list {}".format(len(interactions_list)))
+        if interactions_list is not None:
+            log.debug("length interactions_list {}".format(len(interactions_list)))
+        log.debug("label 0: {}".format((int(referencePoint[1]) - region_start) * (-1)))
+        log.debug("referencePoint[1]: {}".format(referencePoint[1]))
+        log.debug("region_start: {}".format(region_start))
+        log.debug("label 1: {}".format(referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))))
+        log.debug("label 2: {}".format(region_end - int(referencePoint[1])))
 
         ax.set_xticks([0, view_point_start - view_point_range[0], view_point_range[1] - view_point_range[0]])
         xticklabels = [None] * 3
         xticklabels[0] = relabelTicks((int(referencePoint[1]) - region_start) * (-1))
         xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
         xticklabels[2] = relabelTicks(region_end - int(referencePoint[1]))
-        log.debug("label 0: {}".format((int(referencePoint[1]) - region_start) * (-1)))
-        log.debug("referencePoint[1]: {}".format(referencePoint[1]))
-        log.debug("region_start: {}".format(region_start))
-        log.debug("label 1: {}".format(referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))))
-        log.debug("label 2: {}".format(region_end - int(referencePoint[1])))
 
     elif len(referencePoint) == 3:
         log.debug("Range mode: {}".format(referencePoint))
@@ -137,4 +153,5 @@ def main(args=None):
     if interactions_list is not None:
         with open(args.interactionOutFileName, 'w') as fh:
             for interaction in interactions_list:
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(interaction[0], interaction[1], interaction[2], interaction[3], interaction[4], interaction[5], interaction[6]))
+                # interaction = toString(interaction)
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(toString(interaction[0]), toString(interaction[1]), toString(interaction[2]), toString(interaction[3]), toString(interaction[4]), toString(interaction[5]), toString(interaction[6])))

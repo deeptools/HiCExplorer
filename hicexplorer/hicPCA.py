@@ -12,15 +12,16 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import exp_obs_matrix_lieberman
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
+from hicexplorer.parserCommon import CustomFormatter
+from hicexplorer.utilities import toString
 
 import logging
 log = logging.getLogger(__name__)
 
 
 def parse_arguments():
-
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=CustomFormatter,
         conflict_handler='resolve',
         usage="%(prog)s --matrix hic_matrix -o pca1.bedgraph pca2.bedgraph ",
         description="""
@@ -49,7 +50,7 @@ Computes PCA eigenvectors for the HiC matrix.
                         required=False)
 
     parser.add_argument('--format', '-f',
-                        help='output format. Either bedgraph (default) or bigwig.',
+                        help='output format. Either bedgraph or bigwig.',
                         choices=['bedgraph', 'bigwig'],
                         default='bedgraph',
                         required=False)
@@ -69,7 +70,9 @@ Computes PCA eigenvectors for the HiC matrix.
 def main(args=None):
     args = parse_arguments().parse_args(args)
     if int(args.numberOfEigenvectors) != len(args.outputFileName):
-        log.error("Number of output file names and number of eigenvectors does not match: {} {}".format(len(args.outputFileName), args.numberOfEigenvectors))
+        log.error("Number of output file names and number of eigenvectors does not match. Please"
+                  "provide the name of each file.\nFiles: {}\nNumber of eigenvectors: {}".format(args.outputFileName,
+                                                                                                 args.numberOfEigenvectors))
         exit(1)
 
     ma = hm.hiCMatrix(args.matrix)
@@ -102,7 +105,8 @@ def main(args=None):
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
         pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
         corrmatrix = np.cov(pearson_correlation_matrix)
-
+        corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
+        corrmatrix = convertInfsToZeros(csr_matrix(corrmatrix)).todense()
         evals, eigs = linalg.eig(corrmatrix)
         k = args.numberOfEigenvectors
 
@@ -122,7 +126,7 @@ def main(args=None):
                     if len(value) == args.numberOfEigenvectors:
                         if isinstance(value[idx], np.complex):
                             value[idx] = value[idx].real
-                        fh.write("{}\t{}\t{}\t{}\n".format(chrom_list[i], start_list[i], end_list[i], value[idx]))
+                        fh.write("{}\t{}\t{}\t{}\n".format(toString(chrom_list[i]), start_list[i], end_list[i], value[idx]))
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
             log.error("ERROR: Your version of pyBigWig is not supporting numpy: {}".format(pyBigWig.__file__))
@@ -131,12 +135,18 @@ def main(args=None):
         header = []
         for i, chrom_ in enumerate(chrom_list):
             if old_chrom != chrom_:
-                header.append((old_chrom, end_list[i - 1]))
+                header.append((toString(old_chrom), end_list[i - 1]))
             old_chrom = chrom_
 
-        header.append((chrom_list[-1], end_list[-1]))
+        header.append((toString(chrom_list[-1]), end_list[-1]))
         for idx, outfile in enumerate(args.outputFileName):
+            log.debug("bigwig: len(vecs_list) {}".format(len(vecs_list)))
+            log.debug("bigwig: len(chrom_list) {}".format(len(chrom_list)))
+
             assert(len(vecs_list) == len(chrom_list))
+            chrom_list_ = []
+            start_list_ = []
+            end_list_ = []
             values = []
 
             bw = pyBigWig.open(outfile, 'w')
@@ -144,10 +154,15 @@ def main(args=None):
             bw.addHeader(header)
             # create entry lists
             for i, value in enumerate(vecs_list):
-                values.append(value[idx].real)
-            # write entries
+                # it can happen that some 'value' is having less dimensions than it should
+                if len(value) == args.numberOfEigenvectors:
+                    values.append(value[idx])
+                    chrom_list_.append(toString(chrom_list[i]))
+                    start_list_.append(start_list[i])
+                    end_list_.append(end_list[i])
 
-            bw.addEntries(chrom_list, start_list, ends=end_list, values=values)
+            # write entries
+            bw.addEntries(chrom_list_, start_list_, ends=end_list_, values=values)
             bw.close()
     else:
         log.error("Output format not known: {}".format(args.format))
