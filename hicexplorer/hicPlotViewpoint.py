@@ -154,4 +154,4 @@ def main(args=None):
         with open(args.interactionOutFileName, 'w') as fh:
             for interaction in interactions_list:
                 # interaction = toString(interaction)
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(toString(interaction[0]), toString(interaction[1]), toString(interaction[2]), toString(interaction[3]), toString(interaction[4]), toString(interaction[5]), toString(interaction[6])))
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\n".format(toString(interaction[0]), toString(interaction[1]), toString(interaction[2]), toString(interaction[3]), toString(interaction[4]), toString(interaction[5]), float(interaction[6])))

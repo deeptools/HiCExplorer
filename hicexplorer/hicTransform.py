@@ -95,14 +95,22 @@ def main(args=None):
         for chrname in hic_ma.getChrNames():
             chr_range = hic_ma.getChrBinRange(chrname)
             submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+            log.debug("shape: {}".format(submatrix.shape))
+
             submatrix.astype(float)
+            log.debug("shape: {}".format(submatrix.shape))
+
             trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(__pearson(submatrix.todense()))
 
     elif args.method == 'covariance':
         for chrname in hic_ma.getChrNames():
             chr_range = hic_ma.getChrBinRange(chrname)
             submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+            log.debug("shape: {}".format(submatrix.shape))
+
             submatrix.astype(float)
+            log.debug("shape: {}".format(submatrix.shape))
+
             corrmatrix = np.cov(submatrix.todense())
             trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(corrmatrix)
 
@@ -114,13 +122,16 @@ def main(args=None):
         for chrname in hic_ma.getChrNames():
             chr_range = hic_ma.getChrBinRange(chrname)
             submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+
             submatrix.astype(float)
             submatrix = __obs_exp(submatrix, length_chromosome, chromosome_count)
+
             trasf_matrix_obs_exp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
             submatrix = __pearson(submatrix)
+
             trasf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
             corrmatrix = np.cov(submatrix)
-            trasf_matrix_corr[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
+            trasf_matrix_corr[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(corrmatrix)
 
         hic_ma.setMatrix(trasf_matrix_obs_exp.tocsr(), cut_intervals=hic_ma.cut_intervals)
 
@@ -129,14 +140,16 @@ def main(args=None):
         basename_pearson = "pearson_" + basename_outFileName
         basename_covariance = "covariance_" + basename_outFileName
         path = dirname(args.outFileName)
+        if path != '':
+            path += '/'
 
-        hic_ma.save(path + "/" + basename_obs_exp, pSymmetric=False)
+        hic_ma.save(path + basename_obs_exp, pSymmetric=False)
 
         hic_ma.setMatrix(trasf_matrix_pearson.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(path + "/" + basename_pearson, pSymmetric=False)
+        hic_ma.save(path + basename_pearson, pSymmetric=False)
 
         hic_ma.setMatrix(trasf_matrix_corr.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(path + "/" + basename_covariance, pSymmetric=False)
+        hic_ma.save(path + basename_covariance, pSymmetric=False)
 
     if not args.method == 'all':
         hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
