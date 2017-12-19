@@ -7,7 +7,7 @@ import time
 from os import unlink
 import os
 import warnings
-import itertools
+# import itertools
 
 import pysam
 from collections import OrderedDict
