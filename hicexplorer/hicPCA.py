@@ -157,6 +157,8 @@ def main(args=None):
             for i, value in enumerate(vecs_list):
                 # it can happen that some 'value' is having less dimensions than it should
                 if len(value) == args.numberOfEigenvectors:
+                    if isinstance(value[idx], np.complex):
+                        value[idx] = value[idx].real
                     values.append(value[idx])
                     chrom_list_.append(toString(chrom_list[i]))
                     start_list_.append(start_list[i])
