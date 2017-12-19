@@ -50,6 +50,8 @@ def are_files_equal_bigwig(file1, file2):
             bins_list_file1 = np.array(bins_list_file1)
             bins_list_file2 = np.array(bins_list_file2)
             bins_list_file1[:][2] *= -1
+        if bins_list_file1 is None and bins_list_file2 is None:
+            return True
         nt.assert_array_almost_equal(bins_list_file1, bins_list_file2)
     return True
 
