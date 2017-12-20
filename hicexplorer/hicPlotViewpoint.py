@@ -108,7 +108,7 @@ def main(args=None):
                 interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, hic.matrix[view_point_start_, idx]))
         view_point_start_ += 1
 
-    plt.figure(figsize=(6.4, 4.8))
+    fig = plt.figure(figsize=(6.4, 4.8))
     ax = plt.subplot(111)
     ax.plot(range(len(data_list)), data_list)
     if len(referencePoint) == 2:
@@ -149,6 +149,7 @@ def main(args=None):
             transform=ax.transAxes,
             color='black', fontsize=8)
     plt.savefig(args.outFileName, dpi=args.dpi)
+    plt.close(fig)
 
     if interactions_list is not None:
         with open(args.interactionOutFileName, 'w') as fh:

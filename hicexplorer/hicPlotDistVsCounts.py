@@ -1,23 +1,23 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 from __future__ import division
 
 import os.path
 import numpy as np
 import argparse
 
+import hicexplorer.HiCMatrix as HiCMatrix
+from hicexplorer._version import __version__
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+from collections import OrderedDict
 from builtins import range
 from past.builtins import zip
 from six import iteritems
 
-from matplotlib import use as mplt_use
-from collections import OrderedDict
-mplt_use('Agg')
-import matplotlib.pyplot as plt
 from scipy.sparse import triu
 
-import hicexplorer.HiCMatrix as HiCMatrix
-from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
@@ -336,7 +336,7 @@ def main(args=None):
         height = 4
     else:
         width, height = args.plotsize
-    plt.figure(figsize=(width * num_cols, height * num_rows))
+    fig = plt.figure(figsize=(width * num_cols, height * num_rows))
 
     axs = np.empty((num_rows, num_cols), dtype='object')
     for matrix_file in args.matrices:
@@ -401,3 +401,4 @@ def main(args=None):
 
     plt.tight_layout()
     plt.savefig(args.plotFile.name, bbox_inches='tight', bbox_extra_artists=(lgd,))
+    plt.close(fig)

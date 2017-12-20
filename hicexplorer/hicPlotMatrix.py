@@ -299,8 +299,9 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
     fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
     chrom, start, end, _ = zip(*hic_matrix.cut_intervals)
-
     for idx, chrname in enumerate(chromosomes):
+        log.debug('chrom: {}'.format(chrname))
+
         row = idx // chrom_per_row
         col = idx % chrom_per_row
         if pPca:
@@ -320,14 +321,22 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
         norm = None
         if args.log or args.log1p:
             mask = matrix == 0
-            mask_nan = matrix == np.nan
+            mask_nan = np.isnan(matrix)
+            mask_inf = np.isinf(matrix)
+            log.debug("any nan {}".format(np.isnan(matrix).any()))
+            log.debug("any inf {}".format(np.isinf(matrix).any()))
+
             try:
-                matrix[mask] = matrix[mask == False].min()
-                matrix[mask_nan] = matrix[mask_nan == False].min()
+                matrix[mask] = np.nanmin(matrix[mask == False])
+                matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
+                matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
+
                 if args.log:
                     matrix = np.log(matrix)
             except Exception:
-                pass
+                log.debug("Clearing of matrix failed.")
+            log.debug("any nanafter remove of nan: {}".format(np.isnan(matrix).any()))
+            log.debug("any inf after remove of inf: {}".format(np.isinf(matrix).any()))
         if args.log1p:
             matrix += 1
             norm = LogNorm()
@@ -340,9 +349,13 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
 
         chr_bin_boundary = OrderedDict()
         chr_bin_boundary[chrname] = hic_matrix.chrBinBoundaries[chrname]
+
+        args.region = chrname
+        chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, hic_matrix)
         plotHeatmap(matrix, chr_bin_boundary, fig, None,
                     args, cmap, xlabel=chrname, ylabel=chrname,
-                    start_pos=None, start_pos2=None, pNorm=norm, pAxis=axis, pPca=pca)
+                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pPca=pca)
+    return fig
 
 
 def getRegion(args, ma):
@@ -416,7 +429,7 @@ def main(args=None):
         exit(1)
 
     if args.matrix.endswith('.cool') and not args.region2:
-
+        log.debug("Retrieve data from cooler format and use its benefits.")
         regionsToRetrieve = None
         if args.region:
             regionsToRetrieve = []
@@ -472,6 +485,7 @@ def main(args=None):
             matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
 
         else:
+            log.debug("Else branch")
             matrix = np.asarray(ma.getMatrix().astype(float))
 
     matrix_length = len(matrix[0])
@@ -488,24 +502,28 @@ def main(args=None):
         pca = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': ma.nan_bins}
 
     if args.perChromosome:
-        plotPerChr(ma, cmap, args, pPca=pca)
+        fig = plotPerChr(ma, cmap, args, pPca=pca)
 
     else:
         norm = None
 
         if args.log or args.log1p:
             mask = matrix == 0
-            mask_nan = matrix == np.nan
-            mask_inf = matrix == np.inf
+            matrix[mask] = np.nanmin(matrix[mask == False])
 
-            try:
-                matrix[mask] = matrix[mask == False].min()
-                matrix[mask_nan] = matrix[mask_nan == False].min()
-                matrix[mask_inf] = matrix[mask_inf == False].min()
-                if args.log:
-                    matrix = np.log(matrix)
-            except Exception:
-                log.debug("Clearing of matrix failed.")
+            if np.isnan(matrix).any() or np.isinf(matrix).any():
+                log.debug("any nan {}".format(np.isnan(matrix).any()))
+                log.debug("any inf {}".format(np.isinf(matrix).any()))
+                mask_nan = np.isnan(matrix)
+                mask_inf = np.isinf(matrix)
+                matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
+                matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
+
+            if args.log:
+                matrix = np.log(matrix)
+
+        log.debug("any nan after remove of nan: {}".format(np.isnan(matrix).any()))
+        log.debug("any inf after remove of inf: {}".format(np.isinf(matrix).any()))
         if args.log1p:
             matrix += 1
             norm = LogNorm()
@@ -537,7 +555,11 @@ def main(args=None):
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pPca=pca)
 
+    if args.perChromosome or args.pca:
+        plt.tight_layout()
+
     plt.savefig(args.outFileName, dpi=args.dpi)
+    plt.close(fig)
 
 
 def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegion=None, pXticks=None):

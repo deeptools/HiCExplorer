@@ -35,9 +35,12 @@ The following is the list of tools:
    hicCorrelate             Computes and visualises the correlation of Hi-C matrices
    hicFindTADs	            Identifies Topologically Associating Domains (TADs)
    hicMergeMatrixBins	    Merges consecutives bins on a Hi-C matrix to reduce resolution
+   hicPCA                   Computes the principal components (eigenvectors) for A/B compartment analysis
+   hicTransform             Computes obs_exp (like Lieberman-Aiden), pearson and covariance matrix for A/B compartment analysis
    hicPlotDistVsCounts	    Plot the decay in interaction frequency with distance
-   hicPlotMatrix	        Plots a Hi-C matrix as a heatmap
+   hicPlotMatrix	        Plots a Hi-C matrix as a heatmap and can add a pca track to it
    hicPlotTADs	            Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
+   hicPlotViewpoint         Plots the number of interactions around a reference point
    hicSumMatrices	        Adds Hi-C matrices of the same size
    hicPlotDistVsCounts	    Plots distance vs. Hi-C counts of corrected data
    hicExport	            Export matrix to text formats

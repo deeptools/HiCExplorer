@@ -236,6 +236,8 @@ class PlotTracks(object):
                             top=DEFAULT_MARGINS['top'])
 
         fig.savefig(file_name, dpi=self.dpi, transparent=False)
+        plt.close(fig)
+
         return fig.get_size_inches()
 
     def plot_vlines(self, axis_list, chrom_region, start_region, end_region):
@@ -456,7 +458,7 @@ def file_to_intervaltree(file_name):
         if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
             continue
         fields = line.strip().split('\t')
-        log.debug("fields: {}, {}".format(fields[0:3], type(fields)))
+        # log.debug("fields: {}, {}".format(fields[0:3], type(fields)))
         try:
             chrom, start, end = fields[0:3]
         except Exception as detail:

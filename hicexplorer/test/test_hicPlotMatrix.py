@@ -5,15 +5,16 @@ mpl.use('agg')
 from matplotlib.testing.compare import compare_images
 import os.path
 import pytest
-import sys
-
-
+from psutil import virtual_memory
+mem = virtual_memory()
+mem = mem.total / 2**30
+print ("Memory", mem)
 import hicexplorer.hicPlotMatrix
 tolerance = 13  # default matplotlib pixed difference tolerance
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(7 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins():
 
@@ -30,7 +31,7 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(7 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_region2_log_no_clearMaskedBins():
 
@@ -47,7 +48,7 @@ def test_hicPlotMatrix_region_region2_log_no_clearMaskedBins():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(7 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_region2_log():
 
@@ -64,7 +65,7 @@ def test_hicPlotMatrix_region_region2_log():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(7 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_region2_no_clearMaskedBins():
 
@@ -81,7 +82,7 @@ def test_hicPlotMatrix_region_region2_no_clearMaskedBins():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(7 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_region2_no_clearMaskedBins_title():
 
@@ -98,7 +99,7 @@ def test_hicPlotMatrix_region_region2_no_clearMaskedBins_title():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(7 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_region2_log1p_no_clearMaskedBins():
 
@@ -115,9 +116,9 @@ def test_hicPlotMatrix_region_region2_log1p_no_clearMaskedBins():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(7 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_cool():
+def test_hicPlotMatrix_cool_region1_region2():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
 
@@ -129,9 +130,107 @@ def test_hicPlotMatrix_cool():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_cool_region1():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+
+    args = "--matrix {0}/Li_et_al_2015.cool --region X:3000000-3500000 " \
+           "--outFileName  {1} ".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35_cool.png', outfile.name, tol=40)
+    assert res is None, res
+    os.remove(outfile.name)
+
+
+@pytest.mark.skipif(16 * 2**30 < mem,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_cool_log1p():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+
+    args = "--matrix {0}/Li_et_al_2015.cool --log1p " \
+           "--outFileName  {1} ".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool_log1p.png', outfile.name, tol=40)
+    assert res is None, res
+    os.remove(outfile.name)
+
+
+@pytest.mark.skipif(16 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_cool_log():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+
+    args = "--matrix {0}/Li_et_al_2015.cool --log " \
+           "--outFileName  {1} ".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool_log.png', outfile.name, tol=40)
+    assert res is None, res
+    os.remove(outfile.name)
+
+
+@pytest.mark.skipif(16 * 2**30 < mem,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_cool_full():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+
+    args = "--matrix {0}/Li_et_al_2015.cool " \
+           "--outFileName  {1} ".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool.png', outfile.name, tol=40)
+    assert res is None, res
+    os.remove(outfile.name)
+
+
+@pytest.mark.skipif(16 * 2**30 < mem,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_h5_log1p():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5', delete=False)
+
+    args = "--matrix {0}/Li_et_al_2015.h5 --log1p " \
+           "--outFileName  {1} ".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5_log1p.png', outfile.name, tol=40)
+    assert res is None, res
+    os.remove(outfile.name)
+
+
+@pytest.mark.skipif(16 * 2**30 < mem,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_h5_log():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5', delete=False)
+
+    args = "--matrix {0}/Li_et_al_2015.h5 --log " \
+           "--outFileName  {1} ".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5_log.png', outfile.name, tol=40)
+    assert res is None, res
+    os.remove(outfile.name)
+
+
+@pytest.mark.skipif(16 * 2**30 < mem,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_h5_full():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5', delete=False)
+
+    args = "--matrix {0}/Li_et_al_2015.h5 " \
+           "--outFileName  {1} ".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5.png', outfile.name, tol=40)
+    assert res is None, res
+    os.remove(outfile.name)
+
+
+@pytest.mark.skipif(2 * 2**30 < mem,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_cool_log_region1_region2():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
 
@@ -143,9 +242,9 @@ def test_hicPlotMatrix_cool_log():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_cool_log1p():
+def test_hicPlotMatrix_cool_log1p_region1_region2():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
 
@@ -157,7 +256,7 @@ def test_hicPlotMatrix_cool_log1p():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_perChr():
 
@@ -171,7 +270,7 @@ def test_hicPlotMatrix_perChr():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_cool_perChr_log():
 
@@ -185,7 +284,7 @@ def test_hicPlotMatrix_cool_perChr_log():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder():
 
@@ -199,8 +298,7 @@ def test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder():
     os.remove(outfile.name)
 
 
-# test cases for pca plot
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_perChr_pca1_bigwig():
 
@@ -214,7 +312,7 @@ def test_hicPlotMatrix_perChr_pca1_bigwig():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_perChr_pca2_bedgraph():
 
@@ -228,7 +326,7 @@ def test_hicPlotMatrix_perChr_pca2_bedgraph():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_pca1_colormap_bedgraph():
 
@@ -242,7 +340,7 @@ def test_hicPlotMatrix_region_pca1_colormap_bedgraph():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_start_end_pca1_colormap_bedgraph():
 
@@ -256,7 +354,7 @@ def test_hicPlotMatrix_region_start_end_pca1_colormap_bedgraph():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_pca1_colormap_bigwig():
 
@@ -270,7 +368,7 @@ def test_hicPlotMatrix_region_pca1_colormap_bigwig():
     os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(2 * 2**30 < mem,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_start_end_pca1_colormap_bigwig():
 
