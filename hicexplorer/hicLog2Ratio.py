@@ -36,8 +36,8 @@ def parse_arguments(args=None):
     return parser
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=None):
+    args = parse_arguments().parse_args(args)
 
     hic_t = hm.hiCMatrix(matrixFile=args.treatment)
     hic_c = hm.hiCMatrix(matrixFile=args.control)
