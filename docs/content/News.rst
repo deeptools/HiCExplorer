@@ -16,6 +16,7 @@ This release makes HiCExplorer ready for the future:
  * eigenvector track with --pca for hicPlotMatrix
  * visualization of interactions around a reference point or region with hicPlotViewpoint
 * Higher test coverage
+* re-licensing from GPLv2 to GPLv3
 
 Release 1.8.1
 --------------
