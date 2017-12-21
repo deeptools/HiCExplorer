@@ -12,9 +12,12 @@ import hicexplorer.hicPlotMatrix
 tolerance = 13  # default matplotlib pixed difference tolerance
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
+# memory in GB the test computer needs to have to run the test case
 LOW_MEMORY = 2
 MID_MEMORY = 7
 HIGH_MEMORY = 20
+
+REMOVE_OUTPUT = True
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,
@@ -31,7 +34,8 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins():
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,
@@ -48,7 +52,8 @@ def test_hicPlotMatrix_region_region2_log_no_clearMaskedBins():
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,
@@ -65,7 +70,8 @@ def test_hicPlotMatrix_region_region2_log():
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,
@@ -82,7 +88,8 @@ def test_hicPlotMatrix_region_region2_no_clearMaskedBins():
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,
@@ -99,7 +106,8 @@ def test_hicPlotMatrix_region_region2_no_clearMaskedBins_title():
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,
@@ -116,7 +124,8 @@ def test_hicPlotMatrix_region_region2_log1p_no_clearMaskedBins():
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,
@@ -130,7 +139,8 @@ def test_hicPlotMatrix_cool_region1_region2():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -144,7 +154,8 @@ def test_hicPlotMatrix_cool_region1():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35_cool.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(HIGH_MEMORY > memory,
@@ -158,7 +169,8 @@ def test_hicPlotMatrix_cool_log1p():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool_log1p.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(HIGH_MEMORY > memory,
@@ -172,7 +184,8 @@ def test_hicPlotMatrix_cool_log():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool_log.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(HIGH_MEMORY > memory,
@@ -186,7 +199,8 @@ def test_hicPlotMatrix_cool_full():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(HIGH_MEMORY > memory,
@@ -200,7 +214,8 @@ def test_hicPlotMatrix_h5_log1p():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5_log1p.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(HIGH_MEMORY > memory,
@@ -214,7 +229,8 @@ def test_hicPlotMatrix_h5_log():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5_log.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(HIGH_MEMORY > memory,
@@ -228,7 +244,8 @@ def test_hicPlotMatrix_h5_full():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -242,7 +259,8 @@ def test_hicPlotMatrix_cool_log_region1_region2():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool_log.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -256,7 +274,8 @@ def test_hicPlotMatrix_cool_log1p_region1_region2():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool_log1p.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -270,7 +289,8 @@ def test_hicPlotMatrix_perChr():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -284,7 +304,8 @@ def test_hicPlotMatrix_cool_perChr_log():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr_log.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -298,7 +319,8 @@ def test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_perChr_log1p_chromosomeOrder.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -312,7 +334,8 @@ def test_hicPlotMatrix_perChr_pca1_bigwig():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -326,7 +349,8 @@ def test_hicPlotMatrix_perChr_pca2_bedgraph():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca2_plot.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -340,7 +364,8 @@ def test_hicPlotMatrix_region_pca1_colormap_bedgraph():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -354,7 +379,8 @@ def test_hicPlotMatrix_region_start_end_pca1_colormap_bedgraph():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_15mb-20mb.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -368,7 +394,8 @@ def test_hicPlotMatrix_region_pca1_colormap_bigwig():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_bw.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
@@ -382,4 +409,5 @@ def test_hicPlotMatrix_region_start_end_pca1_colormap_bigwig():
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_15mb-20mb_bw.png', outfile.name, tol=40)
     assert res is None, res
-    os.remove(outfile.name)
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)

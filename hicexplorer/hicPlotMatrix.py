@@ -137,7 +137,7 @@ def relabel_ticks(pXTicks):
                   for x in pXTicks]
         labels[-2] += " Kbp"
     else:
-        labels = ["{:,} ".format((x))
+        labels = ["{:.2f} ".format((x))
                   for x in pXTicks]
         labels[-2] += " bp"
     return labels
@@ -169,7 +169,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         axHeat2 = fig.add_axes(position)
 
     if args.title:
-        axHeat2.set_title(args.title)
+        axHeat2.set_title(toString(args.title))
 
     if start_pos is None:
         start_pos = np.arange(ma.shape[0])
@@ -202,6 +202,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         labels = list(chrBinBoundaries)
         axHeat2.set_xticks(ticks)
         axHeat2.set_yticks(ticks)
+        labels = toString(labels)
         xticks = [labels, ticks]
 
         if len(labels) > 20:
@@ -233,9 +234,11 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
 
     if ylabel is not None:
+        ylabel = toString(ylabel)
         axHeat2.set_ylabel(ylabel)
 
     if xlabel is not None:
+        xlabel = toString(xlabel)
         axHeat2.set_xlabel(xlabel)
 
     if pPca:
@@ -259,6 +262,7 @@ def translate_region(region_string):
     if sys.version_info[0] == 2:
         region_string = region_string.translate(None, ",;!").replace("-", ":")
     if sys.version_info[0] == 3:
+        # region_string = toBytes(region_string)
         region_string = region_string.replace(",", "")
         region_string = region_string.replace(";", "")
         region_string = region_string.replace("!", "")
@@ -313,7 +317,7 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
 
         else:
             axis = plt.subplot(grids[row, col])
-            axis.set_title(chrname)
+            axis.set_title(toString(chrname))
         chrom_range = hic_matrix.getChrBinRange(chrname)
         matrix = np.asarray(hic_matrix.matrix[chrom_range[0]:chrom_range[1],
                                               chrom_range[0]:chrom_range[1]].todense().astype(float))
@@ -350,7 +354,7 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
         chr_bin_boundary = OrderedDict()
         chr_bin_boundary[chrname] = hic_matrix.chrBinBoundaries[chrname]
 
-        args.region = chrname
+        args.region = toString(chrname)
         chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, hic_matrix)
         plotHeatmap(matrix, chr_bin_boundary, fig, None,
                     args, cmap, xlabel=chrname, ylabel=chrname,
@@ -588,7 +592,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
             if pChromosomeList:
                 for chrom in pChromosomeList:
                     try:
-                        bins_list = bw.intervals(chrom)
+                        bins_list = bw.intervals(toString(chrom))
                     except Exception:
                         log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                         return
@@ -608,7 +612,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                 try:
                     if region_start == 0 and region_end == 1e15:
                         log.debug("chrom == pRegion")
-                        bins_list = bw.intervals(chrom)
+                        bins_list = bw.intervals(toString(chrom))
                         region_start = bins_list[0][0]
                         region_end = bins_list[-1][1]
                     else:
@@ -639,10 +643,10 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
             eigenvector = []
             if pChromosomeList:
                 for chrom in pChromosomeList:
-                    if chrom not in interval_tree:
+                    if toString(chrom) not in interval_tree:
                         log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                         return
-                    for i, region in enumerate(sorted(interval_tree[chrom])):
+                    for i, region in enumerate(sorted(interval_tree[toString(chrom)])):
                         if i == 0:
                             region_start = region[0]
                         region_end = region[1]
@@ -651,10 +655,10 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                 pAxis.set_xlim(0, len(eigenvector))
 
             elif pRegion:
-                if chrom not in interval_tree:
+                if toString(chrom) not in interval_tree:
                     log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
                     return
-                for region in sorted(interval_tree[chrom][region_start:region_end]):
+                for region in sorted(interval_tree[toString(chrom)][region_start:region_end]):
                     eigenvector.append(float(region.data[0]))
                 step = (region_end * 2 - region_start) // len(eigenvector)
 
