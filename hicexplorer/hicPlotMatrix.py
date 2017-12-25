@@ -577,7 +577,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
     pAxis.set_frame_on(False)
 
     file_format = pNameOfEigenvectorsList[0].split(".")[-1]
-    if file_format != 'bedgraph' and not file_format != 'bigwig' and file_format != 'bw':
+    if file_format != 'bedgraph' and file_format != 'bigwig' and file_format != 'bw':
 
         log.error("Given eigenvector files are not bedgraph or bigwig")
         exit()
