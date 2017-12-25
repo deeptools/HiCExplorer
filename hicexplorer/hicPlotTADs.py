@@ -179,11 +179,20 @@ type = vlines
 from __future__ import division
 import sys
 import argparse
+from past.builtins import map
 import matplotlib
 matplotlib.use('Agg')
 
 import hicexplorer.trackPlot
 from hicexplorer._version import __version__
+
+import logging
+log = logging.getLogger(__name__)
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=DeprecationWarning)
+warnings.simplefilter(action='ignore', category=ImportWarning)
 
 DEFAULT_BED_COLOR = '#1f78b4'
 DEFAULT_BIGWIG_COLOR = '#33a02c'
@@ -290,8 +299,24 @@ def get_region(region_string):
     The region_string format is chr:start-end
     """
     if region_string:
-        region_string = region_string.translate(
-            None, ",.;|!{}()").replace("-", ":")
+
+        if sys.version_info[0] == 2:
+            region_string = region_string.translate(
+                None, ",.;|!{}()").replace("-", ":")
+        if sys.version_info[0] == 3:
+            region_string = region_string.replace(",", "")
+            region_string = region_string.replace(".", "")
+            region_string = region_string.replace(";", "")
+            region_string = region_string.replace("|", "")
+            region_string = region_string.replace("!", "")
+            region_string = region_string.replace("{", "")
+            region_string = region_string.replace("}", "")
+            region_string = region_string.replace("(", "")
+            region_string = region_string.replace(")", "")
+            region_string = region_string.replace("-", ":")
+
+        # region_string = region_string.translate(
+        #     None, ",.;|!{}()").replace("-", ":")
         region = region_string.split(":")
         chrom = region[0]
         try:
@@ -311,11 +336,11 @@ def get_region(region_string):
 
 
 def main(args=None):
-
+    log.debug("hicPlotTADs")
     args = parse_arguments().parse_args(args)
     trp = hicexplorer.trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
                                            fontsize=args.fontSize, dpi=args.dpi,
-                                           track_label_width=args.trackLabelFraction)
+                                           track_label_width=args.trackLabelFraction, p_region=args.region)
 
     if args.BED:
         count = 0
@@ -328,12 +353,12 @@ def main(args=None):
             try:
                 start, end = map(int, [start, end])
             except ValueError as detail:
-                sys.stderr.write("Invalid value found at line\t{}\t. {}\n".format(line, detail))
+                log.debug("Invalid value found at line\t{}\t. {}\n".format(line, detail))
             file_name = "{}_{}:{}-{}".format(args.outFileName, chrom, start, end)
             if end - start < 200000:
                 start -= 100000
                 end += 100000
-            sys.stderr.write("saving {}'\n".format(file_name))
+            log.info("saving {}'\n".format(file_name))
             trp.plot(file_name, chrom, start, end, title=args.title)
     else:
         region = get_region(args.region)

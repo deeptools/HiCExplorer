@@ -1,4 +1,3 @@
-import sys
 import argparse
 import re
 from tempfile import NamedTemporaryFile
@@ -7,6 +6,9 @@ import subprocess
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
@@ -66,14 +68,14 @@ def find_pattern(pattern, fasta_file, out_file):
                          Csp6I
 
     >>> fa = open("/tmp/test.fa", 'w')
-    >>> fa.write(">chr1\nCTACGGTACGAACGTACGGTACGcgtaCGNAGTCATG\n")
+    >>> foo = fa.write(">chr1\nCTACGGTACGAACGTACGGTACGcgtaCGNAGTCATG\n")
     >>> fa.close()
-    >>> find_pattern("GTAC", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
+    >>> find_pattern("GTAC", "/tmp/test.fa", open("/tmp/test.bed", 'wb'))
     >>> open("/tmp/test.bed", 'r').readlines()
     ['chr1\t5\t9\t.\t0\t+\n', 'chr1\t13\t17\t.\t0\t+\n', 'chr1\t18\t22\t.\t0\t+\n', 'chr1\t24\t28\t.\t0\t+\n']
 
     Test with non palindromic sequence with regexp
-    >>> find_pattern("CG.AG", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
+    >>> find_pattern("CG.AG", "/tmp/test.fa", open("/tmp/test.bed", 'wb'))
     >>> open("/tmp/test.bed", 'r').readlines()
     ['chr1\t0\t5\t.\t0\t-\n', 'chr1\t27\t32\t.\t0\t+\n']
 
@@ -82,21 +84,20 @@ def find_pattern(pattern, fasta_file, out_file):
     # get the reverse complement of the pattern
     rev_compl = str(Seq(pattern, generic_dna).reverse_complement())
 
-    temp = NamedTemporaryFile(suffix=".bed", delete=False)
+    temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='w')
     for record in SeqIO.parse(fasta_file, 'fasta', generic_dna):
         # find all the occurrences of pattern
         for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
-            temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                      match.start(),
-                                                      match.end()))
+            _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
+                                                          match.start(),
+                                                          match.end()))
         if rev_compl != pattern:
             # search for the reverse complement only if the pattern is not palindromic
             for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
-                temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
-                                                          match.start(),
-                                                          match.end()))
-
-    sys.stderr.write("Sorting file ...\n")
+                _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
+                                                              match.start(),
+                                                              match.end()))
+    log.info("Sorting file ...")
     tmpfile_name = temp.name
     temp.close()
     subprocess.check_output(["cat", tmpfile_name])

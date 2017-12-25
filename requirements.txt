@@ -7,4 +7,7 @@ biopython >= 1.68
 pytables >= 3.3.0
 pandas >= 0.20.2
 pybigwig >= 0.3.4
+cooler >= 0.7.6
 jinja2 >= 2.9.6
+six >= 1.10.0
+future >= 0.16.0

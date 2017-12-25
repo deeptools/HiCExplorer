@@ -13,9 +13,9 @@ The following is the list of tools available in HiCExplorer
 -----------------------------------------------------------
 
 
-=============================== ===========================================================================================
+=============================== ==========================================================================================================================================================
 tool                            description
-=============================== ===========================================================================================
+=============================== ==========================================================================================================================================================
 :ref:`findRestSite`              Identifies the genomic locations of restriction sites
 :ref:`hicBuildMatrix`            Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
 :ref:`hicQC`                     Plots QC measures from the output of hicBuildMatrix
@@ -23,16 +23,21 @@ tool                            description
 :ref:`hicFindEnrichedContacts`   Identifies enriched Hi-C contacts
 :ref:`hicCorrelate`              Computes and visualises the correlation of Hi-C matrices
 :ref:`hicFindTADs`               Identifies Topologically Associating Domains (TADs)
+:ref:`hicPCA`                    Computes for A / B compartments the eigenvectors 
+:ref:`hicTransform`              Computes a obs_exp matrix like Lieberman-Aiden (2009), a pearson correlation matrix and or a covariance matrix. These matrices can be used for plotting.
 :ref:`hicMergeMatrixBins`        Merges consecutive bins on a Hi-C matrix to reduce resolution
+:ref:`hicMergeTADbins`           Uses a BED file of domains or TAD boundaries to merge the bin counts of a Hi-C matrix.
 :ref:`hicPlotDistVsCounts`       Plot the decay in interaction frequency with distance
 :ref:`hicPlotMatrix`             Plots a Hi-C matrix as a heatmap
 :ref:`hicPlotTADs`               Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
+:ref:`hicPlotViewpoint`          A plot with the interactions around a reference point or region.  
 :ref:`hicSumMatrices`            Adds Hi-C matrices of the same size
 :ref:`hicPlotDistVsCounts`       Plots distance vs. Hi-C counts of corrected data
 :ref:`hicExport`                 Export matrix to text formats
 :ref:`hicInfo`                   Shows information about a Hi-C matrix file (no. of bins, bin length, sum, max, min, etc)
 :ref:`hicCompareMatrices`        Computes difference or ratio between two matrices
-=============================== ===========================================================================================
+:ref:`hicLog2Ratio`              Computes the log2 ratio between two matrices.     
+=============================== ==========================================================================================================================================================
 
 
 Getting Help

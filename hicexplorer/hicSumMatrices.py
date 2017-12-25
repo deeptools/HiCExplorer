@@ -1,6 +1,10 @@
+from __future__ import division
 import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
@@ -11,7 +15,7 @@ def parse_arguments(args=None):
 
     parser.add_argument('--matrices', '-m',
                         help='matrices to add. Must have the same shape.',
-                        metavar='.h5 file format',
+                        metavar='.h5 or cooler file format',
                         nargs='+',
                         required=True)
 
@@ -26,27 +30,28 @@ def parse_arguments(args=None):
     return parser
 
 
-def main():
+def main(args=None):
+    args = parse_arguments().parse_args(args)
 
-    args = parse_arguments().parse_args()
     hic = hm.hiCMatrix(args.matrices[0])
     summed_matrix = hic.matrix
     nan_bins = set(hic.nan_bins)
     for matrix in args.matrices[1:]:
         hic_to_append = hm.hiCMatrix(matrix)
         if hic.chrBinBoundaries != hic_to_append.chrBinBoundaries:
-            exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
-                 "{}: {}\n"
-                 "{}: {}".format(args.matrices[0], hic.chrBinBoundaries.keys(),
-                                 matrix, hic_to_append.chrBinBoundaries.keys()))
+            log.error("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
+                      "{}: {}\n"
+                      "{}: {}".format(args.matrices[0], list(hic.chrBinBoundaries),
+                                      matrix, list(hic_to_append.chrBinBoundaries)))
+            exit(1)
 
         try:
             summed_matrix = summed_matrix + hic_to_append.matrix
             if len(hic_to_append.nan_bins):
                 nan_bins = nan_bins.union(hic_to_append.nan_bins)
-        except:
-            print "\nMatrix {} seems to be corrupted or of different " \
-                  "shape".format(matrix)
+        except Exception:
+            log.exception(
+                "\nMatrix {} seems to be corrupted or of different shape".format(matrix))
             exit(1)
 
     # save only the upper triangle of the
@@ -54,3 +59,4 @@ def main():
     hic.setMatrixValues(summed_matrix)
     hic.maskBins(sorted(nan_bins))
     hic.save(args.outFileName)
+    return

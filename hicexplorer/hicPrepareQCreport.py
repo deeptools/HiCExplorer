@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import division
 
 import argparse
 import os
-import sys
 import errno
 import matplotlib
+import pandas as pd
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from hicexplorer._version import __version__
-import pandas as pd
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def parse_arguments():
@@ -49,16 +52,17 @@ def parse_arguments():
 def save_html(filename, unmap_table, discard_table, distance_table, orientation_table, all_table):
     root = os.path.dirname(os.path.abspath(__file__))
 
-    html = open(os.path.join(root, "qc_template.html"), "r").read()
+    html = open(os.path.join(root, "qc_template.html"), "r")
+    html_content = html.read()
     # the html code has a placeholder for the html table
-    html = html.replace("%%TABLE_UNMAP%%", unmap_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
-    html = html.replace("%%TABLE_DISCARDED%%", discard_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
-    html = html.replace("%%TABLE_DISTANCE%%", distance_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
-    html = html.replace("%%TABLE_ORIENTATION%%", orientation_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+    html_content = html_content.replace("%%TABLE_UNMAP%%", unmap_table.style
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+    html_content = html_content.replace("%%TABLE_DISCARDED%%", discard_table.style
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+    html_content = html_content.replace("%%TABLE_DISTANCE%%", distance_table.style
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+    html_content = html_content.replace("%%TABLE_ORIENTATION%%", orientation_table.style
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
 
     all_table = all_table[['Pairs considered', 'Pairs mappable, unique and high quality', 'Pairs used',
                            'One mate unmapped', 'One mate not unique', 'One mate low quality', 'dangling end',
@@ -66,9 +70,10 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
                            'self circle', 'duplicated pairs', 'inter chromosomal', 'short range < 20kb',
                            'long range', 'inward pairs', 'outward pairs', 'left pairs', 'right pairs']]
 
-    html = html.replace("%%TABLE%%", all_table.style.render())
+    html_content = html_content.replace("%%TABLE%%", all_table.style.render())
     with open(filename, 'w') as fh:
-        fh.write(html)
+        fh.write(html_content)
+    html.close()
 
 
 def make_sure_path_exists(path):
@@ -181,7 +186,6 @@ def make_figure_read_orientation(table, filename, dpi):
 
 
 def main(args=None):
-
     """
     The structure of the log file is as follows:
     --------------------------------------------
@@ -222,7 +226,7 @@ def main(args=None):
     make_sure_path_exists(args.outputFolder)
     for fh in args.logfiles:
         in_log_part = False
-        sys.stderr.write('Processing {}\n'.format(fh.name))
+        log.debug('Processing {}\n'.format(fh.name))
         for line in fh.readlines():
             if line.startswith("File"):
                 in_log_part = True
@@ -242,13 +246,14 @@ def main(args=None):
 
     table = pd.DataFrame(params)
     if args.labels and len(args.labels) == len(args.logfiles):
-            try:
-                table['Labels'] = args.labels
-            except ValueError:
-                exit("*ERROR* Some log files may not be valid. Please check that the log files contain "
-                     "at the end the summary information.")
+        try:
+            table['Labels'] = args.labels
+        except ValueError:
+            log.error("*ERROR* Some log files may not be valid. Please check that the log files contain "
+                      "at the end the summary information.")
+            exit()
 
-            table = table.set_index('Labels')
+        table = table.set_index('Labels')
     else:
         table = table.set_index('File')
 

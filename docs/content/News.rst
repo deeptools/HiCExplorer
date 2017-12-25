@@ -1,6 +1,34 @@
 News and Developments
 =====================
 
+Release 2.0
+-----------
+
+**December 21, 2017**
+
+This release makes HiCExplorer ready for the future:
+
+* Python 3 support
+* `Cooler <https://github.com/mirnylab/cooler>`_ file format support
+* A/B comparment analysis
+* Improved visualizations
+ * bug fixes for --perChr option in hicPlotMatrix
+ * eigenvector track with --pca for hicPlotMatrix
+ * visualization of interactions around a reference point or region with hicPlotViewpoint
+* Higher test coverage
+* re-licensing from GPLv2 to GPLv3
+
+Release 1.8.1
+--------------
+
+**November 27, 2017**
+
+Bug fix release:
+
+* a fix concerning the handling chimeric alignments in hicBuildMatrix. Thanks to Aleksander Jankowski @ajank
+* handling of dangling ends was too strict
+* improved help message in hicBuildMatrix
+
 Release 1.8
 -----------
 

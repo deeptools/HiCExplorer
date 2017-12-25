@@ -1,10 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import division
 
 import sys
 import argparse
-import numpy as np
 from hicexplorer import HiCMatrix as Hm
+from past.builtins import zip
+from builtins import range
+import numpy as np
+from hicexplorer.utilities import toString
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def parse_arguments():
@@ -59,7 +66,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
             coverage = np.mean(coverage_list[idx_start:idx])
             new_bins.append((ref_name_list[idx_start], new_start,
                              end_list[idx - 1], coverage))
-            bins_to_merge.append(range(idx_start, idx))
+            bins_to_merge.append(list(range(idx_start, idx)))
             idx_start = idx
             new_start = start_list[idx]
             count = 0
@@ -71,7 +78,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
     if len(bins_to_merge) > 0:
         coverage = np.mean(coverage_list[idx_start:])
         new_bins.append((ref, new_start, end_list[idx], coverage))
-        bins_to_merge.append(range(idx_start, idx + 1))
+        bins_to_merge.append(list(range(idx_start, idx + 1)))
         # remove correction factors otherwise they are
         # saved but they no longer correspond to the
         # size of the matrix.
@@ -82,7 +89,7 @@ def merge_tad_bins(hic, boundary_id_list, filename):
 
         hic.save(filename)
     else:
-        sys.stderr.write("Nothing to merge.")
+        log.info("Nothing to merge.")
 
 
 def get_boundary_bin_id(hic, bed_fh):
@@ -95,13 +102,15 @@ def get_boundary_bin_id(hic, bed_fh):
     boundaries = set()
     for line in bed_fh.readlines():
         line_number += 1
+        line = toString(line)
         if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
             continue
         try:
             chrom, start, end = line.strip().split('\t')[0:3]
         except Exception as detail:
             msg = 'Could not read line\n{}\n. {}'.format(line, detail)
-            sys.exit(msg)
+            log.exception(msg)
+            sys.exit()
 
         try:
             start = int(start)
@@ -109,7 +118,8 @@ def get_boundary_bin_id(hic, bed_fh):
         except ValueError as detail:
             msg = "Error reading line: {}. One of the fields is not " \
                   "an integer.\nError message: {}".format(line_number, detail)
-            sys.exit(msg)
+            log.exception(msg)
+            sys.exit()
 
         assert start <= end, "Error in line #{}, end1 larger than start1 in {}".format(line_number, line)
 
@@ -131,5 +141,5 @@ def main(args=None):
     boundary_id_list = get_boundary_bin_id(hic_ma, args.domains)
 
     # make a reduce matrix by merging the TAD bins
-    sys.stderr.write("Generating matrix with merged bins\n")
+    log.info("Generating matrix with merged bins")
     merge_tad_bins(hic_ma, boundary_id_list, args.outFile)
