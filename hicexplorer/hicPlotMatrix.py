@@ -13,6 +13,7 @@ from builtins import range
 from past.builtins import zip
 from future.utils import itervalues
 
+import cooler
 import argparse
 import matplotlib
 matplotlib.use('Agg')
@@ -380,7 +381,10 @@ def getRegion(args, ma):
             exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 
     args.region = [chrom, region_start, region_end]
-    if args.matrix.endswith(".cool"):
+    is_cooler = False
+    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix):
+        is_cooler = True
+    if is_cooler:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
                                  ((x[1] >= region_start and x[2] < region_end) or
                                   (x[1] < region_end and x[2] < region_end and x[2] > region_start) or
@@ -398,7 +402,7 @@ def getRegion(args, ma):
                 chrom2 = toBytes(chrom)
             if chrom2 not in list(ma.interval_trees):
                 exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
-        if args.matrix.endswith(".cool"):
+        if is_cooler:
             idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
                                      ((x[1] >= region_start2 and x[2] < region_end2) or
                                       (x[1] < region_end2 and x[2] < region_end2 and x[2] > region_start2) or
@@ -431,8 +435,10 @@ def main(args=None):
     if args.region and args.region2 and args.pca:
         log.error("Inter-chromosomal pca is not supported.")
         exit(1)
-
-    if args.matrix.endswith('.cool') and not args.region2:
+    is_cooler = False
+    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix):
+        is_cooler = True
+    if is_cooler and not args.region2:
         log.debug("Retrieve data from cooler format and use its benefits.")
         regionsToRetrieve = None
         if args.region:
