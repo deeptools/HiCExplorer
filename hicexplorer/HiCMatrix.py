@@ -70,7 +70,7 @@ class hiCMatrix:
                     file_format = 'h5'
                 elif matrixFile.endswith('.gz'):
                     file_format = 'dekker'
-                elif matrixFile.endswith('.cool'):
+                elif matrixFile.endswith('.cool') or cooler.io.is_cooler(matrixFile):
                     file_format = 'cool'
                 # by default assume that the matrix file_format is hd5
                 else:

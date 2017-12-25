@@ -265,6 +265,21 @@ def test_hicPlotMatrix_cool_log_region1_region2():
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_cool_log_region1_region2_without_cool_suffix():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+
+    args = "--matrix {0}/Li_et_al_2015 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
+           "--outFileName  {1} --log ".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool_log.png', outfile.name, tol=40)
+    assert res is None, res
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
+
+@pytest.mark.skipif(LOW_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_cool_log1p_region1_region2():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
@@ -285,6 +300,21 @@ def test_hicPlotMatrix_perChr():
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
     args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr  " \
+           "--outFileName  {1} ".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr.png', outfile.name, tol=40)
+    assert res is None, res
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
+
+@pytest.mark.skipif(LOW_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_perChr_without_h5_suffix():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
+
+    args = "--matrix {0}/small_test_matrix_50kb_res --perChr  " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr.png', outfile.name, tol=40)
