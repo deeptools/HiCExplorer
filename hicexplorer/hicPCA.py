@@ -18,6 +18,9 @@ from hicexplorer.utilities import toString
 import logging
 log = logging.getLogger(__name__)
 
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(

@@ -189,8 +189,6 @@ The TAD-separation score and the matrix can be visualized using :ref:`hicPlotTAD
     Example output from hicPlotTADs from http://chorogenome.ie-freiburg.mpg.de/
 
 
-
-
 A / B compartment analysis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -204,7 +202,7 @@ the covariance matrix are computed. All these steps are computed with the comman
    $ hicPCA -m hic_corrected.h5 --outFileName pca1.bedgraph pca2.bedgraph 
 
 If the intermediate matrices of this process should be used for plotting run:
-
+ 
 .. code-block:: bash
 
    $ hicTransform -m hic_corrected.h5 --outFileName all.h5 --method all

@@ -7,12 +7,17 @@ from scipy.sparse import lil_matrix
 from hicexplorer.iterativeCorrection import iterativeCorrection
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
+from hicexplorer.utilities import toString
+from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 import numpy as np
 debug = 0
 
 import logging
 log = logging.getLogger(__name__)
+
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
 
 
 def parse_arguments(args=None):
@@ -407,7 +412,9 @@ def plot_total_contact_dist(hic_ma, args):
                 log.info("mad threshold {}".format(mad_threshold))
 
     # replace nan by 0
-    hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
+    # hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
+    hic_ma.matrix = convertNansToZeros(hic_ma.matrix)
+    hic_ma.matrix = convertInfsToZeros(hic_ma.matrix)
 
     if args.perchr:
         chroms = hic_ma.getChrNames()
@@ -508,23 +515,24 @@ def main(args=None):
 
     # args.chromosomes
     if args.matrix.endswith('.cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
-        ma = hm.hiCMatrix(args.matrix, chrnameList=args.chromosomes)
+        ma = hm.hiCMatrix(args.matrix, chrnameList=toString(args.chromosomes))
     else:
         ma = hm.hiCMatrix(args.matrix)
 
         if args.chromosomes:
-            ma.reorderChromosomes(args.chromosomes)
+            ma.reorderChromosomes(toString(args.chromosomes))
 
     # mask all zero value bins
     row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
     log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
     ma.maskBins(np.flatnonzero(row_sum == 0))
     matrix_shape = ma.matrix.shape
-
+    ma.matrix = convertNansToZeros(ma.matrix)
+    ma.matrix = convertInfsToZeros(ma.matrix)
     if 'plotName' in args:
         plot_total_contact_dist(ma, args)
         log.info("Saving diagnostic plot {}\n".format(args.plotName))
-        exit()
+        return
 
     log.info("matrix contains {} data points. Sparsity {:.3f}.".format(
         len(ma.matrix.data),

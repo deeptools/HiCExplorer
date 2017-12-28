@@ -1103,8 +1103,7 @@ class hiCMatrix:
         these are kept, while any other is removed
         from the matrix
         """
-        if isinstance(chromosome_list, str):
-            chromosome_list = [chromosome_list]
+        chromosome_list = check_chrom_str_bytes(chromosome_list, self.interval_trees)
 
         try:
             [self.chrBinBoundaries[x] for x in chromosome_list]
@@ -1525,6 +1524,8 @@ class hiCMatrix:
         if len(new_chr_order) != len(self.chrBinBoundaries):
             return
         dest = 0
+        new_chr_order = check_chrom_str_bytes(new_chr_order, self.chrBinBoundaries)
+
         for chrName in new_chr_order:
             orig = self.chrBinBoundaries[chrName]
 
@@ -1533,6 +1534,8 @@ class hiCMatrix:
 
     def reorderChromosomes(self, new_chr_order):
         new_order = []
+        new_chr_order = check_chrom_str_bytes(new_chr_order, self.chrBinBoundaries)
+
         for chrName in new_chr_order:
             # check that the chromosome names are valid
             if chrName not in self.chrBinBoundaries:
@@ -1959,3 +1962,15 @@ def toBytes(s):
     if isinstance(s, list):
         return [toBytes(x) for x in s]
     return s
+
+
+def check_chrom_str_bytes(pChrom, pInstanceToCompare):
+    """
+    Checks and changes pChroms to str or bytes depending on datatype
+    of pInstanceToCompare
+    """
+    if type(next(iter(pInstanceToCompare))) is str:
+        pChrom = toString(pChrom)
+    elif type(next(iter(pInstanceToCompare))) in [bytes, np.bytes_]:
+        pChrom = toBytes(pChrom)
+    return pChrom

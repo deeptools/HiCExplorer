@@ -255,9 +255,9 @@ def merge_bins(hic, num_bins):
     return hic
 
 
-def main():
+def main(args=None):
 
-    args = parse_arguments().parse_args()
+    args = parse_arguments().parse_args(args)
     hic = hm.hiCMatrix(args.matrix)
 
     if args.runningWindow:

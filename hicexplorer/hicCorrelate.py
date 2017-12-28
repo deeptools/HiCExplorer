@@ -22,6 +22,9 @@ from matplotlib.ticker import FixedLocator
 import logging
 log = logging.getLogger(__name__)
 
+import warnings
+warnings.simplefilter(action="ignore", category=UserWarning)
+
 
 def parse_arguments(args=None):
 

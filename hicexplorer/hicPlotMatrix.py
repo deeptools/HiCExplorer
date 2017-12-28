@@ -29,6 +29,9 @@ from collections import OrderedDict
 import logging
 log = logging.getLogger(__name__)
 
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(description='Creates a Heatmap of a HiC matrix')
