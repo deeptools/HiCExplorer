@@ -21,4 +21,4 @@ def test_plot():
     res = compare_images(ROOT + 'hicPlotDistVsCounts/dist_vs_counts.png', outfile.name, tol=40)
     assert res is None, res
 
-    os.remove(outfile.name)
+    # os.remove(outfile.name)

@@ -333,8 +333,17 @@ class MAD(object):
         return the mad value for a given value
         based on the data
         """
-
+        log.debug("self.median: {}".format(self.median))
         diff = value - self.median
+        log.debug("diff: {}".format(diff))
+        log.debug("self.med_abs_deviation: {}".format(self.med_abs_deviation))
+        log.debug("self.mad_b_value: {}".format(self.mad_b_value))
+        log.debug("all together: {}".format(self.mad_b_value * diff / self.med_abs_deviation))
+        # workaround for 'Axis limits cannot be NaN or Inf' bug in version 2.1.1
+        # prevent dividing by 0!!!
+        if self.med_abs_deviation == 0.0:
+            return self.mad_b_value * diff
+
         return self.mad_b_value * diff / self.med_abs_deviation
 
     def mad_to_value(self, mad):
@@ -391,6 +400,12 @@ def plot_total_contact_dist(hic_ma, args):
         # update second axis values by mapping the min max
         # of the main axis to the translated values
         # into modified z score.
+
+        # workaround for 'Axis limits cannot be NaN or Inf' bug in version 2.1.1
+        log.debug("ax1.get_xlim(): {}".format(ax1.get_xlim()))
+        log.debug("np.array(ax1.get_xlim()): {}".format(np.array(ax1.get_xlim())))
+        log.debug("mad_values.value_to_mad(np.array(ax1.get_xlim())): {}".format(mad_values.value_to_mad(np.array(ax1.get_xlim()))))
+
         ax2.set_xlim(mad_values.value_to_mad(np.array(ax1.get_xlim())))
 
         # get first local mininum value

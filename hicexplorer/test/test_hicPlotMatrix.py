@@ -9,15 +9,16 @@ from psutil import virtual_memory
 mem = virtual_memory()
 memory = mem.total / 2**30
 import hicexplorer.hicPlotMatrix
-tolerance = 13  # default matplotlib pixed difference tolerance
+tolerance = 60  # default matplotlib pixed difference tolerance
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
 # memory in GB the test computer needs to have to run the test case
 LOW_MEMORY = 2
 MID_MEMORY = 7
-HIGH_MEMORY = 20
+HIGH_MEMORY = 200
 
 REMOVE_OUTPUT = True
+# DIFF = 60
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,
@@ -137,7 +138,7 @@ def test_hicPlotMatrix_cool_region1_region2():
     args = "--matrix {0}/Li_et_al_2015.cool --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -152,7 +153,7 @@ def test_hicPlotMatrix_cool_region1():
     args = "--matrix {0}/Li_et_al_2015.cool --region X:3000000-3500000 " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35_cool.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35_cool.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -167,7 +168,7 @@ def test_hicPlotMatrix_cool_log1p():
     args = "--matrix {0}/Li_et_al_2015.cool --log1p " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool_log1p.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool_log1p.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -182,7 +183,7 @@ def test_hicPlotMatrix_cool_log():
     args = "--matrix {0}/Li_et_al_2015.cool --log " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool_log.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool_log.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -197,7 +198,7 @@ def test_hicPlotMatrix_cool_full():
     args = "--matrix {0}/Li_et_al_2015.cool " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_cool.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -212,7 +213,7 @@ def test_hicPlotMatrix_h5_log1p():
     args = "--matrix {0}/Li_et_al_2015.h5 --log1p " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5_log1p.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5_log1p.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -227,7 +228,7 @@ def test_hicPlotMatrix_h5_log():
     args = "--matrix {0}/Li_et_al_2015.h5 --log " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5_log.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5_log.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -242,7 +243,7 @@ def test_hicPlotMatrix_h5_full():
     args = "--matrix {0}/Li_et_al_2015.h5 " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_h5.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -257,7 +258,7 @@ def test_hicPlotMatrix_cool_log_region1_region2():
     args = "--matrix {0}/Li_et_al_2015.cool --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
            "--outFileName  {1} --log ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool_log.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool_log.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -272,7 +273,7 @@ def test_hicPlotMatrix_cool_log_region1_region2_without_cool_suffix():
     args = "--matrix {0}/Li_et_al_2015 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
            "--outFileName  {1} --log ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool_log.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool_log.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -287,7 +288,7 @@ def test_hicPlotMatrix_cool_log1p_region1_region2():
     args = "--matrix {0}/Li_et_al_2015.cool --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
            "--outFileName  {1} --log1p ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool_log1p.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_cool_log1p.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -302,7 +303,7 @@ def test_hicPlotMatrix_perChr():
     args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr  " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -317,7 +318,7 @@ def test_hicPlotMatrix_perChr_without_h5_suffix():
     args = "--matrix {0}/small_test_matrix_50kb_res --perChr  " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -332,7 +333,7 @@ def test_hicPlotMatrix_cool_perChr_log():
     args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr  " \
            "--outFileName  {1} --log ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr_log.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr_log.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -347,7 +348,7 @@ def test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder():
     args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr " \
            "--outFileName  {1} --log1p --chromosomeOrder chr2L chr3L chr3R chr2R".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_perChr_log1p_chromosomeOrder.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_perChr_log1p_chromosomeOrder.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -362,7 +363,7 @@ def test_hicPlotMatrix_perChr_pca1_bigwig():
     args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --perChr " \
            "--outFileName  {1}  --pca {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -377,7 +378,7 @@ def test_hicPlotMatrix_perChr_pca2_bedgraph():
     args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --perChr " \
            "--outFileName  {1}  --pca {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca2.bedgraph").split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca2_plot.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca2_plot.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -392,7 +393,7 @@ def test_hicPlotMatrix_region_pca1_colormap_bedgraph():
     args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --region chr2L " \
            "--outFileName  {1} --pca {2} --colorMap hot".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bedgraph").split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -407,7 +408,7 @@ def test_hicPlotMatrix_region_start_end_pca1_colormap_bedgraph():
     args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --region chr2L:15000000-20000000 " \
            "--outFileName  {1} --pca {2} --colorMap hot".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bedgraph").split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_15mb-20mb.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_15mb-20mb.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -422,7 +423,7 @@ def test_hicPlotMatrix_region_pca1_colormap_bigwig():
     args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --region chr2L " \
            "--outFileName  {1} --pca {2} --colorMap hot".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_bw.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_bw.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -437,7 +438,7 @@ def test_hicPlotMatrix_region_start_end_pca1_colormap_bigwig():
     args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --region chr2L:15000000-20000000 " \
            "--outFileName  {1} --pca {2} --colorMap hot".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_15mb-20mb_bw.png', outfile.name, tol=40)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_15mb-20mb_bw.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
