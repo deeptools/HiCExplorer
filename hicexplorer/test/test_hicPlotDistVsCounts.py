@@ -15,10 +15,10 @@ def test_plot():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='plotFile', delete=False)
     matrix = ROOT + 'small_test_matrix_50kb_res.h5'
-    args = "--matrices {} --plotFile {}".format(matrix, outfile.name).split()
+    args = "--matrices {} --plotFile {} --plotsize 6 4".format(matrix, outfile.name).split()
     hicPlotDistVsCounts.main(args)
 
     res = compare_images(ROOT + 'hicPlotDistVsCounts/dist_vs_counts.png', outfile.name, tol=40)
     assert res is None, res
 
-    # os.remove(outfile.name)
+    os.remove(outfile.name)
