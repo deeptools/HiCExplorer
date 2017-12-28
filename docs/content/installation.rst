@@ -10,7 +10,7 @@ Requirements
 * Python 2.7 or 3.6
 * numpy >= 1.12.1
 * scipy >= 0.19.0
-* matplotlib >= 2.0.0
+* matplotlib == 2.1.1
 * pysam >= 0.11.2
 * intervaltree >= 2.1.0
 * biopython >= 1.68
