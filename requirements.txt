@@ -4,7 +4,7 @@ matplotlib == 2.1.1
 pysam >= 0.11.2
 intervaltree >= 2.1.0
 biopython >= 1.68
-tables >= 3.3.0
+pytables >= 3.3.0
 pandas >= 0.20.2
 pybigwig >= 0.3.4
 cooler >= 0.7.6
