@@ -14,6 +14,9 @@
 
 import sys
 import os
+import warnings
+
+warnings.filterwarnings("ignore")
 
 # to allow readthedocs to compile without installing some dependencies
 import mock
