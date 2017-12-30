@@ -1,0 +1,26 @@
+# For testing
+tox
+nose
+coverage
+
+#Building Docs
+mock
+sphinx_rtd_theme
+sphinx-argparse==0.2.1
+sphinx>=1.2.0
+CommonMark>=0.5.6
+
+# Used to check readme.
+readme
+
+# For Python 2.6 tests
+unittest2
+
+# Used for code checking.
+pyflakes
+flake8
+flake8-import-order
+
+# For release
+wheel
+twine
