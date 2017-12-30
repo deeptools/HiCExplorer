@@ -1,5 +1,5 @@
-.. image:: https://travis-ci.org/maxplanck-ie/HiCExplorer.svg?branch=master
-   :target: https://travis-ci.org/maxplanck-ie/HiCExplorer
+.. image:: https://travis-ci.org/deeptools/HiCExplorer.svg?branch=master
+   :target: https://travis-ci.org/deeptools/HiCExplorer
 .. image:: https://readthedocs.org/projects/hicexplorer/badge/?version=latest
    :target: http://hicexplorer.readthedocs.io/?badge=latest
 .. image:: https://anaconda.org/bioconda/hicexplorer/badges/installer/conda.svg
