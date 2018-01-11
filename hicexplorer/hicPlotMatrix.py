@@ -167,6 +167,9 @@ def change_chrom_names(chrom):
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                 ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pPca=None):
     log.debug("plotting heatmap")
+    if ma.shape[0] < 5:
+        log.info("Matrix for {} too small to plot. Matrix size: {}".format(chrBinBoundaries.keys()[0], ma.shape))
+        return
     if pAxis is not None:
         axHeat2 = pAxis
     else:
