@@ -1170,7 +1170,7 @@ class hiCMatrix:
             fileName += '.gz'
 
         try:
-            fileh = gzip.open(fileName, 'w')
+            fileh = gzip.open(fileName, 'wt')
         except IOError:
             msg = "{} file can't be opened for writing".format(fileName)
             raise msg
@@ -1197,7 +1197,7 @@ class hiCMatrix:
             fileName += '.gz'
 
         try:
-            fileh = gzip.open(fileName, 'w')
+            fileh = gzip.open(fileName, 'wt')
         except IOError:
             msg = "{} file can't be opened for writing".format(fileName)
             raise msg
@@ -1243,7 +1243,7 @@ class hiCMatrix:
                 chrwise_mat_coo = triu(chrwise_mat, k=0, format='csr').tocoo()
                 start = chrwise_mat_coo.row * resolution
                 end = chrwise_mat_coo.col * resolution
-                fileh = gzip.open("{}/chr{}.gz".format(fileName, chrom), 'w')
+                fileh = gzip.open("{}/chr{}.gz".format(fileName, chrom), 'wt')
                 fileh.write("#converted from HiCExplorer format\n")
                 for idx in range(len(start)):
                     fileh.write("{}\t{}\t{}\n".format(start[idx], end[idx], chrwise_mat_coo.data[idx]))
