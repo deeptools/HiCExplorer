@@ -167,7 +167,7 @@ def main(args=None):
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile, file_format='lieberman', chrnameList=args.chrNameList)
 
-    elif args.inputFormat == 'npz' and len(args.inFile) > 1:  # assume hicexplorer_multi format
+    elif args.inputFormat in ['npz', 'hicexplorer'] and len(args.inFile) > 1:  # assume hicexplorer_multi format
         if args.bplimit:
             log.info("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
@@ -184,7 +184,7 @@ def main(args=None):
             hic_ma.distance_counts = distance_counts
 
     else:
-        if args.inputFormat == 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) == 1:
+        if args.inputFormat == 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) > 0:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
@@ -197,7 +197,7 @@ def main(args=None):
             hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
             hic_ma.matrix.eliminate_zeros()
 
-    if not args.inputFormat == 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) == 1:
+    if args.inputFormat != 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) > 0:
         if args.chromosomeOrder:
             hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
 
