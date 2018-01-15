@@ -84,7 +84,7 @@ def find_pattern(pattern, fasta_file, out_file):
     # get the reverse complement of the pattern
     rev_compl = str(Seq(pattern, generic_dna).reverse_complement())
 
-    temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='w')
+    temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='wt')
     for record in SeqIO.parse(fasta_file, 'fasta', generic_dna):
         # find all the occurrences of pattern
         for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
