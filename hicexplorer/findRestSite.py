@@ -84,7 +84,7 @@ def find_pattern(pattern, fasta_file, out_file):
     # get the reverse complement of the pattern
     rev_compl = str(Seq(pattern, generic_dna).reverse_complement())
 
-    temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='w')
+    temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='wt')
     for record in SeqIO.parse(fasta_file, 'fasta', generic_dna):
         # find all the occurrences of pattern
         for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
@@ -104,7 +104,7 @@ def find_pattern(pattern, fasta_file, out_file):
     # sort bed file using system tools
     cmd = 'sort -k1,1 -k2,2n -u {}'.format(tmpfile_name)
     # LC_ALL=C is to set the appropriate collation order
-    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL': ' C'})
+    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL': ' C'}, universal_newlines=True)
     stdout, _ = proc.communicate()
 
     out_file.write(stdout)
