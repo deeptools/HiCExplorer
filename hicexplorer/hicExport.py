@@ -26,12 +26,14 @@ def parse_arguments(args=None):
 
     parser.add_argument('--inputFormat',
                         help='file format for the matrix file. \n'
-                             'The following options are available: `hicexplorer` (native HiCExplorer format, '
+                             'The following options are available: `hicexplorer` or `h5` (native HiCExplorer '
+                             'format based on hdf5 storage format), '
                              '`npz` (format used by earlier versions of HiCExplorer), '
                              '`dekker` (matrix format used in Job Dekker publications), '
                              '`lieberman` (format used by Erez Lieberman Aiden) and '
                              ' `cool`. This last formats may change '
                              'in the future.',
+                        choices=['dekker', 'ren', 'lieberman', 'h5', 'npz', 'GInteractions', 'cool', 'hicexplorer'],
                         default='hicexplorer')
 
     parser.add_argument('--chrNameList',
@@ -63,7 +65,8 @@ def parse_arguments(args=None):
                         default=None)
 
     parser.add_argument('--outputFormat',
-                        help='Output format. The possibilities are "dekker",  "ren", "h5, '
+                        help='Output format. The possibilities are "hicexplorer" or "h5" (native HiCExplorer format), '
+                             '"dekker",  "ren",  '
                              'npz (former hicexplorer format), "GInteractoins" and "cool". '
                              'The dekker format outputs the whole matrix where the '
                              'first column and first row are the bin widths and labels. '
@@ -77,7 +80,7 @@ def parse_arguments(args=None):
                              'The GInteractions format is in the form : Bin1, Bin2 , Interaction,'
                              'where Bin1 and Bin2 are intervals (chr,start,end), seperated by tab.',
                         default='dekker',
-                        choices=['dekker', 'ren', 'lieberman', 'h5', 'npz', 'GInteractions', 'cool'])
+                        choices=['dekker', 'ren', 'lieberman', 'h5', 'npz', 'GInteractions', 'cool', 'hicexplorer'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
@@ -158,6 +161,7 @@ def combine_matrices(matrix_list, bplimit=None):
 def main(args=None):
     log.debug(args)
     args = parse_arguments().parse_args(args)
+    are_chrom_reordered = False
     # create hiC matrix with given input format
     # additional file needed for lieberman format
     if args.inputFormat == 'lieberman':
@@ -167,7 +171,7 @@ def main(args=None):
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile, file_format='lieberman', chrnameList=args.chrNameList)
 
-    elif args.inputFormat in ['npz', 'hicexplorer'] and len(args.inFile) > 1:  # assume hicexplorer_multi format
+    elif args.inputFormat in ['npz', 'hicexplorer', 'h5'] and len(args.inFile) > 1:  # assume hicexplorer_multi format
         if args.bplimit:
             log.info("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
@@ -184,8 +188,11 @@ def main(args=None):
             hic_ma.distance_counts = distance_counts
 
     else:
-        if args.inputFormat == 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) > 0:
+        if args.inputFormat == 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) == 1:
+            # We have to use == 1 because we can only use the benefits of the cooler format to load the matrix partial
+            # if we load one chromosome. More are so far not possible.
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
+            are_chrom_reordered = True
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
 
@@ -197,12 +204,11 @@ def main(args=None):
             hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
             hic_ma.matrix.eliminate_zeros()
 
-    if args.inputFormat != 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) > 0:
-        if args.chromosomeOrder:
-            hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
+    if args.chromosomeOrder and are_chrom_reordered is False:
+        hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
 
-        if args.clearMaskedBins:
-            hic_ma.maskBins(hic_ma.nan_bins)
+    if args.clearMaskedBins:
+        hic_ma.maskBins(hic_ma.nan_bins)
 
     if not args.outFileName.endswith(args.outputFormat):
         args.outFileName += "."
