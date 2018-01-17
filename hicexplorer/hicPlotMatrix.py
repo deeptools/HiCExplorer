@@ -170,7 +170,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     if ma.shape[0] < 5:
         # This happens when a tiny matrix wants to be plotted, or by using per chromosome and
         # a small chromosome (eg. contig) is present.
-        # pcolormesh will through an error if the matrix is size 1.
+        # Otherwise, pcolormesh will throw an error if the matrix size is 1.
         chr_names = " ".join([toString(x) for x in chrBinBoundaries.keys()])
         log.info("Matrix for {} too small to plot. Matrix size: {}".format(chr_names, ma.shape))
         return
