@@ -1574,12 +1574,9 @@ class hiCMatrix:
         """ given an array of ids, all rows and columns
         matching those ids are removed
         """
-        rows = cols = np.delete(list(range(self.matrix.shape[1])), bin_ids)
 
-        self.matrix = self.matrix[rows, :][:, cols]
-        self.cut_intervals = [self.cut_intervals[x] for x in rows]
-        self.interval_trees, self.chrBinBoundaries = \
-            self.intervalListToIntervalTree(self.cut_intervals)
+        to_keep = np.delete(list(range(self.matrix.shape[1])), bin_ids)
+        self.reorderBins(to_keep)
 
     def maskBins(self, bin_ids=None):
         """

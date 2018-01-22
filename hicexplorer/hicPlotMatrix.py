@@ -167,6 +167,13 @@ def change_chrom_names(chrom):
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                 ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pPca=None):
     log.debug("plotting heatmap")
+    if ma.shape[0] < 5:
+        # This happens when a tiny matrix wants to be plotted, or by using per chromosome and
+        # a small chromosome (eg. contig) is present.
+        # Otherwise, pcolormesh will throw an error if the matrix size is 1.
+        chr_names = " ".join([toString(x) for x in chrBinBoundaries.keys()])
+        log.info("Matrix for {} too small to plot. Matrix size: {}".format(chr_names, ma.shape))
+        return
     if pAxis is not None:
         axHeat2 = pAxis
     else:
