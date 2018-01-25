@@ -17,7 +17,6 @@ import cooler
 import argparse
 import matplotlib
 matplotlib.use('Agg')
-
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -509,6 +508,8 @@ def main(args=None):
             matrix = np.asarray(ma.getMatrix().astype(float))
 
     matrix_length = len(matrix[0])
+    log.debug("Number of data points matrix: {}".format(matrix_length))
+    
     for matrix_ in matrix:
         if not matrix_length == len(matrix_):
             log.error("Matrices do not have the same length: {} , {}".format(matrix_length, len(matrix_)))
@@ -576,8 +577,10 @@ def main(args=None):
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pPca=pca)
 
     if args.perChromosome or args.pca:
-        plt.tight_layout()
-
+        try:
+            plt.tight_layout()
+        except:
+            log.info("Failed to tight layout. Using regular plot.")
     plt.savefig(args.outFileName, dpi=args.dpi)
     plt.close(fig)
 
@@ -652,6 +655,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegio
                     x = x[:-1]
 
                 pAxis.set_xlim(region_start, region_end * 2)
+            log.debug("Number of data points: {}".format(len(eigenvector)) )
 
     else:
         for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
