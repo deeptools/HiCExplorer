@@ -6,12 +6,10 @@ from hicexplorer.utilities import writableFile
 from hicexplorer.utilities import toString, toBytes
 
 from hicexplorer._version import __version__
-from hicexplorer.trackPlot import file_to_intervaltree
 import numpy as np
 import pyBigWig
 from builtins import range
 from past.builtins import zip
-from future.utils import itervalues
 
 import cooler
 import argparse
@@ -513,7 +511,7 @@ def main(args=None):
 
     matrix_length = len(matrix[0])
     log.debug("Number of data points matrix: {}".format(matrix_length))
-    
+
     for matrix_ in matrix:
         if not matrix_length == len(matrix_):
             log.error("Matrices do not have the same length: {} , {}".format(matrix_length, len(matrix_)))
@@ -589,8 +587,9 @@ def main(args=None):
     if args.perChromosome or args.bigwig:
         try:
             plt.tight_layout()
-        except:
+        except UserWarning:
             log.info("Failed to tight layout. Using regular plot.")
+
     plt.savefig(args.outFileName, dpi=args.dpi)
     plt.close(fig)
 
@@ -643,9 +642,9 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeSizes=None, pRegi
                 if chrom not in list(bw.chroms().keys()):
                     log.info("bigwig file as no chromosome named: {}.".format(chrom))
                     return
-                # TODO, this could be a paramters
+                # TODO, this could be a parameters
                 num_bins = 1000
-                scores_per_bin = np.array(bw.stats(chrom, region_start, region_end, nBins=num_bins)).astype( float)
+                scores_per_bin = np.array(bw.stats(chrom, region_start, region_end, nBins=num_bins)).astype(float)
                 if scores_per_bin is None:
                     log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
                     return
@@ -675,8 +674,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeSizes=None, pRegi
 
                 pAxis.set_xlim(0, chrom_length_sum)
 
-
-            log.debug("Number of data points: {}".format(len(eigenvector)) )
+            log.debug("Number of data points: {}".format(len(eigenvector)))
 
     # else:
     #     for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
