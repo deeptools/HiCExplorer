@@ -647,7 +647,7 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeSizes=None, pRegi
                 bigwig_end = min(bw.chroms()[chrom], region_end)
 
                 # TODO, this could be a parameters
-                num_bins = min(1000, int(bigwig_end - region_start)/10)
+                num_bins = min(1000, int(bigwig_end - region_start) / 10)
 
                 scores_per_bin = np.array(bw.stats(chrom, region_start, bigwig_end, nBins=num_bins)).astype(float)
                 # except:
