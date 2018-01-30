@@ -1,0 +1,2 @@
+File	Pairs used	Pairs used_%	One mate low quality	One mate low quality_%	One mate not unique	One mate not unique_%	One mate unmapped	One mate unmapped_%
+small_test_rf_matrix.h5	36009	0.360151225708	34877	0.348829300981	3603	0.0360361261414	8777	0.087784923437

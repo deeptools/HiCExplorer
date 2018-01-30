@@ -1,9 +1,19 @@
+from __future__ import division
+
 import sys
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import writableFile
-from hicexplorer._version import __version__
-import numpy as np
+from hicexplorer.utilities import toString, toBytes
 
+from hicexplorer._version import __version__
+from hicexplorer.trackPlot import file_to_intervaltree
+import numpy as np
+import pyBigWig
+from builtins import range
+from past.builtins import zip
+from future.utils import itervalues
+
+import cooler
 import argparse
 import matplotlib
 matplotlib.use('Agg')
@@ -12,6 +22,15 @@ from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+from collections import OrderedDict
+
+import logging
+log = logging.getLogger(__name__)
+
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
 
 
 def parse_arguments(args=None):
@@ -43,11 +62,11 @@ def parse_arguments(args=None):
                         help='if set, masked bins are removed from the matrix',
                         action='store_true')
 
-    parser.add_argument('--whatToShow',
-                        help='Options are: "heatmap", "3D", and "both". '
-                        'Default is heatmap',
-                        default="heatmap",
-                        choices=["heatmap", "3D", "both"])
+    # parser.add_argument('--whatToShow',
+    #                     help='Options are: "heatmap", "3D", and "both". '
+    #                     'Default is heatmap',
+    #                     default="heatmap",
+    #                     choices=["heatmap", "3D", "both"])
 
     parser.add_argument('--chromosomeOrder',
                         help='Chromosomes and order in which the '
@@ -92,38 +111,40 @@ def parse_arguments(args=None):
                         type=float,
                         default=None)
 
-    parser.add_argument('--zMax',
-                        help='zMax for 3D plot',
-                        type=float,
-                        default=None)
-
     parser.add_argument('--dpi',
                         help='Resolution for the image in case the'
                              'ouput is a raster graphics image (e.g png, jpg)',
                         type=int,
                         default=72)
 
+    parser.add_argument('--pca',
+                        help='List of eigenvector from pca analysis as bigwig or bedgraph files.',
+                        type=str,
+                        default=None,
+                        nargs='+')
+
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
     return parser
 
+# relabel xticks
 
-def plotHeatmap3D(ma, fig, position, args, cmap):
-    axHeat1 = fig.add_axes(position, projection='3d')
-    axHeat1.view_init(50, -45)
-    axHeat1.margins(0)
 
-    X, Y = np.meshgrid(range(ma.shape[0]), range(ma.shape[0]))
-    ma = np.ma.array(ma, mask=np.isnan(ma))
-    Z = ma.copy()
-
-    Z[np.where(np.tril(Z) == 0)] = np.nan
-
-    axHeat1.plot_surface(X, Y, Z, rstride=1, cstride=1, linewidth=0, cmap=cmap,
-                         vmax=args.vMax, vmin=args.vMin)
-    if args.zMax:
-        axHeat1.set_zlim(0, args.zMax)
+def relabel_ticks(pXTicks):
+    if pXTicks[-1] > 1.5e6:
+        labels = ["{:.2f} ".format(x / 1e6)
+                  for x in pXTicks]
+        labels[-2] += " Mbp"
+    elif pXTicks[-1] > 1500:
+        labels = ["{:.0f}".format(x / 1e3)
+                  for x in pXTicks]
+        labels[-2] += " Kbp"
+    else:
+        labels = ["{:.2f} ".format((x))
+                  for x in pXTicks]
+        labels[-2] += " bp"
+    return labels
 
 
 def change_chrom_names(chrom):
@@ -132,6 +153,7 @@ def change_chrom_names(chrom):
     and vice versa.
     """
     # TODO: mapping from chromosome names like mithocondria is missing
+    chrom = toString(chrom)
     if chrom.startswith('chr'):
         # remove the chr part from chromosome name
         chrom = chrom[3:]
@@ -142,68 +164,23 @@ def change_chrom_names(chrom):
     return chrom
 
 
-def plotHeatmap(ma, chrBinBoundaries, fig, position, args, figWidth, cmap):
-
-    axHeat2 = fig.add_axes(position)
-    if args.title:
-        axHeat2.set_title(args.title)
-    norm = None
-    if args.log1p:
-        ma += 1
-        norm = LogNorm()
-
-    img3 = axHeat2.imshow(ma,
-                          interpolation='nearest',
-                          #                          interpolation='spline16',
-                          vmax=args.vMax, vmin=args.vMin, cmap=cmap,
-                          norm=norm
-                          )
-
-    img3.set_rasterized(True)
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(axHeat2)
-    cax = divider.append_axes("right", size="2.5%", pad=0.09)
-    cbar = fig.colorbar(img3, cax=cax)
-    cbar.solids.set_edgecolor("face")  # to avoid white lines in the color bar in pdf plots
-    if args.scoreName:
-        cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
-
-    if args.region:
-        """
-        ticks = axHeat2.get_xticks()
-        labels = ["{:.3f} Mbp".format((x / 1e6))
-                  for x in ticks]
-        axHeat2.get_xaxis().set_tick_params(
-            which='both',
-            bottom='on')
-        axHeat2.set_xticklabels(labels, size='small')
-        """
-
-        axHeat2.set_xticks([0, ma.shape[0]])
-        axHeat2.set_xticklabels([args.region[1], args.region[2]], size=4, rotation=90)
-        axHeat2.set_axis_off()
+def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
+                ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pPca=None):
+    log.debug("plotting heatmap")
+    if ma.shape[0] < 5:
+        # This happens when a tiny matrix wants to be plotted, or by using per chromosome and
+        # a small chromosome (eg. contig) is present.
+        # Otherwise, pcolormesh will throw an error if the matrix size is 1.
+        chr_names = " ".join([toString(x) for x in chrBinBoundaries.keys()])
+        log.info("Matrix for {} too small to plot. Matrix size: {}".format(chr_names, ma.shape))
+        return
+    if pAxis is not None:
+        axHeat2 = pAxis
     else:
-        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in chrBinBoundaries.values()]
-        labels = chrBinBoundaries.keys()
-        axHeat2.set_xticks(ticks)
-        if len(labels) > 20:
-            axHeat2.set_xticklabels(labels, size=4, rotation=90)
-        else:
-            axHeat2.set_xticklabels(labels, size=8)
+        axHeat2 = fig.add_axes(position)
 
-    axHeat2.get_yaxis().set_visible(False)
-
-
-def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
-                       ylabel=None, start_pos=None, start_pos2=None):
-
-    axHeat2 = fig.add_axes(position)
     if args.title:
-        axHeat2.set_title(args.title)
-    norm = None
-    if args.log1p:
-        ma += 1
-        norm = LogNorm()
+        axHeat2.set_title(toString(args.title))
 
     if start_pos is None:
         start_pos = np.arange(ma.shape[0])
@@ -211,23 +188,12 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         start_pos2 = start_pos
 
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-    img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=norm)
 
+    img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
+    axHeat2.invert_yaxis()
     img3.set_rasterized(True)
-
+    xticks = None
     if args.region:
-
-        # relabel xticks
-        def relabel_ticks(ticks):
-            if ticks[-1] - ticks[0] > 100000:
-                labels = ["{:.2f} ".format((x / 1e6))
-                          for x in ticks]
-                labels[-1] += "Mbp"
-            else:
-                labels = ["{:,} ".format((x))
-                          for x in ticks]
-                labels[-1] += "bp"
-            return labels
         xtick_lables = relabel_ticks(axHeat2.get_xticks())
         axHeat2.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
         axHeat2.set_xticklabels(xtick_lables, size='small', rotation=45)
@@ -235,24 +201,34 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
         ytick_lables = relabel_ticks(axHeat2.get_yticks())
         axHeat2.get_yaxis().set_tick_params(which='both', bottom='on', direction='out')
         axHeat2.set_yticklabels(ytick_lables, size='small')
-
+        xticks = [xtick_lables]
         """
         axHeat2.set_xticks([0, ma.shape[0]])
         axHeat2.set_xticklabels([args.region[1], args.region[2]], size=4, rotation=90)
         axHeat2.set_axis_off()
         """
     else:
-        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in chrBinBoundaries.values()]
-        labels = chrBinBoundaries.keys()
+
+        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
+        labels = list(chrBinBoundaries)
         axHeat2.set_xticks(ticks)
+        axHeat2.set_yticks(ticks)
+        labels = toString(labels)
+        xticks = [labels, ticks]
+
         if len(labels) > 20:
             axHeat2.set_xticklabels(labels, size=4, rotation=90)
+            axHeat2.set_yticklabels(labels, size=4)
+
         else:
             axHeat2.set_xticklabels(labels, size=8)
+            axHeat2.set_yticklabels(labels, size=8)
 
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(axHeat2)
-    cax = divider.append_axes("right", size="2.5%", pad=0.09)
+    if pPca is None:
+        divider = make_axes_locatable(axHeat2)
+        cax = divider.append_axes("right", size="2.5%", pad=0.09)
+    else:
+        cax = pPca['axis_colorbar']
     if args.log1p:
         from matplotlib.ticker import LogFormatter
         formatter = LogFormatter(10, labelOnlyBase=False)
@@ -267,14 +243,22 @@ def plotHeatmap_region(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=N
     cbar.solids.set_edgecolor("face")  # to avoid white lines in the color bar in pdf plots
     if args.scoreName:
         cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
-    axHeat2.set_ylim(start_pos2[0], start_pos2[-1])
-    axHeat2.set_xlim(start_pos[0], start_pos[-1])
 
     if ylabel is not None:
+        ylabel = toString(ylabel)
         axHeat2.set_ylabel(ylabel)
 
     if xlabel is not None:
+        xlabel = toString(xlabel)
         axHeat2.set_xlabel(xlabel)
+
+    if pPca:
+        axHeat2.xaxis.set_label_position("top")
+        axHeat2.xaxis.tick_top()
+        if args.region:
+            plotEigenvector(pPca['axis'], pPca['args'].pca, pRegion=pPca['args'].region, pXticks=xticks)
+        else:
+            plotEigenvector(pPca['axis'], pPca['args'].pca, pXticks=xticks, pChromosomeList=labels)
 
 
 def translate_region(region_string):
@@ -286,7 +270,15 @@ def translate_region(region_string):
     are set to a 0 and 1e15
     """
 
-    region_string = region_string.translate(None, ",;!").replace("-", ":")
+    if sys.version_info[0] == 2:
+        region_string = region_string.translate(None, ",;!").replace("-", ":")
+    if sys.version_info[0] == 3:
+        # region_string = toBytes(region_string)
+        region_string = region_string.replace(",", "")
+        region_string = region_string.replace(";", "")
+        region_string = region_string.replace("!", "")
+        region_string = region_string.replace("-", ":")
+
     fields = region_string.split(":")
     chrom = fields[0]
     try:
@@ -301,7 +293,7 @@ def translate_region(region_string):
     return chrom, region_start, region_end
 
 
-def plotPerChr(hic_matrix, cmap, args):
+def plotPerChr(hic_matrix, cmap, args, pPca):
     """
     plots each chromosome individually, one after the other
     in one row. scale bar is added at the end
@@ -321,179 +313,378 @@ def plotPerChr(hic_matrix, cmap, args):
 
     fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
-    norm = None
-    if args.log1p:
-        norm = LogNorm()
     chrom, start, end, _ = zip(*hic_matrix.cut_intervals)
-
     for idx, chrname in enumerate(chromosomes):
-        row = idx / chrom_per_row
+        log.debug('chrom: {}'.format(chrname))
+
+        row = idx // chrom_per_row
         col = idx % chrom_per_row
+        if pPca:
+            inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07],
+                                                          subplot_spec=grids[row, col], wspace=0.0, hspace=0.1)
+            axis = plt.subplot(inner_grid[0, 0])
+            axis_eigenvector = plt.subplot(inner_grid[1, 0])
+            axis_scale = plt.subplot(inner_grid[0, 1])
 
-        axis = plt.subplot(grids[row, col])
-        axis.set_title(chrname)
-        chrom_range = hic_matrix.getChrBinRange(chrname)
-        mat = hic_matrix.matrix[chrom_range[0]:chrom_range[1],
-                                chrom_range[0]:chrom_range[1]].todense().astype(float)
-
-        if args.log1p:
-            mat += 1
-        img = axis.imshow(mat, aspect='auto',
-                          interpolation='spline16',
-                          vmax=args.vMax, vmin=args.vMin, cmap=cmap,
-                          norm=norm,
-                          extent=[start[chrom_range[0]], end[chrom_range[1] - 1],
-                                  end[chrom_range[1] - 1], start[chrom_range[0]]])
-
-        img.set_rasterized(True)
-
-        xticks = axis.get_xticks()
-        if xticks[1] < 1e6:
-            xlabels = ["{:.0f}".format(int(x) / 1e3)
-                       for x in xticks]
-            xlabels[-2] = "{} Kb".format(xlabels[-2])
         else:
-            xlabels = ["{:.0f}".format(int(x) / 1e6)
-                       for x in xticks]
-            xlabels[-2] = "{} Mb".format(xlabels[-2])
+            axis = plt.subplot(grids[row, col])
+            axis.set_title(toString(chrname))
+        chrom_range = hic_matrix.getChrBinRange(chrname)
+        matrix = np.asarray(hic_matrix.matrix[chrom_range[0]:chrom_range[1],
+                                              chrom_range[0]:chrom_range[1]].todense().astype(float))
 
-        axis.set_xticklabels(xlabels, size='small')
-        # yticks = axis.get_yticks()
+        norm = None
+        if args.log or args.log1p:
+            mask = matrix == 0
+            mask_nan = np.isnan(matrix)
+            mask_inf = np.isinf(matrix)
+            log.debug("any nan {}".format(np.isnan(matrix).any()))
+            log.debug("any inf {}".format(np.isinf(matrix).any()))
 
-        # ylabels = ["{:.0f}".format(int(x) / 1e6)
-        #          for x in yticks]
+            try:
+                matrix[mask] = np.nanmin(matrix[mask == False])
+                matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
+                matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
 
-        axis.get_xaxis().set_tick_params(
-            which='both',
-            bottom='on',
-            direction='out')
+                if args.log:
+                    matrix = np.log(matrix)
+            except Exception:
+                log.debug("Clearing of matrix failed.")
+            log.debug("any nanafter remove of nan: {}".format(np.isnan(matrix).any()))
+            log.debug("any inf after remove of inf: {}".format(np.isinf(matrix).any()))
+        if args.log1p:
+            matrix += 1
+            norm = LogNorm()
 
-        axis.set_yticklabels(xlabels, size='small')
+        pca = None
+        if pPca:
+            pca = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': hic_matrix.nan_bins}
+            pca['axis'] = axis_eigenvector
+            pca['axis_colorbar'] = axis_scale
 
-    cbar3 = plt.subplot(grids[-1])
-    cbar = fig.colorbar(img, cax=cbar3)
-    cbar.solids.set_edgecolor("face")  # to avoid white lines in
-    # the color bar in pdf plots
-    cbar.ax.set_ylabel(args.scoreName, rotation=270, labelpad=20)
+        chr_bin_boundary = OrderedDict()
+        chr_bin_boundary[chrname] = hic_matrix.chrBinBoundaries[chrname]
+
+        args.region = toString(chrname)
+        chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, hic_matrix)
+        plotHeatmap(matrix, chr_bin_boundary, fig, None,
+                    args, cmap, xlabel=chrname, ylabel=chrname,
+                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pPca=pca)
+    return fig
+
+
+def getRegion(args, ma):
+    chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
+    chrom, region_start, region_end = translate_region(args.region)
+
+    if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+        chrom = toBytes(chrom)
+
+    if chrom not in list(ma.interval_trees):
+
+        chrom = change_chrom_names(chrom)
+
+        if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+            chrom = toBytes(chrom)
+
+        if chrom not in list(ma.interval_trees):
+            exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
+
+    args.region = [chrom, region_start, region_end]
+    is_cooler = False
+    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix):
+        is_cooler = True
+    if is_cooler:
+        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
+                                 ((x[1] >= region_start and x[2] < region_end) or
+                                  (x[1] < region_end and x[2] < region_end and x[2] > region_start) or
+                                  (x[1] > region_start and x[1] < region_end))])
+    else:
+        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
+                                 x[1] >= region_start and x[2] < region_end])
+    if args.region2:
+        chrom2, region_start2, region_end2 = translate_region(args.region2)
+        if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+            chrom2 = toBytes(chrom)
+        if chrom2 not in list(ma.interval_trees):
+            chrom2 = change_chrom_names(chrom2)
+            if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+                chrom2 = toBytes(chrom)
+            if chrom2 not in list(ma.interval_trees):
+                exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
+        if is_cooler:
+            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
+                                     ((x[1] >= region_start2 and x[2] < region_end2) or
+                                      (x[1] < region_end2 and x[2] < region_end2 and x[2] > region_start2) or
+                                      (x[1] > region_start2 and x[1] < region_end2))])
+        else:
+            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
+                                     x[1] >= region_start2 and x[2] < region_end2])
+    else:
+        idx2 = idx1
+        chrom2 = chrom
+        start_pos2 = start_pos1
+
+    return chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2
 
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    chrom = None
+    start_pos1 = None
+    chrom2 = None
+    start_pos2 = None
 
-    ma = HiCMatrix.hiCMatrix(args.matrix)
     if args.perChromosome and args.region:
-        sys.stderr.write('ERROR, choose from the option '
-                         '--perChromosome or --region, the two '
-                         'options at the same time are not '
-                         'compatible.')
-    if args.chromosomeOrder:
-        args.region = None
-        args.region2 = None
+        log.error('ERROR, choose from the option '
+                  '--perChromosome or --region, the two '
+                  'options at the same time are not '
+                  'compatible.')
+        exit(1)
 
-        valid_chromosomes = []
-        invalid_chromosomes = []
-        for chrom in args.chromosomeOrder:
-            if chrom in ma.chrBinBoundaries:
-                valid_chromosomes.append(chrom)
-            else:
-                invalid_chromosomes.append(chrom)
+    if args.region and args.region2 and args.pca:
+        log.error("Inter-chromosomal pca is not supported.")
+        exit(1)
+    is_cooler = False
+    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix):
+        is_cooler = True
+    if is_cooler and not args.region2:
+        log.debug("Retrieve data from cooler format and use its benefits.")
+        regionsToRetrieve = None
+        if args.region:
+            regionsToRetrieve = []
+            regionsToRetrieve.append(args.region)
+            if args.region2:
+                chrom2, region_start2, region_end2 = translate_region(args.region2)
+                regionsToRetrieve.append(args.region2)
+        if args.chromosomeOrder:
+            args.region = None
+            args.region2 = None
+            regionsToRetrieve = args.chromosomeOrder
 
-        ma.reorderChromosomes(valid_chromosomes)
-        if len(invalid_chromosomes) > 0:
-            sys.stderr.write("WARNING: The following chromosome/scaffold names were not found. Please check"
-                             "the correct spelling of the chromosome names. \n")
-            sys.stderr.write("\n".join(invalid_chromosomes))
+        ma = HiCMatrix.hiCMatrix(args.matrix, chrnameList=regionsToRetrieve)
 
-    print ma.interval_trees.keys()
-    ma.restoreMaskedBins()
+        if args.clearMaskedBins:
+            ma.maskBins(ma.nan_bins)
+        if args.region:
+            chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
 
-    if args.clearMaskedBins:
-        ma.maskBins(ma.nan_bins)
-
-    sys.stderr.write("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
-    if args.region:
-        chrom, region_start, region_end = translate_region(args.region)
-        if chrom not in ma.interval_trees.keys():
-            chrom = change_chrom_names(chrom)
-            if chrom not in ma.interval_trees.keys():
-                exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
-
-        args.region = [chrom, region_start, region_end]
-        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
-                                 x[1] >= region_start and x[2] < region_end])
-        if args.region2:
-            chrom2, region_start2, region_end2 = translate_region(args.region2)
-            if chrom2 not in ma.interval_trees.keys():
-                chrom2 = change_chrom_names(chrom2)
-                if chrom2 not in ma.interval_trees.keys():
-                    exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
-            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
-                                     x[1] >= region_start2 and x[2] < region_end2])
-        else:
-            idx2 = idx1
-            chrom2 = chrom
-            start_pos2 = start_pos1
-        # select only relevant part
-        matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
+        matrix = np.asarray(ma.matrix.todense().astype(float))
 
     else:
-        # TODO make start_pos1
-        start_pos1 = None
-        start_pos2 = None
-        chrom = None
-        chrom2 = None
-        matrix = np.asanyarray(ma.getMatrix().astype(float))
+        ma = HiCMatrix.hiCMatrix(args.matrix)
+        if args.clearMaskedBins:
+            ma.maskBins(ma.nan_bins)
+        if args.chromosomeOrder:
+            args.region = None
+            args.region2 = None
+
+            valid_chromosomes = []
+            invalid_chromosomes = []
+            log.debug('args.chromosomeOrder: {}'.format(args.chromosomeOrder))
+            log.debug("ma.chrBinBoundaries {}".format(ma.chrBinBoundaries))
+            if sys.version_info[0] == 3:
+                args.chromosomeOrder = toBytes(args.chromosomeOrder)
+            for chrom in args.chromosomeOrder:
+                if chrom in ma.chrBinBoundaries:
+                    valid_chromosomes.append(chrom)
+                else:
+                    invalid_chromosomes.append(chrom)
+
+            if len(invalid_chromosomes) > 0:
+                log.warning("WARNING: The following chromosome/scaffold names were not found. Please check"
+                            "the correct spelling of the chromosome names. \n")
+                log.warning("\n".join(invalid_chromosomes))
+            ma.reorderChromosomes(valid_chromosomes)
+
+        log.info("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
+
+        if args.region:
+            chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
+
+            matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
+
+        else:
+            log.debug("Else branch")
+            matrix = np.asarray(ma.getMatrix().astype(float))
+
+    matrix_length = len(matrix[0])
+    for matrix_ in matrix:
+        if not matrix_length == len(matrix_):
+            log.error("Matrices do not have the same length: {} , {}".format(matrix_length, len(matrix_)))
 
     cmap = cm.get_cmap(args.colorMap)
-    sys.stderr.write("Nan values set to black\n")
+    log.debug("Nan values set to black\n")
     cmap.set_bad('black')
 
+    pca = None
+    if args.pca:
+        pca = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': ma.nan_bins}
+
     if args.perChromosome:
-        plotPerChr(ma, cmap, args)
+        fig = plotPerChr(ma, cmap, args, pPca=pca)
 
     else:
-        fig_height = 6
+        norm = None
+
+        if args.log or args.log1p:
+            mask = matrix == 0
+            matrix[mask] = np.nanmin(matrix[mask == False])
+
+            if np.isnan(matrix).any() or np.isinf(matrix).any():
+                log.debug("any nan {}".format(np.isnan(matrix).any()))
+                log.debug("any inf {}".format(np.isinf(matrix).any()))
+                mask_nan = np.isnan(matrix)
+                mask_inf = np.isinf(matrix)
+                matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
+                matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
+
+            if args.log:
+                matrix = np.log(matrix)
+
+        log.debug("any nan after remove of nan: {}".format(np.isnan(matrix).any()))
+        log.debug("any inf after remove of inf: {}".format(np.isinf(matrix).any()))
+        if args.log1p:
+            matrix += 1
+            norm = LogNorm()
+
+        fig_height = 7
         height = 4.8 / fig_height
-        if args.whatToShow == 'both':
-            fig_width = 11
-            width = 4.9 / fig_width
-            left_margin = (1.0 - 2 * width) * 0.35
-        else:
-            fig_width = 7
-            width = 5.0 / fig_width
-            left_margin = (1.0 - width) * 0.4
+
+        fig_width = 8
+        width = 5.0 / fig_width
+        left_margin = (1.0 - width) * 0.5
 
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
-        bottom = 0.8 / fig_height
 
-        if args.log:
-            mask = matrix == 0
-            matrix[mask] = matrix[mask is False].min()
-    #        matrix = -1 *  np.log(matrix)
-            matrix = np.log(matrix)
+        if args.pca:
+            gs = gridspec.GridSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07])
+            gs.update(hspace=0.1)
+            ax1 = plt.subplot(gs[0, 0])
+            ax2 = plt.subplot(gs[1, 0])
+            ax3 = plt.subplot(gs[0, 1])
+            pca['axis'] = ax2
+            pca['axis_colorbar'] = ax3
 
-        if args.whatToShow == '3D':
-            position = [left_margin, bottom, width * 1.2, height * 1.2]
-            plotHeatmap3D(matrix, fig, position, args, cmap)
+        else:
+            ax1 = None
+        bottom = 1.3 / fig_height
 
-        if args.whatToShow == 'both':
-            position = [left_margin, bottom, width * 1.2, height * 1.2]
-            plotHeatmap3D(matrix, fig, position, args, cmap)
+        position = [left_margin, bottom, width, height]
+        plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
+                    args, cmap, xlabel=chrom, ylabel=chrom2,
+                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pPca=pca)
 
-            left_margin2 = 5.5 / fig_width + left_margin
-            position = [left_margin2, bottom, width, height]
-            plotHeatmap(matrix, ma.chrBinBoundaries, fig, position, args,
-                        fig_width, cmap)
-
-        if args.whatToShow == 'heatmap':
-            position = [left_margin, bottom, width, height]
-            if args.region:
-                plotHeatmap_region(matrix, ma.chrBinBoundaries, fig, position,
-                                   args, cmap, xlabel=chrom, ylabel=chrom2,
-                                   start_pos=start_pos1, start_pos2=start_pos2)
-
-            else:
-                plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
-                            args, fig_width, cmap)
+    if args.perChromosome or args.pca:
+        plt.tight_layout()
 
     plt.savefig(args.outFileName, dpi=args.dpi)
+    plt.close(fig)
+
+
+def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegion=None, pXticks=None):
+    log.debug('plotting eigenvector')
+    pAxis.set_frame_on(False)
+
+    file_format = pNameOfEigenvectorsList[0].split(".")[-1]
+    if file_format != 'bedgraph' and file_format != 'bigwig' and file_format != 'bw':
+
+        log.error("Given eigenvector files are not bedgraph or bigwig")
+        exit()
+
+    for eigenvector in pNameOfEigenvectorsList:
+        if eigenvector.split('.')[-1] != file_format:
+            log.error("Eigenvector input files have different formats.")
+            exit()
+
+    if pRegion:
+        chrom, region_start, region_end = pRegion
+    x = None
+    eigenvector = None
+    if file_format == "bigwig" or file_format == 'bw':
+        for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
+            bw = pyBigWig.open(eigenvectorFile)
+            eigenvector = []
+            if pChromosomeList:
+                for chrom in pChromosomeList:
+                    try:
+                        bins_list = bw.intervals(toString(chrom))
+                    except Exception:
+                        log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                        return
+                    if bins_list is None:
+                        log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                        return
+                    for i, bin_ in enumerate(bins_list):
+                        if i == 0:
+                            region_start = bin_[0]
+                        eigenvector.append(complex(bin_[2]).real)
+                    region_end = bins_list[-1][1]
+
+                x = np.arange(0, len(eigenvector), 1)
+                pAxis.set_xlim(0, len(eigenvector))
+
+            elif pRegion:
+                try:
+                    if region_start == 0 and region_end == 1e15:
+                        log.debug("chrom == pRegion")
+                        bins_list = bw.intervals(toString(chrom))
+                        region_start = bins_list[0][0]
+                        region_end = bins_list[-1][1]
+                    else:
+                        log.debug("chrom: {}, region_start: {}, region_end: {}".format(chrom, region_start, region_end))
+                        log.debug("pRegion: {}".format(pRegion))
+                        bins_list = bw.intervals(chrom, region_start, region_end)
+                except Exception:
+                    log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                    return
+                if bins_list is None:
+                    log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                    return
+                for bin_ in bins_list:
+                    eigenvector.append(complex(bin_[2]).real)
+                step = (region_end * 2 - region_start) // len(eigenvector)
+
+                x = np.arange(region_start, region_end * 2, int(step))
+                while len(x) < len(eigenvector):
+                    x = np.append(x[-1] + int(step))
+                while len(eigenvector) < len(x):
+                    x = x[:-1]
+
+                pAxis.set_xlim(region_start, region_end * 2)
+
+    else:
+        for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
+            interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
+            eigenvector = []
+            if pChromosomeList:
+                for chrom in pChromosomeList:
+                    if toString(chrom) not in interval_tree:
+                        log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                        return
+                    for i, region in enumerate(sorted(interval_tree[toString(chrom)])):
+                        if i == 0:
+                            region_start = region[0]
+                        region_end = region[1]
+                        eigenvector.append(complex(region.data[0]).real)
+                x = np.arange(0, len(eigenvector), 1)
+                pAxis.set_xlim(0, len(eigenvector))
+
+            elif pRegion:
+                if toString(chrom) not in interval_tree:
+                    log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                    return
+                for region in sorted(interval_tree[toString(chrom)][region_start:region_end]):
+                    eigenvector.append(float(region.data[0]))
+                step = (region_end * 2 - region_start) // len(eigenvector)
+
+                x = np.arange(region_start, region_end * 2, int(step))
+                while len(x) < len(eigenvector):
+                    x = np.append(x[-1] + int(step))
+                while len(eigenvector) < len(x):
+                    x = x[:-1]
+
+                pAxis.set_xlim(region_start, region_end * 2)
+    if x is not None and eigenvector is not None:
+        pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
+    pAxis.get_xaxis().set_visible(False)

@@ -1,0 +1,2 @@
+File	One mate not close to rest site	One mate not close to rest site %	dangling end	dangling end %	duplicated pairs	duplicated pairs %	same fragment	same fragment %	self circle	self circle %	self ligation (removed)	self ligation (removed) %
+small_test_rf_matrix.h5	751	0.0142434472556	54	0.0010241626522	12	0.000227591700489	10154	0.192580510564	618	0.0117209725752	5128	0.0972575200091

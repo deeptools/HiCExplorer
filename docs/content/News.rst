@@ -1,8 +1,56 @@
 News and Developments
 =====================
 
-Release 1.7.2
+Release 2.0
 -----------
+
+**December 21, 2017**
+
+This release makes HiCExplorer ready for the future:
+
+* Python 3 support
+* `Cooler <https://github.com/mirnylab/cooler>`_ file format support
+* A/B comparment analysis
+* Improved visualizations
+ * bug fixes for --perChr option in hicPlotMatrix
+ * eigenvector track with --pca for hicPlotMatrix
+ * visualization of interactions around a reference point or region with hicPlotViewpoint
+* Higher test coverage
+* re-licensing from GPLv2 to GPLv3
+
+Release 1.8.1
+--------------
+
+**November 27, 2017**
+
+Bug fix release:
+
+* a fix concerning the handling chimeric alignments in hicBuildMatrix. Thanks to Aleksander Jankowski @ajank
+* handling of dangling ends was too strict
+* improved help message in hicBuildMatrix
+
+Release 1.8
+-----------
+
+**October 25, 2017**
+
+This release is adding new features and fixes many bugs:
+
+ * hicBuildMatrix: Added multicore support, new parameters --threads and --inputBufferSize
+ * hicFindTADs:
+  * One call instead of two: hicFindTADs TAD_score and hicFindTADs find_TADs merged to hicFindTADs.
+  * New multiple correction method supported: False discovery rate. Call it with --correctForMultipleTesting fdr and --threshold 0.05.
+ * Update of the tutorial: mES-HiC analysis.
+ * Additional test cases and docstrings to improve the software quality
+ * Fixed a bug occurring with bigwig files with frequent NaN values which resulted in only NaN averages
+ * hicPlotTADs: Support for plotting points
+ * Moved galaxy wrappers to https://github.com/galaxyproject/tools-iuc
+ * Fixed multiple bugs with saving matrices
+ * hicCorrelate: Changes direction of dendograms to left
+
+Release 1.7.2
+-------------
+
 **April 3, 2017**
 
  * Added option to plot bigwig files as a line hicPlotTADs
@@ -36,15 +84,15 @@ Our #biorXiv preprint on DNA sequences behind Fly genome architecture is online!
 
 Read the article here : `<http://biorxiv.org/content/early/2017/03/08/115063>`_
 
-In this article, we introduce HiCExplorer : Our easy to use tool for HiC data analysis, also available in `Galaxy <https://galaxyproject.org/>`_.
+In this article, we introduce HiCExplorer : Our easy to use tool for Hi-C data analysis, also available in `Galaxy <https://galaxyproject.org/>`_.
 
-We also introduce `HiCBrowser <https://github.com/maxplanck-ie/HiCBrowser>`_ : A standalone software to visualize HiC along with other genomic datasets.
+We also introduce `HiCBrowser <https://github.com/maxplanck-ie/HiCBrowser>`_ : A standalone software to visualize Hi-C along with other genomic datasets.
 
 Based on HiCExplorer and HiCBrowser, we built a useful resource for anyone to browse and download the chromosome
 conformation datasets in Human, Mouse and Flies. It's called `the chorogenome navigator <http://chorogenome.ie-freiburg.mpg.de/>`_
 
 Along with these resources, we present an analysis of DNA sequences behind 3D genome of Flies. Using high-resolution
-HiC analysis, we find a set of DNA motifs that characterize TAD boundaries in Flies and show the importance of these motifs in genome organization.
+Hi-C analysis, we find a set of DNA motifs that characterize TAD boundaries in Flies and show the importance of these motifs in genome organization.
 
 We hope that these resources and analysis would be useful for the community and welcome any feedback.
 

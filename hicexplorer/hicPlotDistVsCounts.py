@@ -1,31 +1,38 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 from __future__ import division
 
-import sys
 import os.path
 import numpy as np
 import argparse
-from matplotlib import use as mplt_use
-from collections import OrderedDict
-mplt_use('Agg')
-import matplotlib.pyplot as plt
-from scipy.sparse import triu
 
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer._version import __version__
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+from collections import OrderedDict
+from builtins import range
+from past.builtins import zip
+from six import iteritems
+
+from scipy.sparse import triu
+
+
+import logging
+log = logging.getLogger(__name__)
+
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
-        description='This program makes a distance vs. hi-c counts plots. It can use several matrix files to compare '
+        description='This program makes a distance vs. Hi-C counts plots. It can use several matrix files to compare '
                     'them. If the `--perchr` option is given, each chromosome is plotted independently. In the case '
                     'of more than one matrix, multiple plots are created, one per chromosome. When plotting multiple '
                     'matrices denser matrices are scaled down to match the sum of the smaller matrix.')
 
     # define the arguments
     parser.add_argument('--matrices', '-m',
-                        help='HiC normalized (corrected) matrices. Each path should be separated by a space.',
+                        help='Hi-C normalized (corrected) matrices. Each path should be separated by a space.',
                         nargs="+",
                         required=True)
 
@@ -57,7 +64,7 @@ def parse_arguments(args=None):
                         default=int(3e6))
 
     parser.add_argument('--perchr',
-                        help='generate plots per chromosome. If more than one HiC matrix is given to `--matrices` then'
+                        help='generate plots per chromosome. If more than one Hi-C matrix is given to `--matrices` then'
                              'for each chromosome a new plot is made. Otherewise, a single plot with one line per'
                              'chromosome is created',
                         action='store_true')
@@ -185,13 +192,13 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
     else:
         chr_submatrix['all'] = hicmat.matrix.tocoo()
         cut_intervals['all'] = hicmat.cut_intervals
-        chrom_sizes['all'] = np.array([v[1] - v[0] for k, v in hicmat.chrBinBoundaries.iteritems()])
+        chrom_sizes['all'] = np.array([v[1] - v[0] for k, v in iteritems(hicmat.chrBinBoundaries)])
         chrom_range['all'] = (0, hicmat.matrix.shape[0])
 
     mean_dict = {}
 
-    for chrname, submatrix in chr_submatrix.iteritems():
-        sys.stderr.write("processing chromosome {}\n".format(chrname))
+    for chrname, submatrix in iteritems(chr_submatrix):
+        log.info("processing chromosome {}\n".format(chrname))
 
         dist_list, chrom_list = hicmat.getDistList(submatrix.row, submatrix.col,
                                                    HiCMatrix.hiCMatrix.fit_cut_intervals(cut_intervals[chrname]))
@@ -262,20 +269,20 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
                 mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
                 if sum_value == 0:
                     zero_value_bins.append(bin_dist_plus_one)
-                    sys.stderr.write("zero value for {}, diagonal len: {}\n".format(bin_dist_plus_one, diagonal_length))
+                    log.info("zero value for {}, diagonal len: {}\n".format(bin_dist_plus_one, diagonal_length))
                 if len(zero_value_bins) > 10:
                     diff = np.diff(zero_value_bins)
                     if len(diff[diff == 1]) > 10:
                         # if too many consecutive bins with zero are found that means that probably no
                         # further counts will be found
-                        sys.stderr.write("skipping rest of chromosome {}. Too many emtpy diagonals\n".format(chrname))
+                        log.info("skipping rest of chromosome {}. Too many emtpy diagonals\n".format(chrname))
                         break
             if np.isnan(sum_value):
-                sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
+                log.info("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
 
         if maxdepth is None:
             maxdepth = np.inf
-        mean_dict[chrname] = OrderedDict([((k - 1) * binsize, v) for k, v in mu.iteritems() if k > 0 and
+        mean_dict[chrname] = OrderedDict([((k - 1) * binsize, v) for k, v in iteritems(mu) if k > 0 and
                                           (k - 1) * binsize <= maxdepth])
         # mean_dict[chrname]['intra_chr'] = mu[0]
 
@@ -304,16 +311,16 @@ def main(args=None):
         if args.chromosomeExclude is None:
             args.chromosomeExclude = []
 
-        chrtokeep = [x for x in hic_ma.interval_trees.keys() if x not in args.chromosomeExclude]
+        chrtokeep = [x for x in list(hic_ma.interval_trees) if x not in args.chromosomeExclude]
         hic_ma.keepOnlyTheseChr(chrtokeep)
 
         mean_dict[matrix_file] = compute_distance_mean(hic_ma, maxdepth=args.maxdepth, perchr=args.perchr)
-        chroms = chroms.union([k for k in mean_dict[matrix_file].keys() if len(mean_dict[matrix_file][k]) > 1])
+        chroms = chroms.union([k for k in list(mean_dict[matrix_file]) if len(mean_dict[matrix_file][k]) > 1])
 
     # compute scale factors such that values are comparable
     min_sum = min(matrix_sum.values())
-    scale_factor = dict([(matrix_file, float(min_sum) / mat_sum) for matrix_file, mat_sum in matrix_sum.iteritems()])
-    print "The scale factors used are: {}".format(scale_factor)
+    scale_factor = dict([(matrix_file, float(min_sum) / mat_sum) for matrix_file, mat_sum in iteritems(matrix_sum)])
+    log.info("The scale factors used are: {}".format(scale_factor))
     if len(args.matrices) > 1 and args.perchr:
         # in this case, for each chromosome a plot is made that combines the data from the
         # hic matrices
@@ -329,18 +336,18 @@ def main(args=None):
         height = 4
     else:
         width, height = args.plotsize
-    plt.figure(figsize=(width * num_cols, height * num_rows))
+    fig = plt.figure(figsize=(width * num_cols, height * num_rows))
 
     axs = np.empty((num_rows, num_cols), dtype='object')
     for matrix_file in args.matrices:
         idx = 0
-        for chrom, mean_values in mean_dict[matrix_file].iteritems():
+        for chrom, mean_values in iteritems(mean_dict[matrix_file]):
             if len(mean_values) <= 1:
-                sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
+                log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
-            x, y = zip(*[(k, v) for k, v in mean_values.iteritems() if v > 0])
+            x, y = zip(*[(k, v) for k, v in iteritems(mean_values) if v > 0])
             if len(x) <= 1:
-                sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
+                log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
             if args.perchr and len(args.matrices) == 1:
                 col = 0
@@ -394,3 +401,4 @@ def main(args=None):
 
     plt.tight_layout()
     plt.savefig(args.plotFile.name, bbox_inches='tight', bbox_extra_artists=(lgd,))
+    plt.close(fig)

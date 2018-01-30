@@ -1,7 +1,10 @@
+from __future__ import division
+
 import argparse
-import sys
 import os
 import numpy as np
+from builtins import range
+from past.builtins import map
 from scipy.sparse import triu
 from scipy.stats import pearsonr, spearmanr
 
@@ -16,6 +19,12 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import FixedLocator
 
+import logging
+log = logging.getLogger(__name__)
+
+import warnings
+warnings.simplefilter(action="ignore", category=UserWarning)
+
 
 def parse_arguments(args=None):
 
@@ -24,7 +33,7 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         parents=[heatmap_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Computes pairwise correlations between hic matrices data. '
+        description='Computes pairwise correlations between Hi-C matrices data. '
         'The correlation is computed taking the values from each pair '
         'of matrices and discarding values that are zero in both matrices.')
 
@@ -74,6 +83,14 @@ def parse_arguments(args=None):
                         'correlation.',
                         default=None,
                         nargs='+')
+    parser.add_argument('--threads',
+                        help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
+                        ' One master process which is used to read the input file into the buffer and one process which is merging '
+                        'the output bam files of the processes into one output bam file. All other threads do the actual computation.',
+                        required=False,
+                        default=4,
+                        type=int
+                        )
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -215,12 +232,12 @@ def get_vectors(mat1, mat2):
     return values1, values2
 
 
-def main():
+def main(args=None):
 
-    args = parse_arguments().parse_args()
+    args = parse_arguments().parse_args(args)
 
     if args.labels and len(args.matrices) != len(args.labels):
-        print "The number of labels does not match the number of matrices."
+        log.error("The number of labels does not match the number of matrices.")
         exit(0)
     if not args.labels:
         args.labels = map(lambda x: os.path.basename(x), args.matrices)
@@ -239,14 +256,19 @@ def main():
     all_mat = None
     all_nan = []
 
-    for matrix in args.matrices:
-        sys.stderr.write("loading hic matrix {}\n".format(matrix))
-        _mat = hm.hiCMatrix(matrix)
+    for i, matrix in enumerate(args.matrices):
+        log.info("loading hic matrix {}\n".format(matrix))
+
+        if args.matrices[i].endswith('.cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
+            _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes)
+        else:
+            _mat = hm.hiCMatrix(matrix)
+            if args.chromosomes:
+                _mat.keepOnlyTheseChr(args.chromosomes)
+            _mat.filterOutInterChrCounts()
+
         _mat.diagflat(0)
-        sys.stderr.write("restore masked bins {}\n".format(matrix))
-        if args.chromosomes:
-            _mat.keepOnlyTheseChr(args.chromosomes)
-        _mat.filterOutInterChrCounts()
+        log.info("restore masked bins {}\n".format(matrix))
         bin_size = _mat.getBinSize()
         all_nan = np.unique(np.concatenate([all_nan, _mat.nan_bins]))
 
@@ -256,10 +278,11 @@ def main():
             min_dist = int(min_dist)
             max_dist = int(max_dist)
             if max_dist < bin_size:
-                exit("Please specify a max range that is larger than bin size ({})".format(bin_size))
-
+                log.error("Please specify a max range that is larger than bin size ({})".format(bin_size))
+                exit()
             max_depth_in_bins = int(max_dist / bin_size)
-            max_dist = int(max_dist) / bin_size
+            max_dist = int(max_dist) // bin_size
+            min_dist = int(min_dist) // bin_size
             # work only with the upper matrix
             # and remove all pixels that are beyond
             # max_depth_in_bis
@@ -294,13 +317,12 @@ def main():
         hic_mat_list.append(_mat)
 
     # remove nan bins
-    rows_keep = cols_keep = np.delete(range(all_mat.shape[1]), all_nan)
+    rows_keep = cols_keep = np.delete(list(range(all_mat.shape[1])), all_nan)
     all_mat = all_mat[rows_keep, :][:, cols_keep]
 
     # make large matrix to correlate by
     # using sparse matrix tricks
 
-    print len(all_nan)
     big_mat = None
     for mat in hic_mat_list:
         mat = mat[rows_keep, :][:, cols_keep]
@@ -326,10 +348,10 @@ def main():
         max_value += 1
 
     if args.log1p:
-        major_locator = FixedLocator(range(min_value, max_value, 2))
-        minor_locator = FixedLocator(range(min_value, max_value, 1))
+        major_locator = FixedLocator(list(range(min_value, max_value, 2)))
+        minor_locator = FixedLocator(list(range(min_value, max_value, 1)))
 
-    for index in xrange(len(rows)):
+    for index in range(len(rows)):
         row = rows[index]
         col = cols[index]
         if row == col:
@@ -346,8 +368,8 @@ def main():
             ax.set_axis_off()
             continue
 
-        sys.stderr.write("comparing {} and {}\n".format(args.matrices[row],
-                                                        args.matrices[col]))
+        log.info("comparing {} and {}\n".format(args.matrices[row],
+                                                args.matrices[col]))
 
         # remove cases in which both are zero or one is zero and
         # the other is one
@@ -403,7 +425,7 @@ def main():
 
         ax.hist2d(vector1, vector2, bins=150, cmin=0.1)
     fig.tight_layout()
-    print "saving {}".format(args.outFileNameScatter)
+    log.info("saving {}".format(args.outFileNameScatter))
     fig.savefig(args.outFileNameScatter, bbox_inches='tight')
 
     results = results + np.triu(results, 1).T

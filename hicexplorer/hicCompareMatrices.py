@@ -1,7 +1,12 @@
+from __future__ import division
+
 import argparse
 import numpy as np
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
@@ -32,9 +37,12 @@ def parse_arguments(args=None):
     return parser
 
 
-def main():
+def main(args=None):
 
-    args = parse_arguments().parse_args()
+    args = parse_arguments().parse_args(args)
+    if args.operation not in ['diff', 'ratio', 'log2ratio']:
+        exit("Operation not found. Please use 'diff', 'ratio' or 'log2ratio'.")
+
     hic1 = hm.hiCMatrix(args.matrices[0])
     hic2 = hm.hiCMatrix(args.matrices[1])
 
@@ -57,7 +65,7 @@ def main():
 
     if args.operation == 'diff':
         new_matrix = hic1.matrix - hic2.matrix
-    else:
+    elif args.operation == 'ratio' or args.operation == 'log2ratio':
         hic2.matrix.data = float(1) / hic2.matrix.data
         new_matrix = hic1.matrix.multiply(hic2.matrix)
         # just in case

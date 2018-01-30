@@ -5,15 +5,19 @@ from os import unlink
 import numpy as np
 import numpy.testing as nt
 from scipy.sparse import csr_matrix
+import warnings
+from past.builtins import zip
+from six import iteritems
 
+warnings.filterwarnings("ignore")
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
 
 def test_save_load():
     outfile = '/tmp/matrix.h5'
-    cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
-                     ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
+    cut_intervals = [(b'a', 0, 10, 1), (b'a', 10, 20, 1),
+                     (b'a', 20, 30, 1), (b'a', 30, 40, 1), (b'b', 40, 50, 1)]
     hic = hm.hiCMatrix()
     hic.nan_bins = []
     matrix = np.array([[1, 8, 5, 3, 0],
@@ -32,13 +36,13 @@ def test_save_load():
     hic.save(outfile)
 
     h5 = hm.hiCMatrix(outfile)
-
     nt.assert_equal(hic.correction_factors, h5.correction_factors)
     nt.assert_equal(hic.matrix.data, h5.matrix.data)
     nt.assert_equal(hic.matrix.indices, h5.matrix.indices)
     nt.assert_equal(hic.matrix.indptr, h5.matrix.indptr)
     nt.assert_equal(hic.nan_bins, h5.nan_bins)
-    assert hic.cut_intervals == h5.cut_intervals
+
+    nt.assert_equal(hic.cut_intervals, h5.cut_intervals)
     unlink(outfile)
 
 
@@ -46,7 +50,7 @@ def test_convert_to_zscore_matrix():
 
     # make test matrix
     m_size = 100
-    mat = np.triu(np.random.random_integers(0, 100, (m_size, m_size)))
+    mat = np.triu(np.random.randint(0, 101, (m_size, m_size)))
     # add a number of zeros
     mat[mat < 90] = 0
     # import ipdb;ipdb.set_trace()
@@ -59,7 +63,10 @@ def test_convert_to_zscore_matrix():
         for _j in range(mat.shape[0]):
             if _j >= _i:
                 diag = _j - _i
-                zscore = (mat[_i, _j] - mu[diag]) / std[diag]
+                if std[diag] == 0:
+                    zscore = np.nan
+                else:
+                    zscore = (mat[_i, _j] - mu[diag]) / std[diag]
                 zscore_mat[_i, _j] = zscore
 
     # make Hi-C matrix based on test matrix
@@ -87,7 +94,6 @@ def test_convert_to_zscore_matrix_2():
     m_size = mat.shape[0]
     # compute matrix values per distance
     chrom, start, end, extra = zip(*hm.hiCMatrix.fit_cut_intervals(hic.cut_intervals))
-#    chrom, start, end, extra = zip(*hic.cut_intervals)
     dist_values = {}
     sys.stderr.write("Computing values per distance for each matrix entry\n")
 
@@ -103,7 +109,7 @@ def test_convert_to_zscore_matrix_2():
 
     mu = {}
     std = {}
-    for dist, values in dist_values.iteritems():
+    for dist, values in iteritems(dist_values):
         mu[dist] = np.mean(values)
         std[dist] = np.std(values)
 
@@ -124,3 +130,33 @@ def test_convert_to_zscore_matrix_2():
     from numpy.testing import assert_almost_equal
     # only the main diagonal is check. Other diagonals show minimal differences
     assert_almost_equal(hic.matrix.todense().diagonal(0).A1, zscore_mat.diagonal(0))
+
+
+def test_save_load_cooler_format():
+    outfile = '/tmp/matrix.cool'
+    cut_intervals = [(b'a', 0, 10, 1), (b'a', 10, 20, 1),
+                     (b'a', 20, 30, 1), (b'a', 30, 40, 1), (b'b', 40, 50, 1)]
+    hic = hm.hiCMatrix()
+    hic.nan_bins = []
+    matrix = np.array([[1, 8, 5, 3, 0],
+                       [0, 4, 15, 5, 1],
+                       [0, 0, 0, 0, 2],
+                       [0, 0, 0, 0, 1],
+                       [0, 0, 0, 0, 0]])
+
+    hic.matrix = csr_matrix(matrix)
+    # make matrix symmetric
+    hic.setMatrix(hic.matrix, cut_intervals)
+    hic.matrix = hm.hiCMatrix.fillLowerTriangle(hic.matrix)
+
+    hic.save(outfile)
+
+    matrix_cool = hm.hiCMatrix(outfile)
+    nt.assert_equal(hic.matrix.data, matrix_cool.matrix.data)
+    nt.assert_equal(hic.matrix.indices, matrix_cool.matrix.indices)
+    nt.assert_equal(hic.matrix.indptr, matrix_cool.matrix.indptr)
+
+    # nan_bins and correction_factor are not supported by cool-format
+
+    nt.assert_equal(hic.cut_intervals, matrix_cool.cut_intervals)
+    unlink(outfile)

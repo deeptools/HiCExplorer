@@ -7,17 +7,25 @@ Installation
 Requirements
 -------------
 
-* Python 2.7
-* numpy >= 1.10.4
-* scipy >= 0.17.1
-* matplotlib >= 1.5.3
-* pysam >= 0.8.3
+* Python 2.7 or 3.6
+* numpy >= 1.12.1
+* scipy >= 0.19.0
+* matplotlib == 2.1.1
+* pysam >= 0.11.2
 * intervaltree >= 2.1.0
-* biopython >= 1.65
-* tables >= 3.2.2
-* pyBigWig >=0.2.8
+* biopython >= 1.68
+* pytables >= 3.3.0
+* pyBigWig >=0.3.4
+* future >= 0.16.0
+* cooler >= 0.7.6
+* six >= 1.10.0
+* jinja2 >= 2.9.6
+* pandas >= 0.20.2
 
-The fastet way to obtain **Python 2.7 together with numpy and scipy** is
+Command line installation using ``conda``
+-----------------------------------------
+
+The fastet way to obtain **Python 3.6 together with numpy and scipy** is
 via the `Anaconda Scientific Python
 Distribution <https://store.continuum.io/cshop/anaconda/>`_.
 Just download the version that's suitable for your operating system and
@@ -41,7 +49,7 @@ If you need to specify a specific path for the installation of the tools, make u
 
 .. code:: bash
 
-    $ pip install --install-option="--prefix=/MyPath/Tools/hicexplorer" git+https://github.com/maxplanck-ie/HiCExplorer.git
+    $ pip install --install-option="--prefix=/MyPath/Tools/hicexplorer" git+https://github.com/deeptools/HiCExplorer.git
 
 
 Command line installation without ``pip``
@@ -54,12 +62,12 @@ You are highly recommended to use `pip` rather than these more complicated steps
 2. Download source code
 ::
 
-	$ git clone https://github.com/maxplanck-ie/HiCExplorer.git
+	$ git clone https://github.com/deeptools/HiCExplorer.git
 
-or if you want a particular release, choose one from https://github.com/maxplanck-ie/HiCExplorer/releases:
+or if you want a particular release, choose one from https://github.com/deeptools/HiCExplorer/releases:
 ::
 
-	$ wget https://github.com/maxplanck-ie/HiCExplorer/archive/1.5.12.tar.gz
+	$ wget https://github.com/deeptools/HiCExplorer/archive/1.5.12.tar.gz
 	$ tar -xzvf
 
 3. To install the source code (if you don't have root permission, you can set
@@ -67,6 +75,8 @@ a specific folder using the ``--prefix`` option)
 ::
 
 	$ python setup.py install --prefix /User/Tools/hicexplorer
+
+
 
 
 Galaxy installation

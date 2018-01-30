@@ -1,4 +1,6 @@
 import argparse
+import logging
+log = logging.getLogger(__name__)
 
 
 def getParentArgParse(args=None):
@@ -14,7 +16,24 @@ def getParentArgParse(args=None):
 def writableFile(string):
     try:
         open(string, 'w').close()
-    except:
+    except IOError:
         msg = "{} file can be opened for writting".format(string)
+        log.debug(msg)
         raise argparse.ArgumentTypeError(msg)
     return string
+
+
+class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
+    """
+    This class allows to use defaultsHelpFormatter and RawDescription at the same time.
+
+    Usage:
+
+        parser = argparse.ArgumentParser(
+            formatter_class=CustomFormatter,
+            conflict_handler='resolve',
+            usage="tex",
+            description="text"
+
+    """
+    pass

@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+from __future__ import division
 import argparse
 import sys
 from hicexplorer._version import __version__
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
-HiCexplorer addresses the common tasks of Hi-C analysis from processing to visualization.
+HiCExplorer addresses the common tasks of Hi-C analysis from processing to visualization.
 Each tool should be called by its own name as in the following example:
 
  $ hicPlotMatrix -m hic_matrix.h5 -o plot.pdf
@@ -32,13 +35,16 @@ The following is the list of tools:
    hicCorrelate             Computes and visualises the correlation of Hi-C matrices
    hicFindTADs	            Identifies Topologically Associating Domains (TADs)
    hicMergeMatrixBins	    Merges consecutives bins on a Hi-C matrix to reduce resolution
+   hicPCA                   Computes the principal components (eigenvectors) for A/B compartment analysis
+   hicTransform             Computes obs_exp (like Lieberman-Aiden), pearson and covariance matrix for A/B compartment analysis
    hicPlotDistVsCounts	    Plot the decay in interaction frequency with distance
-   hicPlotMatrix	        Plots a Hi-C matrix as a heatmap
+   hicPlotMatrix	        Plots a Hi-C matrix as a heatmap and can add a pca track to it
    hicPlotTADs	            Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
+   hicPlotViewpoint         Plots the number of interactions around a reference point
    hicSumMatrices	        Adds Hi-C matrices of the same size
    hicPlotDistVsCounts	    Plots distance vs. Hi-C counts of corrected data
    hicExport	            Export matrix to text formats
-   hicInfo                  Shows information about a hicMatrix (no. of bins, bin length, sum, max, min, etc)
+   hicInfo                  Shows information about a Hi-C matrix (no. of bins, bin length, sum, max, min, etc)
    hicCompareMatrices       Computes difference or ratio between two matrices
 
 For more information visit: http://hicexplorer.readthedocs.org

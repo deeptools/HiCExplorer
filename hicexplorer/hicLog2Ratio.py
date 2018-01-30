@@ -4,6 +4,9 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 import numpy as np
 
+import logging
+log = logging.getLogger(__name__)
+
 
 def parse_arguments(args=None):
     """
@@ -11,7 +14,8 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Converts between different matrix file formats')
+        description='Computes the log2 ratio between two matrices. The larger matrix is scaled down to match the '
+                    'total sum of the smaller matrix. ')
 
     # define the arguments
     parser.add_argument('--treatment', '-t',
@@ -32,8 +36,8 @@ def parse_arguments(args=None):
     return parser
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=None):
+    args = parse_arguments().parse_args(args)
 
     hic_t = hm.hiCMatrix(matrixFile=args.treatment)
     hic_c = hm.hiCMatrix(matrixFile=args.control)
@@ -59,9 +63,9 @@ def main():
 
     Requires two sparse matrices as input
     """
-    assert hic_t.matrix.shape == hic_c.matrix.shape, "Matrices have different shapes."
+    assert hic_t.matrix.shape == hic_c.matrix.shape, log.error("Matrices have different shapes.")
 
-    assert (hic_t.matrix - hic_c.matrix).sum() != 0, "Matrices are identical."
+    assert (hic_t.matrix - hic_c.matrix).sum() != 0, log.error("Matrices are identical.")
 
     # create a new matrix that is the sum of the two
     # matrices to compare. The goal is to have
