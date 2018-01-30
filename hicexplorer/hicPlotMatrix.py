@@ -443,7 +443,7 @@ def main(args=None):
                   'compatible.')
         exit(1)
 
-    if args.region and args.region2 and args.pca:
+    if args.region and args.region2 and args.bigwig:
         log.error("Inter-chromosomal pca is not supported.")
         exit(1)
     is_cooler = False
@@ -642,9 +642,16 @@ def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeSizes=None, pRegi
                 if chrom not in list(bw.chroms().keys()):
                     log.info("bigwig file as no chromosome named: {}.".format(chrom))
                     return
+                # the bigwig file may end before the region end, to avoid and error
+                # the bigwig_end is set for the pyBigwig query
+                bigwig_end = min(bw.chroms()[chrom], region_end)
+
                 # TODO, this could be a parameters
-                num_bins = 1000
-                scores_per_bin = np.array(bw.stats(chrom, region_start, region_end, nBins=num_bins)).astype(float)
+                num_bins = min(1000, int(bigwig_end - region_start)/10)
+
+                scores_per_bin = np.array(bw.stats(chrom, region_start, bigwig_end, nBins=num_bins)).astype(float)
+                # except:
+                #     import pdb; pdb.set_trace()
                 if scores_per_bin is None:
                     log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
                     return
