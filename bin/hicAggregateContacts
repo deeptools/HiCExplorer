@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
 import hicexplorer.HiCMatrix as hm
+import hicexplorer.utilities
 
 
 def parseArguments(args=None):
@@ -101,6 +102,8 @@ def main(args):
     bin_size = ma.getBinSize()
     ma.maskBins(ma.nan_bins)
     ma.matrix.data = ma.matrix.data
+    new_intervals = hicexplorer.utilities.enlarge_bins(ma.cut_intervals)
+    ma.setCutIntervals(new_intervals)
 
     # read and sort bedgraph. 
     bed_intervals = read_bed_per_chrom(args.BED)
@@ -109,13 +112,13 @@ def main(args):
     # make a new matrix for each chromosome.
     chrom_matrix = {}
     chrom_total = {}
-    chrom_heatmap = {}
+    chrom_diagonals = {}
     seen = {}
     matrix_init = np.matrix(np.zeros(M * M).reshape(M, M))
     if args.chromosomes :
         chrom_list = args.chromosomes
     else:
-        chrom_list = ['chr2L', 'chr2R', 'chr3L', 'chr3R', 'chrX']
+        chrom_list = ma.chrBinBoundaries.keys()
     min_dist, max_dist = args.range.split(":")
     print "checking range {}-{}".format(min_dist, max_dist)
     min_dist = int(min_dist) / bin_size
@@ -131,22 +134,32 @@ def main(args):
 #        chrom_matrix[chrom] = matrix_init.copy()
         chrom_matrix[chrom] = []
         chrom_total[chrom] = 1
-        chrom_heatmap[chrom] = []
+        chrom_diagonals[chrom] = []
         seen[chrom] = set()
+
         chrom_bin_range = ma.getChrBinRange(chrom)
+
         sys.stderr.write(chrom + '\n')
+        # if chrom == '2R':
+        #     import ipdb; ipdb.set_trace()
+        if chrom not in bed_intervals:
+            continue
         for start, end in bed_intervals[chrom]:
             # check all other regions that may interact with the
             # current interval at the given depth range
-            try:
-                bin_id = ma.getRegionBinRange(chrom, start, end)[0]
-            except TypeError, IndexError:
+
+            bin_id = ma.getRegionBinRange(chrom, start, end)
+            if bin_id is None:
                 continue
+            else:
+                bin_id = bin_id[0]
+
             for start2, end2 in bed_intervals[chrom]:
-                try:
-                    bin_id2 = ma.getRegionBinRange(chrom, start2, end2)[0]
-                except TypeError, IndexError:
+                bin_id2 = ma.getRegionBinRange(chrom, start2, end2)
+                if bin_id2 is None:
                     continue
+                else:
+                    bin_id2 = bin_id2[0]
                 if bin_id2 in seen[chrom]:
                     continue
                 if min_dist <= abs(bin_id2 - bin_id) <= max_dist:
@@ -205,7 +218,7 @@ def main(args):
                         test_each.append(mat_to_append)
                     chrom_total[chrom] += 1
                     chrom_matrix[chrom].append(mat_to_append)
-                    chrom_heatmap[chrom].append(mat_to_append.diagonal())
+                    chrom_diagonals[chrom].append(mat_to_append.diagonal())
                     #temp
                     center_values.append(ma.matrix[idx1, idx2])
                     if ma.matrix[idx1, idx2] > 1.5:
@@ -241,16 +254,23 @@ def main(args):
     print(vmax, vmin)
     for idx, chrom in enumerate(chrom_list):
         print "total pairs considered for {}: {}".format(chrom, chrom_total[chrom])
+        try:
+            chrom_matrix[chrom].shape[0]
+        except IndexError:
+            continue
+        if chrom_matrix[chrom].shape[0] == 0:
+            print "matrix for chrom {} is empty".format(chrom)
+            continue
         if args.plotType == '2d':
             ax = plt.subplot(gs[idx])
             ax.set_title(chrom)
             img = ax.imshow(chrom_matrix[chrom], aspect='equal',
     #                  norm=LogNorm(),
                       interpolation='nearest', vmax=vmax, vmin=vmin,
-                            cmap=cmap,
-                            extent=[-M_half, M_half+1, -M_half, M_half+1])
+                      cmap=cmap,
+                      extent=[-M_half, M_half+1, -M_half, M_half+1])
         else:
-            ax = plt.subplot(gs[idx], projection='3d' )
+            ax = plt.subplot(gs[idx], projection='3d')
             ax.set_aspect('equal')
             ax.margins(0)
             X, Y = np.meshgrid(range(-M_half, M_half+1),
@@ -268,45 +288,30 @@ def main(args):
     fig.colorbar(img, cax=cbar_x)
     plt.savefig(args.outFileName.name, dpi=100, transparent=True)
     plt.close()
-    #TODO finish heatmap
-    fig = plt.figure(figsize=(4,20))
-    heatmap = np.asarray(np.vstack(chrom_heatmap['chrX']))
-    #import ipdb;ipdb.set_trace()
-    order = np.argsort(heatmap[:,10])
-#    order = np.argsort(heatmap.sum(axis=1))
-    heatmap = heatmap[order,:]
-    ax = fig.add_subplot(111)
-    heat_fig = ax.imshow(heatmap, aspect='auto',
-                         interpolation='nearest',
-                         cmap=cmap,
-                         origin='upper', vmax=2, vmin=0.5)
-    fig.colorbar(heat_fig)
-    plt.savefig('/tmp/heatmap.png')
-    print heatmap.shape
-    #####
-    #determine num row and cols
-    cols = 10
-    rows = int(len(test_each) / cols) +1
-    plt.figure(figsize=(4*rows, 4*cols))
-    gs = gridspec.GridSpec(cols, rows)
 
-    vmax = max([matrix.max() for matrix in test_each])
-    vmin = min([matrix.min() for matrix in test_each])
-    print (vmin, vmax)
+    # plot the diagonals
+    # the diagonals plot is useful to see individual cases and if they had a contact in the center
 
-    for idx, matrix in enumerate(test_each):
-        col_id = idx % cols
-        row_id = int(idx / cols)
-        ax = plt.subplot(gs[col_id, row_id])
-        ax.set_title(chrom)
-        img = ax.imshow(matrix, aspect='auto',
-#                  norm=LogNorm(),
-                  interpolation='nearest', vmax=vmax, vmin=vmin)
+    for chrom_name, values in chrom_diagonals.iteritems():
+        fig = plt.figure(figsize=(4,20))
+        try:
+            heatmap = np.asarray(np.vstack(values))
+        except ValueError:
+            continue
+        order = np.argsort(heatmap[:,10])
+        heatmap = heatmap[order,:]
+        ax = fig.add_subplot(111)
+        heat_fig = ax.imshow(heatmap, aspect='auto',
+                             interpolation='nearest',
+                             cmap=cmap,
+                             origin='upper')
 
-#    cbar_x = plt.subplot(gs[col_id+1, row_id])
-#    cbar = fig2.colorbar(img, cax=cbar_x)
-    plt.savefig(args.outFileName.name + "chrX.png", dpi=100)
-    ####
+        fig.colorbar(heat_fig)
+        file_name = args.outFileName.name + "_{}.png".format(chrom_name)
+        print 'Heatmap file saved under: {}'.format(file_name)
+        plt.savefig(file_name, dpi=100)
+        print heatmap.shape
+
 if __name__ == "__main__":
     args = parseArguments()
     main(args)
