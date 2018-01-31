@@ -23,12 +23,13 @@ REMOVE_OUTPUT = True
 
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins():
+def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
 
     args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
-        "--outFileName  {1} --log1p --clearMaskedBins".format(ROOT, outfile.name).split()
+        "--outFileName  {1} --log1p --clearMaskedBins --bigwig {2} ".format(ROOT, outfile.name,
+                                                                            ROOT + "bigwig_chrx_2e6_5e6.bw").split()
     test_image_path = ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_log1p_clearmaskedbins.png'
 
     hicexplorer.hicPlotMatrix.main(args)
@@ -41,31 +42,14 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins():
 
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_region_region2_log_no_clearMaskedBins():
+def test_hicPlotMatrix_region_region2_log_no_clearMaskedBins_and_bigwig():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
 
     args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
-        "--outFileName  {1} --log".format(ROOT, outfile.name).split()
+        "--outFileName  {1} --log --bigwig {2} ".format(ROOT, outfile.name,
+                                                        ROOT + "bigwig_chrx_2e6_5e6.bw").split()
     test_image_path = ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_log_no_clearmasked.png'
-
-    hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(test_image_path, outfile.name, tolerance)
-    assert res is None, res
-
-    if REMOVE_OUTPUT:
-        os.remove(outfile.name)
-
-
-@pytest.mark.skipif(MID_MEMORY > memory,
-                    reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_region_region2_log():
-
-    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
-
-    args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
-        "--outFileName  {1} --log --clearMaskedBins".format(ROOT, outfile.name).split()
-    test_image_path = ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_log.png'
 
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(test_image_path, outfile.name, tolerance)
@@ -102,24 +86,6 @@ def test_hicPlotMatrix_region_region2_no_clearMaskedBins_title():
     args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
         "--outFileName  {1} --clearMaskedBins --title {2}".format(ROOT, outfile.name, title).split()
     test_image_path = ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_no_clearmasked_title.png'
-
-    hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(test_image_path, outfile.name, tolerance)
-    assert res is None, res
-
-    if REMOVE_OUTPUT:
-        os.remove(outfile.name)
-
-
-@pytest.mark.skipif(MID_MEMORY > memory,
-                    reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_region_region2_log1p_no_clearMaskedBins():
-
-    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
-
-    args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
-        "--outFileName  {1} --log1p".format(ROOT, outfile.name).split()
-    test_image_path = ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_log1p_no_clearmasked.png'
 
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(test_image_path, outfile.name, tolerance)

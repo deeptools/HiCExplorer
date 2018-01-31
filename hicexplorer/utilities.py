@@ -1003,3 +1003,24 @@ def toBytes(s):
     if isinstance(s, list):
         return [toBytes(x) for x in s]
     return s
+
+
+def change_chrom_names(chrom):
+    """
+    Changes UCSC chromosome names to ensembl chromosome names
+    and vice versa.
+    """
+    # TODO: mapping from chromosome names like mithocondria is missing
+
+    # python 2 / 3 issue with string, bytes and np.bytes_
+    # if chrom.startswith('chr'):
+
+    chrom = toString(chrom)
+    if chrom.startswith('chr'):
+        # remove the chr part from chromosome name
+        chrom = chrom[3:]
+    else:
+        # prefix with 'chr' the chromosome name
+        chrom = 'chr' + chrom
+
+    return chrom

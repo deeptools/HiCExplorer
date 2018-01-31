@@ -41,6 +41,7 @@ from intervaltree import IntervalTree, Interval
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
 from hicexplorer.utilities import toString, toBytes
+from hicexplorer.utilities import change_chrom_names
 
 
 reload(sys)
@@ -1856,22 +1857,3 @@ class PlotArcs(TrackPlot):
                       verticalalignment='bottom', transform=label_ax.transAxes)
 
 
-def change_chrom_names(chrom):
-    """
-    Changes UCSC chromosome names to ensembl chromosome names
-    and vice versa.
-    """
-    # TODO: mapping from chromosome names like mithocondria is missing
-
-    # python 2 / 3 issue with string, bytes and np.bytes_
-    # if chrom.startswith('chr'):
-
-    chrom = toString(chrom)
-    if chrom.startswith('chr'):
-        # remove the chr part from chromosome name
-        chrom = chrom[3:]
-    else:
-        # prefix with 'chr' the chromosome name
-        chrom = 'chr' + chrom
-
-    return chrom
