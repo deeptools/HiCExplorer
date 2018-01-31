@@ -270,7 +270,10 @@ def main(args):
                       cmap=cmap,
                       extent=[-M_half, M_half+1, -M_half, M_half+1])
         else:
-            ax = plt.subplot(gs[idx], projection='3d')
+            from mpl_toolkits.mplot3d import Axes3D
+            #ax = plt.subplot(gs[idx], projection='3d')
+	    ax = Axes3D(fig)
+
             ax.set_aspect('equal')
             ax.margins(0)
             X, Y = np.meshgrid(range(-M_half, M_half+1),
