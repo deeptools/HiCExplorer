@@ -4,20 +4,19 @@ import sys
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import writableFile
 from hicexplorer.utilities import toString, toBytes
+from hicexplorer.utilities import enlarge_bins
+from hicexplorer.utilities import change_chrom_names
 
 from hicexplorer._version import __version__
-from hicexplorer.trackPlot import file_to_intervaltree
 import numpy as np
 import pyBigWig
 from builtins import range
 from past.builtins import zip
-from future.utils import itervalues
 
 import cooler
 import argparse
 import matplotlib
 matplotlib.use('Agg')
-
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -117,11 +116,10 @@ def parse_arguments(args=None):
                         type=int,
                         default=72)
 
-    parser.add_argument('--pca',
-                        help='List of eigenvector from pca analysis as bigwig or bedgraph files.',
+    parser.add_argument('--bigwig',
+                        help='Bigwig file to plot below the matrix',
                         type=str,
-                        default=None,
-                        nargs='+')
+                        default=None)
 
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
@@ -147,25 +145,8 @@ def relabel_ticks(pXTicks):
     return labels
 
 
-def change_chrom_names(chrom):
-    """
-    Changes UCSC chromosome names to ensembl chromosome names
-    and vice versa.
-    """
-    # TODO: mapping from chromosome names like mithocondria is missing
-    chrom = toString(chrom)
-    if chrom.startswith('chr'):
-        # remove the chr part from chromosome name
-        chrom = chrom[3:]
-    else:
-        # prefix with 'chr' the chromosome name
-        chrom = 'chr' + chrom
-
-    return chrom
-
-
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
-                ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pPca=None):
+                ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pBigwig=None):
     log.debug("plotting heatmap")
     if ma.shape[0] < 5:
         # This happens when a tiny matrix wants to be plotted, or by using per chromosome and
@@ -182,8 +163,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     if args.title:
         axHeat2.set_title(toString(args.title))
 
-    if start_pos is None:
-        start_pos = np.arange(ma.shape[0])
     if start_pos2 is None:
         start_pos2 = start_pos
 
@@ -209,7 +188,12 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         """
     else:
 
-        ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
+        pos = 0
+        ticks = []
+        for chr_size in chrBinBoundaries.values():
+            ticks.append(pos)
+            pos += chr_size
+        # ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
         labels = list(chrBinBoundaries)
         axHeat2.set_xticks(ticks)
         axHeat2.set_yticks(ticks)
@@ -224,11 +208,11 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
             axHeat2.set_xticklabels(labels, size=8)
             axHeat2.set_yticklabels(labels, size=8)
 
-    if pPca is None:
+    if pBigwig is None:
         divider = make_axes_locatable(axHeat2)
         cax = divider.append_axes("right", size="2.5%", pad=0.09)
     else:
-        cax = pPca['axis_colorbar']
+        cax = pBigwig['axis_colorbar']
     if args.log1p:
         from matplotlib.ticker import LogFormatter
         formatter = LogFormatter(10, labelOnlyBase=False)
@@ -252,13 +236,14 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         xlabel = toString(xlabel)
         axHeat2.set_xlabel(xlabel)
 
-    if pPca:
+    if pBigwig:
         axHeat2.xaxis.set_label_position("top")
         axHeat2.xaxis.tick_top()
         if args.region:
-            plotEigenvector(pPca['axis'], pPca['args'].pca, pRegion=pPca['args'].region, pXticks=xticks)
+            plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pChromosomeSizes=chrBinBoundaries,
+                       pRegion=pBigwig['args'].region, pXticks=xticks)
         else:
-            plotEigenvector(pPca['axis'], pPca['args'].pca, pXticks=xticks, pChromosomeList=labels)
+            plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=chrBinBoundaries)
 
 
 def translate_region(region_string):
@@ -293,7 +278,7 @@ def translate_region(region_string):
     return chrom, region_start, region_end
 
 
-def plotPerChr(hic_matrix, cmap, args, pPca):
+def plotPerChr(hic_matrix, cmap, args, pBigwig):
     """
     plots each chromosome individually, one after the other
     in one row. scale bar is added at the end
@@ -319,7 +304,7 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
 
         row = idx // chrom_per_row
         col = idx % chrom_per_row
-        if pPca:
+        if pBigwig:
             inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07],
                                                           subplot_spec=grids[row, col], wspace=0.0, hspace=0.1)
             axis = plt.subplot(inner_grid[0, 0])
@@ -356,20 +341,20 @@ def plotPerChr(hic_matrix, cmap, args, pPca):
             matrix += 1
             norm = LogNorm()
 
-        pca = None
-        if pPca:
-            pca = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': hic_matrix.nan_bins}
-            pca['axis'] = axis_eigenvector
-            pca['axis_colorbar'] = axis_scale
+        bigwig_info = None
+        if pBigwig:
+            bigwig_info = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': hic_matrix.nan_bins}
+            bigwig_info['axis'] = axis_eigenvector
+            bigwig_info['axis_colorbar'] = axis_scale
 
         chr_bin_boundary = OrderedDict()
-        chr_bin_boundary[chrname] = hic_matrix.chrBinBoundaries[chrname]
+        chr_bin_boundary[chrname] = hic_matrix.get_chromosome_sizes()[chrname]
 
         args.region = toString(chrname)
         chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, hic_matrix)
         plotHeatmap(matrix, chr_bin_boundary, fig, None,
                     args, cmap, xlabel=chrname, ylabel=chrname,
-                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pPca=pca)
+                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pBigwig=bigwig_info)
     return fig
 
 
@@ -442,9 +427,9 @@ def main(args=None):
                   'compatible.')
         exit(1)
 
-    if args.region and args.region2 and args.pca:
-        log.error("Inter-chromosomal pca is not supported.")
-        exit(1)
+    # if args.region and args.region2 and args.bigwig:
+    #     log.error("Inter-chromosomal pca is not supported.")
+    #     exit(1)
     is_cooler = False
     if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix):
         is_cooler = True
@@ -466,6 +451,11 @@ def main(args=None):
 
         if args.clearMaskedBins:
             ma.maskBins(ma.nan_bins)
+            # to avoid gaps in the plot, bins flanking the masked bins
+            # are enlarged
+            new_intervals = enlarge_bins(ma.cut_intervals)
+            ma.setCutIntervals(new_intervals)
+
         if args.region:
             chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
 
@@ -509,6 +499,8 @@ def main(args=None):
             matrix = np.asarray(ma.getMatrix().astype(float))
 
     matrix_length = len(matrix[0])
+    log.debug("Number of data points matrix: {}".format(matrix_length))
+
     for matrix_ in matrix:
         if not matrix_length == len(matrix_):
             log.error("Matrices do not have the same length: {} , {}".format(matrix_length, len(matrix_)))
@@ -517,12 +509,12 @@ def main(args=None):
     log.debug("Nan values set to black\n")
     cmap.set_bad('black')
 
-    pca = None
-    if args.pca:
-        pca = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': ma.nan_bins}
+    bigwig_info = None
+    if args.bigwig:
+        bigwig_info = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': ma.nan_bins}
 
     if args.perChromosome:
-        fig = plotPerChr(ma, cmap, args, pPca=pca)
+        fig = plotPerChr(ma, cmap, args, pBigwig=bigwig_info)
 
     else:
         norm = None
@@ -548,7 +540,11 @@ def main(args=None):
             matrix += 1
             norm = LogNorm()
 
-        fig_height = 7
+        if args.bigwig:
+            # increase figure height to accommodate bigwig track
+            fig_height = 8.5
+        else:
+            fig_height = 7
         height = 4.8 / fig_height
 
         fig_width = 8
@@ -557,134 +553,162 @@ def main(args=None):
 
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
-        if args.pca:
-            gs = gridspec.GridSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07])
-            gs.update(hspace=0.1)
+        if args.bigwig:
+            gs = gridspec.GridSpec(2, 2, height_ratios=[0.90, 0.1], width_ratios=[0.97, 0.03])
+            gs.update(hspace=0.05, wspace=0.05)
             ax1 = plt.subplot(gs[0, 0])
             ax2 = plt.subplot(gs[1, 0])
             ax3 = plt.subplot(gs[0, 1])
-            pca['axis'] = ax2
-            pca['axis_colorbar'] = ax3
-
+            bigwig_info['axis'] = ax2
+            bigwig_info['axis_colorbar'] = ax3
         else:
             ax1 = None
         bottom = 1.3 / fig_height
 
-        position = [left_margin, bottom, width, height]
-        plotHeatmap(matrix, ma.chrBinBoundaries, fig, position,
-                    args, cmap, xlabel=chrom, ylabel=chrom2,
-                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pPca=pca)
+        if start_pos1 is None:
+            start_pos1 = make_start_pos_array(ma)
 
-    if args.perChromosome or args.pca:
-        plt.tight_layout()
+        position = [left_margin, bottom, width, height]
+        plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
+                    args, cmap, xlabel=chrom, ylabel=chrom2,
+                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info)
+
+    if args.perChromosome or args.bigwig:
+        try:
+            plt.tight_layout()
+        except UserWarning:
+            log.info("Failed to tight layout. Using regular plot.")
 
     plt.savefig(args.outFileName, dpi=args.dpi)
     plt.close(fig)
 
 
-def plotEigenvector(pAxis, pNameOfEigenvectorsList, pChromosomeList=None, pRegion=None, pXticks=None):
+def make_start_pos_array(ma):
+    # makes an start_pos array that can be used
+    # to plot the bins of the matrix using their real length
+    # When the whole matrix wants to be plotted, the start_pos needs to be modified
+    # such that at each chromosome start, the start_pos does not go back to zero and instead
+    # is added
+
+    chrom_sizes = ma.get_chromosome_sizes()
+    prev_chrom = ma.cut_intervals[0][0]
+    prev_chroms_sum = 0
+    start_pos = []
+    for (chrom, start, end, _) in ma.cut_intervals:
+        if chrom != prev_chrom:
+            prev_chroms_sum += chrom_sizes[prev_chrom]
+            prev_chrom = chrom
+        start_pos.append(start + prev_chroms_sum)
+    return start_pos
+
+
+def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None):
     log.debug('plotting eigenvector')
     pAxis.set_frame_on(False)
+    pAxis.xaxis.set_visible(False)
 
-    file_format = pNameOfEigenvectorsList[0].split(".")[-1]
-    if file_format != 'bedgraph' and file_format != 'bigwig' and file_format != 'bw':
-
-        log.error("Given eigenvector files are not bedgraph or bigwig")
+    # pNameOfBigwigList is not a list, but to make room for future options
+    # requiring more than one bigwig file I set this to a list intentionally.
+    pNameOfBigwigList = [pNameOfBigwigList]
+    file_format = pNameOfBigwigList[0].split(".")[-1]
+    if file_format != 'bigwig' and file_format != 'bw':
+        log.error("Given files are not bigwig")
         exit()
 
-    for eigenvector in pNameOfEigenvectorsList:
-        if eigenvector.split('.')[-1] != file_format:
+    for bigwig_file in pNameOfBigwigList:
+        if bigwig_file.split('.')[-1] != file_format:
             log.error("Eigenvector input files have different formats.")
             exit()
 
-    if pRegion:
-        chrom, region_start, region_end = pRegion
-    x = None
-    eigenvector = None
+    x = []
+    bigwig_scores = []
     if file_format == "bigwig" or file_format == 'bw':
-        for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
-            bw = pyBigWig.open(eigenvectorFile)
-            eigenvector = []
-            if pChromosomeList:
-                for chrom in pChromosomeList:
-                    try:
-                        bins_list = bw.intervals(toString(chrom))
-                    except Exception:
-                        log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+        for i, bigwigFile in enumerate(pNameOfBigwigList):
+            bw = pyBigWig.open(bigwigFile)
+            bigwig_scores = []
+            if pRegion:
+                chrom, region_start, region_end = pRegion
+                # region_end could be a very large number returned by translate_region
+                region_end = min(region_end, pChromosomeSizes[chrom])
+                if chrom not in list(bw.chroms().keys()):
+                    chrom = change_chrom_names(chrom)
+                    if chrom not in list(bw.chroms().keys()):
+                        log.info("bigwig file has no chromosome named: {}.".format(chrom))
                         return
-                    if bins_list is None:
-                        log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+
+                # the bigwig file may end before the region end, to avoid and error
+                # the bigwig_end is set for the pyBigwig query
+                bigwig_end = min(bw.chroms()[chrom], region_end)
+
+                # TODO, this could be a parameters
+                num_bins = min(1000, int(bigwig_end - region_start) / 10)
+
+                scores_per_bin = np.array(bw.stats(chrom, region_start, bigwig_end, nBins=num_bins)).astype(float)
+                if scores_per_bin is None:
+                    log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
+                    return
+
+                bigwig_scores.extend(scores_per_bin)
+                x.extend(np.linspace(region_start, region_end, num_bins))
+                pAxis.set_xlim(region_start, region_end)
+
+            elif pChromosomeSizes:
+                chrom_length_sum = 0
+                for chrom in pChromosomeSizes:
+                    if chrom not in list(bw.chroms().keys()):
+                        log.info("bigwig file as no chromosome named: {}.".format(chrom))
                         return
-                    for i, bin_ in enumerate(bins_list):
-                        if i == 0:
-                            region_start = bin_[0]
-                        eigenvector.append(complex(bin_[2]).real)
-                    region_end = bins_list[-1][1]
+                    # set the bin size to aproximately 100kb
+                    num_bins = int(pChromosomeSizes[chrom] / 1e5)
+                    scores_per_bin = np.array(bw.stats(chrom, 0, pChromosomeSizes[chrom], nBins=num_bins)).astype(float)
 
-                x = np.arange(0, len(eigenvector), 1)
-                pAxis.set_xlim(0, len(eigenvector))
-
-            elif pRegion:
-                try:
-                    if region_start == 0 and region_end == 1e15:
-                        log.debug("chrom == pRegion")
-                        bins_list = bw.intervals(toString(chrom))
-                        region_start = bins_list[0][0]
-                        region_end = bins_list[-1][1]
-                    else:
-                        log.debug("chrom: {}, region_start: {}, region_end: {}".format(chrom, region_start, region_end))
-                        log.debug("pRegion: {}".format(pRegion))
-                        bins_list = bw.intervals(chrom, region_start, region_end)
-                except Exception:
-                    log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
-                    return
-                if bins_list is None:
-                    log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
-                    return
-                for bin_ in bins_list:
-                    eigenvector.append(complex(bin_[2]).real)
-                step = (region_end * 2 - region_start) // len(eigenvector)
-
-                x = np.arange(region_start, region_end * 2, int(step))
-                while len(x) < len(eigenvector):
-                    x = np.append(x[-1] + int(step))
-                while len(eigenvector) < len(x):
-                    x = x[:-1]
-
-                pAxis.set_xlim(region_start, region_end * 2)
-
-    else:
-        for i, eigenvectorFile in enumerate(pNameOfEigenvectorsList):
-            interval_tree, min_value, max_value = file_to_intervaltree(eigenvectorFile)
-            eigenvector = []
-            if pChromosomeList:
-                for chrom in pChromosomeList:
-                    if toString(chrom) not in interval_tree:
-                        log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+                    if scores_per_bin is None:
+                        log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
                         return
-                    for i, region in enumerate(sorted(interval_tree[toString(chrom)])):
-                        if i == 0:
-                            region_start = region[0]
-                        region_end = region[1]
-                        eigenvector.append(complex(region.data[0]).real)
-                x = np.arange(0, len(eigenvector), 1)
-                pAxis.set_xlim(0, len(eigenvector))
 
-            elif pRegion:
-                if toString(chrom) not in interval_tree:
-                    log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
-                    return
-                for region in sorted(interval_tree[toString(chrom)][region_start:region_end]):
-                    eigenvector.append(float(region.data[0]))
-                step = (region_end * 2 - region_start) // len(eigenvector)
+                    bigwig_scores.extend(scores_per_bin)
 
-                x = np.arange(region_start, region_end * 2, int(step))
-                while len(x) < len(eigenvector):
-                    x = np.append(x[-1] + int(step))
-                while len(eigenvector) < len(x):
-                    x = x[:-1]
+                    x.extend(np.linspace(chrom_length_sum, chrom_length_sum + pChromosomeSizes[chrom], num_bins))
+                    chrom_length_sum += pChromosomeSizes[chrom]
 
-                pAxis.set_xlim(region_start, region_end * 2)
-    if x is not None and eigenvector is not None:
-        pAxis.fill_between(x, 0, eigenvector, edgecolor='none')
-    pAxis.get_xaxis().set_visible(False)
+                pAxis.set_xlim(0, chrom_length_sum)
+
+            log.debug("Number of data points: {}".format(len(bigwig_scores)))
+
+    # else:
+    #     for i, bigwigFile in enumerate(pNameOfBigwigList):
+    #         interval_tree, min_value, max_value = file_to_intervaltree(bigwigFile)
+    #         eigenvector = []
+    #         if pChromosomeSizes:
+    #             for chrom in pChromosomeSizes:
+    #                 if toString(chrom) not in interval_tree:
+    #                     log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+    #                     return
+    #                 for i, region in enumerate(sorted(interval_tree[toString(chrom)])):
+    #                     if i == 0:
+    #                         region_start = region[0]
+    #                     region_end = region[1]
+    #                     eigenvector.append(complex(region.data[0]).real)
+    #             x = np.arange(0, len(eigenvector), 1)
+    #             pAxis.set_xlim(0, len(eigenvector))
+    #
+    #         elif pRegion:
+    #             if toString(chrom) not in interval_tree:
+    #                 log.info("Chromosome with no entry in the eigenvector found. Please exclude it from the matrix: {}. The eigenvector is left empty.".format(chrom))
+    #                 return
+    #             for region in sorted(interval_tree[toString(chrom)][region_start:region_end]):
+    #                 eigenvector.append(float(region.data[0]))
+    #             step = (region_end * 2 - region_start) // len(eigenvector)
+    #
+    #             x = np.arange(region_start, region_end * 2, int(step))
+    #             while len(x) < len(eigenvector):
+    #                 x = np.append(x[-1] + int(step))
+    #             while len(eigenvector) < len(x):
+    #                 x = x[:-1]
+    #
+    #             pAxis.set_xlim(region_start, region_end * 2)
+
+    if x is not None and bigwig_scores is not None:
+        pAxis.fill_between(x, 0, bigwig_scores, edgecolor='none')
+
+    # pAxis.get_xaxis().set_visible(False)
