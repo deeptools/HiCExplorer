@@ -1855,5 +1855,3 @@ class PlotArcs(TrackPlot):
         label_ax.text(0.3, 0.0, self.properties['title'],
                       horizontalalignment='left', size='large',
                       verticalalignment='bottom', transform=label_ax.transAxes)
-
-

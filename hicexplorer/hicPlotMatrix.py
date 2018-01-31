@@ -145,23 +145,6 @@ def relabel_ticks(pXTicks):
     return labels
 
 
-def change_chrom_names(chrom):
-    """
-    Changes UCSC chromosome names to ensembl chromosome names
-    and vice versa.
-    """
-    # TODO: mapping from chromosome names like mithocondria is missing
-    chrom = toString(chrom)
-    if chrom.startswith('chr'):
-        # remove the chr part from chromosome name
-        chrom = chrom[3:]
-    else:
-        # prefix with 'chr' the chromosome name
-        chrom = 'chr' + chrom
-
-    return chrom
-
-
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                 ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pBigwig=None):
     log.debug("plotting heatmap")
