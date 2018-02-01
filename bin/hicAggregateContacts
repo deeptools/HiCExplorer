@@ -112,12 +112,12 @@ def main(args):
 
     if args.transform == "z-score":
         # use zscore matrix
-        log.info("Computing z-score matrix. This may take a while.\n")
-        ma.convert_to_zscore_matrix(maxdepth=max_dist * 2.5, perchr=True)
+#        log.info("Computing z-score matrix. This may take a while.\n")
+        ma.convert_to_zscore_matrix(float(max_dist) * 2.5, perchr=True)
     elif args.transform == "obs/exp":
         # use zscore matrix
-        log.info("Computing observed vs. expected matrix. This may take a while.\n")
-        ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
+#        log.info("Computing observed vs. expected matrix. This may take a while.\n")
+        ma.convert_to_obs_exp_matrix(float(max_dist) * 2.5, perchr=True)
 
     # read and sort bedgraph. 
     bed_intervals = read_bed_per_chrom(args.BED)
