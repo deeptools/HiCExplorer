@@ -38,9 +38,12 @@ def parseArguments(args=None):
                         type=int)
 
     parser.add_argument('--transform',
-                        help='type of transformation for the matrix. The options are "none" or '
-                             '"total_counts". If total counts are selected, then the matrix '
-                             'values are divided by the total counts.',
+                        help='type of transformation for the matrix. The options are "none",  '
+                             '"total-counts", "z-score" or "obs/exp". If total counts are selected, '
+                             'then the sub-matrix values are divided by the total counts for normalization. '
+                             'If z-score or obs/exp are selected, then H-C matrix is converted into a '
+                             'z-score or observed / expected matrix.',
+                        choices=['total-counts', 'z-score', 'obs/exp', 'none'],
                         default='none')
 
     parser.add_argument('--avgType',
@@ -71,6 +74,7 @@ def parseArguments(args=None):
                         help='vMax',
                         type=float,
                         default=None)
+
 
     return parser.parse_args(args)
 
@@ -104,6 +108,16 @@ def main(args):
     ma.matrix.data = ma.matrix.data
     new_intervals = hicexplorer.utilities.enlarge_bins(ma.cut_intervals)
     ma.setCutIntervals(new_intervals)
+    min_dist, max_dist = args.range.split(":")
+
+    if args.transform == "z-score":
+        # use zscore matrix
+        log.info("Computing z-score matrix. This may take a while.\n")
+        ma.convert_to_zscore_matrix(maxdepth=max_dist * 2.5, perchr=True)
+    elif args.transform == "obs/exp":
+        # use zscore matrix
+        log.info("Computing observed vs. expected matrix. This may take a while.\n")
+        ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
 
     # read and sort bedgraph. 
     bed_intervals = read_bed_per_chrom(args.BED)
@@ -119,7 +133,6 @@ def main(args):
         chrom_list = args.chromosomes
     else:
         chrom_list = ma.chrBinBoundaries.keys()
-    min_dist, max_dist = args.range.split(":")
     print "checking range {}-{}".format(min_dist, max_dist)
     min_dist = int(min_dist) / bin_size
     max_dist = int(max_dist) / bin_size
