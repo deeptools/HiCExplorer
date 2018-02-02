@@ -11,6 +11,8 @@ import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
 import hicexplorer.HiCMatrix as hm
 import hicexplorer.utilities
+import logging
+log = logging.getLogger(__name__)
 
 
 def parseArguments(args=None):
@@ -33,7 +35,8 @@ def parseArguments(args=None):
                         required=True)
 
     parser.add_argument('--numberOfBins',
-                        help='Number of  bins to include in the submatrix',
+                        help='Number of  bins to include in the submatrix. The bed regions will be centered between '
+                             '- half number of bins and the other half number of bins.',
                         default='51',
                         type=int)
 
@@ -55,6 +58,15 @@ def parseArguments(args=None):
                         help='File name to save the image. ',
                         type=argparse.FileType('w'),
                         required=True)
+
+    parser.add_argument('--diagnosticHeatmapFile',
+                        help='If given, a heatmap file (per chromosome) is saved. Each row in the heatmap contains the'
+                             'diagonal of each of the submatrices centered on the bed file. This file is useful to '
+                             'get an idea of the values that are used for the aggregate matrix and to determine '
+                             'the fraction of sub-matrices that are aggregated that may have an enrichment at the '
+                             'center.',
+                        type=argparse.FileType('w'),
+                        required=False)
 
     parser.add_argument('--chromosomes', '-C',
                         help='List of chromosomes to plot',
@@ -102,13 +114,21 @@ def main(args):
     ma.maskBins(ma.nan_bins)
     ma.matrix.data[np.isnan(ma.matrix.data)] = 0
     top_percentile = np.percentile(ma.matrix.data, 99.9999)
-    print top_percentile
+
     bin_size = ma.getBinSize()
     ma.maskBins(ma.nan_bins)
     ma.matrix.data = ma.matrix.data
     new_intervals = hicexplorer.utilities.enlarge_bins(ma.cut_intervals)
     ma.setCutIntervals(new_intervals)
     min_dist, max_dist = args.range.split(":")
+
+    if args.chromosomes:
+        ma.keepOnlyTheseChr(args.chromosomes)
+    chrom_list = ma.chrBinBoundaries.keys()
+    log.info("checking range {}-{}".format(min_dist, max_dist))
+    min_dist = int(min_dist)
+    max_dist = int(max_dist)
+    assert min_dist < max_dist, "Error lower range larger than upper range"
 
     if args.transform == "z-score":
         # use zscore matrix
@@ -119,7 +139,10 @@ def main(args):
         log.info("Computing observed vs. expected matrix. This may take a while.\n")
         ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
 
-    # read and sort bedgraph. 
+    min_dist_in_bins = int(min_dist) / bin_size
+    max_dist_in_bins = int(max_dist) / bin_size
+
+    # read and sort bedgraph.
     bed_intervals = read_bed_per_chrom(args.BED)
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
     M_half = int((M - 1)/2)
@@ -128,28 +151,16 @@ def main(args):
     chrom_total = {}
     chrom_diagonals = {}
     seen = {}
-    matrix_init = np.matrix(np.zeros(M * M).reshape(M, M))
-    if args.chromosomes :
-        chrom_list = args.chromosomes
-    else:
-        chrom_list = ma.chrBinBoundaries.keys()
-    print "checking range {}-{}".format(min_dist, max_dist)
-    min_dist = int(min_dist) / bin_size
-    max_dist = int(max_dist) / bin_size
-    assert min_dist < max_dist, "Error lower range larger than upper range"
-    print (min_dist, max_dist)
-    test_each = []
 
     #temp
     over_1_5 = 0
     center_values = []
     for chrom in chrom_list:
-#        chrom_matrix[chrom] = matrix_init.copy()
         chrom_matrix[chrom] = []
         chrom_total[chrom] = 1
         chrom_diagonals[chrom] = []
         seen[chrom] = set()
-
+        over_1_5 = 0
         chrom_bin_range = ma.getChrBinRange(chrom)
 
         sys.stderr.write(chrom + '\n')
@@ -175,7 +186,7 @@ def main(args):
                     bin_id2 = bin_id2[0]
                 if bin_id2 in seen[chrom]:
                     continue
-                if min_dist <= abs(bin_id2 - bin_id) <= max_dist:
+                if min_dist_in_bins <= abs(bin_id2 - bin_id) <= max_dist_in_bins:
                     idx1, idx2 = sorted([bin_id, bin_id2])
                     if (idx1, idx2) in seen[chrom]:
                         continue
@@ -196,39 +207,10 @@ def main(args):
                     # sumatrices far from the diagonal
                     # the submatrices values are normalized using the
                     # total submatric sum.
-#                    if mat_to_append[M_half,M_half] > 4 and 500000 < np.abs(start2-start) <3000000 :
-#                        fig = plt.figure()
-#                        plt.imshow(mat_to_append, aspect='equal', interpolation='nearest', cmap=cmap,
-#                                   extent=[-M_half, M_half+1, -M_half, M_half+1], vmin=0, vmax=6)
-#                        plt.savefig("submat_{}-{}.png".format(start, start2))
-#                        print (mat_to_append.max(), ma.getBinPos(idx1), ma.getBinPos(idx2))
 #
                     if args.transform == 'total_counts' and mat_to_append.sum() > 0:
                         mat_to_append = mat_to_append / mat_to_append.sum()
 
-#                    if mat_to_append[M_half,M_half] >= 0.007 and np.abs(start - start2) < 2000000:
-#                        fig = plt.figure()
-#                        plt.imshow(mat_to_append, aspect='equal', interpolation='nearest', cmap=cmap,
-#                                   extent=[-M_half, M_half+1, -M_half, M_half+1])
-#                        plt.savefig("submat_{}-{}.png".format(start, start2))
-#                        print (mat_to_append.max(), ma.getBinPos(idx1), ma.getBinPos(idx2))
-#                        if not np.isnan(mat_to_append.min()) and mat_to_append.min() > 0:
-#                            print mat_to_append.max() / mat_to_append.min()
-#                            # for recreating example cases
-#                            if mat_to_append.max() / mat_to_append.min() > 2:
-#                                print mat_to_append.max() / mat_to_append.min(), idx1, idx2
-#                            mat_to_append = mat_to_append/mat_to_append.min()
-
-
-                    """
-                    if mat_to_append.max() > top_percentile:
-                        print "skip high percentile"
-                        continue
-                    """
-                    if chrom == 'chrX' and len(test_each) < 20 \
-                            and idx1 % 10 == 0 and idx2 % 10 == 0:
-                        print(chrom_total[chrom], idx1, idx2)
-                        test_each.append(mat_to_append)
                     chrom_total[chrom] += 1
                     chrom_matrix[chrom].append(mat_to_append)
                     chrom_diagonals[chrom].append(mat_to_append.diagonal())
@@ -236,8 +218,10 @@ def main(args):
                     center_values.append(ma.matrix[idx1, idx2])
                     if ma.matrix[idx1, idx2] > 1.5:
                         over_1_5 +=1
-    print "matrices with ratio over 1.5 at center {}".format(over_1_5)
-    fig = plt.figure(figsize=(8*len(chrom_matrix), 5.5))
+        log.info("Number of matrices with ratio over 1.5 at center {} ({:.2f})".
+                 format(over_1_5, float(over_1_5) / len(chrom_matrix)))
+
+    fig = plt.figure(figsize=(8 * len(chrom_matrix), 5.5))
     gs = gridspec.GridSpec(1, len(chrom_matrix) + 1,
                            width_ratios=[10]*len(chrom_matrix) + [0.6])
     gs.update(wspace=0.01, hspace=0)
@@ -246,7 +230,7 @@ def main(args):
         # compute median values
         if args.avgType == 'median':
             _median = np.median(np.array(chrom_matrix[chrom]), axis=0)
-            if _median.sum() == 0:
+            if _median.sum() == 0 or np.isnan(_median.sum()):
                 # test if the mean matrix is not zero
                 if np.mean(np.array(chrom_matrix[chrom]), axis=0).sum() != 0:
                     sys.stderr.write("The median of the matrices is zero. Consider using "
@@ -258,21 +242,21 @@ def main(args):
         else:
             chrom_matrix[chrom] = np.mean(np.array(chrom_matrix[chrom]), axis=0)
 
-        print chrom_matrix[chrom].mean()
-        print "median: {}, mean: {}".format(np.median(center_values), np.mean(center_values))
+        log.info("Mean aggregate matrix values: {}".format(chrom_matrix[chrom].mean()))
+        log.info("Avg. at center values. median: {}, mean: {}".format(np.median(center_values), np.mean(center_values)))
 
     vmin, vmax = (args.vMin, args.vMax)
     cmap = cm.get_cmap("RdYlBu_r")
 
-    print(vmax, vmin)
+    log.debug("vmax: {}, vmin: {}".format(vmax, vmin))
     for idx, chrom in enumerate(chrom_list):
-        print "total pairs considered for {}: {}".format(chrom, chrom_total[chrom])
+        log.info("total pairs considered for {}: {}".format(chrom, chrom_total[chrom]))
         try:
             chrom_matrix[chrom].shape[0]
         except IndexError:
             continue
         if chrom_matrix[chrom].shape[0] == 0:
-            print "matrix for chrom {} is empty".format(chrom)
+            log.info("matrix for chrom {} is empty".format(chrom))
             continue
         if args.plotType == '2d':
             ax = plt.subplot(gs[idx])
@@ -285,8 +269,7 @@ def main(args):
         else:
             from mpl_toolkits.mplot3d import Axes3D
             #ax = plt.subplot(gs[idx], projection='3d')
-	    ax = Axes3D(fig)
-
+    	    ax = Axes3D(fig)
             ax.set_aspect('equal')
             ax.margins(0)
             X, Y = np.meshgrid(range(-M_half, M_half+1),
@@ -307,26 +290,33 @@ def main(args):
 
     # plot the diagonals
     # the diagonals plot is useful to see individual cases and if they had a contact in the center
+    if args.diagnosticHeatmapFile:
+        num_plots = len(chrom_diagonals)
+        fig = plt.figure(figsize=(num_plots * 4, 20))
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-    for chrom_name, values in chrom_diagonals.iteritems():
-        fig = plt.figure(figsize=(4,20))
-        try:
-            heatmap = np.asarray(np.vstack(values))
-        except ValueError:
-            continue
-        order = np.argsort(heatmap[:,10])
-        heatmap = heatmap[order,:]
-        ax = fig.add_subplot(111)
-        heat_fig = ax.imshow(heatmap, aspect='auto',
-                             interpolation='nearest',
-                             cmap=cmap,
-                             origin='upper')
+        for idx, (chrom_name, values) in enumerate(chrom_diagonals.iteritems()):
+            idx += 1
+            ax = fig.add_subplot(1, num_plots, idx)
+            try:
+                heatmap = np.asarray(np.vstack(values))
+            except ValueError:
+                continue
+            # sort by the value at the center of the rows
+            order = np.argsort(heatmap[:, M_half])[::-1]
+            heatmap = heatmap[order,:]
+            heat_fig = ax.imshow(heatmap, aspect='auto',
+                                 interpolation='nearest',
+                                 cmap=cmap,
+                                 origin='upper')
+            ax.set_title(chrom_name)
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            fig.colorbar(heat_fig, cax=cax, orientation='vertical')
 
-        fig.colorbar(heat_fig)
-        file_name = args.outFileName.name + "_{}.png".format(chrom_name)
-        print 'Heatmap file saved under: {}'.format(file_name)
-        plt.savefig(file_name, dpi=100)
-        print heatmap.shape
+        file_name = args.diagnosticHeatmapFile.name
+        log.info('Heatmap file saved under: {}'.format(file_name))
+        plt.savefig(file_name, dpi=200)
 
 if __name__ == "__main__":
     args = parseArguments()
