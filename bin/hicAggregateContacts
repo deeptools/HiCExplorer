@@ -72,6 +72,12 @@ def parseArguments(args=None):
                         help='List of chromosomes to plot',
                         nargs='+')
 
+    parser.add_argument('--colorMap',
+                        help='Color map to use for the heatmap. Available '
+                        'values can be seen here: '
+                        'http://matplotlib.org/examples/color/colormaps_reference.html',
+                        default='RdYlBu_r')
+
     parser.add_argument('--plotType',
                         help='plot type',
                         choices=['2d', '3d'],
@@ -242,7 +248,7 @@ def main(args):
         log.info("Avg. at center values. median: {}, mean: {}".format(np.median(center_values), np.mean(center_values)))
 
     vmin, vmax = (args.vMin, args.vMax)
-    cmap = cm.get_cmap("RdYlBu_r")
+    cmap = cm.get_cmap(args.colorMap)
 
     log.debug("vmax: {}, vmin: {}".format(vmax, vmin))
     for idx, chrom in enumerate(chrom_list):
