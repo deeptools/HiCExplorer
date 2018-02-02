@@ -59,9 +59,9 @@ def parseArguments(args=None):
                         type=argparse.FileType('w'),
                         required=True)
     
-    parser.add_argument('--outFileNameMatrix',
-                        help='If this option is given, then the values underlying the final matrix will be saved to a'
-                        'tab-delimited table using the indicated name.'
+    parser.add_argument('--outFilePrefixMatrix',
+                        help='If this option is given, then the values underlying the final matrix will be saved to '
+                        'tab-delimited tables (one per chromosome) using the indicated prefix, for example TSS_to_TSS_chrX.tab'
                         type=argparse.FileType('w'),
                         required=False)
 
@@ -288,14 +288,15 @@ def main(args):
             ax.set_zticklabels([])
             if vmax is not None and vmax is not None:
                 ax.set_zlim(vmin, vmax)
-
+                
+        if args.outFilePrefixMatrix:
+            output_matrix_name=("".join((args.outFilePrefixMatrix.name, "_", chrom, ".tab")))
+            np.savetxt(output_matrix_name, chrom_matrix[chrom], '%0.5f', delimiter='\t')
+            
     cbar_x = plt.subplot(gs[-1])
     fig.colorbar(img, cax=cbar_x)
     plt.savefig(args.outFileName.name, dpi=100, transparent=True)
     plt.close()
-
-    if args.outFileNameMatrix:
-        np.savetxt(args.outFileNameMatrix.name, chrom_matrix[chrom], '%0.5f', delimiter='\t')
     
     # plot the diagonals
     # the diagonals plot is useful to see individual cases and if they had a contact in the center
