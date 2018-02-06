@@ -89,19 +89,19 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--samFiles', '-s',
-                        help='The two alignment sam files to process',
+                        help='The two PE alignment sam files to process',
                         metavar='two sam files',
                         nargs=2,
                         type=argparse.FileType('r'),
                         required=True)
 
     parser.add_argument('--outBam', '-b',
-                        help='Bam file to process. Optional parameter. '
-                        'An bam file containing all valid Hi-C reads can be created '
+                        help='Output bam file to process. Optional parameter. '
+                        'A bam file containing all valid Hi-C reads can be created '
                         'using this option. This bam file could be useful to inspect '
                         'the distribution of valid Hi-C reads pairs or for other '
-                        'downstream analysis, but is not used by any HiCExplorer tool. '
-                        'Computation will be significant longer if this option is set.',
+                        'downstream analyses, but is not used by any HiCExplorer tool. '
+                        'Computation will be significantly longer if this option is set.',
                         metavar='bam file',
                         type=argparse.FileType('w'),
                         required=False)
@@ -143,7 +143,7 @@ def parse_arguments(args=None):
     parser.add_argument('--maxLibraryInsertSize',
                         help='The maximum library insert size defines different cut offs based on the maximum expected '
                              'library size. *This is not the average fragment size* but the higher end of the '
-                             'the fragment size distribution (obtained using for example Fragment Analyzer) '
+                             'the fragment size distribution (obtained using for example a Fragment Analyzer or a Bioanalyzer) '
                              'which usually is between 800 to 1500 bp. If this value if not known use the default of '
                              '1000. The insert value is used to decide if two mates belong to the same fragment (by '
                              'checking if they are within this max insert size) and to decide if a mate is too far '
@@ -161,22 +161,26 @@ def parse_arguments(args=None):
                              'to discard reads that end/start with such sequence '
                              'and that are considered un-ligated fragments or '
                              '"dangling-ends". If not given, such statistics will '
-                             'not be available.')
+                             'not be available. Dangling-ends usually represent a significant proportion '
+                             'of Hi-C libraries and might lead to erronous Hi-C matrices if they are not discarded. '
+                             'This parameter must be taken into account.')
 
     parser.add_argument('--outFileName', '-o',
-                        help='Output file name for the Hi-C matrix',
+                        help='Output file name for the Hi-C matrix.',
                         metavar='FILENAME',
                         type=argparse.FileType('w'),
                         required=True)
 
     parser.add_argument('--QCfolder',
-                        help='Path of folder to save the quality control data for the matrix',
+                        help='Path of folder to save the quality control data for the matrix. The log files '
+                        'produced this way can be loaded into `hicQC` in order to compare the quality of multiple '
+                        'Hi-C libraries.',
                         metavar='FOLDER',
                         required=True)
 
     parser.add_argument('--region', '-r',
                         help='Region of the genome to limit the operation to. '
-                        'The format is chr:start-end. Also valid is just to '
+                        'The format is chr:start-end. It is also possible to just '
                         'specify a chromosome, for example --region chr10',
                         metavar="CHR:START-END",
                         required=False,
@@ -206,7 +210,7 @@ def parse_arguments(args=None):
                              'on top of the read, this may reduce the '
                              'reported quality of the read. Thus, this parameter '
                              'may be adusted if too many low quality '
-                             '(but otherwise perfectly valid Hi-C reads) are found.'
+                             '(but otherwise perfectly valid Hi-C reads) are found. '
                              'A good strategy is to make a test run (using the --doTestRun), '
                              'then checking the results to see if too many low quality '
                              'reads are present and then using the bam file generated to '
@@ -217,22 +221,22 @@ def parse_arguments(args=None):
                         type=int
                         )
     parser.add_argument('--threads',
-                        help='Number of threads. Using the python multiprocessing module.'
-                        ' One master process which is used to read the input file into the buffer and one process which is merging '
-                        'the output bam files of the processes into one output bam file. All other threads do the actual computation.'
-                        ' Minimum value for the \'--thread\' parameter is 2.'
+                        help='Number of threads. Using the python multiprocessing module. '
+                        'One master process which is used to read the input file into the buffer and one process which is merging '
+                        'the output bam files of the processes into one output bam file. All other threads do the actual computation. '
+                        'Minimum value for the \'--thread\' parameter is 2. '
                         'The usage of 8 threads is optimal if you have an HDD. A higher number of threads is only '
                         'useful if you have a fast SSD. Have in mind that the performance of hicBuildMatrix is influenced by '
-                        ' the number of threads, the speed of your hard drive and the inputBufferSize. To clearify: the peformance '
-                        'with a higher thread number is not negative influenced but not positiv too. With a slow HDD and a high number of'
-                        ' threads many threads will do nothing most of the time. ',
+                        'the number of threads, the speed of your hard drive and the inputBufferSize. To clearify: the peformance '
+                        'with a higher thread number is not negative influenced but not positiv too. With a slow HDD and a high number of '
+                        'threads many threads will do nothing most of the time. ',
                         required=False,
                         default=4,
                         type=int
                         )
     parser.add_argument('--inputBufferSize',
-                        help='Size of the input buffer of each thread. 400,000 read pairs per input file per thread is the default value.'
-                             ' Reduce value to decrease memory usage.',
+                        help='Size of the input buffer of each thread. 400,000 read pairs per input file per thread is the default value. '
+                             'Reduce this value to decrease memory usage.',
                         required=False,
                         default=400000,
                         type=int
@@ -240,9 +244,9 @@ def parse_arguments(args=None):
     parser.add_argument('--doTestRun',
                         help='A test run is useful to test the quality '
                              'of a Hi-C experiment quickly. It works by '
-                             'testing only 1,000.000 reads. This option '
+                             'testing only 1,000,000 reads. This option '
                              'is useful to get an idea of quality control '
-                             'values like inter-chromosomal interactins, '
+                             'values like inter-chromosomal interactions, '
                              'duplication rates etc.',
                         action='store_true'
                         )
