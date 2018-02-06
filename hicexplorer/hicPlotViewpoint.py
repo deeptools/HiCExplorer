@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import hicexplorer.HiCMatrix as hm
 from hicexplorer.utilities import toString
-
+from hicexplorer.utilities import remove_non_ascii
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -57,6 +57,11 @@ def relabelTicks(pTick):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+
+    if args.outFileName:
+        args.outFileName = remove_non_ascii(args.outFileName)
+    if args.interactionOutFileName:
+        args.interactionOutFileName = remove_non_ascii(args.interactionOutFileName)
 
     hic = hm.hiCMatrix(args.matrix)
     if args.chromosome:

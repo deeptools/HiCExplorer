@@ -6,6 +6,7 @@ from hicexplorer.utilities import writableFile
 from hicexplorer.utilities import toString, toBytes
 from hicexplorer.utilities import enlarge_bins
 from hicexplorer.utilities import change_chrom_names
+from hicexplorer.utilities import remove_non_ascii
 
 from hicexplorer._version import __version__
 import numpy as np
@@ -415,6 +416,9 @@ def getRegion(args, ma):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    if args.title:
+        args.title = remove_non_ascii(args.title)
+
     chrom = None
     start_pos1 = None
     chrom2 = None
