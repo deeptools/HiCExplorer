@@ -290,7 +290,7 @@ def main(args):
                 ax.set_zlim(vmin, vmax)
                 
         if args.outFilePrefixMatrix:
-            output_matrix_name=("".join((args.outFilePrefixMatrix.name, "_", chrom, ".tab")))
+            output_matrix_name="{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix.name, chrom=chrom)
             np.savetxt(output_matrix_name, chrom_matrix[chrom], '%0.5f', delimiter='\t')
             
     cbar_x = plt.subplot(gs[-1])
