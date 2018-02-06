@@ -7,12 +7,12 @@ def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description=('Adds Hi-C matrices of the same size. Format '
-                                                  'has to be hdf5 (.h5) or npz. In order to minimze the'
-                                                  'the loss of information, it is recommended to'
+                                                  'has to be hdf5 (.h5) or npz. In order to minimze the '
+                                                  'the loss of information, it is recommended to '
                                                   'to sum uncorrected matrices (before hicCorrectMatrix).'))
 
     parser.add_argument('--matrices', '-m',
-                        help='Space-delimited names of the matrices to add. The matrices must have the same shape/size.'
+                        help='Space-delimited names of the matrices to add. The matrices must have the same shape/size. '
                         'You can verify their size by using `hicInfo`.',
                         metavar='.h5 file format',
                         nargs='+',
