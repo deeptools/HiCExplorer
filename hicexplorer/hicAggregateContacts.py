@@ -1,4 +1,5 @@
-import argparse, sys
+import argparse
+import sys
 import numpy as np
 
 import matplotlib
@@ -13,8 +14,8 @@ log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description = 'Takes a list of positions '
-                                     'in the hic-matrix and makes a pooled image.')
+    parser = argparse.ArgumentParser(description='Takes a list of positions in the hic-matrix and '
+                                                 'makes a pooled image.')
 
     # define the arguments
     parser.add_argument('--matrix', '-m',
@@ -34,8 +35,8 @@ def parse_arguments(args=None):
 
     parser.add_argument('--range',
                         help='Range of contacts that will be considered for plotting the aggregate contacts '
-                            'in bp with the format low_range:high_range for example 1000000:20000000.'
-                            'The range should start at contacts larger than TAD size to reduce background interactions.',
+                             'in bp with the format low_range:high_range for example 1000000:20000000. The range '
+                             'should start at contacts larger than TAD size to reduce background interactions.',
                         required=True)
 
     parser.add_argument('--numberOfBins',
@@ -62,7 +63,7 @@ def parse_arguments(args=None):
                         help='File name to save the image. ',
                         type=argparse.FileType('w'),
                         required=True)
-    
+
     parser.add_argument('--outFilePrefixMatrix',
                         help='If this option is given, then the values underlying the final matrix will be '
                              'saved to tab-delimited tables (one per chromosome) using the indicated prefix, '
@@ -426,8 +427,11 @@ def main(args=None):
                                 extent=[-M_half, M_half + 1, -M_half, M_half + 1])
             else:
                 from mpl_toolkits.mplot3d import Axes3D
+                # Axes3D is required for proection='3d' to work
+                # but since is imported but not used, flake8 will complain
+                # thus I add this dummy variable to avoid the error
+                Axes3D(fig)
                 ax = plt.subplot(gs[cluster_number, idx], projection='3d')
-                #ax = Axes3D(fig)
                 ax.set_aspect('equal')
                 ax.margins(0)
                 X, Y = np.meshgrid(range(-M_half, M_half + 1),
@@ -444,15 +448,15 @@ def main(args=None):
             if args.outFilePrefixMatrix:
                 # save aggregate matrix values
                 if num_rows == 1:
-                    output_matrix_name="{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix.name, chrom=chrom)
+                    output_matrix_name = "{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix.name, chrom=chrom)
                 else:
-                    output_matrix_name="{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix,
-                                                                              chrom=chrom,id=cluster_number + 1)
+                    output_matrix_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix,
+                                                                                  chrom=chrom, id=cluster_number + 1)
                 np.savetxt(output_matrix_name, chrom_avg[chrom][cluster_number], '%0.5f', delimiter='\t')
 
             if args.outFilePrefixClusterContactPositions:
-                output_name="{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixClusterContactPositions,
-                                                                     chrom=chrom, id=cluster_number + 1)
+                output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixClusterContactPositions,
+                                                                       chrom=chrom, id=cluster_number + 1)
                 with open(output_name, 'w') as fh:
                     for cl_idx in cluster_indices:
                         start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
@@ -462,17 +466,17 @@ def main(args=None):
         fig.colorbar(img, cax=cbar_x, orientation='horizontal')
     plt.savefig(args.outFileName.name, dpi=100, transparent=True, bbox_inches='tight')
     plt.close()
-    
+
     # plot the diagonals
     # the diagonals plot is useful to see individual cases and if they had a contact in the center
     if args.diagnosticHeatmapFile:
         vmax_heat = vmax
         if vmax_heat is not None:
-            vmax_heat *=  5
+            vmax_heat *= 5
 
         vmin_heat = vmin
         if vmin_heat is not None:
-            vmin_heat *=  5
+            vmin_heat *= 5
 
         num_plots = len(chrom_diagonals)
         fig = plt.figure(figsize=(num_plots * 4, 20))
@@ -527,10 +531,9 @@ def main(args=None):
 
             summary_plot_ax.legend(ncol=1, frameon=False, markerscale=0.5)
 
-        cbar_x = plt.subplot(gs0[1,-1])
+        cbar_x = plt.subplot(gs0[1, -1])
         fig.colorbar(heat_fig, cax=cbar_x, orientation='vertical')
 
         file_name = args.diagnosticHeatmapFile.name
         log.info('Heatmap file saved under: {}'.format(file_name))
-        plt.savefig(file_name, dpi=200,  bbox_inches='tight')
-
+        plt.savefig(file_name, dpi=200, bbox_inches='tight')

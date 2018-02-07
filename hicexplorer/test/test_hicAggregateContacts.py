@@ -2,8 +2,6 @@ import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images
 import os.path
-import pytest
-import sys
 from tempfile import NamedTemporaryFile
 import hicexplorer.hicAggregateContacts
 
