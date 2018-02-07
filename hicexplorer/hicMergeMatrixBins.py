@@ -14,8 +14,15 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description='Merges bins from a Hi-C matrix. For example, '
-        'using a matrix containing 5bk bins, a matrix '
-        'of 50 kb bins can be derived. ')
+        'using a matrix containing 5kb bins, a matrix '
+        'of 50kb bins can be derived using --numBins 10. '
+        'From one type of downstream analysis to another, ' 
+        'different bin sizes must be used. For example to call TADs, '
+        'unmerged matrices are recommended while to display '
+        'Hi-C matrices, bins of approximately 2000bp usually '
+        'yield the best reprensentations with `hicPlotMatrix` for small regions, '
+        'and even larger bins (50kb) are recommended for whole chromosome '
+        'representations or for `hicPlotDistVsCounts`.')
 
     # define the arguments
     parser.add_argument('--matrix', '-m',
@@ -31,13 +38,13 @@ def parse_arguments(args=None):
 
     parser.add_argument('--runningWindow',
                         help='set to merge for using a running '
-                        'window of length --numBins',
+                        'window of length --numBins.',
                         action='store_true')
 
     parser.add_argument('--outFileName', '-o',
                         help='File name to save the resulting matrix. '
                         'The output is also a .h5 file. But don\'t add '
-                        'the suffix',
+                        'the suffix.',
                         required=True)
 
     parser.add_argument('--version', action='version',
