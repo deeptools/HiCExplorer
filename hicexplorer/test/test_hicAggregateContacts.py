@@ -33,3 +33,22 @@ def test_hicAggregateContacts():
 
     os.remove(outfile_aggregate_plots.name)
     os.remove(outfile_heatmaps.name)
+
+
+def test_hicAggregateContacts_3d():
+
+    outfile_aggregate_3d = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_3d', delete=False)
+
+    args = "--matrix {root}/Li_et_al_2015.cool --BED {root}/hicAggregateContacts/test_regions.bed " \
+           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 2 " \
+           "--plotType 3d " \
+           "--BED2 {root}/hicAggregateContacts/test_regions.bed".format(root=ROOT, out_agg=outfile_aggregate_3d.name)
+
+    test_image_agg_3d = ROOT + 'hicAggregateContacts/master_aggregate_3d.png'
+
+    hicexplorer.hicAggregateContacts.main(args.split())
+
+    res = compare_images(test_image_agg_3d, outfile_aggregate_3d.name, tolerance)
+    assert res is None, res
+
+    os.remove(outfile_aggregate_3d.name)
