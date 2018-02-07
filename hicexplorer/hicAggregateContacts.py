@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
-
 import argparse, sys
 import numpy as np
 
@@ -15,7 +12,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def parseArguments(args=None):
+def parse_arguments(args=None):
     parser = argparse.ArgumentParser(description = 'Takes a list of positions '
                                      'in the hic-matrix and makes a pooled image.')
 
@@ -134,7 +131,7 @@ def parseArguments(args=None):
                         type=float,
                         default=None)
 
-    return parser.parse_args(args)
+    return parser
 
 
 def read_bed_per_chrom(fh):
@@ -227,7 +224,9 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
     return clustered_dict
 
 
-def main(args):
+def main(args=None):
+    args = parse_arguments().parse_args(args)
+
     ma = hm.hiCMatrix(args.matrix)
     ma.maskBins(ma.nan_bins)
     ma.matrix.data[np.isnan(ma.matrix.data)] = 0
@@ -362,9 +361,9 @@ def main(args):
             cluster_ids[chrom] = [range(len(chrom_list[chrom]))]
 
     fig = plt.figure(figsize=(8 * num_cols, 5.5 * num_rows))
-    gs = gridspec.GridSpec(num_rows, num_cols + 1,
-                           width_ratios=[10] * len(chrom_matrix) + [0.6],
-                           height_ratios=[10] * num_rows)
+    gs = gridspec.GridSpec(num_rows + 1, num_cols,
+                           width_ratios=[10] * len(chrom_matrix),
+                           height_ratios=[10] * num_rows + [0.6])
 
     gs.update(wspace=0.01, hspace=0.2)
     chrom_avg = {}
@@ -427,7 +426,8 @@ def main(args):
                                 extent=[-M_half, M_half + 1, -M_half, M_half + 1])
             else:
                 from mpl_toolkits.mplot3d import Axes3D
-                ax = Axes3D(fig)
+                ax = plt.subplot(gs[cluster_number, idx], projection='3d')
+                #ax = Axes3D(fig)
                 ax.set_aspect('equal')
                 ax.margins(0)
                 X, Y = np.meshgrid(range(-M_half, M_half + 1),
@@ -458,9 +458,9 @@ def main(args):
                         start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
                         fh.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2))
 
-    cbar_x = plt.subplot(gs[1,-1])
-    fig.colorbar(img, cax=cbar_x)
-    plt.savefig(args.outFileName.name, dpi=100, transparent=True)
+        cbar_x = plt.subplot(gs[-1, idx])
+        fig.colorbar(img, cax=cbar_x, orientation='horizontal')
+    plt.savefig(args.outFileName.name, dpi=100, transparent=True, bbox_inches='tight')
     plt.close()
     
     # plot the diagonals
@@ -534,7 +534,3 @@ def main(args):
         log.info('Heatmap file saved under: {}'.format(file_name))
         plt.savefig(file_name, dpi=200,  bbox_inches='tight')
 
-
-if __name__ == "__main__":
-    args = parseArguments()
-    main(args)
