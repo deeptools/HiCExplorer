@@ -96,6 +96,12 @@ def parseArguments(args=None):
                              '>1000 submatrices per chromosome. In those cases, you might prefer --kmeans',
                         type=int)
 
+    parser.add_argument('--clusterOnDiagonal',
+                        help='Clustering is by default carried out on the whole submatrices. If this parameter '
+                             'is given, the clustering is only carried out based on the submatrix diagonal '
+                             '(representing values at the same distance to each other)',
+                        action='store_true')
+
     parser.add_argument('--chromosomes', '-C',
                         help='List of chromosomes to plot.',
                         nargs='+')
@@ -177,7 +183,10 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
                 submat_vectors.append(submatrix.reshape((1, shape[0] * shape[1])))
 
         matrix = np.vstack(submat_vectors)
-        assert matrix.shape == (len(submatrices_dict[chrom]), shape[0] * shape[1])
+        if use_diagonal:
+            assert matrix.shape == (len(submatrices_dict[chrom]), shape[0])
+        else:
+            assert matrix.shape == (len(submatrices_dict[chrom]), shape[0] * shape[1])
 
         if np.any(np.isnan(matrix)):
             # replace nans for 0 otherwise kmeans produces a weird behaviour
@@ -330,12 +339,12 @@ def main(args):
     num_rows = 1
 
     if args.kmeans is not None:
-        cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans')
+        cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', use_diagonal=args.clusterOnDiagonal)
         num_rows = args.kmeans
     elif args.hclust is not None:
         log.info("Performing hierarchical clustering."
                  "Please note that it might be very slow for large datasets.\n")
-        cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical')
+        cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical', use_diagonal=args.clusterOnDiagonal)
         num_rows = args.hclust
     else:
         # make a 'fake' clustering to generalize the plotting of the submatrices
@@ -424,7 +433,7 @@ def main(args):
                     ax.set_zlim(vmin, vmax)
 
             if args.outFilePrefixMatrix:
-                if num_rows = 1:
+                if num_rows == 1:
                     output_matrix_name="{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix.name, chrom=chrom)
                 else:
                     output_matrix_name="{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix.name,
@@ -450,51 +459,60 @@ def main(args):
         num_plots = len(chrom_diagonals)
         fig = plt.figure(figsize=(num_plots * 4, 20))
 
-        gs0 = gridspec.GridSpec(1, num_plots + 1, width_ratios=[10] * num_plots + [0.5])
-        gs0.update(wspace=0.1)
+        gs0 = gridspec.GridSpec(2, num_plots + 1, width_ratios=[10] * num_plots + [0.5], height_ratios=[1, 5],
+                                wspace=0.1, hspace=0.08)
 
         gs_list = []
         for idx, (chrom_name, values) in enumerate(chrom_diagonals.iteritems()):
+            try:
+                heatmap = np.asarray(np.vstack(values))
+            except ValueError:
+                continue
+
             # get size of each cluster for the given chrom
             clust_len = [(len(v)) for v in cluster_ids[chrom]]
+
+            # prepare layout
             gs_list.append(gridspec.GridSpecFromSubplotSpec(len(clust_len), 1,
-                                                            subplot_spec=gs0[idx],
+                                                            subplot_spec=gs0[1, idx],
                                                             height_ratios=clust_len,
                                                             hspace=0.01))
-            #gs_list[-1].update(hspace=0.2)
+            summary_plot_ax = plt.subplot(gs0[0, idx])
 
             for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
+                # sort by the value at the center of the rows
+                heatmap_to_plot = heatmap[cluster_indices, :]
+
+                order = np.argsort(heatmap_to_plot[:, M_half])[::-1]
+                heatmap_to_plot = heatmap_to_plot[order, :]
+
+                # add line to summary plot ax
+                y_values = heatmap_to_plot.mean(axis=0)
+                x_values = np.arange(len(y_values) - M_half)
+                summary_plot_ax.plot(x_values, y_values)
+
                 ax = plt.subplot(gs_list[-1][cluster_number, 0])
                 ax.set_yticks([])
                 if cluster_number == 0:
                     ax.set_title(chrom_name)
                 if num_rows > 1:
-                    ax.set_ylabel("cluter_{}".format(cluster_number + 1))
-                if cluster_number < num_rows:
+                    ax.set_ylabel("cluster_{}".format(cluster_number + 1))
+
+                if cluster_number < num_rows - 1:
                     ax.set_xticks([])
 
-                idx += 1
-                try:
-                    heatmap = np.asarray(np.vstack(values))
-                except ValueError:
-                    continue
-                # sort by the value at the center of the rows
-                order = np.argsort(heatmap[cluster_indices, M_half])[::-1]
-                heatmap = heatmap[order, :]
-                heat_fig = ax.imshow(heatmap, aspect='auto',
+                heat_fig = ax.imshow(heatmap_to_plot, aspect='auto',
                                      interpolation='nearest',
                                      cmap=cmap,
                                      origin='upper', vmax=vmax_heat, vmin=vmin_heat,
                                      extent=[-M_half, M_half + 1,
                                              0, len(order)])
 
-
-        cbar_x = plt.subplot(gs0[1])
+        cbar_x = plt.subplot(gs0[1,-1])
         fig.colorbar(heat_fig, cax=cbar_x, orientation='vertical')
 
         file_name = args.diagnosticHeatmapFile.name
         log.info('Heatmap file saved under: {}'.format(file_name))
-        plt.tight_layout()
         plt.savefig(file_name, dpi=200)
 
 
