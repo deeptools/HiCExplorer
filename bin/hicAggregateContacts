@@ -69,8 +69,15 @@ def parseArguments(args=None):
     parser.add_argument('--outFilePrefixMatrix',
                         help='If this option is given, then the values underlying the final matrix will be '
                              'saved to tab-delimited tables (one per chromosome) using the indicated prefix, '
-                             'for example TSS_to_TSS_chrX.tab',
-                        type=argparse.FileType('w'),
+                             'for example TSS_to_TSS_chrX.tab. If clustering is performed, then the values are '
+                             'saved including the cluster_id a in TSS_to_TSS_chrX_cluster_1.tab',
+                        required=False)
+
+    parser.add_argument('--outFilePrefixClusterContactPositions',
+                        help='If this option is given, then the position of the contacts is saved as (chrom1, start1, '
+                             'end1, chrom2, start2, end2) where chrom_n, start_n, end_n correspond to the pair of'
+                             'positions used to compute the submatrix. The data is saved per chromosome and per '
+                             'cluster separatedly (one file each)',
                         required=False)
 
     parser.add_argument('--diagnosticHeatmapFile',
@@ -265,6 +272,7 @@ def main(args):
     chrom_matrix = {}
     chrom_total = {}
     chrom_diagonals = {}
+    chrom_contact_position = {}
     seen = {}
 
     center_values = []
@@ -272,6 +280,7 @@ def main(args):
         chrom_matrix[chrom] = []
         chrom_total[chrom] = 1
         chrom_diagonals[chrom] = []
+        chrom_contact_position[chrom] = []
         seen[chrom] = set()
         over_1_5 = 0
         chrom_bin_range = ma.getChrBinRange(chrom)
@@ -328,10 +337,10 @@ def main(args):
                     chrom_matrix[chrom].append(mat_to_append)
                     chrom_diagonals[chrom].append(mat_to_append.diagonal())
                     center_values.append(ma.matrix[idx1, idx2])
+                    chrom_contact_position[chrom].append((start, end, start2, end2))
                     if ma.matrix[idx1, idx2] > 1.5:
-                        log.info("Enrichment at center for positions {}:{}-{}, {}:{}-{}".format(chrom, start, end,
-                                                                                                chrom, start2, end2))
                         over_1_5 += 1
+
         log.info("Number of matrices with ratio over 1.5 at center {} ({:.2f})".
                  format(over_1_5, float(over_1_5) / len(chrom_matrix)))
 
@@ -433,12 +442,21 @@ def main(args):
                     ax.set_zlim(vmin, vmax)
 
             if args.outFilePrefixMatrix:
+                # save aggregate matrix values
                 if num_rows == 1:
                     output_matrix_name="{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix.name, chrom=chrom)
                 else:
-                    output_matrix_name="{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix.name,
-                                                                              chrom=chrom,id=cluster_number )
+                    output_matrix_name="{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix,
+                                                                              chrom=chrom,id=cluster_number + 1)
                 np.savetxt(output_matrix_name, chrom_avg[chrom][cluster_number], '%0.5f', delimiter='\t')
+
+            if args.outFilePrefixClusterContactPositions:
+                output_name="{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixClusterContactPositions,
+                                                                     chrom=chrom, id=cluster_number + 1)
+                with open(output_name, 'w') as fh:
+                    for cl_idx in cluster_indices:
+                        start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
+                        fh.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2))
 
     cbar_x = plt.subplot(gs[1,-1])
     fig.colorbar(img, cax=cbar_x)
@@ -460,7 +478,7 @@ def main(args):
         fig = plt.figure(figsize=(num_plots * 4, 20))
 
         gs0 = gridspec.GridSpec(2, num_plots + 1, width_ratios=[10] * num_plots + [0.5], height_ratios=[1, 5],
-                                wspace=0.1, hspace=0.08)
+                                wspace=0.1, hspace=0.06)
 
         gs_list = []
         for idx, (chrom_name, values) in enumerate(chrom_diagonals.iteritems()):
@@ -476,8 +494,9 @@ def main(args):
             gs_list.append(gridspec.GridSpecFromSubplotSpec(len(clust_len), 1,
                                                             subplot_spec=gs0[1, idx],
                                                             height_ratios=clust_len,
-                                                            hspace=0.01))
+                                                            hspace=0.03))
             summary_plot_ax = plt.subplot(gs0[0, idx])
+            summary_plot_ax.set_title(chrom_name)
 
             for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
                 # sort by the value at the center of the rows
@@ -488,15 +507,13 @@ def main(args):
 
                 # add line to summary plot ax
                 y_values = heatmap_to_plot.mean(axis=0)
-                x_values = np.arange(len(y_values) - M_half)
-                summary_plot_ax.plot(x_values, y_values)
-
+                x_values = np.arange(len(y_values)) - M_half
+                cluster_label = "cluster_{}".format(cluster_number + 1)
+                summary_plot_ax.plot(x_values, y_values, label=cluster_label)
                 ax = plt.subplot(gs_list[-1][cluster_number, 0])
                 ax.set_yticks([])
-                if cluster_number == 0:
-                    ax.set_title(chrom_name)
                 if num_rows > 1:
-                    ax.set_ylabel("cluster_{}".format(cluster_number + 1))
+                    ax.set_ylabel(cluster_label)
 
                 if cluster_number < num_rows - 1:
                     ax.set_xticks([])
@@ -508,12 +525,14 @@ def main(args):
                                      extent=[-M_half, M_half + 1,
                                              0, len(order)])
 
+            summary_plot_ax.legend(ncol=1, frameon=False, markerscale=0.5)
+
         cbar_x = plt.subplot(gs0[1,-1])
         fig.colorbar(heat_fig, cax=cbar_x, orientation='vertical')
 
         file_name = args.diagnosticHeatmapFile.name
         log.info('Heatmap file saved under: {}'.format(file_name))
-        plt.savefig(file_name, dpi=200)
+        plt.savefig(file_name, dpi=200,  bbox_inches='tight')
 
 
 if __name__ == "__main__":
