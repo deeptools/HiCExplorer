@@ -35,6 +35,9 @@ Then, after revising the plot and deciding the threshold values:
     $ hicCorrectMatrix correct --matrix hic_matrix \\
          --filterThreshold <lower threshold> <upper threshold> -o corrected_matrix
 
+For a more in-depth review of how to determine the threshold values, please visit:
+http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html#correction-of-hi-c-matrix
+
 """
     )
 
@@ -73,7 +76,7 @@ Then, after revising the plot and deciding the threshold values:
               '--matrix hic_matrix.h5 '
               '-o file.png')
     plot_mode.add_argument('--matrix', '-m',
-                           help='Hi-C matrix.',
+                           help='Name of the Hi-C matrix to correct in .h5 format.',
                            required=True)
 
     plot_mode.add_argument('--plotName', '-o',
@@ -83,12 +86,12 @@ Then, after revising the plot and deciding the threshold values:
     plot_mode.add_argument('--chromosomes',
                            help='List of chromosomes to be included in the iterative '
                            'correction. The order of the given chromosomes will be then '
-                           'kept for the resulting corrected matrix',
+                           'kept for the resulting corrected matrix.',
                            default=None,
                            nargs='+')
 
     plot_mode.add_argument('--xMax',
-                           help='Max value for the x-axis in counts per bin',
+                           help='Max value for the x-axis in counts per bin.',
                            default=None,
                            type=float)
 
@@ -99,7 +102,7 @@ Then, after revising the plot and deciding the threshold values:
                            action='store_true')
 
     parser.add_argument('--verbose',
-                        help='Print processing status',
+                        help='Print processing status.',
                         action='store_true')
 
     return parser
@@ -109,11 +112,11 @@ def correct_subparser():
     # define the arguments
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--matrix', '-m',
-                        help='Hi-C matrix.',
+                        help='Name of the Hi-C matrix to correct in .h5 format.',
                         required=True)
 
     parser.add_argument('--iterNum', '-n',
-                        help='number of iterations',
+                        help='Number of iterations to compute.',
                         type=int,
                         metavar='INT',
                         default=500)
@@ -124,11 +127,12 @@ def correct_subparser():
                         required=True)
 
     parser.add_argument('--filterThreshold', '-t',
-                        help='Bins of low coverage or large coverage need to be removed. '
-                             'Usually they do not contain valid Hi-C data of represent '
-                             'regions that accumulate reads. Use hicCorrectMatrix diagnostic_plot '
+                        help='Removes bins of low or large coverage. '
+                             'Usually these bins do not contain valid Hi-C data or represent '
+                             'regions that accumulate reads and thus must be discarded. '
+                             'Use hicCorrectMatrix diagnostic_plot '
                              'to identify the modified z-value thresholds. A lower and upper '
-                             'threshold are required separated by space. Eg. --filterThreshold '
+                             'threshold are required separated by space, e.g. --filterThreshold '
                              '-1.5 5',
                         type=float,
                         nargs=2,
@@ -137,7 +141,7 @@ def correct_subparser():
     parser.add_argument('--inflationCutoff',
                         help='Value corresponding to the maximum number of times a bin '
                         'can be scaled up during the iterative correction. For example, '
-                        'a inflation Cutoff of 3 will filter out all bins that were '
+                        'an inflation cutoff of 3 will filter out all bins that were '
                         'expanded 3 times or more during the iterative correction.',
                         type=float)
 
@@ -167,7 +171,8 @@ def correct_subparser():
                         action='store_true')
 
     parser.add_argument('--perchr',
-                        help='Normalize each chromosome separately',
+                        help='Normalize each chromosome separately. This is useful for '
+                        'samples from cells with uneven number of chromosomes and/or translocations.',
                         action='store_true')
 
     parser.add_argument('--verbose',
