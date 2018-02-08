@@ -73,14 +73,16 @@ def parse_arguments(args=None):
     parser.add_argument('--range',
                         help='In bp with the format low_range:high_range, '
                         'for example 1000000:2000000. If --range is given '
-                        'only counts within the range are considered.')
+                        'only counts within this range are considered. '
+                        'The range should be adjusted to the size of interacting  '
+                        'domains in the genome you are working with.')
 
     parser.add_argument('--outFileNameHeatmap', '-oh',
-                        help='File name to save the resulting heatmap plot',
+                        help='File name to save the resulting heatmap plot.',
                         required=True)
 
     parser.add_argument('--outFileNameScatter', '-os',
-                        help='File name to save the resulting scatter plot',
+                        help='File name to save the resulting scatter plot.',
                         required=True)
 
     parser.add_argument('--chromosomes',
@@ -88,6 +90,7 @@ def parse_arguments(args=None):
                         'correlation.',
                         default=None,
                         nargs='+')
+
     parser.add_argument('--threads',
                         help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
                         ' One master process which is used to read the input file into the buffer and one process which is merging '
@@ -112,12 +115,12 @@ def heatmap_options():
     heatmap.add_argument('--zMin', '-min',
                          default=None,
                          help='Minimum value for the heat map intensities. '
-                              'If not specified the value is set automatically',
+                              'If not specified the value is set automatically.',
                          type=float)
     heatmap.add_argument('--zMax', '-max',
                          default=None,
                          help='Maximum value for the heat map intensities.'
-                              'If not specified the value is set automatically',
+                              'If not specified the value is set automatically.',
                          type=float)
 
     heatmap.add_argument(
