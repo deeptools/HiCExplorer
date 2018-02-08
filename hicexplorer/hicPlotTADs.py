@@ -200,12 +200,14 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         description='Plots the diagonal,  and some values close to '
         'the diagonal of a  Hi-C matrix. The diagonal of the matrix is '
-        'plotted horizontally for a region. I will not draw the diagonal '
-        'for the whole chromosome',
+        'plotted horizontally for a region. It will not draw the diagonal '
+        'for the whole chromosome.',
         usage="%(prog)s --tracks tracks.ini --region chr1:1000000-4000000 -o image.png")
 
     parser.add_argument('--tracks',
-                        help='File containing the instructions to plot the tracks ',
+                        help='File containing the instructions to plot the tracks. '
+                        'Check examples here for help to configure this .ini file: '
+                        'http://hicexplorer.readthedocs.io/en/latest/content/tools/hicPlotTADs.html',
                         type=argparse.FileType('r'),
                         required=True,
                         )
@@ -213,17 +215,22 @@ def parse_arguments(args=None):
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument('--region',
-                       help='Region to plot, the format is chr:start-end')
+                       help='Region to plot, the format is chr:start-end.')
 
     group.add_argument('--BED',
-                       help='Instead of a region, a file containing the regions to plot, in BED format, '
-                       'can be given. If this is the case, multiple files will be created using a prefix '
-                       'the value of --outFileName',
+                       help='Instead of a region, a  BED file containing the regions '
+                       'to plot can be given. If this is the case, multiple files '
+                       'will be created using as prefix the value of --outFileName',
                        type=argparse.FileType('r')
                        )
 
+    parser.add_argument('--outFileName', '-out',
+                        help='File name to save the image, file prefix in case multiple images '
+                             'are stored.',
+                        required=True)    
+    
     parser.add_argument('--width',
-                        help='figure width in centimeters',
+                        help='Figure width in centimeters.',
                         type=float,
                         default=DEFAULT_FIGURE_WIDTH)
 
@@ -235,44 +242,41 @@ def parse_arguments(args=None):
                         type=float)
 
     parser.add_argument('--title', '-t',
-                        help='Plot title',
+                        help='Plot title.',
                         required=False)
 
     parser.add_argument('--scoreName', '-s',
-                        help='Score name',
+                        help='Score name.',
                         required=False)
 
-    parser.add_argument('--outFileName', '-out',
-                        help='File name to save the image, file prefix in case multiple images '
-                             'are stored',
-                        required=True)
-
     parser.add_argument('--zMax',
-                        help='zMax',
+                        help='Maximum value of the interaction score.',
                         type=float,
                         default=None)
 
     parser.add_argument('--vlines',
-                        help='Genomic cooordindates separated by space. E.g. '
-                        '--vlines 150000 3000000 124838433 ',
+                        help='Displays vertical dotted lines at the indicated nucleotides. '
+                        'This parameter takes as input genomic cooordindates separated by space, '
+                        'for example: --vlines 150000 3000000 124838433 ',
                         type=int,
                         nargs='+'
                         )
 
     parser.add_argument('--fontSize',
-                        help='Font size for the labels of the plot',
+                        help='Font size for the labels of the plot.',
                         type=float,
                         )
 
     parser.add_argument('--dpi',
-                        help='Resolution for the image in case the'
-                             'ouput is a raster graphics image (e.g png, jpg)',
+                        help='Resolution for the image in case the '
+                             'ouput is a raster graphics image (e.g. png, jpg) instead '
+                             'of a vector graphics (e.g. pdf).',
                         type=int,
                         default=72
                         )
 
     parser.add_argument('--trackLabelFraction',
-                        help='By default the space dedicated to the track labels is 0.05 of the'
+                        help='By default the space dedicated to the track labels is 0.05 (5 %) of the '
                              'plot width. This fraction can be changed with this parameter if needed.',
                         default=0.05,
                         type=float)
