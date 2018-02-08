@@ -1024,3 +1024,31 @@ def change_chrom_names(chrom):
         chrom = 'chr' + chrom
 
     return chrom
+
+
+def opener(filename):
+    """
+    Determines if a file is compressed or not
+    """
+    import gzip
+    f = open(filename, 'rb')
+    # print("gzip or not?", f.read(2))
+
+    if f.read(2) == b'\x1f\x8b':
+        f.seek(0)
+        return gzip.GzipFile(fileobj=f)
+    else:
+        f.seek(0)
+        return f
+
+
+def check_chrom_str_bytes(pChrom, pInstanceToCompare):
+    """
+    Checks and changes pChroms to str or bytes depending on datatype
+    of pInstanceToCompare
+    """
+    if type(next(iter(pInstanceToCompare))) is str:
+        pChrom = toString(pChrom)
+    elif type(next(iter(pInstanceToCompare))) in [bytes, np.bytes_]:
+        pChrom = toBytes(pChrom)
+    return pChrom

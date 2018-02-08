@@ -528,7 +528,7 @@ class hiCMatrix:
             # chr_end_pos = chromosome_size[chrname]
             self.interval_trees[chrname]
         except KeyError:
-
+            
             log.exception("chromosome: {} name not found in matrix".format(chrname))
             log.exception("valid names are:")
             log.exception(self.interval_trees.keys())

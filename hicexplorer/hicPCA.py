@@ -14,7 +14,9 @@ from hicexplorer.utilities import exp_obs_matrix_lieberman
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.parserCommon import CustomFormatter
 from hicexplorer.utilities import toString
+from hicexplorer.utilities import opener, change_chrom_names, check_chrom_str_bytes
 
+from .readBed import ReadBed
 import logging
 log = logging.getLogger(__name__)
 
@@ -63,20 +65,72 @@ Computes PCA eigenvectors for the HiC matrix.
                         'correlation.',
                         default=None,
                         nargs='+')
+    parser.add_argument('--geneTrack',
+                        help='The gene track is needed to decide if the values of the eigenvector need a sign flip or not.',
+                        default=None)
 
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
     return parser
 
+def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
+    flipValues = 1
 
+    # correlate eigenvector with gene track
+    # if positive return flipValues = 1
+    # if negative return flipValues = -1
+
+    # read BED file
+    print(pGeneTrack)
+    file_h = opener(pGeneTrack)
+    bed = ReadBed(file_h)
+    count = 0
+    gene_occurence = np.zeros(len(pMatrix.cut_intervals))
+    print(pMatrix.cut_intervals)
+    print(len(gene_occurence))
+    
+    chr_list = pMatrix.getChrNames()
+    for interval in bed:
+        count += 1
+        chr_name = interval.chromosome
+        chr_name = check_chrom_str_bytes(chr_name, chr_list)
+        
+        if chr_name not in chr_list:
+            chr_name = change_chrom_names(interval.chromosome)
+            chr_name = check_chrom_str_bytes(chr_name, chr_list)
+            
+            if chr_name not in chr_list:
+                continue
+        try:
+            # print(interval)
+            
+            bin_id = pMatrix.getRegionBinRange(chr_name, interval.start, interval.end)
+           
+
+            print('chr: {} bin_id: {}'.format(chr_name, bin_id))
+            gene_occurence[bin_id[1]] += 1
+        except:
+            continue
+            log.info("Error in reading a line!")
+        # if count > 2:
+        #     break
+    # bring BED data to same layout as eigenvector... 
+    # how to do this??
+    # print(gene_occurence)
+    # print(sum(gene_occurence))
+    
+    # print(pMatrix.cut_intervals[:10])
+    # print(pMatrix.getRegionBinRange(b'X', 20701, 22321))
+
+    return flipValues
 def main(args=None):
     args = parse_arguments().parse_args(args)
-    if int(args.numberOfEigenvectors) != len(args.outputFileName):
-        log.error("Number of output file names and number of eigenvectors does not match. Please"
-                  "provide the name of each file.\nFiles: {}\nNumber of eigenvectors: {}".format(args.outputFileName,
-                                                                                                 args.numberOfEigenvectors))
-        exit(1)
+    # if int(args.numberOfEigenvectors) != len(args.outputFileName):
+    #     log.error("Number of output file names and number of eigenvectors does not match. Please"
+    #               "provide the name of each file.\nFiles: {}\nNumber of eigenvectors: {}".format(args.outputFileName,
+    #                                                                                              args.numberOfEigenvectors))
+    #     exit(1)
 
     ma = hm.hiCMatrix(args.matrix)
     ma.maskBins(ma.nan_bins)
@@ -120,6 +174,12 @@ def main(args=None):
         start_list += start
         end_list += end
 
+    # vecs_list = []
+    print(len(vecs_list))
+    if args.geneTrack:
+        sign_changes = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.geneTrack)
+        vecs_list *= sign_changes
+    exit()
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):
             assert(len(vecs_list) == len(chrom_list))

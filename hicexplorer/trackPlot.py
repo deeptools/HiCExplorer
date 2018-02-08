@@ -41,6 +41,8 @@ from intervaltree import IntervalTree, Interval
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
 from hicexplorer.utilities import toString, toBytes
+from hicexplorer.utilities import opener
+
 from hicexplorer.utilities import change_chrom_names
 
 
@@ -415,22 +417,6 @@ class PlotTracks(object):
         if start:
             log.info(time.time() - start)
         return time.time()
-
-
-def opener(filename):
-    """
-    Determines if a file is compressed or not
-    """
-    import gzip
-    f = open(filename, 'rb')
-    # print("gzip or not?", f.read(2))
-
-    if f.read(2) == b'\x1f\x8b':
-        f.seek(0)
-        return gzip.GzipFile(fileobj=f)
-    else:
-        f.seek(0)
-        return f
 
 
 def file_to_intervaltree(file_name):
