@@ -1,17 +1,23 @@
-import sys
+from __future__ import division
 import argparse
+from past.builtins import zip
 from scipy.sparse import lil_matrix
-import logging
+
 
 from hicexplorer.iterativeCorrection import iterativeCorrection
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
+from hicexplorer.utilities import toString
+from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 import numpy as np
 debug = 0
-logging.basicConfig()
-log = logging.getLogger("hicCorrectMatrix")
-log.setLevel(logging.WARN)
+
+import logging
+log = logging.getLogger(__name__)
+
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
 
 
 def parse_arguments(args=None):
@@ -204,7 +210,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
                      Otherwise, these cases are skipped
 
     """
-    log.info("starting fill gaps")
+    log.debug("starting fill gaps")
     mat_size = hic_ma.matrix.shape[0]
     fill_ma = hic_ma.matrix.copy().tolil()
     if fill_contiguous is True:
@@ -225,7 +231,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
         discontinuous_failed = [x for idx, x in enumerate(failed_bins)
                                 if idx not in consecutive_failed_idx]
 
-    sys.stderr.write("Filling {} failed bins\n".format(
+    log.debug("Filling {} failed bins\n".format(
         len(discontinuous_failed)))
 
     """
@@ -233,7 +239,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
         if 0 < missing_bin < mat_size - 1:
             for idx in range(1, mat_size - 2):
                 if idx % 100 == 0:
-                    sys.stderr.write(".")
+                    log.info(".")
                 # the new row value is the mean between the upper
                 # and lower bins corresponding to the same diagonal
                 fill_ma[missing_bin, idx :] = \
@@ -332,8 +338,17 @@ class MAD(object):
         return the mad value for a given value
         based on the data
         """
-
+        log.debug("self.median: {}".format(self.median))
         diff = value - self.median
+        log.debug("diff: {}".format(diff))
+        log.debug("self.med_abs_deviation: {}".format(self.med_abs_deviation))
+        log.debug("self.mad_b_value: {}".format(self.mad_b_value))
+        log.debug("all together: {}".format(self.mad_b_value * diff / self.med_abs_deviation))
+        # workaround for 'Axis limits cannot be NaN or Inf' bug in version 2.1.1
+        # prevent dividing by 0!!!
+        if self.med_abs_deviation == 0.0:
+            return self.mad_b_value * diff
+
         return self.mad_b_value * diff / self.med_abs_deviation
 
     def mad_to_value(self, mad):
@@ -390,6 +405,12 @@ def plot_total_contact_dist(hic_ma, args):
         # update second axis values by mapping the min max
         # of the main axis to the translated values
         # into modified z score.
+
+        # workaround for 'Axis limits cannot be NaN or Inf' bug in version 2.1.1
+        log.debug("ax1.get_xlim(): {}".format(ax1.get_xlim()))
+        log.debug("np.array(ax1.get_xlim()): {}".format(np.array(ax1.get_xlim())))
+        log.debug("mad_values.value_to_mad(np.array(ax1.get_xlim())): {}".format(mad_values.value_to_mad(np.array(ax1.get_xlim()))))
+
         ax2.set_xlim(mad_values.value_to_mad(np.array(ax1.get_xlim())))
 
         # get first local mininum value
@@ -406,19 +427,21 @@ def plot_total_contact_dist(hic_ma, args):
             ymin, ymax = ax2.get_ylim()
             ax2.vlines(mad_threshold, ymin, ymax)
             if title:
-                print "{}: mad threshold {}".format(title, mad_threshold)
+                log.info("{}: mad threshold {}".format(title, mad_threshold))
             else:
-                print "mad threshold {}".format(mad_threshold)
+                log.info("mad threshold {}".format(mad_threshold))
 
     # replace nan by 0
-    hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
+    # hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
+    hic_ma.matrix = convertNansToZeros(hic_ma.matrix)
+    hic_ma.matrix = convertInfsToZeros(hic_ma.matrix)
 
     if args.perchr:
         chroms = hic_ma.getChrNames()
         if len(chroms) > 30:
-            sys.stderr.write("The matrix contains {} chromosomes. It is not practical to plot "
-                             "each. Try using --chromosomes to select some chromosomes or "
-                             "plot a single histogram.")
+            log.warning("The matrix contains {} chromosomes. It is not practical to plot "
+                        "each. Try using --chromosomes to select some chromosomes or "
+                        "plot a single histogram.")
         num_rows = int(np.ceil(float(len(chroms)) / 5))
         num_cols = min(len(chroms), 5)
         grids = gridspec.GridSpec(num_rows, num_cols)
@@ -469,7 +492,7 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
     """
     to_remove = []
     if perchr:
-        for chrname in hic_ma.interval_trees.keys():
+        for chrname in list(hic_ma.interval_trees):
             chr_range = hic_ma.getChrBinRange(chrname)
             chr_submatrix = hic_ma.matrix[chr_range[0]:chr_range[1],
                                           chr_range[0]:chr_range[1]]
@@ -505,26 +528,31 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
     return sorted(to_remove)
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=None):
+    args = parse_arguments().parse_args(args)
     if args.verbose:
         log.setLevel(logging.INFO)
 
-    ma = hm.hiCMatrix(args.matrix)
+    # args.chromosomes
+    if args.matrix.endswith('.cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
+        ma = hm.hiCMatrix(args.matrix, chrnameList=toString(args.chromosomes))
+    else:
+        ma = hm.hiCMatrix(args.matrix)
 
-    if args.chromosomes:
-        ma.reorderChromosomes(args.chromosomes)
+        if args.chromosomes:
+            ma.reorderChromosomes(toString(args.chromosomes))
 
     # mask all zero value bins
     row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
     log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
     ma.maskBins(np.flatnonzero(row_sum == 0))
     matrix_shape = ma.matrix.shape
-
+    ma.matrix = convertNansToZeros(ma.matrix)
+    ma.matrix = convertInfsToZeros(ma.matrix)
     if 'plotName' in args:
         plot_total_contact_dist(ma, args)
-        sys.stderr.write("Saving diagnostic plot {}\n".format(args.plotName))
-        exit()
+        log.info("Saving diagnostic plot {}\n".format(args.plotName))
+        return
 
     log.info("matrix contains {} data points. Sparsity {:.3f}.".format(
         len(ma.matrix.data),
@@ -558,7 +586,7 @@ def main():
         total_filtered_out = set(failed_bins)
         """
         ma.matrix, to_remove = fill_gaps(ma, failed_bins)
-        sys.stderr.write("From {} failed bins, {} could "
+        log.warning("From {} failed bins, {} could "
                          "not be filled\n".format(len(failed_bins),
                                                   len(to_remove)))
         ma.maskBins(to_remove)
@@ -574,7 +602,7 @@ def main():
     if args.perchr:
         corrected_matrix = lil_matrix(ma.matrix.shape)
         # normalize each chromosome independently
-        for chrname in ma.interval_trees.keys():
+        for chrname in list(ma.interval_trees):
             chr_range = ma.getChrBinRange(chrname)
             chr_submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
             _matrix, _corr_factors = iterative_correction(chr_submatrix, args)

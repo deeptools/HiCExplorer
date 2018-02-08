@@ -55,7 +55,7 @@ def get_version():
 class sdist(_sdist):
 
     def run(self):
-        update_version_py()
+        # update_version_py()
         self.distribution.metadata.version = get_version()
         return _sdist.run(self)
 
@@ -65,7 +65,7 @@ class sdist(_sdist):
 class install(_install):
 
     def run(self):
-        update_version_py()
+        # update_version_py()
         self.distribution.metadata.version = get_version()
         _install.run(self)
         return
@@ -93,6 +93,24 @@ class install(_install):
             sys.stderr.write("Error: {}".format(e))
 
 
+install_requires_py = ["numpy >= 1.12.1",
+                       "scipy >= 0.19.0",
+                       "matplotlib == 2.1.1",
+                       "pysam >= 0.11.2.2",
+                       "intervaltree >= 2.1.0",
+                       "biopython >= 1.68",
+                       "tables >= 3.3.0",
+                       "pandas >= 0.20.2",
+                       "pyBigWig >= 0.3.4",
+                       "six >= 1.10.0",
+                       "future >= 0.16.0",
+                       "cooler >= 0.7.6",
+                       "jinja2 >= 2.9.6"
+                       ]
+
+if sys.version_info[0] == 2:
+    install_requires_py.append("configparser >= 3.5.0")
+
 setup(
     name='HiCExplorer',
     version=get_version(),
@@ -103,7 +121,8 @@ setup(
              'bin/hicCorrelate', 'bin/hicFindEnrichedContacts', 'bin/hicFindTADs',
              'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport', 'bin/hicInfo', 'bin/hicexplorer',
-             'bin/hicQC', 'bin/hicCompareMatrices'],
+             'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
+             'bin/hicLog2Ratio'],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
     package_data={'hicexplorer': ['qc_template.html']},
@@ -114,18 +133,7 @@ setup(
     classifiers=[
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Bio-Informatics'],
-    install_requires=[
-        "numpy >= 1.12.1",
-        "scipy >= 0.19.0",
-        "matplotlib >= 2.0.0",
-        "pysam >= 0.11.2",
-        "intervaltree >= 2.1.0",
-        "biopython >= 1.68",
-        "tables >= 3.3.0",
-        "pandas >= 0.20.2",
-        "pyBigWig >=0.3.4",
-        "six >= 1.10.0",
-        "jinja2 >= 2.9.6"],
+    install_requires=install_requires_py,
     zip_safe=False,
     cmdclass={'sdist': sdist, 'install': install}
 )

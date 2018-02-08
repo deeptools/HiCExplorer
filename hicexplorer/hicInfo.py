@@ -1,6 +1,11 @@
+from __future__ import division
 import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
+from hicexplorer.utilities import toString
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
@@ -47,15 +52,15 @@ def main():
         min_non_zero = hic_ma.matrix.data.min()
         max_non_zero = hic_ma.matrix.data.max()
         if not matrix.endswith("lieberman"):
-            chromosomes = hic_ma.chrBinBoundaries.keys()
+            log.debug("lieberman matrix")
+            chromosomes = list(hic_ma.chrBinBoundaries)
 
         print("File:\t{}".format(matrix))
         print("Size:\t{:,}".format(size))
         print("Sum:\t{:,}".format(sum_elements))
         print("Bin_length:\t{}".format(bin_length))
-        print("Chromosomes:\t{}".format(", ".join(chromosomes)))
+        print("Chromosomes:\t{}".format(", ".join(toString(chromosomes))))
         print("Non-zero elements:\t{:,}".format(num_non_zero))
         print("Minimum (non zero):\t{}".format(min_non_zero))
         print("Maximum:\t{}".format(max_non_zero))
         print("NaN bins:\t{}".format(num_nan_bins))
-        print("")

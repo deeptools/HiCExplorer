@@ -49,7 +49,7 @@ def main(args=None):
         sum_inter += hicma.matrix[prev_start:start_bin, start_bin:end_bin].sum()
         sum_tads += hicma.matrix[start_bin:end_bin, start_bin:end_bin].sum()
 
-    print "sum tads\t{}\nsum inter\t{}\nratio inter/tads\t{:.3f}".format(sum_tads, sum_inter, sum_inter / sum_tads)
+    print("sum tads\t{}\nsum inter\t{}\nratio inter/tads\t{:.3f}".format(sum_tads, sum_inter, sum_inter / sum_tads))
 
 
 if __name__ == "__main__":

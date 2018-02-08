@@ -1,9 +1,11 @@
 from __future__ import division
-import sys
 import argparse
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 import numpy as np
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
@@ -24,11 +26,14 @@ def parse_arguments(args=None):
 
     parser.add_argument('--inputFormat',
                         help='file format for the matrix file. \n'
-                             'The following options are available: `hicexplorer` (native HiCExplorer format, '
+                             'The following options are available: `hicexplorer` or `h5` (native HiCExplorer '
+                             'format based on hdf5 storage format), '
                              '`npz` (format used by earlier versions of HiCExplorer), '
                              '`dekker` (matrix format used in Job Dekker publications), '
-                             'and `lieberman` (format used by Erez Lieberman Aiden). This last formats may change '
+                             '`lieberman` (format used by Erez Lieberman Aiden) and '
+                             ' `cool`. This last formats may change '
                              'in the future.',
+                        choices=['dekker', 'ren', 'lieberman', 'h5', 'npz', 'GInteractions', 'cool', 'hicexplorer'],
                         default='hicexplorer')
 
     parser.add_argument('--chrNameList',
@@ -44,7 +49,7 @@ def parse_arguments(args=None):
 
     parser.add_argument('--chromosomeOrder',
                         help='Chromosomes and order in which the chromosomes should be saved. If not all chromosomes '
-                             'are given, those chromosomes are left out. For example, --chromosomeOrder chrX will '
+                             'are given, the missing chromosomes are left out. For example, --chromosomeOrder chrX will '
                              'export a matrix only containing chromosome X',
                         nargs='+')
 
@@ -60,8 +65,9 @@ def parse_arguments(args=None):
                         default=None)
 
     parser.add_argument('--outputFormat',
-                        help='Output format. The possibilities are "dekker",  "ren", "hicexplorer, '
-                             'npz (former hicexplorer format) and "GInteractoins". '
+                        help='Output format. The possibilities are "hicexplorer" or "h5" (native HiCExplorer format), '
+                             '"dekker",  "ren",  '
+                             'npz (former hicexplorer format), "GInteractoins" and "cool". '
                              'The dekker format outputs the whole matrix where the '
                              'first column and first row are the bin widths and labels. '
                              'The "ren" format is a list of tuples of the form '
@@ -74,7 +80,7 @@ def parse_arguments(args=None):
                              'The GInteractions format is in the form : Bin1, Bin2 , Interaction,'
                              'where Bin1 and Bin2 are intervals (chr,start,end), seperated by tab.',
                         default='dekker',
-                        choices=['dekker', 'ren', 'lieberman', 'hicexplorer', 'npz', 'GInteractions'])
+                        choices=['dekker', 'ren', 'lieberman', 'h5', 'npz', 'GInteractions', 'cool', 'hicexplorer'])
 
     parser.add_argument('--clearMaskedBins',
                         help='if set, masked bins are removed from the matrix. Masked bins '
@@ -114,7 +120,7 @@ def combine_matrices(matrix_list, bplimit=None):
 
         # trim matrix if bplimit given
         if bplimit is not None:
-            limit = int(bplimit / hic.getBinSize())
+            limit = bplimit // hic.getBinSize()
             matrix = (triu(hic.matrix, k=-limit) - triu(hic.matrix, k=limit)).tocoo()
         else:
             matrix = hic.matrix.tocoo()
@@ -152,20 +158,22 @@ def combine_matrices(matrix_list, bplimit=None):
     return final_mat, new_cut_intervals, new_nan_bins, new_correction_factors, new_distance_counts
 
 
-def main():
-    args = parse_arguments().parse_args()
-
+def main(args=None):
+    log.debug(args)
+    args = parse_arguments().parse_args(args)
+    are_chrom_reordered = False
     # create hiC matrix with given input format
     # additional file needed for lieberman format
     if args.inputFormat == 'lieberman':
         if args.chrNameList is None:
-            exit("Error: --chrNameList is required when the input format is lieberman. ")
+            log.error("Error: --chrNameList is required when the input format is lieberman.")
+            exit()
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile, file_format='lieberman', chrnameList=args.chrNameList)
 
-    elif args.inputFormat == 'npz' and len(args.inFile) > 1:  # assume hicexplorer_multi format
+    elif args.inputFormat in ['npz', 'hicexplorer', 'h5'] and len(args.inFile) > 1:  # assume hicexplorer_multi format
         if args.bplimit:
-            sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
+            log.info("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
         matrix, cut_intervals, nan_bins, corrections_factors, distance_counts = \
             combine_matrices(args.inFile, bplimit=args.bplimit)
@@ -180,32 +188,53 @@ def main():
             hic_ma.distance_counts = distance_counts
 
     else:
-        hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
+        if args.inputFormat == 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) == 1:
+            # We have to use == 1 because we can only use the benefits of the cooler format to load the matrix partial
+            # if we load one chromosome. More are so far not possible.
+            hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
+            are_chrom_reordered = True
+        else:
+            hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
+
         if args.bplimit:
             from scipy.sparse import triu
-            sys.stderr.write("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
+            log.info("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
-            limit = int(args.bplimit / hic_ma.getBinSize())
+            limit = args.bplimit // hic_ma.getBinSize()
             hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
             hic_ma.matrix.eliminate_zeros()
 
-    if args.chromosomeOrder:
+    if args.chromosomeOrder and are_chrom_reordered is False:
         hic_ma.keepOnlyTheseChr(args.chromosomeOrder)
 
     if args.clearMaskedBins:
         hic_ma.maskBins(hic_ma.nan_bins)
 
-    sys.stderr.write('saving...\n')
+    if not args.outFileName.endswith(args.outputFormat):
+        args.outFileName += "."
+        args.outFileName += args.outputFormat
 
     if args.outputFormat == 'dekker':
+        log.info('saving as dekker...')
         hic_ma.save_dekker(args.outFileName)
     elif args.outputFormat == 'ren':
+        log.info('saving as ren...')
         hic_ma.save_bing_ren(args.outFileName)
     elif args.outputFormat == 'lieberman':
+        log.info('saving as lieberman...')
         hic_ma.save_lieberman(args.outFileName)
     elif args.outputFormat == 'npz':
+        log.info('saving as npz...')
         hic_ma.save_npz(args.outFileName)
     elif args.outputFormat == 'GInteractions':
+        log.info('saving as GInteractions...')
         hic_ma.save_GInteractions(args.outFileName)
-    else:
+    elif args.outputFormat == 'cool':
+        log.info('saving as cool...')
+        hic_ma.save_cooler(args.outFileName)
+    elif args.outputFormat == 'h5':
+        log.info('saving as h5...')
         hic_ma.save(args.outFileName)
+    else:
+        log.error("An error occurred. hicExport aborted!")
+        exit()

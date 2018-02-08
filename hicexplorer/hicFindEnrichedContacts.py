@@ -4,6 +4,9 @@ from hicexplorer import HiCMatrix
 import hicexplorer.parserCommon
 from hicexplorer._version import __version__
 
+import logging
+log = logging.getLogger(__name__)
+
 
 def parse_arguments(args=None):
     """
@@ -52,6 +55,7 @@ def parse_arguments(args=None):
 
 
 def main(args=None):
+    log.debug(args)
     args = parse_arguments().parse_args(args)
 
     hic_ma = HiCMatrix.hiCMatrix(args.matrix)

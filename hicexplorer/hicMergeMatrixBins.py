@@ -1,12 +1,15 @@
-import sys
+from __future__ import division
 import argparse
 import numpy as np
+from past.builtins import zip
+from builtins import range
+
+import logging
+log = logging.getLogger(__name__)
 
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
 from hicexplorer._version import __version__
-
-debug = 0
 
 
 def parse_arguments(args=None):
@@ -24,7 +27,6 @@ def parse_arguments(args=None):
         'and even larger bins (50kb) are recommended for whole chromosome '
         'representations or for `hicPlotDistVsCounts`.')
 
-    # define the arguments
     parser.add_argument('--matrix', '-m',
                         help='Matrix to reduce.',
                         metavar='.h5 fileformat',
@@ -68,9 +70,9 @@ def remove_nans_if_needed(hic):
         hic.orig_cut_intervals = []
         hic.correction_factors = None
 
-        sys.stderr.write("*WARNING*: The matrix is probably a corrected matrix that contains NaN bins. This bins "
-                         "can not be merged and are removed. It is preferable to first merge bins in a uncorrected  "
-                         "matrix and then correct the matrix. Correction factors, if present, are removed as well.\n")
+        log.warning("*WARNING*: The matrix is probably a corrected matrix that contains NaN bins. This bins "
+                    "can not be merged and are removed. It is preferable to first merge bins in a uncorrected  "
+                    "matrix and then correct the matrix. Correction factors, if present, are removed as well.")
 
     return hic
 
@@ -81,13 +83,11 @@ def running_window_merge(hic_matrix, num_bins):
     defined by the num_bins that are merged. Num bins
     had to be an odd number such that equal amounts of left and
     right bins can be merged.
-
        a | b | c
        ---------
        d | e | f
        ---------
        g | h | i
-
     In this matrix, using a merge of num_bins 3,
     the merge is done as follows, a = a + b + d + e,
     e = a + b + c + d + e + f etc,
@@ -106,9 +106,9 @@ def running_window_merge(hic_matrix, num_bins):
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals[:2])
     >>> merge_matrix = running_window_merge(hic, 3)
-    >>> merge_matrix.matrix.todense()
-    matrix([[3, 3],
-            [3, 3]])
+    >>> print(merge_matrix.matrix.todense())
+    [[3 3]
+     [3 3]]
 
     >>> matrix = np.array([
     ... [ 1, 1, 1, 1 ],
@@ -120,11 +120,11 @@ def running_window_merge(hic_matrix, num_bins):
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals)
     >>> merge_matrix = running_window_merge(hic, 3)
-    >>> merge_matrix.matrix.todense()
-    matrix([[3, 5, 6, 4],
-            [5, 6, 8, 6],
-            [6, 8, 6, 5],
-            [4, 6, 5, 3]])
+    >>> print(merge_matrix.matrix.todense())
+    [[3 5 6 4]
+     [5 6 8 6]
+     [6 8 6 5]
+     [4 6 5 3]]
     """
 
     hic_matrix = remove_nans_if_needed(hic_matrix)
@@ -206,7 +206,7 @@ def merge_bins(hic, num_bins):
     ... [  0, 60, 15,  5,   1],
     ... [  0,  0, 80,  7,   3],
     ... [  0,  0,  0, 90,   1],
-    ... [  0,  0,  0,  0, 100]])
+    ... [  0,  0,  0,  0, 100]], dtype=np.int32)
 
     make the matrix symmetric:
     >>> from scipy.sparse import dia_matrix
@@ -222,7 +222,7 @@ def merge_bins(hic, num_bins):
     >>> merge_matrix.matrix.todense()
     matrix([[120,  28,   1],
             [ 28, 177,   4],
-            [  1,   4, 100]])
+            [  1,   4, 100]], dtype=int32)
     """
 
     hic = remove_nans_if_needed(hic)
@@ -239,11 +239,11 @@ def merge_bins(hic, num_bins):
     for idx, ref in enumerate(ref_name_list):
         if (count > 0 and count % num_bins == 0) or ref != prev_ref:
             if count < num_bins / 2:
-                sys.stderr.write("{} has few bins ({}). Skipping it\n".format(prev_ref, count))
+                log.debug("{} has few bins ({}). Skipping it\n".format(prev_ref, count))
             else:
                 coverage = np.mean(coverage_list[idx_start:idx])
                 new_bins.append((ref_name_list[idx_start], new_start, end_list[idx - 1], coverage))
-                bins_to_merge.append(range(idx_start, idx))
+                bins_to_merge.append(list(range(idx_start, idx)))
             idx_start = idx
             new_start = start_list[idx]
             count = 0
@@ -252,19 +252,19 @@ def merge_bins(hic, num_bins):
         count += 1
     coverage = np.mean(coverage_list[idx_start:])
     new_bins.append((ref, new_start, end_list[idx], coverage))
-    bins_to_merge.append(range(idx_start, idx + 1))
+    bins_to_merge.append(list(range(idx_start, idx + 1)))
 
     hic.matrix = reduce_matrix(hic.matrix, bins_to_merge, diagonal=True)
     hic.matrix.eliminate_zeros()
-    hic.cut_intervals = new_bins
+    hic.setCutIntervals(new_bins)
     hic.nan_bins = np.flatnonzero(hic.matrix.sum(0).A == 0)
 
     return hic
 
 
-def main():
+def main(args=None):
 
-    args = parse_arguments().parse_args()
+    args = parse_arguments().parse_args(args)
     hic = hm.hiCMatrix(args.matrix)
 
     if args.runningWindow:
