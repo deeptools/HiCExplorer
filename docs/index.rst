@@ -45,7 +45,7 @@ Getting Help
 
 * For general questions, please use Biostars with Tag `hicexplorer` : `Biostars <https://www.biostars.org/t/hicexplorer/>`_
 * For specific questions and feature requests, use the `deepTools mailing list <https://groups.google.com/forum/#!forum/deeptools>`_
-* For suggesting changes/enhancements and to report bugs, please create an issue on `our GitHub repository <https://github.com/maxplanck-ie/HiCExplorer>`_
+* For suggesting changes/enhancements and to report bugs, please create an issue on `our GitHub repository <https://github.com/deeptools/HiCExplorer>`_
 
 
 Contents:
