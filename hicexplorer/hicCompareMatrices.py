@@ -7,13 +7,13 @@ from hicexplorer._version import __version__
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description=('Takes two matrices, normalizes them and applies'
+                                     description=('Takes two matrices as input, normalizes them and applies'
                                                   'the given operation. To normalize the matrices '
-                                                  'each element is divided by sum of the matrix.'))
+                                                  'each element is divided by the sum of the matrix.'))
 
     parser.add_argument('--matrices', '-m',
-                        help='matrices to use.',
-                        metavar='.h5 file format',
+                        help='Name of the matrices in .h5 format to use, separated by a space.',
+                        metavar='matrix.h5',
                         nargs=2,
                         required=True)
 
@@ -23,8 +23,10 @@ def parse_arguments(args=None):
                         required=True)
 
     parser.add_argument('--operation',
-                        help='Operation to apply for the matrices. Options are: diff, ratio, log2ratio',
-                        required=True)
+                        help='Operation to apply to the matrices. Options are diff, ratio, log2ratio '
+                        'default is log2ratio.',
+                        choices=['diff', 'ratio', 'log2ratio'],
+                        default='log2ratio')
 
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
