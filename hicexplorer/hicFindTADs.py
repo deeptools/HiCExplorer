@@ -604,7 +604,10 @@ class HicFindTads(object):
 
         # compute local minima for the matrix average
         _max, _min = HicFindTads.peakdetect(tad_score_matrix_avg, lookahead=lookahead, chrom=chrom)
-        min_idx, value = zip(*_min)
+        if _min:
+            min_idx, value = zip(*_min)
+        else:
+            min_idx, value = [], []
 
         # get the delta for each boundary
         delta_to_mean = HicFindTads.delta_wrt_window(min_idx, tad_score_matrix_avg, chrom)
