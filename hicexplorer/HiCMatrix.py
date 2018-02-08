@@ -494,6 +494,12 @@ class hiCMatrix:
         Given a chromosome name,
         This functions return the start and end bin indices in the matrix
         """
+        # chrName = check_chrom_str_bytes(self.chrBinBoundaries, chrName)
+        # if type(next(iter(self.chrBinBoundaries))) != type(chrName):
+        #     if type(next(iter(self.chrBinBoundaries))) is str:
+        #         chrName = toString(chrName)
+        #     elif type(next(iter(self.chrBinBoundaries))) in [bytes, np.bytes_]:
+        #         chrName = toBytes(chrName)
         return self.chrBinBoundaries[chrName]
 
     def getChrNames(self):
@@ -518,6 +524,8 @@ class hiCMatrix:
 
         try:
             # chromosome_size = hic_matrix.get_chromosome_sizes()
+            # chrname = check_chrom_str_bytes(self.interval_trees, chrname)
+            
             if type(next(iter(self.interval_trees))) != type(chrname):
                 if type(next(iter(self.interval_trees))) is str:
                     chrname = toString(chrname)
@@ -1928,16 +1936,60 @@ class hiCMatrix:
         return cut_int_tree, chrbin_boundaries
 
 
+# def toString(s):
+#     """
+#     This takes care of python2/3 differences
+#     """
+#     if type(s) is np.bytes_:
+#         return s.decode('UTF-8')
+#     if isinstance(s, str):
+#         return s
+#     if isinstance(s, bytes):
+
+#         if sys.version_info[0] == 2:
+#             return str(s)
+#         return s.decode('ascii')
+#     if isinstance(s, list):
+#         return [toString(x) for x in s]
+#     return s
+
+
+# def toBytes(s):
+#     """
+#     Like toString, but for functions requiring bytes in python3
+#     """
+#     if sys.version_info[0] == 2:
+#         return s
+#     if isinstance(s, bytes):
+#         return s
+#     if isinstance(s, str):
+#         return bytes(s, 'ascii')
+#     if isinstance(s, list):
+#         return [toBytes(x) for x in s]
+#     return s
+
+
+# def check_chrom_str_bytes(pIteratableObj, pObj):
+#     # determine type
+#     if isinstance(pObj, list) and len(pObj) > 0:
+#         type_ = type(pObj[0])
+#     else:
+#         type_ = type(pObj)
+#     if not isinstance(type(next(iter(pIteratableObj))), type_):
+#         if type(next(iter(pIteratableObj))) is str:
+#             pObj = toString(pObj)
+#         elif type(next(iter(pIteratableObj))) in [bytes, np.bytes_]:
+#             pObj = toBytes(pObj)
+#     return pObj
+
+
 def toString(s):
     """
     This takes care of python2/3 differences
     """
-    if type(s) is np.bytes_:
-        return s.decode('UTF-8')
     if isinstance(s, str):
         return s
-    if isinstance(s, bytes):
-
+    if isinstance(s, bytes) or isinstance(s, np.bytes_):
         if sys.version_info[0] == 2:
             return str(s)
         return s.decode('ascii')
@@ -1954,20 +2006,23 @@ def toBytes(s):
         return s
     if isinstance(s, bytes):
         return s
+    if isinstance(s, np.bytes_):
+        return np.bytes_(s)
     if isinstance(s, str):
         return bytes(s, 'ascii')
     if isinstance(s, list):
         return [toBytes(x) for x in s]
     return s
 
-
-def check_chrom_str_bytes(pChrom, pInstanceToCompare):
-    """
-    Checks and changes pChroms to str or bytes depending on datatype
-    of pInstanceToCompare
-    """
-    if type(next(iter(pInstanceToCompare))) is str:
-        pChrom = toString(pChrom)
-    elif type(next(iter(pInstanceToCompare))) in [bytes, np.bytes_]:
-        pChrom = toBytes(pChrom)
-    return pChrom
+def check_chrom_str_bytes(pIteratableObj, pObj):
+    # determine type
+    if isinstance(pObj, list) and len(pObj) > 0:
+        type_ = type(pObj[0])
+    else:
+        type_ = type(pObj)
+    if not isinstance(type(next(iter(pIteratableObj))), type_):
+        if type(next(iter(pIteratableObj))) is str:
+            pObj = toString(pObj)
+        elif type(next(iter(pIteratableObj))) in [bytes, np.bytes_]:
+            pObj = toBytes(pObj)
+    return pObj

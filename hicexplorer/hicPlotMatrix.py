@@ -3,7 +3,7 @@ from __future__ import division
 import sys
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer.utilities import writableFile
-from hicexplorer.utilities import toString, toBytes
+from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
 
 from hicexplorer._version import __version__
 from hicexplorer.trackPlot import file_to_intervaltree
@@ -377,15 +377,18 @@ def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
     chrom, region_start, region_end = translate_region(args.region)
 
-    if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-        chrom = toBytes(chrom)
+    chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
+    # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+    #     chrom = toBytes(chrom)
 
     if chrom not in list(ma.interval_trees):
 
         chrom = change_chrom_names(chrom)
 
-        if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-            chrom = toBytes(chrom)
+        chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
+        
+        # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+        #     chrom = toBytes(chrom)
 
         if chrom not in list(ma.interval_trees):
             exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
@@ -404,12 +407,16 @@ def getRegion(args, ma):
                                  x[1] >= region_start and x[2] < region_end])
     if args.region2:
         chrom2, region_start2, region_end2 = translate_region(args.region2)
-        if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-            chrom2 = toBytes(chrom)
+        chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
+        
+        # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+        #     chrom2 = toBytes(chrom)
         if chrom2 not in list(ma.interval_trees):
             chrom2 = change_chrom_names(chrom2)
-            if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-                chrom2 = toBytes(chrom)
+            chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
+            
+            # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+            #     chrom2 = toBytes(chrom)
             if chrom2 not in list(ma.interval_trees):
                 exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
         if is_cooler:

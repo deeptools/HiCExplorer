@@ -1,6 +1,7 @@
 import argparse
-import sys
 import numpy as np
+
+from future.utils import iteritems
 
 import matplotlib
 matplotlib.use('Agg')
@@ -9,6 +10,8 @@ import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
 import hicexplorer.HiCMatrix as hm
 import hicexplorer.utilities
+from hicexplorer.utilities import check_chrom_str_bytes
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -175,6 +178,7 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
 
     clustered_dict = {}
     for chrom in submatrices_dict:
+        log.info("Length of entry: {}".format(len(submatrices_dict[chrom])))
         submat_vectors = []
         shape = submatrices_dict[chrom][0].shape
         for submatrix in submatrices_dict[chrom]:
@@ -195,7 +199,7 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
 
         if np.any(np.isnan(matrix)):
             # replace nans for 0 otherwise kmeans produces a weird behaviour
-            sys.stderr.write("*Warning* For clustering nan values have to be replaced by zeros \n")
+            log.warning("For clustering nan values have to be replaced by zeros.")
             matrix[np.isnan(matrix)] = 0
 
         if method == 'kmeans':
@@ -241,7 +245,7 @@ def main(args=None):
 
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
-    chrom_list = ma.chrBinBoundaries.keys()
+    chrom_list = list(ma.chrBinBoundaries)  # .keys()
     log.info("checking range {}-{}".format(min_dist, max_dist))
     min_dist = int(min_dist)
     max_dist = int(max_dist)
@@ -276,6 +280,15 @@ def main(args=None):
     seen = {}
 
     center_values = []
+    
+
+    chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
+    # if type(next(iter(bed_intervals))) != type(chrom_list[0]):
+    #     if type(next(iter(bed_intervals))) is str:
+    #         chrom_list = toString(chrom_list)
+    #     elif type(next(iter(bed_intervals))) in [bytes, np.bytes_]:
+    #         chrom_list = toBytes(chrom_list)
+
     for chrom in chrom_list:
         chrom_matrix[chrom] = []
         chrom_total[chrom] = 1
@@ -285,11 +298,12 @@ def main(args=None):
         over_1_5 = 0
         chrom_bin_range = ma.getChrBinRange(chrom)
 
-        sys.stderr.write(chrom + '\n')
+        log.info(chrom)
         # if chrom == '2R':
         #     import ipdb; ipdb.set_trace()
         if chrom not in bed_intervals:
             continue
+
         for start, end in bed_intervals[chrom]:
             # check all other regions that may interact with the
             # current interval at the given depth range
@@ -319,10 +333,10 @@ def main(args=None):
                     try:
                         mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
                     except IndexError:
-                        sys.stderr.write("index error for {} {}\n".format(idx1, idx2))
+                        log.info("index error for {} {}".format(idx1, idx2))
                         continue
                     if mat_to_append.sum() <= 0:
-                        sys.stderr.write("empty matrix for positions {} {}\n".format(idx1, idx2))
+                        log.debug("empty matrix for positions {} {}".format(idx1, idx2))
                         continue
                     # to account for the fact that submatrices
                     # close to the diagonal have more counts thatn
@@ -345,6 +359,9 @@ def main(args=None):
                  format(over_1_5, float(over_1_5) / len(chrom_matrix)))
 
     num_cols = len(chrom_matrix)
+    log.info("Length of chrom_matrix: {}".format(len(chrom_matrix)))
+    # log.info("Length of chrom_matrix entry: {}".format(len(chrom_matrix['X'])))
+
     num_rows = 1
 
     if args.kmeans is not None:
@@ -387,11 +404,11 @@ def main(args=None):
                 if _median.sum() == 0 or np.isnan(_median.sum()):
                     # test if the mean matrix is not zero
                     if np.mean(submatrices, axis=0).sum() != 0:
-                        sys.stderr.write("The median of the matrices is zero. Consider using "
-                                         "the mean instead.\n\n")
+                        log.info("The median of the matrices is zero. Consider using "
+                                 "the mean instead.")
                     else:
-                        sys.stderr.write("Apparently no matrices could be computed. All are "
-                                         "zeros or nans.\n\n")
+                        log.info("Apparently no matrices could be computed. All are "
+                                 "zeros or nans.")
                 chrom_avg[chrom].append(_median)
             else:
                 chrom_avg[chrom].append(np.mean(submatrices, axis=0))
@@ -411,7 +428,7 @@ def main(args=None):
             except IndexError:
                 continue
             if chrom_avg[chrom][cluster_number].shape[0] == 0:
-                log.info("matrix for chrom {} is empty".format(chrom))
+                log.debug("matrix for chrom {} is empty".format(chrom))
                 continue
             if num_rows == 1:
                 title = chrom
@@ -485,7 +502,7 @@ def main(args=None):
                                 wspace=0.1, hspace=0.06)
 
         gs_list = []
-        for idx, (chrom_name, values) in enumerate(chrom_diagonals.iteritems()):
+        for idx, (chrom_name, values) in enumerate(iteritems(chrom_diagonals)):
             try:
                 heatmap = np.asarray(np.vstack(values))
             except ValueError:
