@@ -39,8 +39,9 @@ def parse_arguments(args=None):
         'Parameters that strongly affect correlations are bin size of the Hi-C '
         'matrices and the considered range. The smaller the bin size of the '
         'matrices, the finer differences you score. The --range parameter should '
-        'be selected at a meaningful genomic scale according to the size of for '
-        'example TADs in the organism you work with.')
+        'be selected at a meaningful genomic scale according to, for example, the '
+        'mean size of the TADs in the organism you work with.')
+        
 
     # define the arguments
     parser.add_argument('--matrices', '-m',
