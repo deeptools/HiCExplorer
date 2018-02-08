@@ -38,3 +38,5 @@ Usage example
     --plotsize 5 4.2
     
 .. image:: ../../images/counts_vs_dist_50_bins_merged.png
+
+Here, we see that the samples from the first condition are not so well correlated, but they follow the same tendancies and are distinct from the two samples of the second condition. The later are well correlated and display enriched long-range contacts compared to the first condition samples.
