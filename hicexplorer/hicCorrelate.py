@@ -36,10 +36,11 @@ def parse_arguments(args=None):
         description='Computes pairwise correlations between Hi-C matrices data. '
         'The correlation is computed taking the values from each pair '
         'of matrices and discarding values that are zero in both matrices.'
-        'Correlations are usually very high because of the comparison '
-        'of absence of signal at long ranges between matrices.' 
-        'One might thus consider to select meaningful genomic regions prior to the correlation analysis'
-        'or to use the --range option at a reasonable scale according to the matrices.')
+        'Parameters that strongly affect correlations are bin size of the Hi-C '
+        'matrices and the considered range. The smaller the bin size of the '
+        'matrices, the finer differences you score. The --range parameter should '
+        'be selected at a meaningful genomic scale according to the size of for '
+        'example TADs in the organism you work with.')
 
     # define the arguments
     parser.add_argument('--matrices', '-m',
