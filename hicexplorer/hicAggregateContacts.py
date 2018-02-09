@@ -401,7 +401,7 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
 
             heat_fig = ax.imshow(heatmap_to_plot, aspect='auto',
                                  interpolation='nearest',
-                                 cmap= cm.get_cmap(args.colorMap),
+                                 cmap=cm.get_cmap(args.colorMap),
                                  origin='upper', vmax=vmax_heat, vmin=vmin_heat,
                                  extent=[-M_half, M_half + 1,
                                          0, len(order)])
