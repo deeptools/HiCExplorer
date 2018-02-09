@@ -3,6 +3,9 @@
 hicCorrelate
 ============
 
+.. contents:: 
+    :local:
+
 Background
 ^^^^^^^^
 
