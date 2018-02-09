@@ -15,6 +15,10 @@ from scipy.sparse import hstack as sparse_hstack
 import tables
 from intervaltree import IntervalTree, Interval
 
+from utilities import toBytes
+from utilities import toString
+from utilities import check_chrom_str_bytes
+
 import gzip
 
 import cooler
@@ -525,7 +529,6 @@ class hiCMatrix:
         try:
             # chromosome_size = hic_matrix.get_chromosome_sizes()
             # chrname = check_chrom_str_bytes(self.interval_trees, chrname)
-            
             if type(next(iter(self.interval_trees))) != type(chrname):
                 if type(next(iter(self.interval_trees))) is str:
                     chrname = toString(chrname)
@@ -1111,7 +1114,7 @@ class hiCMatrix:
         these are kept, while any other is removed
         from the matrix
         """
-        chromosome_list = check_chrom_str_bytes(chromosome_list, self.interval_trees)
+        chromosome_list = check_chrom_str_bytes(self.interval_trees, chromosome_list)
 
         try:
             [self.chrBinBoundaries[x] for x in chromosome_list]
@@ -1532,7 +1535,7 @@ class hiCMatrix:
         if len(new_chr_order) != len(self.chrBinBoundaries):
             return
         dest = 0
-        new_chr_order = check_chrom_str_bytes(new_chr_order, self.chrBinBoundaries)
+        new_chr_order = check_chrom_str_bytes(self.chrBinBoundaries, new_chr_order)
 
         for chrName in new_chr_order:
             orig = self.chrBinBoundaries[chrName]
@@ -1542,7 +1545,7 @@ class hiCMatrix:
 
     def reorderChromosomes(self, new_chr_order):
         new_order = []
-        new_chr_order = check_chrom_str_bytes(new_chr_order, self.chrBinBoundaries)
+        new_chr_order = check_chrom_str_bytes(self.chrBinBoundaries, new_chr_order)
 
         for chrName in new_chr_order:
             # check that the chromosome names are valid
@@ -1934,95 +1937,3 @@ class hiCMatrix:
         chrbin_boundaries[chrom] = (chr_start_id, intval_id)
 
         return cut_int_tree, chrbin_boundaries
-
-
-# def toString(s):
-#     """
-#     This takes care of python2/3 differences
-#     """
-#     if type(s) is np.bytes_:
-#         return s.decode('UTF-8')
-#     if isinstance(s, str):
-#         return s
-#     if isinstance(s, bytes):
-
-#         if sys.version_info[0] == 2:
-#             return str(s)
-#         return s.decode('ascii')
-#     if isinstance(s, list):
-#         return [toString(x) for x in s]
-#     return s
-
-
-# def toBytes(s):
-#     """
-#     Like toString, but for functions requiring bytes in python3
-#     """
-#     if sys.version_info[0] == 2:
-#         return s
-#     if isinstance(s, bytes):
-#         return s
-#     if isinstance(s, str):
-#         return bytes(s, 'ascii')
-#     if isinstance(s, list):
-#         return [toBytes(x) for x in s]
-#     return s
-
-
-# def check_chrom_str_bytes(pIteratableObj, pObj):
-#     # determine type
-#     if isinstance(pObj, list) and len(pObj) > 0:
-#         type_ = type(pObj[0])
-#     else:
-#         type_ = type(pObj)
-#     if not isinstance(type(next(iter(pIteratableObj))), type_):
-#         if type(next(iter(pIteratableObj))) is str:
-#             pObj = toString(pObj)
-#         elif type(next(iter(pIteratableObj))) in [bytes, np.bytes_]:
-#             pObj = toBytes(pObj)
-#     return pObj
-
-
-def toString(s):
-    """
-    This takes care of python2/3 differences
-    """
-    if isinstance(s, str):
-        return s
-    if isinstance(s, bytes) or isinstance(s, np.bytes_):
-        if sys.version_info[0] == 2:
-            return str(s)
-        return s.decode('ascii')
-    if isinstance(s, list):
-        return [toString(x) for x in s]
-    return s
-
-
-def toBytes(s):
-    """
-    Like toString, but for functions requiring bytes in python3
-    """
-    if sys.version_info[0] == 2:
-        return s
-    if isinstance(s, bytes):
-        return s
-    if isinstance(s, np.bytes_):
-        return np.bytes_(s)
-    if isinstance(s, str):
-        return bytes(s, 'ascii')
-    if isinstance(s, list):
-        return [toBytes(x) for x in s]
-    return s
-
-def check_chrom_str_bytes(pIteratableObj, pObj):
-    # determine type
-    if isinstance(pObj, list) and len(pObj) > 0:
-        type_ = type(pObj[0])
-    else:
-        type_ = type(pObj)
-    if not isinstance(type(next(iter(pIteratableObj))), type_):
-        if type(next(iter(pIteratableObj))) is str:
-            pObj = toString(pObj)
-        elif type(next(iter(pIteratableObj))) in [bytes, np.bytes_]:
-            pObj = toBytes(pObj)
-    return pObj
