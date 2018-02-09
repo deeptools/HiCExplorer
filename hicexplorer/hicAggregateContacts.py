@@ -228,6 +228,183 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
 
     return clustered_dict
 
+def heatmap_plot():
+    vmax_heat = vmax
+    if vmax_heat is not None:
+        vmax_heat *= 5
+
+    vmin_heat = vmin
+    if vmin_heat is not None:
+        vmin_heat *= 5
+
+    num_plots = len(chrom_diagonals)
+    fig = plt.figure(figsize=(num_plots * 4, 20))
+
+    gs0 = gridspec.GridSpec(2, num_plots + 1, width_ratios=[10] * num_plots + [0.5], height_ratios=[1, 5],
+                            wspace=0.1, hspace=0.06)
+
+    gs_list = []
+    for idx, (chrom_name, values) in enumerate(iteritems(chrom_diagonals)):
+        try:
+            heatmap = np.asarray(np.vstack(values))
+        except ValueError:
+            continue
+
+        # get size of each cluster for the given chrom
+        clust_len = [(len(v)) for v in cluster_ids[chrom]]
+
+        # prepare layout
+        gs_list.append(gridspec.GridSpecFromSubplotSpec(len(clust_len), 1,
+                                                        subplot_spec=gs0[1, idx],
+                                                        height_ratios=clust_len,
+                                                        hspace=0.03))
+        summary_plot_ax = plt.subplot(gs0[0, idx])
+        summary_plot_ax.set_title(chrom_name)
+
+        for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
+            # sort by the value at the center of the rows
+            heatmap_to_plot = heatmap[cluster_indices, :]
+
+            order = np.argsort(heatmap_to_plot[:, M_half])[::-1]
+            heatmap_to_plot = heatmap_to_plot[order, :]
+
+            # add line to summary plot ax
+            y_values = heatmap_to_plot.mean(axis=0)
+            x_values = np.arange(len(y_values)) - M_half
+            cluster_label = "cluster_{}".format(cluster_number + 1)
+            summary_plot_ax.plot(x_values, y_values, label=cluster_label)
+            ax = plt.subplot(gs_list[-1][cluster_number, 0])
+            ax.set_yticks([])
+            if num_rows > 1:
+                ax.set_ylabel(cluster_label)
+
+            if cluster_number < num_rows - 1:
+                ax.set_xticks([])
+
+            heat_fig = ax.imshow(heatmap_to_plot, aspect='auto',
+                                 interpolation='nearest',
+                                 cmap=cmap,
+                                 origin='upper', vmax=vmax_heat, vmin=vmin_heat,
+                                 extent=[-M_half, M_half + 1,
+                                         0, len(order)])
+
+        summary_plot_ax.legend(ncol=1, frameon=False, markerscale=0.5)
+
+    cbar_x = plt.subplot(gs0[1, -1])
+    fig.colorbar(heat_fig, cax=cbar_x, orientation='vertical')
+
+    file_name = args.diagnosticHeatmapFile.name
+    log.info('Heatmap file saved under: {}'.format(file_name))
+    plt.savefig(file_name, dpi=200, bbox_inches='tight')
+
+
+def aggregate_plot():
+    fig = plt.figure(figsize=(8 * num_cols, 5.5 * num_rows))
+    gs = gridspec.GridSpec(num_rows + 1, num_cols,
+                           width_ratios=[10] * len(chrom_matrix),
+                           height_ratios=[10] * num_rows + [0.6])
+
+    gs.update(wspace=0.01, hspace=0.2)
+    chrom_avg = {}
+    chrom_cluster_len = {}
+    for idx, chrom in enumerate(chrom_list):
+        chrom_avg[chrom] = []
+        chrom_cluster_len[chrom] = []
+        for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
+            # compute median values
+            if num_rows == 1:
+                # this means no clustering
+                submatrices = np.array(chrom_matrix[chrom])
+            else:
+                submatrices = np.array([chrom_matrix[chrom][x] for x in cluster_indices])
+
+            chrom_cluster_len[chrom].append(len(cluster_ids))
+
+            if args.avgType == 'median':
+                _median = np.median(submatrices, axis=0)
+                if _median.sum() == 0 or np.isnan(_median.sum()):
+                    # test if the mean matrix is not zero
+                    if np.mean(submatrices, axis=0).sum() != 0:
+                        log.info("The median of the matrices is zero. Consider using "
+                                 "the mean instead.")
+                    else:
+                        log.info("Apparently no matrices could be computed. All are "
+                                 "zeros or nans.")
+                chrom_avg[chrom].append(_median)
+            else:
+                chrom_avg[chrom].append(np.mean(submatrices, axis=0))
+
+            log.info("Mean aggregate matrix values: {}".format(chrom_avg[chrom][cluster_number].mean()))
+
+    vmin, vmax = (args.vMin, args.vMax)
+    cmap = cm.get_cmap(args.colorMap)
+
+    log.debug("vmax: {}, vmin: {}".format(vmax, vmin))
+    for idx, chrom in enumerate(chrom_list):
+        for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
+            log.info("total pairs considered for {}, cluster_{}: {}".format(chrom, cluster_number + 1,
+                                                                            len(cluster_indices)))
+            try:
+                chrom_avg[chrom][cluster_number].shape[0]
+            except IndexError:
+                continue
+            if chrom_avg[chrom][cluster_number].shape[0] == 0:
+                log.debug("matrix for chrom {} is empty".format(chrom))
+                continue
+            if num_rows == 1:
+                title = chrom
+            else:
+                title = "{} cluster_{}".format(chrom, cluster_number + 1)
+            if args.plotType == '2d':
+                ax = plt.subplot(gs[cluster_number, idx])
+
+                ax.set_title(title)
+                img = ax.imshow(chrom_avg[chrom][cluster_number], aspect='equal',
+                                interpolation='nearest', vmax=vmax, vmin=vmin,
+                                cmap=cmap,
+                                extent=[-M_half, M_half + 1, -M_half, M_half + 1])
+            else:
+                from mpl_toolkits.mplot3d import Axes3D
+                # Axes3D is required for proection='3d' to work
+                # but since is imported but not used, flake8 will complain
+                # thus I add this dummy variable to avoid the error
+                Axes3D(fig)
+                ax = plt.subplot(gs[cluster_number, idx], projection='3d')
+                ax.set_aspect('equal')
+                ax.margins(0)
+                X, Y = np.meshgrid(range(-M_half, M_half + 1),
+                                   range(-M_half, M_half + 1))
+                Z = chrom_avg[chrom][cluster_number].copy()
+
+                img = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, linewidth=0, cmap=cmap,
+                                      vmax=vmax, vmin=vmin, edgecolor='none')
+
+                ax.set_zticklabels([])
+                if vmax is not None and vmax is not None:
+                    ax.set_zlim(vmin, vmax)
+
+            if args.outFilePrefixMatrix:
+                # save aggregate matrix values
+                if num_rows == 1:
+                    output_matrix_name = "{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix.name, chrom=chrom)
+                else:
+                    output_matrix_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix,
+                                                                                  chrom=chrom, id=cluster_number + 1)
+                np.savetxt(output_matrix_name, chrom_avg[chrom][cluster_number], '%0.5f', delimiter='\t')
+
+            if args.outFilePrefixClusterContactPositions:
+                output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixClusterContactPositions,
+                                                                       chrom=chrom, id=cluster_number + 1)
+                with open(output_name, 'w') as fh:
+                    for cl_idx in cluster_indices:
+                        start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
+                        fh.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2))
+
+        cbar_x = plt.subplot(gs[-1, idx])
+        fig.colorbar(img, cax=cbar_x, orientation='horizontal')
+    plt.savefig(args.outFileName.name, dpi=100, transparent=True, bbox_inches='tight')
+    plt.close()
+
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -378,179 +555,6 @@ def main(args=None):
         for chrom in chrom_list:
             cluster_ids[chrom] = [range(len(chrom_list[chrom]))]
 
-    fig = plt.figure(figsize=(8 * num_cols, 5.5 * num_rows))
-    gs = gridspec.GridSpec(num_rows + 1, num_cols,
-                           width_ratios=[10] * len(chrom_matrix),
-                           height_ratios=[10] * num_rows + [0.6])
-
-    gs.update(wspace=0.01, hspace=0.2)
-    chrom_avg = {}
-    chrom_cluster_len = {}
-    for idx, chrom in enumerate(chrom_list):
-        chrom_avg[chrom] = []
-        chrom_cluster_len[chrom] = []
-        for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
-            # compute median values
-            if num_rows == 1:
-                # this means no clustering
-                submatrices = np.array(chrom_matrix[chrom])
-            else:
-                submatrices = np.array([chrom_matrix[chrom][x] for x in cluster_indices])
-
-            chrom_cluster_len[chrom].append(len(cluster_ids))
-
-            if args.avgType == 'median':
-                _median = np.median(submatrices, axis=0)
-                if _median.sum() == 0 or np.isnan(_median.sum()):
-                    # test if the mean matrix is not zero
-                    if np.mean(submatrices, axis=0).sum() != 0:
-                        log.info("The median of the matrices is zero. Consider using "
-                                 "the mean instead.")
-                    else:
-                        log.info("Apparently no matrices could be computed. All are "
-                                 "zeros or nans.")
-                chrom_avg[chrom].append(_median)
-            else:
-                chrom_avg[chrom].append(np.mean(submatrices, axis=0))
-
-            log.info("Mean aggregate matrix values: {}".format(chrom_avg[chrom][cluster_number].mean()))
-
-    vmin, vmax = (args.vMin, args.vMax)
-    cmap = cm.get_cmap(args.colorMap)
-
-    log.debug("vmax: {}, vmin: {}".format(vmax, vmin))
-    for idx, chrom in enumerate(chrom_list):
-        for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
-            log.info("total pairs considered for {}, cluster_{}: {}".format(chrom, cluster_number + 1,
-                                                                            len(cluster_indices)))
-            try:
-                chrom_avg[chrom][cluster_number].shape[0]
-            except IndexError:
-                continue
-            if chrom_avg[chrom][cluster_number].shape[0] == 0:
-                log.debug("matrix for chrom {} is empty".format(chrom))
-                continue
-            if num_rows == 1:
-                title = chrom
-            else:
-                title = "{} cluster_{}".format(chrom, cluster_number + 1)
-            if args.plotType == '2d':
-                ax = plt.subplot(gs[cluster_number, idx])
-
-                ax.set_title(title)
-                img = ax.imshow(chrom_avg[chrom][cluster_number], aspect='equal',
-                                interpolation='nearest', vmax=vmax, vmin=vmin,
-                                cmap=cmap,
-                                extent=[-M_half, M_half + 1, -M_half, M_half + 1])
-            else:
-                from mpl_toolkits.mplot3d import Axes3D
-                # Axes3D is required for proection='3d' to work
-                # but since is imported but not used, flake8 will complain
-                # thus I add this dummy variable to avoid the error
-                Axes3D(fig)
-                ax = plt.subplot(gs[cluster_number, idx], projection='3d')
-                ax.set_aspect('equal')
-                ax.margins(0)
-                X, Y = np.meshgrid(range(-M_half, M_half + 1),
-                                   range(-M_half, M_half + 1))
-                Z = chrom_avg[chrom][cluster_number].copy()
-
-                img = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, linewidth=0, cmap=cmap,
-                                      vmax=vmax, vmin=vmin, edgecolor='none')
-
-                ax.set_zticklabels([])
-                if vmax is not None and vmax is not None:
-                    ax.set_zlim(vmin, vmax)
-
-            if args.outFilePrefixMatrix:
-                # save aggregate matrix values
-                if num_rows == 1:
-                    output_matrix_name = "{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix.name, chrom=chrom)
-                else:
-                    output_matrix_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix,
-                                                                                  chrom=chrom, id=cluster_number + 1)
-                np.savetxt(output_matrix_name, chrom_avg[chrom][cluster_number], '%0.5f', delimiter='\t')
-
-            if args.outFilePrefixClusterContactPositions:
-                output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixClusterContactPositions,
-                                                                       chrom=chrom, id=cluster_number + 1)
-                with open(output_name, 'w') as fh:
-                    for cl_idx in cluster_indices:
-                        start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
-                        fh.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2))
-
-        cbar_x = plt.subplot(gs[-1, idx])
-        fig.colorbar(img, cax=cbar_x, orientation='horizontal')
-    plt.savefig(args.outFileName.name, dpi=100, transparent=True, bbox_inches='tight')
-    plt.close()
-
     # plot the diagonals
     # the diagonals plot is useful to see individual cases and if they had a contact in the center
     if args.diagnosticHeatmapFile:
-        vmax_heat = vmax
-        if vmax_heat is not None:
-            vmax_heat *= 5
-
-        vmin_heat = vmin
-        if vmin_heat is not None:
-            vmin_heat *= 5
-
-        num_plots = len(chrom_diagonals)
-        fig = plt.figure(figsize=(num_plots * 4, 20))
-
-        gs0 = gridspec.GridSpec(2, num_plots + 1, width_ratios=[10] * num_plots + [0.5], height_ratios=[1, 5],
-                                wspace=0.1, hspace=0.06)
-
-        gs_list = []
-        for idx, (chrom_name, values) in enumerate(iteritems(chrom_diagonals)):
-            try:
-                heatmap = np.asarray(np.vstack(values))
-            except ValueError:
-                continue
-
-            # get size of each cluster for the given chrom
-            clust_len = [(len(v)) for v in cluster_ids[chrom]]
-
-            # prepare layout
-            gs_list.append(gridspec.GridSpecFromSubplotSpec(len(clust_len), 1,
-                                                            subplot_spec=gs0[1, idx],
-                                                            height_ratios=clust_len,
-                                                            hspace=0.03))
-            summary_plot_ax = plt.subplot(gs0[0, idx])
-            summary_plot_ax.set_title(chrom_name)
-
-            for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
-                # sort by the value at the center of the rows
-                heatmap_to_plot = heatmap[cluster_indices, :]
-
-                order = np.argsort(heatmap_to_plot[:, M_half])[::-1]
-                heatmap_to_plot = heatmap_to_plot[order, :]
-
-                # add line to summary plot ax
-                y_values = heatmap_to_plot.mean(axis=0)
-                x_values = np.arange(len(y_values)) - M_half
-                cluster_label = "cluster_{}".format(cluster_number + 1)
-                summary_plot_ax.plot(x_values, y_values, label=cluster_label)
-                ax = plt.subplot(gs_list[-1][cluster_number, 0])
-                ax.set_yticks([])
-                if num_rows > 1:
-                    ax.set_ylabel(cluster_label)
-
-                if cluster_number < num_rows - 1:
-                    ax.set_xticks([])
-
-                heat_fig = ax.imshow(heatmap_to_plot, aspect='auto',
-                                     interpolation='nearest',
-                                     cmap=cmap,
-                                     origin='upper', vmax=vmax_heat, vmin=vmin_heat,
-                                     extent=[-M_half, M_half + 1,
-                                             0, len(order)])
-
-            summary_plot_ax.legend(ncol=1, frameon=False, markerscale=0.5)
-
-        cbar_x = plt.subplot(gs0[1, -1])
-        fig.colorbar(heat_fig, cax=cbar_x, orientation='vertical')
-
-        file_name = args.diagnosticHeatmapFile.name
-        log.info('Heatmap file saved under: {}'.format(file_name))
-        plt.savefig(file_name, dpi=200, bbox_inches='tight')
