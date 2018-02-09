@@ -3,6 +3,9 @@
 hicCompareMatrices
 ================
 
+.. contents:: 
+    :local:
+
 Background
 ^^^^^^^^^^^^^^^
 
