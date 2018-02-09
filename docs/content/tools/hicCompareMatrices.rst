@@ -21,7 +21,7 @@ Description
 Usage example
 ^^^^^^^^^^^^^^^
 
-``hicCompareMatrices`` is usually perfomed on corrected matrices (:doc:`hicCorrectMatrix`) with bins merged (:doc:`hicMergeBins`) depending on the downstream analyses to perform. Here is an example of a log2ratio comparison between M1BP Knockdown and GST cells in *Drosophila melanogaster* on corrected matrices with 50 bins merged (about 30kb bins).
+``hicCompareMatrices`` is usually perfomed on corrected matrices (:doc:`hicCorrectMatrix`) with bins merged (:doc:`hicMergeMatrixBins`) depending on the downstream analyses to perform. Here is an example of a log2ratio comparison between M1BP Knockdown and GST cells in *Drosophila melanogaster* on corrected matrices with 50 bins merged (about 30kb bins).
 
 .. code:: bash
 
