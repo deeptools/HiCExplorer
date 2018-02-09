@@ -981,7 +981,7 @@ def toString(s):
     """
     if isinstance(s, str):
         return s
-    if isinstance(s, bytes):
+    if isinstance(s, bytes):# or isinstance(s, np.bytes_):
         if sys.version_info[0] == 2:
             return str(s)
         return s.decode('ascii')
@@ -998,8 +998,23 @@ def toBytes(s):
         return s
     if isinstance(s, bytes):
         return s
+    # if isinstance(s, np.bytes_):
+    #     return np.bytes_(s)
     if isinstance(s, str):
         return bytes(s, 'ascii')
     if isinstance(s, list):
         return [toBytes(x) for x in s]
     return s
+
+def check_chrom_str_bytes(pIteratableObj, pObj):
+    # determine type
+    if isinstance(pObj, list) and len(pObj) > 0:
+        type_ = type(pObj[0])
+    else:
+        type_ = type(pObj)
+    if not isinstance(type(next(iter(pIteratableObj))), type_):
+        if type(next(iter(pIteratableObj))) is str:
+            pObj = toString(pObj)
+        elif type(next(iter(pIteratableObj))) in [bytes, np.bytes_]:
+            pObj = toBytes(pObj)
+    return pObj
