@@ -15,8 +15,10 @@ hicPlotTADs can be used as follows:
 
 .. code-block:: bash
 
-   $ hicPlotTADs --tracks tracks.ini --region chr1:1,000,000-2,000,000  -o tads.pdf
+   $ hicPlotTADs --tracks tracks.ini --region chrX:99,974,316-101,359,967 \
+   -t 'Marks et. al. TADs on X' -o tads.pdf
 
+.. image:: ../../images/marks_et-al_TADs.png
 
 The following is a template for the configuration file which is based on .ini configuration files. Each
 track is defined by a section header (for example `[hic track]`), followed by parameters specific to the
