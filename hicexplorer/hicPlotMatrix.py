@@ -6,6 +6,7 @@ from hicexplorer.utilities import writableFile
 from hicexplorer.utilities import toString, toBytes
 from hicexplorer.utilities import enlarge_bins
 from hicexplorer.utilities import change_chrom_names
+from hicexplorer.utilities import check_chrom_str_bytes
 
 from hicexplorer._version import __version__
 import numpy as np

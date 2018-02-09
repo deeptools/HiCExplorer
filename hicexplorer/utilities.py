@@ -981,7 +981,7 @@ def toString(s):
     """
     if isinstance(s, str):
         return s
-    if isinstance(s, bytes):# or isinstance(s, np.bytes_):
+    if isinstance(s, bytes):  # or isinstance(s, np.bytes_):
         if sys.version_info[0] == 2:
             return str(s)
         return s.decode('ascii')

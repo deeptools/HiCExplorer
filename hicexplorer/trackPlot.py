@@ -40,8 +40,9 @@ from intervaltree import IntervalTree, Interval
 
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
-from hicexplorer.utilities import toString, toBytes
+from hicexplorer.utilities import toString
 from hicexplorer.utilities import change_chrom_names
+from hicexplorer.utilities import check_chrom_str_bytes
 
 reload(sys)
 if sys.version_info <= (3, 0):
@@ -1454,7 +1455,6 @@ class PlotBed(TrackPlot):
             #     chrom_region = toBytes(chrom_region)
             chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
             
-
         genes_overlap = sorted(self.interval_tree[chrom_region][start_region:end_region])
 
         # turn labels off when too many intervals are visible.
@@ -1844,7 +1844,7 @@ class PlotArcs(TrackPlot):
         max_diameter = 0
         count = 0
         chrom_region = check_chrom_str_bytes(self.intval_tree, chrom_region)
-        
+
         # if type(next(iter(self.intval_tree))) is not np.bytes_:
         #     chrom_region = toString(chrom_region)
         if chrom_region not in list(self.interval_tree):
@@ -1852,7 +1852,7 @@ class PlotArcs(TrackPlot):
             # if type(next(iter(self.intval_tree))) is not np.bytes_:
             #     chrom_region = toString(chrom_region)
             chrom_region = check_chrom_str_bytes(self.intval_tree, chrom_region)
-            
+
         arcs_in_region = sorted(self.interval_tree[chrom_region][region_start:region_end])
 
         for idx, interval in enumerate(arcs_in_region):
