@@ -1,6 +1,7 @@
 import argparse
-import sys
 import numpy as np
+
+from future.utils import iteritems
 
 import matplotlib
 matplotlib.use('Agg')
@@ -9,6 +10,8 @@ import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
 import hicexplorer.HiCMatrix as hm
 import hicexplorer.utilities
+from hicexplorer.utilities import check_chrom_str_bytes
+
 import logging
 log = logging.getLogger(__name__)
 from collections import OrderedDict
@@ -176,6 +179,7 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
 
     clustered_dict = {}
     for chrom in submatrices_dict:
+        log.info("Length of entry: {}".format(len(submatrices_dict[chrom])))
         submat_vectors = []
         shape = submatrices_dict[chrom][0].shape
         for submatrix in submatrices_dict[chrom]:
@@ -196,7 +200,7 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
 
         if np.any(np.isnan(matrix)):
             # replace nans for 0 otherwise kmeans produces a weird behaviour
-            sys.stderr.write("*Warning* For clustering nan values have to be replaced by zeros \n")
+            log.warning("For clustering nan values have to be replaced by zeros.")
             matrix[np.isnan(matrix)] = 0
 
         if method == 'kmeans':
@@ -256,11 +260,11 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
                 if _median.sum() == 0 or np.isnan(_median.sum()):
                     # test if the mean matrix is not zero
                     if np.mean(submatrices, axis=0).sum() != 0:
-                        sys.stderr.write("The median of the matrices is zero. Consider using "
-                                         "the mean instead.\n\n")
+                        log.info("The median of the matrices is zero. Consider using "
+                                 "the mean instead.")
                     else:
-                        sys.stderr.write("Apparently no matrices could be computed. All are "
-                                         "zeros or nans.\n\n")
+                        log.info("Apparently no matrices could be computed. All are "
+                                 "zeros or nans.")
                 chrom_avg[chrom].append(_median)
             else:
                 chrom_avg[chrom].append(np.mean(submatrices, axis=0))
@@ -280,7 +284,7 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
             except IndexError:
                 continue
             if chrom_avg[chrom][cluster_number].shape[0] == 0:
-                log.info("matrix for chrom {} is empty".format(chrom))
+                log.debug("matrix for chrom {} is empty".format(chrom))
                 continue
             if num_clusters == 1:
                 title = chrom
@@ -331,12 +335,6 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
                         start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
                         fh.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2))
 
-        from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-
-        # divider = make_axes_locatable(ax)
-        # cbar_x = divider.append_axes("bottom", size="5%", pad=0.5)
-
         cbar_x = plt.subplot(gs[-1, idx])
         fig.colorbar(img, cax=cbar_x, orientation='horizontal')
 
@@ -362,7 +360,7 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
                             wspace=0.1, hspace=0.1)
 
     gs_list = []
-    for idx, (chrom_name, values) in enumerate(chrom_diagonals.iteritems()):
+    for idx, (chrom_name, values) in enumerate(iteritems(chrom_diagonals)):
         try:
             heatmap = np.asarray(np.vstack(values))
         except ValueError:
@@ -382,10 +380,7 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
 
         for cluster_number, cluster_indices in enumerate(cluster_ids[chrom_name]):
             # sort by the value at the center of the rows
-            try:
-                heatmap_to_plot = heatmap[cluster_indices, :]
-            except:
-                import ipdb; ipdb.set_trace()
+            heatmap_to_plot = heatmap[cluster_indices, :]
 
             order = np.argsort(heatmap_to_plot[:, M_half])[::-1]
             heatmap_to_plot = heatmap_to_plot[order, :]
