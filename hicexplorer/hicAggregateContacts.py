@@ -431,7 +431,7 @@ def main(args=None):
 
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
-    chrom_list = ma.chrBinBoundaries.keys()
+    chrom_list = list(ma.chrBinBoundaries)  # .keys()
     log.info("checking range {}-{}".format(min_dist, max_dist))
     min_dist = int(min_dist)
     max_dist = int(max_dist)
@@ -466,6 +466,9 @@ def main(args=None):
     seen = {}
 
     center_values = []
+
+    chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
+
     for chrom in chrom_list:
         chrom_matrix[chrom] = []
         chrom_total[chrom] = 1
@@ -476,7 +479,7 @@ def main(args=None):
         empty_mat = 0
         chrom_bin_range = ma.getChrBinRange(chrom)
 
-        sys.stderr.write(chrom + '\n')
+        log.info("processing {}".format(chrom))
         if chrom not in bed_intervals:
             continue
 
@@ -513,7 +516,7 @@ def main(args=None):
                     try:
                         mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
                     except IndexError:
-                        sys.stderr.write("index error for {} {}\n".format(idx1, idx2))
+                        log.info("index error for {} {}".format(idx1, idx2))
                         continue
                     counter += 1
                     if counter % 1000 == 0:
