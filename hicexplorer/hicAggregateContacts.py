@@ -432,7 +432,7 @@ def main(args=None):
 
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
-    chrom_list = list(ma.chrBinBoundaries)  # .keys()
+    chrom_list = list(ma.chrBinBoundaries)
     log.info("checking range {}-{}".format(min_dist, max_dist))
     min_dist = int(min_dist)
     max_dist = int(max_dist)
@@ -471,6 +471,9 @@ def main(args=None):
     chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
 
     for chrom in chrom_list:
+        if chrom not in bed_intervals:
+            continue
+
         chrom_matrix[chrom] = []
         chrom_total[chrom] = 1
         chrom_diagonals[chrom] = []
@@ -481,8 +484,6 @@ def main(args=None):
         chrom_bin_range = ma.getChrBinRange(toBytes(chrom))
 
         log.info("processing {}".format(chrom))
-        if chrom not in bed_intervals:
-            continue
 
         counter = 0
         for start, end in bed_intervals[chrom]:
@@ -541,6 +542,10 @@ def main(args=None):
                     chrom_contact_position[chrom].append((start, end, start2, end2))
                     if ma.matrix[idx1, idx2] > 1.5:
                         over_1_5 += 1
+
+        if len(chrom_matrix[chrom]) == 0:
+            log.warn("No valid submatrices were found for chrom: {}".format(chrom))
+            chrom_matrix.pop(chrom, None)
 
         log.info("Number of matrices with ratio over 1.5 at center {}, fraction w.r.t. non empty submatrices: ({:.2f})".
                  format(over_1_5, float(over_1_5) / len(chrom_matrix[chrom])))
