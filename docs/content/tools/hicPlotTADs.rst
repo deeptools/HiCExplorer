@@ -3,10 +3,18 @@
 hicPlotTADs
 ===========
 
+.. contents:: 
+    :local:
+
+Description
+^^^^^^^^^^^^^^^
+
 .. argparse::
    :ref: hicexplorer.hicPlotTADs.parse_arguments
    :prog: hicPlotTADs
 
+Usage example
+^^^^^^^^^^^^^^^
 
 hicPlotTADs output is similar to a genome browser screen-shot that besides the usual genes,
 and score data (like bigwig or bedgraph files) also contains Hi-C data. The plot is composed of
@@ -19,6 +27,9 @@ hicPlotTADs can be used as follows:
    -t 'Marks et. al. TADs on X' -o tads.pdf
 
 .. image:: ../../images/marks_et-al_TADs.png
+
+Configuration file template
+^^^^^^^^^^^^^^^
 
 The following is a template for the configuration file which is based on .ini configuration files. Each
 track is defined by a section header (for example `[hic track]`), followed by parameters specific to the
