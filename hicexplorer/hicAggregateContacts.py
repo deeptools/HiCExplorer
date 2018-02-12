@@ -159,6 +159,39 @@ def read_bed_per_chrom(fh):
     return interval
 
 
+def get_outlier_indices(data, max_deviation=200):
+    """
+    The method is based on the median absolute deviation. See
+    Boris Iglewicz and David Hoaglin (1993),
+    "Volume 16: How to Detect and Handle Outliers",
+    The ASQC Basic References in Quality Control:
+    Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
+
+    The max_deviation=200 is like selecting a z-score
+    larger than 200, just that it is based on the median
+    and the median absolute deviation instead of the
+    mean and the standard deviation.
+
+    Returns
+    ------
+
+    Boolean of len (data.shape[0])
+    """
+    data = np.asarray(data)
+    median = np.median(data)
+    b_value = 1.4826  # value set for a normal distribution
+    mad = b_value * np.median(np.abs(data))
+    if mad == 0:
+        return None
+    deviation = abs(data - median) / mad
+    # any is used to get, per row, if any of the values is True.
+    # as a row will be considered as an outlier if any of the elements
+    # is an outlier
+    outliers = (deviation > max_deviation).any(axis=1)
+
+    return outliers
+
+
 def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
     """
     clusters the submatrices per chromosome
@@ -177,16 +210,21 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
     indices dict key: chrom_name, value: list of list, with one list per cluster with the ids of the submatrices
                  that belong to that list
     """
-
+    use_center_submatrix = True
     clustered_dict = {}
     for chrom in submatrices_dict:
         log.info("Length of entry: {}".format(len(submatrices_dict[chrom])))
         submat_vectors = []
         shape = submatrices_dict[chrom][0].shape
+        center_bin = (shape[0] + 1) / 2
         for submatrix in submatrices_dict[chrom]:
             if use_diagonal:
                 # take from each matrix the diagonal
                 submat_vectors.append(submatrix.diagonal())
+            elif use_center_submatrix:
+                # take a smaller submatrix of 3 x 3 centered on the submatrix
+                submat_vectors.append(
+                    submatrix[center_bin - 2:center_bin + 1,center_bin - 2:center_bin + 1].reshape((1, 9)))
             else:
                 # Transform list of submatrices in an array of shape:
                 # shape = (num_submatrices, submatrix.shape[0] * submatrix.shape[1]
@@ -196,8 +234,19 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
         matrix = np.vstack(submat_vectors)
         if use_diagonal:
             assert matrix.shape == (len(submatrices_dict[chrom]), shape[0])
+        elif use_center_submatrix:
+            assert matrix.shape == (len(submatrices_dict[chrom]), 9)
         else:
             assert matrix.shape == (len(submatrices_dict[chrom]), shape[0] * shape[1])
+
+        # remove outliers
+        out_ind = get_outlier_indices(matrix, max_deviation=10)
+        if out_ind is not None and  len(np.flatnonzero(out_ind)) > 0:
+            log.info("Outliers detected in chrom: {}. Number of outliers: {}".
+                     format(chrom, len(np.flatnonzero(out_ind))))
+
+            # keep in matrix all indices that are not outliers
+            matrix = matrix[np.logical_not(out_ind), :]
 
         if np.any(np.isnan(matrix)):
             # replace nans for 0 otherwise kmeans produces a weird behaviour
