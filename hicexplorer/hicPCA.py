@@ -75,50 +75,79 @@ Computes PCA eigenvectors for the HiC matrix.
     return parser
 
 def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
-    flipValues = 1
 
     # correlate eigenvector with gene track
     # if positive return flipValues = 1
     # if negative return flipValues = -1
 
     # read BED file
-    print(pGeneTrack)
+    # print(pGeneTrack)
     file_h = opener(pGeneTrack)
     bed = ReadBed(file_h)
     count = 0
     gene_occurence = np.zeros(len(pMatrix.cut_intervals))
-    print(pMatrix.cut_intervals)
+    # print(pMatrix.cut_intervals)
     print(len(gene_occurence))
     
     chr_list = pMatrix.getChrNames()
+    flipValues =  [1] *  len(chr_list)
+    
+    gene_start = np.zeros(len(chr_list))
+    gene_old = None
+    gene_count = 1
+    gene_count_2 = {}
+    for i in chr_list:
+        gene_count_2[toString(i)] = 0
     for interval in bed:
-        count += 1
         chr_name = interval.chromosome
-        chr_name = check_chrom_str_bytes(chr_name, chr_list)
-        
-        if chr_name not in chr_list:
-            chr_name = change_chrom_names(interval.chromosome)
+        try:
+            gene_count_2[chr_name] += 1
+        except:
+            gene_count_2[chr_name] = 0
+
+        if gene_old is chr_name:
+
             chr_name = check_chrom_str_bytes(chr_name, chr_list)
-            
+        
             if chr_name not in chr_list:
-                continue
+                chr_name = change_chrom_names(interval.chromosome)
+                chr_name = check_chrom_str_bytes(chr_name, chr_list)
+                
+                if chr_name not in chr_list:
+                    print('chr_name not found!', chr_name)
+                    continue
+            # gene_start[gene_count - 1] = count
+            # gene_count += 1
+            print("gene_old: {} chr_name: {}".format(gene_old, chr_name))
+            
+        gene_old = chr_name
+        count += 1
+        
         try:
             # print(interval)
             
             bin_id = pMatrix.getRegionBinRange(chr_name, interval.start, interval.end)
            
 
-            print('chr: {} bin_id: {}'.format(chr_name, bin_id))
+            # print('chr: {} bin_id: {}'.format(chr_name, bin_id))
             gene_occurence[bin_id[1]] += 1
         except:
             continue
             log.info("Error in reading a line!")
         # if count > 2:
         #     break
+    print("gene_count_2", gene_count_2)
+    print("gene_start: ", gene_start)
+    print('chr_list', chr_list)
+    
+    for i in range(0, len(gene_start) - 1):
+        flipValues[i] = np.corrcoef(pEigenvector[0, gene_start[i]: gene_start[i + 1]], gene_occurence[gene_start[i]: gene_start[i + 1]])
+    flipValues[-1] = np.corrcoef(pEigenvector[0, gene_start[i]: len(gene_occurence)], gene_occurence[gene_start[i]: len(gene_occurence)])
     # bring BED data to same layout as eigenvector... 
     # how to do this??
-    # print(gene_occurence)
-    # print(sum(gene_occurence))
+
+    print(gene_occurence)
+    print(flipValues)
     
     # print(pMatrix.cut_intervals[:10])
     # print(pMatrix.getRegionBinRange(b'X', 20701, 22321))
@@ -175,7 +204,7 @@ def main(args=None):
         end_list += end
 
     # vecs_list = []
-    print(len(vecs_list))
+    # print(vecs_list)
     if args.geneTrack:
         sign_changes = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.geneTrack)
         vecs_list *= sign_changes
