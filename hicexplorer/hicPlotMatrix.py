@@ -372,7 +372,7 @@ def getRegion(args, ma):
         chrom = change_chrom_names(chrom)
 
         chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-        
+
         # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
         #     chrom = toBytes(chrom)
 
@@ -394,13 +394,13 @@ def getRegion(args, ma):
     if args.region2:
         chrom2, region_start2, region_end2 = translate_region(args.region2)
         chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
-        
+
         # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
         #     chrom2 = toBytes(chrom)
         if chrom2 not in list(ma.interval_trees):
             chrom2 = change_chrom_names(chrom2)
             chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
-            
+
             # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
             #     chrom2 = toBytes(chrom)
             if chrom2 not in list(ma.interval_trees):
