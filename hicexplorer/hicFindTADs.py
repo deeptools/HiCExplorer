@@ -12,7 +12,7 @@ from scipy import sparse
 import numpy as np
 import multiprocessing
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
+from hicexplorer.utilities import toString, check_chrom_str_bytes
 
 # python 2 / 3 compatibility
 from past.builtins import zip

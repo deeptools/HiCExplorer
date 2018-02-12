@@ -6,9 +6,11 @@ import scipy.sparse
 from hicexplorer import HiCMatrix
 import hicexplorer.parserCommon
 from hicexplorer._version import __version__
-
+import numpy as np
 import logging
 log = logging.getLogger(__name__)
+from .utilities import convertNansToZeros
+from .utilities import remove_outliers
 
 
 def parse_arguments(args=None):
@@ -57,7 +59,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def nbinom_est_dist(size, prob, triu_ma, cut_intervals):
+def nbinom_est_dist(size, prob, triu_ma, hic_matrix):
     # compute a mapping from mean to distance
     mean2dist = {'mean': [], 'dist': []}
     for dist in np.sort(list(size)):
@@ -71,8 +73,8 @@ def nbinom_est_dist(size, prob, triu_ma, cut_intervals):
     # the values have to be computed for all the
     # matrix excepting inter chromosome
     row, col = np.triu_indices(triu_ma.shape[0])
-    dist_list, chrom_list = hiCMatrix.getDistList(row, col,
-                                                  cut_intervals)
+    dist_list, chrom_list = hic_matrix.getDistList(row, col,
+                                                   hic_matrix.cut_intervals)
     triu_ma = triu_ma.tolil()
     transf_ma = np.zeros(len(dist_list))
     for idx, orig_dist in enumerate(dist_list):
@@ -172,11 +174,11 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
     # after the distributions are fitted
     # now the matrix values are evaluated
     if method == 'nbinom-est-dist':
-        triu_ma = nbinom_est_dist(size, prob, triu_ma, hicma.cut_intervals)
+        triu_ma = nbinom_est_dist(size, prob, triu_ma, hicma)
 
     else:
         under_noise = 0
-        dist_list, chrom_list = hiCMatrix.getDistList(triu_ma.row, triu_ma.col, cut_intervals)
+        dist_list, chrom_list = hicma.getDistList(triu_ma.row, triu_ma.col, cut_intervals)
 
         assert len(dist_list) == len(triu_ma.data), "lists not of equal size"
         susprow_list = []

@@ -15,9 +15,9 @@ from scipy.sparse import hstack as sparse_hstack
 import tables
 from intervaltree import IntervalTree, Interval
 
-from utilities import toBytes
-from utilities import toString
-from utilities import check_chrom_str_bytes
+from .utilities import toBytes
+from .utilities import toString
+from .utilities import check_chrom_str_bytes
 
 import gzip
 

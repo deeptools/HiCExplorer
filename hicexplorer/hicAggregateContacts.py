@@ -10,8 +10,8 @@ import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
 import hicexplorer.HiCMatrix as hm
 import hicexplorer.utilities
-from hicexplorer.utilities import toBytes
-from hicexplorer.utilities import check_chrom_str_bytes
+from .utilities import toBytes
+from .utilities import check_chrom_str_bytes
 
 import logging
 log = logging.getLogger(__name__)
