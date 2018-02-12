@@ -69,6 +69,7 @@ Command line:
     $ hicPlotTADs --tracks tracks.ini --region chrX:6800000-8500000  -o TAD_calling_comparison.png
 
 tracks.ini:
+
 .. code:: INI
 
     [x-axis]
