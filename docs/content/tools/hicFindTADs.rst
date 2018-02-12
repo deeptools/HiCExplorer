@@ -40,12 +40,13 @@ This command will output the following files:
     myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_boundaries.gff
     myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_domains.bed
     myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_score.bedgraph
-    myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_score.bw
     myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_score.npz
     myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_tad_score.bm
     myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_zscore_matrix.h5
 
-TAD boundaries location is stored in the ``boundaries`` files, ``domains.bed`` file contain the TADs location, ``score`` files contain TAD separation score, or the so-called TAD insulation score, in various formats. The ``zscore_matrix.h5`` file contain a z-score matrix that is useful to quickly test the **--thresholdComparisons**, **--delta** and **--correctForMultipleTesting** parameters by using the **--TAD_sep_score_prefix** option pointing to this ``zscore_matrix.h5`` file. For example to quickly test a **--thresholdComparisons** of 0.01 instead of 0.05 we can run the following command:
+TAD boundaries location is stored in the ``boundaries`` files, ``domains.bed`` file contain the TADs location, ``score`` files contain TAD separation score, or the so-called TAD insulation score, in various formats. As a side note, the ``tad_score.bm`` file is a bedgraph matrix that can be used to display TAD separation score curves in :doc:``hicPlotTADs`` for example.
+
+The ``zscore_matrix.h5`` file contain a z-score matrix that is useful to quickly test the **--thresholdComparisons**, **--delta** and **--correctForMultipleTesting** parameters by using the **--TAD_sep_score_prefix** option pointing to this ``zscore_matrix.h5`` file. For example to quickly test a **--thresholdComparisons** of 0.01 instead of 0.05 we can run the following command:
 
 .. code:: bash
 
