@@ -45,7 +45,7 @@ This command will output the following files:
     myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_tad_score.bm
     myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_zscore_matrix.h5
 
-TAD boundaries location is stored in the ``boundaries`` files, ``domains.bed`` file contain the TADs location, ``score`` files contain TAD separation score or the so-called TAD insulation score in various formats, and the ``zscore_matrix.h5`` file contain a z-score matrix that is useful to quickly test the --thresholdComparisons, --delta and --correctForMultipleTesting parameters by using the --TAD_sep_score_prefix option pointing to this ``zscore_matrix.h5`` file. For example to quickly test a threshold of 0.01 instead of 0.05 we can run the following command:
+TAD boundaries location is stored in the ``boundaries`` files, ``domains.bed`` file contain the TADs location, ``score`` files contain TAD separation score, or the so-called TAD insulation score, in various formats. The ``zscore_matrix.h5`` file contain a z-score matrix that is useful to quickly test the **--thresholdComparisons**, **--delta** and **--correctForMultipleTesting** parameters by using the **--TAD_sep_score_prefix** option pointing to this ``zscore_matrix.h5`` file. For example to quickly test a **--thresholdComparisons** of 0.01 instead of 0.05 we can run the following command:
 
 .. code:: bash
 
@@ -57,18 +57,17 @@ TAD boundaries location is stored in the ``boundaries`` files, ``domains.bed`` f
     --correctForMultipleTesting fdr \
     -p 64
     
-As you can see above, --minDepth, --maxDepth and --step are ignored because these parameters are used to calculate the z-score matrix which is here provided to --TAD_sep_score_prefix. Since zscore matrix computation is the most demanding step of hicFindTADs in terms of memory and computation, the above command will thus run really faster than the previous one.
+As you can see above, **--minDepth**, **--maxDepth** and **--step** are ignored because these parameters are used to calculate the z-score matrix which is here provided to **--TAD_sep_score_prefix**. Since z-score matrix computation is the most demanding step of hicFindTADs in terms of memory and computation, the above command will thus run significantly faster than the previous one.
 
-Multiple combination of parameters can be tested that way with only step of zscore matrix computation. To compare these different TAD callings, we use :doc:`hicPlotTADs` with the following command using, for example, the following tracks.ini file:
+Multiple combination of parameters can be tested that way with only one z-score matrix computation. To compare these different TAD callings, we use :doc:`hicPlotTADs` with the following command using, for example, the following tracks.ini file:
 
-Command line:
-
+- **command line:**
 
 .. code:: bash
 
     $ hicPlotTADs --tracks tracks.ini --region chrX:6800000-8500000  -o TAD_calling_comparison.png
 
-tracks.ini:
+- **tracks.ini:**
 
 .. code:: INI
 
