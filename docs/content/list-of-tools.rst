@@ -1,6 +1,8 @@
 HiCExplorer tools
 =================
 
+.. contents:: 
+    :local:
 
    +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
    | tool                           | type             | input files                       | main output file(s)                         | application                                                                       |
@@ -46,9 +48,78 @@ HiCExplorer tools
    +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
    |:ref:`hicCompareMatrices`       | analysis         | two Hi-C matrices                 | one Hi-C matrix                             | Applies diff, ratio or log2ratio on matrices to compare them.                     |
    +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-   |:ref:`hicLog2Ratio`             | analysis         | two Hi-C matrices                 | one Hi-C matrix                             | Computes the log2 ratio between two matrices.                                     |
-   +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
    |:ref:`hicMergeTADbins`          | preprocessing    | one Hi-C matrix, one BED file     | one Hi-C matrix                             | Uses a BED file of domains or TAD boundaries to merge the                         |
    |                                |                  |                                   |                                             | bin counts of a Hi-C matrix.                                                      |
    +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+   
+   
+General principles
+^^^^^^^^^^^^^^^^^^
+
+A typical HiCExplorer command could look like this:
+
+.. code:: bash
+
+    $ hicPlotMatrix -m myHiCmatrix.h5 \
+    -o myHiCmatrix.pdf \
+    --clearMaskedBins \
+    --region chrX:10,000,000-15,000,000 \
+    --vMin -4 --vMax 4 \
+    
+
+You can always see all available command-line options via --help:
+
+.. code:: bash
+
+    $ hicPlotMatrix --help
+
+- Output format of plots should be indicated by the file ending, e.g. ``MyPlot.pdf`` will return a pdf file, ``MyPlot.png`` a png-file.
+- Most of the tools that produce plots can also output the underlying data - this can be useful in cases where you don't like the HiCExplorer visualization, as you can then use the data matrices produced by deepTools with your favorite plotting tool, such as R.
+- The vast majority of command line options are also available in Galaxy (in a few cases with minor changes to their naming).
+
+
+Tools for Hi-C data pre-processing
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:doc:`findRestSite`
+:doc:`hicBuildMatrix`
+:doc:`hicSumMatrices`
+:doc:`hicMergeMatrixBins`
+:doc:`hicCorrectMatrix`
+
+Tools for Hi-C QC
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:doc:`hicQC`
+:doc:`hicCorrelate`
+:doc:`hicPlotDistVsCounts`
+:doc:`hicInfo`
+
+Tools for Hi-C data analysis
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:doc:`hicCompareMatrices` 
+:doc:`hicFindEnrichedContacts`
+:doc:`hicPCA`
+:doc:`hicTransform`
+
+Tools for TADs processing
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:doc:`hicFindTADs`
+:doc:`hicMergeTADbins`
+
+Tools for Hi-C and TADs visualization 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:doc:`hicPlotMatrix` 
+:doc:`hicPlotTADs`
+:doc:`hicPlotViewpoint`
+:doc:`hicAggregateContacts`
+
+
+Miscellaneous
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:doc:`hicExport`
   
