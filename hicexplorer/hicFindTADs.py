@@ -48,7 +48,7 @@ as the demanding step is the computation of TAD-separation scores.
 
  A simple example usage is:
 
-$ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting frd
+$ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting fdr
 
 The bedgraph file produced by this tool can be used to plot the so-called insulation score 
 along the genome or at specific regions. This score is much more reliable across samples 
