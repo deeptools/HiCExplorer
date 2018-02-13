@@ -23,7 +23,7 @@ Description
 Usage example
 ^^^^^^^^^^^^^^^
 
-``hicPlotDistVsCounts`` should be used on corrected matrices with very large bins (e.g. at least 50kb bins), otherwise the curves will be spiky at longer ranges because of the sparness of the contacts, thus the likelyness of the samples will become hard to assess after a certain distance. ``hicPlotDistVsCounts`` is thus often ran after :doc:`hicMergeMatrixBins` and :doc:`hicCorrectMatrix`.
+:doc:`hicPlotDistVsCounts` should be used on corrected matrices with very large bins (e.g. at least 50kb bins), otherwise the curves will be spiky at longer ranges because of the sparness of the contacts, thus the likelyness of the samples will become hard to assess after a certain distance. :doc:`hicPlotDistVsCounts` is thus often ran after :doc:`hicMergeMatrixBins` and :doc:`hicCorrectMatrix`.
 
 .. code:: bash
 
