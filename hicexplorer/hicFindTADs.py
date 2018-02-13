@@ -50,9 +50,9 @@ as the demanding step is the computation of TAD-separation scores.
 
 $ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting fdr
 
-The bedgraph file produced by this tool can be used to plot the so-called insulation score 
-along the genome or at specific regions. This score is much more reliable across samples 
-than the number of TADs or the TADs width that can vary depending on the sequencing depth because of the lack 
+The bedgraph file produced by this tool can be used to plot the so-called insulation score
+along the genome or at specific regions. This score is much more reliable across samples
+than the number of TADs or the TADs width that can vary depending on the sequencing depth because of the lack
 of information at certain bins, and depending on the parameters used with this tool.
 """)
 
