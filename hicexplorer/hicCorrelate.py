@@ -41,13 +41,12 @@ def parse_arguments(args=None):
         'matrices, the finer differences you score. The --range parameter should '
         'be selected at a meaningful genomic scale according to, for example, the '
         'mean size of the TADs in the organism you work with.')
-        
 
     # define the arguments
     parser.add_argument('--matrices', '-m',
                         help='Matrices to correlate (usually .h5 but other formats are allowed). '
-                             'hicCorrelate is better used on un-corrected matrices in order to '
-                             'exclude any changes introduced by the correction.',
+                        'hicCorrelate is better used on un-corrected matrices in order to '
+                        'exclude any changes introduced by the correction.',
                         nargs='+',
                         required=True)
 
@@ -59,8 +58,8 @@ def parse_arguments(args=None):
 
     parser.add_argument('--log1p',
                         help='If set, then the log1p of the matrix values is used. This parameter has no '
-                             'effect for Spearman correlations but changes the output of Pearson correlation '
-                             'and, for the scatter plot, if set, the visualization of the values is easier.',
+                        'effect for Spearman correlations but changes the output of Pearson correlation '
+                        'and, for the scatter plot, if set, the visualization of the values is easier.',
                         action='store_true')
 
     parser.add_argument('--labels', '-l',
