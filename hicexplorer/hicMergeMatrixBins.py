@@ -19,7 +19,7 @@ def parse_arguments(args=None):
         description='Merges bins from a Hi-C matrix. For example, '
         'using a matrix containing 5kb bins, a matrix '
         'of 50kb bins can be derived using --numBins 10. '
-        'From one type of downstream analysis to another, ' 
+        'From one type of downstream analysis to another, '
         'different bin sizes must be used. For example to call TADs, '
         'unmerged matrices are recommended while to display '
         'Hi-C matrices, bins of approximately 2000bp usually '
