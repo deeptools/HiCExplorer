@@ -21,6 +21,9 @@ Description
 Usage example
 ^^^^^^^^^^^^^^^
 
+Running hicMergeMatrixBins
+""""""""""""""""
+
 Bellow, we will develop the example of a matrix to display at the whole X-chromosome scale and at the scale of a 1Mb region of the X chromosome. To do this, we will perform two different bin merging using :doc:`hicMergeMatrixBins` on an uncorrected matrix built at the restiction sites resolution using :doc:`hicBuildMatrix`. To do this, we run the two following command lines
 
 .. code:: bash
@@ -33,7 +36,7 @@ Starting from a matrix ``myMatrix.h5`` with bins of a median length of 529bp, th
 
 After the correction of these three matrices using :doc:`hicCorrectMatrix`, we can now plot them, ``myMatrix_corrected.h5``, ``myMatrix_merged_nb3_corrected.h5`` and ``myMatrix_merged_nb50_corrected.h5``, at the scale of the whole X-chromosome and at the X:2000000-3000000 region to see the effect of bin merging on the interactions visualization.
 
-Effect of the merging at the scale of a chromosome 
+Effect of bins merging at the scale of a chromosome 
 """"""""""""""""
 
 .. code:: bash
@@ -56,11 +59,11 @@ Effect of the merging at the scale of a chromosome
     -t Bins_merged_by_50 --log1p \
     --clearMaskedBins
 
-When observed altogether, the plots produced by these three commands show that the merging of bins by 50 is the most adequat matrix to plot interactions for a whole chromosome in *Drosophila melanogaster*.
+When observed altogether, the plots produced by these three commands show that the merging of bins by 50 is the most adequate way to plot interactions for a whole chromosome in *Drosophila melanogaster*.
 
 .. image:: ../../images/hicMergeMatrixBins_Xchr.png
 
-Effect of the merging at the scale of a specific region
+Effect of bins merging at the scale of a specific region
 """"""""""""""""
 
 .. code:: bash
@@ -83,7 +86,7 @@ Effect of the merging at the scale of a specific region
     -t Bins_merged_by_50 --log1p \
     --clearMaskedBins
 
-When observed altogether, the plots produced by these three commands show that the merging of bins by 3 is the most adequat matrix to plot interactions for a region of 1Mb in *Drosophila melanogaster*.
+When observed altogether, the plots produced by these three commands show that the merging of bins by 3 is the most adequate way to plot interactions for a region of 1Mb in *Drosophila melanogaster*.
 
 .. image:: ../../images/hicMergeMatrixBins_Xregion.png
 
