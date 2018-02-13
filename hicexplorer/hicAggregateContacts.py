@@ -224,7 +224,7 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
             elif use_center_submatrix:
                 # take a smaller submatrix of 3 x 3 centered on the submatrix
                 submat_vectors.append(
-                    submatrix[center_bin - 2:center_bin + 1,center_bin - 2:center_bin + 1].reshape((1, 9)))
+                    submatrix[center_bin - 2:center_bin + 1, center_bin - 2:center_bin + 1].reshape((1, 9)))
             else:
                 # Transform list of submatrices in an array of shape:
                 # shape = (num_submatrices, submatrix.shape[0] * submatrix.shape[1]
@@ -241,7 +241,7 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
 
         # remove outliers
         out_ind = get_outlier_indices(matrix, max_deviation=10)
-        if out_ind is not None and  len(np.flatnonzero(out_ind)) > 0:
+        if out_ind is not None and len(np.flatnonzero(out_ind)) > 0:
             log.info("Outliers detected in chrom: {}. Number of outliers: {}".
                      format(chrom, len(np.flatnonzero(out_ind))))
 
