@@ -27,10 +27,18 @@ def parse_arguments(args=None):
         conflict_handler='resolve',
         description="""
 Iterative correction for a Hi-C matrix (see Imakaev et al. 2012
-Nature Methods for details). For the method to work correctly, bins
-with low or too high coverage need to be filtered. For this, it is
-recommended to first run some diagnostic plots to determine the
-modified z-score cut off.
+Nature Methods for details). For the method to work correctly, bins with
+zero reads assigned to them should be removed as they can not be corrected.
+Also, bins with low number of reads should be removed, 
+otherwise, during the correction step, the counts associated with 
+those bins will be amplified (usually, zero and low coverage bins 
+tend contain repetitive regions).  Bins with extremely high number
+of reads can also be removed from the correction as they may represent 
+copy number variations.
+
+To aid in the identification of bins with low and high read coverage, the
+histogram of the number of reads can be plotted together with the
+Median Absolute Deviation (MAD).
 
 It is recommended to run hicCorrectMatrix as follows:
 
