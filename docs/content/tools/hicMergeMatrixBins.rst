@@ -59,7 +59,7 @@ Effect of bins merging at the scale of a chromosome
     -t Bins_merged_by_50 --log1p \
     --clearMaskedBins
 
-When observed altogether, the plots produced by these three commands show that the merging of bins by 50 is the most adequate way to plot interactions for a whole chromosome in *Drosophila melanogaster*.
+When observed altogether, the plots produced by these three commands show that the merging of bins by 50 is the most adequate way to plot interactions for a whole chromosome in *Drosophila melanogaster* when starting from a matrix with bins of a median length of 529bp.
 
 .. image:: ../../images/hicMergeMatrixBins_Xchr.png
 
@@ -86,7 +86,7 @@ Effect of bins merging at the scale of a specific region
     -t Bins_merged_by_50 --log1p \
     --clearMaskedBins
 
-When observed altogether, the plots produced by these three commands show that the merging of bins by 3 is the most adequate way to plot interactions for a region of 1Mb in *Drosophila melanogaster*.
+When observed altogether, the plots produced by these three commands show that the merging of bins by 3 is the most adequate way to plot interactions for a region of 1Mb in *Drosophila melanogaster* when starting from a matrix with bins of a median length of 529bp.
 
 .. image:: ../../images/hicMergeMatrixBins_Xregion.png
 
