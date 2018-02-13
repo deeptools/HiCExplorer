@@ -3,19 +3,22 @@
 hicQC
 =====
 
+Background
+^^^^^^^
+
+This tool can process quality control log files produced by :doc:`hicBuildMatrix` for multiple samples at once to generate summary tables and plots of quality control (QC) measures for all these samples. Additionally, an HTML output is generated where all summary tables and plots are displayed.
+
+Description
+^^^^^^^
+
 .. argparse::
    :ref: hicexplorer.hicPrepareQCreport.parse_arguments
    :prog: hicQC
 
-Details
-^^^^^^^
-
-hicQC can be used to generate summary tables and plots of QC measures from several samples generated using :doc:`hicBuildMatrix`. Additionally, an HTML output will be generated.
-
-Examples
+Usage example
 ^^^^^^^^
 
-:doc:`hicBuildMatrix` generates a QC.log file per processed Hi-C sample in a folder specified in the ``--QCfolder`` argument. QC measures from several samples can be merged in summary tables and plots. An example usage is:
+:doc:`hicBuildMatrix` generates a QC.log file for each processed Hi-C sample in a folder specified in the ``--QCfolder`` argument. The quality control measures stored for each of these samples can be merged in summary tables and plots using hicQC. An example usage is:
 
 .. code-block:: bash
 
@@ -23,45 +26,35 @@ Examples
     --labels "Sample 1" "Sample 2" "Sample 3" \
     -o QC_plots
 
+This command will generate several plots that are described in details below.
+
 .. image:: ../../images/pairs_sequenced.png
 
-Here we can see how many reads were sequenced per sample (pairs considered), how many reads were mappable, unique and of high quality and how many reads passed all quality controls and are thus useful for further analysis (pairs used). All quality controls used for read filtering are explained below.
+On the plot above, we can see how many reads were sequenced per sample (pairs considered), how many reads were mappable, unique and of high quality and how many reads passed all quality controls and are thus useful for further analysis (pairs used). All quality controls used for read filtering are explained below.
 
 .. image:: ../../images/unmappable_and_non_unique.png
 
-The next figure contains the fraction of reads with respect to the total number of reads that did not map, that have a low quality score or that didn't map uniquely to the genome.
-In our example we can see that sample 3 has the highest fraction of pairs used. We explain the differences between the three samples below.
+The figure above contains the fraction of reads with respect to the total number of reads that did not map, that have a low quality score or that didn't map uniquely to the genome. In our example we can see that Sample 3 has the highest fraction of pairs used. We explain the differences between the three samples on the plot below.
 
 .. image:: ../../images/pairs_discarded.png
 
-This figure contains the fraction of read pairs (with respect to mappable and unique reads) that were discarded when building the Hi-C matrix.
+This figure contains the fraction of read pairs (with respect to mappable and unique reads) that were discarded when building the Hi-C matrix. You can find the description of each category below:
 
-**Dangling ends**
+**Dangling ends:** reads that start with the restriction site and constitute reads that were digested but not ligated. Sample 1 in our example has a high fraction of dangling ends (and thus a low proportion of pairs used). Reasons for this can be inefficient ligation or insufficient removal of danging ends during samples preparation.
 
-These are reads that start with the restriction site and constitute reads that were digested but no ligated.
-Sample 1 in our example has a high fraction of dangling ends (and thus less pairs used). Reasons for this can be inefficient ligation or removal of danging ends during sample processing.
+**Duplicated pairs:** reads that have the same sequence due to PCR amplification. For example, Sample 2 was amplified too much and thus has a very high fraction of duplicated pairs.
 
-**Duplicated pairs**
+**Same fragment:** read mates facing inward, separated by up to 800bp that do not have a restriction enzyme site in between. These read pairs are not valid Hi-C pairs and are thus discarded from further analyses.
 
-These are reads that have the same sequence due to PCR amplification.
-Sample 2 in our example was amplified too much and thus has a very high fraction of duplicated pairs.
+**Self circle:** read pairs within 25kb with 'outward' read orientation.
 
-**Same fragment**
-
-These are read mates facing inward, separated by up to 800 bp that do not have a restriction enzyme in between. These read pairs are not valid Hi-C pairs.
-
-**Self circle**
-
-Self circles are defined as pairs within 25kb with 'outward' read orientation.
-
-**Self ligation**
-
-These are read pairs with a restriction site in between that are within 800 bp.
+**Self ligation:** read pairs with a restriction site in between that are within 800bp.
 
 .. image:: ../../images/distance.png
 
-This figure contains the fraction of read pairs (with respect to mappable reads) that compose inter chromosomal, short range (< 20kb) or long range contacts.
-Inter chromosomal reads of a wild-type sample are expected to be low. A high fraction of inter chromosomal reads is an indicator of low sample quality or for example cell cycle changes.
+The figure above contains the fraction of read pairs (with respect to mappable reads) that compose inter chromosomal, short range (< 20kb) or long range contacts. Inter chromosomal reads of a wild-type sample are expected to be low. Trans-chromosomal contacts can be primarily considered as random ligation events. These would be expected to contribute to technical noise that may obscure some of the finer features in the Hi-C datasets (Nagano *et al.* 2015, Comparison of Hi-C results using in-solution versus in-nucleus ligation, doi: https://doi.org/10.1186/s13059-015-0753-7). As such, a high fraction of inter chromosomal reads is an indicator of low sample quality, but it can also be associated to cell cycle changes (Nagano *et al.* 2018, Cell-cycle dynamics of chromosomal organisation at single-cell resolution, doi: https://doi.org/10.1038/nature23001).
+
+Short range and long range contacts proportions can be associated to how the fixation is performed during Hi-C sample preparation. These two proportions also directly impact the Hi-C corrected counts versus genomic distance plots generated by :doc:`hicPlotDistVsCounts`.
 
 .. image:: ../../images/read_orientation.png
 
