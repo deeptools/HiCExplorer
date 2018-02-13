@@ -236,8 +236,8 @@ def parse_arguments(args=None):
     parser.add_argument('--outFileName', '-out',
                         help='File name to save the image, file prefix in case multiple images '
                              'are stored.',
-                        required=True)    
-    
+                        required=True)
+
     parser.add_argument('--width',
                         help='Figure width in centimeters.',
                         type=float,
