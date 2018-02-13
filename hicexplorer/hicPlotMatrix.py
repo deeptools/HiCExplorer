@@ -38,14 +38,14 @@ def parse_arguments(args=None):
 
     # define the arguments
     parser.add_argument('--matrix', '-m',
-                        help='Path of the Hi-C matrix to plot',
+                        help='Path of the Hi-C matrix to plot.',
                         required=True)
 
     parser.add_argument('--title', '-t',
-                        help='Plot title')
+                        help='Plot title.')
 
     parser.add_argument('--scoreName', '-s',
-                        help='Score name')
+                        help='Score name.')
 
     parser.add_argument('--outFileName', '-out',
                         help='File name to save the image. ',
@@ -55,11 +55,12 @@ def parse_arguments(args=None):
     parser.add_argument('--perChromosome',
                         help='Instead of plotting the whole matrix, '
                         'each chromosome is plotted next to the other. '
-                        'This parameter is not compatible with --region',
+                        'This parameter is not compatible with --region.',
                         action='store_true')
 
     parser.add_argument('--clearMaskedBins',
-                        help='if set, masked bins are removed from the matrix',
+                        help='If set, masked bins are removed from the matrix '
+                        'and not shown as black lines.',
                         action='store_true')
 
     # parser.add_argument('--whatToShow',
@@ -71,20 +72,20 @@ def parse_arguments(args=None):
     parser.add_argument('--chromosomeOrder',
                         help='Chromosomes and order in which the '
                         'chromosomes should be plotted. This option '
-                        'overrides --region and --region2 ',
+                        'overrides --region and --region2. ',
                         nargs='+')
 
     parser.add_argument('--region',
                         help='Plot only this region. The format is '
                         'chr:start-end The plotted region contains '
                         'the main diagonal and is symmetric unless '
-                        ' --region2 is given'
+                        ' --region2 is given.'
                         )
 
     parser.add_argument('--region2',
                         help='If given, then only the region defined by '
                         '--region and --region2 is given. The format '
-                        'is the same as --region1'
+                        'is the same as --region1.'
                         )
 
     parser.add_argument('--log1p',
@@ -113,12 +114,14 @@ def parse_arguments(args=None):
 
     parser.add_argument('--dpi',
                         help='Resolution for the image in case the'
-                             'ouput is a raster graphics image (e.g png, jpg)',
+                             'ouput is a raster graphics image (e.g png, jpg).',
                         type=int,
                         default=72)
 
     parser.add_argument('--bigwig',
-                        help='Bigwig file to plot below the matrix',
+                        help='Bigwig file to plot below the matrix. This can for '
+                        'example be used to visualize A/B compartments or '
+                        'ChIP-seq data.',
                         type=str,
                         default=None)
 

@@ -25,10 +25,9 @@ log = logging.getLogger(__name__)
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
-        description='This program makes a distance vs. Hi-C counts plots. It can use several matrix files to compare '
-                    'them. If the `--perchr` option is given, each chromosome is plotted independently. In the case '
-                    'of more than one matrix, multiple plots are created, one per chromosome. When plotting multiple '
-                    'matrices denser matrices are scaled down to match the sum of the smaller matrix.')
+        description='This program creates distance vs. Hi-C counts plots. It can use several matrix files to compare '
+                    'them at once. If the `--perchr` option is given, each chromosome is plotted independently. '
+                    'When plotting multiple matrices, denser matrices are scaled down to match the sum of the smallest matrix.')
 
     # define the arguments
     parser.add_argument('--matrices', '-m',
@@ -57,30 +56,29 @@ def parse_arguments(args=None):
                         required=True)
 
     parser.add_argument('--maxdepth',
-                        help='Maximum distance from diagonal to use. In other words, distances up to maxDeph are'
+                        help='Maximum distance from diagonal to use. In other words, distances up to maxDeph are '
                              'computed. Default is 3 million bp.',
                         metavar='INT bp',
                         type=int,
                         default=int(3e6))
 
     parser.add_argument('--perchr',
-                        help='generate plots per chromosome. If more than one Hi-C matrix is given to `--matrices` then'
-                             'for each chromosome a new plot is made. Otherewise, a single plot with one line per'
-                             'chromosome is created',
+                        help='If given, computes and display distance versus Hi-C counts plots for each chromosome stored '
+                        'in the matrices passed to --matrices.',
                         action='store_true')
 
     parser.add_argument('--chromosomeExclude',
                         help='Exclude the given list of chromosomes. This is useful for example to exclude '
-                             'the Y chromosome. The names of the chromosomes should be separated by space',
+                             'the Y chromosome. The names of the chromosomes should be separated by space.',
                         nargs='+')
 
     parser.add_argument('--outFileData',
-                        help='If given, the data underlying the plots is saved on this file',
+                        help='If given, the data underlying the plots is saved on this file. ',
                         type=argparse.FileType('w'),
                         )
 
     parser.add_argument('--plotsize',
-                        help='width and height of the plot (in inches). Default is 6*number of cols, 4 * number of '
+                        help='Width and height of the plot (in inches). Default is 6*number of cols, 4 * number of '
                              'rows. The maximum number of rows is 4. Example --plotsize 6 5',
                         nargs=2,
                         type=float
