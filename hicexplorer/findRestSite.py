@@ -16,25 +16,27 @@ def parse_arguments(args=None):
                                      usage='%(prog)s --fasta mm10.fa '
                                            '--searchPattern AAGCTT -o rest_site_positions.bed')
 
-    # define the arguments
-    parser.add_argument('--fasta', '-f',
-                        help='Path to fasta file for the organism genome.',
-                        type=argparse.FileType('r'),
-                        required=True)
+    parserRequired = parser.add_argument_group('Required arguments')
 
     # define the arguments
-    parser.add_argument('--searchPattern', '-p',
-                        help='Search pattern. For example, for HindIII this pattern is "AAGCTT". '
-                             'Both, forward and reverse strand are searched for a match. The pattern '
-                             'is a regexp and can contain regexp specif syntax '
-                             '(see https://docs.python.org/2/library/re.html). For example the pattern'
-                             'CG..GC will find all occurrence of CG followed by any two bases and then GC.',
-                        required=True)
+    parserRequired.add_argument('--fasta', '-f',
+                                help='Path to fasta file for the organism genome.',
+                                type=argparse.FileType('r'),
+                                required=True)
 
-    parser.add_argument('--outFile', '-o',
-                        help='Name for the resulting bed file.',
-                        type=argparse.FileType('w'),
-                        required=True)
+    # define the arguments
+    parserRequired.add_argument('--searchPattern', '-p',
+                                help='Search pattern. For example, for HindIII this pattern is "AAGCTT". '
+                                'Both, forward and reverse strand are searched for a match. The pattern '
+                                'is a regexp and can contain regexp specif syntax '
+                                '(see https://docs.python.org/2/library/re.html). For example the pattern'
+                                'CG..GC will find all occurrence of CG followed by any two bases and then GC.',
+                                required=True)
+
+    parserRequired.add_argument('--outFile', '-o',
+                                help='Name for the resulting bed file.',
+                                type=argparse.FileType('w'),
+                                required=True)
 
     return parser
 
@@ -104,7 +106,8 @@ def find_pattern(pattern, fasta_file, out_file):
     # sort bed file using system tools
     cmd = 'sort -k1,1 -k2,2n -u {}'.format(tmpfile_name)
     # LC_ALL=C is to set the appropriate collation order
-    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL': ' C'}, universal_newlines=True)
+    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={
+                            'LC_ALL': ' C'}, universal_newlines=True)
     stdout, _ = proc.communicate()
 
     out_file.write(stdout)
