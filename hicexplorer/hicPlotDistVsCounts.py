@@ -26,10 +26,9 @@ log = logging.getLogger(__name__)
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         add_help=False,
-        description='This program makes a distance vs. Hi-C counts plots. It can use several matrix files to compare '
-                    'them. If the `--perchr` option is given, each chromosome is plotted independently. In the case '
-                    'of more than one matrix, multiple plots are created, one per chromosome. When plotting multiple '
-                    'matrices denser matrices are scaled down to match the sum of the smaller matrix.')
+        description='This program creates distance vs. Hi-C counts plots. It can use several matrix files to compare '
+                    'them at once. If the `--perchr` option is given, each chromosome is plotted independently. '
+                    'When plotting multiple matrices, denser matrices are scaled down to match the sum of the smallest matrix.')
 
     parserRequired = parser.add_argument_group('Required arguments')
 
