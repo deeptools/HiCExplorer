@@ -145,6 +145,47 @@ def parse_arguments(args=None):
                            version='%(prog)s {}'.format(__version__))
 
     return parser
+    
+
+def heatmap_options():
+    """
+    Options for generating the correlation heat map
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    heatmap = parser.add_argument_group('Heat map options')
+
+    heatmap.add_argument('--zMin', '-min',
+                         default=None,
+                         help='Minimum value for the heat map intensities. '
+                              'If not specified the value is set automatically.',
+                         type=float)
+    heatmap.add_argument('--zMax', '-max',
+                         default=None,
+                         help='Maximum value for the heat map intensities.'
+                              'If not specified the value is set automatically.',
+                         type=float)
+
+    heatmap.add_argument(
+        '--colorMap', default='jet',
+        metavar='',
+        help='Color map to use for the heatmap. Available values can be '
+             'seen here: '
+             'http://matplotlib.org/examples/color/colormaps_reference.html')
+
+    heatmap.add_argument('--plotFileFormat',
+                         metavar='FILETYPE',
+                         help='Image format type. If given, this option '
+                              'overrides the image format based on the plotFile '
+                              'ending. The available options are: png, emf, '
+                              'eps, pdf and svg.',
+                         choices=['png', 'pdf', 'svg', 'eps', 'emf'])
+
+    heatmap.add_argument('--plotNumbers',
+                         help='If set, then the correlation number is plotted '
+                              'on top of the heatmap.',
+                         action='store_true',
+                         required=False)
+    return parser
 
 
 def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
