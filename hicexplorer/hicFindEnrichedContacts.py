@@ -19,8 +19,8 @@ def parse_arguments(args=None):
     """
 
     parser = argparse.ArgumentParser(
-        parents=[parent_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False,
         description='Identifies enriched contacts by computing a observe vs. expected or a z-score matrix')
 
     parserRequired = parser.add_argument_group('Required arguments')
