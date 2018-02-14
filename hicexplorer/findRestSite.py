@@ -39,9 +39,9 @@ def parse_arguments(args=None):
                                 type=argparse.FileType('w'),
                                 required=True)
 
-    parserOpt= parser.add_argument_group('Optional arguments')
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parserOpt.add_argument("-h", "--help", action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h" action="help", help="show this help message and exit")
 
     return parser
 
@@ -111,8 +111,7 @@ def find_pattern(pattern, fasta_file, out_file):
     # sort bed file using system tools
     cmd = 'sort -k1,1 -k2,2n -u {}'.format(tmpfile_name)
     # LC_ALL=C is to set the appropriate collation order
-    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={
-                            'LC_ALL': ' C'}, universal_newlines=True)
+    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL': ' C'}, universal_newlines=True)
     stdout, _ = proc.communicate()
 
     out_file.write(stdout)
