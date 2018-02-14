@@ -102,10 +102,10 @@ Statistical Techniques, Edward F. Mykytka, Ph.D., Editor).
                               type=float)
 
     plot_modeOpt.add_argument('--perchr',
-                               help='Compute histogram per chromosome. For samples from cells with uneven number '
-                               'of chromosomes and/or translocations it is advisable to check the histograms '
-                               'per chromosome to find the most conservative `filterThreshold`.',
-                               action='store_true')
+                                help='Compute histogram per chromosome. For samples from cells with uneven number '
+                                'of chromosomes and/or translocations it is advisable to check the histograms '
+                                'per chromosome to find the most conservative `filterThreshold`.',
+                                action='store_true')
 
     plot_modeOpt.add_argument('--verbose',
                               help='Print processing status.',
