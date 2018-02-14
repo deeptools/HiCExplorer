@@ -24,13 +24,13 @@ def parse_arguments(args=None):
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--outFileName', '-o',
-                                help='File name to save the resulting matrix',
+                                help='File name to save the resulting matrix.',
                                 type=hicexplorer.parserCommon.writableFile,
                                 required=True)
 
     parserRequired.add_argument(
         '--method',
-        help='Method to transform the matrix values',
+        help='Method to transform the matrix values.',
         choices=['z-score', 'obs/exp'],
         required=True)
 
@@ -39,12 +39,12 @@ def parse_arguments(args=None):
     parserOpt.add_argument(
         '--perchr',
         help='Default is to fit distributions per each distance. Setting this '
-        'option will fit distributions per distance per chromosome',
+        'option will fit distributions per distance per chromosome.',
         action='store_true')
 
     parserOpt.add_argument(
         '--skipDiagonal', '-s',
-        help='If set, diagonal counts are not included',
+        help='If set, diagonal counts are not included.',
         action='store_true')
 
     parserOpt.add_argument(
