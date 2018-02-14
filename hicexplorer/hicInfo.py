@@ -12,6 +12,7 @@ def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
         description="""
 Prints information about a matrix or matrices including matrix size,
 number of elements, sum of elements, etc.
@@ -22,18 +23,24 @@ $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
 
 """)
 
-    parser.add_argument('--matrices', '-m',
-                        help='The matrix (or multiple matrices) to get information about. '
-                             'HiCExplorer supports the following file formats: h5 (native HiCExplorer format), '
-                             'npz (format used by earlier versions of HiCExplorer), '
-                             'dekker (matrix format used in Job Dekker publications), '
-                             'and lieberman (format used by Erez Lieberman Aiden). This last formats may change '
-                             'in the future.',
-                        nargs='+',
-                        required=True)
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserRequired.add_argument('--matrices', '-m',
+                                help='The matrix (or multiple matrices) to get information about. '
+                                'HiCExplorer supports the following file formats: h5 (native HiCExplorer format), '
+                                'npz (format used by earlier versions of HiCExplorer), '
+                                'dekker (matrix format used in Job Dekker publications), '
+                                'and lieberman (format used by Erez Lieberman Aiden). This last formats may change '
+                                'in the future.',
+                                nargs='+',
+                                required=True)
+
+    parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
