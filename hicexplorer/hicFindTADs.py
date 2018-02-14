@@ -12,7 +12,7 @@ from scipy import sparse
 import numpy as np
 import multiprocessing
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString, check_chrom_str_bytes
+from hicexplorer.utilities import toString, toBytes
 
 # python 2 / 3 compatibility
 from past.builtins import zip
@@ -32,6 +32,7 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
         conflict_handler='resolve',
         description="""
 Uses a measure called TAD-separation score to identify the degree of separation between
@@ -52,109 +53,117 @@ $ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting fdr
 
 The bedgraph file produced by this tool can be used to plot the so-called insulation score
 along the genome or at specific regions. This score is much more reliable across samples
-than the number of TADs or the TADs width that can vary depending on the sequencing depth because of the lack
-of information at certain bins, and depending on the parameters used with this tool.
-""")
+than the number of TADs or the TADs width that can vary depending on the sequencing depth
+because of the lack of information at certain bins, and depending on the parameters used
+with this tool.""")
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    parser.add_argument('--matrix', '-m',
-                        help='Corrected Hi-C matrix to use for the computations',
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='Corrected Hi-C matrix to use for the computations',
+                                required=True)
 
-    parser.add_argument('--outPrefix',
-                        help='File prefix to save the resulting files: 1. <prefix>_tad_separation.bm '
-                             'The format of the output file is chrom start end TAD-sep1 TAD-sep2 TAD-sep3 .. etc. '
-                             'We call this format a bedgraph matrix and can be plotted using '
-                             '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
-                             'a different window length starting from --minDepth to --maxDepth. '
-                             '2. <prefix>_zscore_matrix.h5, the zscore matrix used for the computation of '
-                             'the TAD-separation score.  3. < prefix > _boundaries.bed, which'
-                             'contains the positions of boundaries. The genomic coordinates in this file '
-                             'correspond to the resolution used. Thus, for Hi-C bins of '
-                             '10.000bp the boundary position is 10.000bp long. For restriction fragment '
-                             'matrices the boundary position varies depending on the fragment length '
-                             'at the boundary. 4. <prefix>_domains.bed '
-                             'contains the TADs positions. This is a non-overlapping set of genomic '
-                             'positions. 5. <prefix>_boundaries.gff Similar to the boundaries bed file '
-                             'but with extra information (pvalue, delta). 6. <prefix>_score.bedgraph file '
-                             'contains the TAD-separation score '
-                             'measured at each Hi-C bin coordinate. Is useful to visualize in a genome '
-                             'browser. The delta and pvalue settings are saved as part of the name.',
-                        required=True)
+    parserRequired.add_argument('--outPrefix',
+                                help='File prefix to save the resulting files: 1. <prefix>_tad_separation.bm '
+                                'The format of the output file is chrom start end TAD-sep1 TAD-sep2 TAD-sep3 .. etc. '
+                                'We call this format a bedgraph matrix and can be plotted using '
+                                '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
+                                'a different window length starting from --minDepth to --maxDepth. '
+                                '2. <prefix>_zscore_matrix.h5, the zscore matrix used for the computation of '
+                                'the TAD-separation score.  3. < prefix > _boundaries.bed, which'
+                                'contains the positions of boundaries. The genomic coordinates in this file '
+                                'correspond to the resolution used. Thus, for Hi-C bins of '
+                                '10.000bp the boundary position is 10.000bp long. For restriction fragment '
+                                'matrices the boundary position varies depending on the fragment length '
+                                'at the boundary. 4. <prefix>_domains.bed '
+                                'contains the TADs positions. This is a non-overlapping set of genomic '
+                                'positions. 5. <prefix>_boundaries.gff Similar to the boundaries bed file '
+                                'but with extra information (pvalue, delta). 6. <prefix>_score.bedgraph file '
+                                'contains the TAD-separation score '
+                                'measured at each Hi-C bin coordinate. Is useful to visualize in a genome '
+                                'browser. The delta and pvalue settings are saved as part of the name.',
+                                required=True)
 
-    parser.add_argument('--minDepth',
-                        help='Minimum window length (in bp) to be considered to the left and to the right '
-                             'of each Hi-C bin. This number should be at least 3 times '
-                             'as large as the bin size of the Hi-C matrix.',
-                        metavar='INT bp',
-                        type=int)
+    parserRequired.add_argument('--correctForMultipleTesting',
+                                help='Select the bonferroni or false discovery rate for a multiple comparison. Bonferroni '
+                                'controlls the familywise error rate (FWER) and needs a p-value. The false discovery rate '
+                                '(FDR) controls the likelyhood of type I errors and needs a q-value. As a third option '
+                                'it is possible to not use a multiple comparison method at all.',
+                                type=str,
+                                default="fdr",
+                                choices=['fdr', 'bonferroni', 'None'],
+                                required=True)
 
-    parser.add_argument('--maxDepth',
-                        help='Maximum window length to be considered to the left and to the right '
-                             'of the cut point in bp. This number should around 6-10 times '
-                             'as large as the bin size of the Hi-C matrix.',
-                        metavar='INT bp',
-                        type=int)
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--step',
-                        help='Step size when moving from --minDepth to --maxDepth. Note, the step size'
-                             'grows exponentially as '
-                             '`maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
-                             'reaches `maxDepth`. For example, selecting  step=10,000, minDepth=20,000 '
-                             'and maxDepth=150,000 will compute TAD-scores for window sizes: '
-                             '20,000, 30,000, 40,000, 70,000 and 100,000',
-                        metavar='INT bp',
-                        type=int)
+    parserOpt.add_argument('--minDepth',
+                           help='Minimum window length (in bp) to be considered to the left and to the right '
+                           'of each Hi-C bin. This number should be at least 3 times '
+                           'as large as the bin size of the Hi-C matrix.',
+                           metavar='INT bp',
+                           type=int)
 
-    parser.add_argument('--numberOfProcessors', '-p',
-                        help='Number of processors to use ',
-                        type=int,
-                        default=1)
+    parserOpt.add_argument('--maxDepth',
+                           help='Maximum window length to be considered to the left and to the right '
+                           'of the cut point in bp. This number should around 6-10 times '
+                           'as large as the bin size of the Hi-C matrix.',
+                           metavar='INT bp',
+                           type=int)
 
-    parser.add_argument('--minBoundaryDistance',
-                        help='Minimum distance between boundaries (in bp). This parameter can be '
-                             'used to reduce spurious boundaries caused by noise. ',
-                        type=int)
-    parser.add_argument('--correctForMultipleTesting',
-                        help='Select the bonferroni or false discovery rate for a multiple comparison. Bonferroni '
-                        'controlls the familywise error rate (FWER) and needs a p-value. The false discovery rate '
-                        '(FDR) controls the likelyhood of type I errors and needs a q-value. As a third option '
-                        'it is possible to not use a multiple comparison method at all.',
-                        type=str,
-                        default="fdr",
-                        choices=['fdr', 'bonferroni', 'None'],
-                        required=True)
-    parser.add_argument('--thresholdComparisons',
-                        help='P-value threshold for the bonferroni correction / q-value for FDR. '
-                             'The probability of a local minima to be a boundary '
-                             'is estimated by comparing the distribution (Wilcoxon ranksum) of '
-                             'the  zscores between the left and right '
-                             'regions (diamond) at the local minimum with the matrix zscores for a '
-                             'diamond at --minDepth to the left and a diamond --minDepth to the right. '
-                             'If --correctForMultipleTesting is \'None\' the threshold is applied on the '
-                             'raw p-values without any multiple testing correction. Set it to \'1\' if no threshold should be used.',
-                        type=float,
-                        default=0.01)
+    parserOpt.add_argument('--step',
+                           help='Step size when moving from --minDepth to --maxDepth. Note, the step size'
+                           'grows exponentially as '
+                           '`maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
+                           'reaches `maxDepth`. For example, selecting  step=10,000, minDepth=20,000 '
+                           'and maxDepth=150,000 will compute TAD-scores for window sizes: '
+                           '20,000, 30,000, 40,000, 70,000 and 100,000',
+                           metavar='INT bp',
+                           type=int)
 
-    parser.add_argument('--delta',
-                        help='Minimum threshold of the difference between the TAD-separation score of a '
-                             'putative boundary and the mean of the TAD-sep. score of surrounding bins. '
-                             'The delta value reduces spurious boundaries that are shallow, which usually '
-                             'occur at the center of large TADs when the TAD-sep. score is flat. Higher '
-                             'delta threshold values produce more conservative boundary estimations. By '
-                             'default a value of 0.01 is used.',
-                        type=float,
-                        default=0.01)
+    parserOpt.add_argument('--TAD_sep_score_prefix',
+                           help='Sometimes it is useful to change some of the parameters without recomputing the '
+                           'z-score matrix and the TAD-separation score. For this case, the prefix containing the '
+                           'TAD separation score and the z-score matrix can be given. If this option is given, '
+                           'new boundaries will be computed but the values of --minDepth, --maxDepth and --step will '
+                           'not be used.',
+                           required=False)
 
-    parser.add_argument('--TAD_sep_score_prefix',
-                        help='Sometimes it is useful to change some of the parameters without recomputing the '
-                             'z-score matrix and the TAD-separation score. For this case, the prefix containing the '
-                             'TAD separation score and the z-score matrix can be given. If this option is given, '
-                             'new boundaries will be computed but the values of minDepth, maxDepth and step will '
-                             'not be used.',
-                        required=False)
+    parserOpt.add_argument('--thresholdComparisons',
+                           help='P-value threshold for the bonferroni correction / q-value for FDR. '
+                           'The probability of a local minima to be a boundary '
+                           'is estimated by comparing the distribution (Wilcoxon ranksum) of '
+                           'the  zscores between the left and right '
+                           'regions (diamond) at the local minimum with the matrix zscores for a '
+                           'diamond at --minDepth to the left and a diamond --minDepth to the right. '
+                           'If --correctForMultipleTesting is \'None\' the threshold is applied on the '
+                           'raw p-values without any multiple testing correction. Set it to \'1\' if no threshold should be used.',
+                           type=float,
+                           default=0.01)
+
+    parserOpt.add_argument('--delta',
+                           help='Minimum threshold of the difference between the TAD-separation score of a '
+                           'putative boundary and the mean of the TAD-sep. score of surrounding bins. '
+                           'The delta value reduces spurious boundaries that are shallow, which usually '
+                           'occur at the center of large TADs when the TAD-sep. score is flat. Higher '
+                           'delta threshold values produce more conservative boundary estimations. By '
+                           'default a value of 0.01 is used.',
+                           type=float,
+                           default=0.01)
+
+    parserOpt.add_argument('--minBoundaryDistance',
+                           help='Minimum distance between boundaries (in bp). This parameter can be '
+                           'used to reduce spurious boundaries caused by noise.',
+                           type=int)
+
+    parserOpt.add_argument('--numberOfProcessors', '-p',
+                           help='Number of processors to use ',
+                           type=int,
+                           default=1)
+
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit.')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
     return parser
 
 
@@ -210,12 +219,11 @@ def get_idx_of_bins_at_given_distance(hic_matrix, idx, window_len):
     # chr_end_pos = hic_matrix.get_chromosome_sizes()[chrom]
     # if ?ring(chrom)
     chromosome_size = hic_matrix.get_chromosome_sizes()
-    chrom = check_chrom_str_bytes(chromosome_size, chrom)
-    # if type(next(iter(chromosome_size))) != type(chrom):
-    #     if type(next(iter(chromosome_size))) is str:
-    #         chrom = toString(chrom)
-    #     elif type(next(iter(chromosome_size))) is bytes:
-    #         chrom = toBytes(chrom)
+    if type(next(iter(chromosome_size))) != type(chrom):
+        if type(next(iter(chromosome_size))) is str:
+            chrom = toString(chrom)
+        elif type(next(iter(chromosome_size))) is bytes:
+            chrom = toBytes(chrom)
     chr_end_pos = chromosome_size[chrom]
 
     right_end = min(chr_end_pos, cut_end + window_len) - 1
@@ -266,8 +274,10 @@ def get_triangle(hic_matrix, cut, window_len, return_mean=False):
         """
         return matrix[np.triu_indices_from(matrix)].A1
 
-    edges_left = remove_lower_triangle(hic_matrix.matrix[left_idx:cut, :][:, left_idx:cut].todense())
-    edges_right = remove_lower_triangle(hic_matrix.matrix[cut:right_idx, :][:, cut:right_idx].todense())
+    edges_left = remove_lower_triangle(
+        hic_matrix.matrix[left_idx:cut, :][:, left_idx:cut].todense())
+    edges_right = remove_lower_triangle(
+        hic_matrix.matrix[cut:right_idx, :][:, cut:right_idx].todense())
 #    if cut > 1000:
 #        import ipdb;ipdb.set_trace()
     return np.concatenate([edges_left, edges_right])
@@ -331,7 +341,8 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
         chrom, chr_start, chr_end, _ = hic_ma.cut_intervals[cut]
         # get conductance
         # for multiple window lengths at a time
-        mult_matrix = [get_cut_weight(hic_ma, cut, depth, return_mean=True) for depth in incremental_step]
+        mult_matrix = [get_cut_weight(hic_ma, cut, depth, return_mean=True)
+                       for depth in incremental_step]
         if any(x is None or np.isnan(x) for x in mult_matrix):
             # skip problematic cases
             continue
@@ -492,7 +503,9 @@ class HicFindTads(object):
         # Only detect peak if there is 'lookahead' amount of points after it
         prev_chrom = None
         for index, (x, y) in enumerate(zip(x_axis[:-lookahead], y_axis[:-lookahead])):
-            assert -np.inf < y < np.inf, "Error, infinity value detected for value at position {}".format(index)
+            assert - \
+                np.inf < y < np.inf, "Error, infinity value detected for value at position {}".format(
+                    index)
             if prev_chrom is None:
                 prev_chrom = chrom[index]
             if prev_chrom != chrom[index]:
@@ -576,7 +589,8 @@ class HicFindTads(object):
         unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
         chr_start_idx = np.concatenate([chr_start_idx, [len(chrom) - 1]])
         chr_start_idx = np.sort(chr_start_idx)
-        chrom_ranges = [(chr_start_idx[x], chr_start_idx[x + 1]) for x in range(len(chr_start_idx) - 1)]
+        chrom_ranges = [(chr_start_idx[x], chr_start_idx[x + 1])
+                        for x in range(len(chr_start_idx) - 1)]
 
         delta_to_mean = {}
         for min_idx in min_idx_list:
@@ -935,7 +949,8 @@ class HicFindTads(object):
             log.info("Bonferroni correction. Number of boundaries for delta {} and pval {}: {}".format(self.delta, self.threshold_comparisons,
                                                                                                        len(filtered_min_idx)))
         else:
-            log.info("No multiple testing correction. Number of boundaries for delta {}: {}, used threshold: {}".format(self.delta, len(filtered_min_idx), self.threshold_comparisons))
+            log.info("No multiple testing correction. Number of boundaries for delta {}: {}, used threshold: {}".format(
+                self.delta, len(filtered_min_idx), self.threshold_comparisons))
 
         count = 1
         with open(prefix + '_boundaries.bed', 'w') as file_boundary_bin, open(prefix + '_domains.bed', 'w') as file_domains, open(prefix + '_boundaries.gff', 'w') as gff:
@@ -949,9 +964,11 @@ class HicFindTads(object):
                     delta_of_min[min_bin_id] = np.nan
 
                 # 1. save boundaries at 1bp position
-                right_bin_center = chr_start[min_bin_id] + int((chr_end[min_bin_id] - chr_start[min_bin_id]) / 2)
+                right_bin_center = chr_start[min_bin_id] + \
+                    int((chr_end[min_bin_id] - chr_start[min_bin_id]) / 2)
 
-                left_bin_center = chr_start[min_bin_id - 1] + int((chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) / 2)
+                left_bin_center = chr_start[min_bin_id - 1] + \
+                    int((chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) / 2)
 
                 if chrom[min_bin_id] != chrom[min_bin_id - 1]:
                     continue
@@ -998,7 +1015,8 @@ class HicFindTads(object):
         with open(prefix + '_score.bedgraph', 'w') as tad_score:
             for idx in range(1, len(chrom)):
                 right_bin_center = chr_start[idx] + int((chr_end[idx] - chr_start[idx]) / 2)
-                left_bin_center = chr_start[idx - 1] + int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
+                left_bin_center = chr_start[idx - 1] + \
+                    int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
                 if right_bin_center <= left_bin_center:
                     # this condition happens at chromosome borders
                     continue
@@ -1034,7 +1052,8 @@ class HicFindTads(object):
 
         # rebuilt bin positions if necessary
         if new_intervals != orig_intervals:
-            self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = self.hic_ma.intervalListToIntervalTree(new_intervals)
+            self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = self.hic_ma.intervalListToIntervalTree(
+                new_intervals)
             self.hic_ma.cut_intervals = new_intervals
             self.hic_ma.orig_cut_intervals = new_intervals
             self.hic_ma.orig_bin_ids = list(range(len(new_intervals)))
@@ -1186,8 +1205,10 @@ class HicFindTads(object):
 
             new_min_idx += [idx]
             min_chr, min_start, min_end, _ = self.hic_ma.getBinPos(matrix_idx)
-            assert toString(chrom[idx]) == toString(min_chr) and chr_start[idx] == min_start and chr_end[idx] == min_end
-            left_idx, right_idx = get_idx_of_bins_at_given_distance(self.hic_ma, matrix_idx, window_len)
+            assert toString(chrom[idx]) == toString(
+                min_chr) and chr_start[idx] == min_start and chr_end[idx] == min_end
+            left_idx, right_idx = get_idx_of_bins_at_given_distance(
+                self.hic_ma, matrix_idx, window_len)
 
             left = get_cut_weight(self.hic_ma, left_idx, window_len)
             right = get_cut_weight(self.hic_ma, right_idx, window_len)
@@ -1240,7 +1261,8 @@ class HicFindTads(object):
     def find_boundaries(self):
 
         # perform some checks
-        avg_bin_size = np.median(self.bedgraph_matrix['chr_end'] - self.bedgraph_matrix['chr_start'])
+        avg_bin_size = np.median(
+            self.bedgraph_matrix['chr_end'] - self.bedgraph_matrix['chr_start'])
 
         # compute lookahead (in number of bins)
         if self.min_boundary_distance is None:
