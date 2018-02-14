@@ -34,34 +34,39 @@ warnings.simplefilter(action="ignore", category=RuntimeWarning)
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description='Creates a Heatmap of a HiC matrix')
+    parser = argparse.ArgumentParser(add_help=False,
+                                     description='Creates a Heatmap of a HiC matrix.')
+
+    parserRequired = parser.add_argument_group('Required arguments')
 
     # define the arguments
-    parser.add_argument('--matrix', '-m',
-                        help='Path of the Hi-C matrix to plot.',
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='Path of the Hi-C matrix to plot.',
+                                required=True)
 
-    parser.add_argument('--title', '-t',
-                        help='Plot title.')
+    parserRequired.add_argument('--outFileName', '-out',
+                                help='File name to save the image.',
+                                type=writableFile,
+                                required=True)
 
-    parser.add_argument('--scoreName', '-s',
-                        help='Score name.')
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--outFileName', '-out',
-                        help='File name to save the image. ',
-                        type=writableFile,
-                        required=True)
+    parserOpt.add_argument('--title', '-t',
+                           help='Plot title.')
 
-    parser.add_argument('--perChromosome',
-                        help='Instead of plotting the whole matrix, '
-                        'each chromosome is plotted next to the other. '
-                        'This parameter is not compatible with --region.',
-                        action='store_true')
+    parserOpt.add_argument('--scoreName', '-s',
+                           help='Score name.')
 
-    parser.add_argument('--clearMaskedBins',
-                        help='If set, masked bins are removed from the matrix '
-                        'and not shown as black lines.',
-                        action='store_true')
+    parserOpt.add_argument('--perChromosome',
+                           help='Instead of plotting the whole matrix, '
+                           'each chromosome is plotted next to the other. '
+                           'This parameter is not compatible with --region.',
+                           action='store_true')
+
+    parserOpt.add_argument('--clearMaskedBins',
+                           help='If set, masked bins are removed from the matrix '
+                           'and not shown as black lines.',
+                           action='store_true')
 
     # parser.add_argument('--whatToShow',
     #                     help='Options are: "heatmap", "3D", and "both". '
@@ -69,64 +74,66 @@ def parse_arguments(args=None):
     #                     default="heatmap",
     #                     choices=["heatmap", "3D", "both"])
 
-    parser.add_argument('--chromosomeOrder',
-                        help='Chromosomes and order in which the '
-                        'chromosomes should be plotted. This option '
-                        'overrides --region and --region2. ',
-                        nargs='+')
+    parserOpt.add_argument('--chromosomeOrder',
+                           help='Chromosomes and order in which the '
+                           'chromosomes should be plotted. This option '
+                           'overrides --region and --region2.',
+                           nargs='+')
 
-    parser.add_argument('--region',
-                        help='Plot only this region. The format is '
-                        'chr:start-end The plotted region contains '
-                        'the main diagonal and is symmetric unless '
-                        ' --region2 is given.'
-                        )
+    parserOpt.add_argument('--region',
+                           help='Plot only this region. The format is '
+                           'chr:start-end The plotted region contains '
+                           'the main diagonal and is symmetric unless '
+                           ' --region2 is given.'
+                           )
 
-    parser.add_argument('--region2',
-                        help='If given, then only the region defined by '
-                        '--region and --region2 is given. The format '
-                        'is the same as --region1.'
-                        )
+    parserOpt.add_argument('--region2',
+                           help='If given, then only the region defined by '
+                           '--region and --region2 is given. The format '
+                           'is the same as --region1.'
+                           )
 
-    parser.add_argument('--log1p',
-                        help='Plot the log1p of the matrix values.',
-                        action='store_true')
+    parserOpt.add_argument('--log1p',
+                           help='Plot the log1p of the matrix values.',
+                           action='store_true')
 
-    parser.add_argument('--log',
-                        help='Plot the *MINUS* log of the matrix values.',
-                        action='store_true')
+    parserOpt.add_argument('--log',
+                           help='Plot the *MINUS* log of the matrix values.',
+                           action='store_true')
 
-    parser.add_argument('--colorMap',
-                        help='Color map to use for the heatmap. Available '
-                        'values can be seen here: '
-                        'http://matplotlib.org/examples/color/colormaps_reference.html',
-                        default='RdYlBu_r')
+    parserOpt.add_argument('--colorMap',
+                           help='Color map to use for the heatmap. Available '
+                           'values can be seen here: '
+                           'http://matplotlib.org/examples/color/colormaps_reference.html',
+                           default='RdYlBu_r')
 
-    parser.add_argument('--vMin',
-                        help='vMin',
-                        type=float,
-                        default=None)
+    parserOpt.add_argument('--vMin',
+                           help='vMin',
+                           type=float,
+                           default=None)
 
-    parser.add_argument('--vMax',
-                        help='vMax',
-                        type=float,
-                        default=None)
+    parserOpt.add_argument('--vMax',
+                           help='vMax',
+                           type=float,
+                           default=None)
 
-    parser.add_argument('--dpi',
-                        help='Resolution for the image in case the'
-                             'ouput is a raster graphics image (e.g png, jpg).',
-                        type=int,
-                        default=72)
+    parserOpt.add_argument('--dpi',
+                           help='Resolution for the image in case the'
+                           'ouput is a raster graphics image (e.g png, jpg).',
+                           type=int,
+                           default=72)
 
-    parser.add_argument('--bigwig',
-                        help='Bigwig file to plot below the matrix. This can for '
-                        'example be used to visualize A/B compartments or '
-                        'ChIP-seq data.',
-                        type=str,
-                        default=None)
+    parserOpt.add_argument('--bigwig',
+                           help='Bigwig file to plot below the matrix. This can for '
+                           'example be used to visualize A/B compartments or '
+                           'ChIP-seq data.',
+                           type=str,
+                           default=None)
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
