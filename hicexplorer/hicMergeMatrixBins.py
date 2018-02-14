@@ -16,6 +16,7 @@ def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False,
         description='Merges bins from a Hi-C matrix. For example, '
         'using a matrix containing 5kb bins, a matrix '
         'of 50kb bins can be derived using --numBins 10. '
@@ -27,30 +28,36 @@ def parse_arguments(args=None):
         'and even larger bins (50kb) are recommended for whole chromosome '
         'representations or for `hicPlotDistVsCounts`.')
 
-    parser.add_argument('--matrix', '-m',
-                        help='Matrix to reduce.',
-                        metavar='.h5 fileformat',
-                        required=True)
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    parser.add_argument('--numBins', '-nb',
-                        help='Number of bins to merge.',
-                        metavar='int',
-                        type=int,
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='Matrix to reduce in h5 format.',
+                                metavar='matrix.h5',
+                                required=True)
 
-    parser.add_argument('--runningWindow',
-                        help='set to merge for using a running '
-                        'window of length --numBins.',
-                        action='store_true')
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the resulting matrix. '
+                                'The output is also a .h5 file. But don\'t add '
+                                'the suffix.',
+                                required=True)
 
-    parser.add_argument('--outFileName', '-o',
-                        help='File name to save the resulting matrix. '
-                        'The output is also a .h5 file. But don\'t add '
-                        'the suffix.',
-                        required=True)
+    parserRequired.add_argument('--numBins', '-nb',
+                                help='Number of bins to merge.',
+                                metavar='int',
+                                type=int,
+                                required=True)
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument('--runningWindow',
+                           help='set to merge for using a running '
+                           'window of length --numBins.',
+                           action='store_true')
+
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
