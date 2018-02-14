@@ -178,11 +178,9 @@ def main(args=None):
             log.error("Error: --chrNameList is required when the input format is lieberman.")
             exit()
         else:
-            hic_ma = hm.hiCMatrix(matrixFile=args.inFile,
-                                  file_format='lieberman', chrnameList=args.chrNameList)
+            hic_ma = hm.hiCMatrix(matrixFile=args.inFile, file_format='lieberman', chrnameList=args.chrNameList)
 
-    # assume hicexplorer_multi format
-    elif args.inputFormat in ['npz', 'hicexplorer', 'h5'] and len(args.inFile) > 1:
+    elif args.inputFormat in ['npz', 'hicexplorer', 'h5'] and len(args.inFile) > 1:  # assume hicexplorer_multi format
         if args.bplimit:
             log.info("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
@@ -202,8 +200,7 @@ def main(args=None):
         if args.inputFormat == 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) == 1:
             # We have to use == 1 because we can only use the benefits of the cooler format to load the matrix partial
             # if we load one chromosome. More are so far not possible.
-            hic_ma = hm.hiCMatrix(
-                matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
+            hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
             are_chrom_reordered = True
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
