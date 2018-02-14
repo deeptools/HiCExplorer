@@ -68,9 +68,8 @@ def parse_arguments(args=None):
                            default=int(3e6))
 
     parserOpt.add_argument('--perchr',
-                           help='generate plots per chromosome. If more than one Hi-C matrix is given to `--matrices` then '
-                           'for each chromosome a new plot is made. Otherewise, a single plot with one line per '
-                           'chromosome is created.',
+                           help='If given, computes and display distance versus Hi-C counts plots for each chromosome stored '
+                          'in the matrices passed to --matrices.',
                            action='store_true')
 
     parserOpt.add_argument('--chromosomeExclude',
@@ -84,7 +83,7 @@ def parse_arguments(args=None):
                            )
 
     parserOpt.add_argument('--plotsize',
-                           help='width and height of the plot (in inches). Default is 6*number of cols, 4 * number of '
+                           help='Width and height of the plot (in inches). Default is 6*number of cols, 4 * number of '
                            'rows. The maximum number of rows is 4. Example: --plotsize 6 5',
                            nargs=2,
                            type=float
