@@ -1,3 +1,5 @@
+from __future__ import division
+
 import argparse
 import numpy as np
 
@@ -216,7 +218,7 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
         log.info("Length of entry: {}".format(len(submatrices_dict[chrom])))
         submat_vectors = []
         shape = submatrices_dict[chrom][0].shape
-        center_bin = (shape[0] + 1) / 2
+        center_bin = (shape[0] + 1) // 2
         for submatrix in submatrices_dict[chrom]:
             if use_diagonal:
                 # take from each matrix the diagonal
@@ -496,8 +498,8 @@ def main(args=None):
         log.info("Computing observed vs. expected matrix. This may take a while.\n")
         ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
 
-    min_dist_in_bins = int(min_dist) / bin_size
-    max_dist_in_bins = int(max_dist) / bin_size
+    min_dist_in_bins = int(min_dist) // bin_size
+    max_dist_in_bins = int(max_dist) // bin_size
 
     # read and sort bedgraph.
     bed_intervals = read_bed_per_chrom(args.BED)
@@ -507,7 +509,7 @@ def main(args=None):
         bed_intervals2 = bed_intervals
 
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
-    M_half = int((M - 1) / 2)
+    M_half = int((M - 1) // 2)
     # make a new matrix for each chromosome.
     chrom_matrix = OrderedDict()
     chrom_total = {}
