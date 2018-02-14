@@ -56,105 +56,113 @@ than the number of TADs or the TADs width that can vary depending on the sequenc
 of information at certain bins, and depending on the parameters used with this tool.
 """)
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    parser.add_argument('--matrix', '-m',
-                        help='Corrected Hi-C matrix to use for the computations',
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='Corrected Hi-C matrix to use for the computations',
+                                required=True)
 
-    parser.add_argument('--outPrefix',
-                        help='File prefix to save the resulting files: 1. <prefix>_tad_separation.bm '
-                             'The format of the output file is chrom start end TAD-sep1 TAD-sep2 TAD-sep3 .. etc. '
-                             'We call this format a bedgraph matrix and can be plotted using '
-                             '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
-                             'a different window length starting from --minDepth to --maxDepth. '
-                             '2. <prefix>_zscore_matrix.h5, the zscore matrix used for the computation of '
-                             'the TAD-separation score.  3. < prefix > _boundaries.bed, which'
-                             'contains the positions of boundaries. The genomic coordinates in this file '
-                             'correspond to the resolution used. Thus, for Hi-C bins of '
-                             '10.000bp the boundary position is 10.000bp long. For restriction fragment '
-                             'matrices the boundary position varies depending on the fragment length '
-                             'at the boundary. 4. <prefix>_domains.bed '
-                             'contains the TADs positions. This is a non-overlapping set of genomic '
-                             'positions. 5. <prefix>_boundaries.gff Similar to the boundaries bed file '
-                             'but with extra information (pvalue, delta). 6. <prefix>_score.bedgraph file '
-                             'contains the TAD-separation score '
-                             'measured at each Hi-C bin coordinate. Is useful to visualize in a genome '
-                             'browser. The delta and pvalue settings are saved as part of the name.',
-                        required=True)
+    parserRequired.add_argument('--outPrefix',
+                                help='File prefix to save the resulting files: 1. <prefix>_tad_separation.bm '
+                                'The format of the output file is chrom start end TAD-sep1 TAD-sep2 TAD-sep3 .. etc. '
+                                'We call this format a bedgraph matrix and can be plotted using '
+                                '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
+                                'a different window length starting from --minDepth to --maxDepth. '
+                                '2. <prefix>_zscore_matrix.h5, the zscore matrix used for the computation of '
+                                'the TAD-separation score.  3. < prefix > _boundaries.bed, which'
+                                'contains the positions of boundaries. The genomic coordinates in this file '
+                                'correspond to the resolution used. Thus, for Hi-C bins of '
+                                '10.000bp the boundary position is 10.000bp long. For restriction fragment '
+                                'matrices the boundary position varies depending on the fragment length '
+                                'at the boundary. 4. <prefix>_domains.bed '
+                                'contains the TADs positions. This is a non-overlapping set of genomic '
+                                'positions. 5. <prefix>_boundaries.gff Similar to the boundaries bed file '
+                                'but with extra information (pvalue, delta). 6. <prefix>_score.bedgraph file '
+                                'contains the TAD-separation score '
+                                'measured at each Hi-C bin coordinate. Is useful to visualize in a genome '
+                                'browser. The delta and pvalue settings are saved as part of the name.',
+                                required=True)
 
-    parser.add_argument('--minDepth',
-                        help='Minimum window length (in bp) to be considered to the left and to the right '
-                             'of each Hi-C bin. This number should be at least 3 times '
-                             'as large as the bin size of the Hi-C matrix.',
-                        metavar='INT bp',
-                        type=int)
+    parserRequired.add_argument('--correctForMultipleTesting',
+                                help='Select the bonferroni or false discovery rate for a multiple comparison. Bonferroni '
+                                'controlls the familywise error rate (FWER) and needs a p-value. The false discovery rate '
+                                '(FDR) controls the likelyhood of type I errors and needs a q-value. As a third option '
+                                'it is possible to not use a multiple comparison method at all.',
+                                type=str,
+                                default="fdr",
+                                choices=['fdr', 'bonferroni', 'None'],
+                                required=True)
 
-    parser.add_argument('--maxDepth',
-                        help='Maximum window length to be considered to the left and to the right '
-                             'of the cut point in bp. This number should around 6-10 times '
-                             'as large as the bin size of the Hi-C matrix.',
-                        metavar='INT bp',
-                        type=int)
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--step',
-                        help='Step size when moving from --minDepth to --maxDepth. Note, the step size'
-                             'grows exponentially as '
-                             '`maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
-                             'reaches `maxDepth`. For example, selecting  step=10,000, minDepth=20,000 '
-                             'and maxDepth=150,000 will compute TAD-scores for window sizes: '
-                             '20,000, 30,000, 40,000, 70,000 and 100,000',
-                        metavar='INT bp',
-                        type=int)
+    parserOpt.add_argument('--minDepth',
+                           help='Minimum window length (in bp) to be considered to the left and to the right '
+                           'of each Hi-C bin. This number should be at least 3 times '
+                           'as large as the bin size of the Hi-C matrix.',
+                           metavar='INT bp',
+                           type=int)
 
-    parser.add_argument('--numberOfProcessors', '-p',
-                        help='Number of processors to use ',
-                        type=int,
-                        default=1)
+    parserOpt.add_argument('--maxDepth',
+                           help='Maximum window length to be considered to the left and to the right '
+                           'of the cut point in bp. This number should around 6-10 times '
+                           'as large as the bin size of the Hi-C matrix.',
+                           metavar='INT bp',
+                           type=int)
 
-    parser.add_argument('--minBoundaryDistance',
-                        help='Minimum distance between boundaries (in bp). This parameter can be '
-                             'used to reduce spurious boundaries caused by noise. ',
-                        type=int)
-    parser.add_argument('--correctForMultipleTesting',
-                        help='Select the bonferroni or false discovery rate for a multiple comparison. Bonferroni '
-                        'controlls the familywise error rate (FWER) and needs a p-value. The false discovery rate '
-                        '(FDR) controls the likelyhood of type I errors and needs a q-value. As a third option '
-                        'it is possible to not use a multiple comparison method at all.',
-                        type=str,
-                        default="fdr",
-                        choices=['fdr', 'bonferroni', 'None'],
-                        required=True)
-    parser.add_argument('--thresholdComparisons',
-                        help='P-value threshold for the bonferroni correction / q-value for FDR. '
-                             'The probability of a local minima to be a boundary '
-                             'is estimated by comparing the distribution (Wilcoxon ranksum) of '
-                             'the  zscores between the left and right '
-                             'regions (diamond) at the local minimum with the matrix zscores for a '
-                             'diamond at --minDepth to the left and a diamond --minDepth to the right. '
-                             'If --correctForMultipleTesting is \'None\' the threshold is applied on the '
-                             'raw p-values without any multiple testing correction. Set it to \'1\' if no threshold should be used.',
-                        type=float,
-                        default=0.01)
+    parserOpt.add_argument('--step',
+                           help='Step size when moving from --minDepth to --maxDepth. Note, the step size'
+                           'grows exponentially as '
+                           '`maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
+                           'reaches `maxDepth`. For example, selecting  step=10,000, minDepth=20,000 '
+                           'and maxDepth=150,000 will compute TAD-scores for window sizes: '
+                           '20,000, 30,000, 40,000, 70,000 and 100,000',
+                           metavar='INT bp',
+                           type=int)
 
-    parser.add_argument('--delta',
-                        help='Minimum threshold of the difference between the TAD-separation score of a '
-                             'putative boundary and the mean of the TAD-sep. score of surrounding bins. '
-                             'The delta value reduces spurious boundaries that are shallow, which usually '
-                             'occur at the center of large TADs when the TAD-sep. score is flat. Higher '
-                             'delta threshold values produce more conservative boundary estimations. By '
-                             'default a value of 0.01 is used.',
-                        type=float,
-                        default=0.01)
+    parserOpt.add_argument('--TAD_sep_score_prefix',
+                           help='Sometimes it is useful to change some of the parameters without recomputing the '
+                           'z-score matrix and the TAD-separation score. For this case, the prefix containing the '
+                           'TAD separation score and the z-score matrix can be given. If this option is given, '
+                           'new boundaries will be computed but the values of --minDepth, --maxDepth and --step will '
+                           'not be used.',
+                           required=False)
 
-    parser.add_argument('--TAD_sep_score_prefix',
-                        help='Sometimes it is useful to change some of the parameters without recomputing the '
-                             'z-score matrix and the TAD-separation score. For this case, the prefix containing the '
-                             'TAD separation score and the z-score matrix can be given. If this option is given, '
-                             'new boundaries will be computed but the values of minDepth, maxDepth and step will '
-                             'not be used.',
-                        required=False)
+    parserOpt.add_argument('--thresholdComparisons',
+                           help='P-value threshold for the bonferroni correction / q-value for FDR. '
+                           'The probability of a local minima to be a boundary '
+                           'is estimated by comparing the distribution (Wilcoxon ranksum) of '
+                           'the  zscores between the left and right '
+                           'regions (diamond) at the local minimum with the matrix zscores for a '
+                           'diamond at --minDepth to the left and a diamond --minDepth to the right. '
+                           'If --correctForMultipleTesting is \'None\' the threshold is applied on the '
+                           'raw p-values without any multiple testing correction. Set it to \'1\' if no threshold should be used.',
+                           type=float,
+                           default=0.01)
+
+    parserOpt.add_argument('--delta',
+                           help='Minimum threshold of the difference between the TAD-separation score of a '
+                           'putative boundary and the mean of the TAD-sep. score of surrounding bins. '
+                           'The delta value reduces spurious boundaries that are shallow, which usually '
+                           'occur at the center of large TADs when the TAD-sep. score is flat. Higher '
+                           'delta threshold values produce more conservative boundary estimations. By '
+                           'default a value of 0.01 is used.',
+                           type=float,
+                           default=0.01)
+
+    parserOpt.add_argument('--minBoundaryDistance',
+                           help='Minimum distance between boundaries (in bp). This parameter can be '
+                           'used to reduce spurious boundaries caused by noise.',
+                           type=int)
+
+    parserOpt.add_argument('--numberOfProcessors', '-p',
+                           help='Number of processors to use ',
+                           type=int,
+                           default=1)
+
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit.')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
     return parser
 
 
