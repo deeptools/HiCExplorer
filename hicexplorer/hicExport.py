@@ -14,81 +14,90 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Converts between different matrix file formats')
+        description='Conversion of Hi-C matrices between different file formats.',
+        add_help=False)
+
+    parserRequired = parser.add_argument_group('Required arguments')
 
     # define the arguments
-    parser.add_argument('--inFile', '-in',
-                        help='input file(s). Could be one or many files. '
-                        'Multiple input files are allowed for hicexplorer or lieberman format. '
-                        ' In case of multiple input files, they will be combined. ',
-                        nargs='+',
-                        required=True)
+    parserRequired.add_argument('--inFile', '-in',
+                                help='input file(s). Could be one or many files. '
+                                'Multiple input files are allowed for hicexplorer or lieberman format. '
+                                ' In case of multiple input files, they will be combined. ',
+                                nargs='+',
+                                required=True)
 
-    parser.add_argument('--inputFormat',
-                        help='file format for the matrix file. \n'
-                             'The following options are available: `hicexplorer` or `h5` (native HiCExplorer '
-                             'format based on hdf5 storage format), '
-                             '`npz` (format used by earlier versions of HiCExplorer), '
-                             '`dekker` (matrix format used in Job Dekker publications), '
-                             '`lieberman` (format used by Erez Lieberman Aiden) and '
-                             ' `cool`. This last formats may change '
-                             'in the future.',
-                        choices=['dekker', 'ren', 'lieberman', 'h5', 'npz', 'GInteractions', 'cool', 'hicexplorer'],
-                        default='hicexplorer')
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the exported matrix. In the case of "lieberman" '
+                                'output format this should be the path of a folder where the information '
+                                'per chromosome is stored.',
+                                required=True)
 
-    parser.add_argument('--chrNameList',
-                        help='list of chromosome names (only if input format is lieberman), eg : 1 2 .',
-                        nargs='+',
-                        )
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--outFileName', '-o',
-                        help='File name to save the exported matrix. In the case of "lieberman" '
-                             'output format this should be the path of a folder where the information '
-                             'per chromosome is stored.',
-                        required=True)
+    parserOpt.add_argument('--inputFormat',
+                           help='file format for the matrix file. \n'
+                           'The following options are available: `hicexplorer` or `h5` (native HiCExplorer '
+                           'format based on hdf5 storage format), '
+                           '`npz` (format used by earlier versions of HiCExplorer), '
+                           '`dekker` (matrix format used in Job Dekker publications), '
+                           '`lieberman` (format used by Erez Lieberman Aiden) and '
+                           ' `cool`. This last formats may change '
+                           'in the future.',
+                           choices=['dekker', 'ren', 'lieberman', 'h5',
+                                    'npz', 'GInteractions', 'cool', 'hicexplorer'],
+                           default='hicexplorer')
 
-    parser.add_argument('--chromosomeOrder',
-                        help='Chromosomes and order in which the chromosomes should be saved. If not all chromosomes '
-                             'are given, the missing chromosomes are left out. For example, --chromosomeOrder chrX will '
-                             'export a matrix only containing chromosome X',
-                        nargs='+')
+    parserOpt.add_argument('--outputFormat',
+                           help='Output format. The possibilities are "hicexplorer" or "h5" (native HiCExplorer format), '
+                           '"dekker",  "ren",  '
+                           'npz (former hicexplorer format), "GInteractoins" and "cool". '
+                           'The dekker format outputs the whole matrix where the '
+                           'first column and first row are the bin widths and labels. '
+                           'The "ren" format is a list of tuples of the form '
+                           'chrom, bin_star, bin_end, values. '
+                           'The lieberman format writes separate files for each chromosome,'
+                           'with three columns: contact start, contact end, and raw observed score. '
+                           'This corresponds to the RawObserved files from lieberman group. The '
+                           'hicexplorer format stores the data using a hdf5 format. Optionally, '
+                           'the numpy npz format can be used for small datasets (< 4GB).'
+                           'The GInteractions format is in the form : Bin1, Bin2 , Interaction, '
+                           'where Bin1 and Bin2 are intervals (chr,start,end), seperated by tab.',
+                           default='dekker',
+                           choices=['dekker', 'ren', 'lieberman', 'h5', 'npz', 'GInteractions', 'cool', 'hicexplorer'])
 
-    parser.add_argument('--bplimit', '-b',
-                        help='When merging many matrices : maximum limit (in base pairs) after '
-                             'which the matrix will be truncated. i.e. TADs bigger than this '
-                             'size will not be shown. For Matrices with very high resolution, '
-                             'truncating the matrix after a limit helps in saving memory '
-                             'during processing, without much loss of data. You can use '
-                             'bplimit of 2 x size of biggest expected TAD. ',
-                        type=int,
-                        metavar='INT bp',
-                        default=None)
+    parserOpt.add_argument('--chrNameList',
+                           help='list of chromosome names (only if input format is lieberman), eg : 1 2 .',
+                           nargs='+',
+                           )
 
-    parser.add_argument('--outputFormat',
-                        help='Output format. The possibilities are "hicexplorer" or "h5" (native HiCExplorer format), '
-                             '"dekker",  "ren",  '
-                             'npz (former hicexplorer format), "GInteractoins" and "cool". '
-                             'The dekker format outputs the whole matrix where the '
-                             'first column and first row are the bin widths and labels. '
-                             'The "ren" format is a list of tuples of the form '
-                             'chrom, bin_star, bin_end, values. '
-                             'The lieberman format writes separate files for each chromosome,'
-                             'with three columns: contact start, contact end, and raw observed score. '
-                             'This corresponds to the RawObserved files from lieberman group. The '
-                             'hicexplorer format stores the data using a hdf5 format. Optionally, '
-                             'the numpy npz format can be used for small datasets (< 4GB).'
-                             'The GInteractions format is in the form : Bin1, Bin2 , Interaction,'
-                             'where Bin1 and Bin2 are intervals (chr,start,end), seperated by tab.',
-                        default='dekker',
-                        choices=['dekker', 'ren', 'lieberman', 'h5', 'npz', 'GInteractions', 'cool', 'hicexplorer'])
+    parserOpt.add_argument('--chromosomeOrder',
+                           help='Chromosomes and order in which the chromosomes should be saved. If not all chromosomes '
+                           'are given, the missing chromosomes are left out. For example, --chromosomeOrder chrX will '
+                           'export a matrix only containing chromosome X.',
+                           nargs='+')
 
-    parser.add_argument('--clearMaskedBins',
-                        help='if set, masked bins are removed from the matrix. Masked bins '
-                             'are those that do not have any values, mainly because they are'
-                             'repetitive regions of the genome',
-                        action='store_true')
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument('--bplimit', '-b',
+                           help='When merging many matrices : maximum limit (in base pairs) after '
+                           'which the matrix will be truncated. i.e. TADs bigger than this '
+                           'size will not be shown. For Matrices with very high resolution, '
+                           'truncating the matrix after a limit helps in saving memory '
+                           'during processing, without much loss of data. You can use '
+                           'bplimit of 2 x size of biggest expected TAD.',
+                           type=int,
+                           metavar='INT bp',
+                           default=None)
+
+    parserOpt.add_argument('--clearMaskedBins',
+                           help='if set, masked bins are removed from the matrix. Masked bins '
+                           'are those that do not have any values, mainly because they are '
+                           'repetitive regions of the genome',
+                           action='store_true')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
+
+    parserOpt.add_argument("-h", "--help", action="help", help="show this help message and exit")
 
     return parser
 
@@ -169,9 +178,11 @@ def main(args=None):
             log.error("Error: --chrNameList is required when the input format is lieberman.")
             exit()
         else:
-            hic_ma = hm.hiCMatrix(matrixFile=args.inFile, file_format='lieberman', chrnameList=args.chrNameList)
+            hic_ma = hm.hiCMatrix(matrixFile=args.inFile,
+                                  file_format='lieberman', chrnameList=args.chrNameList)
 
-    elif args.inputFormat in ['npz', 'hicexplorer', 'h5'] and len(args.inFile) > 1:  # assume hicexplorer_multi format
+    # assume hicexplorer_multi format
+    elif args.inputFormat in ['npz', 'hicexplorer', 'h5'] and len(args.inFile) > 1:
         if args.bplimit:
             log.info("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
@@ -191,7 +202,8 @@ def main(args=None):
         if args.inputFormat == 'cool' and args.chromosomeOrder is not None and len(args.chromosomeOrder) == 1:
             # We have to use == 1 because we can only use the benefits of the cooler format to load the matrix partial
             # if we load one chromosome. More are so far not possible.
-            hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
+            hic_ma = hm.hiCMatrix(
+                matrixFile=args.inFile[0], file_format=args.inputFormat, chrnameList=args.chromosomeOrder)
             are_chrom_reordered = True
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
