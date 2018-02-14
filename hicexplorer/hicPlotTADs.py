@@ -217,7 +217,9 @@ def parse_arguments(args=None):
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--tracks',
-                                help='File containing the instructions to plot the tracks ',
+                                help='File containing the instructions to plot the tracks. '
+                                'Check examples here for help to configure this .ini file: '
+                                'http://hicexplorer.readthedocs.io/en/latest/content/tools/hicPlotTADs.html',
                                 type=argparse.FileType('r'),
                                 required=True,
                                 )
@@ -228,9 +230,10 @@ def parse_arguments(args=None):
                        help='Region to plot, the format is chr:start-end. Incompatible with --BED.')
 
     group.add_argument('--BED',
-                       help='Instead of a region, a file containing the regions to plot, in BED format, '
-                       'can be given. If this is the case, multiple files will be created using a prefix '
-                       'the value of --outFileName. Incompatible with --region.',
+                       help='Instead of a region, a  BED file containing the regions '
+                       'to plot can be given. If this is the case, multiple files '
+                       'will be created using as prefix the value of --outFileName. '
+                       'Incompatible with --region.',
                        type=argparse.FileType('r')
                        )
 
