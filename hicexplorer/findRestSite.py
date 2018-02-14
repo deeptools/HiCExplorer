@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(description='Identifies the genomic locations of restriction sites. ',
+                                     add_help=False,
                                      usage='%(prog)s --fasta mm10.fa '
                                            '--searchPattern AAGCTT -o rest_site_positions.bed')
 
@@ -37,6 +38,10 @@ def parse_arguments(args=None):
                                 help='Name for the resulting bed file.',
                                 type=argparse.FileType('w'),
                                 required=True)
+
+    parserOpt= parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument("-h", "--help", action="help", help="show this help message and exit")
 
     return parser
 
