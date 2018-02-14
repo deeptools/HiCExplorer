@@ -108,12 +108,12 @@ def parse_arguments(args=None):
                            default='RdYlBu_r')
 
     parserOpt.add_argument('--vMin',
-                           help='vMin',
+                           help='Minimum score value.',
                            type=float,
                            default=None)
 
     parserOpt.add_argument('--vMax',
-                           help='vMax',
+                           help='Maximum score value.',
                            type=float,
                            default=None)
 
