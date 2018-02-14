@@ -29,11 +29,11 @@ def parse_arguments(args=None):
 Iterative correction for a Hi-C matrix (see Imakaev et al. 2012
 Nature Methods for details). For the method to work correctly, bins with
 zero reads assigned to them should be removed as they can not be corrected.
-Also, bins with low number of reads should be removed, 
-otherwise, during the correction step, the counts associated with 
-those bins will be amplified (usually, zero and low coverage bins 
+Also, bins with low number of reads should be removed,
+otherwise, during the correction step, the counts associated with
+those bins will be amplified (usually, zero and low coverage bins
 tend contain repetitive regions).  Bins with extremely high number
-of reads can also be removed from the correction as they may represent 
+of reads can also be removed from the correction as they may represent
 copy number variations.
 
 To aid in the identification of bins with low and high read coverage, the
@@ -81,35 +81,36 @@ Statistical Techniques, Edward F. Mykytka, Ph.D., Editor).
               '-o file.png')
     plot_modeRequired = plot_mode.add_argument_group('Required arguments')
     plot_modeRequired.add_argument('--matrix', '-m',
-                           help='Name of the Hi-C matrix to correct in .h5 format.',
-                           required=True)
+                                   help='Name of the Hi-C matrix to correct in .h5 format.',
+                                   required=True)
 
     plot_modeRequired.add_argument('--plotName', '-o',
-                           help='File name to save the diagnostic plot.',
-                           required=True)
+                                   help='File name to save the diagnostic plot.',
+                                   required=True)
 
     plot_modeOpt = plot_mode.add_argument_group('Optional arguments')
     plot_modeOpt.add_argument('--chromosomes',
-                           help='List of chromosomes to be included in the iterative '
-                           'correction. The order of the given chromosomes will be then '
-                           'kept for the resulting corrected matrix.',
-                           default=None,
-                           nargs='+')
+                              help='List of chromosomes to be included in the iterative '
+                              'correction. The order of the given chromosomes will be then '
+                              'kept for the resulting corrected matrix.',
+                              default=None,
+                              nargs='+')
 
     plot_modeOpt.add_argument('--xMax',
-                           help='Max value for the x-axis in counts per bin.',
-                           default=None,
-                           type=float)
+                              help='Max value for the x-axis in counts per bin.',
+                              default=None,
+                              type=float)
 
-    plot_modeOpt.add_argument('--perchr',
-                           help='Compute histogram per chromosome. For samples from cells with uneven number '
-                                'of chromosomes and/or translocations it is advisable to check the histograms '
-                                'per chromosome to find the most conservative `filterThreshold`.',
-                           action='store_true')
+    plot_modeOpt.add_argument(
+        '--perchr',
+        help='Compute histogram per chromosome. For samples from cells with uneven number '
+        'of chromosomes and/or translocations it is advisable to check the histograms '
+        'per chromosome to find the most conservative `filterThreshold`.',
+        action='store_true')
 
     plot_modeOpt.add_argument('--verbose',
-                        help='Print processing status.',
-                        action='store_true')
+                              help='Print processing status.',
+                              action='store_true')
 
     subparsers.add_parser(
         'correct',
@@ -123,84 +124,84 @@ Statistical Techniques, Edward F. Mykytka, Ph.D., Editor).
 
     return parser
 
+
 def correct_subparser():
     # define the arguments
     parser = argparse.ArgumentParser(add_help=False)
 
-
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrix', '-m',
-                        help='Name of the Hi-C matrix to correct in .h5 format.',
-                        required=True)
+                                help='Name of the Hi-C matrix to correct in .h5 format.',
+                                required=True)
 
     parserRequired.add_argument('--outFileName', '-o',
-                        help='File name to save the resulting matrix. The '
-                             'output is a .h5 file.',
-                        required=True)
+                                help='File name to save the resulting matrix. The '
+                                'output is a .h5 file.',
+                                required=True)
 
     parserRequired.add_argument('--filterThreshold', '-t',
-                        help='Removes bins of low or large coverage. '
-                             'Usually these bins do not contain valid Hi-C data or represent '
-                             'regions that accumulate reads and thus must be discarded. '
-                             'Use hicCorrectMatrix diagnostic_plot '
-                             'to identify the modified z-value thresholds. A lower and upper '
-                             'threshold are required separated by space, e.g. --filterThreshold '
-                             '-1.5 5',
-                        type=float,
-                        nargs=2,
-                        required=True)
+                                help='Removes bins of low or large coverage. '
+                                'Usually these bins do not contain valid Hi-C data or represent '
+                                'regions that accumulate reads and thus must be discarded. '
+                                'Use hicCorrectMatrix diagnostic_plot '
+                                'to identify the modified z-value thresholds. A lower and upper '
+                                'threshold are required separated by space, e.g. --filterThreshold '
+                                '-1.5 5',
+                                type=float,
+                                nargs=2,
+                                required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--iterNum', '-n',
-                        help='Number of iterations to compute.',
-                        type=int,
-                        metavar='INT',
-                        default=500)
+                           help='Number of iterations to compute.',
+                           type=int,
+                           metavar='INT',
+                           default=500)
 
     parserOpt.add_argument('--inflationCutoff',
-                        help='Value corresponding to the maximum number of times a bin '
-                        'can be scaled up during the iterative correction. For example, '
-                        'an inflation cutoff of 3 will filter out all bins that were '
-                        'expanded 3 times or more during the iterative correction.',
-                        type=float)
+                           help='Value corresponding to the maximum number of times a bin '
+                           'can be scaled up during the iterative correction. For example, '
+                           'an inflation cutoff of 3 will filter out all bins that were '
+                           'expanded 3 times or more during the iterative correction.',
+                           type=float)
 
     parserOpt.add_argument('--transCutoff', '-transcut',
-                        help='Clip high counts in the top -transcut trans '
-                        'regions (i.e. between chromosomes). A usual value '
-                        'is 0.05 ',
-                        type=float)
+                           help='Clip high counts in the top -transcut trans '
+                           'regions (i.e. between chromosomes). A usual value '
+                           'is 0.05 ',
+                           type=float)
 
     parserOpt.add_argument('--sequencedCountCutoff',
-                        help='Each bin receives a value indicating the '
-                        'fraction that is covered by reads. A cutoff of '
-                        '0.5 will discard all those bins that have less '
-                        'than half of the bin covered.',
-                        default=None,
-                        type=float)
+                           help='Each bin receives a value indicating the '
+                           'fraction that is covered by reads. A cutoff of '
+                           '0.5 will discard all those bins that have less '
+                           'than half of the bin covered.',
+                           default=None,
+                           type=float)
 
     parserOpt.add_argument('--chromosomes',
-                        help='List of chromosomes to be included in the iterative '
-                        'correction. The order of the given chromosomes will be then '
-                        'kept for the resulting corrected matrix',
-                        default=None,
-                        nargs='+')
+                           help='List of chromosomes to be included in the iterative '
+                           'correction. The order of the given chromosomes will be then '
+                           'kept for the resulting corrected matrix',
+                           default=None,
+                           nargs='+')
 
     parserOpt.add_argument('--skipDiagonal', '-s',
-                        help='If set, diagonal counts are not included',
-                        action='store_true')
+                           help='If set, diagonal counts are not included',
+                           action='store_true')
 
     parserOpt.add_argument('--perchr',
-                        help='Normalize each chromosome separately. This is useful for '
-                        'samples from cells with uneven number of chromosomes and/or translocations.',
-                        action='store_true')
+                           help='Normalize each chromosome separately. This is useful for '
+                           'samples from cells with uneven number of chromosomes and/or translocations.',
+                           action='store_true')
 
     parserOpt.add_argument('--verbose',
-                        help='Print processing status',
-                        action='store_true')
+                           help='Print processing status',
+                           action='store_true')
     parserOpt.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+                           version='%(prog)s {}'.format(__version__))
     return parser
 
 
