@@ -8,6 +8,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
+
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
@@ -16,11 +17,8 @@ def parse_arguments(args=None):
         description="""
 Prints information about a matrix or matrices including matrix size,
 number of elements, sum of elements, etc.
-
 An example usage is:
-
 $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
-
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
