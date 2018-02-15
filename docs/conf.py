@@ -16,7 +16,7 @@ import sys
 import os
 import warnings
 
-warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # to allow readthedocs to compile without installing some dependencies
 import mock
@@ -69,7 +69,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'HiCExplorer'
-copyright = u'2017, Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff'
+copyright = u'2018, Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff'
 author = u'Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -179,7 +179,7 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
