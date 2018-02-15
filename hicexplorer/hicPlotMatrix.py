@@ -121,7 +121,12 @@ def parse_arguments(args=None):
                         help='Bigwig file to plot below the matrix',
                         type=str,
                         default=None)
-
+    parser.add_argument('--coolerNode',
+                        help='The node of a multicooler file which should be opend. '
+                        'Example: cooler.mcool::/resolution/240000 '
+                        'The --coolerNode arguments than needs to be: --coolerNode /resolution/240000',
+                        type=str,
+                        default=None)
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -381,7 +386,7 @@ def getRegion(args, ma):
 
     args.region = [chrom, region_start, region_end]
     is_cooler = False
-    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix):
+    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix) or '.mcool' in args.matrix:
         is_cooler = True
     if is_cooler:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
@@ -439,8 +444,10 @@ def main(args=None):
     #     log.error("Inter-chromosomal pca is not supported.")
     #     exit(1)
     is_cooler = False
-    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix):
+    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix) or'.mcool' in args.matrix:
         is_cooler = True
+        args.matrix
+    log.debug("Cooler or no cooler: {}".format(is_cooler))
     if is_cooler and not args.region2:
         log.debug("Retrieve data from cooler format and use its benefits.")
         regionsToRetrieve = None

@@ -259,7 +259,7 @@ def main(args=None):
     for i, matrix in enumerate(args.matrices):
         log.info("loading hic matrix {}\n".format(matrix))
 
-        if args.matrices[i].endswith('.cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
+        if (args.matrices[i].endswith('.cool') or '.mcool' in args.matrices[i]) and args.chromosomes is not None and len(args.chromosomes) == 1:
             _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes)
         else:
             _mat = hm.hiCMatrix(matrix)

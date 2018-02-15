@@ -529,7 +529,7 @@ def main(args=None):
         log.setLevel(logging.INFO)
 
     # args.chromosomes
-    if args.matrix.endswith('.cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
+    if (args.matrix.endswith('.cool') or '.mcool' in args.matrix) and args.chromosomes is not None and len(args.chromosomes) == 1:
         ma = hm.hiCMatrix(args.matrix, chrnameList=toString(args.chromosomes))
     else:
         ma = hm.hiCMatrix(args.matrix)

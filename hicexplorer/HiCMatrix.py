@@ -74,7 +74,7 @@ class hiCMatrix:
                     file_format = 'h5'
                 elif matrixFile.endswith('.gz'):
                     file_format = 'dekker'
-                elif matrixFile.endswith('.cool') or cooler.io.is_cooler(matrixFile):
+                elif matrixFile.endswith('.cool') or cooler.io.is_cooler(matrixFile) or '.mcool' in matrixFile:
                     file_format = 'cool'
                 # by default assume that the matrix file_format is hd5
                 else:
@@ -117,8 +117,8 @@ class hiCMatrix:
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
             elif file_format == 'cool':
-                if not cooler.io.is_cooler(matrixFile):
-                    exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
+                # if not cooler.io.is_cooler(matrixFile) or '.mcool' not in:
+                #     exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
                 if cooler_only_init:
                     self.load_cool_only_init(matrixFile)
                     self.cut_intervals = None
@@ -159,7 +159,13 @@ class hiCMatrix:
         return self.cooler_file.matrix(balance=False, sparse=True)[startX:startX + chunkX, startY:startY + chunkY].tocsr()
 
     def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None):
-        self.cooler_file = cooler.Cooler(pMatrixFile)
+        try:
+            self.cooler_file = cooler.Cooler(pMatrixFile)
+        except Exception:
+            log.info("Could not open cooler file. Maybe the path is wrong or the given node is not available.")
+            log.info('The following file was tried to open: {}'.format(pMatrixFile))
+            log.info("The following nodes are available: {}".format(cooler.io.ls(pMatrixFile.split("::")[0])))
+            exit()
 
         if pChrnameList is None:
             matrix = self.cooler_file.matrix(balance=False, sparse=True)[:].tocsr()
@@ -183,13 +189,20 @@ class hiCMatrix:
                 exit("Operation to load more than one chr from bins is not supported.")
 
         else:
-            cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
+            if 'weight' in self.cooler_file.bins():
+                cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
+            else:
+                cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end']][:]
 
         cut_intervals = []
 
         for values in cut_intervals_data_frame.values:
             if sys.version_info[0] == 3:
-                cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], values[3]]))
+                if 'weight' in self.cooler_file.bins():
+                    cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], values[3]]))
+                else:
+                    cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], 1.0]))
+
             else:
                 cut_intervals.append(tuple(values))
 
