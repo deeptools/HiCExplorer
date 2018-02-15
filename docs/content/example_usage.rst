@@ -235,7 +235,7 @@ The A / B compartments can be plotted with :ref:`hicPlotMatrix`.
 
    $ hicPlotMatrix -m pearson_all.h5 --outFileName pca1.png --perChr --pca pca1.bedgraph
 
-.. figure:: ../images/eigenvector1_lieberman.png
-    :scale: 90 %
-    :align: center
+//.. figure:: ../images/eigenvector1_lieberman.png
+//    :scale: 90 %
+//    :align: center
 
