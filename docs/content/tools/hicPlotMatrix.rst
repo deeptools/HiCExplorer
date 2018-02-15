@@ -23,7 +23,7 @@ This plot shows contacts of a Hi-C matrix that was merged to a 25 kb bin size
 using :doc:`hicMergeMatrixBins`. Alternatively, chromosomes can be plotted
 separately. 
 
-.. image:: ../../images/hicPlotMatrix_perChr.png
+.. image:: ../../images/hicPlotMatrix_perChromosome.png
 
 .. code-block:: bash
 
