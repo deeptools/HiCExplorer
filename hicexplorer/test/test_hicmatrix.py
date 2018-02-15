@@ -162,9 +162,11 @@ def test_save_load_cooler_format():
     nt.assert_equal(hic.cut_intervals, matrix_cool.cut_intervals)
     unlink(outfile)
 
+
 @pytest.mark.xfail
 def test_load_mcooler_format_fail():
-    matrix = hm.hiCMatrix(ROOT + 'matrix.mcool')
+    matrix = hm.hiCMatrix(ROOT + 'matrix.mcool')  # noqa: F841
+
 
 def test_load_mcooler_format_success():
-    matrix = hm.hiCMatrix(ROOT + "matrix.mcool::/1")
+    matrix = hm.hiCMatrix(ROOT + "matrix.mcool::/1")  # noqa: F841
