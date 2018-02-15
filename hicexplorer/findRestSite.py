@@ -41,7 +41,7 @@ def parse_arguments(args=None):
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
-    parserOpt.add_argument("--help", "-h" action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     return parser
 
