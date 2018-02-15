@@ -69,7 +69,7 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--perchr',
                            help='If given, computes and display distance versus Hi-C counts plots for each chromosome stored '
-                          'in the matrices passed to --matrices.',
+                           'in the matrices passed to --matrices.',
                            action='store_true')
 
     parserOpt.add_argument('--chromosomeExclude',
