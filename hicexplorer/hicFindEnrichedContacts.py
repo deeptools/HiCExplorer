@@ -18,43 +18,48 @@ def parse_arguments(args=None):
     parse arguments
     """
 
-    parent_parser = hicexplorer.parserCommon.getParentArgParse()
     parser = argparse.ArgumentParser(
-        parents=[parent_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False,
         description='Identifies enriched contacts by computing a observe vs. expected or a z-score matrix')
 
-    parser.add_argument('--outFileName', '-o',
-                        help='File name to save the resulting matrix',
-                        type=hicexplorer.parserCommon.writableFile,
-                        required=True)
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    parser.add_argument(
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the resulting matrix.',
+                                type=hicexplorer.parserCommon.writableFile,
+                                required=True)
+
+    parserRequired.add_argument(
         '--method',
-        help='Method to transform the matrix values',
+        help='Method to transform the matrix values.',
         choices=['z-score', 'obs/exp'],
         required=True)
 
-    parser.add_argument(
+    parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument(
         '--perchr',
         help='Default is to fit distributions per each distance. Setting this '
-        'option will fit distributions per distance per chromosome',
+        'option will fit distributions per distance per chromosome.',
         action='store_true')
 
-    parser.add_argument(
+    parserOpt.add_argument(
         '--skipDiagonal', '-s',
-        help='If set, diagonal counts are not included',
+        help='If set, diagonal counts are not included.',
         action='store_true')
 
-    parser.add_argument(
+    parserOpt.add_argument(
         '--depth',
         help='Depth (in base pairs) up to which the computations will be carried out. A depth of 10.0000 bp '
              'means that any computations involving bins that are over 10kbp apart are not considered.',
         type=int,
         default=None)
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 

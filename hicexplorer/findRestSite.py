@@ -13,28 +13,35 @@ log = logging.getLogger(__name__)
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(description='Identifies the genomic locations of restriction sites. ',
+                                     add_help=False,
                                      usage='%(prog)s --fasta mm10.fa '
                                            '--searchPattern AAGCTT -o rest_site_positions.bed')
 
-    # define the arguments
-    parser.add_argument('--fasta', '-f',
-                        help='Path to fasta file for the organism genome.',
-                        type=argparse.FileType('r'),
-                        required=True)
+    parserRequired = parser.add_argument_group('Required arguments')
 
     # define the arguments
-    parser.add_argument('--searchPattern', '-p',
-                        help='Search pattern. For example, for HindIII this pattern is "AAGCTT". '
-                             'Both, forward and reverse strand are searched for a match. The pattern '
-                             'is a regexp and can contain regexp specif syntax '
-                             '(see https://docs.python.org/2/library/re.html). For example the pattern'
-                             'CG..GC will find all occurrence of CG followed by any two bases and then GC.',
-                        required=True)
+    parserRequired.add_argument('--fasta', '-f',
+                                help='Path to fasta file for the organism genome.',
+                                type=argparse.FileType('r'),
+                                required=True)
 
-    parser.add_argument('--outFile', '-o',
-                        help='Name for the resulting bed file.',
-                        type=argparse.FileType('w'),
-                        required=True)
+    # define the arguments
+    parserRequired.add_argument('--searchPattern', '-p',
+                                help='Search pattern. For example, for HindIII this pattern is "AAGCTT". '
+                                'Both, forward and reverse strand are searched for a match. The pattern '
+                                'is a regexp and can contain regexp specif syntax '
+                                '(see https://docs.python.org/2/library/re.html). For example the pattern'
+                                'CG..GC will find all occurrence of CG followed by any two bases and then GC.',
+                                required=True)
+
+    parserRequired.add_argument('--outFile', '-o',
+                                help='Name for the resulting bed file.',
+                                type=argparse.FileType('w'),
+                                required=True)
+
+    parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     return parser
 

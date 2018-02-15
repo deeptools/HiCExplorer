@@ -25,47 +25,54 @@ warnings.simplefilter(action="ignore", category=RuntimeWarning)
 def parse_arguments():
     parser = argparse.ArgumentParser(
         formatter_class=CustomFormatter,
+        add_help=False,
         conflict_handler='resolve',
-        usage="%(prog)s --matrix hic_matrix -o pca1.bedgraph pca2.bedgraph ",
+        #        usage="%(prog)s --matrix hic_matrix.h5 -o pca1.bedgraph pca2.bedgraph ",
         description="""
-Computes PCA eigenvectors for the HiC matrix.
+Computes PCA eigenvectors for a Hi-C matrix.
 
-    $ hicPCA --matrix hic_matrix -o pca1.bedgraph pca2.bedgraph
+    $ hicPCA --matrix hic_matrix.h5 -o pca1.bedgraph pca2.bedgraph
 
 """
     )
 
-    parser.add_argument('--matrix', '-m',
-                        help='HiCExplorer matrix.',
-                        required=True)
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    parser.add_argument('--outputFileName', '-o',
-                        help='File names for the result of the pca. Number of output file '
-                             'must match the number of computed eigenvectors.',
-                        nargs='+',
-                        default=['pca1', 'pca2'],
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='HiCExplorer matrix in h5 format.',
+                                required=True)
 
-    parser.add_argument('--numberOfEigenvectors', '-noe',
-                        help='The number of eigenvectors that the PCA should compute.',
-                        default=2,
-                        type=int,
-                        required=False)
+    parserRequired.add_argument('--outputFileName', '-o',
+                                help='File names for the result of the pca. Number of output file '
+                                'must match the number of computed eigenvectors.',
+                                nargs='+',
+                                default=['pca1', 'pca2'],
+                                required=True)
 
-    parser.add_argument('--format', '-f',
-                        help='output format. Either bedgraph or bigwig.',
-                        choices=['bedgraph', 'bigwig'],
-                        default='bedgraph',
-                        required=False)
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--chromosomes',
-                        help='List of chromosomes to be included in the '
-                        'correlation.',
-                        default=None,
-                        nargs='+')
+    parserOpt.add_argument('--numberOfEigenvectors', '-noe',
+                           help='The number of eigenvectors that the PCA should compute.',
+                           default=2,
+                           type=int,
+                           required=False)
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument('--format', '-f',
+                           help='output format. Either bedgraph or bigwig.',
+                           choices=['bedgraph', 'bigwig'],
+                           default='bedgraph',
+                           required=False)
+
+    parserOpt.add_argument('--chromosomes',
+                           help='List of chromosomes to be included in the '
+                           'correlation.',
+                           default=None,
+                           nargs='+')
+
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
