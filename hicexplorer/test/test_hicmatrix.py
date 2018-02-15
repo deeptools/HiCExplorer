@@ -8,6 +8,7 @@ from scipy.sparse import csr_matrix
 import warnings
 from past.builtins import zip
 from six import iteritems
+import pytest
 
 warnings.filterwarnings("ignore")
 
@@ -160,3 +161,10 @@ def test_save_load_cooler_format():
 
     nt.assert_equal(hic.cut_intervals, matrix_cool.cut_intervals)
     unlink(outfile)
+
+@pytest.mark.xfail
+def test_load_mcooler_format_fail():
+    matrix = hm.hiCMatrix(ROOT + 'matrix.mcool')
+
+def test_load_mcooler_format_success():
+    matrix = hm.hiCMatrix(ROOT + "matrix.mcool::/1")
