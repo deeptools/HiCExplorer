@@ -34,7 +34,7 @@ def test_hicAggregateContacts_clustering():
 
     args = "--matrix {root}/Li_et_al_2015.cool --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 4 " \
-           "--diagnosticHeatmapFile {out_heat} --clusterOnDiagonal " \
+           "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal " \
            "--BED2 {root}/hicAggregateContacts/test_regions.bed".format(root=ROOT, out_agg=outfile_aggregate_plots.name,
                                                                         out_heat=outfile_heatmaps.name)
 
