@@ -78,11 +78,13 @@ def parse_arguments(args=None):
                              'saved including the cluster_id a in TSS_to_TSS_chrX_cluster_1.tab',
                         required=False)
 
-    parser.add_argument('--outFilePrefixClusterContactPositions',
-                        help='If this option is given, then the position of the contacts is saved as (chrom1, start1, '
-                             'end1, chrom2, start2, end2) where chrom_n, start_n, end_n correspond to the pair of'
-                             'positions used to compute the submatrix. The data is saved per chromosome and per '
-                             'cluster separatedly (one file each)',
+    parser.add_argument('--outFileContactPairs',
+                        help='The value should be a prefix. If this option is given, then the position '
+                             'of the contacts positions are saved as (chrom1, start1, end1, chrom2, start2, end2) '
+                             'where chrom_n, start_n, end_n correspond to the pair of positions used to compute '
+                             'the submatrix. The data is saved per chromosome and per '
+                             'cluster separately (one file each). The format is {prefix}_{chrom}_{cluster_id}.tab. '
+                             'If no clusters were computed, then only one file per chromosome is produced.',
                         required=False)
 
     parser.add_argument('--diagnosticHeatmapFile',
@@ -381,8 +383,8 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
                                                                                   chrom=chrom, id=cluster_number + 1)
                 np.savetxt(output_matrix_name, chrom_avg[chrom][cluster_number], '%0.5f', delimiter='\t')
 
-            if args.outFilePrefixClusterContactPositions:
-                output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixClusterContactPositions,
+            if args.outFileContactPairs:
+                output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs,
                                                                        chrom=chrom, id=cluster_number + 1)
                 with open(output_name, 'w') as fh:
                     for cl_idx in cluster_indices:
