@@ -108,11 +108,14 @@ def parse_arguments(args=None):
                              '>1000 submatrices per chromosome. In those cases, you might prefer --kmeans',
                         type=int)
 
-    parser.add_argument('--clusterOnDiagonal',
-                        help='Clustering is by default carried out on the whole submatrices. If this parameter '
-                             'is given, the clustering is only carried out based on the submatrix diagonal '
+    parser.add_argument('--howToCluster',
+                        help='Options are "full", "center" and "diagonal". The full clustering is the default and '
+                             'takes all values of each submatrix for clustering. "center", takes only a square of '
+                             'length 3x3 from each submatrix and uses only  this values for clustering. With the '
+                             '"diagonal" option the clustering is only carried out based on the submatrix diagonal '
                              '(representing values at the same distance to each other)',
-                        action='store_true')
+                        choices=['full', 'center', 'diagonal'],
+                        default='full')
 
     parser.add_argument('--chromosomes', '-C',
                         help='List of chromosomes to plot.',
@@ -194,7 +197,7 @@ def get_outlier_indices(data, max_deviation=200):
     return outliers
 
 
-def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
+def cluster_matrices(submatrices_dict, k, method='kmeans', how='full'):
     """
     clusters the submatrices per chromosome
 
@@ -204,7 +207,7 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
     submatrices_dict key: chrom name, values, a list of submatrices
     k number of clusters
     method either kmeans or hierarchical
-    use_diagonal instead of using the whole submatrix for clustering, use only the diagonal.
+    how how to cluster. Options are 'full', 'center' and 'diagonal'. More info in the argparse options
 
     Returns
     -------
@@ -212,7 +215,6 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
     indices dict key: chrom_name, value: list of list, with one list per cluster with the ids of the submatrices
                  that belong to that list
     """
-    use_center_submatrix = True
     clustered_dict = {}
     for chrom in submatrices_dict:
         log.info("Length of entry: {}".format(len(submatrices_dict[chrom])))
@@ -220,10 +222,10 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
         shape = submatrices_dict[chrom][0].shape
         center_bin = (shape[0] + 1) // 2
         for submatrix in submatrices_dict[chrom]:
-            if use_diagonal:
+            if how == 'diagonal':
                 # take from each matrix the diagonal
                 submat_vectors.append(submatrix.diagonal())
-            elif use_center_submatrix:
+            elif how == 'center':
                 # take a smaller submatrix of 3 x 3 centered on the submatrix
                 submat_vectors.append(
                     submatrix[center_bin - 2:center_bin + 1, center_bin - 2:center_bin + 1].reshape((1, 9)))
@@ -234,9 +236,9 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', use_diagonal=False):
                 submat_vectors.append(submatrix.reshape((1, shape[0] * shape[1])))
 
         matrix = np.vstack(submat_vectors)
-        if use_diagonal:
+        if how == 'diagonal':
             assert matrix.shape == (len(submatrices_dict[chrom]), shape[0])
-        elif use_center_submatrix:
+        elif how == 'center':
             assert matrix.shape == (len(submatrices_dict[chrom]), 9)
         else:
             assert matrix.shape == (len(submatrices_dict[chrom]), shape[0] * shape[1])
@@ -605,12 +607,13 @@ def main(args=None):
                  format(empty_mat, float(empty_mat) / counter))
 
     if args.kmeans is not None:
-        cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', use_diagonal=args.clusterOnDiagonal)
+        cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
         num_clusters = args.kmeans
     elif args.hclust is not None:
         log.info("Performing hierarchical clustering."
                  "Please note that it might be very slow for large datasets.\n")
-        cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical', use_diagonal=args.clusterOnDiagonal)
+        cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical',
+                                       how=args.howToCluster)
         num_clusters = args.hclust
     else:
         # make a 'fake' clustering to generalize the plotting of the submatrices
