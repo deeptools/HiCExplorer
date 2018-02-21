@@ -14,7 +14,8 @@ log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description='Plots the number of interactions around a given reference point in a region.')
+    parser = argparse.ArgumentParser(add_help=False,
+                                     description='Plots the number of interactions around a given reference point in a region.')
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -49,7 +50,7 @@ def parse_arguments(args=None):
                         type=int,
                         default=300)
 
-    parserOpt.add_argument("-h", "--help", action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
