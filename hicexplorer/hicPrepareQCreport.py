@@ -18,33 +18,39 @@ log = logging.getLogger(__name__)
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Tabulates and plots QC measures from  '
                                                  'hicBuildMatrix log files within an HTML output',
+                                     add_help=False,
                                      usage='%(prog)s --logfiles matrix1_QCfolder/QC.log matrix2_QCfolder/QC.log '
                                            '--labels "sample 1" "sample 2" --outputFolder QC_all_samples)')
 
+    parserRequired = parser.add_argument_group('Required arguments')
     # define the arguments
-    parser.add_argument('--logfiles', '-l',
-                        help='Path to the log files to be processed',
-                        type=argparse.FileType('r'),
-                        nargs="+",
-                        required=True)
+    parserRequired.add_argument('--logfiles', '-l',
+                                help='Path to the log files to be processed',
+                                type=argparse.FileType('r'),
+                                nargs="+",
+                                required=True)
 
-    parser.add_argument('--labels',
-                        help='Label to assign to each log file. Each label should be separated by a space. Quote '
-                             'labels that contain spaces: E.g. --labels label1 "labels 2"',
-                        nargs="+")
+    parserRequired.add_argument('--labels',
+                                help='Label to assign to each log file. Each label should be separated by a space. Quote '
+                                'labels that contain spaces: E.g. --labels label1 "labels 2"',
+                                nargs="+")
 
-    parser.add_argument('--outputFolder', '-o',
-                        help='Several files with be saved under this folder: A table containing the results and '
-                             'a html file with several images.',
-                        required=True)
+    parserRequired.add_argument('--outputFolder', '-o',
+                                help='Several files with be saved under this folder: A table containing the results and '
+                                'a html file with several images.',
+                                required=True)
 
-    parser.add_argument('--dpi',
-                        help='Image resolution. By default high resolution png images with a 200 dpi are created.',
-                        type=int,
-                        default=200)
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument('--dpi',
+                           help='Image resolution. By default high resolution png images with a 200 dpi are created.',
+                           type=int,
+                           default=200)
+
+    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
