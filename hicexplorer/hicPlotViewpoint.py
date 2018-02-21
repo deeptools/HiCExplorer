@@ -16,34 +16,43 @@ log = logging.getLogger(__name__)
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(description='Plots the number of interactions around a given reference point in a region.')
 
-    parser.add_argument('--matrix', '-m',
+    parserRequired = parser.add_argument_group('Required arguments')
+
+    parserRequired.add_argument('--matrix', '-m',
                         help='path of the Hi-C matrices to plot',
                         required=True)
 
-    parser.add_argument('--region',
+    parserRequired.add_argument('--region',
                         help='The format is chr:start-end ',
                         required=True)
 
-    parser.add_argument('--outFileName', '-o',
+    parserRequired.add_argument('--outFileName', '-o',
                         help='File name to save the image.',
                         required=True)
 
-    parser.add_argument('--referencePoint', '-rp', help='Reference point. Needs to be in the format: \'chr:100\' for a '
+    parserRequired.add_argument('--referencePoint', '-rp', help='Reference point. Needs to be in the format: \'chr:100\' for a '
                         'single reference point or \'chr:100-200\' for a reference region.',
                         required=True)
 
-    parser.add_argument('--chromosome', '-C',
+    parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument('--chromosome', '-C',
                         help='Optional parameter: Only show results for this chromosome.')
 
-    parser.add_argument('--interactionOutFileName', '-i', help='Optional parameter:  If set a bedgraph file with all interaction'
+    parserOpt.add_argument('--interactionOutFileName', '-i', help='Optional parameter:  If set a bedgraph file with all interaction'
                         ' will be created.',
                         required=False)
 
-    parser.add_argument('--dpi',
+    parserOpt.add_argument('--dpi',
                         help='Optional parameter: Resolution for the image in case the'
                              'ouput is a raster graphics image (e.g png, jpg)',
                         type=int,
                         default=300)
+
+    parserOpt.add_argument("-h", "--help", action="help", help="show this help message and exit")
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
     return parser
 
 
