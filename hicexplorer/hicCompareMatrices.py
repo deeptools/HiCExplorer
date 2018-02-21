@@ -37,7 +37,7 @@ def parse_arguments(args=None):
                            choices=['diff', 'ratio', 'log2ratio'],
                            default='log2ratio')
 
-    parserOpt.add_argument("-h", "--help", action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
