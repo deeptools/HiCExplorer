@@ -21,35 +21,46 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False,
         description='Converts the (interaction) matrix to a observed/expected matrix or a pearson_correlated.')
 
+    parserRequired = parser.add_argument_group('Required arguments')
+
     # define the arguments
-    parser.add_argument('--matrix', '-m',
-                        help='input file. The computation is done per chromosome.',
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='input file. The computation is done per chromosome.',
+                                required=True)
 
-    parser.add_argument('--outFileName', '-o',
-                        help='File name to save the exported matrix.',
-                        required=True)
-    parser.add_argument('--threads', '-t',
-                        help='Number of threads for pearson correlation.',
-                        required=False,
-                        default=4,
-                        type=int)
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the exported matrix.',
+                                required=True)
 
-    parser.add_argument('--method', '-me',
-                        help='Transformation method to use. If the option all is used, all three matrices in '
-                        'consecutively way (input -> obs_exp -> pearson -> covariance) are created.',
-                        choices=['obs_exp', 'pearson', 'covariance', 'all'],
-                        default='obs_exp')
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
-    parser.add_argument('--chromosomes',
-                        help='List of chromosomes to be included in the '
-                        'correlation.',
-                        default=None,
-                        nargs='+')
+parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument('--method', '-me',
+                           help='Transformation method to use. If the option all is used, all three matrices in '
+                           'consecutively way (input -> obs_exp -> pearson -> covariance) are created.',
+                           choices=['obs_exp', 'pearson', 'covariance', 'all'],
+                           default='obs_exp')
+
+    parserOpt.add_argument('--chromosomes',
+                           help='List of chromosomes to be included in the '
+                           'correlation.',
+                           default=None,
+                           nargs='+')
+
+    parserOpt.add_argument('--threads', '-t',
+                           help='Number of threads for pearson correlation.',
+                           required=False,
+                           default=4,
+                           type=int)
+
+    parserOpt.add_argument("-help", "-h", action="help", help="show this help message and exit")
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
+
     return parser
 
 
