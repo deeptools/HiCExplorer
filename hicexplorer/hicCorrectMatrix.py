@@ -2,7 +2,7 @@ from __future__ import division
 import argparse
 from past.builtins import zip
 from scipy.sparse import lil_matrix
-
+from copy import deepcopy
 
 from hicexplorer.iterativeCorrection import iterativeCorrection
 from hicexplorer import HiCMatrix as hm
@@ -537,6 +537,8 @@ def main(args=None):
         if args.chromosomes:
             ma.reorderChromosomes(toString(args.chromosomes))
 
+    ma.set_uncorrected_matrix(deepcopy(ma.matrix))
+
     # mask all zero value bins
     row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
     log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
@@ -544,6 +546,7 @@ def main(args=None):
     matrix_shape = ma.matrix.shape
     ma.matrix = convertNansToZeros(ma.matrix)
     ma.matrix = convertInfsToZeros(ma.matrix)
+
     if 'plotName' in args:
         plot_total_contact_dist(ma, args)
         log.info("Saving diagnostic plot {}\n".format(args.plotName))
@@ -610,6 +613,7 @@ def main(args=None):
 
     ma.setMatrixValues(corrected_matrix)
     ma.setCorrectionFactors(correction_factors)
+    log.info("Correction factors {}".format(correction_factors[:10]))
     if args.inflationCutoff and args.inflationCutoff > 0:
         after_row_sum = np.asarray(corrected_matrix.sum(axis=1)).flatten()
         # identify rows that were expanded more than args.inflationCutoff times
