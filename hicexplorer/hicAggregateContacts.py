@@ -21,128 +21,144 @@ from collections import OrderedDict
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description='Takes a list of positions in the hic-matrix and '
+    parser = argparse.ArgumentParser(add_help=False,
+                                     description='Takes a list of positions in the hic-matrix and '
                                                  'makes a pooled image.')
 
+    parserRequired = parser.add_argument_group('Required arguments')
+
     # define the arguments
-    parser.add_argument('--matrix', '-m',
-                        help='Path of the Hi-C matrix to plot.',
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='Path of the Hi-C matrix to plot.',
+                                required=True)
 
-    parser.add_argument('--BED',
-                        help='Interactions between regions in this BED file are plotted.',
-                        type=argparse.FileType('r'),
-                        required=True)
+    parserRequired.add_argument('--outFileName', '-out',
+                                help='File name to save the image. ',
+                                type=argparse.FileType('w'),
+                                required=True)
 
-    parser.add_argument('--BED2',
-                        help='Optional second BED file. Interactions between regions in first '
-                             'and second BED file are plotted.',
-                        type=argparse.FileType('r'),
-                        required=False)
+    parserRequired.add_argument('--BED',
+                                help='Interactions between regions in this BED file are plotted.',
+                                type=argparse.FileType('r'),
+                                required=True)
 
-    parser.add_argument('--range',
-                        help='Range of contacts that will be considered for plotting the aggregate contacts '
-                             'in bp with the format low_range:high_range for example 1000000:20000000. The range '
-                             'should start at contacts larger than TAD size to reduce background interactions.',
-                        required=True)
+    parserRequired.add_argument('--range',
+                                help='Range of contacts that will be considered for plotting the aggregate contacts '
+                                'in bp with the format low_range:high_range for example 1000000:20000000. The range '
+                                'should start at contacts larger than TAD size to reduce background interactions.',
+                                required=True)
 
-    parser.add_argument('--numberOfBins',
-                        help='Number of  bins to include in the submatrix. The bed regions will be centered between '
-                             '- half number of bins and the other half number of bins.',
-                        default='51',
-                        type=int)
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--transform',
-                        help='Type of transformation for the matrix. The options are "none",  '
-                             '"total-counts", "z-score" or "obs/exp". If total counts are selected, '
-                             'then the sub-matrix values are divided by the total counts for normalization. '
-                             'If z-score or obs/exp are selected, then H-C matrix is converted into a '
-                             'z-score or observed / expected matrix.',
-                        choices=['total-counts', 'z-score', 'obs/exp', 'none'],
-                        default='none')
+    parserOpt.add_argument('--BED2',
+                           help='Optional second BED file. Interactions between regions in first '
+                           'and second BED file are plotted.',
+                           type=argparse.FileType('r'),
+                           required=False)
 
-    parser.add_argument('--avgType',
-                        help='Type of average to compute final matrix. Options are mean and median. Default is median.',
-                        choices=['mean', 'median'],
-                        default='median')
+    parserOpt.add_argument('--numberOfBins',
+                           help='Number of  bins to include in the submatrix. The bed regions will be centered between '
+                           '- half number of bins and the other half number of bins.',
+                           default='51',
+                           type=int)
 
-    parser.add_argument('--outFileName', '-out',
-                        help='File name to save the image. ',
-                        type=argparse.FileType('w'),
-                        required=True)
+    parserOpt.add_argument('--transform',
+                           help='Type of transformation for the matrix. The options are "none",  '
+                           '"total-counts", "z-score" or "obs/exp". If total counts are selected, '
+                           'then the sub-matrix values are divided by the total counts for normalization. '
+                           'If z-score or obs/exp are selected, then H-C matrix is converted into a '
+                           'z-score or observed / expected matrix.',
+                           choices=['total-counts', 'z-score', 'obs/exp', 'none'],
+                           default='none')
 
-    parser.add_argument('--outFilePrefixMatrix',
-                        help='If this option is given, then the values underlying the final matrix will be '
-                             'saved to tab-delimited tables (one per chromosome) using the indicated prefix, '
-                             'for example TSS_to_TSS_chrX.tab. If clustering is performed, then the values are '
-                             'saved including the cluster_id a in TSS_to_TSS_chrX_cluster_1.tab',
-                        required=False)
+    parserOpt.add_argument('--avgType',
+                           help='Type of average to compute final matrix. Options are mean and median. Default is median.',
+                           choices=['mean', 'median'],
+                           default='median')
 
-    parser.add_argument('--outFileContactPairs',
-                        help='The value should be a prefix. If this option is given, then the position '
-                             'of the contacts positions are saved as (chrom1, start1, end1, chrom2, start2, end2) '
-                             'where chrom_n, start_n, end_n correspond to the pair of positions used to compute '
-                             'the submatrix. The data is saved per chromosome and per '
-                             'cluster separately (one file each). The format is {prefix}_{chrom}_{cluster_id}.tab. '
-                             'If no clusters were computed, then only one file per chromosome is produced.',
-                        required=False)
+    parserOpt.add_argument("-help", "-h", action="help", help="show this help message and exit")
 
-    parser.add_argument('--diagnosticHeatmapFile',
-                        help='If given, a heatmap file (per chromosome) is saved. Each row in the heatmap contains the'
-                             'diagonal of each of the submatrices centered on the bed file. This file is useful to '
-                             'get an idea of the values that are used for the aggregate matrix and to determine '
-                             'the fraction of sub-matrices that are aggregated that may have an enrichment at the '
-                             'center.',
-                        type=argparse.FileType('w'),
-                        required=False)
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
-    parser.add_argument('--kmeans',
-                        help='Number of clusters to compute. When this '
+    parserOut = parser.add_argument_group('Output options')
+
+    parserOut.add_argument('--outFilePrefixMatrix',
+                           help='If this option is given, then the values underlying the final matrix will be '
+                           'saved to tab-delimited tables (one per chromosome) using the indicated prefix, '
+                           'for example TSS_to_TSS_chrX.tab. If clustering is performed, then the values are '
+                           'saved including the cluster_id a in TSS_to_TSS_chrX_cluster_1.tab',
+                           required=False)
+
+    parserOut.add_argument('--outFileContactPairs',
+                           help='The value should be a prefix. If this option is given, then the position '
+                           'of the contacts positions are saved as (chrom1, start1, end1, chrom2, start2, end2) '
+                           'where chrom_n, start_n, end_n correspond to the pair of positions used to compute '
+                           'the submatrix. The data is saved per chromosome and per '
+                           'cluster separately (one file each). The format is {prefix}_{chrom}_{cluster_id}.tab. '
+                           'If no clusters were computed, then only one file per chromosome is produced.',
+                           required=False)
+
+    parserOut.add_argument('--diagnosticHeatmapFile',
+                           help='If given, a heatmap file (per chromosome) is saved. Each row in the heatmap contains the'
+                           'diagonal of each of the submatrices centered on the bed file. This file is useful to '
+                           'get an idea of the values that are used for the aggregate matrix and to determine '
+                           'the fraction of sub-matrices that are aggregated that may have an enrichment at the '
+                           'center.',
+                           type=argparse.FileType('w'),
+                           required=False)
+
+    parserClust = parser.add_argument_group('Clustering options')
+
+    parserClust.add_argument('--kmeans',
+                             help='Number of clusters to compute. When this '
                              'option is set, the submatrices are split into clusters (per chromosome)'
                              'using the k-means algorithm.',
-                        type=int)
+                             type=int)
 
-    parser.add_argument('--hclust',
-                        help='Number of clusters to compute (per chromosome). When this '
+    parserClust.add_argument('--hclust',
+                             help='Number of clusters to compute (per chromosome). When this '
                              'option is set, then the matrix is split into clusters '
                              'using the hierarchical clustering algorithm, using "ward linkage". '
                              ' --hclust could be very slow if you have '
                              '>1000 submatrices per chromosome. In those cases, you might prefer --kmeans',
-                        type=int)
+                             type=int)
 
-    parser.add_argument('--howToCluster',
-                        help='Options are "full", "center" and "diagonal". The full clustering is the default and '
+    parserClust.add_argument('--howToCluster',
+                             help='Options are "full", "center" and "diagonal". The full clustering is the default and '
                              'takes all values of each submatrix for clustering. "center", takes only a square of '
                              'length 3x3 from each submatrix and uses only  this values for clustering. With the '
                              '"diagonal" option the clustering is only carried out based on the submatrix diagonal '
-                             '(representing values at the same distance to each other)',
-                        choices=['full', 'center', 'diagonal'],
-                        default='full')
+                             '(representing values at the same distance to each other.)',
+                             choices=['full', 'center', 'diagonal'],
+                             default='full')
 
-    parser.add_argument('--chromosomes', '-C',
-                        help='List of chromosomes to plot.',
-                        nargs='+')
+    parserPlot = parser.add_argument_group('Plotting options')
 
-    parser.add_argument('--colorMap',
-                        help='Color map to use for the heatmap. Available '
-                        'values can be seen here: '
-                        'http://matplotlib.org/examples/color/colormaps_reference.html',
-                        default='RdYlBu_r')
+    parserPlot.add_argument('--chromosomes', '-C',
+                            help='List of chromosomes to plot.',
+                            nargs='+')
 
-    parser.add_argument('--plotType',
-                        help='Plot type.',
-                        choices=['2d', '3d'],
-                        default='2d')
+    parserPlot.add_argument('--colorMap',
+                            help='Color map to use for the heatmap. Available '
+                            'values can be seen here: '
+                            'http://matplotlib.org/examples/color/colormaps_reference.html',
+                            default='RdYlBu_r')
 
-    parser.add_argument('--vMin',
-                        help='vMin',
-                        type=float,
-                        default=None)
+    parserPlot.add_argument('--plotType',
+                            help='Plot type.',
+                            choices=['2d', '3d'],
+                            default='2d')
 
-    parser.add_argument('--vMax',
-                        help='vMax',
-                        type=float,
-                        default=None)
+    parserPlot.add_argument('--vMin',
+                            help='Minimum value of the plotted score.',
+                            type=float,
+                            default=None)
+
+    parserPlot.add_argument('--vMax',
+                            help='Maximum value of the plotted score.',
+                            type=float,
+                            default=None)
 
     return parser
 
