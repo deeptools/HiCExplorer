@@ -20,35 +20,35 @@ def parse_arguments(args=None):
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrix', '-m',
-                        help='path of the Hi-C matrices to plot',
-                        required=True)
+                                help='path of the Hi-C matrices to plot',
+                                required=True)
 
     parserRequired.add_argument('--region',
-                        help='The format is chr:start-end ',
-                        required=True)
+                                help='The format is chr:start-end ',
+                                required=True)
 
     parserRequired.add_argument('--outFileName', '-o',
-                        help='File name to save the image.',
-                        required=True)
+                                help='File name to save the image.',
+                                required=True)
 
     parserRequired.add_argument('--referencePoint', '-rp', help='Reference point. Needs to be in the format: \'chr:100\' for a '
-                        'single reference point or \'chr:100-200\' for a reference region.',
-                        required=True)
+                                'single reference point or \'chr:100-200\' for a reference region.',
+                                required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--chromosome', '-C',
-                        help='Optional parameter: Only show results for this chromosome.')
+                           help='Optional parameter: Only show results for this chromosome.')
 
     parserOpt.add_argument('--interactionOutFileName', '-i', help='Optional parameter:  If set a bedgraph file with all interaction'
-                        ' will be created.',
-                        required=False)
+                           ' will be created.',
+                           required=False)
 
     parserOpt.add_argument('--dpi',
-                        help='Optional parameter: Resolution for the image in case the'
-                             'ouput is a raster graphics image (e.g png, jpg)',
-                        type=int,
-                        default=300)
+                           help='Optional parameter: Resolution for the image in case the'
+                           'ouput is a raster graphics image (e.g png, jpg)',
+                           type=int,
+                           default=300)
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
