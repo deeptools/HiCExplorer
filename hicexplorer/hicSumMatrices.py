@@ -19,22 +19,22 @@ def parse_arguments(args=None):
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrices', '-m',
-                        help='Space-delimited names of the matrices to add. The matrices must have the same shape/size. '
-                        'You can verify their size by using `hicInfo`.',
-                        metavar='.h5 or cooler file format',
-                        nargs='+',
-                        required=True)
+                                help='Space-delimited names of the matrices to add. The matrices must have the same shape/size. '
+                                'You can verify their size by using `hicInfo`.',
+                                metavar='.h5 or cooler file format',
+                                nargs='+',
+                                required=True)
 
     parserRequired.add_argument('--outFileName', '-o',
-                        help='File name to save the resulting matrix. The output is '
-                             'also a .h5 file. Please, do not add the .h5 suffix.',
-                        required=True)
+                                help='File name to save the resulting matrix. The output is '
+                                'also a .h5 file. Please, do not add the .h5 suffix.',
+                                required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
-    
+
     parserOpt.add_argument("-h", "--help", action="help", help="show this help message and exit")
     parserOpt.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
