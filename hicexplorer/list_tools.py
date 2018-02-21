@@ -20,10 +20,10 @@ Each tool should be called by its own name as in the following example:
 
 If you find HiCExplorer useful for your research please cite as:
 
-Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening,Kin Chung Lam,
-Bianca Habermann, Asifa Akhtar, Thomas Manke.
-“High-resolution TADs reveal DNA sequences underlying genome organization in flies”.
-bioRxiv 115063 doi: https://doi.org/10.1101/115063
+Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening, Kin Chung Lam, 
+Bianca Habermann, Asifa Akhtar, Thomas Manke. 
+"High-resolution TADs reveal DNA sequences underlying genome organization in flies". 
+Nature Communications, Volume 9, Article number: 189 (2018), doi: https://doi.org/10.1038/s41467-017-02525-w
 
 The following is the list of tools:
 
