@@ -78,9 +78,6 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument("-help", "-h", action="help", help="show this help message and exit")
 
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-
     parserOut = parser.add_argument_group('Output options')
 
     parserOut.add_argument('--outFilePrefixMatrix',
