@@ -35,8 +35,7 @@ def parse_arguments(args=None):
                                 help='File name to save the exported matrix.',
                                 required=True)
 
-
-parserOpt = parser.add_argument_group('Optional arguments')
+    parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--method', '-me',
                            help='Transformation method to use. If the option all is used, all three matrices in '
