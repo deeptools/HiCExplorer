@@ -1363,6 +1363,18 @@ class hiCMatrix:
             # create a tuple list and use it to create a data frame
 
             # save correction factors and original matrix
+
+            # revert correction to store orginal matrix
+            if self.uncorrected_matrix is None and self.correction_factors is not None:
+                log.info("Reverting correction factors on matrix...")
+
+                instances, features = matrix.nonzero()
+                for i in range(len(matrix.data)):
+                    matrix.data[i] *= self.correction_factors[instances[i]] * self.correction_factors[features[i]]
+
+                matrix.data = matrix.data.astype(int)
+                data = matrix.data.tolist()
+
             if self.uncorrected_matrix is not None:
                 log.info("Correction factors present! self.uncorrected_matrix is not None")
                 log.info("Data in save uncorrected: {}".format(self.uncorrected_matrix.data[:10]))
