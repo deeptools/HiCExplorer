@@ -5,7 +5,6 @@ from past.builtins import zip
 from six import iteritems
 
 import numpy as np
-import sys
 import os
 
 from collections import OrderedDict
@@ -137,7 +136,7 @@ class hiCMatrix:
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
-        log.info("self.cut_intervals: {}".format(self.cut_intervals[:10]))
+        # log.info("self.cut_intervals: {}".format(self.cut_intervals[:10]))
 
     def set_uncorrected_matrix(self, pMatrix):
         self.uncorrected_matrix = pMatrix
@@ -209,25 +208,18 @@ class hiCMatrix:
         if correction_factors_data_frame is not None:
             # apply correction factors to matrix
             # a_i,j = a_i,j / c_i *c_j
-            self.uncorrected_matrix(deepcopy(matrix))
-            matrix = matrix.tocoo()
-
+            self.set_uncorrected_matrix(deepcopy(matrix))
             matrix.data = matrix.data.astype(float)
-            log.info("matrix.data[:10]: {}".format(matrix.data[:10]))
+            log.info("Applying correction factors on matrix...")
 
-            # np.multiply(matrix.data, np.take(correction_factors_data_frame.values, matrix.row), out=matrix.data)
-            # np.multiply(matrix.data, np.take(correction_factors_data_frame.values, matrix.col), out=matrix.data)
-            matrix = matrix.tocsr()
-            log.info("matrix.data[:10]: {}".format(matrix.data[:10]))
+            instances, features = matrix.nonzero()
+            for i in range(len(matrix.data)):
+                matrix.data[i] /= correction_factors_data_frame.values[instances[i]] * correction_factors_data_frame.values[features[i]]
 
         cut_intervals = []
 
         for values in cut_intervals_data_frame.values:
-            if sys.version_info[0] == 3:
-                cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], 1.0]))
-
-            else:
-                cut_intervals.append(tuple(values))
+            cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], 1.0]))
 
         # try to restore nan_bins.
         try:
@@ -847,7 +839,7 @@ class hiCMatrix:
             dist_list = (np.array(dist_list).astype(float) / binsize).astype(int) + 1
 
             # for each distance, return the sum of all values
-            sum_counts = np.bincount(dist_list, weight=submatrix.data)
+            sum_counts = np.bincount(dist_list, weights=submatrix.data)
             distance_len = np.bincount(dist_list)
             # compute the average for each distance
             mat_size = submatrix.shape[0]
