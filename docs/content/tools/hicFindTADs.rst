@@ -7,14 +7,14 @@ hicFindTADs
     :local:
 
 Description
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^
 
 .. argparse::
    :ref: hicexplorer.hicFindTADs.parse_arguments
    :prog: hicFindTADs
    
 Usage example
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 It is mandatory to test multiple parameters of TAD calling with hicFindTADs before making conclusions about the number of TADs in a given sample or before comparing TAD calling between multiple conditions. In order to compare numerous TAD calling parameters at once, it is recommended to use :doc:`hicPlotTADs`.
 
