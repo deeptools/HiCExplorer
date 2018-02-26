@@ -7,19 +7,19 @@ hicCompareMatrices
     :local:
 
 Background
-^^^^^^^^^^^^^^^
+^^^^^^^^^^
 
 This tool is useful to compare two matrices in .h5 format by applying operations like difference, ratio or log2ratio after normalization. This can be used to determine the effect of a mutation compared to wild-type samples on contact enrichment, or to see TAD structure modifications near differentially expressed genes between two conditions when followed by :doc:`hicPlotMatrix`. It can also be used to compare two biological replicates.
 
 Description
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^
 
 .. argparse::
    :ref: hicexplorer.hicCompareMatrices.parse_arguments
    :prog: hicCompareMatrices
 
 Usage example
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 ``hicCompareMatrices`` is usually perfomed on corrected matrices (:doc:`hicCorrectMatrix`) with bins merged (:doc:`hicMergeMatrixBins`) depending on the downstream analyses to perform. Here is an example of a log2ratio comparison between M1BP Knockdown and GST cells in *Drosophila melanogaster* on corrected matrices with 50 bins merged (about 30kb bins).
 
