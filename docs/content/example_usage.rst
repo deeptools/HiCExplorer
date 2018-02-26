@@ -163,7 +163,7 @@ plot the counts using the `--log1p` option.
     
     
 Quality control of Hi-C data and biological replicates comparison
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 HiCExplorer integrates multiple tools that allow the evualuation of the quality of Hi-C libraries and matrices.
 
