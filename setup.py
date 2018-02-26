@@ -93,23 +93,23 @@ class install(_install):
             sys.stderr.write("Error: {}".format(e))
 
 
-install_requires_py = ["numpy >= 1.12.1",
-                       "scipy >= 0.19.0",
-                       "matplotlib == 2.1.1",
-                       "pysam >= 0.11.2.2",
-                       "intervaltree >= 2.1.0",
+install_requires_py = ["numpy == 1.13.*",
+                       "scipy == 1.0.*",
+                       "matplotlib == 2.1.*",
+                       "pysam == 0.11.*",
+                       "intervaltree == 2.1.*",
                        "biopython >= 1.68",
-                       "tables >= 3.3.0",
-                       "pandas >= 0.20.2",
-                       "pyBigWig >= 0.3.4",
-                       "six >= 1.10.0",
-                       "future >= 0.16.0",
-                       "cooler >= 0.7.6",
-                       "jinja2 >= 2.9.6"
+                       "tables == 3.3.*",
+                       "pandas == 0.20.*",
+                       "pyBigWig == 0.3.*",
+                       "six == 1.10.*",
+                       "future == 0.16.*",
+                       "cooler == 0.7.*",
+                       "jinja2 == 2.9.*"
                        ]
 
 if sys.version_info[0] == 2:
-    install_requires_py.append("configparser >= 3.5.0")
+    install_requires_py.append("configparser == 3.5.*")
 
 setup(
     name='HiCExplorer',
