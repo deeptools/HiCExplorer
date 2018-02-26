@@ -7,21 +7,21 @@ hicPlotDistVsCounts
     :local:
 
 Background
-^^^^^^^^^^^^^^^
+^^^^^^^^^^
 
 This tool allows a quick comparison between multiple Hi-C matrices of the Hi-C counts enrichment at different genomic ranges / distances up to whole chromosome. Biological replicates should display the exact same distribution while samples coming from different cell-lines, treated versus untreated samples or mutant versus wild-type samples should display a different distribution at long and/or close range.
 
 The results of this tool usually reflect the proportion of long-range and short-range contacts calculated in each sample by :doc:`hicQC`. Local TAD or contact enrichments will not impact the results computed bu this tool, :doc:`hicPCA` is better suited for that purpose.
 
 Description
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^
 
 .. argparse::
    :ref: hicexplorer.hicPlotDistVsCounts.parse_arguments
    :prog: hicPlotDistVsCounts
 
 Usage example
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 :doc:`hicPlotDistVsCounts` should be used on corrected matrices with very large bins (e.g. at least 50kb bins), otherwise the curves will be spiky at longer ranges because of the sparness of the contacts, thus the likelyness of the samples will become hard to assess after a certain distance. :doc:`hicPlotDistVsCounts` is thus often ran after :doc:`hicMergeMatrixBins` and :doc:`hicCorrectMatrix`.
 
