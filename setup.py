@@ -105,7 +105,8 @@ install_requires_py = ["numpy >= 1.12.1",
                        "six >= 1.10.0",
                        "future >= 0.16.0",
                        "cooler >= 0.7.6",
-                       "jinja2 >= 2.9.6"
+                       "jinja2 >= 2.9.6",
+                       "unidecode >= 0.04.21"
                        ]
 
 if sys.version_info[0] == 2:
