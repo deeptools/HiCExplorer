@@ -175,15 +175,26 @@ class hiCMatrix:
             exit()
 
         if pChrnameList is None:
+            # some bug in csr funtion of cooler or numpy to double the data
             matrix_data_frame = self.cooler_file.matrix(balance=False, as_pixels=True)[:]
+            # log.info("matrix data frame LOAD: {}".format(matrix_data_frame.values))
+            # log.info("matrix data frame data LOAD: {}".format(matrix_data_frame.values[:, 2].flatten()))
+            # log.info("matrix data frame row LOAD: {}".format(matrix_data_frame.values[:, 1].flatten()))
+            # log.info("matrix data frame col LOAD: {}".format(matrix_data_frame.values[:, 0].flatten()))
+
             length = len(self.cooler_file.bins()[['chrom']][:].index)
 
-            matrix = csr_matrix((matrix_data_frame.values[:, 2].flatten(), (matrix_data_frame.values[:, 1].flatten(), matrix_data_frame.values[:, 0].flatten())), shape=(length, length))
+            matrix = csr_matrix((matrix_data_frame.values[:, 2].flatten(), (matrix_data_frame.values[:, 0].flatten(), matrix_data_frame.values[:, 1].flatten())), shape=(length, length))
+            # log.info("matrix data csr: {}".format(matrix) )
         else:
             if len(pChrnameList) == 1:
 
                 try:
                     matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0]).tocsr()
+                    # matrix_data_frame = self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChrnameList[0])
+                    # length = len(self.cooler_file.bins().fetch(pChrnameList[0])[['chrom']].index)
+                    # matrix = csr_matrix((matrix_data_frame.values[:, 2].flatten(), (matrix_data_frame.values[:, 0].flatten(), matrix_data_frame.values[:, 1].flatten())), shape=(length, length))
+
                 except ValueError:
                     exit("Wrong chromosome format. Please check UCSC / ensembl notation.")
 
@@ -205,16 +216,25 @@ class hiCMatrix:
                 correction_factors_data_frame = self.cooler_file.bins()[['weight']][:]
 
             cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end']][:]
+
+        correction_factors = None
         if correction_factors_data_frame is not None:
             # apply correction factors to matrix
             # a_i,j = a_i,j / c_i *c_j
             self.set_uncorrected_matrix(deepcopy(matrix))
+            matrix.eliminate_zeros()
             matrix.data = matrix.data.astype(float)
             log.info("Applying correction factors on matrix...")
 
             instances, features = matrix.nonzero()
+            log.info('len matrix.data: {}'.format(len(matrix.data)))
+            log.info('len instance: {}'.format(len(instances)))
+            log.info('len features: {}'.format(len(features)))
+            log.info('len correctionfactors.values: {}'.format(len(correction_factors_data_frame.values)))
+
             for i in range(len(matrix.data)):
                 matrix.data[i] /= correction_factors_data_frame.values[instances[i]] * correction_factors_data_frame.values[features[i]]
+            correction_factors = correction_factors_data_frame.values
 
         cut_intervals = []
 
@@ -238,7 +258,13 @@ class hiCMatrix:
             nan_bins = None
 
         distance_counts = None
-        correction_factors = None
+        # log.info("matrix data csr BEFORE FILL_LOWER: {}".format(matrix) )
+
+        matrix = hiCMatrix.fillLowerTriangle(matrix)
+
+        # log.info("matrix data csr AFTER FILL_LOWER: {}".format(matrix) )
+
+        # log.info('cut_intervals: {}'.format(cut_intervals))
 
         return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
@@ -1390,7 +1416,7 @@ class hiCMatrix:
 
             matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
             matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
-            log.info("matrix data frame: {}".format(matrix_data_frame.values[:10]))
+            log.info("matrix data frame SAVE: {}".format(matrix_data_frame.values[:10]))
         cooler.io.create(cool_uri=pFileName,
                          bins=bins_data_frame,
                          pixels=matrix_data_frame)
