@@ -689,7 +689,7 @@ class PlotBedGraphMatrix(PlotBedGraph):
                              "[{}-{}]".format(ymin_print, ymax_print),
                              horizontalalignment='left',
                              verticalalignment='bottom')
-            if 'plot horizontal lines' in self.properties and self.properties['horizontal lines']:
+            if 'plot horizontal lines' in self.properties and self.properties['plot horizontal lines']:
                 # plot horizontal lines to compare values
                 self.ax.hlines(np.arange(0, 1.1, 0.1), start_region, end_region, linestyle="--",
                                zorder=0, color='grey')
