@@ -373,7 +373,7 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
             if args.outFilePrefixMatrix:
                 # save aggregate matrix values
                 if num_clusters == 1:
-                    output_matrix_name = "{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix.name, chrom=chrom)
+                    output_matrix_name = "{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix, chrom=chrom)
                 else:
                     output_matrix_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix,
                                                                                   chrom=chrom, id=cluster_number + 1)
