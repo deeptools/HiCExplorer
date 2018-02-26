@@ -1,7 +1,7 @@
 .. _hicCompareMatrices:
 
 hicCompareMatrices
-================
+==================
 
 .. contents:: 
     :local:
