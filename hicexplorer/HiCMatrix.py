@@ -1201,7 +1201,12 @@ class hiCMatrix:
         # update correction factors
         if self.correction_factors is not None:
             self.correction_factors = [self.correction_factors[x] for x in sel_id]
-
+        if self.uncorrected_matrix is not None:
+            try:
+                self.uncorrected_matrix = self.uncorrected_matrix[sel_id, :][:, sel_id]
+            except Exception:
+                log.warning('Resize of original matrix failed. Data is lost, will use only corrected matrix data.')
+                self.uncorrected_matrix = None
         # keep track of nan bins
         if len(self.nan_bins):
             _temp = np.zeros(size[0])
@@ -1372,7 +1377,7 @@ class hiCMatrix:
             # log.info("bins_data_frame: {}".format(bins_data_frame))
             # append correction factors if they exist
             if self.correction_factors is not None:
-                log.info("Correction factors present! self.correction_factors is not None")
+                log.debug("Correction factors present! self.correction_factors is not None")
 
                 bins_data_frame = bins_data_frame.assign(weight=self.correction_factors)
             # log.info("bins_data_frame II : {}".format(bins_data_frame))
@@ -1401,9 +1406,9 @@ class hiCMatrix:
                 matrix.data = matrix.data.astype(int)
                 data = matrix.data.tolist()
 
-            if self.uncorrected_matrix is not None:
-                log.info("Correction factors present! self.uncorrected_matrix is not None")
-                log.info("Data in save uncorrected: {}".format(self.uncorrected_matrix.data[:10]))
+            elif self.uncorrected_matrix is not None:
+                log.debug("Correction factors present! self.uncorrected_matrix is not None")
+                log.debug("Data in save uncorrected: {}".format(self.uncorrected_matrix.data[:10]))
                 instances, features = self.uncorrected_matrix.nonzero()
                 data = self.uncorrected_matrix.data.tolist()
             else:
