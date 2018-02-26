@@ -30,7 +30,15 @@ def run_compare(pInputFile, pInputFormat, pOutputFormat, pChrNameList=None):
     new = hm.hiCMatrix(outfile.name)
 
     nt.assert_equal(new.matrix.data, test.matrix.data)
-    nt.assert_equal(new.cut_intervals, test.cut_intervals)
+    nt.assert_equal(len(new.cut_intervals), len(test.cut_intervals))
+    cut_interval_new_ = []
+    cut_interval_test_ = []
+    for x in new.cut_intervals:
+        cut_interval_new_.append(x[:3])
+    for x in test.cut_intervals:
+        cut_interval_test_.append(x[:3])
+
+    nt.assert_equal(cut_interval_new_, cut_interval_test_)
     os.unlink(outfile.name)
     return True
 

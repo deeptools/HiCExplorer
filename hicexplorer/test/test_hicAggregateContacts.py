@@ -4,11 +4,26 @@ from matplotlib.testing.compare import compare_images
 import os.path
 from tempfile import NamedTemporaryFile
 import hicexplorer.hicAggregateContacts
+import pytest
+from psutil import virtual_memory
+mem = virtual_memory()
+memory = mem.total / 2**30
+
+# memory in GB the test computer needs to have to run the test case
+LOW_MEMORY = 2
+MID_MEMORY = 7
+HIGH_MEMORY = 200
+
+REMOVE_OUTPUT = True
+# DIFF = 60
+
 
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 tolerance = 13  # default matplotlib pixed difference tolerance
 
 
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
 def test_hicAggregateContacts():
 
     outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
@@ -27,6 +42,8 @@ def test_hicAggregateContacts():
     os.remove(outfile_aggregate_plots.name)
 
 
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
 def test_hicAggregateContacts_clustering():
 
     outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
@@ -53,6 +70,8 @@ def test_hicAggregateContacts_clustering():
     os.remove(outfile_heatmaps.name)
 
 
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
 def test_hicAggregateContacts_3d():
 
     outfile_aggregate_3d = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_3d', delete=False)
