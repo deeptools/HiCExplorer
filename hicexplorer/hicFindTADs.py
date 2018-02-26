@@ -12,7 +12,7 @@ from scipy import sparse
 import numpy as np
 import multiprocessing
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString, toBytes
+from hicexplorer.utilities import toString, check_chrom_str_bytes
 
 # python 2 / 3 compatibility
 from past.builtins import zip
@@ -206,11 +206,12 @@ def get_idx_of_bins_at_given_distance(hic_matrix, idx, window_len):
     # chr_end_pos = hic_matrix.get_chromosome_sizes()[chrom]
     # if ?ring(chrom)
     chromosome_size = hic_matrix.get_chromosome_sizes()
-    if type(next(iter(chromosome_size))) != type(chrom):
-        if type(next(iter(chromosome_size))) is str:
-            chrom = toString(chrom)
-        elif type(next(iter(chromosome_size))) is bytes:
-            chrom = toBytes(chrom)
+    chrom = check_chrom_str_bytes(chromosome_size, chrom)
+    # if type(next(iter(chromosome_size))) != type(chrom):
+    #     if type(next(iter(chromosome_size))) is str:
+    #         chrom = toString(chrom)
+    #     elif type(next(iter(chromosome_size))) is bytes:
+    #         chrom = toBytes(chrom)
     chr_end_pos = chromosome_size[chrom]
 
     right_end = min(chr_end_pos, cut_end + window_len) - 1
@@ -604,7 +605,10 @@ class HicFindTads(object):
 
         # compute local minima for the matrix average
         _max, _min = HicFindTads.peakdetect(tad_score_matrix_avg, lookahead=lookahead, chrom=chrom)
-        min_idx, value = zip(*_min)
+        if _min:
+            min_idx, _ = zip(*_min)
+        else:
+            min_idx = []
 
         # get the delta for each boundary
         delta_to_mean = HicFindTads.delta_wrt_window(min_idx, tad_score_matrix_avg, chrom)

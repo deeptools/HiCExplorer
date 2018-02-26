@@ -7,6 +7,8 @@ from hicexplorer.utilities import toString, toBytes
 from hicexplorer.utilities import enlarge_bins
 from hicexplorer.utilities import change_chrom_names
 from hicexplorer.utilities import remove_non_ascii
+from hicexplorer.utilities import check_chrom_str_bytes
+
 
 from hicexplorer._version import __version__
 import numpy as np
@@ -121,7 +123,12 @@ def parse_arguments(args=None):
                         help='Bigwig file to plot below the matrix',
                         type=str,
                         default=None)
-
+    parser.add_argument('--coolerNode',
+                        help='The node of a multicooler file which should be opend. '
+                        'Example: cooler.mcool::/resolution/240000 '
+                        'The --coolerNode arguments than needs to be: --coolerNode /resolution/240000',
+                        type=str,
+                        default=None)
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(__version__))
 
@@ -172,7 +179,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
     axHeat2.invert_yaxis()
     img3.set_rasterized(True)
-    xticks = None
+
     if args.region:
         xtick_lables = relabel_ticks(axHeat2.get_xticks())
         axHeat2.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
@@ -363,22 +370,25 @@ def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
     chrom, region_start, region_end = translate_region(args.region)
 
-    if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-        chrom = toBytes(chrom)
+    chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
+    # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+    #     chrom = toBytes(chrom)
 
     if chrom not in list(ma.interval_trees):
 
         chrom = change_chrom_names(chrom)
 
-        if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-            chrom = toBytes(chrom)
+        chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
+
+        # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+        #     chrom = toBytes(chrom)
 
         if chrom not in list(ma.interval_trees):
             exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 
     args.region = [chrom, region_start, region_end]
     is_cooler = False
-    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix):
+    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix) or '.mcool' in args.matrix:
         is_cooler = True
     if is_cooler:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
@@ -390,12 +400,16 @@ def getRegion(args, ma):
                                  x[1] >= region_start and x[2] < region_end])
     if args.region2:
         chrom2, region_start2, region_end2 = translate_region(args.region2)
-        if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-            chrom2 = toBytes(chrom)
+        chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
+
+        # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+        #     chrom2 = toBytes(chrom)
         if chrom2 not in list(ma.interval_trees):
             chrom2 = change_chrom_names(chrom2)
-            if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-                chrom2 = toBytes(chrom)
+            chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
+
+            # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
+            #     chrom2 = toBytes(chrom)
             if chrom2 not in list(ma.interval_trees):
                 exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
         if is_cooler:
@@ -435,8 +449,10 @@ def main(args=None):
     #     log.error("Inter-chromosomal pca is not supported.")
     #     exit(1)
     is_cooler = False
-    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix):
+    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix) or'.mcool' in args.matrix:
         is_cooler = True
+        args.matrix
+    log.debug("Cooler or no cooler: {}".format(is_cooler))
     if is_cooler and not args.region2:
         log.debug("Retrieve data from cooler format and use its benefits.")
         regionsToRetrieve = None

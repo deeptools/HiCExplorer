@@ -40,9 +40,9 @@ from intervaltree import IntervalTree, Interval
 
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
-from hicexplorer.utilities import toString, toBytes
+from hicexplorer.utilities import toString
 from hicexplorer.utilities import change_chrom_names
-
+from hicexplorer.utilities import check_chrom_str_bytes
 
 reload(sys)
 if sys.version_info <= (3, 0):
@@ -258,13 +258,18 @@ class PlotTracks(object):
             line_width = self.vlines_properties['line width']
         else:
             line_width = 0.5
-        if type(next(iter(self.vlines_intval_tree))) is np.bytes_ or type(next(iter(self.vlines_intval_tree))) is bytes:
-            chrom_region = toBytes(chrom_region)
+
+        chrom_region = check_chrom_str_bytes(self.vlines_intval_tree, chrom_region)
+
+        # if type(next(iter(self.vlines_intval_tree))) is np.bytes_ or type(next(iter(self.vlines_intval_tree))) is bytes:
+        #     chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.vlines_intval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.vlines_intval_tree))) is np.bytes_ or type(next(iter(self.vlines_intval_tree))) is bytes:
-                chrom_region = toBytes(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.vlines_intval_tree, chrom_region)
+
+            # if type(next(iter(self.vlines_intval_tree))) is np.bytes_ or type(next(iter(self.vlines_intval_tree))) is bytes:
+            #     chrom_region = toBytes(chrom_region)
 
         for region in sorted(self.vlines_intval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             vlines_list.append(region.begin)
@@ -387,7 +392,7 @@ class PlotTracks(object):
         file = track_dict['file'].strip()
         if file.endswith(".bed") or file.endswith(".bed.gz"):
             file_type = 'bed'
-        elif file.endswith(".npz") or file.endswith(".h5") or file.endswith(".cool"):
+        elif file.endswith(".npz") or file.endswith(".h5") or file.endswith(".cool") or '.mcool' in file:
             file_type = 'hic_matrix'
         elif file.endswith(".bw"):
             file_type = 'bigwig'
@@ -559,13 +564,16 @@ class PlotBedGraph(TrackPlot):
         score_list = []
         pos_list = []
 
-        if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
-            chrom_region = toBytes(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+        # if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+        #     chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
-                chrom_region = toBytes(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+
+            # if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+            #     chrom_region = toBytes(chrom_region)
 
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             score_list.append(float(region.data[0]))
@@ -632,12 +640,16 @@ class PlotBedGraphMatrix(PlotBedGraph):
 
         start_pos = []
         matrix_rows = []
-        if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
-            chrom_region = toBytes(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+
+        # if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+        #     chrom_region = toBytes(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
-                chrom_region = toBytes(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+
+            # if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+            #     chrom_region = toBytes(chrom_region)
 
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             start_pos.append(region.begin)
@@ -677,7 +689,7 @@ class PlotBedGraphMatrix(PlotBedGraph):
                              "[{}-{}]".format(ymin_print, ymax_print),
                              horizontalalignment='left',
                              verticalalignment='bottom')
-            if 'plot horizontal lines' in self.properties and self.properties['horizontal lines']:
+            if 'plot horizontal lines' in self.properties and self.properties['plot horizontal lines']:
                 # plot horizontal lines to compare values
                 self.ax.hlines(np.arange(0, 1.1, 0.1), start_region, end_region, linestyle="--",
                                zorder=0, color='grey')
@@ -729,13 +741,17 @@ class PlotBigWig(TrackPlot):
                               "is not valid. Using default value (700)".format(self.properties['number of bins'],
                                                                                self.properties['file']))
 
-        if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
-            chrom_region = toBytes(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.bw.chroms(), chrom_region)
+
+        # if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
+        #     chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.bw.chroms()):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
-                chrom_region = toBytes(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.bw.chroms(), chrom_region)
+
+            # if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
+            #     chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.bw.chroms()):
             log.error("Can not read region {} from bigwig file:\n\n"
@@ -932,14 +948,17 @@ class PlotHiCMatrix(TrackPlot):
         self.ax = ax
 
         chrom_sizes = self.hic_ma.get_chromosome_sizes()
+        chrom = check_chrom_str_bytes(chrom_sizes, chrom)
 
-        if type(next(iter(chrom_sizes))) is np.bytes_ or type(next(iter(chrom_sizes))) is bytes:
-            chrom = toBytes(chrom)
+        # if type(next(iter(chrom_sizes))) is np.bytes_ or type(next(iter(chrom_sizes))) is bytes:
+        #     chrom = toBytes(chrom)
 
         if chrom not in list(chrom_sizes):
             chrom = change_chrom_names(chrom)
-            if type(next(iter(chrom_sizes))) is np.bytes_ or type(next(iter(chrom_sizes))) is bytes:
-                chrom = toBytes(chrom)
+            chrom = check_chrom_str_bytes(chrom_sizes, chrom)
+
+            # if type(next(iter(chrom_sizes))) is np.bytes_ or type(next(iter(chrom_sizes))) is bytes:
+            #     chrom = toBytes(chrom)
 
         if region_end > chrom_sizes[chrom]:
             log.error("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
@@ -1235,10 +1254,12 @@ class PlotBoundaries(TrackPlot):
         x = []
         y = []
 
-        if type(next(iter(self.interval_tree))) is np.bytes_:
-            chrom_region = toBytes(chrom_region)
-        if type(next(iter(self.interval_tree))) is str:
-            chrom_region = toString(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+
+        # if type(next(iter(self.interval_tree))) is np.bytes_:
+        #     chrom_region = toBytes(chrom_region)
+        # if type(next(iter(self.interval_tree))) is str:
+        #     chrom_region = toString(chrom_region)
         if chrom_region not in self.interval_tree:
             orig = chrom_region
             chrom_region = change_chrom_names(chrom_region)
@@ -1424,12 +1445,15 @@ class PlotBed(TrackPlot):
         self.counter = 0
         self.small_relative = 0.004 * (end_region - start_region)
         self.process_bed(ax.get_figure().get_figwidth(), start_region, end_region)
-        if type(next(iter(self.interval_tree))) is np.bytes_:
-            chrom_region = toBytes(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+
+        # if type(next(iter(self.interval_tree))) is np.bytes_:
+        #     chrom_region = toBytes(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.interval_tree))) is np.bytes_:
-                chrom_region = toBytes(chrom_region)
+            # if type(next(iter(self.interval_tree))) is np.bytes_:
+            #     chrom_region = toBytes(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
 
         genes_overlap = sorted(self.interval_tree[chrom_region][start_region:end_region])
 
@@ -1819,12 +1843,16 @@ class PlotArcs(TrackPlot):
         from matplotlib.patches import Arc
         max_diameter = 0
         count = 0
-        if type(next(iter(self.intval_tree))) is not np.bytes_:
-            chrom_region = toString(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.intval_tree, chrom_region)
+
+        # if type(next(iter(self.intval_tree))) is not np.bytes_:
+        #     chrom_region = toString(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.intval_tree))) is not np.bytes_:
-                chrom_region = toString(chrom_region)
+            # if type(next(iter(self.intval_tree))) is not np.bytes_:
+            #     chrom_region = toString(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.intval_tree, chrom_region)
+
         arcs_in_region = sorted(self.interval_tree[chrom_region][region_start:region_end])
 
         for idx, interval in enumerate(arcs_in_region):
