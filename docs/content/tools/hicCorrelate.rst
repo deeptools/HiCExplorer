@@ -7,19 +7,19 @@ hicCorrelate
     :local:
 
 Background
-^^^^^^^^
+^^^^^^^^^^
 
 ``hicCorrelate`` is a dedicated Quality Control tool that allows the correlation of multiple Hi-C matrices at once with either a heatmap or scatterplots output.
 
 Description
-^^^^^^^^
+^^^^^^^^^^^
 
 .. argparse::
    :ref: hicexplorer.hicCorrelate.parse_arguments
    :prog: hicCorrelate
 
 Usage example
-^^^^^^^^
+^^^^^^^^^^^^^
 
 Below, you can find a correlation example of uncorrected Hi-C matrices obtained from *Drosophila melanogaster* embryos, either wild-type or having one gene knocked-down by RNAi.
 
@@ -34,7 +34,7 @@ Below, you can find a correlation example of uncorrected Hi-C matrices obtained 
 
 
 Heatmap
----------
+-------
 
 .. image:: ../../images/Dmel_heatmap.png
 
@@ -42,7 +42,7 @@ This example is showing a heatmap that was calculated using the Pearson correlat
 
 
 Scatterplot
---------
+-----------
 
 Additionally, pairwise scatterplots comparing interactions between each sample can be plotted.
 
