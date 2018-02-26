@@ -7,22 +7,22 @@ hicMergeMatrixBins
     :local:
 
 Background
-^^^^^^^^^^^^^^^
+^^^^^^^^^^
 
 Depending on the downstream analyses to perform on a Hi-C matrix generated with HiCExplorer, one might need different bin resolutions. For example using :doc:`hicPlotMatrix` to display chromatin interactions of a whole chromosome will not produce any meaningful vizualisation if it is performed on a matrix at restriction sites resolution. :doc:`hicMergeMatrixBins` address this issue by merging a given number of adjacent bins (precised after --numBins). To limit the loss of information, it is mandatory to perform :doc:`hicMergeMatrixBins` on matrices prior to any correction, and perform a correction after bin merging for downstream analyses using :doc:`hicCorrectMatrix`. 
 
 Description
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^
 
 .. argparse::
    :ref: hicexplorer.hicMergeMatrixBins.parse_arguments
    :prog: hicMergeMatrixBins
 
 Usage example
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 Running hicMergeMatrixBins
-""""""""""""""""
+""""""""""""""""""""""""""
 
 Bellow, we will develop the example of a matrix to display at the whole X-chromosome scale and at the scale of a 1Mb region of the X chromosome. To do this, we will perform two different bin merging using :doc:`hicMergeMatrixBins` on an uncorrected matrix built at the restiction sites resolution using :doc:`hicBuildMatrix`. To do this, we run the two following command lines
 
@@ -37,7 +37,7 @@ Starting from a matrix ``myMatrix.h5`` with bins of a median length of 529bp, th
 After the correction of these three matrices using :doc:`hicCorrectMatrix`, we can now plot them, ``myMatrix_corrected.h5``, ``myMatrix_merged_nb3_corrected.h5`` and ``myMatrix_merged_nb50_corrected.h5``, at the scale of the whole X-chromosome and at the X:2000000-3000000 region to see the effect of bin merging on the interactions visualization.
 
 Effect of bins merging at the scale of a chromosome 
-""""""""""""""""
+"""""""""""""""""""""""""""""""""""""""""""""""""""
 
 .. code:: bash
 
@@ -64,7 +64,7 @@ When observed altogether, the plots produced by these three commands show that t
 .. image:: ../../images/hicMergeMatrixBins_Xchr.png
 
 Effect of bins merging at the scale of a specific region
-""""""""""""""""
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 .. code:: bash
 
