@@ -4,19 +4,19 @@ hicQC
 =====
 
 Background
-^^^^^^^
+^^^^^^^^^^
 
 This tool can process quality control log files produced by :doc:`hicBuildMatrix` for multiple samples at once to generate summary tables and plots of quality control (QC) measures for all these samples. Additionally, an HTML output is generated where all summary tables and plots are displayed.
 
 Description
-^^^^^^^
+^^^^^^^^^^^
 
 .. argparse::
    :ref: hicexplorer.hicPrepareQCreport.parse_arguments
    :prog: hicQC
 
 Usage example
-^^^^^^^^
+^^^^^^^^^^^^^
 
 :doc:`hicBuildMatrix` generates a QC.log file for each processed Hi-C sample in a folder specified in the ``--QCfolder`` argument. The quality control measures stored for each of these samples can be merged in summary tables and plots using hicQC. An example usage is:
 
