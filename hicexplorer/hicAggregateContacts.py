@@ -157,6 +157,10 @@ def parse_arguments(args=None):
                             type=float,
                             default=None)
 
+    #  If set, then the bbox=tight option is disable. Used for automatic testing
+    parserPlot.add_argument('--disable_bbox_tight',
+                            help=argparse.SUPPRESS,
+                            action='store_true')
     return parser
 
 
@@ -407,7 +411,11 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
         cbar_x = plt.subplot(gs[-1, idx])
         fig.colorbar(img, cax=cbar_x, orientation='horizontal')
 
-    plt.savefig(args.outFileName.name, dpi=100, bbox_inches='tight')
+    if args.disable_bbox_tight:
+        plt.savefig(args.outFileName.name, dpi=100)
+    else:
+        plt.savefig(args.outFileName.name, dpi=100, bbox_inches='tight')
+
     plt.close()
 
 
