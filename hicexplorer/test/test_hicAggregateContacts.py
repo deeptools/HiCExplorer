@@ -41,6 +41,7 @@ def test_hicAggregateContacts():
 
     os.remove(outfile_aggregate_plots.name)
 
+
 @pytest.mark.xfail
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
@@ -89,6 +90,7 @@ def test_hicAggregateContacts_clustering():
     os.remove(outfile_aggregate_plots.name)
     os.remove(outfile_heatmaps.name)
 
+
 @pytest.mark.xfail
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
@@ -117,6 +119,7 @@ def test_hicAggregateContacts_clustering_cool():
     os.remove(outfile_aggregate_plots.name)
     os.remove(outfile_heatmaps.name)
 
+
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicAggregateContacts_3d():
@@ -136,6 +139,7 @@ def test_hicAggregateContacts_3d():
     assert res is None, res
 
     os.remove(outfile_aggregate_3d.name)
+
 
 @pytest.mark.xfail
 @pytest.mark.skipif(MID_MEMORY > memory,
