@@ -185,6 +185,7 @@ matplotlib.use('Agg')
 
 import hicexplorer.trackPlot
 from hicexplorer._version import __version__
+from hicexplorer.utilities import remove_non_ascii
 
 import logging
 log = logging.getLogger(__name__)
@@ -338,6 +339,9 @@ def get_region(region_string):
 def main(args=None):
     log.debug("hicPlotTADs")
     args = parse_arguments().parse_args(args)
+    if args.title:
+        args.title = remove_non_ascii(args.title)
+
     trp = hicexplorer.trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
                                            fontsize=args.fontSize, dpi=args.dpi,
                                            track_label_width=args.trackLabelFraction, p_region=args.region)

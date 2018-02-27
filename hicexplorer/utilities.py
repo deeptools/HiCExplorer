@@ -4,6 +4,7 @@ import numpy as np
 import argparse
 from matplotlib import use as mplt_use
 mplt_use('Agg')
+from unidecode import unidecode
 
 import logging
 log = logging.getLogger(__name__)
@@ -301,3 +302,12 @@ def change_chrom_names(chrom):
         chrom = 'chr' + chrom
 
     return chrom
+
+
+def remove_non_ascii(pText):
+    """
+    This function converts all non-ascii characters to a most alike representation.
+    Code from:
+    https://stackoverflow.com/questions/20078816/replace-non-ascii-characters-with-a-single-space/20079244
+    """
+    return unidecode(pText)
