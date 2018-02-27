@@ -61,6 +61,7 @@ def test_hicAggregateContacts_cooler():
 
     os.remove(outfile_aggregate_plots.name)
 
+
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicAggregateContacts_clustering():
