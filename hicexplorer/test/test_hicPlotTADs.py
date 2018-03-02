@@ -52,6 +52,7 @@ labels = off
 file = tad_score.gz
 width = 10
 type = lines
+plot horizontal lines=False
 title= TAD separation score (Ramirez et al.)
 file_type = bedgraph_matrix
 

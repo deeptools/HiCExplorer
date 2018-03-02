@@ -27,52 +27,59 @@ warnings.simplefilter(action="ignore", category=RuntimeWarning)
 def parse_arguments():
     parser = argparse.ArgumentParser(
         formatter_class=CustomFormatter,
+        add_help=False,
         conflict_handler='resolve',
-        usage="%(prog)s --matrix hic_matrix -o pca1.bedgraph pca2.bedgraph ",
+        #        usage="%(prog)s --matrix hic_matrix.h5 -o pca1.bedgraph pca2.bedgraph ",
         description="""
-Computes PCA eigenvectors for the HiC matrix.
+Computes PCA eigenvectors for a Hi-C matrix.
 
-    $ hicPCA --matrix hic_matrix -o pca1.bedgraph pca2.bedgraph
+    $ hicPCA --matrix hic_matrix.h5 -o pca1.bedgraph pca2.bedgraph
 
 """
     )
 
-    parser.add_argument('--matrix', '-m',
-                        help='HiCExplorer matrix.',
-                        required=True)
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    parser.add_argument('--outputFileName', '-o',
-                        help='File names for the result of the pca. Number of output file '
-                             'must match the number of computed eigenvectors.',
-                        nargs='+',
-                        default=['pca1', 'pca2'],
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='HiCExplorer matrix in h5 format.',
+                                required=True)
 
-    parser.add_argument('--numberOfEigenvectors', '-noe',
-                        help='The number of eigenvectors that the PCA should compute.',
-                        default=2,
-                        type=int,
-                        required=False)
+    parserRequired.add_argument('--outputFileName', '-o',
+                                help='File names for the result of the pca. Number of output file '
+                                'must match the number of computed eigenvectors.',
+                                nargs='+',
+                                default=['pca1', 'pca2'],
+                                required=True)
 
-    parser.add_argument('--format', '-f',
-                        help='output format. Either bedgraph or bigwig.',
-                        choices=['bedgraph', 'bigwig'],
-                        default='bedgraph',
-                        required=False)
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--chromosomes',
-                        help='List of chromosomes to be included in the '
-                        'correlation.',
-                        default=None,
-                        nargs='+')
-    parser.add_argument('--geneTrack',
-                        help='The gene track is needed to decide if the values of the eigenvector need a sign flip or not.',
-                        default=None)
+    parserOpt.add_argument('--numberOfEigenvectors', '-noe',
+                           help='The number of eigenvectors that the PCA should compute.',
+                           default=2,
+                           type=int,
+                           required=False)
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument('--format', '-f',
+                           help='output format. Either bedgraph or bigwig.',
+                           choices=['bedgraph', 'bigwig'],
+                           default='bedgraph',
+                           required=False)
+
+    parserOpt.add_argument('--chromosomes',
+                           help='List of chromosomes to be included in the '
+                           'correlation.',
+                           default=None,
+                           nargs='+')
+    parserOpt.add_argument('--geneTrack',
+                           help='The gene track is needed to decide if the values of the eigenvector need a sign flip or not.',
+                           default=None)
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
+
 
 def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
 
@@ -88,10 +95,10 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
     gene_occurence = np.zeros(len(pMatrix.cut_intervals))
     # print(pMatrix.cut_intervals)
     print(len(gene_occurence))
-    
+
     chr_list = pMatrix.getChrNames()
-    flipValues =  [1] *  len(chr_list)
-    
+    flipValues = [1] * len(chr_list)
+
     gene_start = np.zeros(len(chr_list))
     gene_old = None
     gene_count = 1
@@ -108,26 +115,25 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
         if gene_old is chr_name:
 
             chr_name = check_chrom_str_bytes(chr_name, chr_list)
-        
+
             if chr_name not in chr_list:
                 chr_name = change_chrom_names(interval.chromosome)
                 chr_name = check_chrom_str_bytes(chr_name, chr_list)
-                
+
                 if chr_name not in chr_list:
                     print('chr_name not found!', chr_name)
                     continue
             # gene_start[gene_count - 1] = count
             # gene_count += 1
             print("gene_old: {} chr_name: {}".format(gene_old, chr_name))
-            
+
         gene_old = chr_name
         count += 1
-        
+
         try:
             # print(interval)
-            
+
             bin_id = pMatrix.getRegionBinRange(chr_name, interval.start, interval.end)
-           
 
             # print('chr: {} bin_id: {}'.format(chr_name, bin_id))
             gene_occurence[bin_id[1]] += 1
@@ -139,20 +145,22 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
     print("gene_count_2", gene_count_2)
     print("gene_start: ", gene_start)
     print('chr_list', chr_list)
-    
+
     for i in range(0, len(gene_start) - 1):
         flipValues[i] = np.corrcoef(pEigenvector[0, gene_start[i]: gene_start[i + 1]], gene_occurence[gene_start[i]: gene_start[i + 1]])
     flipValues[-1] = np.corrcoef(pEigenvector[0, gene_start[i]: len(gene_occurence)], gene_occurence[gene_start[i]: len(gene_occurence)])
-    # bring BED data to same layout as eigenvector... 
+    # bring BED data to same layout as eigenvector...
     # how to do this??
 
     print(gene_occurence)
     print(flipValues)
-    
+
     # print(pMatrix.cut_intervals[:10])
     # print(pMatrix.getRegionBinRange(b'X', 20701, 22321))
 
     return flipValues
+
+
 def main(args=None):
     args = parse_arguments().parse_args(args)
     # if int(args.numberOfEigenvectors) != len(args.outputFileName):

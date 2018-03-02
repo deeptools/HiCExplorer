@@ -28,113 +28,122 @@ warnings.simplefilter(action="ignore", category=UserWarning)
 
 def parse_arguments(args=None):
 
-    heatmap_parser = heatmap_options()
-
     parser = argparse.ArgumentParser(
-        parents=[heatmap_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False,
         description='Computes pairwise correlations between Hi-C matrices data. '
         'The correlation is computed taking the values from each pair '
-        'of matrices and discarding values that are zero in both matrices.')
+        'of matrices and discarding values that are zero in both matrices.'
+        'Parameters that strongly affect correlations are bin size of the Hi-C '
+        'matrices and the considered range. The smaller the bin size of the '
+        'matrices, the finer differences you score. The --range parameter should '
+        'be selected at a meaningful genomic scale according to, for example, the '
+        'mean size of the TADs in the organism you work with.')
+
+    parserRequired = parser.add_argument_group('Required arguments')
 
     # define the arguments
-    parser.add_argument('--matrices', '-m',
-                        help='Matrices to correlate (usually .h5 but other formats are allowed). '
-                             'hicCorrelate is better used on un-corrected matrices in order to '
-                             'exclude any changes introduced by the correction.',
-                        nargs='+',
-                        required=True)
+    parserRequired.add_argument('--matrices', '-m',
+                                help='Matrices to correlate (usually .h5 but other formats are allowed). '
+                                'hicCorrelate is better used on un-corrected matrices in order to '
+                                'exclude any changes introduced by the correction.',
+                                nargs='+',
+                                required=True)
+
+    parserHeatmap = parser.add_argument_group('Heatmap arguments',
+                                              description='Options for generating the correlation heatmap \r')
 
     # define the arguments
-    parser.add_argument('--method',
-                        help='Correlation method to use.',
-                        choices=['pearson', 'spearman'],
-                        default='pearson')
+    parserHeatmap.add_argument('--zMin', '-min',
+                               default=None,
+                               help='Minimum value for the heatmap intensities. '
+                               'If not specified the value is set automatically.',
+                               type=float)
 
-    parser.add_argument('--log1p',
-                        help='If set, then the log1p of the matrix values is used. This parameter has no '
-                             'effect for Spearman correlations but changes the output of Pearson correlation '
-                             'and, for the scatter plot, if set, the visualization of the values is easier.',
-                        action='store_true')
+    parserHeatmap.add_argument('--zMax', '-max',
+                               default=None,
+                               help='Maximum value for the heatmap intensities.'
+                               'If not specified the value is set automatically.',
+                               type=float)
 
-    parser.add_argument('--labels', '-l',
-                        metavar='sample1 sample2',
-                        help='User defined labels instead of default labels '
-                        'from file names. '
-                        'Multiple labels have to be separated by space, e.g. '
-                        '--labels sample1 sample2 sample3',
-                        nargs='+')
-
-    parser.add_argument('--range',
-                        help='In bp with the format low_range:high_range, '
-                        'for example 1000000:2000000. If --range is given '
-                        'only counts within the range are considered.')
-
-    parser.add_argument('--outFileNameHeatmap', '-oh',
-                        help='File name to save the resulting heatmap plot',
-                        required=True)
-
-    parser.add_argument('--outFileNameScatter', '-os',
-                        help='File name to save the resulting scatter plot',
-                        required=True)
-
-    parser.add_argument('--chromosomes',
-                        help='List of chromosomes to be included in the '
-                        'correlation.',
-                        default=None,
-                        nargs='+')
-    parser.add_argument('--threads',
-                        help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
-                        ' One master process which is used to read the input file into the buffer and one process which is merging '
-                        'the output bam files of the processes into one output bam file. All other threads do the actual computation.',
-                        required=False,
-                        default=4,
-                        type=int
-                        )
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
-
-    return parser
-
-
-def heatmap_options():
-    """
-    Options for generating the correlation heat map
-    """
-    parser = argparse.ArgumentParser(add_help=False)
-    heatmap = parser.add_argument_group('Heat map options')
-
-    heatmap.add_argument('--zMin', '-min',
-                         default=None,
-                         help='Minimum value for the heat map intensities. '
-                              'If not specified the value is set automatically',
-                         type=float)
-    heatmap.add_argument('--zMax', '-max',
-                         default=None,
-                         help='Maximum value for the heat map intensities.'
-                              'If not specified the value is set automatically',
-                         type=float)
-
-    heatmap.add_argument(
+    parserHeatmap.add_argument(
         '--colorMap', default='jet',
         metavar='',
         help='Color map to use for the heatmap. Available values can be '
              'seen here: '
              'http://matplotlib.org/examples/color/colormaps_reference.html')
 
-    heatmap.add_argument('--plotFileFormat',
-                         metavar='FILETYPE',
-                         help='Image format type. If given, this option '
-                              'overrides the image format based on the plotFile '
-                              'ending. The available options are: png, emf, '
-                              'eps, pdf and svg.',
-                         choices=['png', 'pdf', 'svg', 'eps', 'emf'])
+    parserHeatmap.add_argument('--plotFileFormat',
+                               metavar='FILETYPE',
+                               help='Image format type. If given, this option '
+                               'overrides the image format based on the plotFile '
+                               'ending. The available options are: png, emf, '
+                               'eps, pdf and svg.',
+                               choices=['png', 'pdf', 'svg', 'eps', 'emf'])
 
-    heatmap.add_argument('--plotNumbers',
-                         help='If set, then the correlation number is plotted '
-                              'on top of the heatmap.',
-                         action='store_true',
-                         required=False)
+    parserHeatmap.add_argument('--plotNumbers',
+                               help='If set, then the correlation number is plotted '
+                               'on top of the heatmap.',
+                               action='store_true',
+                               required=False)
+
+    parserOpt = parser.add_argument_group('Optional arguments')
+
+    # define the arguments
+    parserOpt.add_argument('--method',
+                           help='Correlation method to use.',
+                           choices=['pearson', 'spearman'],
+                           default='pearson')
+
+    parserOpt.add_argument('--log1p',
+                           help='If set, then the log1p of the matrix values is used. This parameter has no '
+                           'effect for Spearman correlations but changes the output of Pearson correlation '
+                           'and, for the scatter plot, if set, the visualization of the values is easier.',
+                           action='store_true')
+
+    parserOpt.add_argument('--labels', '-l',
+                           metavar='sample1 sample2',
+                           help='User defined labels instead of default labels '
+                           'from file names. '
+                           'Multiple labels have to be separated by space, e.g. '
+                           '--labels sample1 sample2 sample3',
+                           nargs='+')
+
+    parserOpt.add_argument('--range',
+                           help='In bp with the format low_range:high_range, '
+                           'for example 1000000:2000000. If --range is given '
+                           'only counts within this range are considered. '
+                           'The range should be adjusted to the size of interacting  '
+                           'domains in the genome you are working with.')
+
+    parserOpt.add_argument('--outFileNameHeatmap', '-oh',
+                           help='File name to save the resulting heatmap plot.',
+                           required=True)
+
+    parserOpt.add_argument('--outFileNameScatter', '-os',
+                           help='File name to save the resulting scatter plot.',
+                           required=True)
+
+    parserOpt.add_argument('--chromosomes',
+                           help='List of chromosomes to be included in the '
+                           'correlation.',
+                           default=None,
+                           nargs='+')
+
+    parserOpt.add_argument('--threads',
+                           help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
+                           ' One master process which is used to read the input file into the buffer and one process which is merging '
+                           'the output bam files of the processes into one output bam file. All other threads do the actual computation.',
+                           required=False,
+                           default=4,
+                           type=int
+                           )
+
+    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
+
     return parser
 
 
@@ -259,7 +268,7 @@ def main(args=None):
     for i, matrix in enumerate(args.matrices):
         log.info("loading hic matrix {}\n".format(matrix))
 
-        if args.matrices[i].endswith('.cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
+        if (args.matrices[i].endswith('.cool') or '.mcool' in args.matrices[i]) and args.chromosomes is not None and len(args.chromosomes) == 1:
             _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes)
         else:
             _mat = hm.hiCMatrix(matrix)

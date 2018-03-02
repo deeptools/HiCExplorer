@@ -45,7 +45,7 @@ Getting Help
 
 * For general questions, please use Biostars with Tag `hicexplorer` : `Biostars <https://www.biostars.org/t/hicexplorer/>`_
 * For specific questions and feature requests, use the `deepTools mailing list <https://groups.google.com/forum/#!forum/deeptools>`_
-* For suggesting changes/enhancements and to report bugs, please create an issue on `our GitHub repository <https://github.com/maxplanck-ie/HiCExplorer>`_
+* For suggesting changes/enhancements and to report bugs, please create an issue on `our GitHub repository <https://github.com/deeptools/HiCExplorer>`_
 
 
 Contents:
@@ -65,7 +65,7 @@ Citation
 Please cite HiCExplorer as follows:
 
 Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening,Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke.
-**"High-resolution TADs reveal DNA sequences underlying genome organization in flies". bioRxiv 115063** doi: https://doi.org/10.1101/115063
+**"High-resolution TADs reveal DNA sequences underlying genome organization in flies". Nature Communications**, Volume 9, Article number: 189 (2018), doi: https://doi.org/10.1038/s41467-017-02525-w
 
 .. image:: images/logo_mpi-ie.jpg
 
