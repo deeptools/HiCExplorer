@@ -572,7 +572,7 @@ class hiCMatrix:
                 log.exception("valid names are:")
                 exit(1)
         except KeyError:
-            
+
             log.exception("chromosome: {} name not found in matrix".format(chrname))
             log.exception("valid names are:")
             # log.exception(list(self.interval_trees))
@@ -586,7 +586,7 @@ class hiCMatrix:
             exit(1)
 
         try:
-            
+
             startbin = sorted(self.interval_trees[chrname][startpos:startpos + 1])[0].data
             endbin = sorted(self.interval_trees[chrname][endpos:endpos + 1])[0].data
         except IndexError:

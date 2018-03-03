@@ -213,10 +213,10 @@ def main(args=None):
 
     # vecs_list = []
     # print(vecs_list)
-    if args.geneTrack:
-        sign_changes = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.geneTrack)
-        vecs_list *= sign_changes
-    exit()
+    # if args.geneTrack:
+    #     sign_changes = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.geneTrack)
+    #     vecs_list *= sign_changes
+    # exit()
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):
             assert(len(vecs_list) == len(chrom_list))
