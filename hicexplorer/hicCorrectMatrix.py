@@ -9,6 +9,7 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
+from hicexplorer.utilities import check_cooler
 
 import numpy as np
 debug = 0
@@ -549,7 +550,7 @@ def main(args=None):
         log.setLevel(logging.INFO)
 
     # args.chromosomes
-    if (args.matrix.endswith('.cool') or '.mcool' in args.matrix) and args.chromosomes is not None and len(args.chromosomes) == 1:
+    if check_cooler(args.matrix) and args.chromosomes is not None and len(args.chromosomes) == 1:
         ma = hm.hiCMatrix(args.matrix, chrnameList=toString(args.chromosomes))
     else:
         ma = hm.hiCMatrix(args.matrix)

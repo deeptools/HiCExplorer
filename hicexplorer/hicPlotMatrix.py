@@ -8,6 +8,7 @@ from hicexplorer.utilities import enlarge_bins
 from hicexplorer.utilities import change_chrom_names
 from hicexplorer.utilities import remove_non_ascii
 from hicexplorer.utilities import check_chrom_str_bytes
+from hicexplorer.utilities import check_cooler
 
 
 from hicexplorer._version import __version__
@@ -447,10 +448,9 @@ def main(args=None):
     # if args.region and args.region2 and args.bigwig:
     #     log.error("Inter-chromosomal pca is not supported.")
     #     exit(1)
-    is_cooler = False
-    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix) or'.mcool' in args.matrix:
-        is_cooler = True
-        args.matrix
+    # is_cooler = False
+    # if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix) or'.mcool' in args.matrix:
+    is_cooler = check_cooler(args.matrix)
     log.debug("Cooler or no cooler: {}".format(is_cooler))
     if is_cooler and not args.region2:
         log.debug("Retrieve data from cooler format and use its benefits.")

@@ -10,7 +10,7 @@ from scipy.stats import pearsonr, spearmanr
 
 import hicexplorer.HiCMatrix as hm
 from hicexplorer._version import __version__
-
+from hicexplorer.utilities import check_cooler
 # for plotting
 from matplotlib import use as mplt_use
 mplt_use('Agg')
@@ -268,7 +268,7 @@ def main(args=None):
     for i, matrix in enumerate(args.matrices):
         log.info("loading hic matrix {}\n".format(matrix))
 
-        if (args.matrices[i].endswith('.cool') or '.mcool' in args.matrices[i]) and args.chromosomes is not None and len(args.chromosomes) == 1:
+        if (check_cooler(args.matrices[i])) and args.chromosomes is not None and len(args.chromosomes) == 1:
             _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes)
         else:
             _mat = hm.hiCMatrix(matrix)

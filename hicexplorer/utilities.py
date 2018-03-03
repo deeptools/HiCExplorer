@@ -5,6 +5,7 @@ import argparse
 from matplotlib import use as mplt_use
 mplt_use('Agg')
 from unidecode import unidecode
+import cooler
 
 import logging
 log = logging.getLogger(__name__)
@@ -311,3 +312,9 @@ def remove_non_ascii(pText):
     https://stackoverflow.com/questions/20078816/replace-non-ascii-characters-with-a-single-space/20079244
     """
     return unidecode(pText)
+
+
+def check_cooler(pFileName):
+    if pFileName.endswith('.cool') or cooler.io.is_cooler(pFileName) or'.mcool' in pFileName:
+        return True
+    return False

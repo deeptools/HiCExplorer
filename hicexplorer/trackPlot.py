@@ -42,6 +42,7 @@ import hicexplorer.utilities
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import change_chrom_names
 from hicexplorer.utilities import check_chrom_str_bytes
+from hicexplorer.utilities import check_cooler
 
 reload(sys)
 if sys.version_info <= (3, 0):
@@ -391,7 +392,7 @@ class PlotTracks(object):
         file = track_dict['file'].strip()
         if file.endswith(".bed") or file.endswith(".bed.gz"):
             file_type = 'bed'
-        elif file.endswith(".npz") or file.endswith(".h5") or file.endswith(".cool") or '.mcool' in file:
+        elif file.endswith(".npz") or file.endswith(".h5") or check_cooler(file):
             file_type = 'hic_matrix'
         elif file.endswith(".bw"):
             file_type = 'bigwig'

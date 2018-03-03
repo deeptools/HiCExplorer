@@ -74,7 +74,7 @@ class hiCMatrix:
                     file_format = 'h5'
                 elif matrixFile.endswith('.gz'):
                     file_format = 'dekker'
-                elif matrixFile.endswith('.cool') or cooler.io.is_cooler(matrixFile) or '.mcool' in matrixFile:
+                elif check_cooler(matrixFile):
                     file_format = 'cool'
                 # by default assume that the matrix file_format is hd5
                 else:
@@ -165,12 +165,13 @@ class hiCMatrix:
             exit()
 
         if pChrnameList is None:
+            matrix = self.cooler_file.matrix(balance=False, sparse=True)[:].tocsr()
             # some bug in csr funtion of cooler or numpy to double the data
-            matrix_data_frame = self.cooler_file.matrix(balance=False, as_pixels=True)[:]
-            log.info("matrix data frame LOAD: {}".format(matrix_data_frame.values))
-            length = len(self.cooler_file.bins()[['chrom']][:].index)
+            # matrix_data_frame = self.cooler_file.matrix(balance=False, as_pixels=True)[:]
+            # log.info("matrix data frame LOAD: {}".format(matrix_data_frame.values))
+            # length = len(self.cooler_file.bins()[['chrom']][:].index)
 
-            matrix = csr_matrix((matrix_data_frame.values[:, 2].flatten(), (matrix_data_frame.values[:, 0].flatten(), matrix_data_frame.values[:, 1].flatten())), shape=(length, length))
+            # matrix = csr_matrix((matrix_data_frame.values[:, 2].flatten(), (matrix_data_frame.values[:, 0].flatten(), matrix_data_frame.values[:, 1].flatten())), shape=(length, length))
         else:
             if len(pChrnameList) == 1:
                 try:
@@ -199,6 +200,7 @@ class hiCMatrix:
 
         correction_factors = None
         if correction_factors_data_frame is not None:
+            log.debug("Apply correction factors")
             # apply correction factors to matrix
             # a_i,j = a_i,j / c_i *c_j
             self.set_uncorrected_matrix(deepcopy(matrix))
@@ -206,11 +208,11 @@ class hiCMatrix:
             matrix.data = matrix.data.astype(float)
 
             instances, features = matrix.nonzero()
-            instances_factors = correction_factors_data_frame.values[instances].flatten()
-            features_factors = correction_factors_data_frame.values[features].flatten()
+            instances_factors = np.array(correction_factors_data_frame.values[instances]).flatten()
+            features_factors = np.array(correction_factors_data_frame.values[features]).flatten()
             instances_factors *= features_factors
             matrix.data /= instances_factors
-            correction_factors = correction_factors_data_frame.values
+            correction_factors = np.array(correction_factors_data_frame.values).flatten()
 
         cut_intervals = []
 
@@ -1345,6 +1347,7 @@ class hiCMatrix:
         else:
             cut_intervals_ = []
             # extra_list = []
+            log.info("len(self.cut_intervals) {}", format(len(self.cut_intervals)))
             for value in self.cut_intervals:
                 cut_intervals_.append(tuple((value[0], value[1], value[2])))
                 # extra_list.append(value[3])
@@ -1352,8 +1355,9 @@ class hiCMatrix:
             # append correction factors if they exist
             if self.correction_factors is not None:
                 log.debug("Correction factors present! self.correction_factors is not None")
-
-                bins_data_frame = bins_data_frame.assign(weight=self.correction_factors)
+                log.info("len(self.correction_factors) {}".format(len(self.correction_factors)))
+                log.info("self.correction_factors: {}".format(np.array(self.correction_factors).flatten()))
+                bins_data_frame = bins_data_frame.assign(weight=np.array(self.correction_factors).flatten())
             # bins_data_frame = bins_data_frame.assign(extra=extra_list)
 
         if pDataFrameMatrix:
@@ -1375,8 +1379,8 @@ class hiCMatrix:
 
                 instances, features = matrix.nonzero()
 
-                instances_factors = self.correction_factors[instances].flatten()
-                features_factors = self.correction_factors[features].flatten()
+                instances_factors = np.array(self.correction_factors[instances]).flatten()
+                features_factors = np.array(self.correction_factors[features]).flatten()
 
                 instances_factors *= features_factors
                 matrix.data *= instances_factors
@@ -2011,3 +2015,9 @@ class hiCMatrix:
         chrbin_boundaries[chrom] = (chr_start_id, intval_id)
 
         return cut_int_tree, chrbin_boundaries
+
+
+def check_cooler(pFileName):
+    if pFileName.endswith('.cool') or cooler.io.is_cooler(pFileName) or'.mcool' in pFileName:
+        return True
+    return False
