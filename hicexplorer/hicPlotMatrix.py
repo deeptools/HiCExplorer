@@ -387,9 +387,7 @@ def getRegion(args, ma):
             exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 
     args.region = [chrom, region_start, region_end]
-    is_cooler = False
-    if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix) or '.mcool' in args.matrix:
-        is_cooler = True
+    is_cooler = check_cooler(args.matrix)
     if is_cooler:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
                                  ((x[1] >= region_start and x[2] < region_end) or
@@ -644,11 +642,14 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
     if file_format == "bigwig" or file_format == 'bw':
         for i, bigwigFile in enumerate(pNameOfBigwigList):
             bw = pyBigWig.open(bigwigFile)
+            log.info("chromosomes bigwig: {}".format(list(bw.chroms().keys())))
             bigwig_scores = []
             if pRegion:
                 chrom, region_start, region_end = pRegion
                 # region_end could be a very large number returned by translate_region
                 region_end = min(region_end, pChromosomeSizes[chrom])
+                # log.info("chromosomes bigwig: {}".format(bw.chroms()))
+                chrom = check_chrom_str_bytes(bw.chroms(), chrom)
                 if chrom not in list(bw.chroms().keys()):
                     chrom = change_chrom_names(chrom)
                     if chrom not in list(bw.chroms().keys()):
@@ -674,12 +675,15 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
             elif pChromosomeSizes:
                 chrom_length_sum = 0
                 for chrom in pChromosomeSizes:
-                    if chrom not in list(bw.chroms().keys()):
+                    chrom_ = check_chrom_str_bytes(bw.chroms(), chrom)
+
+                    if chrom_ not in list(bw.chroms().keys()):
                         log.info("bigwig file as no chromosome named: {}.".format(chrom))
                         return
+                    # chrom = check_chrom_str_bytes(pChromosomeSizes, chrom)
                     # set the bin size to aproximately 100kb
                     num_bins = int(pChromosomeSizes[chrom] / 1e5)
-                    scores_per_bin = np.array(bw.stats(chrom, 0, pChromosomeSizes[chrom], nBins=num_bins)).astype(float)
+                    scores_per_bin = np.array(bw.stats(chrom_, 0, pChromosomeSizes[chrom], nBins=num_bins)).astype(float)
 
                     if scores_per_bin is None:
                         log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
@@ -693,7 +697,6 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 pAxis.set_xlim(0, chrom_length_sum)
 
             log.debug("Number of data points: {}".format(len(bigwig_scores)))
-
     # else:
     #     for i, bigwigFile in enumerate(pNameOfBigwigList):
     #         interval_tree, min_value, max_value = file_to_intervaltree(bigwigFile)

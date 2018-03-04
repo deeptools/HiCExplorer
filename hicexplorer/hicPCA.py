@@ -60,7 +60,7 @@ Computes PCA eigenvectors for a Hi-C matrix.
     parserOpt.add_argument('--format', '-f',
                            help='output format. Either bedgraph or bigwig.',
                            choices=['bedgraph', 'bigwig'],
-                           default='bedgraph',
+                           default='bigwig',
                            required=False)
 
     parserOpt.add_argument('--chromosomes',
