@@ -17,7 +17,6 @@ import pyBigWig
 from builtins import range
 from past.builtins import zip
 
-import cooler
 import argparse
 import matplotlib
 matplotlib.use('Agg')
