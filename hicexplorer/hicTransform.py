@@ -83,7 +83,7 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     hic_ma = hm.hiCMatrix(matrixFile=args.matrix)
-
+    log.info("hic_ma.matrix: {}".format(hic_ma.matrix))
     if args.chromosomes:
         hic_ma.keepOnlyTheseChr(args.chromosomes)
 
@@ -153,14 +153,14 @@ def main(args=None):
         if path != '':
             path += '/'
 
-        hic_ma.save(path + basename_obs_exp, pSymmetric=False)
+        hic_ma.save(path + basename_obs_exp, pSymmetric=False, pApplyCorrection=False)
 
         hic_ma.setMatrix(trasf_matrix_pearson.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(path + basename_pearson, pSymmetric=False)
+        hic_ma.save(path + basename_pearson, pSymmetric=False, pApplyCorrection=False)
 
         hic_ma.setMatrix(trasf_matrix_corr.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(path + basename_covariance, pSymmetric=False)
+        hic_ma.save(path + basename_covariance, pSymmetric=False, pApplyCorrection=False)
 
     if not args.method == 'all':
         hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(args.outFileName, pSymmetric=False)
+        hic_ma.save(args.outFileName, pSymmetric=False, pApplyCorrection=False)

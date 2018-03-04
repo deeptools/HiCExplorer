@@ -2,7 +2,6 @@ from __future__ import division
 import argparse
 from past.builtins import zip
 from scipy.sparse import lil_matrix
-from copy import deepcopy
 
 from hicexplorer.iterativeCorrection import iterativeCorrection
 from hicexplorer import HiCMatrix as hm
@@ -557,8 +556,6 @@ def main(args=None):
 
         if args.chromosomes:
             ma.reorderChromosomes(toString(args.chromosomes))
-
-    ma.set_uncorrected_matrix(deepcopy(ma.matrix))
 
     # mask all zero value bins
     row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()

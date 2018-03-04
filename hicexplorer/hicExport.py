@@ -205,13 +205,13 @@ def main(args=None):
         else:
             hic_ma = hm.hiCMatrix(matrixFile=args.inFile[0], file_format=args.inputFormat)
 
-    # if args.bplimit:
-    #     from scipy.sparse import triu
-    #     log.info("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
+        if args.bplimit:
+            from scipy.sparse import triu
+            log.info("\nCutting maximum matrix depth to {} for saving\n".format(args.bplimit))
 
-    #     limit = args.bplimit // hic_ma.getBinSize()
-    #     hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
-    #     hic_ma.matrix.eliminate_zeros()
+            limit = args.bplimit // hic_ma.getBinSize()
+            hic_ma.matrix = (triu(hic_ma.matrix, k=-limit) - triu(hic_ma.matrix, k=limit)).tocsr()
+            hic_ma.matrix.eliminate_zeros()
 
     if args.chromosomeOrder and are_chrom_reordered is False:
         hic_ma.keepOnlyTheseChr(args.chromosomeOrder)

@@ -13,7 +13,6 @@ from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 import tables
 from intervaltree import IntervalTree, Interval
-from copy import deepcopy
 from .utilities import toBytes
 from .utilities import toString
 from .utilities import check_chrom_str_bytes
@@ -57,7 +56,7 @@ class hiCMatrix:
         self.bin_size = None
         self.bin_size_homogeneous = None  # track if the bins are equally spaced or not
         self.nan_bins = np.array([])
-        self.uncorrected_matrix = None
+        # self.uncorrected_matrix = None
 
         # when NaN bins are masked, this variable becomes contains the bin index
         # needed to put the masked bins back into the matrix.
@@ -136,28 +135,10 @@ class hiCMatrix:
 
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
-        # log.info("self.cut_intervals: {}".format(self.cut_intervals[:10]))
-
-    def set_uncorrected_matrix(self, pMatrix):
-        self.uncorrected_matrix = pMatrix
-
-    def load_cool_only_init(self, pMatrixFile):
-        self.cooler_file = cooler.Cooler(pMatrixFile)
-
-    def load_cool_matrix(self, pChr):
-        return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
-
-    def load_cool_matrix_csr(self, pAccessTuple):
-        startX = pAccessTuple[0]
-        startY = pAccessTuple[1]
-        chunkX = pAccessTuple[2]
-        chunkY = pAccessTuple[3]
-
-        return self.cooler_file.matrix(balance=False, sparse=True)[startX:startX + chunkX, startY:startY + chunkY].tocsr()
 
     def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None):
         try:
-            self.cooler_file = cooler.Cooler(pMatrixFile)
+            cooler_file = cooler.Cooler(pMatrixFile)
         except Exception:
             log.info("Could not open cooler file. Maybe the path is wrong or the given node is not available.")
             log.info('The following file was tried to open: {}'.format(pMatrixFile))
@@ -165,17 +146,11 @@ class hiCMatrix:
             exit()
 
         if pChrnameList is None:
-            matrix = self.cooler_file.matrix(balance=False, sparse=True)[:].tocsr()
-            # some bug in csr funtion of cooler or numpy to double the data
-            # matrix_data_frame = self.cooler_file.matrix(balance=False, as_pixels=True)[:]
-            # log.info("matrix data frame LOAD: {}".format(matrix_data_frame.values))
-            # length = len(self.cooler_file.bins()[['chrom']][:].index)
-
-            # matrix = csr_matrix((matrix_data_frame.values[:, 2].flatten(), (matrix_data_frame.values[:, 0].flatten(), matrix_data_frame.values[:, 1].flatten())), shape=(length, length))
+            matrix = cooler_file.matrix(balance=False, sparse=True)[:].tocsr()
         else:
             if len(pChrnameList) == 1:
                 try:
-                    matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0]).tocsr()
+                    matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0]).tocsr()
                 except ValueError:
                     exit("Wrong chromosome format. Please check UCSC / ensembl notation.")
             else:
@@ -186,33 +161,34 @@ class hiCMatrix:
 
         if pChrnameList is not None:
             if len(pChrnameList) == 1:
-                cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
+                cut_intervals_data_frame = cooler_file.bins().fetch(pChrnameList[0])
 
                 if 'weight' in cut_intervals_data_frame:
                     correction_factors_data_frame = cut_intervals_data_frame['weight']
             else:
                 exit("Operation to load more than one chr from bins is not supported.")
         else:
-            if 'weight' in self.cooler_file.bins():
-                correction_factors_data_frame = self.cooler_file.bins()[['weight']][:]
+            if 'weight' in cooler_file.bins():
+                correction_factors_data_frame = cooler_file.bins()[['weight']][:]
 
-            cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end']][:]
+            cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end']][:]
 
         correction_factors = None
         if correction_factors_data_frame is not None:
             log.debug("Apply correction factors")
             # apply correction factors to matrix
             # a_i,j = a_i,j / c_i *c_j
-            self.set_uncorrected_matrix(deepcopy(matrix))
             matrix.eliminate_zeros()
             matrix.data = matrix.data.astype(float)
 
-            instances, features = matrix.nonzero()
-            instances_factors = np.array(correction_factors_data_frame.values[instances]).flatten()
-            features_factors = np.array(correction_factors_data_frame.values[features]).flatten()
-            instances_factors *= features_factors
-            matrix.data /= instances_factors
-            correction_factors = np.array(correction_factors_data_frame.values).flatten()
+            correction_factors = convertNansToOnes(np.array(correction_factors_data_frame.values).flatten())
+            # apply only if there are not only 1's
+            if np.sum(correction_factors) != len(correction_factors):
+                instances, features = matrix.nonzero()
+                instances_factors = correction_factors[instances]
+                features_factors = correction_factors[features]
+                instances_factors *= features_factors
+                matrix.data /= instances_factors
 
         cut_intervals = []
 
@@ -290,11 +266,7 @@ class hiCMatrix:
                 distance_counts = f.root.correction_factors.read()
             else:
                 distance_counts = None
-            # log.info("H5:::matrix.data[:10]: {}".format(matrix.data[:10]))
-            # log.info("H5:::matrix.data[:10]: {}".format(matrix.data[:10]))
-            # log.info("H5:::matrix.data[100:110]: {}".format(matrix.data[100:110]))
-            # log.info("H5:::matrix.data[500:510]: {}".format(matrix.data[500:510]))
-            # log.info("H5:::matrix.data[-10:-1]: {}".format(matrix.data[-10:-1]))
+
             return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
     @staticmethod
@@ -1178,12 +1150,7 @@ class hiCMatrix:
         # update correction factors
         if self.correction_factors is not None:
             self.correction_factors = [self.correction_factors[x] for x in sel_id]
-        if self.uncorrected_matrix is not None:
-            try:
-                self.uncorrected_matrix = self.uncorrected_matrix[sel_id, :][:, sel_id]
-            except Exception:
-                log.warning('Resize of original matrix failed. Data is lost, will use only corrected matrix data.')
-                self.uncorrected_matrix = None
+
         # keep track of nan bins
         if len(self.nan_bins):
             _temp = np.zeros(size[0])
@@ -1315,8 +1282,7 @@ class hiCMatrix:
                          bins=bins_data_frame,
                          pixels=matrix_data_frame)
 
-    def save_cooler(self, pFileName, pDataFrameBins=None, pDataFrameMatrix=None, pSymmetric=True):
-
+    def save_cooler(self, pFileName, pSymmetric=True, pApplyCorrection=True):
         # for value in self.nan_bins:
         self.restoreMaskedBins()
         self.matrix = self.matrix.tolil()
@@ -1336,51 +1302,34 @@ class hiCMatrix:
             matrix = triu(self.matrix, k=0, format='csr')
         else:
             matrix = self.matrix
-        # matrix = triu(self.matrix, k=0, format='csr')
 
-        if pDataFrameBins:
-            if pDataFrameBins['start'].dtypes != 'int64':
-                pDataFrameBins['start'] = pDataFrameBins['start'].astype(np.int64)
-            if pDataFrameBins['end'].dtypes != 'int64':
-                pDataFrameBins['end'] = pDataFrameBins['end'].astype(np.int64)
-            bins_data_frame = pDataFrameBins
-        else:
-            cut_intervals_ = []
-            # extra_list = []
-            log.info("len(self.cut_intervals) {}", format(len(self.cut_intervals)))
-            for value in self.cut_intervals:
-                cut_intervals_.append(tuple((value[0], value[1], value[2])))
-                # extra_list.append(value[3])
-            bins_data_frame = pd.DataFrame(cut_intervals_, columns=['chrom', 'start', 'end'])
-            # append correction factors if they exist
-            if self.correction_factors is not None:
-                log.debug("Correction factors present! self.correction_factors is not None")
-                log.info("len(self.correction_factors) {}".format(len(self.correction_factors)))
-                log.info("self.correction_factors: {}".format(np.array(self.correction_factors).flatten()))
-                bins_data_frame = bins_data_frame.assign(weight=np.array(self.correction_factors).flatten())
-            # bins_data_frame = bins_data_frame.assign(extra=extra_list)
+        cut_intervals_ = []
+        for value in self.cut_intervals:
+            cut_intervals_.append(tuple((value[0], value[1], value[2])))
 
-        if pDataFrameMatrix:
-            if pDataFrameMatrix['bin1_id'].dtypes != 'int64':
-                pDataFrameMatrix['bin1_id'] = pDataFrameMatrix['bin1_id'].astype(np.int64)
-            if pDataFrameMatrix['bin2_id'].dtypes != 'int64':
-                pDataFrameMatrix['bin2_id'] = pDataFrameMatrix['bin2_id'].astype(np.int64)
-            matrix_data_frame = pDataFrameMatrix
-        else:
-            # get only the upper triangle of the matrix to save to disk
-            # upper_triangle = triu(self.matrix, k=0, format='csr')
-            # create a tuple list and use it to create a data frame
+        bins_data_frame = pd.DataFrame(cut_intervals_, columns=['chrom', 'start', 'end'])
 
-            # save correction factors and original matrix
+        # append correction factors if they exist
+        if self.correction_factors is not None and pApplyCorrection:
+            weight = convertNansToOnes(np.array(self.correction_factors).flatten())
+            bins_data_frame = bins_data_frame.assign(weight=weight)
 
-            # revert correction to store orginal matrix
-            if self.uncorrected_matrix is None and self.correction_factors is not None:
-                log.info("Reverting correction factors on matrix...")
+        # get only the upper triangle of the matrix to save to disk
+        # upper_triangle = triu(self.matrix, k=0, format='csr')
+        # create a tuple list and use it to create a data frame
 
-                instances, features = matrix.nonzero()
+        # save correction factors and original matrix
 
-                instances_factors = np.array(self.correction_factors[instances]).flatten()
-                features_factors = np.array(self.correction_factors[features]).flatten()
+        # revert correction to store orginal matrix
+        if self.correction_factors is not None and pApplyCorrection:
+            log.info("Reverting correction factors on matrix...")
+            instances, features = matrix.nonzero()
+            self.correction_factors = np.array(self.correction_factors)
+
+            # do not apply if correction factors are just 1's
+            if np.sum(self.correction_factors) != len(self.correction_factors):
+                instances_factors = self.correction_factors[instances]
+                features_factors = self.correction_factors[features]
 
                 instances_factors *= features_factors
                 matrix.data *= instances_factors
@@ -1390,25 +1339,27 @@ class hiCMatrix:
                 matrix.data = np.rint(matrix.data)
                 matrix.data = matrix.data.astype(int)
 
-                data = matrix.data.tolist()
+            data = matrix.data.tolist()
 
-            elif self.uncorrected_matrix is not None:
-                log.debug("Correction factors present! self.uncorrected_matrix is not None")
-                log.debug("Data in save uncorrected: {}".format(self.uncorrected_matrix.data[:10]))
-                instances, features = self.uncorrected_matrix.nonzero()
-                data = self.uncorrected_matrix.data.tolist()
-            else:
-                instances, features = matrix.nonzero()
-                data = matrix.data.tolist()
+        else:
 
+            instances, features = matrix.nonzero()
+            data = matrix.data.tolist()
+
+            if matrix.dtype not in [np.int32, int]:
+                log.warning("Writing non-standard cooler matrix. Datatype of matrix['count'] is: {}".format(matrix.dtype))
                 cooler._writer.COUNT_DTYPE = matrix.dtype
 
+        if len(instances) == 0 and len(features) == 0:
+            exit('No data present. Exit.')
+        else:
             matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
             matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
 
-        cooler.io.create(cool_uri=pFileName,
-                         bins=bins_data_frame,
-                         pixels=matrix_data_frame)
+            cooler.io.create(cool_uri=pFileName,
+                             bins=bins_data_frame,
+                             pixels=matrix_data_frame,
+                             append=False)
 
     def save_hdf5(self, filename, pSymmetric=True):
         """
@@ -1521,7 +1472,7 @@ class hiCMatrix:
                 log.exception("Try failed. Matrix can not be saved because it is too big!")
             exit()
 
-    def save(self, pMatrixName, pSymmetric=True):
+    def save(self, pMatrixName, pSymmetric=True, pApplyCorrection=False):
         """To save please specifiy the ending of your format i.e. 'output_matrix.format' Supported are: 'dekker', 'ren',
             'lieberman', 'npz', 'GInteractions', 'h5' and 'cool'.
         """
@@ -1536,7 +1487,7 @@ class hiCMatrix:
         elif pMatrixName.endswith('GInteractions'):
             self.save_GInteractions(pMatrixName)
         elif pMatrixName.endswith('cool'):
-            self.save_cooler(pMatrixName, pSymmetric=pSymmetric)
+            self.save_cooler(pMatrixName, pSymmetric=pSymmetric, pApplyCorrection=pApplyCorrection)
         else:
             self.save_hdf5(pMatrixName, pSymmetric=pSymmetric)
 
@@ -2021,3 +1972,10 @@ def check_cooler(pFileName):
     if pFileName.endswith('.cool') or cooler.io.is_cooler(pFileName) or'.mcool' in pFileName:
         return True
     return False
+
+
+def convertNansToOnes(pArray):
+    nan_elements = np.flatnonzero(np.isnan(pArray))
+    if len(nan_elements) > 0:
+        pArray[nan_elements] = 1.0
+    return pArray
