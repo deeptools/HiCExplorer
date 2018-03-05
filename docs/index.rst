@@ -30,7 +30,8 @@ tool                            description
 :ref:`hicPlotDistVsCounts`       Plot the decay in interaction frequency with distance
 :ref:`hicPlotMatrix`             Plots a Hi-C matrix as a heatmap
 :ref:`hicPlotTADs`               Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
-:ref:`hicPlotViewpoint`          A plot with the interactions around a reference point or region.  
+:ref:`hicPlotViewpoint`          A plot with the interactions around a reference point or region. 
+:ref:`hicAggreagteContacts`      A tool that allows plotting of aggregated Hi-C sub-matrices of a specified list of positions.  
 :ref:`hicSumMatrices`            Adds Hi-C matrices of the same size
 :ref:`hicPlotDistVsCounts`       Plots distance vs. Hi-C counts of corrected data
 :ref:`hicExport`                 Export matrix to text formats
