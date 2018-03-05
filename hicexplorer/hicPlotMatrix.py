@@ -602,6 +602,8 @@ def main(args=None):
             plt.tight_layout()
         except UserWarning:
             log.info("Failed to tight layout. Using regular plot.")
+        except ValueError:
+            log.info("Failed to tight layout. Using regular plot.")
 
     plt.savefig(args.outFileName, dpi=args.dpi)
     plt.close(fig)
@@ -704,7 +706,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
 
             log.debug("Number of data points: {}".format(len(bigwig_scores)))
 
-            if pFlipBigwigSign is not None:
+            if pFlipBigwigSign:
                 log.info("Flipping sign of bigwig values.")
                 bigwig_scores = np.array(bigwig_scores)
                 bigwig_scores *= -1
