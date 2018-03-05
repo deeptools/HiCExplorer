@@ -646,4 +646,4 @@ def main(args=None):
     ma.printchrtoremove(sorted(list(total_filtered_out)),
                         label="Total regions to be removed", restore_masked_bins=False)
 
-    ma.save(args.outFileName)
+    ma.save(args.outFileName, pApplyCorrection=False)
