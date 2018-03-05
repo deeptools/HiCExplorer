@@ -53,11 +53,14 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
-
+   
    content/installation
    content/list-of-tools
    content/example_usage
    content/News
+
+   
+
 
 Citation
 ---------
