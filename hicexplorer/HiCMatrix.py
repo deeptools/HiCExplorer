@@ -136,6 +136,12 @@ class hiCMatrix:
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
 
+    def load_cool_only_init(self, pMatrixFile):
+        self.cooler_file = cooler.Cooler(pMatrixFile)
+
+    def load_cool_matrix(self, pChr):
+        return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
+
     def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None):
         try:
             cooler_file = cooler.Cooler(pMatrixFile)
