@@ -164,3 +164,30 @@ Multiple combination of parameters can be tested that way with only one z-score 
 This will result in the following plot where we see that the fourth set of hicFindTADs parameters with a threshold of 0.001 gives the best results in terms of TAD calling compared to the corrected Hi-C counts distribution and compared to the enrichment of H3K36me3, which is known to be enriched at TAD boundaries in *Drosophila melanogaster*.
 
 .. image:: ../../images/hicFindTADs_TAD_calling_comparison.png
+
+Notes
+^^^^^
+
+In the _domains.bed output file, the 5th column contains the TAD-separation score at the boundary located at the start of
+domain.
+
+The process to identify boundaries is as follows:
+
+ * call all local minima in the average TAD-score. Each local minima should be separated by at least `min_boundary_distance`. If this value is not given, it is set to the average bin size * 4
+ * for each local minima detected compute its p-value and then compute a q-value.
+ * for each local minima detected compute the 'delta' which is the difference between the mean TAD-score of the 10 bins before the minimum and the 10 bins after the minimum (excluding the min point)
+ * Keep only those minima with that fulfill the following criteria: the p-value (or q-value depending on the user selection) should be below the given threshold and the delta should be above the user defined threshold.
+ * everything between 2 consecutive boundaries is a TAD
+
+For the computation of the p-values, the distribution of the z-scores at the 'diamond' above the local minimum is compared
+with the distribution of z-scores that are `min_depth` downstream using the Wilcoxon rank-sum test. Simarlty, the
+distribution of z-scores is computed with the z-scores `min_dep` upstream of the local mininum. The smallest of the
+two p-values is assigned to the local minimum.
+
+If `min_depth` is not given, this is computed as bin size * 30
+(if the bins are smaller than 1000), as bin size * 10 if the bins are between
+1000 and 20.000 and as bin size * 5 if the bin size is bigger than 20.000.
+
+If `min_depth` is not given, this is computed as bin size * 60
+(if the bins are smaller than 1000), as bin size * 40 if the bins are between
+1000 and 20.000 and as bin size * 10 if the bin size is bigger than 20.000.
