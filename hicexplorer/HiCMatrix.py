@@ -756,7 +756,7 @@ class hiCMatrix:
                 depth = max_depth_in_bins
             else:
                 depth = m_size
-                estimated_size_dense_matrix = m_size**2 * 8
+                estimated_size_dense_matrix = m_size ** 2 * 8
                 if estimated_size_dense_matrix > 100e6:
                     log.info("To compute z-scores a dense matrix is required. This will use \n"
                              "{} Mb of memory.\n To reduce memory use the maxdeph option."
@@ -880,13 +880,13 @@ class hiCMatrix:
                 # if zscore is needed, compute standard deviation: std = sqrt(mean(abs(x - x.mean())**2))
                 if zscore:
                     values_sqrt_diff = \
-                        np.abs((submatrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
+                        np.abs((submatrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one]) ** 2)
                     # the standard deviation is the sum of the differences with mu squared (value variable)
                     # plus all zeros that are not included in the sparse matrix
                     # for which the standard deviation is
                     # (0 - mu)**2 = (mu)**2
                     # The number of zeros is the diagonal length - the length of the non zero values
-                    zero_values_sqrt_diff_sum = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
+                    zero_values_sqrt_diff_sum = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one] ** 2
 
                     _std = np.sqrt((values_sqrt_diff.sum() + zero_values_sqrt_diff_sum) / diagonal_length)
                     std[bin_dist_plus_one] = _std

@@ -7,7 +7,7 @@ import os.path
 import pytest
 from psutil import virtual_memory
 mem = virtual_memory()
-memory = mem.total / 2**30
+memory = mem.total / 2 ** 30
 import hicexplorer.hicPlotMatrix
 tolerance = 20  # default matplotlib pixed difference tolerance
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
@@ -38,6 +38,7 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig():
 
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
+
 
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
@@ -170,7 +171,7 @@ def test_hicPlotMatrix_cool_full():
 
 
 @pytest.mark.skipif(HIGH_MEMORY > memory,
-                     reason="Travis has too less memory to run it.")
+                    reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_h5_log1p():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5', delete=False)

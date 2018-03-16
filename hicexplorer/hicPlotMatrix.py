@@ -14,7 +14,6 @@ from hicexplorer.utilities import check_cooler
 from hicexplorer._version import __version__
 import numpy as np
 import pyBigWig
-from builtins import range
 from past.builtins import zip
 
 import argparse
@@ -547,7 +546,6 @@ def main(args=None):
                 mask_inf = np.isinf(matrix)
                 matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
                 matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
-
 
         log.debug("any nan after remove of nan: {}".format(np.isnan(matrix).any()))
         log.debug("any inf after remove of inf: {}".format(np.isinf(matrix).any()))
