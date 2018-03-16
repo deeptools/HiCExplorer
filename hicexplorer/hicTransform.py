@@ -21,35 +21,45 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False,
         description='Converts the (interaction) matrix to a observed/expected matrix or a pearson_correlated.')
 
+    parserRequired = parser.add_argument_group('Required arguments')
+
     # define the arguments
-    parser.add_argument('--matrix', '-m',
-                        help='input file. The computation is done per chromosome.',
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='input file. The computation is done per chromosome.',
+                                required=True)
 
-    parser.add_argument('--outFileName', '-o',
-                        help='File name to save the exported matrix.',
-                        required=True)
-    parser.add_argument('--threads', '-t',
-                        help='Number of threads for pearson correlation.',
-                        required=False,
-                        default=4,
-                        type=int)
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the exported matrix.',
+                                required=True)
 
-    parser.add_argument('--method', '-me',
-                        help='Transformation method to use. If the option all is used, all three matrices in '
-                        'consecutively way (input -> obs_exp -> pearson -> covariance) are created.',
-                        choices=['obs_exp', 'pearson', 'covariance', 'all'],
-                        default='obs_exp')
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
-    parser.add_argument('--chromosomes',
-                        help='List of chromosomes to be included in the '
-                        'correlation.',
-                        default=None,
-                        nargs='+')
+    parserOpt.add_argument('--method', '-me',
+                           help='Transformation method to use. If the option all is used, all three matrices in '
+                           'consecutively way (input -> obs_exp -> pearson -> covariance) are created.',
+                           choices=['obs_exp', 'pearson', 'covariance', 'all'],
+                           default='obs_exp')
+
+    parserOpt.add_argument('--chromosomes',
+                           help='List of chromosomes to be included in the '
+                           'correlation.',
+                           default=None,
+                           nargs='+')
+
+    parserOpt.add_argument('--threads', '-t',
+                           help='Number of threads for pearson correlation.',
+                           required=False,
+                           default=4,
+                           type=int)
+
+    parserOpt.add_argument("-help", "-h", action="help", help="show this help message and exit")
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
+
     return parser
 
 
@@ -73,7 +83,7 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     hic_ma = hm.hiCMatrix(matrixFile=args.matrix)
-
+    log.info("hic_ma.matrix: {}".format(hic_ma.matrix))
     if args.chromosomes:
         hic_ma.keepOnlyTheseChr(args.chromosomes)
 
@@ -143,14 +153,14 @@ def main(args=None):
         if path != '':
             path += '/'
 
-        hic_ma.save(path + basename_obs_exp, pSymmetric=False)
+        hic_ma.save(path + basename_obs_exp, pSymmetric=False, pApplyCorrection=False)
 
         hic_ma.setMatrix(trasf_matrix_pearson.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(path + basename_pearson, pSymmetric=False)
+        hic_ma.save(path + basename_pearson, pSymmetric=False, pApplyCorrection=False)
 
         hic_ma.setMatrix(trasf_matrix_corr.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(path + basename_covariance, pSymmetric=False)
+        hic_ma.save(path + basename_covariance, pSymmetric=False, pApplyCorrection=False)
 
     if not args.method == 'all':
         hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(args.outFileName, pSymmetric=False)
+        hic_ma.save(args.outFileName, pSymmetric=False, pApplyCorrection=False)

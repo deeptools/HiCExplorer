@@ -5,7 +5,6 @@ from past.builtins import zip
 from six import iteritems
 
 import numpy as np
-import sys
 import os
 
 from collections import OrderedDict
@@ -14,6 +13,9 @@ from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 import tables
 from intervaltree import IntervalTree, Interval
+from .utilities import toBytes
+from .utilities import toString
+from .utilities import check_chrom_str_bytes
 
 import gzip
 
@@ -54,6 +56,7 @@ class hiCMatrix:
         self.bin_size = None
         self.bin_size_homogeneous = None  # track if the bins are equally spaced or not
         self.nan_bins = np.array([])
+        # self.uncorrected_matrix = None
 
         # when NaN bins are masked, this variable becomes contains the bin index
         # needed to put the masked bins back into the matrix.
@@ -70,7 +73,7 @@ class hiCMatrix:
                     file_format = 'h5'
                 elif matrixFile.endswith('.gz'):
                     file_format = 'dekker'
-                elif matrixFile.endswith('.cool') or cooler.io.is_cooler(matrixFile):
+                elif check_cooler(matrixFile):
                     file_format = 'cool'
                 # by default assume that the matrix file_format is hd5
                 else:
@@ -113,8 +116,8 @@ class hiCMatrix:
                 self.cut_intervals = lieberman_data['cut_intervals']
                 self.matrix = lieberman_data['matrix']
             elif file_format == 'cool':
-                if not cooler.io.is_cooler(matrixFile):
-                    exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
+                # if not cooler.io.is_cooler(matrixFile) or '.mcool' not in:
+                #     exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
                 if cooler_only_init:
                     self.load_cool_only_init(matrixFile)
                     self.cut_intervals = None
@@ -136,58 +139,67 @@ class hiCMatrix:
     def load_cool_only_init(self, pMatrixFile):
         self.cooler_file = cooler.Cooler(pMatrixFile)
 
-    def load_cool_bins(self, pChr=None):
-        if pChr:
-            return self.cooler_file.bins().fetch(pChr)
-        else:
-            cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
-            self.cut_intervals = [tuple(x) for x in cut_intervals_data_frame.values]
-
     def load_cool_matrix(self, pChr):
         return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
 
-    def load_cool_matrix_csr(self, pAccessTuple):
-        startX = pAccessTuple[0]
-        startY = pAccessTuple[1]
-        chunkX = pAccessTuple[2]
-        chunkY = pAccessTuple[3]
-
-        return self.cooler_file.matrix(balance=False, sparse=True)[startX:startX + chunkX, startY:startY + chunkY].tocsr()
-
     def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None):
-        self.cooler_file = cooler.Cooler(pMatrixFile)
+        try:
+            cooler_file = cooler.Cooler(pMatrixFile)
+        except Exception:
+            log.info("Could not open cooler file. Maybe the path is wrong or the given node is not available.")
+            log.info('The following file was tried to open: {}'.format(pMatrixFile))
+            log.info("The following nodes are available: {}".format(cooler.io.ls(pMatrixFile.split("::")[0])))
+            exit()
 
         if pChrnameList is None:
-            matrix = self.cooler_file.matrix(balance=False, sparse=True)[:].tocsr()
-
+            matrix = cooler_file.matrix(balance=False, sparse=True)[:].tocsr()
         else:
             if len(pChrnameList) == 1:
-
                 try:
-                    matrix = self.cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0]).tocsr()
+                    matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0]).tocsr()
                 except ValueError:
                     exit("Wrong chromosome format. Please check UCSC / ensembl notation.")
-
             else:
                 exit("Operation to load more as one region is not supported.")
 
         cut_intervals_data_frame = None
+        correction_factors_data_frame = None
+
         if pChrnameList is not None:
             if len(pChrnameList) == 1:
-                cut_intervals_data_frame = self.cooler_file.bins().fetch(pChrnameList[0])
+                cut_intervals_data_frame = cooler_file.bins().fetch(pChrnameList[0])
+
+                if 'weight' in cut_intervals_data_frame:
+                    correction_factors_data_frame = cut_intervals_data_frame['weight']
             else:
                 exit("Operation to load more than one chr from bins is not supported.")
-
         else:
-            cut_intervals_data_frame = self.cooler_file.bins()[['chrom', 'start', 'end', 'weight']][:]
+            if 'weight' in cooler_file.bins():
+                correction_factors_data_frame = cooler_file.bins()[['weight']][:]
+
+            cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end']][:]
+
+        correction_factors = None
+        if correction_factors_data_frame is not None:
+            log.debug("Apply correction factors")
+            # apply correction factors to matrix
+            # a_i,j = a_i,j / c_i *c_j
+            matrix.eliminate_zeros()
+            matrix.data = matrix.data.astype(float)
+
+            correction_factors = convertNansToOnes(np.array(correction_factors_data_frame.values).flatten())
+            # apply only if there are not only 1's
+            if np.sum(correction_factors) != len(correction_factors):
+                instances, features = matrix.nonzero()
+                instances_factors = correction_factors[instances]
+                features_factors = correction_factors[features]
+                instances_factors *= features_factors
+                matrix.data /= instances_factors
 
         cut_intervals = []
 
         for values in cut_intervals_data_frame.values:
-            if sys.version_info[0] == 3:
-                cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], values[3]]))
-            else:
-                cut_intervals.append(tuple(values))
+            cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], 1.0]))
 
         # try to restore nan_bins.
         try:
@@ -206,7 +218,8 @@ class hiCMatrix:
             nan_bins = None
 
         distance_counts = None
-        correction_factors = None
+
+        matrix = hiCMatrix.fillLowerTriangle(matrix)
 
         return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
@@ -494,6 +507,12 @@ class hiCMatrix:
         Given a chromosome name,
         This functions return the start and end bin indices in the matrix
         """
+        # chrName = check_chrom_str_bytes(self.chrBinBoundaries, chrName)
+        # if type(next(iter(self.chrBinBoundaries))) != type(chrName):
+        #     if type(next(iter(self.chrBinBoundaries))) is str:
+        #         chrName = toString(chrName)
+        #     elif type(next(iter(self.chrBinBoundaries))) in [bytes, np.bytes_]:
+        #         chrName = toBytes(chrName)
         return self.chrBinBoundaries[chrName]
 
     def getChrNames(self):
@@ -518,6 +537,7 @@ class hiCMatrix:
 
         try:
             # chromosome_size = hic_matrix.get_chromosome_sizes()
+            # chrname = check_chrom_str_bytes(self.interval_trees, chrname)
             if type(next(iter(self.interval_trees))) != type(chrname):
                 if type(next(iter(self.interval_trees))) is str:
                     chrname = toString(chrname)
@@ -1103,7 +1123,7 @@ class hiCMatrix:
         these are kept, while any other is removed
         from the matrix
         """
-        chromosome_list = check_chrom_str_bytes(chromosome_list, self.interval_trees)
+        chromosome_list = check_chrom_str_bytes(self.interval_trees, chromosome_list)
 
         try:
             [self.chrBinBoundaries[x] for x in chromosome_list]
@@ -1268,8 +1288,7 @@ class hiCMatrix:
                          bins=bins_data_frame,
                          pixels=matrix_data_frame)
 
-    def save_cooler(self, pFileName, pDataFrameBins=None, pDataFrameMatrix=None, pSymmetric=True):
-
+    def save_cooler(self, pFileName, pSymmetric=True, pApplyCorrection=True):
         # for value in self.nan_bins:
         self.restoreMaskedBins()
         self.matrix = self.matrix.tolil()
@@ -1289,37 +1308,64 @@ class hiCMatrix:
             matrix = triu(self.matrix, k=0, format='csr')
         else:
             matrix = self.matrix
-        # matrix = triu(self.matrix, k=0, format='csr')
 
-        if pDataFrameBins:
-            if pDataFrameBins['start'].dtypes != 'int64':
-                pDataFrameBins['start'] = pDataFrameBins['start'].astype(np.int64)
-            if pDataFrameBins['end'].dtypes != 'int64':
-                pDataFrameBins['end'] = pDataFrameBins['end'].astype(np.int64)
-            bins_data_frame = pDataFrameBins
-        else:
-            # create a pandas data frame for cut_intervals
-            bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'weight'])
-        if pDataFrameMatrix:
-            if pDataFrameMatrix['bin1_id'].dtypes != 'int64':
-                pDataFrameMatrix['bin1_id'] = pDataFrameMatrix['bin1_id'].astype(np.int64)
-            if pDataFrameMatrix['bin2_id'].dtypes != 'int64':
-                pDataFrameMatrix['bin2_id'] = pDataFrameMatrix['bin2_id'].astype(np.int64)
-            matrix_data_frame = pDataFrameMatrix
-        else:
-            # get only the upper triangle of the matrix to save to disk
-            # upper_triangle = triu(self.matrix, k=0, format='csr')
-            # create a tuple list and use it to create a data frame
+        cut_intervals_ = []
+        for value in self.cut_intervals:
+            cut_intervals_.append(tuple((value[0], value[1], value[2])))
+
+        bins_data_frame = pd.DataFrame(cut_intervals_, columns=['chrom', 'start', 'end'])
+
+        # append correction factors if they exist
+        if self.correction_factors is not None and pApplyCorrection:
+            weight = convertNansToOnes(np.array(self.correction_factors).flatten())
+            bins_data_frame = bins_data_frame.assign(weight=weight)
+
+        # get only the upper triangle of the matrix to save to disk
+        # upper_triangle = triu(self.matrix, k=0, format='csr')
+        # create a tuple list and use it to create a data frame
+
+        # save correction factors and original matrix
+
+        # revert correction to store orginal matrix
+        if self.correction_factors is not None and pApplyCorrection:
+            log.info("Reverting correction factors on matrix...")
             instances, features = matrix.nonzero()
+            self.correction_factors = np.array(self.correction_factors)
+
+            # do not apply if correction factors are just 1's
+            if np.sum(self.correction_factors) != len(self.correction_factors):
+                instances_factors = self.correction_factors[instances]
+                features_factors = self.correction_factors[features]
+
+                instances_factors *= features_factors
+                matrix.data *= instances_factors
+                instances_factors = None
+                features_factors = None
+
+                matrix.data = np.rint(matrix.data)
+                matrix.data = matrix.data.astype(int)
 
             data = matrix.data.tolist()
-            matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
 
+        else:
+
+            instances, features = matrix.nonzero()
+            data = matrix.data.tolist()
+
+            if matrix.dtype not in [np.int32, int]:
+                log.warning("Writing non-standard cooler matrix. Datatype of matrix['count'] is: {}".format(matrix.dtype))
+                cooler._writer.COUNT_DTYPE = matrix.dtype
+
+        if len(instances) == 0 and len(features) == 0:
+            exit('No data present. Exit.')
+        else:
+            matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
             matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
-            cooler._writer.COUNT_DTYPE = matrix.dtype
-        cooler.io.create(cool_uri=pFileName,
-                         bins=bins_data_frame,
-                         pixels=matrix_data_frame)
+
+            cooler.io.create(cool_uri=pFileName,
+                             bins=bins_data_frame,
+                             pixels=matrix_data_frame,
+                             append=False)
 
     def save_hdf5(self, filename, pSymmetric=True):
         """
@@ -1432,7 +1478,7 @@ class hiCMatrix:
                 log.exception("Try failed. Matrix can not be saved because it is too big!")
             exit()
 
-    def save(self, pMatrixName, pSymmetric=True):
+    def save(self, pMatrixName, pSymmetric=True, pApplyCorrection=False):
         """To save please specifiy the ending of your format i.e. 'output_matrix.format' Supported are: 'dekker', 'ren',
             'lieberman', 'npz', 'GInteractions', 'h5' and 'cool'.
         """
@@ -1447,7 +1493,7 @@ class hiCMatrix:
         elif pMatrixName.endswith('GInteractions'):
             self.save_GInteractions(pMatrixName)
         elif pMatrixName.endswith('cool'):
-            self.save_cooler(pMatrixName, pSymmetric=pSymmetric)
+            self.save_cooler(pMatrixName, pSymmetric=pSymmetric, pApplyCorrection=pApplyCorrection)
         else:
             self.save_hdf5(pMatrixName, pSymmetric=pSymmetric)
 
@@ -1524,7 +1570,7 @@ class hiCMatrix:
         if len(new_chr_order) != len(self.chrBinBoundaries):
             return
         dest = 0
-        new_chr_order = check_chrom_str_bytes(new_chr_order, self.chrBinBoundaries)
+        new_chr_order = check_chrom_str_bytes(self.chrBinBoundaries, new_chr_order)
 
         for chrName in new_chr_order:
             orig = self.chrBinBoundaries[chrName]
@@ -1534,7 +1580,7 @@ class hiCMatrix:
 
     def reorderChromosomes(self, new_chr_order):
         new_order = []
-        new_chr_order = check_chrom_str_bytes(new_chr_order, self.chrBinBoundaries)
+        new_chr_order = check_chrom_str_bytes(self.chrBinBoundaries, new_chr_order)
 
         for chrName in new_chr_order:
             # check that the chromosome names are valid
@@ -1928,46 +1974,14 @@ class hiCMatrix:
         return cut_int_tree, chrbin_boundaries
 
 
-def toString(s):
-    """
-    This takes care of python2/3 differences
-    """
-    if type(s) is np.bytes_:
-        return s.decode('UTF-8')
-    if isinstance(s, str):
-        return s
-    if isinstance(s, bytes):
-
-        if sys.version_info[0] == 2:
-            return str(s)
-        return s.decode('ascii')
-    if isinstance(s, list):
-        return [toString(x) for x in s]
-    return s
+def check_cooler(pFileName):
+    if pFileName.endswith('.cool') or cooler.io.is_cooler(pFileName) or'.mcool' in pFileName:
+        return True
+    return False
 
 
-def toBytes(s):
-    """
-    Like toString, but for functions requiring bytes in python3
-    """
-    if sys.version_info[0] == 2:
-        return s
-    if isinstance(s, bytes):
-        return s
-    if isinstance(s, str):
-        return bytes(s, 'ascii')
-    if isinstance(s, list):
-        return [toBytes(x) for x in s]
-    return s
-
-
-def check_chrom_str_bytes(pChrom, pInstanceToCompare):
-    """
-    Checks and changes pChroms to str or bytes depending on datatype
-    of pInstanceToCompare
-    """
-    if type(next(iter(pInstanceToCompare))) is str:
-        pChrom = toString(pChrom)
-    elif type(next(iter(pInstanceToCompare))) in [bytes, np.bytes_]:
-        pChrom = toBytes(pChrom)
-    return pChrom
+def convertNansToOnes(pArray):
+    nan_elements = np.flatnonzero(np.isnan(pArray))
+    if len(nan_elements) > 0:
+        pArray[nan_elements] = 1.0
+    return pArray

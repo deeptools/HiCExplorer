@@ -8,6 +8,11 @@ from scipy.sparse import csr_matrix
 import warnings
 from past.builtins import zip
 from six import iteritems
+import pytest
+import logging
+
+log = logging.getLogger(__name__)
+
 
 warnings.filterwarnings("ignore")
 
@@ -133,7 +138,7 @@ def test_convert_to_zscore_matrix_2():
 
 
 def test_save_load_cooler_format():
-    outfile = '/tmp/matrix.cool'
+    outfile = '/tmp/matrix2.cool'
     cut_intervals = [(b'a', 0, 10, 1), (b'a', 10, 20, 1),
                      (b'a', 20, 30, 1), (b'a', 30, 40, 1), (b'b', 40, 50, 1)]
     hic = hm.hiCMatrix()
@@ -152,6 +157,9 @@ def test_save_load_cooler_format():
     hic.save(outfile)
 
     matrix_cool = hm.hiCMatrix(outfile)
+
+    log.info('original data: {}'.format(hic.matrix))
+    log.info('cool data: {}'.format(matrix_cool.matrix))
     nt.assert_equal(hic.matrix.data, matrix_cool.matrix.data)
     nt.assert_equal(hic.matrix.indices, matrix_cool.matrix.indices)
     nt.assert_equal(hic.matrix.indptr, matrix_cool.matrix.indptr)
@@ -160,3 +168,12 @@ def test_save_load_cooler_format():
 
     nt.assert_equal(hic.cut_intervals, matrix_cool.cut_intervals)
     unlink(outfile)
+
+
+@pytest.mark.xfail
+def test_load_mcooler_format_fail():
+    matrix = hm.hiCMatrix(ROOT + 'matrix.mcool')  # noqa: F841
+
+
+def test_load_mcooler_format_success():
+    matrix = hm.hiCMatrix(ROOT + "matrix.mcool::/1")  # noqa: F841

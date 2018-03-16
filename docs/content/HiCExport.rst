@@ -95,4 +95,4 @@ for differential Hi-C analysis.
 
 -  For more information on working with GInteraction and InteractionSet
    objects in bioconductor check out `this
-   vingette <https://bioconductor.org/packages/devel/bioc/vignettes/InteractionSet/inst/doc/interactions.html>`__.
+   vignette <https://bioconductor.org/packages/devel/bioc/vignettes/InteractionSet/inst/doc/interactions.html>`__.

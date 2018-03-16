@@ -87,6 +87,7 @@ def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False,
         description=('Using an alignment from a program that supports '
                      'local alignment (eg. Bowtie2) where both '
                      'PE reads are mapped using  the --local '
@@ -94,26 +95,43 @@ def parse_arguments(args=None):
                      'creates a matrix of interactions.'
                      ))
 
+    parserRequired = parser.add_argument_group('Required arguments')
+
     # define the arguments
-    parser.add_argument('--samFiles', '-s',
-                        help='The two alignment sam files to process',
-                        metavar='two sam files',
-                        nargs=2,
-                        type=argparse.FileType('r'),
-                        required=True)
+    parserRequired.add_argument('--samFiles', '-s',
+                                help='The two PE alignment sam files to process',
+                                metavar='two sam files',
+                                nargs=2,
+                                type=argparse.FileType('r'),
+                                required=True)
 
-    parser.add_argument('--outBam', '-b',
-                        help='Bam file to process. Optional parameter. '
-                        'An bam file containing all valid Hi-C reads can be created '
-                        'using this option. This bam file could be useful to inspect '
-                        'the distribution of valid Hi-C reads pairs or for other '
-                        'downstream analysis, but is not used by any HiCExplorer tool. '
-                        'Computation will be significant longer if this option is set.',
-                        metavar='bam file',
-                        type=argparse.FileType('w'),
-                        required=False)
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='Output file name for the Hi-C matrix.',
+                                metavar='FILENAME',
+                                type=argparse.FileType('w'),
+                                required=True)
 
-    group = parser.add_mutually_exclusive_group(required=True)
+    parserRequired.add_argument('--QCfolder',
+                                help='Path of folder to save the quality control data for the matrix. The log files '
+                                'produced this way can be loaded into `hicQC` in order to compare the quality of multiple '
+                                'Hi-C libraries.',
+                                metavar='FOLDER',
+                                required=True)
+
+    parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument('--outBam', '-b',
+                           help='Output bam file to process. Optional parameter. '
+                           'A bam file containing all valid Hi-C reads can be created '
+                           'using this option. This bam file could be useful to inspect '
+                           'the distribution of valid Hi-C reads pairs or for other '
+                           'downstream analyses, but is not used by any HiCExplorer tool. '
+                           'Computation will be significantly longer if this option is set.',
+                           metavar='bam file',
+                           type=argparse.FileType('w'),
+                           required=False)
+
+    group = parserOpt.add_mutually_exclusive_group(required=True)
 
     group.add_argument('--binSize', '-bs',
                        help='Size in bp for the bins. The bin size depends '
@@ -134,137 +152,130 @@ def parse_arguments(args=None):
                        type=argparse.FileType('r'),
                        metavar='BED file')
 
-    parser.add_argument('--minDistance',
-                        help='Minimum distance between restriction sites. '
-                        'Restriction sites that are closer than this '
-                        'distance are merged into one. This option only '
-                        'applies if --restrictionCutFile is given.',
-                        type=int,
-                        default=300,
-                        required=False)
+    parserOpt.add_argument('--minDistance',
+                           help='Minimum distance between restriction sites. '
+                           'Restriction sites that are closer than this '
+                           'distance are merged into one. This option only '
+                           'applies if --restrictionCutFile is given.',
+                           type=int,
+                           default=300,
+                           required=False)
 
-    parser.add_argument('--maxDistance',
-                        help='This parameter is now obsolete. Use --maxLibraryInsertSize instead',
-                        type=int)
+    parserOpt.add_argument('--maxDistance',
+                           help='This parameter is now obsolete. Use --maxLibraryInsertSize instead',
+                           type=int)
 
-    parser.add_argument('--maxLibraryInsertSize',
-                        help='The maximum library insert size defines different cut offs based on the maximum expected '
-                             'library size. *This is not the average fragment size* but the higher end of the '
-                             'the fragment size distribution (obtained using for example Fragment Analyzer) '
-                             'which usually is between 800 to 1500 bp. If this value if not known use the default of '
-                             '1000. The insert value is used to decide if two mates belong to the same fragment (by '
-                             'checking if they are within this max insert size) and to decide if a mate is too far '
-                             'away from the nearest restriction site.',
-                        type=int,
-                        default=1000,
-                        required=False)
+    parserOpt.add_argument('--maxLibraryInsertSize',
+                           help='The maximum library insert size defines different cut offs based on the maximum expected '
+                           'library size. *This is not the average fragment size* but the higher end of the '
+                           'the fragment size distribution (obtained using for example a Fragment Analyzer or a Bioanalyzer) '
+                           'which usually is between 800 to 1500 bp. If this value if not known use the default of '
+                           '1000. The insert value is used to decide if two mates belong to the same fragment (by '
+                           'checking if they are within this max insert size) and to decide if a mate is too far '
+                           'away from the nearest restriction site.',
+                           type=int,
+                           default=1000,
+                           required=False)
 
-    parser.add_argument('--restrictionSequence', '-seq',
-                        help='Sequence of the restriction site.')
+    parserOpt.add_argument('--restrictionSequence', '-seq',
+                           help='Sequence of the restriction site.')
 
-    parser.add_argument('--danglingSequence',
-                        help='Dangling end sequence left by the restriction enzyme. For DpnII for example, the '
-                             'dangling end is the same restriction sequence. This is used '
-                             'to discard reads that end/start with such sequence '
-                             'and that are considered un-ligated fragments or '
-                             '"dangling-ends". If not given, such statistics will '
-                             'not be available.')
+    parserOpt.add_argument('--danglingSequence',
+                           help='Dangling end sequence left by the restriction enzyme. For DpnII for example, the '
+                           'dangling end is the same restriction sequence. This is used '
+                           'to discard reads that end/start with such sequence '
+                           'and that are considered un-ligated fragments or '
+                           '"dangling-ends". If not given, such statistics will '
+                           'not be available. Dangling-ends usually represent a significant proportion '
+                           'of Hi-C libraries and might lead to erronous Hi-C matrices if they are not discarded. '
+                           'This parameter must be taken into account.')
 
-    parser.add_argument('--outFileName', '-o',
-                        help='Output file name for the Hi-C matrix',
-                        metavar='FILENAME',
-                        type=argparse.FileType('w'),
-                        required=True)
-
-    parser.add_argument('--QCfolder',
-                        help='Path of folder to save the quality control data for the matrix',
-                        metavar='FOLDER',
-                        required=True)
-
-    parser.add_argument('--region', '-r',
-                        help='Region of the genome to limit the operation to. '
-                        'The format is chr:start-end. Also valid is just to '
-                        'specify a chromosome, for example --region chr10',
-                        metavar="CHR:START-END",
-                        required=False,
-                        type=genomicRegion
-                        )
+    parserOpt.add_argument('--region', '-r',
+                           help='Region of the genome to limit the operation to. '
+                           'The format is chr:start-end. It is also possible to just '
+                           'specify a chromosome, for example --region chr10',
+                           metavar="CHR:START-END",
+                           required=False,
+                           type=genomicRegion
+                           )
     # # curently not implemented
-    parser.add_argument('--removeSelfLigation',
-                        # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
-                        #     'site in between are removed. Although this reads do not contribute to '
-                        #     'any distant contact, they are useful to account for bias in the data.',
-                        help=argparse.SUPPRESS,
-                        required=False,
-                        default=True
-                        # action='store_true'
-                        )
+    parserOpt.add_argument('--removeSelfLigation',
+                           # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
+                           #     'site in between are removed. Although this reads do not contribute to '
+                           #     'any distant contact, they are useful to account for bias in the data.',
+                           help=argparse.SUPPRESS,
+                           required=False,
+                           default=True
+                           # action='store_true'
+                           )
 
-    parser.add_argument('--keepSelfCircles',
-                        help='If set, outward facing reads without any restriction fragment (self circles) are kept. '
-                             'They will be counted and shown in the QC plots.',
-                        required=False,
-                        action='store_true'
-                        )
+    parserOpt.add_argument('--keepSelfCircles',
+                           help='If set, outward facing reads without any restriction fragment (self circles) are kept. '
+                           'They will be counted and shown in the QC plots.',
+                           required=False,
+                           action='store_true'
+                           )
 
-    parser.add_argument('--minMappingQuality',
-                        help='minimum mapping quality for reads to be accepted. '
-                             'Because the restriction enzyme site could be located '
-                             'on top of the read, this may reduce the '
-                             'reported quality of the read. Thus, this parameter '
-                             'may be adusted if too many low quality '
-                             '(but otherwise perfectly valid Hi-C reads) are found.'
-                             'A good strategy is to make a test run (using the --doTestRun), '
-                             'then checking the results to see if too many low quality '
-                             'reads are present and then using the bam file generated to '
-                             'check if those low quality reads are caused by the read '
-                             'not being mapped entirely.',
-                        required=False,
-                        default=15,
-                        type=int
-                        )
-    parser.add_argument('--threads',
-                        help='Number of threads. Using the python multiprocessing module.'
-                        ' One master process which is used to read the input file into the buffer and one process which is merging '
-                        'the output bam files of the processes into one output bam file. All other threads do the actual computation.'
-                        ' Minimum value for the \'--thread\' parameter is 2.'
-                        'The usage of 8 threads is optimal if you have an HDD. A higher number of threads is only '
-                        'useful if you have a fast SSD. Have in mind that the performance of hicBuildMatrix is influenced by '
-                        ' the number of threads, the speed of your hard drive and the inputBufferSize. To clearify: the peformance '
-                        'with a higher thread number is not negative influenced but not positiv too. With a slow HDD and a high number of'
-                        ' threads many threads will do nothing most of the time. ',
-                        required=False,
-                        default=4,
-                        type=int
-                        )
-    parser.add_argument('--inputBufferSize',
-                        help='Size of the input buffer of each thread. 400,000 read pairs per input file per thread is the default value.'
-                             ' Reduce value to decrease memory usage.',
-                        required=False,
-                        default=400000,
-                        type=int
-                        )
-    parser.add_argument('--doTestRun',
-                        help='A test run is useful to test the quality '
-                             'of a Hi-C experiment quickly. It works by '
-                             'testing only 1,000.000 reads. This option '
-                             'is useful to get an idea of quality control '
-                             'values like inter-chromosomal interactins, '
-                             'duplication rates etc.',
-                        action='store_true'
-                        )
+    parserOpt.add_argument('--minMappingQuality',
+                           help='minimum mapping quality for reads to be accepted. '
+                           'Because the restriction enzyme site could be located '
+                           'on top of the read, this may reduce the '
+                           'reported quality of the read. Thus, this parameter '
+                           'may be adusted if too many low quality '
+                           '(but otherwise perfectly valid Hi-C reads) are found. '
+                           'A good strategy is to make a test run (using the --doTestRun), '
+                           'then checking the results to see if too many low quality '
+                           'reads are present and then using the bam file generated to '
+                           'check if those low quality reads are caused by the read '
+                           'not being mapped entirely.',
+                           required=False,
+                           default=15,
+                           type=int
+                           )
+    parserOpt.add_argument('--threads',
+                           help='Number of threads. Using the python multiprocessing module. '
+                           'One master process which is used to read the input file into the buffer and one process which is merging '
+                           'the output bam files of the processes into one output bam file. All other threads do the actual computation. '
+                           'Minimum value for the \'--thread\' parameter is 2. '
+                           'The usage of 8 threads is optimal if you have an HDD. A higher number of threads is only '
+                           'useful if you have a fast SSD. Have in mind that the performance of hicBuildMatrix is influenced by '
+                           'the number of threads, the speed of your hard drive and the inputBufferSize. To clearify: the peformance '
+                           'with a higher thread number is not negative influenced but not positiv too. With a slow HDD and a high number of '
+                           'threads many threads will do nothing most of the time. ',
+                           required=False,
+                           default=4,
+                           type=int
+                           )
+    parserOpt.add_argument('--inputBufferSize',
+                           help='Size of the input buffer of each thread. 400,000 read pairs per input file per thread is the default value. '
+                           'Reduce this value to decrease memory usage.',
+                           required=False,
+                           default=400000,
+                           type=int
+                           )
+    parserOpt.add_argument('--doTestRun',
+                           help='A test run is useful to test the quality '
+                           'of a Hi-C experiment quickly. It works by '
+                           'testing only 1,000,000 reads. This option '
+                           'is useful to get an idea of quality control '
+                           'values like inter-chromosomal interactions, '
+                           'duplication rates etc.',
+                           action='store_true'
+                           )
 
-    parser.add_argument('--skipDuplicationCheck',
-                        help='Identification of duplicated read pairs is '
-                             'memory consuming. Thus, in case of memory '
-                             'errors this check can be skipped. However, '
-                             'consider running a `--doTestRun` first to '
-                             'get an estimation of the duplicated reads. ',
-                        action='store_true'
-                        )
+    parserOpt.add_argument('--skipDuplicationCheck',
+                           help='Identification of duplicated read pairs is '
+                           'memory consuming. Thus, in case of memory '
+                           'errors this check can be skipped. However, '
+                           'consider running a `--doTestRun` first to '
+                           'get an estimation of the duplicated reads. ',
+                           action='store_true'
+                           )
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
