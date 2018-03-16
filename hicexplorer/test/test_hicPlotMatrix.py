@@ -9,7 +9,7 @@ from psutil import virtual_memory
 mem = virtual_memory()
 memory = mem.total / 2**30
 import hicexplorer.hicPlotMatrix
-tolerance = 60  # default matplotlib pixed difference tolerance
+tolerance = 20  # default matplotlib pixed difference tolerance
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
 # memory in GB the test computer needs to have to run the test case
@@ -38,7 +38,6 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig():
 
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
-
 
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
@@ -171,7 +170,7 @@ def test_hicPlotMatrix_cool_full():
 
 
 @pytest.mark.skipif(HIGH_MEMORY > memory,
-                    reason="Travis has too less memory to run it.")
+                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_h5_log1p():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5', delete=False)
@@ -292,12 +291,12 @@ def test_hicPlotMatrix_perChr_without_h5_suffix():
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_cool_perChr_log():
+def test_hicPlotMatrix_cool_perChr_log1p():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
     args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr  " \
-           "--outFileName  {1} --log ".format(ROOT, outfile.name).split()
+           "--outFileName  {1} --log1 --vMax 10 ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr_log.png', outfile.name, tol=tolerance)
     assert res is None, res
@@ -307,12 +306,12 @@ def test_hicPlotMatrix_cool_perChr_log():
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder():
+def test_hicPlotMatrix_cool_perChr_log_chromosomeOrder():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
     args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr " \
-           "--outFileName  {1} --log1p --chromosomeOrder chr2L chr3L chr3R chr2R".format(ROOT, outfile.name).split()
+           "--outFileName  {1} --log --chromosomeOrder chr2L chr3L chr3R chr2R".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_perChr_log1p_chromosomeOrder.png', outfile.name, tol=tolerance)
     assert res is None, res
