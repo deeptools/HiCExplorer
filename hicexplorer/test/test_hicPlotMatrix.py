@@ -229,7 +229,7 @@ def test_hicPlotMatrix_cool_log_region1_region2():
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
 
-
+@pytest.mark.xfail
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_cool_log_region1_region2_without_cool_suffix():
