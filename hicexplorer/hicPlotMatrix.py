@@ -646,7 +646,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
             log.error("Eigenvector input files have different formats.")
             exit()
 
-    x = []
+    x_values = []
     bigwig_scores = []
     if file_format == "bigwig" or file_format == 'bw':
         for i, bigwigFile in enumerate(pNameOfBigwigList):
@@ -676,8 +676,10 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                     log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
                     return
 
+                _x_vals = np.linspace(region_start, region_end, num_bins)
+                assert len(_x_vals) == len(scores_per_bin)
+                x_values.extend(_x_vals)
                 bigwig_scores.extend(scores_per_bin)
-                x.extend(np.linspace(region_start, region_end, num_bins))
                 pAxis.set_xlim(region_start, region_end)
 
             elif pChromosomeSizes:
@@ -689,17 +691,21 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                         log.info("bigwig file as no chromosome named: {}.".format(chrom))
                         return
                     # chrom = check_chrom_str_bytes(pChromosomeSizes, chrom)
-                    # set the bin size to aproximately 100kb
-                    num_bins = int(pChromosomeSizes[chrom] / 1e5)
+                    # set the bin size to approximately 100kb
+                    # or to the chromosome size if this happens to be less than 100kb
+                    chunk_size = min(1e5, pChromosomeSizes[chrom])
+                    num_bins = int(pChromosomeSizes[chrom] / chunk_size)
                     scores_per_bin = np.array(bw.stats(chrom_, 0, pChromosomeSizes[chrom], nBins=num_bins)).astype(float)
 
                     if scores_per_bin is None:
                         log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
                         return
 
+                    _x_vals = np.linspace(chrom_length_sum, chrom_length_sum + pChromosomeSizes[chrom], num_bins)
+                    assert len(_x_vals) == len(scores_per_bin)
+                    x_values.extend(_x_vals)
                     bigwig_scores.extend(scores_per_bin)
 
-                    x.extend(np.linspace(chrom_length_sum, chrom_length_sum + pChromosomeSizes[chrom], num_bins))
                     chrom_length_sum += pChromosomeSizes[chrom]
 
                 pAxis.set_xlim(0, chrom_length_sum)
@@ -748,7 +754,8 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
     #
     #             pAxis.set_xlim(region_start, region_end * 2)
 
-    if x is not None and bigwig_scores is not None:
-        pAxis.fill_between(x, 0, bigwig_scores, edgecolor='none')
+    if x_values is not None and bigwig_scores is not None:
+        pAxis.fill_between(x_values, 0, bigwig_scores, edgecolor='none')
+
 
     # pAxis.get_xaxis().set_visible(False)
