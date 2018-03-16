@@ -756,6 +756,3 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
 
     if x_values is not None and bigwig_scores is not None:
         pAxis.fill_between(x_values, 0, bigwig_scores, edgecolor='none')
-
-
-    # pAxis.get_xaxis().set_visible(False)
