@@ -499,7 +499,7 @@ def main(args=None):
             log.debug("ma.chrBinBoundaries {}".format(ma.chrBinBoundaries))
             if sys.version_info[0] == 3:
                 args.chromosomeOrder = toBytes(args.chromosomeOrder)
-            for chrom in args.chromosomeOrder:
+            for chrom in toString(args.chromosomeOrder):
                 if chrom in ma.chrBinBoundaries:
                     valid_chromosomes.append(chrom)
                 else:

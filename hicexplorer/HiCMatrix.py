@@ -199,7 +199,7 @@ class hiCMatrix:
         cut_intervals = []
 
         for values in cut_intervals_data_frame.values:
-            cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], 1.0]))
+            cut_intervals.append(tuple([toString(values[0]), values[1], values[2], 1.0]))
 
         # try to restore nan_bins.
         try:
@@ -284,8 +284,7 @@ class hiCMatrix:
         else:
             distance_counts = _ma['dist_counts'].tolist()
 
-        map(toString, _ma['chrNameList'])
-        cut_intervals = zip(_ma['chrNameList'], _ma['startList'],
+        cut_intervals = zip(toString(_ma['chrNameList']), _ma['startList'],
                             _ma['endList'], _ma['extraList'])
 
         assert len(cut_intervals) == matrix.shape[0], \
@@ -880,13 +879,13 @@ class hiCMatrix:
                 # if zscore is needed, compute standard deviation: std = sqrt(mean(abs(x - x.mean())**2))
                 if zscore:
                     values_sqrt_diff = \
-                        np.abs((submatrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one])**2)
+                        np.abs((submatrix.data[dist_list == bin_dist_plus_one] - mu[bin_dist_plus_one]) ** 2)
                     # the standard deviation is the sum of the differences with mu squared (value variable)
                     # plus all zeros that are not included in the sparse matrix
                     # for which the standard deviation is
                     # (0 - mu)**2 = (mu)**2
                     # The number of zeros is the diagonal length - the length of the non zero values
-                    zero_values_sqrt_diff_sum = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one]**2
+                    zero_values_sqrt_diff_sum = (diagonal_length - len(values_sqrt_diff)) * mu[bin_dist_plus_one] ** 2
 
                     _std = np.sqrt((values_sqrt_diff.sum() + zero_values_sqrt_diff_sum) / diagonal_length)
                     std[bin_dist_plus_one] = _std
