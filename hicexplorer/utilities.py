@@ -250,6 +250,8 @@ def toString(s):
         return s.decode('ascii')
     if isinstance(s, list):
         return [toString(x) for x in s]
+    if isinstance(s, np.ndarray):
+        return s.astype(str)
     return s
 
 
