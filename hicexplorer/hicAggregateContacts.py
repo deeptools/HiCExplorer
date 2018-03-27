@@ -12,7 +12,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
 import hicexplorer.HiCMatrix as hm
 import hicexplorer.utilities
-from .utilities import toBytes
+from .utilities import toString
 from .utilities import check_chrom_str_bytes
 
 import logging
@@ -553,7 +553,7 @@ def main(args=None):
         seen[chrom] = set()
         over_1_5 = 0
         empty_mat = 0
-        chrom_bin_range = ma.getChrBinRange(toBytes(chrom))
+        chrom_bin_range = ma.getChrBinRange(toString(chrom))
 
         log.info("processing {}".format(chrom))
 
@@ -563,7 +563,7 @@ def main(args=None):
             # current interval at the given depth range
             if end > chrom_sizes[chrom]:
                 continue
-            bin_id = ma.getRegionBinRange(toBytes(chrom), start, end)
+            bin_id = ma.getRegionBinRange(toString(chrom), start, end)
             if bin_id is None:
                 continue
             else:
@@ -576,7 +576,7 @@ def main(args=None):
 
                 if end2 > chrom_sizes[chrom]:
                     continue
-                bin_id2 = ma.getRegionBinRange(toBytes(chrom), start2, end2)
+                bin_id2 = ma.getRegionBinRange(toString(chrom), start2, end2)
                 if bin_id2 is None:
                     continue
                 else:
