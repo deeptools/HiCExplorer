@@ -138,8 +138,8 @@ def parse_arguments(args=None):
 
     #  Used for automatic testing
     parserOpt.add_argument('--disable_tight_layout',
-                            help=argparse.SUPPRESS,
-                            action='store_true')
+                           help=argparse.SUPPRESS,
+                           action='store_true')
 
     return parser
 
