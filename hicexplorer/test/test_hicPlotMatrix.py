@@ -267,7 +267,7 @@ def test_hicPlotMatrix_perChr():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
-    args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr  " \
+    args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr --disable_tight_layout " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr.png', outfile.name, tol=tolerance)
@@ -282,7 +282,7 @@ def test_hicPlotMatrix_perChr_without_h5_suffix():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
-    args = "--matrix {0}/small_test_matrix_50kb_res --perChr  " \
+    args = "--matrix {0}/small_test_matrix_50kb_res --perChr --disable_tight_layout " \
            "--outFileName  {1} ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr.png', outfile.name, tol=tolerance)
@@ -297,7 +297,7 @@ def test_hicPlotMatrix_cool_perChr_log1p():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
-    args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr  " \
+    args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr  --disable_tight_layout " \
            "--outFileName  {1} --log1 --vMax 10 ".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr_log.png', outfile.name, tol=tolerance)
@@ -312,7 +312,7 @@ def test_hicPlotMatrix_cool_perChr_log_chromosomeOrder():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
-    args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr " \
+    args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr  --disable_tight_layout " \
            "--outFileName  {1} --log --chromosomeOrder chr2L chr3L chr3R chr2R".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_perChr_log1p_chromosomeOrder.png', outfile.name, tol=tolerance)
@@ -327,7 +327,7 @@ def test_hicPlotMatrix_perChr_pca1_bigwig():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
-    args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --perChr " \
+    args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --perChr  --disable_tight_layout " \
            "--outFileName  {1} --bigwig {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)

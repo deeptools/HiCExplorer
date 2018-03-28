@@ -136,9 +136,12 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
 
-    return parser
+    #  Used for automatic testing
+    parserOpt.add_argument('--disable_tight_layout',
+                            help=argparse.SUPPRESS,
+                            action='store_true')
 
-# relabel xticks
+    return parser
 
 
 def relabel_ticks(pXTicks):
@@ -588,13 +591,14 @@ def main(args=None):
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info)
 
-    if args.perChromosome or args.bigwig:
-        try:
-            plt.tight_layout()
-        except UserWarning:
-            log.info("Failed to tight layout. Using regular plot.")
-        except ValueError:
-            log.info("Failed to tight layout. Using regular plot.")
+    if not args.disable_tight_layout:
+        if args.perChromosome or args.bigwig:
+            try:
+                plt.tight_layout()
+            except UserWarning:
+                log.info("Failed to tight layout. Using regular plot.")
+            except ValueError:
+                log.info("Failed to tight layout. Using regular plot.")
 
     plt.savefig(args.outFileName, dpi=args.dpi)
     plt.close(fig)
