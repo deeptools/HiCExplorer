@@ -82,7 +82,7 @@ a specific folder using the ``--prefix`` option)
 Galaxy installation
 --------------------
 
-HiCExplorer can be easily integrated into a local `Galaxy <http://galaxyproject.org>`_.
+HiCExplorer can be easily integrated into a local `Galaxy <http://galaxyproject.org>`_ via the _`Galaxy tool shed<https://toolshed.g2.bx.psu.edu/>`__. 
 
 Installation with Docker
 ^^^^^^^^^^^^^^^^^^^^^^^^
