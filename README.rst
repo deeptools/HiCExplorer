@@ -18,9 +18,9 @@ Set of programs to process, analyze and visualize Hi-C data
 Sequencing techniques that probe the 3D organization of the genome generate large amounts of data whose processing,
 analysis and visualization is challenging. Here, we present HiCExplorer, a set of tools for the analysis and
 visualization of chromosome conformation data. HiCExplorer facilitates the creation of contact matrices, correction
-of contacts, TAD detection, A/B compartments, merging, reordering or chromosomes, conversion from different formats including 
-`cooler <https://github.com/mirnylab/cooler>`_ and detection of long-range contacts. Moreover, it allows the visualization of 
-multiple contact matrices along with other types of data like genes, compartments, ChIP-seq coverage tracks (and in general 
+of contacts, TAD detection, A/B compartments, merging, reordering or chromosomes, conversion from different formats including
+`cooler <https://github.com/mirnylab/cooler>`_ and detection of long-range contacts. Moreover, it allows the visualization of
+multiple contact matrices along with other types of data like genes, compartments, ChIP-seq coverage tracks (and in general
 any type of genomic scores), long range contacts and the visualization of viewpoints.
 
 
@@ -28,42 +28,52 @@ Citation:
 ^^^^^^^^^
 
 
-Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening, Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke. 
+Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening, Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke.
 **"High-resolution TADs reveal DNA sequences underlying genome organization in flies". Nature Communications**, Volume 9, Article number: 189 (2018), doi: https://doi.org/10.1038/s41467-017-02525-w
 
 
 .. image:: ./docs/images/hicex2.png
 
+Availability
+^^^^^^^^^^^^
+
+HiCExplorer is available as a **command line suite of tools** on this very GitHub repository and also on other platforms (detailed in *Installation* below).
+
+A **Galaxy HiCExplorer version** is available on the `Galaxy Tool Shed <https://toolshed.g2.bx.psu.edu/>`_ and on the corresponding `GitHub repository <https://github.com/galaxyproject/tools-iuc>`_. A Docker image is also available at https://github.com/deeptools/docker-galaxy-hicexplorer.
+Finally, Galaxy HiCExplorer is directly available to users at http://hicexplorer.usegalaxy.eu. Training material is available `at this address <http://galaxyproject.github.io/training-material/topics/epigenetics/tutorials/hicexplorer/tutorial.html>`_,
+while a Galaxy Tour is available at https://hicexplorer.usegalaxy.eu/tours/hixexplorer for users not familiar with this platform.
+
+
 Installation
 ^^^^^^^^^^^^
 
-With version 2.0 HiCExplorer is available for Python 2 and Python 3:
+With version 2.0, HiCExplorer is available for Python 2 and Python 3 and can be installed via:
 
--  Command line usage (via pip/anaconda/github)
--  Integration into Galaxy servers (via toolshed/API/web-browser)
+-  Pip, Anaconda and GitHub for command line usage.
+-  Toolshed and Docker image for its integration on Galaxy servers.
 
 There are many easy ways to install HiCExplorer. Details can be found
-`here <https://hicexplorer.readthedocs.io/en/latest/content/installation.html>`__
+`here <https://hicexplorer.readthedocs.io/en/latest/content/installation.html>`_.
 
+Command line version
+++++++++++++++++++++
 
 Install with conda
-++++++++++++++++++
+__________________
 
 The easiest way to install HiCExplorer is using `BioConda <http://bioconda.github.io/>`_
 ::
 
    $ conda install hicexplorer -c bioconda -c conda-forge
 
-
-
 Install with pip
-++++++++++++++++
+________________
 ::
 
    $ pip install HiCExplorer
 
 Install by cloning this repository
-++++++++++++++++++++++++++++++++++
+__________________________________
 
 You can install any one of the HiCExplorer branches on command line
 (linux/mac) by cloning this git repository :
@@ -80,7 +90,21 @@ If you don't have root permission, you can set a specific folder using the ``--p
 
 	$ python setup.py install --prefix /User/Tools/hicexplorer
 
+Galaxy version
+++++++++++++++
+
+Install with Tool Shed
+______________________
+
+Galaxy HiCExplorer is part of the `Galaxy Tool Shed <https://toolshed.g2.bx.psu.edu/>`_ and can be installed from there to any Galaxy server following `this link <https://toolshed.g2.bx.psu.edu/repository/browse_repository?id=f1554978eeb3da8b>`_.
+
+
+Install with Docker
+___________________
+
+Installation instructions as a Docker image can be followed at https://github.com/deeptools/docker-galaxy-hicexplorer.
+
 
 Documentation:
 ^^^^^^^^^^^^^^
-Please visit our complete documentation `Here <http://hicexplorer.readthedocs.org/>`_
+Please visit our complete documentation `Here <http://hicexplorer.readthedocs.org/>`_. This documentation is also available directly within `Galaxy <http://hicexplorer.usegalaxy.eu/>`_.
