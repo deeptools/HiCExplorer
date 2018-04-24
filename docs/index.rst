@@ -14,9 +14,8 @@ Availability
 
 HiCExplorer is available as a **command line suite of tools** on this `GitHub repository <https://github.com/deeptools/HiCExplorer>`_.
 
-A **Galaxy HiCExplorer version** is available on the `Galaxy Tool Shed <https://toolshed.g2.bx.psu.edu/>`_ and on the corresponding `GitHub repository <https://github.com/galaxyproject/tools-iuc>`_. A Docker image is also available at https://github.com/deeptools/docker-galaxy-hicexplorer.
-Finally, Galaxy HiCExplorer is directly available to users at http://hicexplorer.usegalaxy.eu. Training material is available `at this address <http://galaxyproject.github.io/training-material/topics/epigenetics/tutorials/hicexplorer/tutorial.html>`_,
-while a Galaxy Tour is available at https://hicexplorer.usegalaxy.eu/tours/hixexplorer for users not familiar with this platform.
+A **Galaxy HiCExplorer version** is directly available to users at http://hicexplorer.usegalaxy.eu. Training material is available at the `Galaxy Training Network <http://galaxyproject.github.io/training-material/topics/epigenetics/tutorials/hicexplorer/tutorial.html>`_,
+while a Galaxy Tour is available `here <https://hicexplorer.usegalaxy.eu/tours/hixexplorer>`_ for users not familiar with this platform. Galaxy HiCExplorer is also available as a Docker image at the `Docker Galaxy HiCExplorer GitHub repository <https://github.com/deeptools/docker-galaxy-hicexplorer>`_. Finally, this Galaxy version is available on the `Galaxy Tool Shed <https://toolshed.g2.bx.psu.edu/>`_ and on the corresponding `GitHub repository <https://github.com/galaxyproject/tools-iuc>`_.
 
 
 The following is the list of tools available in HiCExplorer
