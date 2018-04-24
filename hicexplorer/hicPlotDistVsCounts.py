@@ -387,9 +387,9 @@ def main(args=None):
             if args.outFileData is not None:
                 x_vals = np.stack(x).T
                 y_vals = np.stack(y).T
-                table_to_export = pd.DataFrame({'Matrix': matrix_file, 
-                                                'Chromosome': chrom, 
-                                                'Distance': x_vals, 
+                table_to_export = pd.DataFrame({'Matrix': matrix_file,
+                                                'Chromosome': chrom,
+                                                'Distance': x_vals,
                                                 'Contacts': y_vals})
                 table_to_export.to_csv(args.outFileData, sep='\t')
 
