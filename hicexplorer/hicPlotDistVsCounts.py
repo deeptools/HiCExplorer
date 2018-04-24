@@ -2,6 +2,7 @@ from __future__ import division
 
 import os.path
 import numpy as np
+import pandas as pd
 import argparse
 
 import hicexplorer.HiCMatrix as HiCMatrix
@@ -384,17 +385,15 @@ def main(args=None):
             axs[row, col] = ax
             idx += 1
             if args.outFileData is not None:
-                if args.perchr and len(args.matrices) > 1:
-                    label = labels[matrix_file]
-                    args.outFileData.write("#{}\n".format(chrom))
-
-                elif args.perchr:
-                    label = chrom
-                else:
-                    label = labels[matrix_file]
-                args.outFileData.write("#{}\n".format(label))
-                args.outFileData.write("\t".join(map(str, x)) + "\n")
-                args.outFileData.write("\t".join(map(str, y)) + "\n")
+                x_vals= np.stack(x).T
+                y_vals= np.stack(y).T
+                table_to_export = pd.DataFrame(
+                        {'Matrix': matrix_file,
+                         'Chromosome': chrom,
+                         'Distance': x_vals,
+                         'Contacts': y_vals
+                        })
+                table_to_export.to_csv(args.outFileData, sep='\t')
 
     for ax in axs.reshape(-1):
         if ax is None:
