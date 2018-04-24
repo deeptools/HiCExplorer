@@ -39,9 +39,8 @@ Availability
 
 HiCExplorer is available as a **command line suite of tools** on this very GitHub repository and also on other platforms (detailed in *Installation* below).
 
-A **Galaxy HiCExplorer version** is available on the `Galaxy Tool Shed <https://toolshed.g2.bx.psu.edu/>`_ and on the corresponding `GitHub repository <https://github.com/galaxyproject/tools-iuc>`_. A Docker image is also available at https://github.com/deeptools/docker-galaxy-hicexplorer.
-Finally, Galaxy HiCExplorer is directly available to users at http://hicexplorer.usegalaxy.eu. Training material is available `at this address <http://galaxyproject.github.io/training-material/topics/epigenetics/tutorials/hicexplorer/tutorial.html>`_,
-while a Galaxy Tour is available at https://hicexplorer.usegalaxy.eu/tours/hixexplorer for users not familiar with this platform.
+A **Galaxy HiCExplorer version** is directly available to users at http://hicexplorer.usegalaxy.eu. Training material is available at the `Galaxy Training Network <http://galaxyproject.github.io/training-material/topics/epigenetics/tutorials/hicexplorer/tutorial.html>`_,
+while a Galaxy Tour is available `here <https://hicexplorer.usegalaxy.eu/tours/hixexplorer>`_ for users not familiar with this platform. Galaxy HiCExplorer is also available as a Docker image at the `Docker Galaxy HiCExplorer GitHub repository <https://github.com/deeptools/docker-galaxy-hicexplorer>`_. Finally, this Galaxy version is available on the `Galaxy Tool Shed <https://toolshed.g2.bx.psu.edu/>`_ and on the corresponding `GitHub repository <https://github.com/galaxyproject/tools-iuc>`_.
 
 
 Installation
@@ -93,16 +92,16 @@ If you don't have root permission, you can set a specific folder using the ``--p
 Galaxy version
 ++++++++++++++
 
-Install with Tool Shed
-______________________
-
-Galaxy HiCExplorer is part of the `Galaxy Tool Shed <https://toolshed.g2.bx.psu.edu/>`_ and can be installed from there to any Galaxy server following `this link <https://toolshed.g2.bx.psu.edu/repository/browse_repository?id=f1554978eeb3da8b>`_.
-
-
 Install with Docker
 ___________________
 
 Installation instructions as a Docker image can be followed at https://github.com/deeptools/docker-galaxy-hicexplorer.
+
+
+Install with Tool Shed
+______________________
+
+Galaxy HiCExplorer is part of the `Galaxy Tool Shed <https://toolshed.g2.bx.psu.edu/>`_ and can be installed from there to any Galaxy server following `this link <https://toolshed.g2.bx.psu.edu/repository/browse_repository?id=f1554978eeb3da8b>`_.
 
 
 Documentation:
