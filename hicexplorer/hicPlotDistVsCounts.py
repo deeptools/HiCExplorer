@@ -385,14 +385,12 @@ def main(args=None):
             axs[row, col] = ax
             idx += 1
             if args.outFileData is not None:
-                x_vals= np.stack(x).T
-                y_vals= np.stack(y).T
-                table_to_export = pd.DataFrame(
-                        {'Matrix': matrix_file,
-                         'Chromosome': chrom,
-                         'Distance': x_vals,
-                         'Contacts': y_vals
-                        })
+                x_vals = np.stack(x).T
+                y_vals = np.stack(y).T
+                table_to_export = pd.DataFrame({'Matrix': matrix_file, 
+                                                'Chromosome': chrom, 
+                                                'Distance': x_vals, 
+                                                'Contacts': y_vals})
                 table_to_export.to_csv(args.outFileData, sep='\t')
 
     for ax in axs.reshape(-1):
