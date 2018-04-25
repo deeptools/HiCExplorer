@@ -29,7 +29,7 @@ MOCK_MODULES = ['numpy', 'numpy.distutils.core', 'pandas', 'pysam', 'intervaltre
                 'Bio', 'Bio.Seq', 'Bio.Alphabet',
                 'pyBigWig', 'tables', 'pytables', 'future', 'past', 'builtins', 'past.builtins',
                 'future.utils', 'cooler', '__future__', 'logging', 
-                'subprocess', 'multiprocessing.sharedctypes', 'errno', 'textwrap', 'copy']
+                'subprocess', 'multiprocessing.sharedctypes', 'errno', 'textwrap', 'unidecode']
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
