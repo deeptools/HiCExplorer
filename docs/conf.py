@@ -28,7 +28,7 @@ MOCK_MODULES = ['numpy', 'numpy.distutils.core', 'pandas', 'pysam', 'intervaltre
                 'mpl_toolkits', 'mpl_toolkits.axisartist', 'mpl_toolkits.mplot3d', 'mpl_toolkits.axes_grid1',
                 'Bio', 'Bio.Seq', 'Bio.Alphabet',
                 'pyBigWig', 'tables', 'pytables', 'future', 'past', 'builtins', 'past.builtins',
-                'future.utils', 'cooler', '__future__', 'logging', 'conf.py']
+                'future.utils', 'cooler', '__future__', 'logging', 'subprocess']
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
