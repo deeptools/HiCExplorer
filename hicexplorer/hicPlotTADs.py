@@ -257,7 +257,7 @@ def parse_arguments(args=None):
                            required=False)
 
     parserOpt.add_argument('--scoreName', '-s',
-                           help='Score name.',
+                           help='Score name label for the heatmap legend.',
                            required=False)
 
     parserOpt.add_argument('--outFileName', '-out',
