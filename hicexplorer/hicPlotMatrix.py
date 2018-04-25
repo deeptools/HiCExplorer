@@ -57,7 +57,7 @@ def parse_arguments(args=None):
                            help='Plot title.')
 
     parserOpt.add_argument('--scoreName', '-s',
-                           help='Score name.')
+                           help='Score name label for the heatmap legend.')
 
     parserOpt.add_argument('--perChromosome',
                            help='Instead of plotting the whole matrix, '
