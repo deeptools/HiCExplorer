@@ -199,7 +199,7 @@ class hiCMatrix:
         cut_intervals = []
 
         for values in cut_intervals_data_frame.values:
-            cut_intervals.append(tuple([toBytes(values[0]), values[1], values[2], 1.0]))
+            cut_intervals.append(tuple([toString(values[0]), values[1], values[2], 1.0]))
 
         # try to restore nan_bins.
         try:
@@ -284,8 +284,7 @@ class hiCMatrix:
         else:
             distance_counts = _ma['dist_counts'].tolist()
 
-        map(toString, _ma['chrNameList'])
-        cut_intervals = zip(_ma['chrNameList'], _ma['startList'],
+        cut_intervals = zip(toString(_ma['chrNameList']), _ma['startList'],
                             _ma['endList'], _ma['extraList'])
 
         assert len(cut_intervals) == matrix.shape[0], \

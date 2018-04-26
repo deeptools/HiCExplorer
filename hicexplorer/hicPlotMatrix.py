@@ -56,7 +56,7 @@ def parse_arguments(args=None):
                            help='Plot title.')
 
     parserOpt.add_argument('--scoreName', '-s',
-                           help='Score name.')
+                           help='Score name label for the heatmap legend.')
 
     parserOpt.add_argument('--perChromosome',
                            help='Instead of plotting the whole matrix, '
@@ -66,7 +66,8 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--clearMaskedBins',
                            help='If set, masked bins are removed from the matrix '
-                           'and not shown as black lines.',
+                           'and the nearest bins are extended to cover the empty space '
+                           'instead of plotting black lines.',
                            action='store_true')
 
     parserOpt.add_argument('--chromosomeOrder',
@@ -79,7 +80,7 @@ def parse_arguments(args=None):
                            help='Plot only this region. The format is '
                            'chr:start-end The plotted region contains '
                            'the main diagonal and is symmetric unless '
-                           ' --region2 is given.'
+                           '--region2 is given.'
                            )
 
     parserOpt.add_argument('--region2',
@@ -452,7 +453,11 @@ def main(args=None):
     # if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix) or'.mcool' in args.matrix:
     is_cooler = check_cooler(args.matrix)
     log.debug("Cooler or no cooler: {}".format(is_cooler))
-    if is_cooler and not args.region2:
+    open_cooler_chromosome_order = True
+    if args.chromosomeOrder is not None and len(args.chromosomeOrder) > 1:
+        open_cooler_chromosome_order = False
+
+    if is_cooler and not args.region2 and open_cooler_chromosome_order:
         log.debug("Retrieve data from cooler format and use its benefits.")
         regionsToRetrieve = None
         if args.region:
@@ -494,7 +499,7 @@ def main(args=None):
             log.debug("ma.chrBinBoundaries {}".format(ma.chrBinBoundaries))
             if sys.version_info[0] == 3:
                 args.chromosomeOrder = toBytes(args.chromosomeOrder)
-            for chrom in args.chromosomeOrder:
+            for chrom in toString(args.chromosomeOrder):
                 if chrom in ma.chrBinBoundaries:
                     valid_chromosomes.append(chrom)
                 else:

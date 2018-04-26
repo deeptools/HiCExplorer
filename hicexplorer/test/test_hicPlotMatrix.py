@@ -308,12 +308,26 @@ def test_hicPlotMatrix_cool_perChr_log1p():
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_cool_perChr_log_chromosomeOrder():
-
+def test_hicPlotMatrix_h5_perChr_log1p_chromosomeOrder():
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
     args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr  --disable_tight_layout " \
            "--outFileName  {1} --log --chromosomeOrder chr2L chr3L chr3R chr2R".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_perChr_log1p_chromosomeOrder.png', outfile.name, tol=tolerance)
+    assert res is None, res
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
+
+@pytest.mark.skipif(LOW_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
+
+    args = "--matrix {0}/small_test_matrix_50kb_res.cool --perChr " \
+           "--outFileName  {1} --log1p --chromosomeOrder chr2L chr3L chr3R chr2R".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_perChr_log1p_chromosomeOrder.png', outfile.name, tol=tolerance)
     assert res is None, res
