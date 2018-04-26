@@ -187,7 +187,7 @@ def parse_arguments(args=None):
                                 'is AAGCTT and the dangling end is AGCT. For DpnII, the restriction site and dangling '
                                 'end sequence are the same: GATC. This information is easily found on the description '
                                 'of the restriction enzyme. The dangling sequence is used to classify and report reads '
-                                'whose 5’ end starts with such sequence as dangling-end reads. A significant portion '
+                                'whose 5\' end starts with such sequence as dangling-end reads. A significant portion '
                                 'of dangling-end reads in a sample are indicative of a problem with the re-ligation '
                                 'step of the protocol.')
 
@@ -199,7 +199,7 @@ def parse_arguments(args=None):
                            required=False,
                            type=genomicRegion
                            )
-    # # curently not implemented
+    # currently not implemented
     parserOpt.add_argument('--removeSelfLigation',
                            # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
                            #     'site in between are removed. Although this reads do not contribute to '
