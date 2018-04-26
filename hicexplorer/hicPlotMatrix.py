@@ -458,7 +458,11 @@ def main(args=None):
     # if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix) or'.mcool' in args.matrix:
     is_cooler = check_cooler(args.matrix)
     log.debug("Cooler or no cooler: {}".format(is_cooler))
-    if is_cooler and not args.region2:
+    open_cooler_chromosome_order = True
+    if args.chromosomeOrder is not None and len(args.chromosomeOrder) > 1:
+        open_cooler_chromosome_order = False
+
+    if is_cooler and not args.region2 and open_cooler_chromosome_order:
         log.debug("Retrieve data from cooler format and use its benefits.")
         regionsToRetrieve = None
         if args.region:
