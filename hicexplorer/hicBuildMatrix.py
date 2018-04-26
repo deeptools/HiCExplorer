@@ -181,14 +181,15 @@ def parse_arguments(args=None):
                            help='Sequence of the restriction site.')
 
     parserOpt.add_argument('--danglingSequence',
-                           help='Dangling end sequence left by the restriction enzyme. For DpnII for example, the '
-                           'dangling end is the same restriction sequence. This is used '
-                           'to discard reads that end/start with such sequence '
-                           'and that are considered un-ligated fragments or '
-                           '"dangling-ends". If not given, such statistics will '
-                           'not be available. Dangling-ends usually represent a significant proportion '
-                           'of Hi-C libraries and might lead to erronous Hi-C matrices if they are not discarded. '
-                           'This parameter must be taken into account.')
+                           help='Sequence left by the restriction enzyme after cutting. Each restriction enzyme '
+                                'recognizes a different DNA sequence and, after cutting, they leave behind a specific '
+                                '"sticky" end or dangling end sequence.  For example, for HindIII the restriction site '
+                                'is AAGCTT and the dangling end is AGCT. For DpnII, the restriction site and dangling '
+                                'end sequence are the same: GATC. This information is easily found on the description '
+                                'of the restriction enzyme. The dangling sequence is used to classify and report reads '
+                                'whose 5’ end starts with such sequence as dangling-end reads. A significant portion '
+                                'of dangling-end reads in a sample are indicative of a problem with the re-ligation '
+                                'step of the protocol.')
 
     parserOpt.add_argument('--region', '-r',
                            help='Region of the genome to limit the operation to. '
