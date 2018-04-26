@@ -319,6 +319,7 @@ def test_hicPlotMatrix_h5_perChr_log1p_chromosomeOrder():
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
 
+
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder():
@@ -332,6 +333,7 @@ def test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder():
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
+
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
