@@ -67,7 +67,8 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--clearMaskedBins',
                            help='If set, masked bins are removed from the matrix '
-                           'and not shown as black lines.',
+                           'and the nearest bins are extended to cover the empty space '
+                           'instead of plotting black lines.',
                            action='store_true')
 
     parserOpt.add_argument('--chromosomeOrder',
@@ -80,7 +81,7 @@ def parse_arguments(args=None):
                            help='Plot only this region. The format is '
                            'chr:start-end The plotted region contains '
                            'the main diagonal and is symmetric unless '
-                           ' --region2 is given.'
+                           '--region2 is given.'
                            )
 
     parserOpt.add_argument('--region2',
