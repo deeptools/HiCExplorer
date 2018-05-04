@@ -109,7 +109,7 @@ def compute_long_range_contacts(pZscoreMatrix, pThreshold, pEpsDbscan, pMinSampl
     return clusters
 
 
-def write_bedgraph()
+def write_bedgraph(pClusters, pOutFileName, )
     
 
 def main():
