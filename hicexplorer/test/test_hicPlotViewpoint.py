@@ -36,6 +36,19 @@ def test_plot_single_point():
     os.remove(outfile.name)
 
 
+def test_plot_single_point_two_matrices():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint1', delete=False)
+    matrix = ROOT + 'Li_et_al_2015.h5' + ' ' + ROOT + 'Li_et_al_2015_twice.h5'
+    args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {} --dpi 300".format(matrix, outfile.name).split()
+    hicPlotViewpoint.main(args)
+
+    res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32Mb_twice.png', outfile.name, tol=40)
+    assert res is None, res
+
+    os.remove(outfile.name)
+
+
 def test_plot_single_point_interaction_file():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint2', delete=False)
@@ -50,6 +63,26 @@ def test_plot_single_point_interaction_file():
     assert are_files_equal(ROOT + '/hicPlotViewpoint/li_32mb_interactions.bedgraph', outfile_interactions.name)
     os.remove(outfile.name)
     os.remove(outfile_interactions.name)
+
+
+def test_plot_single_point_interaction_file_two_matrices():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint2', delete=False)
+    outfile_interactions_one = NamedTemporaryFile(suffix='.bedgraph', prefix='viewpoint_interactons_Li_et_al_2015.h5', delete=False)
+    outfile_interactions_two = NamedTemporaryFile(suffix='.bedgraph', prefix='viewpoint_interactons_Li_et_al_2015_twice.h5', delete=False)
+    matrix = ROOT + 'Li_et_al_2015.h5' + ' ' + ROOT + 'Li_et_al_2015_twice.h5'
+
+    args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {} -i {} --dpi 300".format(matrix, outfile.name, 'viewpoint_interactons').split()
+    hicPlotViewpoint.main(args)
+
+    res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32Mb_twice.png', outfile.name, tol=40)
+    assert res is None, res
+    assert are_files_equal(ROOT + '/hicPlotViewpoint/li_32mb_interactions_one.bedgraph', outfile_interactions_one.name)
+    assert are_files_equal(ROOT + '/hicPlotViewpoint/li_32mb_interactions_two.bedgraph', outfile_interactions_two.name)
+
+    os.remove(outfile.name)
+    os.remove(outfile_interactions_one.name)
+    os.remove(outfile_interactions_two.name)
 
 
 def test_plot_region():
