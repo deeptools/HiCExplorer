@@ -24,9 +24,10 @@ Computes long range contacts within the given contact matrix
 
     parserRequired.add_argument('--matrix', '-m',
                                 help='The matrix to compute the long range contacts on.',
-                                nargs=1,
                                 required=True)
-
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='Outfile name with long range contacts clusters, should be a bedgraph.',
+                                required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--zScoreThreshold', '-zt',
                            type=float,
@@ -42,7 +43,11 @@ Computes long range contacts within the given contact matrix
                            type=int,
                            default=2,
                            help='Minimum number of samples needed until they are accepted as a cluster.')
-
+    parserOpt.add_argument('--chromosomeOrder',
+                           help='Chromosomes and order in which the chromosomes should be saved. If not all chromosomes '
+                           'are given, the missing chromosomes are left out. For example, --chromosomeOrder chrX will '
+                           'export a matrix only containing chromosome X.',
+                           nargs='+')
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -56,6 +61,8 @@ def _sum_per_distance(pSum_per_distance, pData, pDistances, pN):
         pSum_per_distance[pDistances[i]] += pData[i]
 
     return pSum_per_distance
+
+
 
 
 def compute_zscore_matrix(pMatrix):
@@ -80,13 +87,15 @@ def compute_zscore_matrix(pMatrix):
     #     sum_per_distance[distances[i]] += data[i]
 
     # compute mean
-    mean = sum_per_distance / pMatrix.shape[0]
+
+    max_contacts = np.array(range(pMatrix.shape[0], 0, -1)) 
+    mean = sum_per_distance / max_contacts
 
     # compute sigma squared
     for i in range(len(instances)):
         sigma_2[distances[i]] += np.square(data[i] - mean[distances[i]])
 
-    sigma_2 /= pMatrix.shape[0]
+    sigma_2 /= max_contacts
     sigma = np.sqrt(sigma_2)
 
     # z_score (x - mean) / sigma
@@ -114,10 +123,16 @@ def compute_long_range_contacts(pHiCMatrix, pThreshold, pEpsDbscan, pMinSamplesD
     instances = instances[mask]
     features = features[mask]
     distances_zip = zip(instances, features)
-    distances = euclidean_distances(distances_zip)
+
+    log.debug('{}, {}'.format(instances, features))
+    log.debug('{}, {}'.format(len(instances), len(features)))
+    log.debug('{}, {}'.format(type(instances), type(features)))
+    
+    log.debug('Distances: {}'.format(distances_zip))
+    distances = euclidean_distances([*distances_zip])
     # call DBSCAN
     clusters = dbscan(X=distances, eps=pEpsDbscan, metric='precomputed', min_samples=pMinSamplesDbscan)
-
+    print(clusters)
     # map clusters to contact matrix positions
     return cluster_to_genome_position_mapping(pHiCMatrix, clusters, instances, features)
 
@@ -130,7 +145,7 @@ def cluster_to_genome_position_mapping(pHicMatrix, pCluster, pInstances, pFeatur
             if pCluster[1][i] != -1:
                 chr_x, start_x, end_x, _ = pHicMatrix.getBinPos(pInstances[i])
                 chr_y, start_y, end_y, _ = pHicMatrix.getBinPos(pFeatures[i])
-                mapped_cluster.append((chr_x, start_x, end_x, chr_y, start_y, end_y, pCluster[i]))
+                mapped_cluster.append((chr_x, start_x, end_x, chr_y, start_y, end_y, pCluster[1][i]))
     return mapped_cluster
 
 
@@ -144,9 +159,10 @@ def write_bedgraph(pClusters, pOutFileName):
 def main():
 
     args = parse_arguments().parse_args()
-
+    
     hic_matrix = hm.hiCMatrix(args.matrix)
-
+    if args.chromosomeOrder:
+        hic_matrix.keepOnlyTheseChr(args.chromosomeOrder)
     hic_matrix.matrix.data = compute_zscore_matrix(hic_matrix.matrix)
 
     mapped_clusters = compute_long_range_contacts(hic_matrix, args.zScoreThreshold,
