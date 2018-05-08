@@ -44,3 +44,16 @@ def test_compute_zscore_matrix():
 
     z_score = hicDetectLongRangeContacts.compute_zscore_matrix(matrix)
     print('foo:', z_score)
+
+def test_compute_long_range_contacts():
+    pass
+
+def test_cluster_to_genome_position_mapping():
+    pass
+
+def test_write_bedgraph():
+    pass
+
+def test_main():
+    pass
+    
