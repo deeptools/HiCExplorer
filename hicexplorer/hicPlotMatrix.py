@@ -133,6 +133,11 @@ def parse_arguments(args=None):
                            help='Scale the values of a bigwig file by the given factor.',
                            type=float,
                            default=1.0)
+    parserOpt.add_argument('--longRangeContacts',
+                           help='Bedgraph file to plot detected long range contacts '
+                           'from hicDetectLongRangeContacts.',
+                           type=str,
+                           default=None)
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -160,7 +165,8 @@ def relabel_ticks(pXTicks):
 
 
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
-                ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pBigwig=None):
+                ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pBigwig=None,
+                pLongRangeContacts=None, pHiCMatrix=None):
     log.debug("plotting heatmap")
     if ma.shape[0] < 5:
         # This happens when a tiny matrix wants to be plotted, or by using per chromosome and
@@ -249,7 +255,10 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     if xlabel is not None:
         xlabel = toString(xlabel)
         axHeat2.set_xlabel(xlabel)
-
+    if pLongRangeContacts:
+        plotLongRangeContacts(axHeat2, pLongRangeContacts, pHiCMatrix)
+        # pLongRangeContacts=None, pHiCMatrix=None
+        # plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix)
     if pBigwig:
         axHeat2.xaxis.set_label_position("top")
         axHeat2.xaxis.tick_top()
@@ -600,7 +609,8 @@ def main(args=None):
         position = [left_margin, bottom, width, height]
         plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
-                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info)
+                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
+                    pLongRangeContacts=args.longRangeContacts, pHiCMatrix=ma)
 
     if args.perChromosome or args.bigwig:
         try:
@@ -757,3 +767,46 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
         pAxis.fill_between(x, 0, bigwig_scores, edgecolor='none')
 
     # pAxis.get_xaxis().set_visible(False)
+
+
+def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix):
+
+    # file = open(filename, 'rb')
+    with open(pNameOfLongRangeContactsFile, 'rb') as file:
+        cluster_dict = {}
+        for line in file.readlines():
+            line = toString(line)
+            fields = line.strip().split('\t')
+
+            try:
+                chrom_X, start_X, end_X = fields[0:3]
+                chrom_Y, start_Y, end_Y = fields[3:6]
+                cluster = int(fields[6])
+
+                # x = pHiCMatrix.getRegionBinRange(chrom_X, int(start_X), int(end_X))[0]
+                # y = pHiCMatrix.getRegionBinRange(chrom_Y, int(start_Y), int(end_Y))[0]
+                x = int(start_X)
+                y = int(start_Y)
+                if cluster in cluster_dict:
+                    cluster_dict[cluster][0].append(x)
+                    cluster_dict[cluster][1].append(y)
+                else:
+                    cluster_dict[cluster] = [[x], [y]]
+            except:
+                pass
+        x_list = []
+        y_list = []
+
+        for cluster in cluster_dict:
+            x_list.append(min(cluster_dict[cluster][0]))
+            x_list.append(max(cluster_dict[cluster][0]))
+
+            y_list.append(min(cluster_dict[cluster][1]))
+            y_list.append(max(cluster_dict[cluster][1]))
+
+        print(x_list)
+        print(y_list)
+        
+        pAxis.plot(x_list, y_list, 'ro', lw=3)
+        # plt.setp(l, markersize=10)
+        # plt.setp(l, markerfacecolor='C0')
