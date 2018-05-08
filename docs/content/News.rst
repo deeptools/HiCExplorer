@@ -1,6 +1,38 @@
 News and Developments
 =====================
 
+Release 2.1.1
+------------
+**27 March 2018**
+
+This release fixes a problem related to python3 in which chromosome names were of bytes type
+
+Release 2.1
+-----------
+**5 March 2018**
+
+The 2.1 version of HiCExplorer comes with new features and bugfixes.
+
+- Adding the new feature `hicAggregateContacts`: A tool that allows plotting of aggregated Hi-C sub-matrices of a specified list of positions.
+- Many improvements to the documentation and the help text. Thanks to @GinaRe and @gtrichard.
+- hicPlotMatrix:
+    - supports only bigwig files for an additional data track.
+    - the argument `--pca` was renamed to `--bigwig`
+    - Smoothing the bigwig values to neighboring bins if no data is present there
+    - Fixes to a bug concerning a crash of `tight_layout`
+    - Adding the possibility to flip the sign of the values of the bigwig track
+    - Adding the possibility to scale the values of the bigwig track 
+- hicPlotViewpoint: Adds a feature to plot multiple matrices in one image
+- cooler file format:
+   - supports mcool files
+   - applies correction factors if present
+   - optionally reads `bin['weight']`
+- fixes:
+    - a crash in hicPlotTads if `horizontal lines` were used
+    - checks if all characters of a title are ASCII. If not they are converted to the closest looking one.
+- Updated and fixate version number of the dependencies
+
+
 Release 2.0
 -----------
 
