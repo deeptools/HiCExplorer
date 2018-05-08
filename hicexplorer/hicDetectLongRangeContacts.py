@@ -28,11 +28,21 @@ Computes long range contacts within the given contact matrix
                                 required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--z_score_threshold', '-zt',
-                            type=float,
-                            default=2.0,
-                            help='z-score threshold to detect long range interactions')
-    
+    parserOpt.add_argument('--zScoreThreshold', '-zt',
+                           type=float,
+                           default=2.0,
+                           help='z-score threshold to detect long range interactions')
+
+    parserOpt.add_argument('--epsDbscan', '-eps',
+                           type=float,
+                           default=2.0,
+                           help='Epsilon threshold for DBSCAN.')
+
+    parserOpt.add_argument('--minSamplesDbscan', '-msd',
+                           type=int,
+                           default=2,
+                           help='Minimum number of samples needed until they are accepted as a cluster.')
+
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -41,19 +51,19 @@ Computes long range contacts within the given contact matrix
     return parser
 
 
-
 def _sum_per_distance(pSum_per_distance, pData, pDistances, pN):
     for i in range(pN):
         pSum_per_distance[pDistances[i]] += pData[i]
 
     return pSum_per_distance
 
+
 def compute_zscore_matrix(pMatrix):
 
     # compute distribution per genomic distance
     # mean
     # sigma
-    
+
     instances, features = pMatrix.nonzero()
     pMatrix.data = pMatrix.data.astype(float)
     data = pMatrix.data.tolist()
@@ -83,18 +93,20 @@ def compute_zscore_matrix(pMatrix):
 
     for i in range(len(instances)):
         pMatrix.data[i] = (pMatrix.data[i] - mean[distances[i]]) / sigma[distances[i]]
-    
+
     return pMatrix.data
 
-def compute_long_range_contacts(pZscoreMatrix, pThreshold, pEpsDbscan, pMinSamplesDbscan):
-   
+
+def compute_long_range_contacts(pHiCMatrix, pThreshold, pEpsDbscan, pMinSamplesDbscan):
+
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
     # compute all vs. all distances of the coordinates
     # use DBSCAN to cluster this
 
-    instances, features = pZscoreMatrix.nonzero()
-    data = pZscoreMatrix.data.astype(float)
+    zscore_matrix = pHiCMatrix.matrix
+    instances, features = zscore_matrix.nonzero()
+    data = zscore_matrix.data.astype(float)
 
     # filter by threshold
     mask = data >= pThreshold
@@ -106,11 +118,28 @@ def compute_long_range_contacts(pZscoreMatrix, pThreshold, pEpsDbscan, pMinSampl
     # call DBSCAN
     clusters = dbscan(X=distances, eps=pEpsDbscan, metric='precomputed', min_samples=pMinSamplesDbscan)
 
-    return clusters
+    # map clusters to contact matrix positions
+    return cluster_to_genome_position_mapping(pHiCMatrix, clusters, instances, features)
 
 
-def write_bedgraph(pClusters, pOutFileName, )
-    
+def cluster_to_genome_position_mapping(pHicMatrix, pCluster, pInstances, pFeatures):
+    # mapping: chr_X, start, end, chr_Y, start, end, cluster_id
+    mapped_cluster = []
+    if len(pCluster[0]) > 0:
+        for i in range(len(pInstances)):
+            if pCluster[1][i] != -1:
+                chr_x, start_x, end_x, _ = pHicMatrix.getBinPos(pInstances[i])
+                chr_y, start_y, end_y, _ = pHicMatrix.getBinPos(pFeatures[i])
+                mapped_cluster.append((chr_x, start_x, end_x, chr_y, start_y, end_y, pCluster[i]))
+    return mapped_cluster
+
+
+def write_bedgraph(pClusters, pOutFileName):
+
+    with open(pOutFileName, 'w') as fh:
+        for cluster_item in pClusters:
+            fh.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % cluster_item)
+
 
 def main():
 
@@ -120,6 +149,8 @@ def main():
 
     hic_matrix.matrix.data = compute_zscore_matrix(hic_matrix.matrix)
 
-    clusters = compute_long_range_contacts(hic_matrix.matrix, args.z_score_threshold)
+    mapped_clusters = compute_long_range_contacts(hic_matrix, args.zScoreThreshold,
+                                                  args.epsDbscan, args.minSamplesDbscan)
 
-    write_bedgraph(clusters, args.outFileName)
+    # write it to bedgraph / bigwig file
+    write_bedgraph(mapped_clusters, args.outFileName)
