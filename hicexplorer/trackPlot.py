@@ -1084,7 +1084,7 @@ class PlotHiCMatrix(TrackPlot):
                 from matplotlib.ticker import LogFormatter
                 formatter = LogFormatter(10, labelOnlyBase=False)
                 aa = np.array([1, 2, 5])
-                tick_values = np.concatenate([aa * 10**x for x in range(10)])
+                tick_values = np.concatenate([aa * 10 ** x for x in range(10)])
                 cobar = plt.colorbar(img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
                 """
                 aa = np.array([0, 1, 2, 3, 4, 5])

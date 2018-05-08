@@ -755,7 +755,7 @@ class hiCMatrix:
                 depth = max_depth_in_bins
             else:
                 depth = m_size
-                estimated_size_dense_matrix = m_size**2 * 8
+                estimated_size_dense_matrix = m_size ** 2 * 8
                 if estimated_size_dense_matrix > 100e6:
                     log.info("To compute z-scores a dense matrix is required. This will use \n"
                              "{} Mb of memory.\n To reduce memory use the maxdeph option."
