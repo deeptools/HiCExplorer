@@ -33,7 +33,8 @@ Computes long range contacts within the given contact matrix
                            type=float,
                            default=2.0,
                            help='z-score threshold to detect long range interactions')
-
+    parserOpt.add_argument('--scoreMatrixName', '-zs',
+                            help='Saves the computed z-score matrix')
     parserOpt.add_argument('--epsDbscan', '-eps',
                            type=float,
                            default=2.0,
@@ -57,12 +58,24 @@ Computes long range contacts within the given contact matrix
 
 
 def _sum_per_distance(pSum_per_distance, pData, pDistances, pN):
+    list_of_zero = []
     for i in range(pN):
-        pSum_per_distance[pDistances[i]] += pData[i]
-
+        if not np.isnan(pData[i]):
+            pSum_per_distance[pDistances[i]] += pData[i]
+            if pDistances[i] == 0:
+                list_of_zero.append(pData[i])
+    # print('pSum_per_distance: {}'.format(pSum_per_distance))
+    # print('list of zeros: {}'.format(list_of_zero))
+    # print('sum: {}'.format(sum(list_of_zero)))
     return pSum_per_distance
 
+# def mean():
 
+# def sigma_squared():
+
+# def sigma():
+
+# def zscore():
 
 
 def compute_zscore_matrix(pMatrix):
@@ -72,11 +85,17 @@ def compute_zscore_matrix(pMatrix):
     # sigma
 
     instances, features = pMatrix.nonzero()
+    print('instances: {}'.format(instances))
+
+    print('features: {}'.format(features))
+
+    print('pMatrix.data: {}'.format(pMatrix.data))
+    
     pMatrix.data = pMatrix.data.astype(float)
     data = pMatrix.data.tolist()
-
+    # print('data {}:'.format(data))
     distances = np.absolute(instances - features)
-
+    print('distances: {}'.format(distances))
     # mean = np.zeros(pMatrix.shape[0])
     sigma_2 = np.zeros(pMatrix.shape[0])
     sum_per_distance = np.zeros(pMatrix.shape[0])
@@ -89,20 +108,31 @@ def compute_zscore_matrix(pMatrix):
     # compute mean
 
     max_contacts = np.array(range(pMatrix.shape[0], 0, -1)) 
+    print('sum_per_distance: {}'.format(sum_per_distance))
+    
     mean = sum_per_distance / max_contacts
-
+    print('Mean: {}'.format(mean))
     # compute sigma squared
     for i in range(len(instances)):
-        sigma_2[distances[i]] += np.square(data[i] - mean[distances[i]])
-
+        if np.isnan(data[i]):
+            sigma_2[distances[i]] += np.square(mean[distances[i]])
+        else:
+            sigma_2[distances[i]] += np.square(data[i] - mean[distances[i]])
+    print('sigma_square: {}'.format(sigma_2))
+    
     sigma_2 /= max_contacts
     sigma = np.sqrt(sigma_2)
-
+    print('sigma: {}'.format(sigma))
+    
     # z_score (x - mean) / sigma
-
+    # nan is interpreted as 0
     for i in range(len(instances)):
-        pMatrix.data[i] = (pMatrix.data[i] - mean[distances[i]]) / sigma[distances[i]]
-
+        if np.isnan(pMatrix.data[i]):
+            pMatrix.data[i] = (0 - mean[distances[i]]) / sigma[distances[i]]
+        else:
+            pMatrix.data[i] = (pMatrix.data[i] - mean[distances[i]]) / sigma[distances[i]]
+    print('z-score: {}'.format(pMatrix.data))
+    
     return pMatrix.data
 
 
@@ -164,7 +194,8 @@ def main():
     if args.chromosomeOrder:
         hic_matrix.keepOnlyTheseChr(args.chromosomeOrder)
     hic_matrix.matrix.data = compute_zscore_matrix(hic_matrix.matrix)
-
+    if args.scoreMatrixName:
+        hic_matrix.save(args.scoreMatrixName)
     mapped_clusters = compute_long_range_contacts(hic_matrix, args.zScoreThreshold,
                                                   args.epsDbscan, args.minSamplesDbscan)
 
