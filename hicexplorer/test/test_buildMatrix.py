@@ -41,13 +41,9 @@ def test_build_matrix(capsys):
     print(set(os.listdir(ROOT + "QC/")))
     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
-    try:
-        assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize("/tmp/test.bam")) < 1000
-    except AssertionError:
-        with capsys.disabled():
-            print('\n')
-            print('\033[31m' + "AttributeError @test_build_matrix" + '\x1b[0m')
-            print('\n')
+
+    # accept delta of 60 kb, file size is around 4.5 MB
+    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize("/tmp/test.bam")) < 64000
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
