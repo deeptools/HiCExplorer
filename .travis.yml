@@ -28,7 +28,7 @@ jobs:
         - conda install --yes python=2.7 flake8
       script:
         - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712 ; fi
-   
+
 # Setup anaconda
 before_install:
   - export HIC_TEST_DATA_DIR="`pwd`/hicexplorer/test/test_data/"
@@ -55,4 +55,4 @@ install:
 
 # command to run tests
 script:
-  - py.test hicexplorer --doctest-modules
+  - py.test hicexplorer --doctest-modules --capture=sys
