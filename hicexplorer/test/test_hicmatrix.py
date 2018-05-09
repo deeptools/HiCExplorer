@@ -10,7 +10,6 @@ from past.builtins import zip
 from six import iteritems
 import pytest
 import logging
-from intervaltree import IntervalTree, Interval
 from collections import OrderedDict
 
 
@@ -63,7 +62,8 @@ def test_convert_to_zscore_matrix():
     mat[mat < 90] = 0
     # import ipdb;ipdb.set_trace()
     mu = dict([(idx, mat.diagonal(idx).mean()) for idx in range(mat.shape[0])])
-    std = dict([(idx, np.std(mat.diagonal(idx))) for idx in range(mat.shape[0])])
+    std = dict([(idx, np.std(mat.diagonal(idx)))
+                for idx in range(mat.shape[0])])
 
     # compute z-score for test matrix
     zscore_mat = np.zeros((m_size, m_size))
@@ -80,7 +80,8 @@ def test_convert_to_zscore_matrix():
     # make Hi-C matrix based on test matrix
     hic = hm.hiCMatrix()
     hic.matrix = csr_matrix(mat)
-    cut_intervals = [('chr', idx, idx + 10, 0) for idx in range(0, mat.shape[0] * 10, 10)]
+    cut_intervals = [('chr', idx, idx + 10, 0)
+                     for idx in range(0, mat.shape[0] * 10, 10)]
     hic.setMatrix(hic.matrix, cut_intervals)
     hic.convert_to_zscore_matrix()
 
@@ -100,7 +101,8 @@ def test_convert_to_zscore_matrix_2():
 
     m_size = mat.shape[0]
     # compute matrix values per distance
-    chrom, start, end, extra = zip(*hm.hiCMatrix.fit_cut_intervals(hic.cut_intervals))
+    chrom, start, end, extra = zip(
+        *hm.hiCMatrix.fit_cut_intervals(hic.cut_intervals))
     dist_values = {}
     sys.stderr.write("Computing values per distance for each matrix entry\n")
 
@@ -136,7 +138,8 @@ def test_convert_to_zscore_matrix_2():
 
     # from numpy.testing import assert_almost_equal
     # only the main diagonal is check. Other diagonals show minimal differences
-    nt.assert_almost_equal(hic.matrix.todense().diagonal(0).A1, zscore_mat.diagonal(0))
+    nt.assert_almost_equal(hic.matrix.todense().diagonal(
+        0).A1, zscore_mat.diagonal(0))
 
 
 def test_save_load_cooler_format():
@@ -231,11 +234,13 @@ def test_getCountsByDistance():
 
     # distance = hic.getCountsByDistance(mean=mean)
 
+
 def test_dist_list_to_dict():
     hic = hm.hiCMatrix()
 
     data = np.array([1, 8, 5, 3, 0, 4, 15, 5, 1, 0, 0, 2, 0, 1, 0])
-    dist_list = np.array([0, 10, 20, 30, -1, 0, 10, 20, -1, 0, 10, -1, 0, -1, 0])
+    dist_list = np.array(
+        [0, 10, 20, 30, -1, 0, 10, 20, -1, 0, 10, -1, 0, -1, 0])
 
     distance = hic.dist_list_to_dict(data, dist_list)
 
@@ -260,14 +265,16 @@ def test_getUnwantedChrs():
     assert hic.getUnwantedChrs() == {'chrM', 'chrYHet', 'chrXHet', 'chrUextra', 'chrU',
                                      'chr3RHet', 'chr3LHet', 'chr2RHet', 'chr2LHet'}
 
+
 def test_keepOnlyTheseChr():
     chromosome_list = ['chrX', 'chr2RHet']
 
     hic = hm.hiCMatrix(ROOT + 'small_test_matrix.h5')
 
-    keep = hic.keepOnlyTheseChr(chromosome_list)
+    hic.keepOnlyTheseChr(chromosome_list)
 
     nt.assert_equal(hic.getChrNames().sort(), chromosome_list.sort())
+
 
 def test_filterUnwantedChr():
     hic = hm.hiCMatrix(ROOT + 'small_test_matrix.h5')
@@ -295,13 +302,14 @@ def test_filterUnwantedChr():
     # and check that there are only 'chrX'-chromosomes left in matrix
     assert all(x == 'chrX' for x in chromosomes)
 
+
 @pytest.mark.xfail
 def test_save_bing_ren():
     """ Test needs to be marked as xfail because .gz files are expected in __init__ to be in dekker file format """
     outfile = '/tmp/matrix.gz'
     try:
         _outfile = open(outfile, 'r')
-    except FileNotFoundError:
+    except Exception:
         _outfile = open(outfile, 'w')
 
     _outfile.close()
@@ -311,23 +319,21 @@ def test_save_bing_ren():
     cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
                      ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
 
-
     matrix = np.array([[1, 8, 5, 3, 0],
                        [0, 4, 15, 5, 1],
                        [0, 0, 0, 0, 2],
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     # make matrix symmetric
     hic.setMatrix(hic.matrix, cut_intervals)
-    hic.matrix = hm.hiCMatrix.fillLowerTriangle(hic.matrix)
+    hic.matrix = hic.fillLowerTriangle(hic.matrix)
 
     hic.save_bing_ren(outfile)
 
     # Test fails here due to __init__ of hiCMatrix
-    hicTest = hm.hiCMatrix(outfile)
+    hm.hiCMatrix(outfile)
 
     # test = hicTest.matrix
 
@@ -347,13 +353,11 @@ def test_save_dekker():
     cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
                      ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
 
-
     matrix = np.array([[1, 8, 5, 3, 0],
                        [0, 4, 15, 5, 1],
                        [0, 0, 0, 0, 2],
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
-
 
     hic.matrix = csr_matrix(matrix)
     # make matrix symmetric
@@ -368,6 +372,7 @@ def test_save_dekker():
     nt.assert_equal(hic.getMatrix().shape, dekker_test.getMatrix().shape)
     nt.assert_equal(hic.getMatrix(), dekker_test.getMatrix())
 
+
 @pytest.mark.xfail
 def test_save_lieberman():
     """ Test fails because lieberman format requires folder and saves .gz files. Loading causes IO-Error. """
@@ -378,13 +383,11 @@ def test_save_lieberman():
     cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
                      ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
 
-
     matrix = np.array([[1, 8, 5, 3, 0],
                        [0, 4, 15, 5, 1],
                        [0, 0, 0, 0, 2],
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
-
 
     hic.matrix = csr_matrix(matrix)
     # make matrix symmetric
@@ -393,7 +396,8 @@ def test_save_lieberman():
 
     hic.save_lieberman(outpath)
 
-    lieberman_test = hm.hiCMatrix(outpath)
+    hm.hiCMatrix(outpath)
+
 
 @pytest.mark.xfail
 def test_save_GInteractions():
@@ -404,7 +408,7 @@ def test_save_GInteractions():
     outfile = '/tmp/matrix_GInteractions'
     try:
         _outfile = open(outfile, 'r')
-    except FileNotFoundError:
+    except Exception:
         _outfile = open(outfile, 'w')
     _outfile.close()
 
@@ -413,13 +417,11 @@ def test_save_GInteractions():
     cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
                      ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
 
-
     matrix = np.array([[1, 8, 5, 3, 0],
                        [0, 4, 15, 5, 1],
                        [0, 0, 0, 0, 2],
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
-
 
     hic.matrix = csr_matrix(matrix)
     # make matrix symmetric
@@ -429,11 +431,12 @@ def test_save_GInteractions():
     hic.save_GInteractions(outfile)
 
     # test fails during load
-    GI_test = hm.hiCMatrix(outfile)
+    hm.hiCMatrix(outfile)
     # GI_test.fillLowerTriangle(GI_test.matrix)
 
     # nt.assert_equal(hic.getMatrix().shape, GI_test.getMatrix().shape)
     # nt.assert_equal(hic.getMatrix(), GI_test.getMatrix())
+
 
 @pytest.mark.xfail
 def test_create_empty_cool_file():
@@ -454,7 +457,6 @@ def test_create_empty_cool_file():
                        [0, 0, 0, 0, 2],
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
-
 
     hic.matrix = csr_matrix(matrix)
     # make matrix symmetric
@@ -510,7 +512,6 @@ def test_save_cooler():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
 
@@ -519,7 +520,8 @@ def test_save_cooler():
     cooler_test_pSym_False = hm.hiCMatrix(outfile)
 
     # make both matrices symmetric
-    cooler_test_pSym_False.matrix = cooler_test_pSym_False.fillLowerTriangle(cooler_test_pSym_False.matrix)
+    cooler_test_pSym_False.matrix = cooler_test_pSym_False.fillLowerTriangle(
+        cooler_test_pSym_False.matrix)
     hic.matrix = hic.fillLowerTriangle(hic.matrix)
 
     nt.assert_equal(hic.getMatrix(), cooler_test_pSym_False.getMatrix())
@@ -537,7 +539,6 @@ def test_save_cooler():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
     hic.matrix = hic.fillLowerTriangle(hic.matrix)
@@ -547,7 +548,8 @@ def test_save_cooler():
     cooler_test_pAppCor_False = hm.hiCMatrix(outfile)
 
     # make test matrix symmetric
-    cooler_test_pAppCor_False.matrix = cooler_test_pAppCor_False.fillLowerTriangle(cooler_test_pAppCor_False.matrix)
+    cooler_test_pAppCor_False.matrix = cooler_test_pAppCor_False.fillLowerTriangle(
+        cooler_test_pAppCor_False.matrix)
 
     nt.assert_equal(hic.getMatrix(), cooler_test_pAppCor_False.getMatrix())
 
@@ -564,7 +566,6 @@ def test_save_cooler():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
 
@@ -573,7 +574,8 @@ def test_save_cooler():
     cooler_test_all_False = hm.hiCMatrix(outfile)
 
     # make both matrices symmetric
-    cooler_test_all_False.matrix = cooler_test_all_False.fillLowerTriangle(cooler_test_all_False.matrix)
+    cooler_test_all_False.matrix = cooler_test_all_False.fillLowerTriangle(
+        cooler_test_all_False.matrix)
     hic.matrix = hic.fillLowerTriangle(hic.matrix)
 
     nt.assert_equal(hic.getMatrix(), cooler_test_all_False.getMatrix())
@@ -599,7 +601,6 @@ def test_save_hdf5():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
     hic.matrix = hic.fillLowerTriangle(hic.matrix)
@@ -623,7 +624,6 @@ def test_save_hdf5():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
 
@@ -631,7 +631,8 @@ def test_save_hdf5():
 
     hdf5_test_pSym_False = hm.hiCMatrix(outfile)
 
-    hdf5_test_pSym_False.matrix = hdf5_test_pSym_False.fillLowerTriangle(hdf5_test_pSym_False.matrix)
+    hdf5_test_pSym_False.matrix = hdf5_test_pSym_False.fillLowerTriangle(
+        hdf5_test_pSym_False.matrix)
     hic.matrix = hic.fillLowerTriangle(hic.matrix)
 
     nt.assert_equal(hic.getMatrix(), hdf5_test_pSym_False.getMatrix())
@@ -652,7 +653,6 @@ def test_save_npz():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
     hic.matrix = hic.fillLowerTriangle(hic.matrix)
@@ -662,6 +662,7 @@ def test_save_npz():
     npz_test = hm.hiCMatrix(outfile)
 
     nt.assert_equal(hic.getMatrix(), npz_test.getMatrix())
+
 
 def test_save():
     """
@@ -689,7 +690,6 @@ def test_save():
                        [0, 0, 0, 0, 2],
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
-
 
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
@@ -730,16 +730,18 @@ def test_diagflat():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
     hic.matrix = hic.fillLowerTriangle(hic.matrix)
 
     hic.diagflat(value=1000)
-    nt.assert_equal(np.array([1000 for x in range(matrix.shape[0])]), hic.matrix.diagonal())
+    nt.assert_equal(
+        np.array([1000 for x in range(matrix.shape[0])]), hic.matrix.diagonal())
 
     hic.diagflat()
-    nt.assert_equal(np.array([np.nan for x in range(5)]), hic.matrix.diagonal())
+    nt.assert_equal(
+        np.array([np.nan for x in range(5)]), hic.matrix.diagonal())
+
 
 def test_filterOutInterChrCounts():
     hic = hm.hiCMatrix()
@@ -754,17 +756,16 @@ def test_filterOutInterChrCounts():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
     hic.matrix = hic.fillLowerTriangle(hic.matrix)
     hic.filterOutInterChrCounts()
 
     filtered_matrix = np.matrix([[1, 8, 5, 0, 0],
-                                [8, 4, 15, 0, 0],
-                                [5, 15, 0, 0, 0],
-                                [0, 0, 0, 0, 1],
-                                [0, 0, 0, 1, 0]])
+                                 [8, 4, 15, 0, 0],
+                                 [5, 15, 0, 0, 0],
+                                 [0, 0, 0, 0, 1],
+                                 [0, 0, 0, 1, 0]])
 
     nt.assert_equal(hic.getMatrix(), filtered_matrix)
 
@@ -782,19 +783,19 @@ def test_setMatrixValues_success():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
 
     new_matrix = np.array([[10, 80, 50, 30, 0],
-                          [0, 40, 150, 50, 10],
-                          [0, 0, 0, 0, 20],
-                          [0, 0, 0, 0, 10],
-                          [0, 0, 0, 0, 0]])
+                           [0, 40, 150, 50, 10],
+                           [0, 0, 0, 0, 20],
+                           [0, 0, 0, 0, 10],
+                           [0, 0, 0, 0, 0]])
 
     hic.setMatrixValues(new_matrix)
 
     nt.assert_equal(hic.getMatrix(), new_matrix)
+
 
 def test_setMatrixValues_fail():
     hic = hm.hiCMatrix()
@@ -809,16 +810,15 @@ def test_setMatrixValues_fail():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
     cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
                      ('a', 20, 30, 1), ('b', 30, 40, 1)]
 
     new_matrix = np.array([[10, 80, 50, 30],
-                          [0, 40, 150, 50],
-                          [0, 0, 0, 0],
-                          [0, 0, 0, 0]])
+                           [0, 40, 150, 50],
+                           [0, 0, 0, 0],
+                           [0, 0, 0, 0]])
     with pytest.raises(AssertionError):
         hic.setMatrixValues(new_matrix)
 
@@ -836,15 +836,15 @@ def test_setCorrectionFactors_success():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
 
-    assert hic.correction_factors == None
+    assert hic.correction_factors is None
 
     hic.setCorrectionFactors([5, 5, 5, 5, 5])
 
     nt.assert_equal(hic.correction_factors, [5, 5, 5, 5, 5])
+
 
 def test_setCorrectionFactors_fail():
     hic = hm.hiCMatrix()
@@ -859,11 +859,10 @@ def test_setCorrectionFactors_fail():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-
     hic.matrix = csr_matrix(matrix)
     hic.setMatrix(hic.matrix, cut_intervals)
 
-    assert hic.correction_factors == None
+    assert hic.correction_factors is None
     with pytest.raises(AssertionError):
         hic.setCorrectionFactors([5, 5, 5, 5])
 
@@ -887,18 +886,21 @@ def test_reorderChromosomes_old():
     new_chr_order = ['b', 'a']
     hic.reorderChromosomes_old(new_chr_order)
 
-    nt.assert_equal(hic.chrBinBoundaries, OrderedDict([('b', (0, 2)), ('a', (2, 5))]))
+    nt.assert_equal(hic.chrBinBoundaries, OrderedDict(
+        [('b', (0, 2)), ('a', (2, 5))]))
 
     old_chr_order = ['a', 'b']
     hic.reorderChromosomes_old(old_chr_order)
 
-    nt.assert_equal(hic.chrBinBoundaries, OrderedDict([('a', (0, 3)), ('b', (3, 5))]))
+    nt.assert_equal(hic.chrBinBoundaries, OrderedDict(
+        [('a', (0, 3)), ('b', (3, 5))]))
 
     # new order too long will cause function to return
     false_chr_order = ['a', 'b', 'c']
     hic.reorderChromosomes_old(false_chr_order)
 
-    nt.assert_equal(hic.chrBinBoundaries, OrderedDict([('a', (0, 3)), ('b', (3, 5))]))
+    nt.assert_equal(hic.chrBinBoundaries, OrderedDict(
+        [('a', (0, 3)), ('b', (3, 5))]))
 
 
 def test_reorderChromosomes():
@@ -920,12 +922,14 @@ def test_reorderChromosomes():
     new_chr_order = ['b', 'a']
     hic.reorderChromosomes(new_chr_order)
 
-    nt.assert_equal(hic.chrBinBoundaries, OrderedDict([('b', (0, 2)), ('a', (2, 5))]))
+    nt.assert_equal(hic.chrBinBoundaries, OrderedDict(
+        [('b', (0, 2)), ('a', (2, 5))]))
 
     old_chr_order = ['a', 'b']
     hic.reorderChromosomes(old_chr_order)
 
-    nt.assert_equal(hic.chrBinBoundaries, OrderedDict([('a', (0, 3)), ('b', (3, 5))]))
+    nt.assert_equal(hic.chrBinBoundaries, OrderedDict(
+        [('a', (0, 3)), ('b', (3, 5))]))
 
 
 def test_reorderChromosomes_fail():
@@ -948,7 +952,6 @@ def test_reorderChromosomes_fail():
     false_chr_order = ['a', 'b', 'c']
     with pytest.raises(SystemExit):
         hic.reorderChromosomes(false_chr_order)
-
 
 
 def test_reorderBins():
@@ -993,7 +996,8 @@ def test_reorderBins():
 
     nt.assert_equal(hic.getMatrix(), small_matrix)
     nt.assert_equal(hic.matrix.shape, small_matrix.shape)
-    nt.assert_equal(hic.chrBinBoundaries, OrderedDict([('a', (0, 1)), ('b', (1, 2))]))
+    nt.assert_equal(hic.chrBinBoundaries, OrderedDict(
+        [('a', (0, 1)), ('b', (1, 2))]))
     nt.assert_equal(hic.cut_intervals, [('a', 20, 30, 1), ('b', 30, 40, 1)])
     nt.assert_equal(hic.nan_bins, [])
 
@@ -1025,8 +1029,10 @@ def test_removeBins():
 
     nt.assert_equal(hic.getMatrix(), new_matrix)
     nt.assert_equal(hic.matrix.shape, new_matrix.shape)
-    nt.assert_equal(hic.chrBinBoundaries, OrderedDict([('a', (0, 1)), ('b', (1, 3))]))
-    nt.assert_equal(hic.cut_intervals, [('a', 0, 10, 1), ('b', 30, 40, 1), ('b', 40, 50, 1)])
+    nt.assert_equal(hic.chrBinBoundaries, OrderedDict(
+        [('a', (0, 1)), ('b', (1, 3))]))
+    nt.assert_equal(hic.cut_intervals, [
+                    ('a', 0, 10, 1), ('b', 30, 40, 1), ('b', 40, 50, 1)])
 
 
 def test_maskBins():
@@ -1057,11 +1063,13 @@ def test_maskBins():
 
     nt.assert_equal(hic.getMatrix(), new_matrix)
     nt.assert_equal(sorted(hic.orig_cut_intervals), sorted([('a', 0, 10, 1), ('a', 10, 20, 1),
-                                                            ('a', 20, 30, 1), ('b', 30, 40, 1),
+                                                            ('a', 20, 30,
+                                                             1), ('b', 30, 40, 1),
                                                             ('b', 40, 50, 1)]))
     nt.assert_equal(sorted(hic.cut_intervals), sorted([('a', 20, 30, 1), ('b', 30, 40, 1),
                                                        ('b', 40, 50, 1)]))
-    nt.assert_equal(hic.chrBinBoundaries, OrderedDict([('a', (0, 1)), ('b', (1, 3))]))
+    nt.assert_equal(hic.chrBinBoundaries, OrderedDict(
+        [('a', (0, 1)), ('b', (1, 3))]))
     nt.assert_equal(sorted(hic.orig_bin_ids), sorted([0, 1, 2, 3, 4]))
 
     # direct return if masking_ids is None or has len() == 0, thus no changes to matrix
@@ -1070,11 +1078,13 @@ def test_maskBins():
 
     nt.assert_equal(hic.getMatrix(), new_matrix)
     nt.assert_equal(sorted(hic.orig_cut_intervals), sorted([('a', 0, 10, 1), ('a', 10, 20, 1),
-                                                            ('a', 20, 30, 1), ('b', 30, 40, 1),
+                                                            ('a', 20, 30,
+                                                             1), ('b', 30, 40, 1),
                                                             ('b', 40, 50, 1)]))
     nt.assert_equal(sorted(hic.cut_intervals), sorted([('a', 20, 30, 1), ('b', 30, 40, 1),
                                                        ('b', 40, 50, 1)]))
-    nt.assert_equal(hic.chrBinBoundaries, OrderedDict([('a', (0, 1)), ('b', (1, 3))]))
+    nt.assert_equal(hic.chrBinBoundaries, OrderedDict(
+        [('a', (0, 1)), ('b', (1, 3))]))
 
     masking_ids = []
 
@@ -1082,11 +1092,13 @@ def test_maskBins():
 
     nt.assert_equal(hic.getMatrix(), new_matrix)
     nt.assert_equal(sorted(hic.orig_cut_intervals), sorted([('a', 0, 10, 1), ('a', 10, 20, 1),
-                                                            ('a', 20, 30, 1), ('b', 30, 40, 1),
+                                                            ('a', 20, 30,
+                                                             1), ('b', 30, 40, 1),
                                                             ('b', 40, 50, 1)]))
     nt.assert_equal(sorted(hic.cut_intervals), sorted([('a', 20, 30, 1), ('b', 30, 40, 1),
                                                        ('b', 40, 50, 1)]))
-    nt.assert_equal(hic.chrBinBoundaries, OrderedDict([('a', (0, 1)), ('b', (1, 3))]))
+    nt.assert_equal(hic.chrBinBoundaries, OrderedDict(
+        [('a', (0, 1)), ('b', (1, 3))]))
 
     nt.assert_equal(sorted(hic.orig_bin_ids), sorted([0, 1, 2, 3, 4]))
 
@@ -1120,7 +1132,8 @@ def test_update_matrix(capsys):
         with capsys.disabled():
             print('\n')
             print('\033[31m' + "AttributeError @test_update_matrix" + '\x1b[0m')
-            print('\033[31m' + "Please check function hiCMatrix::update_matrix()" + '\x1b[0m')
+            print(
+                '\033[31m' + "Please check function hiCMatrix::update_matrix()" + '\x1b[0m')
             print('\n')
 
     # if matrix.shape[0] not equal to length of cut_intervals assertionError is raised
@@ -1221,7 +1234,7 @@ def test_reorderMatrix():
     new_cut_intervals = [('a', 0, 10, 1), ('b', 30, 40, 1),
                          ('a', 10, 20, 1), ('a', 20, 30, 1), ('b', 40, 50, 1)]
 
-    #check if it is equal
+    # check if it is equal
     nt.assert_equal(hic.getMatrix(), new_matrix)
     nt.assert_equal(hic.matrix.shape, new_matrix.shape)
     nt.assert_equal(hic.cut_intervals, new_cut_intervals)
@@ -1293,11 +1306,11 @@ def test_truncTrans_bk(capsys):
     nt.assert_equal(hic.getMatrix(), matrix)
 
     # define expected outcome
-    new_matrix = np.matrix([[-1., 8., 5., 3., 0.],
-                            [np.nan, 4., 15., 5., 1.e+2],
-                            [0., 0., 0., 0., 2.e+3],
-                            [0., 0., 0., 0., 1.],
-                            [0., 0., 0., 0., 0.]])
+    # new_matrix = np.matrix([[-1., 8., 5., 3., 0.],
+    #                         [np.nan, 4., 15., 5., 1.e+2],
+    #                         [0., 0., 0., 0., 2.e+3],
+    #                         [0., 0., 0., 0., 1.],
+    #                         [0., 0., 0., 0., 0.]])
 
     # truncTrans_bk fails because getDistList() expects also the cut_intervals when called
     try:
@@ -1306,7 +1319,8 @@ def test_truncTrans_bk(capsys):
         with capsys.disabled():
             print('\n')
             print('\033[31m' + "TypeError @test_truncTrans_bk" + '\x1b[0m')
-            print('\033[31m' + "Please check function hiCMatrix::truncTrans_bk()" + '\x1b[0m')
+            print(
+                '\033[31m' + "Please check function hiCMatrix::truncTrans_bk()" + '\x1b[0m')
             print('\n')
 
 
@@ -1330,10 +1344,10 @@ def test_removePoorRegions(capsys):
     nt.assert_equal(hic.getMatrix(), matrix)
 
     # define expected outcome
-    new_matrix = np.matrix([[8, 5, 3, 0],
-                            [4, 15, 5, 100],
-                            [0, 0, 0, 2000],
-                            [0, 0, 0, 1]])
+    # new_matrix = np.matrix([[8, 5, 3, 0],
+    #                         [4, 15, 5, 100],
+    #                         [0, 0, 0, 2000],
+    #                         [0, 0, 0, 1]])
 
     # removePoorRegions
     try:
@@ -1342,13 +1356,14 @@ def test_removePoorRegions(capsys):
         with capsys.disabled():
             print('\n')
             print('\033[31m' + "IndexError @test_removePoorRegions" + '\x1b[0m')
-            print('\033[31m' + "Please check function hiCMatrix::removePoorRegions()" + '\x1b[0m')
+            print(
+                '\033[31m' + "Please check function hiCMatrix::removePoorRegions()" + '\x1b[0m')
             print('\n')
-
 
     # print(hic.getMatrix())
     # check correctness
     # nt.assert_equal(hic.getMatrix(), new_matrix)
+
 
 def test_printchrtoremove(capsys):
     # get matrix
@@ -1410,5 +1425,3 @@ def test_removeBySequencedCount():
     hic.setMatrix(hic.matrix, cut_intervals)
 
     nt.assert_equal(hic.getMatrix(), matrix)
-
-    

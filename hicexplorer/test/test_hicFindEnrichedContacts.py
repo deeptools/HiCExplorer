@@ -1,11 +1,7 @@
 """ Testsuite for hicFindEnrichedContacts """
-from tempfile import NamedTemporaryFile, mkdtemp
 from hicexplorer import hicFindEnrichedContacts as hicfec
 from hicexplorer import HiCMatrix as hm
-from hicexplorer import hicBuildMatrix
 import os
-import sys
-import random
 import numpy as np
 import numpy.testing as nt
 from scipy.sparse import csr_matrix
@@ -18,7 +14,6 @@ sam_R1 = ROOT + "small_test_R1_unsorted.bam"
 sam_R2 = ROOT + "small_test_R2_unsorted.bam"
 dpnii_file = ROOT + "DpnII.bed"
 
-import pytest
 from psutil import virtual_memory
 mem = virtual_memory()
 memory = mem.total / 2**30
