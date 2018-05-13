@@ -9,6 +9,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 
+import math
 import logging
 log = logging.getLogger(__name__)
 
@@ -50,7 +51,10 @@ def parse_arguments(args=None):
                            'ouput is a raster graphics image (e.g png, jpg)',
                            type=int,
                            default=300)
-
+    parserOpt.add_argument('--averageContactBin',
+                           help='Average the contacts of n bins, written to last column.',
+                           type=int,
+                           default=0)
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     return parser
@@ -177,7 +181,71 @@ def main(args=None):
     plt.close(fig)
 
     if interactions_list is not None:
+
+        # averageContactBin
+
+        if args.averageContactBin > 0:
+            average_contacts = []
+
+            window_size = np.int(math.floor(args.averageContactBin / 2))
+            window_size_upstream = window_size
+            if args.averageContactBin % 2 == 0:
+                window_size_upstream -= 1
+            for interactions_list_ in interactions_list:
+                interactions = np.swapaxes(interactions_list_, 0, 1)[6].astype(float)
+                average_contacts_ = np.zeros(len(interactions))
+
+                # add upstream and downstream, handle regular case
+                for i in range(window_size_upstream, len(interactions) - window_size):
+                    start = i - window_size_upstream
+                    end = i + window_size + 1
+                    if i == window_size_upstream:
+                        log.info('args.averageContactBin {} window_size_upstream {} window_size {}'.format(args.averageContactBin, window_size_upstream, window_size))
+                        log.info('start {}, end {} , interactions[start:end] {}'.format(start, end, interactions[start:end]))
+                    average_contacts_[i] = np.mean(interactions[start:end])
+                # handle border conditions
+                for i in range(window_size):
+                    start = i - window_size_upstream
+                    if start < 0:
+                        start = 0
+                    end = i + window_size + 1
+                    # log.info('start {}, end {}'.format(start, end))
+                    # log.info('interactions[start:end]: {}'.format(interactions[start:end]))
+
+                    # log.info('interactions[-end:]: {}'.format(interactions[-end:]))
+
+                    average_contacts_[i] = np.mean(interactions[start:end])
+                    average_contacts_[-(i + 1)] = np.mean(interactions[-end:])
+                average_contacts.append(average_contacts_)
+                log.info(average_contacts_)
+
+            for i, interactions_list_ in enumerate(interactions_list):
+                with open(args.interactionOutFileName + '_' + matrix_name_legend[i] + '.bedgraph', 'w') as fh:
+                    for j, interaction in enumerate(interactions_list_):
+                        fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\n".
+                                 format(toString(interaction[0]), toString(interaction[1]), toString(interaction[2]),
+                                        toString(interaction[3]), toString(interaction[4]),
+                                        toString(interaction[5]), float(interaction[6]),
+                                        float(average_contacts[i][j])))
+
+                        # print("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\n".\
+                        # format(toString(interaction[0]), toString(interaction[1]), toString(interaction[2]),
+                        #         toString(interaction[3]), toString(interaction[4]),
+                        #         toString(interaction[5]), float(interaction[6]),
+                        #         float(average_contacts[i][j])))
+                return
+
         for i, interactions_list_ in enumerate(interactions_list):
+            print(matrix_name_legend[i])
             with open(args.interactionOutFileName + '_' + matrix_name_legend[i] + '.bedgraph', 'w') as fh:
                 for interaction in interactions_list_:
-                    fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\n".format(toString(interaction[0]), toString(interaction[1]), toString(interaction[2]), toString(interaction[3]), toString(interaction[4]), toString(interaction[5]), float(interaction[6])))
+                    fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\n".
+                             format(toString(interaction[0]), toString(interaction[1]),
+                                    toString(interaction[2]), toString(interaction[3]),
+                                    toString(interaction[4]), toString(interaction[5]),
+                                    float(interaction[6])))
+                    # print("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\n".\
+                    # format(toString(interaction[0]), toString(interaction[1]),
+                    #                 toString(interaction[2]), toString(interaction[3]),
+                    #                 toString(interaction[4]), toString(interaction[5]),
+                    #                 float(interaction[6])))
