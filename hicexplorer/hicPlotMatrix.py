@@ -466,13 +466,13 @@ def main(args=None):
     # is_cooler = False
     # if args.matrix.endswith('.cool') or cooler.io.is_cooler(args.matrix) or'.mcool' in args.matrix:
     is_cooler = check_cooler(args.matrix)
-    log.debug("Cooler or no cooler: {}".format(is_cooler))
+    log.info("Cooler or no cooler: {}".format(is_cooler))
     open_cooler_chromosome_order = True
     if args.chromosomeOrder is not None and len(args.chromosomeOrder) > 1:
         open_cooler_chromosome_order = False
-
+    # is_cooler = False
     if is_cooler and not args.region2 and open_cooler_chromosome_order:
-        log.debug("Retrieve data from cooler format and use its benefits.")
+        log.info("Retrieve data from cooler format and use its benefits.")
         regionsToRetrieve = None
         if args.region:
             regionsToRetrieve = []
@@ -772,40 +772,45 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
 def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix):
 
     # file = open(filename, 'rb')
+    x_list = []
+    y_list = []
     with open(pNameOfLongRangeContactsFile, 'rb') as file:
-        cluster_dict = {}
+        # cluster_dict = {}
         for line in file.readlines():
             line = toString(line)
             fields = line.strip().split('\t')
-
+            # print(fields)
             try:
                 chrom_X, start_X, end_X = fields[0:3]
                 chrom_Y, start_Y, end_Y = fields[3:6]
-                cluster = int(fields[6])
+                # cluster = int(fields[6])
 
                 # x = pHiCMatrix.getRegionBinRange(chrom_X, int(start_X), int(end_X))[0]
                 # y = pHiCMatrix.getRegionBinRange(chrom_Y, int(start_Y), int(end_Y))[0]
                 x = int(start_X)
                 y = int(start_Y)
-                if cluster in cluster_dict:
-                    cluster_dict[cluster][0].append(x)
-                    cluster_dict[cluster][1].append(y)
-                else:
-                    cluster_dict[cluster] = [[x], [y]]
+                # print(x)
+                # print(y)
+                x_list.append(x)
+                y_list.append(y)
+                # if cluster in cluster_dict:
+                #     cluster_dict[cluster][0].append(x)
+                #     cluster_dict[cluster][1].append(y)
+                # else:
+                #     cluster_dict[cluster] = [[x], [y]]
             except:
                 pass
-        x_list = []
-        y_list = []
+       
 
-        for cluster in cluster_dict:
-            x_list.append(min(cluster_dict[cluster][0]))
-            x_list.append(max(cluster_dict[cluster][0]))
+        # for cluster in cluster_dict:
+        #     x_list.append(min(cluster_dict[cluster][0]))
+        #     x_list.append(max(cluster_dict[cluster][0]))
 
-            y_list.append(min(cluster_dict[cluster][1]))
-            y_list.append(max(cluster_dict[cluster][1]))
+        #     y_list.append(min(cluster_dict[cluster][1]))
+        #     y_list.append(max(cluster_dict[cluster][1]))
 
-        print(x_list)
-        print(y_list)
+        # print(x_list)
+        # print(y_list)
         
         pAxis.plot(x_list, y_list, 'ro', lw=3)
         # plt.setp(l, markersize=10)

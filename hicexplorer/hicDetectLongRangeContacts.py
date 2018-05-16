@@ -2,9 +2,13 @@ from __future__ import division
 import argparse
 from sklearn.cluster import dbscan
 from sklearn.metrics.pairwise import euclidean_distances
+from scipy.sparse import csr_matrix
+
+from scipy.stats import normaltest, f_oneway
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
+from hicexplorer.utilities import check_cooler
 
 import numpy as np
 import logging
@@ -34,21 +38,33 @@ Computes long range contacts within the given contact matrix
                            default=2.0,
                            help='z-score threshold to detect long range interactions')
     parserOpt.add_argument('--scoreMatrixName', '-zs',
-                            help='Saves the computed z-score matrix')
-    parserOpt.add_argument('--epsDbscan', '-eps',
-                           type=float,
-                           default=2.0,
-                           help='Epsilon threshold for DBSCAN.')
-
-    parserOpt.add_argument('--minSamplesDbscan', '-msd',
+                           help='Saves the computed z-score matrix')
+    parserOpt.add_argument('--windowSize', '-w',
                            type=int,
                            default=2,
-                           help='Minimum number of samples needed until they are accepted as a cluster.')
+                           help='Window size')
+
+    parserOpt.add_argument('--pValue', '-p',
+                           type=float,
+                           default=0.05,
+                           help='p')
+    parserOpt.add_argument('--minValueRemove', '-r',
+                           type=float,
+                           default=2,
+                           help='p')
+    parserOpt.add_argument('--minNeighborhoodSize', '-mns',
+                           type=int,
+                           default=20,
+                           help='p')
     parserOpt.add_argument('--chromosomeOrder',
                            help='Chromosomes and order in which the chromosomes should be saved. If not all chromosomes '
                            'are given, the missing chromosomes are left out. For example, --chromosomeOrder chrX will '
                            'export a matrix only containing chromosome X.',
                            nargs='+')
+
+    parserOpt.add_argument('--region',
+                                help='The format is chr:start-end ',
+                                required=True)
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -85,17 +101,17 @@ def compute_zscore_matrix(pMatrix):
     # sigma
 
     instances, features = pMatrix.nonzero()
-    print('instances: {}'.format(instances))
+    # print('instances: {}'.format(instances))
 
-    print('features: {}'.format(features))
+    # print('features: {}'.format(features))
 
-    print('pMatrix.data: {}'.format(pMatrix.data))
-    
+    # print('pMatrix.data: {}'.format(pMatrix.data))
+
     pMatrix.data = pMatrix.data.astype(float)
     data = pMatrix.data.tolist()
     # print('data {}:'.format(data))
     distances = np.absolute(instances - features)
-    print('distances: {}'.format(distances))
+    # print('distances: {}'.format(distances))
     # mean = np.zeros(pMatrix.shape[0])
     sigma_2 = np.zeros(pMatrix.shape[0])
     sum_per_distance = np.zeros(pMatrix.shape[0])
@@ -107,43 +123,43 @@ def compute_zscore_matrix(pMatrix):
 
     # compute mean
 
-    max_contacts = np.array(range(pMatrix.shape[0], 0, -1)) 
-    print('sum_per_distance: {}'.format(sum_per_distance))
-    
+    max_contacts = np.array(range(pMatrix.shape[0], 0, -1))
+    # print('sum_per_distance: {}'.format(sum_per_distance))
+
     mean = sum_per_distance / max_contacts
-    print('Mean: {}'.format(mean))
+    # print('Mean: {}'.format(mean))
     # compute sigma squared
     for i in range(len(instances)):
         if np.isnan(data[i]):
             sigma_2[distances[i]] += np.square(mean[distances[i]])
         else:
             sigma_2[distances[i]] += np.square(data[i] - mean[distances[i]])
-    print('sigma_square: {}'.format(sigma_2))
-    
+    # print('sigma_square: {}'.format(sigma_2))
+
     sigma_2 /= max_contacts
     sigma = np.sqrt(sigma_2)
-    print('sigma: {}'.format(sigma))
-    
+    # print('sigma: {}'.format(sigma))
+
     # z_score (x - mean) / sigma
     # nan is interpreted as 0
     for i in range(len(instances)):
-        if np.isnan(pMatrix.data[i]):
-            pMatrix.data[i] = (0 - mean[distances[i]]) / sigma[distances[i]]
+        if np.isnan(data[i]):
+            data[i] = (0 - mean[distances[i]]) / sigma[distances[i]]
         else:
-            pMatrix.data[i] = (pMatrix.data[i] - mean[distances[i]]) / sigma[distances[i]]
-    print('z-score: {}'.format(pMatrix.data))
-    
-    return pMatrix.data
+            data[i] = (pMatrix.data[i] - mean[distances[i]]) / sigma[distances[i]]
+    # print('z-score: {}'.format(pMatrix.data))
 
+    return csr_matrix((data, (instances, features)), shape=(pMatrix.shape[0], pMatrix.shape[1]))
 
-def compute_long_range_contacts(pHiCMatrix, pThreshold, pEpsDbscan, pMinSamplesDbscan):
+def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pThreshold, pWindowSize, pPValue,
+                                pMinValueRemove, pMinNeighborhoodSize):
 
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
     # compute all vs. all distances of the coordinates
     # use DBSCAN to cluster this
 
-    zscore_matrix = pHiCMatrix.matrix
+    zscore_matrix = pZscoreMatrix
     instances, features = zscore_matrix.nonzero()
     data = zscore_matrix.data.astype(float)
 
@@ -152,30 +168,162 @@ def compute_long_range_contacts(pHiCMatrix, pThreshold, pEpsDbscan, pMinSamplesD
     data = data[mask]
     instances = instances[mask]
     features = features[mask]
-    distances_zip = zip(instances, features)
 
-    log.debug('{}, {}'.format(instances, features))
-    log.debug('{}, {}'.format(len(instances), len(features)))
-    log.debug('{}, {}'.format(type(instances), type(features)))
+    candidates = [*zip(instances, features)]
+
+    candidates, pValueList = candidate_uniform_distribution_test(pHiCMatrix, candidates, pWindowSize, pPValue,
+                                                                    pMinValueRemove, pMinNeighborhoodSize)
+    return cluster_to_genome_position_mapping(pHiCMatrix, candidates, pValueList)
+    # distances_zip = zip(instances, features)
+
+    # log.debug('{}, {}'.format(instances, features))
+    # log.debug('{}, {}'.format(len(instances), len(features)))
+    # log.debug('{}, {}'.format(type(instances), type(features)))
+
+    # log.debug('Distances: {}'.format(distances_zip))
+    # distances = euclidean_distances([*distances_zip])
+    # # call DBSCAN
+    # clusters = dbscan(X=distances, eps=pEpsDbscan, metric='precomputed', min_samples=pMinSamplesDbscan)
+    # print(clusters)
+    # # map clusters to contact matrix positions
+    # return cluster_to_genome_position_mapping(pHiCMatrix, clusters, instances, features)
+
+
+def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
+                                        pMinValueRemove, pMinNeighborhoodSize):
+    # this function test if the values in the neighborhood of a
+    # function follow a normal distribution, given the significance level pValue.
+    # if they do, the candidate is rejected, otherwise accepted
+    # The neighborhood is defined as: the square around a candidate i.e. x-pWindowSize,  :
+    accepted_index = []
+    mask = []
+    pvalues = []
+    deleted_index = []
+    high_impact_values = []
+    x_max = pHiCMatrix.matrix.shape[0]
+    y_max = pHiCMatrix.matrix.shape[1]
+    maximal_value = 0
+    log.info('Candidates: {}'.format(len(pCandidates)))
+    for i, candidate in enumerate(pCandidates):
+
+        start_x = candidate[0] - pWindowSize if candidate[0] - pWindowSize > 0 else 0
+        end_x = candidate[0] + pWindowSize if candidate[0] + pWindowSize < x_max else x_max
+        start_y = candidate[1] - pWindowSize if candidate[1] - pWindowSize > 0 else 0
+        end_y = candidate[1] + pWindowSize if candidate[1] + pWindowSize < y_max else y_max
+
+        # log.info('candidate: {}'.format(candidate))
+        # log.info('x_max {}, y_max {}, start_x {}, end_x {}, start_y {}, end_y {}'.format(x_max, y_max, start_x, end_x, start_y, end_y))
+        neighborhood = pHiCMatrix.matrix[start_x:end_x, start_y:end_y].toarray().flatten()
+        if i < 10:
+            # log.info('len neighborhood {}'.format(len(neighborhood)))
+            # log.info('neighborhood {}'.format(neighborhood))
+            log.info('candidate: {}'.format(candidate))
+            log.info('x_max {}, y_max {}, start_x {}, end_x {}, start_y {}, end_y {}'.format(x_max, y_max, start_x, end_x, start_y, end_y))
+
+        # if i > 10:
+        #     break
+        # if pHiCMatrix.matrix[candidate[0], candidate[1]] > maximal_value:
+        #     maximal_value = pHiCMatrix.matrix[candidate[0], candidate[1]]
+        # if pHiCMatrix.matrix[candidate[0], candidate[1]]  >= 15:
+        #     high_impact_values.append(candidate)
+        neighborhood = neighborhood[~np.isnan(neighborhood)]
+        mask_neighborhood = neighborhood > pMinValueRemove
+        # mask_neighborhood_0 = neighborhood <= 0  
+        # mask_neighborhood = mask_neighborhood ^ mask_neighborhood_0
+        neighborhood = neighborhood[mask_neighborhood]
+        if len(neighborhood) < pMinNeighborhoodSize:
+            mask.append(False)
+            continue
+        uniform_distribution = np.random.uniform(low=np.min(neighborhood), high=np.max(neighborhood), size=len(neighborhood))
+        # handle candidates with a high max number different
+        
+       
+        if i < 10:
+            log.info('neigborhood {}'.format(neighborhood))
+            log.info('max(neigborhood) {}'.format(np.max(neighborhood)))
+            
+            log.info('uniform_distribution {}'.format(uniform_distribution))
+            
+        # if len(neighborhood) < 10:
+        #     continue
+        # test_result = normaltest(neighborhood)
+        test_result = f_oneway(neighborhood, uniform_distribution)
+        pvalue = test_result[1]
+        if i < 10:      
+            log.info('pvalue {}'.format(pvalue))
+        # if 0 < pvalue_ < pPValue:
+            # accepted_index.append(candidate)
+        if np.isnan(pvalue):
+            mask.append(False)
+            continue
+        mask.append(True)
+            
+        pvalues.append(pvalue)
+    # apply fdr
+    # pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
+    # accepted_index = np.array(accepted_index)
+    mask = np.array(mask)
+    # pvalues = np.array(pvalues)
+
+    # pvalues = pvalues[mask]
+
+    # FDR
+    pCandidates = np.array(pCandidates)
     
-    log.debug('Distances: {}'.format(distances_zip))
-    distances = euclidean_distances([*distances_zip])
-    # call DBSCAN
-    clusters = dbscan(X=distances, eps=pEpsDbscan, metric='precomputed', min_samples=pMinSamplesDbscan)
-    print(clusters)
-    # map clusters to contact matrix positions
-    return cluster_to_genome_position_mapping(pHiCMatrix, clusters, instances, features)
+    pCandidates = pCandidates[mask]
+    pvalues_ = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
+    pvalues_ = np.sort(pvalues_)
+    log.info('pvalues_ {}'.format(pvalues_))
+    largest_p_i = -np.inf
+    for i, p in enumerate(pvalues_):
+        if p <= (pPValue * (i + 1) / len(pvalues_)):
+            if p >= largest_p_i:
+                largest_p_i = p
+    pvalues_accepted = []
+    log.info('largest_p_i {}'.format(largest_p_i))
+    for i, candidate in enumerate(pCandidates):
+        if pvalues[i] < largest_p_i:
+            accepted_index.append(candidate)
+            pvalues_accepted.append(pvalues[i])
+
+    # Bonferroni
+    # pvalues_accepted = []
+    # # log.info('largest_p_i {}'.format(largest_p_i))
+    # for i, candidate in enumerate(pCandidates):
+    #     if pvalues[i] < (pPValue):
+    #         accepted_index.append(candidate)
+    #         pvalues_accepted.append(pvalues[i])
+    # log.info('pvalues: {}'.format(pvalues_accepted))
+    
+    log.info('Accepted candidates: {}'.format(len(accepted_index)))
+    log.info('Accepted candidates: {}'.format(accepted_index))
+    # log.info('high_impact_values: {}'.format(high_impact_values))
+    # log.info('maximal_value {}'.format(maximal_value))
+
+    # accepted_index = accepted_index.tolist()
+    # accepted_index_ = []
+    # for candidate in accepted_index:
+    #     accepted_index_.append(tuple(candidate))
+    # accepted_index = accepted_index_
+    # for candidate in high_impact_values:
+    #     if candidate not in accepted_index:
+    #         accepted_index.append(candidate)
+    #         pvalues_accepted.append(1)
+    #         log.info('adding high impact: {}'.format(candidate))
+    # # lst = [0, 1], [0, 4], [1, 0], [1, 4], [4, 0], [4, 1]
+    # # accepted_index = {tuple(item) for item in map(sorted, accepted_index)}
+    # log.info('Length with high impacet: {}'.format(len(accepted_index)))
+
+    return accepted_index, pvalues_accepted
 
 
-def cluster_to_genome_position_mapping(pHicMatrix, pCluster, pInstances, pFeatures):
+def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList):
     # mapping: chr_X, start, end, chr_Y, start, end, cluster_id
     mapped_cluster = []
-    if len(pCluster[0]) > 0:
-        for i in range(len(pInstances)):
-            if pCluster[1][i] != -1:
-                chr_x, start_x, end_x, _ = pHicMatrix.getBinPos(pInstances[i])
-                chr_y, start_y, end_y, _ = pHicMatrix.getBinPos(pFeatures[i])
-                mapped_cluster.append((chr_x, start_x, end_x, chr_y, start_y, end_y, pCluster[1][i]))
+    for i, candidate in enumerate(pCandidates):
+        chr_x, start_x, end_x, _ = pHicMatrix.getBinPos(candidate[0])
+        chr_y, start_y, end_y, _ = pHicMatrix.getBinPos(candidate[1])
+        mapped_cluster.append((chr_x, start_x, end_x, chr_y, start_y, end_y, pPValueList[i]))
     return mapped_cluster
 
 
@@ -189,15 +337,35 @@ def write_bedgraph(pClusters, pOutFileName):
 def main():
 
     args = parse_arguments().parse_args()
+
+    is_cooler = check_cooler(args.matrix)
     
-    hic_matrix = hm.hiCMatrix(args.matrix)
-    if args.chromosomeOrder:
-        hic_matrix.keepOnlyTheseChr(args.chromosomeOrder)
-    hic_matrix.matrix.data = compute_zscore_matrix(hic_matrix.matrix)
+    log.info("Cooler or no cooler: {}".format(is_cooler))
+    open_cooler_chromosome_order = True
+    if args.chromosomeOrder is not None and len(args.chromosomeOrder) > 1:
+        open_cooler_chromosome_order = False
+
+    if is_cooler and open_cooler_chromosome_order:
+        log.info("Retrieve data from cooler format and use its benefits.")
+        regionsToRetrieve = None
+        if args.region:
+            regionsToRetrieve = []
+            regionsToRetrieve.append(args.region)
+        if args.chromosomeOrder:
+            regionsToRetrieve = args.chromosomeOrder
+
+        hic_matrix = hm.hiCMatrix(args.matrix, chrnameList=regionsToRetrieve)
+    else:
+        hic_matrix = hm.hiCMatrix(args.matrix)
+        if args.chromosomeOrder:
+            hic_matrix.keepOnlyTheseChr(args.chromosomeOrder)
+    hic_matrix.matrix = hic_matrix.matrix + hic_matrix.matrix.transpose() - csr_matrix(np.diag(hic_matrix.matrix.diagonal()))
+    z_score_matrix = compute_zscore_matrix(hic_matrix.matrix)
     if args.scoreMatrixName:
         hic_matrix.save(args.scoreMatrixName)
-    mapped_clusters = compute_long_range_contacts(hic_matrix, args.zScoreThreshold,
-                                                  args.epsDbscan, args.minSamplesDbscan)
+    mapped_clusters = compute_long_range_contacts(hic_matrix, z_score_matrix, args.zScoreThreshold,
+                                                  args.windowSize, args.pValue, args.minValueRemove, 
+                                                  args.minNeighborhoodSize)
 
     # write it to bedgraph / bigwig file
     write_bedgraph(mapped_clusters, args.outFileName)
