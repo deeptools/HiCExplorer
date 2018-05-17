@@ -4,6 +4,7 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 import numpy as np
 
+from hic2cool import hic2cool_convert
 import logging
 log = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def parse_arguments(args=None):
                            ' `cool`. This last formats may change '
                            'in the future.',
                            choices=['dekker', 'ren', 'lieberman', 'h5',
-                                    'npz', 'GInteractions', 'cool', 'hicexplorer'],
+                                    'npz', 'GInteractions', 'cool', 'hicexplorer', 'hic'],
                            default='hicexplorer')
 
     parserOpt.add_argument('--outputFormat',
@@ -64,7 +65,7 @@ def parse_arguments(args=None):
                            'The GInteractions format is in the form : Bin1, Bin2 , Interaction, '
                            'where Bin1 and Bin2 are intervals (chr,start,end), seperated by tab.',
                            default='dekker',
-                           choices=['dekker', 'ren', 'lieberman', 'h5', 'npz', 'GInteractions', 'cool', 'hicexplorer'])
+                           choices=['dekker', 'ren', 'lieberman', 'h5', 'npz', 'GInteractions', 'cool', 'hicexplorer', 'hic'])
 
     parserOpt.add_argument('--chrNameList',
                            help='list of chromosome names (only if input format is lieberman), eg : 1 2 .',
@@ -173,6 +174,11 @@ def main(args=None):
     are_chrom_reordered = False
     # create hiC matrix with given input format
     # additional file needed for lieberman format
+    if (args.inputFormat == 'hic' and args.outputFormat == 'cool') \
+        or (args.inputFormat == 'cool' and args.outputFormat == 'hic'):
+        log.info('Converting with hic2cool.')
+        hic2cool_convert(args.inFile, args.outFileName, 0)
+        return
     if args.inputFormat == 'lieberman':
         if args.chrNameList is None:
             log.error("Error: --chrNameList is required when the input format is lieberman.")

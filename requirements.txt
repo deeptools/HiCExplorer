@@ -12,3 +12,4 @@ jinja2 = 2.9.*
 six = 1.10.*
 future = 0.16.*
 unidecode = 0.4.*
+hic2cool
