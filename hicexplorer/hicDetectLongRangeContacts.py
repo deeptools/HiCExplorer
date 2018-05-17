@@ -80,74 +80,39 @@ def _sum_per_distance(pSum_per_distance, pData, pDistances, pN):
             pSum_per_distance[pDistances[i]] += pData[i]
             if pDistances[i] == 0:
                 list_of_zero.append(pData[i])
-    # print('pSum_per_distance: {}'.format(pSum_per_distance))
-    # print('list of zeros: {}'.format(list_of_zero))
-    # print('sum: {}'.format(sum(list_of_zero)))
     return pSum_per_distance
-
-# def mean():
-
-# def sigma_squared():
-
-# def sigma():
-
-# def zscore():
 
 
 def compute_zscore_matrix(pMatrix):
 
-    # compute distribution per genomic distance
-    # mean
-    # sigma
-
     instances, features = pMatrix.nonzero()
-    # print('instances: {}'.format(instances))
-
-    # print('features: {}'.format(features))
-
-    # print('pMatrix.data: {}'.format(pMatrix.data))
 
     pMatrix.data = pMatrix.data.astype(float)
     data = pMatrix.data.tolist()
-    # print('data {}:'.format(data))
     distances = np.absolute(instances - features)
-    # print('distances: {}'.format(distances))
-    # mean = np.zeros(pMatrix.shape[0])
     sigma_2 = np.zeros(pMatrix.shape[0])
     sum_per_distance = np.zeros(pMatrix.shape[0])
-    # elements_per_distance = np.zeros(pMatrix.shape[0])
 
     sum_per_distance = _sum_per_distance(sum_per_distance, data, distances, len(instances))
-    # for i in range(len(instances)):
-    #     sum_per_distance[distances[i]] += data[i]
-
     # compute mean
-
     max_contacts = np.array(range(pMatrix.shape[0], 0, -1))
-    # print('sum_per_distance: {}'.format(sum_per_distance))
-
     mean = sum_per_distance / max_contacts
-    # print('Mean: {}'.format(mean))
+
     # compute sigma squared
     for i in range(len(instances)):
         if np.isnan(data[i]):
             sigma_2[distances[i]] += np.square(mean[distances[i]])
         else:
             sigma_2[distances[i]] += np.square(data[i] - mean[distances[i]])
-    # print('sigma_square: {}'.format(sigma_2))
 
     sigma_2 /= max_contacts
     sigma = np.sqrt(sigma_2)
-    # print('sigma: {}'.format(sigma))
 
-    # z_score (x - mean) / sigma
-    # nan is interpreted as 0
     for i in range(len(instances)):
         if np.isnan(data[i]):
             data[i] = (0 - mean[distances[i]]) / sigma[distances[i]]
         else:
             data[i] = (pMatrix.data[i] - mean[distances[i]]) / sigma[distances[i]]
-    # print('z-score: {}'.format(pMatrix.data))
 
     return csr_matrix((data, (instances, features)), shape=(pMatrix.shape[0], pMatrix.shape[1]))
 
@@ -156,8 +121,6 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pThreshold, pWindowSi
 
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
-    # compute all vs. all distances of the coordinates
-    # use DBSCAN to cluster this
 
     zscore_matrix = pZscoreMatrix
     instances, features = zscore_matrix.nonzero()
@@ -174,19 +137,7 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pThreshold, pWindowSi
     candidates, pValueList = candidate_uniform_distribution_test(pHiCMatrix, candidates, pWindowSize, pPValue,
                                                                     pMinValueRemove, pMinNeighborhoodSize)
     return cluster_to_genome_position_mapping(pHiCMatrix, candidates, pValueList)
-    # distances_zip = zip(instances, features)
 
-    # log.debug('{}, {}'.format(instances, features))
-    # log.debug('{}, {}'.format(len(instances), len(features)))
-    # log.debug('{}, {}'.format(type(instances), type(features)))
-
-    # log.debug('Distances: {}'.format(distances_zip))
-    # distances = euclidean_distances([*distances_zip])
-    # # call DBSCAN
-    # clusters = dbscan(X=distances, eps=pEpsDbscan, metric='precomputed', min_samples=pMinSamplesDbscan)
-    # print(clusters)
-    # # map clusters to contact matrix positions
-    # return cluster_to_genome_position_mapping(pHiCMatrix, clusters, instances, features)
 
 
 def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
@@ -211,31 +162,19 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
         start_y = candidate[1] - pWindowSize if candidate[1] - pWindowSize > 0 else 0
         end_y = candidate[1] + pWindowSize if candidate[1] + pWindowSize < y_max else y_max
 
-        # log.info('candidate: {}'.format(candidate))
-        # log.info('x_max {}, y_max {}, start_x {}, end_x {}, start_y {}, end_y {}'.format(x_max, y_max, start_x, end_x, start_y, end_y))
+        
         neighborhood = pHiCMatrix.matrix[start_x:end_x, start_y:end_y].toarray().flatten()
         if i < 10:
-            # log.info('len neighborhood {}'.format(len(neighborhood)))
-            # log.info('neighborhood {}'.format(neighborhood))
             log.info('candidate: {}'.format(candidate))
             log.info('x_max {}, y_max {}, start_x {}, end_x {}, start_y {}, end_y {}'.format(x_max, y_max, start_x, end_x, start_y, end_y))
 
-        # if i > 10:
-        #     break
-        # if pHiCMatrix.matrix[candidate[0], candidate[1]] > maximal_value:
-        #     maximal_value = pHiCMatrix.matrix[candidate[0], candidate[1]]
-        # if pHiCMatrix.matrix[candidate[0], candidate[1]]  >= 15:
-        #     high_impact_values.append(candidate)
         neighborhood = neighborhood[~np.isnan(neighborhood)]
         mask_neighborhood = neighborhood > pMinValueRemove
-        # mask_neighborhood_0 = neighborhood <= 0  
-        # mask_neighborhood = mask_neighborhood ^ mask_neighborhood_0
         neighborhood = neighborhood[mask_neighborhood]
         if len(neighborhood) < pMinNeighborhoodSize:
             mask.append(False)
             continue
         uniform_distribution = np.random.uniform(low=np.min(neighborhood), high=np.max(neighborhood), size=len(neighborhood))
-        # handle candidates with a high max number different
         
        
         if i < 10:
@@ -244,33 +183,58 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
             
             log.info('uniform_distribution {}'.format(uniform_distribution))
             
-        # if len(neighborhood) < 10:
-        #     continue
-        # test_result = normaltest(neighborhood)
         test_result = f_oneway(neighborhood, uniform_distribution)
         pvalue = test_result[1]
         if i < 10:      
             log.info('pvalue {}'.format(pvalue))
-        # if 0 < pvalue_ < pPValue:
-            # accepted_index.append(candidate)
         if np.isnan(pvalue):
             mask.append(False)
             continue
         mask.append(True)
             
         pvalues.append(pvalue)
-    # apply fdr
-    # pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
-    # accepted_index = np.array(accepted_index)
+ 
     mask = np.array(mask)
-    # pvalues = np.array(pvalues)
 
-    # pvalues = pvalues[mask]
+    ##### Find other candidates within window size
+    ##### accept only the candidate with the lowest pvalue
 
-    # FDR
+    # remove candidates which 
+    #  - do not full fill neighborhood size requirement 
+    #  - have a nan pvalue
     pCandidates = np.array(pCandidates)
     
     pCandidates = pCandidates[mask]
+    mask = []
+    
+    distances = euclidean_distances(pCandidates)
+    # # call DBSCAN
+    clusters = dbscan(X=distances, eps=pWindowSize+1, metric='precomputed', min_samples=2)[1]
+    cluster_dict = {}
+    for i, cluster in enumerate(clusters):
+        if cluster == -1:
+            mask.append(True)
+            continue
+        if cluster in cluster_dict:
+            if pvalues[i] < cluster_dict[cluster][1]:
+                log.info('cluster: {}, cluster_dict[cluster] {}'.format(cluster, cluster_dict[cluster]))
+                mask[cluster_dict[cluster][0]] = False
+                cluster_dict[cluster] = [i, pvalues[i]]
+                mask.append(True)
+            else:
+                mask.append(False)
+                
+        else:
+            cluster_dict[cluster] = [i, pvalues[i]]
+            mask.append(True)
+            
+    # Remove values within the window size of other candidates    
+    mask = np.array(mask)
+    pCandidates = pCandidates[mask]
+    pvalues = np.array(pvalues)
+    pvalues = pvalues[mask]
+
+    # FDR
     pvalues_ = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
     pvalues_ = np.sort(pvalues_)
     log.info('pvalues_ {}'.format(pvalues_))
@@ -286,33 +250,8 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
             accepted_index.append(candidate)
             pvalues_accepted.append(pvalues[i])
 
-    # Bonferroni
-    # pvalues_accepted = []
-    # # log.info('largest_p_i {}'.format(largest_p_i))
-    # for i, candidate in enumerate(pCandidates):
-    #     if pvalues[i] < (pPValue):
-    #         accepted_index.append(candidate)
-    #         pvalues_accepted.append(pvalues[i])
-    # log.info('pvalues: {}'.format(pvalues_accepted))
-    
     log.info('Accepted candidates: {}'.format(len(accepted_index)))
     log.info('Accepted candidates: {}'.format(accepted_index))
-    # log.info('high_impact_values: {}'.format(high_impact_values))
-    # log.info('maximal_value {}'.format(maximal_value))
-
-    # accepted_index = accepted_index.tolist()
-    # accepted_index_ = []
-    # for candidate in accepted_index:
-    #     accepted_index_.append(tuple(candidate))
-    # accepted_index = accepted_index_
-    # for candidate in high_impact_values:
-    #     if candidate not in accepted_index:
-    #         accepted_index.append(candidate)
-    #         pvalues_accepted.append(1)
-    #         log.info('adding high impact: {}'.format(candidate))
-    # # lst = [0, 1], [0, 4], [1, 0], [1, 4], [4, 0], [4, 1]
-    # # accepted_index = {tuple(item) for item in map(sorted, accepted_index)}
-    # log.info('Length with high impacet: {}'.format(len(accepted_index)))
 
     return accepted_index, pvalues_accepted
 
