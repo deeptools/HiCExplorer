@@ -128,7 +128,7 @@ def genomicRegion(string):
     if sys.version_info[0] == 2:
         region = region.translate(None, ",;|!{}()").replace("-", ":")
     if sys.version_info[0] == 3:
-        region = region.translate(str.maketrans('','', ",;|!{}()")).replace("-", ":")
+        region = region.translate(str.maketrans('', '', ",;|!{}()")).replace("-", ":")
     if len(region) == 0:
         raise argparse.ArgumentTypeError(
             "{} is not a valid region".format(string))
