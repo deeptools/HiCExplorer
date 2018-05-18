@@ -4,7 +4,7 @@ from sklearn.cluster import dbscan
 from sklearn.metrics.pairwise import euclidean_distances
 from scipy.sparse import csr_matrix
 
-from scipy.stats import normaltest, f_oneway
+from scipy.stats import normaltest, f_oneway, mannwhitneyu
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
@@ -183,7 +183,8 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
             
             log.info('uniform_distribution {}'.format(uniform_distribution))
             
-        test_result = f_oneway(neighborhood, uniform_distribution)
+        # test_result = f_oneway(neighborhood, uniform_distribution)
+        test_result = mannwhitneyu(neighborhood, uniform_distribution)
         pvalue = test_result[1]
         if i < 10:      
             log.info('pvalue {}'.format(pvalue))
