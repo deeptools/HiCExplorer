@@ -93,8 +93,7 @@ def test_build_matrix(sam1, sam2, outFile, qcFolder, outBam, binSize, restrictio
 
     # test more args for restrictionCutFile option
     # Note: Something wrong with region argument, test fails due to region param.
-    with pytest.raises(TypeError):
-        region = genomicRegion(region)
+    region = genomicRegion(region)
 
     args = "-s {} {} --restrictionCutFile {} --outFileName {} --QCfolder {} " \
            "--restrictionSequence {} " \
@@ -110,8 +109,7 @@ def test_build_matrix(sam1, sam2, outFile, qcFolder, outBam, binSize, restrictio
                                                          maxLibraryInsertSize,
                                                          threads, region,
                                                          removeSelfLigation).split()
-    with pytest.raises(SystemExit):
-        hicBuildMatrix.main(args)
+    hicBuildMatrix.main(args)
 
     # test more params with restrictionCutFile (now without region param)
     args = "-s {} {} --restrictionCutFile {} --outFileName {} --QCfolder {} " \

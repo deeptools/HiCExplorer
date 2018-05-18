@@ -26,7 +26,7 @@ def test_number_of_collected_items(capsys):
     captured = capsys.readouterr()
     output_raw = ''.join(captured.out)
     output = ''.join(output_raw)
-    lines = output.split(sep='\n')
+    lines = output.split('\n')
 
     # search for number of collected items with regex
     regex_collected = r"collected (\d+).+"
