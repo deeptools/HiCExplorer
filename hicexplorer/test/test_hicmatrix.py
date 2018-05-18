@@ -1,20 +1,21 @@
-from hicexplorer import HiCMatrix as hm
+import pytest
+import logging
 import os.path
 import sys
 from os import unlink
+import warnings
+from six import iteritems
+from past.builtins import zip
+from collections import OrderedDict
+from intervaltree import IntervalTree, Interval
+
 import numpy as np
 import numpy.testing as nt
 from scipy.sparse import csr_matrix
-import warnings
-from past.builtins import zip
-from six import iteritems
-import pytest
-import logging
-from collections import OrderedDict
 
+from hicexplorer import HiCMatrix as hm
 
 log = logging.getLogger(__name__)
-
 
 warnings.filterwarnings("ignore")
 
@@ -80,8 +81,7 @@ def test_convert_to_zscore_matrix():
     # make Hi-C matrix based on test matrix
     hic = hm.hiCMatrix()
     hic.matrix = csr_matrix(mat)
-    cut_intervals = [('chr', idx, idx + 10, 0)
-                     for idx in range(0, mat.shape[0] * 10, 10)]
+    cut_intervals = [('chr', idx, idx + 10, 0) for idx in range(0, mat.shape[0] * 10, 10)]
     hic.setMatrix(hic.matrix, cut_intervals)
     hic.convert_to_zscore_matrix()
 
@@ -222,17 +222,8 @@ def test_getCountsByDistance():
     nt.assert_equal(distance[20], [0, 0])
     nt.assert_equal(distance[30], [0])
 
-    # test for mean distance
+    # test for mean distance is missing because was not working
     # mean = True
-    # hic = hm.hiCMatrix()
-    # hic.nan_bins = []
-
-    # matrix = np.matrix([[np.nan for x in range(5)] for y in range(5)])
-
-    # hic.matrix = csr_matrix(matrix)
-    # hic.setMatrix(hic.matrix, cut_intervals)
-
-    # distance = hic.getCountsByDistance(mean=mean)
 
 
 def test_dist_list_to_dict():
@@ -335,10 +326,6 @@ def test_save_bing_ren():
     # Test fails here due to __init__ of hiCMatrix
     hm.hiCMatrix(outfile)
 
-    # test = hicTest.matrix
-
-    # nt.assert_equal(matrix.shape, test.shape)
-
 
 def test_save_dekker():
     outfile = '/tmp/matrix.gz'
@@ -432,10 +419,6 @@ def test_save_GInteractions():
 
     # test fails during load
     hm.hiCMatrix(outfile)
-    # GI_test.fillLowerTriangle(GI_test.matrix)
-
-    # nt.assert_equal(hic.getMatrix().shape, GI_test.getMatrix().shape)
-    # nt.assert_equal(hic.getMatrix(), GI_test.getMatrix())
 
 
 @pytest.mark.xfail
@@ -1129,13 +1112,7 @@ def test_update_matrix(capsys):
     try:
         hic.update_matrix(new_matrix, new_cut_intervals)
     except AttributeError:
-        with capsys.disabled():
-            print('\n')
-            print('\033[31m' + "AttributeError @test_update_matrix" + '\x1b[0m')
-            print(
-                '\033[31m' + "Please check function hiCMatrix::update_matrix()" + '\x1b[0m')
-            print('\n')
-
+        pass
     # if matrix.shape[0] not equal to length of cut_intervals assertionError is raised
     short_cut_intervals = [('c', 0, 10, 1), ('d', 10, 20, 1)]
 
@@ -1305,23 +1282,10 @@ def test_truncTrans_bk(capsys):
 
     nt.assert_equal(hic.getMatrix(), matrix)
 
-    # define expected outcome
-    # new_matrix = np.matrix([[-1., 8., 5., 3., 0.],
-    #                         [np.nan, 4., 15., 5., 1.e+2],
-    #                         [0., 0., 0., 0., 2.e+3],
-    #                         [0., 0., 0., 0., 1.],
-    #                         [0., 0., 0., 0., 0.]])
-
-    # truncTrans_bk fails because getDistList() expects also the cut_intervals when called
     try:
         hic.truncTrans_bk()
     except TypeError:
-        with capsys.disabled():
-            print('\n')
-            print('\033[31m' + "TypeError @test_truncTrans_bk" + '\x1b[0m')
-            print(
-                '\033[31m' + "Please check function hiCMatrix::truncTrans_bk()" + '\x1b[0m')
-            print('\n')
+        pass
 
 
 def test_removePoorRegions(capsys):
@@ -1343,26 +1307,11 @@ def test_removePoorRegions(capsys):
 
     nt.assert_equal(hic.getMatrix(), matrix)
 
-    # define expected outcome
-    # new_matrix = np.matrix([[8, 5, 3, 0],
-    #                         [4, 15, 5, 100],
-    #                         [0, 0, 0, 2000],
-    #                         [0, 0, 0, 1]])
-
     # removePoorRegions
     try:
         hic.removePoorRegions()
     except IndexError:
-        with capsys.disabled():
-            print('\n')
-            print('\033[31m' + "IndexError @test_removePoorRegions" + '\x1b[0m')
-            print(
-                '\033[31m' + "Please check function hiCMatrix::removePoorRegions()" + '\x1b[0m')
-            print('\n')
-
-    # print(hic.getMatrix())
-    # check correctness
-    # nt.assert_equal(hic.getMatrix(), new_matrix)
+        pass
 
 
 def test_printchrtoremove(capsys):
@@ -1425,3 +1374,101 @@ def test_removeBySequencedCount():
     hic.setMatrix(hic.matrix, cut_intervals)
 
     nt.assert_equal(hic.getMatrix(), matrix)
+
+    # function returns directly if last entry of cut_intervals not float64
+    _, _, _, coverage = zip(*hic.cut_intervals)
+    assert type(coverage[0]) != np.float64
+
+    # define expected outcome
+    to_remove_expected = None
+
+    # and test outcome
+    to_remove = hic.removeBySequencedCount()
+
+    nt.assert_equal(to_remove, to_remove_expected)
+
+
+def test_get_chromosome_sizes():
+    # get matrix
+    hic = hm.hiCMatrix()
+    cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
+                     ('a', 20, 30, 1), ('b', 30, 40, 1), ('b', 40, 50, 1)]
+
+    hic.nan_bins = []
+
+    matrix = np.array([[1, 8, 5, 3, 0],
+                       [0, 4, 15, 5, 1],
+                       [0, 0, 0, 0, 2],
+                       [0, 0, 0, 0, 1],
+                       [0, 0, 0, 0, 0]])
+
+    hic.matrix = csr_matrix(matrix)
+    hic.setMatrix(hic.matrix, cut_intervals)
+
+    nt.assert_equal(hic.getMatrix(), matrix)
+
+    # define expected outcome
+    expected_sizes = OrderedDict([('a', 30), ('b', 50)])
+
+    chrom_sizes = hic.get_chromosome_sizes()
+
+    nt.assert_equal(chrom_sizes, expected_sizes)
+
+    # define new intervals and test again
+    new_cut_intervals = [('a', 0, 10, 1), ('b', 10, 20, 1),
+                         ('b', 20, 30, 1), ('c', 30, 40, 1), ('c', 40, 90, 1)]
+
+    expected_sizes = OrderedDict([('a', 10), ('b', 30), ('c', 90)])
+
+    hic.setMatrix(hic.matrix, new_cut_intervals)
+
+    chrom_sizes = hic.get_chromosome_sizes()
+
+    nt.assert_equal(chrom_sizes, expected_sizes)
+
+
+def test_intervalListToIntervalTree(capsys):
+    # get matrix
+    hic = hm.hiCMatrix()
+    cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
+                     ('a', 20, 30, 1), ('b', 30, 40, 1), ('b', 40, 50, 1)]
+
+    hic.nan_bins = []
+
+    matrix = np.array([[1, 8, 5, 3, 0],
+                       [0, 4, 15, 5, 1],
+                       [0, 0, 0, 0, 2],
+                       [0, 0, 0, 0, 1],
+                       [0, 0, 0, 0, 0]])
+
+    hic.matrix = csr_matrix(matrix)
+    hic.setMatrix(hic.matrix, cut_intervals)
+
+    nt.assert_equal(hic.getMatrix(), matrix)
+
+    # empty list should raise AssertionError
+    interval_list = []
+    with pytest.raises(AssertionError):
+        hic.intervalListToIntervalTree(interval_list)
+
+        captured = capsys.readouterr()
+        assert captured.out == "Interval list is empty"
+
+    # test with correct interval_list
+    interval_list = [('a', 0, 10, 1), ('a', 10, 20, 1), ('b', 20, 30, 1), ('b', 30, 50, 1),
+                     ('b', 50, 100, 1), ('c', 100, 200, 1), ('c', 200, 210, 1),
+                     ('d', 210, 220, 1), ('e', 220, 250)]
+
+    tree, boundaries = hic.intervalListToIntervalTree(interval_list)
+
+    # test tree
+    nt.assert_equal(tree['a'], IntervalTree([Interval(0, 10, 0), Interval(10, 20, 1)]))
+    nt.assert_equal(tree['b'], IntervalTree([Interval(20, 30, 2), Interval(30, 50, 3),
+                                             Interval(50, 100, 4)]))
+    nt.assert_equal(tree['c'], IntervalTree([Interval(100, 200, 5), Interval(200, 210, 6)]))
+    nt.assert_equal(tree['d'], IntervalTree([Interval(210, 220, 7)]))
+    nt.assert_equal(tree['e'], IntervalTree([Interval(220, 250, 8)]))
+
+    # test boundaries
+    nt.assert_equal(boundaries, OrderedDict([('a', (0, 2)), ('b', (2, 5)), ('c', (5, 7)),
+                                             ('d', (7, 8)), ('e', (8, 9))]))
