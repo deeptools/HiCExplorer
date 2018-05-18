@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import hicexplorer.HiCMatrix as hm
 from hicexplorer.utilities import toString
-
+from hicexplorer.chicViewpointBackgroundModel import getViewpointValues
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -68,37 +68,37 @@ def relabelTicks(pTick):
     return xlabels
 
 
-def getViewpointValues(pMatrix, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionList=None, pChromosome=None):
+# def getViewpointValues(pMatrix, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionList=None, pChromosome=None):
 
-    hic = hm.hiCMatrix(pMatrix)
-    if pChromosome is not None:
-        hic.keepOnlyTheseChr(pChromosome)
+#     hic = hm.hiCMatrix(pMatrix)
+#     if pChromosome is not None:
+#         hic.keepOnlyTheseChr(pChromosome)
 
-    if len(pReferencePoint) == 2:
-        view_point_start, view_point_end = hic.getRegionBinRange(pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[1]))
-    elif len(pReferencePoint) == 3:
-        view_point_start, view_point_end = hic.getRegionBinRange(pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[2]))
-    else:
-        log.error("No valid reference point given. {}".format(pReferencePoint))
-        exit(1)
+#     if len(pReferencePoint) == 2:
+#         view_point_start, view_point_end = hic.getRegionBinRange(pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[1]))
+#     elif len(pReferencePoint) == 3:
+#         view_point_start, view_point_end = hic.getRegionBinRange(pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[2]))
+#     else:
+#         log.error("No valid reference point given. {}".format(pReferencePoint))
+#         exit(1)
 
-    view_point_range = hic.getRegionBinRange(pChromViewpoint, pRegion_start, pRegion_end)
-    elements_of_viewpoint = view_point_range[1] - view_point_range[0]
-    data_list = np.zeros(elements_of_viewpoint)
-    view_point_start_ = view_point_start
-    interactions_list = None
-    if pInteractionList is not None:
-        interactions_list = []
-    while view_point_start_ <= view_point_end:
-        chrom, start, end, _ = hic.getBinPos(view_point_start_)
-        for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
-            data_list[j] += hic.matrix[view_point_start_, idx]
-            if interactions_list is not None:
-                chrom_second, start_second, end_second, _ = hic.getBinPos(idx)
-                interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, hic.matrix[view_point_start_, idx]))
-        view_point_start_ += 1
+#     view_point_range = hic.getRegionBinRange(pChromViewpoint, pRegion_start, pRegion_end)
+#     elements_of_viewpoint = view_point_range[1] - view_point_range[0]
+#     data_list = np.zeros(elements_of_viewpoint)
+#     view_point_start_ = view_point_start
+#     interactions_list = None
+#     if pInteractionList is not None:
+#         interactions_list = []
+#     while view_point_start_ <= view_point_end:
+#         chrom, start, end, _ = hic.getBinPos(view_point_start_)
+#         for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
+#             data_list[j] += hic.matrix[view_point_start_, idx]
+#             if interactions_list is not None:
+#                 chrom_second, start_second, end_second, _ = hic.getBinPos(idx)
+#                 interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, hic.matrix[view_point_start_, idx]))
+#         view_point_start_ += 1
 
-    return [view_point_start, view_point_end, view_point_range, data_list, interactions_list]
+#     return [view_point_start, view_point_end, view_point_range, data_list, interactions_list]
 
 
 def main(args=None):
@@ -132,8 +132,11 @@ def main(args=None):
         interactions_list = []
     matrix_name_legend = []
     for matrix in args.matrix:
+        hic_matrix = hm.hiCMatrix(pMatrix)
+        if args.chromosome is not None:
+            hic_matrix.keepOnlyTheseChr(args.chromosome)
         view_point_start, view_point_end, view_point_range, data_list_, interactions_list_ \
-            = getViewpointValues(matrix, referencePoint, chrom, region_start, region_end, args.interactionOutFileName, args.chromosome)
+            = getViewpointValues(hic_matrix, referencePoint, chrom, region_start, region_end, args.interactionOutFileName, args.chromosome)
         data_list.append(data_list_)
         if args.interactionOutFileName is not None:
             interactions_list.append(interactions_list_)
