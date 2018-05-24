@@ -49,7 +49,7 @@ class hiCMatrix:
     """
 
     def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None,
-                 cooler_only_init=None, pIntraChromosomalOnly=None):
+                 cooler_only_init=None, pIntraChromosomalOnly=None, pApplyCorrectionCooler=None):
         self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         self.distance_counts = None  # only defined when getCountsByDistance is called
@@ -128,7 +128,7 @@ class hiCMatrix:
                     return
                 else:
                     self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
-                        self.load_cool(matrixFile, pChrnameList=chrnameList, pIntraChromosomalOnly=pIntraChromosomalOnly)
+                        self.load_cool(matrixFile, pApplyCorrection=pApplyCorrectionCooler, pChrnameList=chrnameList, pIntraChromosomalOnly=pIntraChromosomalOnly)
                     self.restoreMaskedBins()
             else:
                 exit("matrix format not known.")
@@ -142,7 +142,10 @@ class hiCMatrix:
     def load_cool_matrix(self, pChr):
         return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
 
-    def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None):
+    def load_cool(self, pMatrixFile, pApplyCorrection=None, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None, ):
+        
+        if pApplyCorrection is None:
+            pApplyCorrection = True
         try:
             cooler_file = cooler.Cooler(pMatrixFile)
         except Exception:
@@ -174,13 +177,13 @@ class hiCMatrix:
             else:
                 exit("Operation to load more than one chr from bins is not supported.")
         else:
-            if 'weight' in cooler_file.bins():
+            if pApplyCorrection and 'weight' in cooler_file.bins():
                 correction_factors_data_frame = cooler_file.bins()[['weight']][:]
 
             cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end']][:]
 
         correction_factors = None
-        if correction_factors_data_frame is not None:
+        if correction_factors_data_frame is not None and pApplyCorrection:
             log.debug("Apply correction factors")
             # apply correction factors to matrix
             # a_i,j = a_i,j / c_i *c_j
@@ -223,6 +226,30 @@ class hiCMatrix:
 
         return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
+
+    def load_hicpro(self, pMatrixFile, pBedFile):
+        instances = []
+        featues = []
+        data = []
+        with open(pMatrixFile, 'r') as matrix_file:
+            for line in matrix_file:
+               x, y, value = line.split('\t')
+                instances.append(int(x))
+                features.append(int(y))
+                data.append(float(data))
+        cut_intervals = []
+        with open(pBedFile, 'r') as bed_file:
+            for line in bed_file:
+                chrom, start, end, value = line.split('\t')
+                cut_intervals.append((chrom, start, end, value))
+        shape = len(cut_intervals)
+        matrix = csr_matrix((data, (instances, features)), shape=(shape, shape))
+
+        nan_bins = None
+        distance_counts = None
+        correction_factors = None
+        return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
+        
     @staticmethod
     def load_h5(matrix_filename):
         """
