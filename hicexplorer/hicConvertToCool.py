@@ -41,22 +41,23 @@ def parse_arguments(args=None):
                                 required=True)
 
     parserRequired.add_argument('--outputFormat',
-                                help='Output format. The following options are available: `h5` (native HiCExplorer '
-                                'format based on hdf5 storage format), '
+                                help='Output format. The following options are available: `h5` (native HiCExplorer ' \
+                                'format based on hdf5 storage format). ' \
                                 ' `cool` and `hic`',
                                 default='cool',
                                 choices=['cool', 'mcool'],
                                 required=True)
+
     parserRequired.add_argument("--modus", "-mo",
                                 choices=['resolution', 'combineSample', 'resolutionAndCombineSample', 'hic2cool'],
-                                default='resolution'
+                                default='resolution',
                                 help="Store different sample in one mcool file.")
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument("--removeCorrection", "-rc",
                            action='store_true',
                            help="Do not apply correction factors and store original data. Option only for cool input files.")
-    parserOpt.
+    # parserOpt.
     parserOpt.add_argument("--resolutions", '-r',
                            nargs='+',
                            help='List of resolutions that should be added.')
