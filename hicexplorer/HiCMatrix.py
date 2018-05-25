@@ -194,7 +194,7 @@ class hiCMatrix:
                 instances_factors = correction_factors[instances]
                 features_factors = correction_factors[features]
                 instances_factors *= features_factors
-                matrix.data /= instances_factors
+                matrix.data *= instances_factors
 
         cut_intervals = []
 
