@@ -143,7 +143,7 @@ class hiCMatrix:
         return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
 
     def load_cool(self, pMatrixFile, pApplyCorrection=None, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None, ):
-        
+
         if pApplyCorrection is None:
             pApplyCorrection = True
         try:
@@ -226,14 +226,13 @@ class hiCMatrix:
 
         return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
-
     def load_hicpro(self, pMatrixFile, pBedFile):
         instances = []
         featues = []
         data = []
         with open(pMatrixFile, 'r') as matrix_file:
             for line in matrix_file:
-               x, y, value = line.split('\t')
+                x, y, value = line.split('\t')
                 instances.append(int(x))
                 features.append(int(y))
                 data.append(float(data))
@@ -249,7 +248,31 @@ class hiCMatrix:
         distance_counts = None
         correction_factors = None
         return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
-        
+
+    def load_homer(self, pMatrixFile):
+        instances = []
+        features = []
+        data = []
+        cut_intervals = []
+        x = 0
+        y = 0
+        with open(pMatrixFile, 'r') as matrix_file:
+            values = matrix_file.readline()
+            for i, value in enumerate(values[2:]):
+                chrom, start = value.split('-')
+
+                cut_intervals.append((chrom, int(start), int(value[i + 1]), 1))
+
+            for line in matrix_file:
+                values = line.split('\t')
+                for i, value in enumerate(values[2:]):
+                    instances.append(x)
+                    features.append(y)
+                    data.append(int(value))
+                    y += 1
+                x += 1
+                y = 0
+
     @staticmethod
     def load_h5(matrix_filename):
         """
