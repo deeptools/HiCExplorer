@@ -22,7 +22,7 @@ def are_files_equal(file1, file2):
                 split_x = x.split('\t')
                 split_y = y.split('\t')
                 if split_x[0] == split_y[0] and split_x[1] == split_y[1] and split_x[2] == split_y[2]:
-                    if float(split_x[3]) == float(split_y[3]) * -1:
+                    if abs(float(split_x[3])) == abs(float(split_y[3])):
                         continue
                 equal = False
                 break
@@ -47,9 +47,8 @@ def are_files_equal_bigwig(file1, file2):
         # sometimes the values are + / - flipped
 
         if bins_list_file1 is not None and bins_list_file1[0][2] != bins_list_file2[0][2]:
-            bins_list_file1 = np.array(bins_list_file1)
-            bins_list_file2 = np.array(bins_list_file2)
-            bins_list_file1[:][2] *= -1
+            bins_list_file1 = np.absolute(np.array(bins_list_file1))
+            bins_list_file2 = np.absolute(np.array(bins_list_file2))
         if bins_list_file1 is None and bins_list_file2 is None:
             return True
         nt.assert_array_almost_equal(bins_list_file1, bins_list_file2)
