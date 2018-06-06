@@ -177,3 +177,9 @@ def test_load_mcooler_format_fail():
 
 def test_load_mcooler_format_success():
     matrix = hm.hiCMatrix(ROOT + "matrix.mcool::/1")  # noqa: F841
+
+def test_load_homer_format():
+    pass
+
+def test_load_hicpro_format():
+    pass
