@@ -9,7 +9,7 @@ from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import check_cooler
-
+from hicexplorer.hicPlotMatrix import translate_region
 import numpy as np
 import logging
 log = logging.getLogger(__name__)
@@ -267,11 +267,13 @@ def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList):
     return mapped_cluster
 
 
-def write_bedgraph(pClusters, pOutFileName):
+def write_bedgraph(pClusters, pOutFileName, pStartRegion, pEndRegion):
 
     with open(pOutFileName, 'w') as fh:
         for cluster_item in pClusters:
-            fh.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % cluster_item)
+            if cluster_item[1] >= pStartRegion and cluster_item[2] <= pEndRegion \
+                    and cluster_item[4] >= pStartRegion and cluster_item[5] <= pEndRegion:
+                fh.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % cluster_item)
 
 
 def main():
@@ -299,6 +301,16 @@ def main():
         hic_matrix = hm.hiCMatrix(args.matrix)
         if args.chromosomeOrder:
             hic_matrix.keepOnlyTheseChr(args.chromosomeOrder)
+        if args.region:
+            chrom, region_start, region_end = translate_region(args.region)
+            log.info("{}".format(args.region))
+            log.info("{}".format(chrom))
+            log.info("{}".format(region_start))
+            log.info("{}".format(region_end))
+            
+            hic_matrix.keepOnlyTheseChr([chrom])
+            # hic_matrix.matrix = hic_matrix.matrix[idx1, :][:, idx2]
+
     hic_matrix.matrix = hic_matrix.matrix + hic_matrix.matrix.transpose() - csr_matrix(np.diag(hic_matrix.matrix.diagonal()))
     z_score_matrix = compute_zscore_matrix(hic_matrix.matrix)
     if args.scoreMatrixName:
@@ -308,4 +320,4 @@ def main():
                                                   args.minNeighborhoodSize)
 
     # write it to bedgraph / bigwig file
-    write_bedgraph(mapped_clusters, args.outFileName)
+    write_bedgraph(mapped_clusters, args.outFileName, region_start, region_end)

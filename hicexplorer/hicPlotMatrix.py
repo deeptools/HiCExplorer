@@ -413,7 +413,7 @@ def getRegion(args, ma):
     else:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
                                  x[1] >= region_start and x[2] < region_end])
-    if args.region2:
+    if hasattr(args, 'region2') and args.region2:
         chrom2, region_start2, region_end2 = translate_region(args.region2)
         chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
 
