@@ -14,7 +14,7 @@ class H5(MatrixFile):
         :param matrix_filename:
         :return: matrix, cut_intervals, nan_bins, distance_counts, correction_factors
         """
-        with tables.open_file(matrix_filename) as f:
+        with tables.open_file(self._matrixFileName) as f:
             parts = {}
             for matrix_part in ('data', 'indices', 'indptr', 'shape'):
                 parts[matrix_part] = getattr(f.root.matrix, matrix_part).read()
@@ -63,7 +63,7 @@ class H5(MatrixFile):
 
    
 
-    def save(self, filename, pSymmetric=True):
+    def save(self, filename, pSymmetric=True, pApplyCorrection=None):
         """
         Saves a matrix using hdf5 format
         :param filename:

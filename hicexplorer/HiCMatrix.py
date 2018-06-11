@@ -49,7 +49,7 @@ class hiCMatrix:
     """
 
     def __init__(self, pMatrixFile=None, pChrnameList=None, pCooler_only_init=None, 
-                    pIntraChromosomalOnly=None, pApplyCorrectionCooler=None):
+                    pApplyCorrectionCooler=None):
         # self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         # self.non_homogeneous_warning_already_printed = False
         # self.distance_counts = None  # only defined when getCountsByDistance is called
@@ -57,14 +57,20 @@ class hiCMatrix:
         # self.bin_size_homogeneous = None  # track if the bins are equally spaced or not
         # # self.uncorrected_matrix = None
 
+        self.matrix = None
+        self.cut_intervals = None
+        self.nan_bins = None
+        self.correction_factors = None
+        self.distance_counts = None
         # # when NaN bins are masked, this variable becomes contains the bin index
         # # needed to put the masked bins back into the matrix.
         self.orig_bin_ids = []
         self.orig_cut_intervals = []  # similar to orig_bin_ids. Used to identify the position of masked nan bins
 
         if pMatrixFile is not None:
+            log.debug('Load self.matrixFileHandler')
             self.matrixFileHandler = MatrixFileHandler(pMatrixFile=pMatrixFile, pChrnameList=pChrnameList, pCooler_only_init=pCooler_only_init, 
-                                        pIntraChromosomalOnly=pIntraChromosomalOnly, pApplyCorrectionCooler=pApplyCorrectionCooler)
+                                         pApplyCorrectionCooler=pApplyCorrectionCooler)
             self.matrix, self.cut_intervals, self.nan_bins, \
                  self.correction_factors, self.distance_counts = self.matrixFileHandler.load()
 
@@ -76,11 +82,18 @@ class hiCMatrix:
             # log.info('self.matrix {}'.format(self.matrix))
             if self.nan_bins is None:
                 self.nan_bins = np.array([])
-                
+            log.debug('Apply fillLowerTriangle')
+            log.debug('self.matix before: {}'.format(self.matrix))
+            log.debug('self.matix.shape before: {}'.format(self.matrix.shape))
+
             self.fillLowerTriangle()
+            log.debug('self.matix after: {}'.format(self.matrix))
+
             self.restoreMaskedBins()
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
+        elif pCooler_only_init:
+            self.matrixFileHandler = MatrixFileHandler(pMatrixFile=pMatrixFile)
         else:
             log.error('matrix file not given')
             sys.exit(1)
@@ -88,7 +101,11 @@ class hiCMatrix:
     def save(self, pMatrixName, pSymmetric=True, pApplyCorrection=False):
         """ As an output format cooler and mcooler are supported.
         """
-
+        # if self.matrixFileHandler is None:
+        #     self.matrixFileHandler = MatrixFileHandler(pMatrixFile)
+        self.restoreMaskedBins()
+        self.matrixFileHandler.set_matrix_variables(self.matrix, self.cut_intervals, self.nan_bins,
+                                                        self.correction_factors, self.distance_counts)
         if pMatrixName.endswith('cool'):
             self.matrixFileHandler.save(pMatrixName, pSymmetric=pSymmetric, pApplyCorrection=pApplyCorrection)
 
@@ -1086,9 +1103,3 @@ def check_cooler(pFileName):
         return True
     return False
 
-
-def convertNansToOnes(pArray):
-    nan_elements = np.flatnonzero(np.isnan(pArray))
-    if len(nan_elements) > 0:
-        pArray[nan_elements] = 1.0
-    return pArray

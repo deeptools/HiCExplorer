@@ -20,10 +20,10 @@ ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
 
 def test_save_load():
-    outfile = '/tmp/matrix.h5'
+    outfile = '/tmp/matrix.cool'
     cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
                      ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
-    hic = hm.hiCMatrix()
+    hic = hm.hiCMatrix(pCooler_only_init=True)
     hic.nan_bins = []
     matrix = np.array([[1, 8, 5, 3, 0],
                        [0, 4, 15, 5, 1],
@@ -31,23 +31,30 @@ def test_save_load():
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
-    hic.matrix = csr_matrix(matrix)
+    # hic.matrix = csr_matrix(matrix)
     # make matrix symmetric
-    hic.setMatrix(hic.matrix, cut_intervals)
-    hic.matrix = hm.hiCMatrix.fillLowerTriangle(hic.matrix)
+    hic.setMatrix(csr_matrix(matrix), cut_intervals)
+    log.debug('hic.matrix {}'.format(hic.matrix))
+    
+    hic.fillLowerTriangle()
+    log.debug('hic.matrix {}'.format(hic.matrix))
+    log.debug('hic.matrix.shape {}'.format(hic.matrix.shape))
+
+
     hic.correction_factors = np.array([0.5, 1, 2, 3, 4])
     hic.nan_bins = np.array([4])
 
     hic.save(outfile)
 
-    h5 = hm.hiCMatrix(outfile)
-    nt.assert_equal(hic.correction_factors, h5.correction_factors)
-    nt.assert_equal(hic.matrix.data, h5.matrix.data)
-    nt.assert_equal(hic.matrix.indices, h5.matrix.indices)
-    nt.assert_equal(hic.matrix.indptr, h5.matrix.indptr)
-    nt.assert_equal(hic.nan_bins, h5.nan_bins)
+    cool_file = hm.hiCMatrix(outfile)
+    # nt.assert_equal(hic.correction_factors, cool_file.correction_factors)
+    log.debug('muh: {}'.format(hic.matrix.data))
+    nt.assert_equal(hic.matrix.data, cool_file.matrix.data)
+    nt.assert_equal(hic.matrix.indices, cool_file.matrix.indices)
+    nt.assert_equal(hic.matrix.indptr, cool_file.matrix.indptr)
+    nt.assert_equal(hic.nan_bins, cool_file.nan_bins)
 
-    nt.assert_equal(hic.cut_intervals, h5.cut_intervals)
+    nt.assert_equal(hic.cut_intervals, cool_file.cut_intervals)
     unlink(outfile)
 
 
@@ -88,7 +95,7 @@ def test_convert_to_zscore_matrix():
 def test_convert_to_zscore_matrix_2():
 
     # load test matrix
-    hic = hm.hiCMatrix(ROOT + '/Li_et_al_2015.h5')
+    hic = hm.hiCMatrix(ROOT + '/Li_et_al_2015.cool')
     hic.maskBins(hic.nan_bins)
 
     mat = hic.matrix.todense()
@@ -152,7 +159,7 @@ def test_save_load_cooler_format():
     hic.matrix = csr_matrix(matrix)
     # make matrix symmetric
     hic.setMatrix(hic.matrix, cut_intervals)
-    hic.matrix = hm.hiCMatrix.fillLowerTriangle(hic.matrix)
+    hic.matrix = hm.hiCMatrix.fillLowerTriangle()
 
     hic.save(outfile)
 

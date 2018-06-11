@@ -1,29 +1,36 @@
 import cooler
 import logging
+import numpy as np
+from scipy.sparse import csr_matrix, dia_matrix, coo_matrix, triu, tril
+import pandas as pd
+from past.builtins import zip
+
 log = logging.getLogger(__name__)
 from .matrixFile import MatrixFile
 from hicexplorer.utilities import toString
+from hicexplorer.utilities import convertNansToOnes
+
 class Cool(MatrixFile):
 
-    def __init__(self, pMatrixFile):
+    def __init__(self, pMatrixFile, pCooler_only_init=None):
         super().__init__(pMatrixFile)
 
-    # def __load_cool_only_init(self, pMatrixFile):
-    #     self.cooler_file = cooler.Cooler(pMatrixFile)
+    def only_init(self):
+        self.cooler_file = cooler.Cooler(self.matrixFileName)
 
     # def __load_cool_matrix(self, pChr):
     #     return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
 
-    def load(self, pApplyCorrection=None, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None):
+    def load(self, pApplyCorrection=None, pChrnameList=None, pMatrixOnly=None):
 
         if pApplyCorrection is None:
             pApplyCorrection = True
         try:
-            cooler_file = cooler.Cooler(self._matrixFileName)
+            cooler_file = cooler.Cooler(self.matrixFileName)
         except Exception:
             log.info("Could not open cooler file. Maybe the path is wrong or the given node is not available.")
-            log.info('The following file was tried to open: {}'.format(self._matrixFileName))
-            log.info("The following nodes are available: {}".format(cooler.io.ls(self._matrixFileName.split("::")[0])))
+            log.info('The following file was tried to open: {}'.format(self.matrixFileName))
+            log.info("The following nodes are available: {}".format(cooler.io.ls(self.matrixFileName.split("::")[0])))
             exit()
 
         if pChrnameList is None:
@@ -55,10 +62,12 @@ class Cool(MatrixFile):
             cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end']][:]
 
         correction_factors = None
+        log.debug("{} {}".format(correction_factors_data_frame, pApplyCorrection))
+
         if correction_factors_data_frame is not None and pApplyCorrection:
             log.debug("Apply correction factors")
             # apply correction factors to matrix
-            # a_i,j = a_i,j / c_i *c_j
+            # a_i,j = a_i,j * c_i *c_j
             matrix.eliminate_zeros()
             matrix.data = matrix.data.astype(float)
 
@@ -69,7 +78,7 @@ class Cool(MatrixFile):
                 instances_factors = correction_factors[instances]
                 features_factors = correction_factors[features]
                 instances_factors *= features_factors
-                matrix.data /= instances_factors
+                matrix.data *= instances_factors
 
         cut_intervals = []
 
@@ -100,6 +109,8 @@ class Cool(MatrixFile):
 
 
 
+    # def set_matrix_variables(self, pMatrix, pCutIntervals, pNanBins, pCorrectionFactors, pDistanceCounts):
+    #     super().set_matrix_variables(pMatrix, pCutIntervals, pNanBins, pCorrectionFactors, pDistanceCounts)
 
 
     # def __create_empty_cool_file(self, pFileName):
@@ -110,8 +121,14 @@ class Cool(MatrixFile):
     #                      pixels=matrix_data_frame)
 
     def save(self, pFileName, pSymmetric=True, pApplyCorrection=True):
+        log.info('self.matrix {}'.format(self.matrix))
+        log.info('self.nan_bins {}'.format(self.nan_bins))
+        log.info('self.cut_intervals {}'.format(self.cut_intervals))
+        log.info('self.correction_factors {}'.format(self.correction_factors))
+        log.info('pApplyCorrection {}'.format(pApplyCorrection))
+
         # for value in self.nan_bins:
-        self.restoreMaskedBins()
+        # 
         self.matrix = self.matrix.tolil()
         if self.nan_bins is not None:
             self.matrix[self.nan_bins, :] = 0
@@ -159,7 +176,7 @@ class Cool(MatrixFile):
                 features_factors = self.correction_factors[features]
 
                 instances_factors *= features_factors
-                matrix.data *= instances_factors
+                matrix.data /= instances_factors
                 instances_factors = None
                 features_factors = None
 
