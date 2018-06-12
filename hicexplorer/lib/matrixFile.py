@@ -3,7 +3,7 @@ log = logging.getLogger(__name__)
 
 class MatrixFile():
 
-    def __init__(self, pMatrixFileName):
+    def __init__(self, pMatrixFileName=None):
         self.matrixFileName = pMatrixFileName
         self.matrix = None
         self.cut_intervals = None

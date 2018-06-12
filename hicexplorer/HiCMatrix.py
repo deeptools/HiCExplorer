@@ -51,11 +51,11 @@ class hiCMatrix:
     def __init__(self, pMatrixFile=None, pChrnameList=None, pCooler_only_init=None, 
                     pApplyCorrectionCooler=None):
         # self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
-        # self.non_homogeneous_warning_already_printed = False
+        self.non_homogeneous_warning_already_printed = False
         # self.distance_counts = None  # only defined when getCountsByDistance is called
-        # self.bin_size = None
-        # self.bin_size_homogeneous = None  # track if the bins are equally spaced or not
-        # # self.uncorrected_matrix = None
+        self.bin_size = None
+        self.bin_size_homogeneous = None  # track if the bins are equally spaced or not
+        self.uncorrected_matrix = None
 
         self.matrix = None
         self.cut_intervals = None
@@ -66,6 +66,7 @@ class hiCMatrix:
         # # needed to put the masked bins back into the matrix.
         self.orig_bin_ids = []
         self.orig_cut_intervals = []  # similar to orig_bin_ids. Used to identify the position of masked nan bins
+        self.matrixFileHandler = None
 
         if pMatrixFile is not None:
             log.debug('Load self.matrixFileHandler')
@@ -82,18 +83,22 @@ class hiCMatrix:
             # log.info('self.matrix {}'.format(self.matrix))
             if self.nan_bins is None:
                 self.nan_bins = np.array([])
-            log.debug('Apply fillLowerTriangle')
-            log.debug('self.matix before: {}'.format(self.matrix))
-            log.debug('self.matix.shape before: {}'.format(self.matrix.shape))
+            # log.debug('Apply fillLowerTriangle')
+            # log.debug('self.matix before: {}'.format(self.matrix))
+            # log.debug('self.matix.shape before: {}'.format(self.matrix.shape))
 
             self.fillLowerTriangle()
-            log.debug('self.matix after: {}'.format(self.matrix))
+            # log.debug('self.matix after: {}'.format(self.matrix))
 
             self.restoreMaskedBins()
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
         elif pCooler_only_init:
-            self.matrixFileHandler = MatrixFileHandler(pMatrixFile=pMatrixFile)
+            self.matrixFileHandler = MatrixFileHandler()
+        elif pMatrixFile is None:
+            # self.matrixFileHandler = MatrixFileHandler()
+
+            log.info('Only init object, no matrix given.')
         else:
             log.error('matrix file not given')
             sys.exit(1)
@@ -101,8 +106,8 @@ class hiCMatrix:
     def save(self, pMatrixName, pSymmetric=True, pApplyCorrection=False):
         """ As an output format cooler and mcooler are supported.
         """
-        # if self.matrixFileHandler is None:
-        #     self.matrixFileHandler = MatrixFileHandler(pMatrixFile)
+        if self.matrixFileHandler is None:
+            self.matrixFileHandler = MatrixFileHandler()
         self.restoreMaskedBins()
         self.matrixFileHandler.set_matrix_variables(self.matrix, self.cut_intervals, self.nan_bins,
                                                         self.correction_factors, self.distance_counts)
@@ -128,6 +133,7 @@ class hiCMatrix:
                 [ 0,  1,  0,  0,  0]], dtype=int32)
 
         """
+        log.debug('sum of tril: {}'.format(tril(self.matrix, k=-1).sum()))
         if tril(self.matrix, k=-1).sum() == 0:
             # this case means that the lower triangle of the
             # symmetric matrix (below the main diagonal)

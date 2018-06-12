@@ -12,7 +12,7 @@ from hicexplorer.utilities import convertNansToOnes
 
 class Cool(MatrixFile):
 
-    def __init__(self, pMatrixFile, pCooler_only_init=None):
+    def __init__(self, pMatrixFile=None, pCooler_only_init=None):
         super().__init__(pMatrixFile)
 
     def only_init(self):
@@ -22,7 +22,8 @@ class Cool(MatrixFile):
     #     return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
 
     def load(self, pApplyCorrection=None, pChrnameList=None, pMatrixOnly=None):
-
+        if self.matrixFileName is None:
+            log.info('No matrix is initalized')
         if pApplyCorrection is None:
             pApplyCorrection = True
         try:
@@ -121,14 +122,16 @@ class Cool(MatrixFile):
     #                      pixels=matrix_data_frame)
 
     def save(self, pFileName, pSymmetric=True, pApplyCorrection=True):
-        log.info('self.matrix {}'.format(self.matrix))
-        log.info('self.nan_bins {}'.format(self.nan_bins))
-        log.info('self.cut_intervals {}'.format(self.cut_intervals))
-        log.info('self.correction_factors {}'.format(self.correction_factors))
-        log.info('pApplyCorrection {}'.format(pApplyCorrection))
+        # log.info('self.matrix {}'.format(self.matrix))
+        # log.info('self.nan_bins {}'.format(self.nan_bins))
+        # log.info('self.cut_intervals {}'.format(self.cut_intervals))
+        # log.info('self.correction_factors {}'.format(self.correction_factors))
+        # log.info('pApplyCorrection {}'.format(pApplyCorrection))
 
         # for value in self.nan_bins:
         # 
+
+    
         self.matrix = self.matrix.tolil()
         if self.nan_bins is not None:
             self.matrix[self.nan_bins, :] = 0
@@ -140,6 +143,7 @@ class Cool(MatrixFile):
                 self.matrix.data[i] = 0
 
         self.matrix.eliminate_zeros()
+
         # save only the upper triangle of the
         if pSymmetric:
             # symmetric matrix
@@ -197,6 +201,7 @@ class Cool(MatrixFile):
         if len(instances) == 0 and len(features) == 0:
             exit('No data present. Exit.')
         else:
+            # log.debug(' data: {}'.format(data))
             matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
             matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
 

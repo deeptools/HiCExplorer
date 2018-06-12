@@ -25,7 +25,7 @@ def are_files_equal(file1, file2):
 
 
 def test_build_matrix():
-    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
     args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4".format(sam_R1, sam_R2,
@@ -33,7 +33,7 @@ def test_build_matrix():
                                                                                                   qc_folder).split()
     hicBuildMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
+    test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.cool")
     new = hm.hiCMatrix(outfile.name)
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
@@ -81,7 +81,7 @@ def test_build_matrix_cooler():
 
 
 def test_build_matrix_rf():
-    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
     args = "-s {} {} -rs {} --outFileName {}  --QCfolder {} " \
@@ -93,7 +93,7 @@ def test_build_matrix_rf():
                                                             qc_folder).split()
     hicBuildMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix.h5")
+    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix.cool")
     new = hm.hiCMatrix(outfile.name)
 
     nt.assert_equal(test.matrix.data, new.matrix.data)

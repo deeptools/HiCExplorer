@@ -27,7 +27,7 @@ def test_save_load():
     hic.nan_bins = []
     matrix = np.array([[1, 8, 5, 3, 0],
                        [0, 4, 15, 5, 1],
-                       [0, 0, 0, np.nan, 2],
+                       [0, 0, 0, 0, 2],
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
@@ -41,8 +41,8 @@ def test_save_load():
     log.debug('hic.matrix.shape {}'.format(hic.matrix.shape))
 
 
-    hic.correction_factors = np.array([0.5, 1, 2, 3, 4])
-    hic.nan_bins = np.array([4])
+    hic.correction_factors = np.array([1, 1, 1, 1, 1])
+    hic.nan_bins = np.array([])
 
     hic.save(outfile)
 
@@ -159,7 +159,7 @@ def test_save_load_cooler_format():
     hic.matrix = csr_matrix(matrix)
     # make matrix symmetric
     hic.setMatrix(hic.matrix, cut_intervals)
-    hic.matrix = hm.hiCMatrix.fillLowerTriangle()
+    hic.fillLowerTriangle()
 
     hic.save(outfile)
 
