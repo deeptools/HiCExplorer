@@ -69,12 +69,12 @@ class Viewpoint():
         elements_of_viewpoint = view_point_range[1] - view_point_range[0]
 
         interactions_list = []
-        chrom, start, _, _ = hic.getBinPos(view_point_start)
-        _, _, end, _ = hic.getBinPos(view_point_end)
+        chrom, start, _, _ = self.hicMatrix.getBinPos(view_point_start)
+        _, _, end, _ = self.hicMatrix.getBinPos(view_point_end)
 
         for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
             chrom_second, start_second, end_second, _ = self.hicMatrix.getBinPos(idx)
-            interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, data_list[j]))
+            interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, pInteractionData[j]))
 
         return interactions_list
 

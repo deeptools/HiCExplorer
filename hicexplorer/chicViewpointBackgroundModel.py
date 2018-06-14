@@ -44,7 +44,7 @@ def parse_arguments(args=None):
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
                            default=0)
-    parserOpt.add_argument('--outFileName', '-o'
+    parserOpt.add_argument('--outFileName', '-o',
                            help='The name of the background model file',
                            default='background_model.bed')
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
