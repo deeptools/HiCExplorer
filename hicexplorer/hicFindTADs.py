@@ -1111,6 +1111,7 @@ class HicFindTads(object):
             pool = multiprocessing.Pool(self.num_processors)
             log.info("Using {} processors\n".format(self.num_processors))
             res = pool.map_async(func, TASKS).get(9999999)
+            pool.close()
         else:
             res = map(func, TASKS)
 
