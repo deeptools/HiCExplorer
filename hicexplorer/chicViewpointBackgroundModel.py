@@ -95,6 +95,7 @@ def main():
             view_point_start, _ = viewpointObj.getReferencePointAsMatrixIndices(referencePoint)
             view_point_range_start, view_point_range_end = \
                 viewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
+            log.debug('len data_list: {}'.format(len(data_list)))
             for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
                 relative_position = i - view_point_start
                 if relative_position in background_model_data:

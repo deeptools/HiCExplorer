@@ -11,7 +11,9 @@ import sys
 import numpy as np
 import hicexplorer.HiCMatrix as hm
 from hicexplorer.utilities import toString
-from hicexplorer.chicViewpointBackgroundModel import getViewpointValues
+# from hicexplorer.chicViewpointBackgroundModel import getViewpointValues
+from .lib import Viewpoint
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -33,9 +35,6 @@ def parse_arguments(args=None):
                                 required=True,
                                 nargs='+')
 
-    parserRequired.add_argument('--region',
-                                help='The format is chr:start-end ',
-                                required=True)
 
     parserRequired.add_argument('--outFileName', '-o',
                                 help='File name to save the image.',
@@ -43,12 +42,9 @@ def parse_arguments(args=None):
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
-
-    parserOpt.add_argument('--plotOneImage', '-i', 
-                            help='Optional parameter:  If set all viewpoints are plotted in one image.',
-                            required=False,
-                            type=bool,
-                            default=False)
+    parserOpt.add_argument('--backgroundModelFile', '-bmf',
+                                help='path to the background file which should be used for plotting',
+                                required=False)
 
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
@@ -66,12 +62,44 @@ def parse_arguments(args=None):
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
-    fig = plt.figure(figsize=(6.4, 4.8))
-    ax = plt.subplot(111)
+    if args.backgroundModelFile:
+        background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
+        # log.debug('background data {}'.format(background_data))
+       
+        background_data_sorted = sorted(background_data)
+        # log.debug('background data {}'.format(background_data))
+        background_data_list= list(background_data.values())
+    
 
     for interactionFile in args.interactionFile:
-        header, data = viewpointObj.readInteractionFile(interactionFile)
+        fig = plt.figure(figsize=(6.4, 4.8))
+        ax = plt.subplot(111)
+        header, interaction_data = viewpointObj.readInteractionFile(interactionFile)
+        matrix_name, viewpoint, upstream_range, downstream_range = header.split('\t')
+        matrix_name = matrix_name[1:]
+        data = []
+
+        
+        if args.backgroundModelFile:
+            viewpoint_index = background_data_sorted.index(0)
+
+            data_background = []
+            # interaction_data = sorted(interaction_data)
+            for key in background_data_sorted:
+                if key in interaction_data:
+                    data.append(interaction_data[key])
+                else:
+                    data.append(0)
+                data_background.append(background_data[key][0])
+
+        else:
+            data = list(interaction_data.values())
+            viewpoint_index = list(interaction_data.keys()).index(0)
+
+        
         # xticklabels = viewpointObj.createXlabels()
+        # log.debug('header {}'.format(header))
+        # log.debug('data {}'.format(data))
 
 
     # fig = plt.figure(figsize=(6.4, 4.8))
@@ -80,20 +108,28 @@ def main(args=None):
     # for i, data in enumerate(data_list):
     #     matrices_plot_legend.append(ax.plot(range(len(data)), data, alpha=0.7, label=matrix_name_legend[i])[0])
     
-    # if 
+    # # if 
 
+        legend = [matrix_name, 'background model']
         ax.plot(range(len(data)), data, alpha=0.7, label=header)
-        # ax.set_xticklabels(xticklabels)
+        if args.backgroundModelFile:
+            ax.plot(range(len(data_background)), data_background, '--r', alpha=0.7, label=header)
+        ax.set_xticks([0, viewpoint_index, len(data)])
+
+        ax.set_xticklabels([upstream_range, viewpoint, downstream_range])
         ax.set_ylabel('Number of interactions')
-        # left, width = .45, .5
-        # bottom, height = .25, .7
-        # right = left + width
-        # top = bottom + height
-        # if 
-        # plt.legend(header)
-        if not args.plotOneImage:
-            plt.savefig(args.outFileName, dpi=args.dpi)
-            plt.close(fig)
-    if args.plotOneImage:
-        plt.savefig(args.outFileName, dpi=args.dpi)
+    #     # left, width = .45, .5
+    #     # bottom, height = .25, .7
+    #     # right = left + width
+    #     # top = bottom + height
+    #     # if 
+        plt.legend(legend, loc='upper right')
+    #     if not args.plotOneImage:
+    #         plt.savefig(args.outFileName, dpi=args.dpi)
+    #         plt.close(fig)
+    # if args.plotOneImage:
+        outFileName = '.'.join(args.outFileName.split('.')[:-1])
+        fileFormat = args.outFileName.split('.')[-1]
+
+        plt.savefig(outFileName + '_' + header + '.' + fileFormat, dpi=args.dpi)
         plt.close(fig)

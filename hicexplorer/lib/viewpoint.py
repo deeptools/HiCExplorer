@@ -27,21 +27,36 @@ class Viewpoint():
     def readInteractionFile(self, pBedFile):
         # use header info to store reference point, and based matrix
         data = []
+        distance = {}
         with open(pBedFile) as fh:
             header = fh.readline()
             for line in fh.readlines():
                 line_ = line.split('\t')
-                data.append(float(line_[-1]))
-        return header, data
+                # data.append(float(line_[-2]))
+                distance[int(line_[-1])] = float(line_[-2])
+
+        return header, distance
+
+    def readBackgroundDataFile(self, pBedFile):
+        
+        distance = {}
+        with open(pBedFile) as fh:
+            for line in fh.readlines():
+                line_ = line.split('\t')
+                distance[int(line_[0])] = [float(line_[1]), float(line_[2])]
+                # data.append(float(line_[-2]))
+                # distance.append(int(line_[-1]))
+
+        return distance
 
     def writeInteractionFile(self, pBedFile, pData, pHeader):
         with open(pBedFile + '.bed', 'w') as fh:
             fh.write('#{}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\n".
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{}\n".
                         format(interaction[0],interaction[1],interaction[2],
                         interaction[3],interaction[4],interaction[5],
-                        interaction[6]))
+                        interaction[6], interaction[7]))
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
         # hic = pHiCMatrix
@@ -73,7 +88,7 @@ class Viewpoint():
 
         for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
             chrom_second, start_second, end_second, _ = self.hicMatrix.getBinPos(idx)
-            interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, float(pInteractionData[j])))
+            interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, float(pInteractionData[j]), int(start_second) - int(start)) )
 
         return interactions_list
 
@@ -120,7 +135,7 @@ class Viewpoint():
         sumValue = np.sum(pData)
         pData /= sumValue
         return pData
-        
+
     def calculateViewpointRange(self, pViewpoint, pRange):
         max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1]-1)[2]
         
@@ -134,7 +149,7 @@ class Viewpoint():
         
         return region_start, region_end 
     
-    def createXlabels(self, pHeader):
+    def createXlabels(self, pHeader, ):
 
         if len(referencePoint) == 2:
    
@@ -144,12 +159,14 @@ class Viewpoint():
             xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
             xticklabels[2] = relabelTicks(region_end - int(referencePoint[1]))
 
-        elif len(referencePoint) == 3:
+        # elif len(referencePoint) == 3:
 
-            # fit scale: start coordinate is 0 --> view_point_range[0]
-            ax.set_xticks([0, view_point_start - view_point_range[0], view_point_end - view_point_range[0], view_point_range[1] - view_point_range[0]])
-            xticklabels = [None] * 4
-            xticklabels[0] = relabelTicks((int(referencePoint[1]) - region_start) * (-1))
-            xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
-            xticklabels[2] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[2]))
-            xticklabels[3] = relabelTicks(region_end - int(referencePoint[1]))
+        #     # fit scale: start coordinate is 0 --> view_point_range[0]
+        #     ax.set_xticks([0, view_point_start - view_point_range[0], view_point_end - view_point_range[0], view_point_range[1] - view_point_range[0]])
+        #     xticklabels = [None] * 4
+        #     xticklabels[0] = relabelTicks((int(referencePoint[1]) - region_start) * (-1))
+        #     xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
+        #     xticklabels[2] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[2]))
+        #     xticklabels[3] = relabelTicks(region_end - int(referencePoint[1]))
+
+        return xticks, xticklabel

@@ -62,7 +62,7 @@ def parse_arguments(args=None):
                            type=int,
                            default=0)
     parserOpt.add_argument('--relativeValues',
-                           help='Write relative contacts instead of absolute ones to interaction file.',
+                           help='Write relative contacts instead of absolute ones to interaction file. Relative to total number of counts of a viewpoint.',
                            required=False,
                            action='store_true')
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
@@ -95,6 +95,6 @@ def main(args=None):
                 viewpointObj.computeRelativeValues(data_list)
             interaction_data = viewpointObj.createInteractionFileData(referencePoint, referencePoint[0], region_start, region_end, data_list)
             referencePointString = ':'.join(str(i) for i in referencePoint)
-            header_information = matrix + '\t' + referencePointString
+            header_information = matrix + '\t' + referencePointString + '\t' + str(args.range[0]) + '\t' + str(args.range[1])
             viewpointObj.writeInteractionFile(args.outFileName + '_' + matrix + '_' + referencePointString, interaction_data, header_information)
             
