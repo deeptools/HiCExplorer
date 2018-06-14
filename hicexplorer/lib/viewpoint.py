@@ -38,11 +38,10 @@ class Viewpoint():
         with open(pBedFile + '.bed', 'w') as fh:
             fh.write('#{}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\n".
-                        format(toString(interaction[0]), toString(interaction[1]), toString(interaction[2]),
-                            toString(interaction[3]), toString(interaction[4]),
-                            toString(interaction[5]), float(interaction[6]),
-                            float(average_contacts[i][j])))
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\n".
+                        format(interaction[0],interaction[1],interaction[2],
+                        interaction[3],interaction[4],interaction[5],
+                        interaction[6]))
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
         # hic = pHiCMatrix
@@ -74,7 +73,7 @@ class Viewpoint():
 
         for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
             chrom_second, start_second, end_second, _ = self.hicMatrix.getBinPos(idx)
-            interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, pInteractionData[j]))
+            interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, float(pInteractionData[j])))
 
         return interactions_list
 
@@ -117,7 +116,11 @@ class Viewpoint():
             average_contacts[i] = np.mean(pData[start:end])
             average_contacts[-(i + 1)] = np.mean(pData[-end:])
         return average_contacts
-
+    def computeRelativeValues(self, pData):
+        sumValue = np.sum(pData)
+        pData /= sumValue
+        return pData
+        
     def calculateViewpointRange(self, pViewpoint, pRange):
         max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1]-1)[2]
         
