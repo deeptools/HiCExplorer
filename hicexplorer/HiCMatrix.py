@@ -1269,6 +1269,9 @@ class hiCMatrix:
                 fileh.close()
 
     def save_GInteractions(self, fileName):
+        """
+        Saves the matrix using bioconductor's GInteraction format. `bin_pos1 , bin_pos2, number of interactions`        
+        """
         self.restoreMaskedBins()
         log.debug(self.matrix.shape)
         mat_coo = triu(self.matrix, k=0, format='csr').tocoo()
