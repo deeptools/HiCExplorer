@@ -30,20 +30,23 @@ def parse_arguments(args=None):
                                 nargs='+',
                                 required=True)
 
-    parserRequired.add_argument('--referencePoints', '-b',
-                                help='Bed file contains all viewpoints which should be used to build the background model.',
+    parserRequired.add_argument('--referencePoints', '-rp',
+                                help='Bed file contains all reference points which should be used to build the background model.',
                                 type=str,
-                                required=True,
-                                nargs=2)
+                                required=True)
     parserRequired.add_argument('--range', '-r',
                                 help='Region around the viewpoint to consider.',
                                 type=int,
-                                required=True)
+                                required=True,
+                                nargs=2)
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--averageContactBin',
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
                            default=0)
+    parserOpt.add_argument('--outFileName', '-o'
+                           help='The name of the background model file',
+                           default='background_model.bed')
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -52,16 +55,13 @@ def parse_arguments(args=None):
     return parser
 
 
-def smooth_viewpoint():
-    pass
-
 
 def main():
 
     args = parse_arguments().parse_args()
 
     viewpointObj = Viewpoint()
-    referencePoints = viewpointObj.readReferncePointFile(args.referencePoints)
+    referencePoints = viewpointObj.readReferencePointFile(args.referencePoints)
     interactions = []
 
     # elements_of_viewpoint = args.range * 2 / hic_ma.bin_size
@@ -83,6 +83,7 @@ def main():
         background_model_data = {}
         bin_size = hic_ma.getBinSize()
         for referencePoint in referencePoints:
+
             region_start, region_end = viewpointObj.calculateViewpointRange(referencePoint, args.range)
 
             data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
@@ -129,7 +130,7 @@ def main():
         mean_percentage[relative_position] = count / i
         sem[relative_position] = (count / i) / math.sqrt(i)
 
-    with open('background_model.bed', 'w') as file:
+    with open(args.outFileName, 'w') as file:
         for relative_position in relative_positions:
             relative_position_in_genomic_scale = relative_position * bin_size
             file.write("{}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, mean_percentage[relative_position],

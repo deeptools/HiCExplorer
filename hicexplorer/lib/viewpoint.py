@@ -1,7 +1,8 @@
 
 import numpy as np
 
-
+import logging
+log = logging.getLogger(__name__)
 class Viewpoint():
 
     def __init__(self, pHiCMatrix=None):
@@ -15,7 +16,7 @@ class Viewpoint():
 
         with open(pBedFile, 'r') as file:
             for line in file.readlines():
-                line_ = line.split('\t')
+                line_ = line.strip().split('\t')
                 if len(line_) == 2:
                     chrom, start, end = line_[0], line_[1], line_[1]
                 else:
@@ -54,9 +55,9 @@ class Viewpoint():
         interactions_list = None
 
         while view_point_start_ <= view_point_end:
-            chrom, start, end, _ = hic.getBinPos(view_point_start_)
+            chrom, start, end, _ = self.hicMatrix.getBinPos(view_point_start_)
             for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
-                data_list[j] += hic.matrix[view_point_start_, idx]
+                data_list[j] += self.hicMatrix.matrix[view_point_start_, idx]
             view_point_start_ += 1
 
         return data_list
@@ -93,19 +94,18 @@ class Viewpoint():
 
     def smoothInteractionValues(self, pData, pWindowSize):
 
-        window_size = np.int(math.floor(pWindowSize / 2))
+        window_size = np.int(np.floor(pWindowSize / 2))
         window_size_upstream = window_size
         if pWindowSize % 2 == 0:
             window_size_upstream -= 1
 
-        interactions = np.swapaxes(pData, 0, 1)[6].astype(float)
         average_contacts = np.zeros(len(pData))
 
         # add upstream and downstream, handle regular case
-        for i in range(window_size_upstream, len(interactions) - window_size):
+        for i in range(window_size_upstream, len(pData) - window_size):
             start = i - window_size_upstream
             end = i + window_size + 1
-            average_contacts_[i] = np.mean(interactions[start:end])
+            average_contacts[i] = np.mean(pData[start:end])
         
         # handle border conditions
         for i in range(window_size):
@@ -114,21 +114,20 @@ class Viewpoint():
                 start = 0
             end = i + window_size + 1
         
-            average_contacts[i] = np.mean(interactions[start:end])
-            average_contacts[-(i + 1)] = np.mean(interactions[-end:])
+            average_contacts[i] = np.mean(pData[start:end])
+            average_contacts[-(i + 1)] = np.mean(pData[-end:])
         return average_contacts
 
     def calculateViewpointRange(self, pViewpoint, pRange):
-        max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(viewpoint[0])[1]-1)[2]
-        region_start = int(viewpoint[1]) - pRange[0]
+        max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1]-1)[2]
+        
+        region_start = int(pViewpoint[1]) - pRange[0]
         if region_start < 0:
             region_start = 0
-        log.debug('region_start {}'.format(region_start))
 
-        region_end = int(viewpoint[2]) + pRange[1]
+        region_end = int(pViewpoint[2]) + pRange[1]
         if region_end > max_length:
             region_end = max_length
-        log.debug('region_end {}'.format(region_end))
         
         return region_start, region_end 
     
@@ -143,7 +142,6 @@ class Viewpoint():
             xticklabels[2] = relabelTicks(region_end - int(referencePoint[1]))
 
         elif len(referencePoint) == 3:
-            log.debug("Range mode: {}".format(referencePoint))
 
             # fit scale: start coordinate is 0 --> view_point_range[0]
             ax.set_xticks([0, view_point_start - view_point_range[0], view_point_end - view_point_range[0], view_point_range[1] - view_point_range[0]])
