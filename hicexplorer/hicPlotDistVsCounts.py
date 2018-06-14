@@ -1,91 +1,99 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 from __future__ import division
 
-import sys
 import os.path
 import numpy as np
+import pandas as pd
 import argparse
-
-from builtins import range
-from past.builtins import zip
-from six import iteritems
-
-from matplotlib import use as mplt_use
-from collections import OrderedDict
-mplt_use('Agg')
-import matplotlib.pyplot as plt
-from scipy.sparse import triu
 
 import hicexplorer.HiCMatrix as HiCMatrix
 from hicexplorer._version import __version__
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+from collections import OrderedDict
+from builtins import range
+from past.builtins import zip
+from six import iteritems
+
+from scipy.sparse import triu
+
+
+import logging
+log = logging.getLogger(__name__)
+
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
-        description='This program makes a distance vs. Hi-C counts plots. It can use several matrix files to compare '
-                    'them. If the `--perchr` option is given, each chromosome is plotted independently. In the case '
-                    'of more than one matrix, multiple plots are created, one per chromosome. When plotting multiple '
-                    'matrices denser matrices are scaled down to match the sum of the smaller matrix.')
+        add_help=False,
+        description='This program creates distance vs. Hi-C counts plots. It can use several matrix files to compare '
+                    'them at once. If the `--perchr` option is given, each chromosome is plotted independently. '
+                    'When plotting multiple matrices, denser matrices are scaled down to match the sum of the smallest matrix.')
+
+    parserRequired = parser.add_argument_group('Required arguments')
 
     # define the arguments
-    parser.add_argument('--matrices', '-m',
-                        help='Hi-C normalized (corrected) matrices. Each path should be separated by a space.',
-                        nargs="+",
-                        required=True)
+    parserRequired.add_argument('--matrices', '-m',
+                                help='Hi-C normalized (corrected) matrices. Each path should be separated by a space.',
+                                nargs="+",
+                                required=True)
 
-    parser.add_argument('--labels',
-                        help='Label to assign to each matrix file. Each label should be separated by a space. Quote '
-                             'labels that contain spaces: E.g. --labels label1 "labels 2". If no labels are given '
-                             'then the file name is used.',
-                        nargs="+")
+    parserRequired.add_argument('--plotFile', '-o',
+                                help='File name to save the file. The given file '
+                                'ending will be used '
+                                'to determine the image format. '
+                                'The available options are: .png, .emf, '
+                                '.eps, .pdf and .svg.',
+                                type=argparse.FileType('w'),
+                                metavar='file name',
+                                required=True)
 
-    parser.add_argument('--skipDiagonal', '-s',
-                        help='If set, diagonal counts are not included',
-                        action='store_true')
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--plotFile', '-o',
-                        help='File name to save the file. The given file '
-                        'ending will be used '
-                        'to determine the image format. '
-                        'The available options are: .png, .emf, '
-                        '.eps, .pdf and .svg.',
-                        type=argparse.FileType('w'),
-                        metavar='file name',
-                        required=True)
+    parserOpt.add_argument('--labels',
+                           help='Label to assign to each matrix file. Each label should be separated by a space. Quote '
+                           'labels that contain spaces: E.g. --labels label1 "labels 2". If no labels are given '
+                           'then the file name is used.',
+                           nargs="+")
 
-    parser.add_argument('--maxdepth',
-                        help='Maximum distance from diagonal to use. In other words, distances up to maxDeph are'
-                             'computed. Default is 3 million bp.',
-                        metavar='INT bp',
-                        type=int,
-                        default=int(3e6))
+    parserOpt.add_argument('--skipDiagonal', '-s',
+                           help='If set, diagonal counts are not included.',
+                           action='store_true')
 
-    parser.add_argument('--perchr',
-                        help='generate plots per chromosome. If more than one Hi-C matrix is given to `--matrices` then'
-                             'for each chromosome a new plot is made. Otherewise, a single plot with one line per'
-                             'chromosome is created',
-                        action='store_true')
+    parserOpt.add_argument('--maxdepth',
+                           help='Maximum distance from diagonal to use. In other words, distances up to maxDeph are '
+                           'computed. Default is 3 million bp.',
+                           metavar='INT bp',
+                           type=int,
+                           default=int(3e6))
 
-    parser.add_argument('--chromosomeExclude',
-                        help='Exclude the given list of chromosomes. This is useful for example to exclude '
-                             'the Y chromosome. The names of the chromosomes should be separated by space',
-                        nargs='+')
+    parserOpt.add_argument('--perchr',
+                           help='If given, computes and display distance versus Hi-C counts plots for each chromosome stored '
+                           'in the matrices passed to --matrices.',
+                           action='store_true')
 
-    parser.add_argument('--outFileData',
-                        help='If given, the data underlying the plots is saved on this file',
-                        type=argparse.FileType('w'),
-                        )
+    parserOpt.add_argument('--chromosomeExclude',
+                           help='Exclude the given list of chromosomes. This is useful for example to exclude '
+                           'the Y chromosome. The names of the chromosomes should be separated by space.',
+                           nargs='+')
 
-    parser.add_argument('--plotsize',
-                        help='width and height of the plot (in inches). Default is 6*number of cols, 4 * number of '
-                             'rows. The maximum number of rows is 4. Example --plotsize 6 5',
-                        nargs=2,
-                        type=float
-                        )
+    parserOpt.add_argument('--outFileData',
+                           help='If given, the data underlying the plots is saved on this file.',
+                           type=argparse.FileType('w'),
+                           )
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument('--plotsize',
+                           help='Width and height of the plot (in inches). Default is 6*number of cols, 4 * number of '
+                           'rows. The maximum number of rows is 4. Example: --plotsize 6 5',
+                           nargs=2,
+                           type=float
+                           )
+
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
@@ -196,7 +204,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
     mean_dict = {}
 
     for chrname, submatrix in iteritems(chr_submatrix):
-        sys.stderr.write("processing chromosome {}\n".format(chrname))
+        log.info("processing chromosome {}\n".format(chrname))
 
         dist_list, chrom_list = hicmat.getDistList(submatrix.row, submatrix.col,
                                                    HiCMatrix.hiCMatrix.fit_cut_intervals(cut_intervals[chrname]))
@@ -267,16 +275,16 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
                 mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
                 if sum_value == 0:
                     zero_value_bins.append(bin_dist_plus_one)
-                    sys.stderr.write("zero value for {}, diagonal len: {}\n".format(bin_dist_plus_one, diagonal_length))
+                    log.info("zero value for {}, diagonal len: {}\n".format(bin_dist_plus_one, diagonal_length))
                 if len(zero_value_bins) > 10:
                     diff = np.diff(zero_value_bins)
                     if len(diff[diff == 1]) > 10:
                         # if too many consecutive bins with zero are found that means that probably no
                         # further counts will be found
-                        sys.stderr.write("skipping rest of chromosome {}. Too many emtpy diagonals\n".format(chrname))
+                        log.info("skipping rest of chromosome {}. Too many emtpy diagonals\n".format(chrname))
                         break
             if np.isnan(sum_value):
-                sys.stderr.write("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
+                log.info("nan value found for distance {}\n".format((bin_dist_plus_one - 1) * binsize))
 
         if maxdepth is None:
             maxdepth = np.inf
@@ -318,7 +326,7 @@ def main(args=None):
     # compute scale factors such that values are comparable
     min_sum = min(matrix_sum.values())
     scale_factor = dict([(matrix_file, float(min_sum) / mat_sum) for matrix_file, mat_sum in iteritems(matrix_sum)])
-    print("The scale factors used are: {}".format(scale_factor))
+    log.info("The scale factors used are: {}".format(scale_factor))
     if len(args.matrices) > 1 and args.perchr:
         # in this case, for each chromosome a plot is made that combines the data from the
         # hic matrices
@@ -334,18 +342,18 @@ def main(args=None):
         height = 4
     else:
         width, height = args.plotsize
-    plt.figure(figsize=(width * num_cols, height * num_rows))
+    fig = plt.figure(figsize=(width * num_cols, height * num_rows))
 
     axs = np.empty((num_rows, num_cols), dtype='object')
     for matrix_file in args.matrices:
         idx = 0
         for chrom, mean_values in iteritems(mean_dict[matrix_file]):
             if len(mean_values) <= 1:
-                sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
+                log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
             x, y = zip(*[(k, v) for k, v in iteritems(mean_values) if v > 0])
             if len(x) <= 1:
-                sys.stderr.write("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
+                log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
             if args.perchr and len(args.matrices) == 1:
                 col = 0
@@ -377,17 +385,13 @@ def main(args=None):
             axs[row, col] = ax
             idx += 1
             if args.outFileData is not None:
-                if args.perchr and len(args.matrices) > 1:
-                    label = labels[matrix_file]
-                    args.outFileData.write("#{}\n".format(chrom))
-
-                elif args.perchr:
-                    label = chrom
-                else:
-                    label = labels[matrix_file]
-                args.outFileData.write("#{}\n".format(label))
-                args.outFileData.write("\t".join(map(str, x)) + "\n")
-                args.outFileData.write("\t".join(map(str, y)) + "\n")
+                x_vals = np.stack(x).T
+                y_vals = np.stack(y).T
+                table_to_export = pd.DataFrame({'Matrix': labels[matrix_file],
+                                                'Chromosome': chrom,
+                                                'Distance': x_vals,
+                                                'Contacts': y_vals})
+                table_to_export.to_csv(args.outFileData, sep='\t')
 
     for ax in axs.reshape(-1):
         if ax is None:
@@ -399,3 +403,4 @@ def main(args=None):
 
     plt.tight_layout()
     plt.savefig(args.plotFile.name, bbox_inches='tight', bbox_extra_artists=(lgd,))
+    plt.close(fig)

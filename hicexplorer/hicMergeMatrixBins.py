@@ -1,53 +1,87 @@
 from __future__ import division
-import sys
 import argparse
 import numpy as np
 from past.builtins import zip
 from builtins import range
 
+import logging
+log = logging.getLogger(__name__)
 
 from hicexplorer import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
 from hicexplorer._version import __version__
-
-debug = 0
 
 
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False,
         description='Merges bins from a Hi-C matrix. For example, '
-        'using a matrix containing 5bk bins, a matrix '
-        'of 50 kb bins can be derived. ')
+        'using a matrix containing 5kb bins, a matrix '
+        'of 50kb bins can be derived using --numBins 10. '
+        'From one type of downstream analysis to another, '
+        'different bin sizes must be used. For example to call TADs, '
+        'unmerged matrices are recommended while to display '
+        'Hi-C matrices, bins of approximately 2000bp usually '
+        'yield the best reprensentations with `hicPlotMatrix` for small regions, '
+        'and even larger bins (50kb) are recommended for whole chromosome '
+        'representations or for `hicPlotDistVsCounts`.')
 
-    # define the arguments
-    parser.add_argument('--matrix', '-m',
-                        help='Matrix to reduce.',
-                        metavar='.h5 fileformat',
-                        required=True)
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    parser.add_argument('--numBins', '-nb',
-                        help='Number of bins to merge.',
-                        metavar='int',
-                        type=int,
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='Matrix to reduce in h5 format.',
+                                metavar='matrix.h5',
+                                required=True)
 
-    parser.add_argument('--runningWindow',
-                        help='set to merge for using a running '
-                        'window of length --numBins',
-                        action='store_true')
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the resulting matrix. '
+                                'The output is also a .h5 file. But don\'t add '
+                                'the suffix.',
+                                required=True)
 
-    parser.add_argument('--outFileName', '-o',
-                        help='File name to save the resulting matrix. '
-                        'The output is also a .h5 file. But don\'t add '
-                        'the suffix',
-                        required=True)
+    parserRequired.add_argument('--numBins', '-nb',
+                                help='Number of bins to merge.',
+                                metavar='int',
+                                type=int,
+                                required=True)
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument('--runningWindow',
+                           help='set to merge for using a running '
+                           'window of length --numBins.',
+                           action='store_true')
+
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
+
+
+def remove_nans_if_needed(hic):
+    if len(hic.nan_bins):
+        # Usually, only corrected matrices contain NaN bins.
+        # this need to be removed before merging the bins.
+        hic.maskBins(hic.nan_bins)
+
+        # NaN bins are problematic when merging bins because they
+        # become non consecutive. Ideally, is better to merge bins on
+        # uncorrected matrices and correct again.
+
+        # Remove the information about NaN bins because they can not be merged
+        hic.orig_bin_ids = []
+        hic.orig_cut_intervals = []
+        hic.correction_factors = None
+
+        log.warning("*WARNING*: The matrix is probably a corrected matrix that contains NaN bins. This bins "
+                    "can not be merged and are removed. It is preferable to first merge bins in a uncorrected  "
+                    "matrix and then correct the matrix. Correction factors, if present, are removed as well.")
+
+    return hic
 
 
 def running_window_merge(hic_matrix, num_bins):
@@ -100,6 +134,7 @@ def running_window_merge(hic_matrix, num_bins):
      [4 6 5 3]]
     """
 
+    hic_matrix = remove_nans_if_needed(hic_matrix)
     if num_bins == 1:
         return hic_matrix
 
@@ -144,6 +179,7 @@ def running_window_merge(hic_matrix, num_bins):
 
     hic_matrix.matrix = new_ma
     hic_matrix.nan_bins = np.flatnonzero(hic_matrix.matrix.sum(0).A == 0)
+    hic_matrix.matrix.eliminate_zeros()
 
     return hic_matrix
 
@@ -195,6 +231,8 @@ def merge_bins(hic, num_bins):
             [ 28, 177,   4],
             [  1,   4, 100]], dtype=int32)
     """
+
+    hic = remove_nans_if_needed(hic)
     # get the bins to merge
     ref_name_list, start_list, end_list, coverage_list = zip(*hic.cut_intervals)
     new_bins = []
@@ -208,7 +246,7 @@ def merge_bins(hic, num_bins):
     for idx, ref in enumerate(ref_name_list):
         if (count > 0 and count % num_bins == 0) or ref != prev_ref:
             if count < num_bins / 2:
-                sys.stderr.write("{} has few bins ({}). Skipping it\n".format(prev_ref, count))
+                log.debug("{} has few bins ({}). Skipping it\n".format(prev_ref, count))
             else:
                 coverage = np.mean(coverage_list[idx_start:idx])
                 new_bins.append((ref_name_list[idx_start], new_start, end_list[idx - 1], coverage))
@@ -224,32 +262,21 @@ def merge_bins(hic, num_bins):
     bins_to_merge.append(list(range(idx_start, idx + 1)))
 
     hic.matrix = reduce_matrix(hic.matrix, bins_to_merge, diagonal=True)
-    hic.cut_intervals = new_bins
+    hic.matrix.eliminate_zeros()
+    hic.setCutIntervals(new_bins)
     hic.nan_bins = np.flatnonzero(hic.matrix.sum(0).A == 0)
 
     return hic
 
 
-def main():
+def main(args=None):
 
-    args = parse_arguments().parse_args()
+    args = parse_arguments().parse_args(args)
     hic = hm.hiCMatrix(args.matrix)
+
     if args.runningWindow:
         merged_matrix = running_window_merge(hic, args.numBins)
     else:
         merged_matrix = merge_bins(hic, args.numBins)
-
-    print('saving matrix')
-    # there is a pickle problem with large arrays
-    # To increase the sparsity of the matrix and
-    # overcome the problem
-    # I transform al ones into zeros.
-    """
-    merged_matrix.matrix.data = merged_matrix.matrix.data - 1
-    """
-    merged_matrix.matrix.eliminate_zeros()
-    if merged_matrix.correction_factors is not None:
-        sys.stderr.write("*WARNING*: The corrections factors are not merged and are set to None\n")
-        merged_matrix.correction_factors = None
 
     merged_matrix.save(args.outFileName)

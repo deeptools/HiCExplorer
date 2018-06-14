@@ -160,6 +160,26 @@ plot the counts using the `--log1p` option.
     :align: center
 
     Corrected Hi-C counts in log scale.
+    
+    
+Quality control of Hi-C data and biological replicates comparison
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+HiCExplorer integrates multiple tools that allow the evualuation of the quality of Hi-C libraries and matrices.
+
+- hicQC on the log files produced by hicBuildMatrix and control of the pdf file produced.
+Proportion of useful reads is important to assess the efficiency of the HiC protocol, which is dependant of
+proportion of dangling ends detected...
+Proportion of inter chromosomal, short range and long range contacts are important for....
+
+- hicPlotDistVsCounts to compare the distribution of corrected Hi-C counts in relation with the genomic
+distance between multiple samples. If some differences are observed between biological replicates,
+these can be investigated more precisely by computing log2ratio matrices.
+
+- hicCompareMatrices log2ratio of matrices of biological replicates to identify where the potential changes
+are located.
+
+- hicPlotPCA bins correlation of two biological replicates.
 
 
 TAD calling
@@ -189,5 +209,33 @@ The TAD-separation score and the matrix can be visualized using :ref:`hicPlotTAD
     Example output from hicPlotTADs from http://chorogenome.ie-freiburg.mpg.de/
 
 
+A / B compartment analysis
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+To compute the A / B compartments the matrix needs to be transformed to an observed/expected matrix in the 
+way `Lieberman-Aiden <http://doi.org/10.1126/science.1181369>`_ describes it. In a next step a pearson 
+correlation matrix and based on it a covariance matrix is computed. Finally the eigenvectors based on 
+the covariance matrix are computed. All these steps are computed with the command:
+
+.. code-block:: bash
+
+   $ hicPCA -m hic_corrected.h5 --outFileName pca1.bedgraph pca2.bedgraph 
+
+If the intermediate matrices of this process should be used for plotting run:
+ 
+.. code-block:: bash
+
+   $ hicTransform -m hic_corrected.h5 --outFileName all.h5 --method all
+
+This creates all intermediate matrices: obs_exp_all.h5, pearson_all.h5 and covariance_all.h5.
+
+The A / B compartments can be plotted with :ref:`hicPlotMatrix`.
+
+.. code-block:: bash
+
+   $ hicPlotMatrix -m pearson_all.h5 --outFileName pca1.png --perChr --pca pca1.bedgraph
+
+//.. figure:: ../images/eigenvector1_lieberman.png
+//    :scale: 90 %
+//    :align: center
 

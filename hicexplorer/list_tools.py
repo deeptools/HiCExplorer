@@ -5,6 +5,9 @@ import argparse
 import sys
 from hicexplorer._version import __version__
 
+import logging
+log = logging.getLogger(__name__)
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -17,10 +20,10 @@ Each tool should be called by its own name as in the following example:
 
 If you find HiCExplorer useful for your research please cite as:
 
-Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening,Kin Chung Lam,
+Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening, Kin Chung Lam,
 Bianca Habermann, Asifa Akhtar, Thomas Manke.
-“High-resolution TADs reveal DNA sequences underlying genome organization in flies”.
-bioRxiv 115063 doi: https://doi.org/10.1101/115063
+"High-resolution TADs reveal DNA sequences underlying genome organization in flies".
+Nature Communications, Volume 9, Article number: 189 (2018), doi: https://doi.org/10.1038/s41467-017-02525-w
 
 The following is the list of tools:
 
@@ -32,9 +35,12 @@ The following is the list of tools:
    hicCorrelate             Computes and visualises the correlation of Hi-C matrices
    hicFindTADs	            Identifies Topologically Associating Domains (TADs)
    hicMergeMatrixBins	    Merges consecutives bins on a Hi-C matrix to reduce resolution
+   hicPCA                   Computes the principal components (eigenvectors) for A/B compartment analysis
+   hicTransform             Computes obs_exp (like Lieberman-Aiden), pearson and covariance matrix for A/B compartment analysis
    hicPlotDistVsCounts	    Plot the decay in interaction frequency with distance
-   hicPlotMatrix	        Plots a Hi-C matrix as a heatmap
+   hicPlotMatrix	        Plots a Hi-C matrix as a heatmap and can add a pca track to it
    hicPlotTADs	            Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
+   hicPlotViewpoint         Plots the number of interactions around a reference point
    hicSumMatrices	        Adds Hi-C matrices of the same size
    hicPlotDistVsCounts	    Plots distance vs. Hi-C counts of corrected data
    hicExport	            Export matrix to text formats

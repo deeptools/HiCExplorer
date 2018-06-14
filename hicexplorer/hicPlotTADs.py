@@ -185,7 +185,10 @@ matplotlib.use('Agg')
 
 import hicexplorer.trackPlot
 from hicexplorer._version import __version__
+from hicexplorer.utilities import remove_non_ascii
 
+import logging
+log = logging.getLogger(__name__)
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -209,83 +212,93 @@ def parse_arguments(args=None):
         'the diagonal of a  Hi-C matrix. The diagonal of the matrix is '
         'plotted horizontally for a region. I will not draw the diagonal '
         'for the whole chromosome',
-        usage="%(prog)s --tracks tracks.ini --region chr1:1000000-4000000 -o image.png")
+        usage="%(prog)s --tracks tracks.ini --region chr1:1000000-4000000 -o image.png",
+        add_help=False)
 
-    parser.add_argument('--tracks',
-                        help='File containing the instructions to plot the tracks ',
-                        type=argparse.FileType('r'),
-                        required=True,
-                        )
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    group = parser.add_mutually_exclusive_group(required=True)
+    parserRequired.add_argument('--tracks',
+                                help='File containing the instructions to plot the tracks. '
+                                'Check examples here for help to configure this .ini file: '
+                                'http://hicexplorer.readthedocs.io/en/latest/content/tools/hicPlotTADs.html',
+                                type=argparse.FileType('r'),
+                                required=True,
+                                )
+
+    group = parserRequired.add_mutually_exclusive_group(required=True)
 
     group.add_argument('--region',
-                       help='Region to plot, the format is chr:start-end')
+                       help='Region to plot, the format is chr:start-end. Incompatible with --BED.')
 
     group.add_argument('--BED',
-                       help='Instead of a region, a file containing the regions to plot, in BED format, '
-                       'can be given. If this is the case, multiple files will be created using a prefix '
-                       'the value of --outFileName',
+                       help='Instead of a region, a  BED file containing the regions '
+                       'to plot can be given. If this is the case, multiple files '
+                       'will be created using as prefix the value of --outFileName. '
+                       'Incompatible with --region.',
                        type=argparse.FileType('r')
                        )
 
-    parser.add_argument('--width',
-                        help='figure width in centimeters',
-                        type=float,
-                        default=DEFAULT_FIGURE_WIDTH)
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--height',
-                        help='Figure height in centimeters. If not given, the figure height is computed '
-                             'based on the widths of the tracks and on the depth '
-                             'of the Hi-C tracks, if any. Setting this '
-                             'this parameter can cause the Hi-C tracks to look collapsed or expanded.',
-                        type=float)
+    parserOpt.add_argument('--width',
+                           help='Figure width in centimeters.',
+                           type=float,
+                           default=DEFAULT_FIGURE_WIDTH)
 
-    parser.add_argument('--title', '-t',
-                        help='Plot title',
-                        required=False)
+    parserOpt.add_argument('--height',
+                           help='Figure height in centimeters. If not given, the figure height is computed '
+                           'based on the widths of the tracks and on the depth '
+                           'of the Hi-C tracks, if any. Setting this '
+                           'this parameter can cause the Hi-C tracks to look collapsed or expanded.',
+                           type=float)
 
-    parser.add_argument('--scoreName', '-s',
-                        help='Score name',
-                        required=False)
+    parserOpt.add_argument('--title', '-t',
+                           help='Plot title.',
+                           required=False)
 
-    parser.add_argument('--outFileName', '-out',
-                        help='File name to save the image, file prefix in case multiple images '
-                             'are stored',
-                        required=True)
+    parserOpt.add_argument('--scoreName', '-s',
+                           help='Score name label for the heatmap legend.',
+                           required=False)
 
-    parser.add_argument('--zMax',
-                        help='zMax',
-                        type=float,
-                        default=None)
+    parserOpt.add_argument('--outFileName', '-out',
+                           help='File name to save the image, file prefix in case multiple images '
+                           'are stored.',
+                           required=True)
 
-    parser.add_argument('--vlines',
-                        help='Genomic cooordindates separated by space. E.g. '
-                        '--vlines 150000 3000000 124838433 ',
-                        type=int,
-                        nargs='+'
-                        )
+    parserOpt.add_argument('--zMax',
+                           help='Maximum value of the score.',
+                           type=float,
+                           default=None)
 
-    parser.add_argument('--fontSize',
-                        help='Font size for the labels of the plot',
-                        type=float,
-                        )
+    parserOpt.add_argument('--vlines',
+                           help='Genomic cooordindates separated by space to draw vertical lines '
+                           'at these cooordindates. E.g. --vlines 150000 3000000 124838433 ',
+                           type=int,
+                           nargs='+'
+                           )
 
-    parser.add_argument('--dpi',
-                        help='Resolution for the image in case the'
-                             'ouput is a raster graphics image (e.g png, jpg)',
-                        type=int,
-                        default=72
-                        )
+    parserOpt.add_argument('--fontSize',
+                           help='Font size for the labels of the plot.',
+                           type=float,
+                           )
 
-    parser.add_argument('--trackLabelFraction',
-                        help='By default the space dedicated to the track labels is 0.05 of the'
-                             'plot width. This fraction can be changed with this parameter if needed.',
-                        default=0.05,
-                        type=float)
+    parserOpt.add_argument('--dpi',
+                           help='Resolution for the image in case the '
+                           'ouput is a raster graphics image (e.g png, jpg).',
+                           type=int,
+                           default=72
+                           )
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument('--trackLabelFraction',
+                           help='By default the space dedicated to the track labels is 0.05 of the '
+                           'plot width. This fraction can be changed with this parameter if needed.',
+                           default=0.05,
+                           type=float)
+
+    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
@@ -334,11 +347,14 @@ def get_region(region_string):
 
 
 def main(args=None):
-
+    log.debug("hicPlotTADs")
     args = parse_arguments().parse_args(args)
+    if args.title:
+        args.title = remove_non_ascii(args.title)
+
     trp = hicexplorer.trackPlot.PlotTracks(args.tracks.name, args.width, fig_height=args.height,
                                            fontsize=args.fontSize, dpi=args.dpi,
-                                           track_label_width=args.trackLabelFraction)
+                                           track_label_width=args.trackLabelFraction, p_region=args.region)
 
     if args.BED:
         count = 0
@@ -351,12 +367,12 @@ def main(args=None):
             try:
                 start, end = map(int, [start, end])
             except ValueError as detail:
-                sys.stderr.write("Invalid value found at line\t{}\t. {}\n".format(line, detail))
+                log.debug("Invalid value found at line\t{}\t. {}\n".format(line, detail))
             file_name = "{}_{}:{}-{}".format(args.outFileName, chrom, start, end)
             if end - start < 200000:
                 start -= 100000
                 end += 100000
-            sys.stderr.write("saving {}'\n".format(file_name))
+            log.info("saving {}'\n".format(file_name))
             trp.plot(file_name, chrom, start, end, title=args.title)
     else:
         region = get_region(args.region)

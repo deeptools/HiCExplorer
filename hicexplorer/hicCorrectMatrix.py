@@ -1,108 +1,125 @@
 from __future__ import division
-import sys
 import argparse
 from past.builtins import zip
 from scipy.sparse import lil_matrix
-import logging
 
 from hicexplorer.iterativeCorrection import iterativeCorrection
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
+from hicexplorer.utilities import toString
+from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
+from hicexplorer.utilities import check_cooler
 
 import numpy as np
 debug = 0
-logging.basicConfig()
-log = logging.getLogger("hicCorrectMatrix")
-log.setLevel(logging.WARN)
+
+import logging
+log = logging.getLogger(__name__)
+
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
 
 
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
         conflict_handler='resolve',
         description="""
 Iterative correction for a Hi-C matrix (see Imakaev et al. 2012
-Nature Methods for details). For the method to work correctly, bins
-with low or too high coverage need to be filtered. For this, it is
-recommended to first run some diagnostic plots to determine the
-modified z-score cut off.
+Nature Methods for details). For the method to work correctly, bins with
+zero reads assigned to them should be removed as they can not be corrected.
+Also, bins with low number of reads should be removed,
+otherwise, during the correction step, the counts associated with
+those bins will be amplified (usually, zero and low coverage bins
+tend contain repetitive regions).  Bins with extremely high number
+of reads can also be removed from the correction as they may represent
+copy number variations.
+
+To aid in the identification of bins with low and high read coverage, the
+histogram of the number of reads can be plotted together with the
+Median Absolute Deviation (MAD).
 
 It is recommended to run hicCorrectMatrix as follows:
 
-    $ hicCorrectMatrix diagnostic_plot --matrix hic_matrix -o plot_file.png
+    $ hicCorrectMatrix diagnostic_plot --matrix hic_matrix.h5 -o plot_file.png
 
 Then, after revising the plot and deciding the threshold values:
 
-    $ hicCorrectMatrix correct --matrix hic_matrix \\
-         --filterThreshold <lower threshold> <upper threshold> -o corrected_matrix
+    $ hicCorrectMatrix correct --matrix hic_matrix.h5 \r
+    --filterThreshold <lower threshold> <upper threshold> -o corrected_matrix
 
+For a more in-depth review of how to determine the threshold values, please visit:
+http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html#correction-of-hi-c-matrix
 """
     )
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(__version__))
 
     subparsers = parser.add_subparsers(
-        title="commands",
+        title="Options",
         dest='command',
         metavar='',
-        help="""
-        To get detailed help on each of the options:
+        help="""To get detailed help on each of the options: \r
 
-            $ hicCorrectMatrix diagnostic_plot -h
+    $ hicCorrectMatrix diagnostic_plot -h \r
 
-            $ hicCorrectMatrix correct -h
-            """)
+    $ hicCorrectMatrix correct -h
+    """)
+    plot_mode = subparsers.add_parser(
+        'diagnostic_plot',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        help="""Plots a histogram of the coverage per bin together with the modified
+z-score based on the median absolute deviation method
+(see Boris Iglewicz and David Hoaglin 1993, Volume 16: How to Detect
+and Handle Outliers The ASQC Basic References in Quality Control:
+Statistical Techniques, Edward F. Mykytka, Ph.D., Editor).
+        """,
+        usage='%(prog)s '
+              '--matrix hic_matrix.h5 '
+              '-o file.png')
+    plot_modeRequired = plot_mode.add_argument_group('Required arguments')
+    plot_modeRequired.add_argument('--matrix', '-m',
+                                   help='Name of the Hi-C matrix to correct in .h5 format.',
+                                   required=True)
+
+    plot_modeRequired.add_argument('--plotName', '-o',
+                                   help='File name to save the diagnostic plot.',
+                                   required=True)
+
+    plot_modeOpt = plot_mode.add_argument_group('Optional arguments')
+    plot_modeOpt.add_argument('--chromosomes',
+                              help='List of chromosomes to be included in the iterative '
+                              'correction. The order of the given chromosomes will be then '
+                              'kept for the resulting corrected matrix.',
+                              default=None,
+                              nargs='+')
+
+    plot_modeOpt.add_argument('--xMax',
+                              help='Max value for the x-axis in counts per bin.',
+                              default=None,
+                              type=float)
+
+    plot_modeOpt.add_argument(
+        '--perchr',
+        help='Compute histogram per chromosome. For samples from cells with uneven number '
+        'of chromosomes and/or translocations it is advisable to check the histograms '
+        'per chromosome to find the most conservative `filterThreshold`.',
+        action='store_true')
+
+    plot_modeOpt.add_argument('--verbose',
+                              help='Print processing status.',
+                              action='store_true')
+
     subparsers.add_parser(
         'correct',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[correct_subparser()],
-        help="Run the iterative correction.",
+        help="""Run the iterative correction.""",
         usage='%(prog)s '
               '--matrix hic_matrix.h5 '
-              '--filterThreshold -1.2 5'
+              '--filterThreshold -1.2 5 '
               '-out corrected_matrix.h5 \n')
-
-    plot_mode = subparsers.add_parser(
-        'diagnostic_plot',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        help="Plots a histogram of the coverage per bin together with the modified z-score "
-             "based on the median absolute deviation method (see Boris Iglewicz and David Hoaglin 1993, "
-             "Volume 16: How to Detect and Handle Outliers The ASQC Basic References in Quality Control:  "
-             "Statistical Techniques, Edward F. Mykytka, Ph.D., Editor. ",
-        usage='%(prog)s '
-              '--matrix hic_matrix.h5 '
-              '-o file.png')
-    plot_mode.add_argument('--matrix', '-m',
-                           help='Hi-C matrix.',
-                           required=True)
-
-    plot_mode.add_argument('--plotName', '-o',
-                           help='File name to save the diagnostic plot.',
-                           required=True)
-
-    plot_mode.add_argument('--chromosomes',
-                           help='List of chromosomes to be included in the iterative '
-                           'correction. The order of the given chromosomes will be then '
-                           'kept for the resulting corrected matrix',
-                           default=None,
-                           nargs='+')
-
-    plot_mode.add_argument('--xMax',
-                           help='Max value for the x-axis in counts per bin',
-                           default=None,
-                           type=float)
-
-    plot_mode.add_argument('--perchr',
-                           help='Compute histogram per chromosome. For samples from cells with uneven number '
-                                'of chromosomes and/or translocations it is advisable to check the histograms '
-                                'per chromosome to find the most conservative `filterThreshold`.',
-                           action='store_true')
-
-    parser.add_argument('--verbose',
-                        help='Print processing status',
-                        action='store_true')
 
     return parser
 
@@ -110,74 +127,80 @@ Then, after revising the plot and deciding the threshold values:
 def correct_subparser():
     # define the arguments
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--matrix', '-m',
-                        help='Hi-C matrix.',
-                        required=True)
 
-    parser.add_argument('--iterNum', '-n',
-                        help='number of iterations',
-                        type=int,
-                        metavar='INT',
-                        default=500)
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    parser.add_argument('--outFileName', '-o',
-                        help='File name to save the resulting matrix. The '
-                             'output is a .h5 file.',
-                        required=True)
+    parserRequired.add_argument('--matrix', '-m',
+                                help='Name of the Hi-C matrix to correct in .h5 format.',
+                                required=True)
 
-    parser.add_argument('--filterThreshold', '-t',
-                        help='Bins of low coverage or large coverage need to be removed. '
-                             'Usually they do not contain valid Hi-C data of represent '
-                             'regions that accumulate reads. Use hicCorrectMatrix diagnostic_plot '
-                             'to identify the modified z-value thresholds. A lower and upper '
-                             'threshold are required separated by space. Eg. --filterThreshold '
-                             '-1.5 5',
-                        type=float,
-                        nargs=2,
-                        required=True)
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the resulting matrix. The '
+                                'output is a .h5 file.',
+                                required=True)
 
-    parser.add_argument('--inflationCutoff',
-                        help='Value corresponding to the maximum number of times a bin '
-                        'can be scaled up during the iterative correction. For example, '
-                        'a inflation Cutoff of 3 will filter out all bins that were '
-                        'expanded 3 times or more during the iterative correction.',
-                        type=float)
+    parserRequired.add_argument('--filterThreshold', '-t',
+                                help='Removes bins of low or large coverage. '
+                                'Usually these bins do not contain valid Hi-C data or represent '
+                                'regions that accumulate reads and thus must be discarded. '
+                                'Use hicCorrectMatrix diagnostic_plot '
+                                'to identify the modified z-value thresholds. A lower and upper '
+                                'threshold are required separated by space, e.g. --filterThreshold '
+                                '-1.5 5',
+                                type=float,
+                                nargs=2,
+                                required=True)
 
-    parser.add_argument('--transCutoff', '-transcut',
-                        help='Clip high counts in the top -transcut trans '
-                        'regions (i.e. between chromosomes). A usual value '
-                        'is 0.05 ',
-                        type=float)
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--sequencedCountCutoff',
-                        help='Each bin receives a value indicating the '
-                        'fraction that is covered by reads. A cutoff of '
-                        '0.5 will discard all those bins that have less '
-                        'than half of the bin covered.',
-                        default=None,
-                        type=float)
+    parserOpt.add_argument('--iterNum', '-n',
+                           help='Number of iterations to compute.',
+                           type=int,
+                           metavar='INT',
+                           default=500)
 
-    parser.add_argument('--chromosomes',
-                        help='List of chromosomes to be included in the iterative '
-                        'correction. The order of the given chromosomes will be then '
-                        'kept for the resulting corrected matrix',
-                        default=None,
-                        nargs='+')
+    parserOpt.add_argument('--inflationCutoff',
+                           help='Value corresponding to the maximum number of times a bin '
+                           'can be scaled up during the iterative correction. For example, '
+                           'an inflation cutoff of 3 will filter out all bins that were '
+                           'expanded 3 times or more during the iterative correction.',
+                           type=float)
 
-    parser.add_argument('--skipDiagonal', '-s',
-                        help='If set, diagonal counts are not included',
-                        action='store_true')
+    parserOpt.add_argument('--transCutoff', '-transcut',
+                           help='Clip high counts in the top -transcut trans '
+                           'regions (i.e. between chromosomes). A usual value '
+                           'is 0.05 ',
+                           type=float)
 
-    parser.add_argument('--perchr',
-                        help='Normalize each chromosome separately',
-                        action='store_true')
+    parserOpt.add_argument('--sequencedCountCutoff',
+                           help='Each bin receives a value indicating the '
+                           'fraction that is covered by reads. A cutoff of '
+                           '0.5 will discard all those bins that have less '
+                           'than half of the bin covered.',
+                           default=None,
+                           type=float)
 
-    parser.add_argument('--verbose',
-                        help='Print processing status',
-                        action='store_true')
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument('--chromosomes',
+                           help='List of chromosomes to be included in the iterative '
+                           'correction. The order of the given chromosomes will be then '
+                           'kept for the resulting corrected matrix',
+                           default=None,
+                           nargs='+')
 
+    parserOpt.add_argument('--skipDiagonal', '-s',
+                           help='If set, diagonal counts are not included',
+                           action='store_true')
+
+    parserOpt.add_argument('--perchr',
+                           help='Normalize each chromosome separately. This is useful for '
+                           'samples from cells with uneven number of chromosomes and/or translocations.',
+                           action='store_true')
+
+    parserOpt.add_argument('--verbose',
+                           help='Print processing status',
+                           action='store_true')
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
     return parser
 
 
@@ -201,7 +224,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
                      Otherwise, these cases are skipped
 
     """
-    log.info("starting fill gaps")
+    log.debug("starting fill gaps")
     mat_size = hic_ma.matrix.shape[0]
     fill_ma = hic_ma.matrix.copy().tolil()
     if fill_contiguous is True:
@@ -222,7 +245,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
         discontinuous_failed = [x for idx, x in enumerate(failed_bins)
                                 if idx not in consecutive_failed_idx]
 
-    sys.stderr.write("Filling {} failed bins\n".format(
+    log.debug("Filling {} failed bins\n".format(
         len(discontinuous_failed)))
 
     """
@@ -230,7 +253,7 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
         if 0 < missing_bin < mat_size - 1:
             for idx in range(1, mat_size - 2):
                 if idx % 100 == 0:
-                    sys.stderr.write(".")
+                    log.info(".")
                 # the new row value is the mean between the upper
                 # and lower bins corresponding to the same diagonal
                 fill_ma[missing_bin, idx :] = \
@@ -329,8 +352,17 @@ class MAD(object):
         return the mad value for a given value
         based on the data
         """
-
+        log.debug("self.median: {}".format(self.median))
         diff = value - self.median
+        log.debug("diff: {}".format(diff))
+        log.debug("self.med_abs_deviation: {}".format(self.med_abs_deviation))
+        log.debug("self.mad_b_value: {}".format(self.mad_b_value))
+        log.debug("all together: {}".format(self.mad_b_value * diff / self.med_abs_deviation))
+        # workaround for 'Axis limits cannot be NaN or Inf' bug in version 2.1.1
+        # prevent dividing by 0!!!
+        if self.med_abs_deviation == 0.0:
+            return self.mad_b_value * diff
+
         return self.mad_b_value * diff / self.med_abs_deviation
 
     def mad_to_value(self, mad):
@@ -387,6 +419,12 @@ def plot_total_contact_dist(hic_ma, args):
         # update second axis values by mapping the min max
         # of the main axis to the translated values
         # into modified z score.
+
+        # workaround for 'Axis limits cannot be NaN or Inf' bug in version 2.1.1
+        log.debug("ax1.get_xlim(): {}".format(ax1.get_xlim()))
+        log.debug("np.array(ax1.get_xlim()): {}".format(np.array(ax1.get_xlim())))
+        log.debug("mad_values.value_to_mad(np.array(ax1.get_xlim())): {}".format(mad_values.value_to_mad(np.array(ax1.get_xlim()))))
+
         ax2.set_xlim(mad_values.value_to_mad(np.array(ax1.get_xlim())))
 
         # get first local mininum value
@@ -403,19 +441,21 @@ def plot_total_contact_dist(hic_ma, args):
             ymin, ymax = ax2.get_ylim()
             ax2.vlines(mad_threshold, ymin, ymax)
             if title:
-                print("{}: mad threshold {}".format(title, mad_threshold))
+                log.info("{}: mad threshold {}".format(title, mad_threshold))
             else:
-                print("mad threshold {}".format(mad_threshold))
+                log.info("mad threshold {}".format(mad_threshold))
 
     # replace nan by 0
-    hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
+    # hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
+    hic_ma.matrix = convertNansToZeros(hic_ma.matrix)
+    hic_ma.matrix = convertInfsToZeros(hic_ma.matrix)
 
     if args.perchr:
         chroms = hic_ma.getChrNames()
         if len(chroms) > 30:
-            sys.stderr.write("The matrix contains {} chromosomes. It is not practical to plot "
-                             "each. Try using --chromosomes to select some chromosomes or "
-                             "plot a single histogram.")
+            log.warning("The matrix contains {} chromosomes. It is not practical to plot "
+                        "each. Try using --chromosomes to select some chromosomes or "
+                        "plot a single histogram.")
         num_rows = int(np.ceil(float(len(chroms)) / 5))
         num_cols = min(len(chroms), 5)
         grids = gridspec.GridSpec(num_rows, num_cols)
@@ -502,30 +542,36 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
     return sorted(to_remove)
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=None):
+    args = parse_arguments().parse_args(args)
     if args.verbose:
         log.setLevel(logging.INFO)
 
-    ma = hm.hiCMatrix(args.matrix)
+    # args.chromosomes
+    if check_cooler(args.matrix) and args.chromosomes is not None and len(args.chromosomes) == 1:
+        ma = hm.hiCMatrix(args.matrix, chrnameList=toString(args.chromosomes))
+    else:
+        ma = hm.hiCMatrix(args.matrix)
 
-    if args.chromosomes:
-        ma.reorderChromosomes(args.chromosomes)
+        if args.chromosomes:
+            ma.reorderChromosomes(toString(args.chromosomes))
 
     # mask all zero value bins
     row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
     log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
     ma.maskBins(np.flatnonzero(row_sum == 0))
     matrix_shape = ma.matrix.shape
+    ma.matrix = convertNansToZeros(ma.matrix)
+    ma.matrix = convertInfsToZeros(ma.matrix)
 
     if 'plotName' in args:
         plot_total_contact_dist(ma, args)
-        sys.stderr.write("Saving diagnostic plot {}\n".format(args.plotName))
-        exit()
+        log.info("Saving diagnostic plot {}\n".format(args.plotName))
+        return
 
     log.info("matrix contains {} data points. Sparsity {:.3f}.".format(
         len(ma.matrix.data),
-        float(len(ma.matrix.data)) / (ma.matrix.shape[0]**2)))
+        float(len(ma.matrix.data)) / (ma.matrix.shape[0] ** 2)))
 
     if args.skipDiagonal:
         ma.diagflat(value=0)
@@ -555,7 +601,7 @@ def main():
         total_filtered_out = set(failed_bins)
         """
         ma.matrix, to_remove = fill_gaps(ma, failed_bins)
-        sys.stderr.write("From {} failed bins, {} could "
+        log.warning("From {} failed bins, {} could "
                          "not be filled\n".format(len(failed_bins),
                                                   len(to_remove)))
         ma.maskBins(to_remove)
@@ -584,6 +630,7 @@ def main():
 
     ma.setMatrixValues(corrected_matrix)
     ma.setCorrectionFactors(correction_factors)
+    log.info("Correction factors {}".format(correction_factors[:10]))
     if args.inflationCutoff and args.inflationCutoff > 0:
         after_row_sum = np.asarray(corrected_matrix.sum(axis=1)).flatten()
         # identify rows that were expanded more than args.inflationCutoff times
@@ -598,4 +645,4 @@ def main():
     ma.printchrtoremove(sorted(list(total_filtered_out)),
                         label="Total regions to be removed", restore_masked_bins=False)
 
-    ma.save(args.outFileName)
+    ma.save(args.outFileName, pApplyCorrection=False)

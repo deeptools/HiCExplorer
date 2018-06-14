@@ -41,10 +41,43 @@ def test_build_matrix():
     print(set(os.listdir(ROOT + "QC/")))
     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
-    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize("/tmp/test.bam")) < 1000
+    # accept delta of 60 kb, file size is around 4.5 MB
+    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize("/tmp/test.bam")) < 64000
+
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
     os.unlink("/tmp/test.bam")
+
+
+def test_build_matrix_cooler():
+    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
+    outfile.close()
+    qc_folder = mkdtemp(prefix="testQC_")
+    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4".format(sam_R1, sam_R2,
+                                                                                                  outfile.name,
+                                                                                                  qc_folder).split()
+    hicBuildMatrix.main(args)
+
+    test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
+    new = hm.hiCMatrix(outfile.name)
+
+    nt.assert_equal(test.matrix.data, new.matrix.data)
+    # nt.assert_equal(test.cut_intervals, new.cut_intervals)
+    nt.assert_equal(len(new.cut_intervals), len(test.cut_intervals))
+    cut_interval_new_ = []
+    cut_interval_test_ = []
+    for x in new.cut_intervals:
+        cut_interval_new_.append(x[:3])
+    for x in test.cut_intervals:
+        cut_interval_test_.append(x[:3])
+
+    nt.assert_equal(cut_interval_new_, cut_interval_test_)
+    # print(set(os.listdir(ROOT + "QC/")))
+    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+    assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
+
+    os.unlink(outfile.name)
+    shutil.rmtree(qc_folder)
 
 
 def test_build_matrix_rf():
@@ -55,14 +88,13 @@ def test_build_matrix_rf():
            "--restrictionSequence GATC " \
            "--danglingSequence GATC " \
            "--minDistance 150 " \
-           "--maxDistance 1500 --threads 4".format(sam_R1, sam_R2, dpnii_file,
-                                                   outfile.name,
-                                                   qc_folder).split()
+           "--maxLibraryInsertSize 1500 --threads 4".format(sam_R1, sam_R2, dpnii_file,
+                                                            outfile.name,
+                                                            qc_folder).split()
     hicBuildMatrix.main(args)
 
     test = hm.hiCMatrix(ROOT + "small_test_rf_matrix.h5")
     new = hm.hiCMatrix(outfile.name)
-    # print("MATRIX NAME RF:", outfile.name)
 
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)

@@ -8,6 +8,11 @@ from scipy.sparse import csr_matrix
 import warnings
 from past.builtins import zip
 from six import iteritems
+import pytest
+import logging
+
+log = logging.getLogger(__name__)
+
 
 warnings.filterwarnings("ignore")
 
@@ -16,8 +21,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 
 def test_save_load():
     outfile = '/tmp/matrix.h5'
-    cut_intervals = [(b'a', 0, 10, 1), (b'a', 10, 20, 1),
-                     (b'a', 20, 30, 1), (b'a', 30, 40, 1), (b'b', 40, 50, 1)]
+    cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
+                     ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
     hic = hm.hiCMatrix()
     hic.nan_bins = []
     matrix = np.array([[1, 8, 5, 3, 0],
@@ -94,7 +99,6 @@ def test_convert_to_zscore_matrix_2():
     m_size = mat.shape[0]
     # compute matrix values per distance
     chrom, start, end, extra = zip(*hm.hiCMatrix.fit_cut_intervals(hic.cut_intervals))
-#    chrom, start, end, extra = zip(*hic.cut_intervals)
     dist_values = {}
     sys.stderr.write("Computing values per distance for each matrix entry\n")
 
@@ -131,3 +135,45 @@ def test_convert_to_zscore_matrix_2():
     from numpy.testing import assert_almost_equal
     # only the main diagonal is check. Other diagonals show minimal differences
     assert_almost_equal(hic.matrix.todense().diagonal(0).A1, zscore_mat.diagonal(0))
+
+
+def test_save_load_cooler_format():
+    outfile = '/tmp/matrix2.cool'
+    cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
+                     ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
+    hic = hm.hiCMatrix()
+    hic.nan_bins = []
+    matrix = np.array([[1, 8, 5, 3, 0],
+                       [0, 4, 15, 5, 1],
+                       [0, 0, 0, 0, 2],
+                       [0, 0, 0, 0, 1],
+                       [0, 0, 0, 0, 0]])
+
+    hic.matrix = csr_matrix(matrix)
+    # make matrix symmetric
+    hic.setMatrix(hic.matrix, cut_intervals)
+    hic.matrix = hm.hiCMatrix.fillLowerTriangle(hic.matrix)
+
+    hic.save(outfile)
+
+    matrix_cool = hm.hiCMatrix(outfile)
+
+    log.info('original data: {}'.format(hic.matrix))
+    log.info('cool data: {}'.format(matrix_cool.matrix))
+    nt.assert_equal(hic.matrix.data, matrix_cool.matrix.data)
+    nt.assert_equal(hic.matrix.indices, matrix_cool.matrix.indices)
+    nt.assert_equal(hic.matrix.indptr, matrix_cool.matrix.indptr)
+
+    # nan_bins and correction_factor are not supported by cool-format
+
+    nt.assert_equal(hic.cut_intervals, matrix_cool.cut_intervals)
+    unlink(outfile)
+
+
+@pytest.mark.xfail
+def test_load_mcooler_format_fail():
+    matrix = hm.hiCMatrix(ROOT + 'matrix.mcool')  # noqa: F841
+
+
+def test_load_mcooler_format_success():
+    matrix = hm.hiCMatrix(ROOT + "matrix.mcool::/1")  # noqa: F841

@@ -5,38 +5,49 @@ import numpy as np
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 
+import logging
+log = logging.getLogger(__name__)
+
 
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description=('Takes two matrices, normalizes them and applies'
+                                     add_help=False,
+                                     description=('Takes two matrices as input, normalizes them and applies '
                                                   'the given operation. To normalize the matrices '
-                                                  'each element is divided by sum of the matrix.'))
+                                                  'each element is divided by the sum of the matrix.'))
 
-    parser.add_argument('--matrices', '-m',
-                        help='matrices to use.',
-                        metavar='.h5 file format',
-                        nargs=2,
-                        required=True)
+    parserRequired = parser.add_argument_group('Required arguments')
 
-    parser.add_argument('--outFileName', '-o',
-                        help='File name to save the resulting matrix. The output is '
-                             'also a .h5 file.',
-                        required=True)
+    parserRequired.add_argument('--matrices', '-m',
+                                help='Name of the matrices in .h5 format to use, separated by a space.',
+                                metavar='matrix.h5',
+                                nargs=2,
+                                required=True)
 
-    parser.add_argument('--operation',
-                        help='Operation to apply for the matrices. Options are: diff, ratio, log2ratio',
-                        required=True)
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the resulting matrix. The output is '
+                                'also a .h5 file.',
+                                required=True)
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument('--operation',
+                           help='Operation to apply to the matrices.',
+                           choices=['diff', 'ratio', 'log2ratio'],
+                           default='log2ratio')
+
+    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
 
-def main():
+def main(args=None):
 
-    args = parse_arguments().parse_args()
+    args = parse_arguments().parse_args(args)
     if args.operation not in ['diff', 'ratio', 'log2ratio']:
         exit("Operation not found. Please use 'diff', 'ratio' or 'log2ratio'.")
 
@@ -60,9 +71,9 @@ def main():
     nan_bins = set(hic1.nan_bins)
     nan_bins = nan_bins.union(hic2.nan_bins)
 
-    if args.operation is 'diff':
+    if args.operation == 'diff':
         new_matrix = hic1.matrix - hic2.matrix
-    elif args.operation is 'ratio' or args.operation is 'log2ratio':
+    elif args.operation == 'ratio' or args.operation == 'log2ratio':
         hic2.matrix.data = float(1) / hic2.matrix.data
         new_matrix = hic1.matrix.multiply(hic2.matrix)
         # just in case

@@ -4,46 +4,53 @@ from __future__ import division
 
 import argparse
 import os
-import sys
 import errno
 import matplotlib
 import pandas as pd
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from hicexplorer._version import __version__
-import pandas as pd
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Tabulates and plots QC measures from  '
-                                                 'hicBuildMatrix log files.',
-                                     usage='%(prog)s --logfiles matrix1.h5 matrix2.h5 '
-                                           '--labels "sample 1" "sample 2" -outFile QC.txt)')
+                                                 'hicBuildMatrix log files within an HTML output',
+                                     add_help=False,
+                                     usage='%(prog)s --logfiles matrix1_QCfolder/QC.log matrix2_QCfolder/QC.log '
+                                           '--labels "sample 1" "sample 2" --outputFolder QC_all_samples)')
 
+    parserRequired = parser.add_argument_group('Required arguments')
     # define the arguments
-    parser.add_argument('--logfiles', '-l',
-                        help='Path to the log files to be processed',
-                        type=argparse.FileType('r'),
-                        nargs="+",
-                        required=True)
+    parserRequired.add_argument('--logfiles', '-l',
+                                help='Path to the log files to be processed',
+                                type=argparse.FileType('r'),
+                                nargs="+",
+                                required=True)
 
-    parser.add_argument('--labels',
-                        help='Label to assign to each log file. Each label should be separated by a space. Quote '
-                             'labels that contain spaces: E.g. --labels label1 "labels 2"',
-                        nargs="+")
+    parserRequired.add_argument('--labels',
+                                help='Label to assign to each log file. Each label should be separated by a space. Quote '
+                                'labels that contain spaces: E.g. --labels label1 "labels 2"',
+                                nargs="+")
 
-    parser.add_argument('--outputFolder', '-o',
-                        help='Several files with be saved under this folder: A table containing the results and '
-                             'a html file with several images.',
-                        required=True)
+    parserRequired.add_argument('--outputFolder', '-o',
+                                help='Several files with be saved under this folder: A table containing the results and '
+                                'a html file with several images.',
+                                required=True)
 
-    parser.add_argument('--dpi',
-                        help='Image resolution. By default high resolution png images with a 200 dpi are created.',
-                        type=int,
-                        default=200)
+    parserOpt = parser.add_argument_group('Optional arguments')
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parserOpt.add_argument('--dpi',
+                           help='Image resolution. By default high resolution png images with a 200 dpi are created.',
+                           type=int,
+                           default=200)
+
+    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
@@ -55,17 +62,17 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
     html_content = html.read()
     # the html code has a placeholder for the html table
     html_content = html_content.replace("%%TABLE_UNMAP%%", unmap_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
     html_content = html_content.replace("%%TABLE_DISCARDED%%", discard_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
     html_content = html_content.replace("%%TABLE_DISTANCE%%", distance_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
     html_content = html_content.replace("%%TABLE_ORIENTATION%%", orientation_table.style
-                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
 
     all_table = all_table[['Pairs considered', 'Pairs mappable, unique and high quality', 'Pairs used',
                            'One mate unmapped', 'One mate not unique', 'One mate low quality', 'dangling end',
-                           'self ligation (removed)', 'One mate not close to rest site', 'same fragment (800 bp)',
+                           'self ligation (removed)', 'One mate not close to rest site', 'same fragment',
                            'self circle', 'duplicated pairs', 'inter chromosomal', 'short range < 20kb',
                            'long range', 'inward pairs', 'outward pairs', 'left pairs', 'right pairs']]
 
@@ -122,7 +129,7 @@ def make_figure_umappable_non_unique_reads(table, filename, dpi):
 
 def make_figure_pairs_discarded(table, filename, dpi):
     prc_table = table[['One mate not close to rest site', 'dangling end', 'duplicated pairs',
-                       'same fragment (800 bp)', 'self circle',
+                       'same fragment', 'self circle',
                        'self ligation (removed)']].T / table['Pairs mappable, unique and high quality']
 
     fig = plt.figure(figsize=(7, 5))
@@ -137,12 +144,12 @@ def make_figure_pairs_discarded(table, filename, dpi):
 
     # merge the counts table with the percentages table
     ret_table = table[['One mate not close to rest site', 'dangling end', 'duplicated pairs',
-                       'same fragment (800 bp)', 'self circle',
+                       'same fragment', 'self circle',
                        'self ligation (removed)']].join(prc_table.T, rsuffix=' %')
 
     return ret_table[['One mate not close to rest site', 'One mate not close to rest site %',
                       'dangling end', 'dangling end %', 'duplicated pairs', 'duplicated pairs %',
-                      'same fragment (800 bp)', 'same fragment (800 bp) %',
+                      'same fragment', 'same fragment %',
                       'self circle', 'self circle %', 'self ligation (removed)', 'self ligation (removed) %']]
 
 
@@ -206,7 +213,7 @@ def main(args=None):
     dangling end    209     (0.40)
     self ligation (removed) 5056    (9.59)
     One mate not close to rest site 751     (1.42)
-    same fragment (800 bp)  10146   (19.24)
+    same fragment  10146   (19.24)
     self circle     4274    (8.11)
     duplicated pairs        12      (0.02)
 
@@ -225,7 +232,7 @@ def main(args=None):
     make_sure_path_exists(args.outputFolder)
     for fh in args.logfiles:
         in_log_part = False
-        sys.stderr.write('Processing {}\n'.format(fh.name))
+        log.debug('Processing {}\n'.format(fh.name))
         for line in fh.readlines():
             if line.startswith("File"):
                 in_log_part = True
@@ -248,8 +255,9 @@ def main(args=None):
         try:
             table['Labels'] = args.labels
         except ValueError:
-            exit("*ERROR* Some log files may not be valid. Please check that the log files contain "
-                 "at the end the summary information.")
+            log.error("*ERROR* Some log files may not be valid. Please check that the log files contain "
+                      "at the end the summary information.")
+            exit()
 
         table = table.set_index('Labels')
     else:
@@ -259,6 +267,10 @@ def main(args=None):
         table['Pairs mappable, unique and high quality'] = \
             table['Pairs considered'] - (table['One mate unmapped'] + table['One mate not unique'] +
                                          table['One mate low quality'])
+
+    if 'same fragment (800 bp)' in table.columns:
+        # older versions of the QC used the label 'same fragment (800 bp)'
+        table['same fragment'] = table['same fragment (800 bp)']
 
     make_figure_pairs_used(table, args.outputFolder + "/pairs_sequenced.png", args.dpi)
     unmap_table = make_figure_umappable_non_unique_reads(table, args.outputFolder + "/unmappable_and_non_unique.png",

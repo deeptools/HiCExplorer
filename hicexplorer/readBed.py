@@ -1,8 +1,10 @@
 from __future__ import division
-import sys
 import collections
 from past.builtins import map
 from hicexplorer.utilities import toString
+
+import logging
+log = logging.getLogger(__name__)
 
 
 class ReadBed(object):
@@ -87,11 +89,11 @@ class ReadBed(object):
         elif len(line_values) > 6:
             # assume bed6
             self.file_type = 'bed6'
-            sys.stderr.write("Number of fields in BED file is not standard. Assuming bed6\n")
+            log.debug("Number of fields in BED file is not standard. Assuming bed6.")
         else:
             # assume bed3
             self.file_type = 'bed3'
-            sys.stderr.write("Number of fields in BED file is not standard. Assuming bed3\n")
+            log.debug("Number of fields in BED file is not standard. Assuming bed3.")
         return self.file_type
 
     def next(self):
@@ -185,8 +187,8 @@ class ReadBed(object):
                     elif r == '-1':
                         r = '-'
                     else:
-                        sys.stderr.write("*Warning, invalid strand value found {} for line #{}:\n{}\n "
-                                         "Setting strand to '.'\n".format(r, bed_line, self.line_number))
+                        log.warning("*Warning, invalid strand value found {} for line #{}:\n{}\n "
+                                    "Setting strand to '.'\n".format(r, bed_line, self.line_number))
                         r = '.'
                 line_values.append(r)
 
@@ -196,8 +198,8 @@ class ReadBed(object):
                 try:
                     line_values.append(int(r))
                 except ValueError:
-                    sys.stderr.write("Value: {} in field {} at line {} is not an integer\n".format(r, idx + 1,
-                                                                                                   self.line_number))
+                    log.warning("Value: {} in field {} at line {} is not an integer\n".format(r, idx + 1,
+                                                                                              self.line_number))
                     return dict()
             # check item rgb
             elif idx == 8:
@@ -208,8 +210,8 @@ class ReadBed(object):
                     try:
                         r = map(int, rgb)
                     except ValueError as detail:
-                        sys.stderr.write("Error reading line: #{}. The rgb field {} is not "
-                                         "valid.\nError message: {}\n".format(self.line_number, r, detail))
+                        log.debug("Error reading line: #{}. The rgb field {} is not "
+                                  "valid.\nError message: {}\n".format(self.line_number, r, detail))
                 line_values.append(r)
 
             elif idx in [10, 11]:
@@ -220,8 +222,8 @@ class ReadBed(object):
                 try:
                     r = [int(x) for x in r_parts if x != '']
                 except ValueError as detail:
-                    sys.stderr.write("Error reading line #{}. The block field {} is not "
-                                     "valid.\nError message: {}\n".format(self.line_number, r, detail))
+                    log.debug("Error reading line #{}. The block field {} is not "
+                              "valid.\nError message: {}\n".format(self.line_number, r, detail))
                 line_values.append(r)
 
             else:

@@ -7,17 +7,20 @@ Installation
 Requirements
 -------------
 
-* Python 2.7
+* Python 2.7 or 3.6
 * numpy >= 1.12.1
 * scipy >= 0.19.0
-* matplotlib >= 2.0.0
+* matplotlib == 2.1.1
 * pysam >= 0.11.2
 * intervaltree >= 2.1.0
 * biopython >= 1.68
 * pytables >= 3.3.0
-* pandas >= 0.20.2
-* pybigwig >= 0.3.4
+* pyBigWig >=0.3.4
 * future >= 0.16.0
+* cooler >= 0.7.6
+* six >= 1.10.0
+* jinja2 >= 2.9.6
+* pandas >= 0.20.2
 
 Command line installation using ``conda``
 -----------------------------------------
@@ -37,7 +40,7 @@ Command line installation using ``pip``
 
 Install HiCExplorer using the following command:
 ::
---
+
 	$ pip install hicexplorer
 
 All python requirements should be automatically installed.
@@ -46,7 +49,7 @@ If you need to specify a specific path for the installation of the tools, make u
 
 .. code:: bash
 
-    $ pip install --install-option="--prefix=/MyPath/Tools/hicexplorer" git+https://github.com/maxplanck-ie/HiCExplorer.git
+    $ pip install --install-option="--prefix=/MyPath/Tools/hicexplorer" git+https://github.com/deeptools/HiCExplorer.git
 
 
 Command line installation without ``pip``
@@ -59,12 +62,12 @@ You are highly recommended to use `pip` rather than these more complicated steps
 2. Download source code
 ::
 
-	$ git clone https://github.com/maxplanck-ie/HiCExplorer.git
+	$ git clone https://github.com/deeptools/HiCExplorer.git
 
-or if you want a particular release, choose one from https://github.com/maxplanck-ie/HiCExplorer/releases:
+or if you want a particular release, choose one from https://github.com/deeptools/HiCExplorer/releases:
 ::
 
-	$ wget https://github.com/maxplanck-ie/HiCExplorer/archive/1.5.12.tar.gz
+	$ wget https://github.com/deeptools/HiCExplorer/archive/1.5.12.tar.gz
 	$ tar -xzvf
 
 3. To install the source code (if you don't have root permission, you can set
@@ -79,7 +82,7 @@ a specific folder using the ``--prefix`` option)
 Galaxy installation
 --------------------
 
-HiCExplorer can be easily integrated into a local `Galaxy <http://galaxyproject.org>`_.
+HiCExplorer can be easily integrated into a local `Galaxy <http://galaxyproject.org>`_, the wrappers are provided at the `Galaxy tool shed <https://toolshed.g2.bx.psu.edu/>`_.
 
 Installation with Docker
 ^^^^^^^^^^^^^^^^^^^^^^^^

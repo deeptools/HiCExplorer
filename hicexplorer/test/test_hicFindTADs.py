@@ -103,7 +103,7 @@ def test_find_TADs_none():
     shutil.copy(ROOT + 'find_TADs/None/multiNone_zscore_matrix.h5', tad_folder + "/test_multiNone_zscore_matrix.h5")
     args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
     --outPrefix {}/test_multiNone --minBoundaryDistance 20000 \
-    --correctForMultipleTesting None".format(matrix, tad_folder).split()
+    --correctForMultipleTesting None --thresholdComparisons 1.0".format(matrix, tad_folder).split()
 
     hicFindTADs.main(args)
 

@@ -21,10 +21,13 @@ from imp import reload
 from .readBed import ReadBed
 import copy
 
+import logging
+log = logging.getLogger(__name__)
+
+
 import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ndarray size changed")
-warnings.filterwarnings('error')
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 warnings.simplefilter(action='ignore', category=ImportWarning)
@@ -36,8 +39,10 @@ from intervaltree import IntervalTree, Interval
 
 import hicexplorer.HiCMatrix as HiCMatrix
 import hicexplorer.utilities
-from hicexplorer.utilities import toString, toBytes
-
+from hicexplorer.utilities import toString
+from hicexplorer.utilities import change_chrom_names
+from hicexplorer.utilities import check_chrom_str_bytes
+from hicexplorer.utilities import check_cooler
 
 reload(sys)
 if sys.version_info <= (3, 0):
@@ -74,7 +79,7 @@ class MultiDict(OrderedDict):
 class PlotTracks(object):
 
     def __init__(self, tracks_file, fig_width=DEFAULT_FIGURE_WIDTH,
-                 fig_height=None, fontsize=None, dpi=None, track_label_width=None):
+                 fig_height=None, fontsize=None, dpi=None, track_label_width=None, p_region=None):
         self.fig_width = fig_width
         self.fig_height = fig_height
         self.dpi = dpi
@@ -122,7 +127,7 @@ class PlotTracks(object):
                 self.track_obj_list.append(PlotBedGraphMatrix(properties))
 
             elif properties['file_type'] == 'hic_matrix':
-                self.track_obj_list.append(PlotHiCMatrix(properties))
+                self.track_obj_list.append(PlotHiCMatrix(properties, p_region=p_region))
 
             elif properties['file_type'] == 'bed':
                 self.track_obj_list.append(PlotBed(properties))
@@ -147,7 +152,7 @@ class PlotTracks(object):
                     else:
                         properties['title'] = textwrap.fill(properties['title'], 50)
 
-        print("time initializing track(s):")
+        log.debug("time initializing track(s):")
         self.print_elapsed(start)
 
     def get_tracks_height(self, start, end):
@@ -201,8 +206,8 @@ class PlotTracks(object):
         else:
             fig_height = sum(track_height)
 
-        sys.stderr.write("Figure size in cm is {} x {}. Dpi is set to {}\n".format(self.fig_width,
-                                                                                   fig_height, self.dpi))
+        log.debug("Figure size in cm is {} x {}. Dpi is set to {}\n".format(self.fig_width,
+                                                                            fig_height, self.dpi))
         fig = plt.figure(figsize=self.cm2inch(self.fig_width, fig_height))
         if title:
             fig.suptitle(title)
@@ -232,6 +237,8 @@ class PlotTracks(object):
                             top=DEFAULT_MARGINS['top'])
 
         fig.savefig(file_name, dpi=self.dpi, transparent=False)
+        plt.close(fig)
+
         return fig.get_size_inches()
 
     def plot_vlines(self, axis_list, chrom_region, start_region, end_region):
@@ -251,13 +258,18 @@ class PlotTracks(object):
             line_width = self.vlines_properties['line width']
         else:
             line_width = 0.5
-        if type(next(iter(self.vlines_intval_tree))) is np.bytes_ or type(next(iter(self.vlines_intval_tree))) is bytes:
-            chrom_region = toBytes(chrom_region)
+
+        chrom_region = check_chrom_str_bytes(self.vlines_intval_tree, chrom_region)
+
+        # if type(next(iter(self.vlines_intval_tree))) is np.bytes_ or type(next(iter(self.vlines_intval_tree))) is bytes:
+        #     chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.vlines_intval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.vlines_intval_tree))) is np.bytes_ or type(next(iter(self.vlines_intval_tree))) is bytes:
-                chrom_region = toBytes(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.vlines_intval_tree, chrom_region)
+
+            # if type(next(iter(self.vlines_intval_tree))) is np.bytes_ or type(next(iter(self.vlines_intval_tree))) is bytes:
+            #     chrom_region = toBytes(chrom_region)
 
         for region in sorted(self.vlines_intval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             vlines_list.append(region.begin)
@@ -285,17 +297,17 @@ class PlotTracks(object):
 
         from configparser import ConfigParser
         parser = ConfigParser(dict_type=MultiDict, strict=False)
-        parser.read_file(open(tracks_file, 'r'))
-
+        with open(tracks_file, 'r') as file_h:
+            parser.read_file(file_h)
+        log.debug("tracks_file {}".format(tracks_file))
         tracks_file_path = os.path.dirname(tracks_file)
 
         track_list = []
         for section_name in parser.sections():
             track_options = dict({"section_name": section_name})
-            # print("sectionname: ", section_name)
+            log.debug("sectionname: {}".format(section_name))
             if section_name.endswith('[spacer]'):
                 track_options['spacer'] = True
-                # print("sectionname TRUE: ")
             elif section_name.endswith('[x-axis]'):
                 track_options['x-axis'] = True
             for name, value in parser.items(section_name):
@@ -324,11 +336,12 @@ class PlotTracks(object):
                     warn = "\ntitle not set for 'section {}'\n".format(track_dict['section_name'])
                     track_dict['title'] = ''
                 if warn:
-                    sys.stderr.write(warn)
+                    log.warning(warn)
             updated_track_list.append(track_dict)
         self.track_list = updated_track_list
         if self.vlines_properties:
             self.vlines_intval_tree, __, __ = file_to_intervaltree(self.vlines_properties['file'])
+        # tracks_file.close()
 
     @staticmethod
     def check_file_exists(track_dict, tracks_path):
@@ -359,9 +372,9 @@ class PlotTracks(object):
                             open(name_with_tracks_path, 'r').close()
                             full_path_file_names.append(name_with_tracks_path)
                         except IOError:
-                            sys.stderr.write("\n*ERROR*\nFile in section [{}] "
-                                             "not found:\n{}\n\n".format(track_dict['section_name'],
-                                                                         file_name))
+                            log.exception("File in section [{}] "
+                                          "not found:\n{}\n\n".format(track_dict['section_name'],
+                                                                      file_name))
                             sys.exit(1)
 
                 track_dict[file_type] = " ".join(full_path_file_names)
@@ -379,7 +392,7 @@ class PlotTracks(object):
         file = track_dict['file'].strip()
         if file.endswith(".bed") or file.endswith(".bed.gz"):
             file_type = 'bed'
-        elif file.endswith(".npz") or file.endswith(".h5"):
+        elif file.endswith(".npz") or file.endswith(".h5") or check_cooler(file):
             file_type = 'hic_matrix'
         elif file.endswith(".bw"):
             file_type = 'bigwig'
@@ -388,8 +401,9 @@ class PlotTracks(object):
         elif file.endswith(".bm") or file.endswith(".bm.gz"):
             file_type = 'bedgraph_matrix'
         else:
-            sys.exit("Section {}: can not identify file type. Please specify "
-                     "the file_type for {}".format(track_dict['section_name'], file))
+            log.error("Section {}: can not identify file type. Please specify "
+                      "the file_type for {}".format(track_dict['section_name'], file))
+            exit(1)
         return file_type
 
     @staticmethod
@@ -404,7 +418,7 @@ class PlotTracks(object):
     def print_elapsed(start):
         import time
         if start:
-            print(time.time() - start)
+            log.info(time.time() - start)
         return time.time()
 
 
@@ -450,26 +464,29 @@ def file_to_intervaltree(file_name):
         if line.startswith('browser') or line.startswith('track') or line.startswith('#'):
             continue
         fields = line.strip().split('\t')
-        # print("fields: ", fields[0:3], type(fields))
+        # log.debug("fields: {}, {}".format(fields[0:3], type(fields)))
         try:
             chrom, start, end = fields[0:3]
         except Exception as detail:
             msg = "Error reading line: {}\nError message: {}".format(line_number, detail)
-            sys.exit(msg)
+            log.error(msg)
+            sys.exit(1)
 
         try:
             start = int(start)
         except ValueError as detail:
             msg = "Error reading line: {}. The start field is not " \
                   "an integer.\nError message: {}".format(line_number, detail)
-            sys.exit(msg)
+            log.error(msg)
+            sys.exit(1)
 
         try:
             end = int(end)
         except ValueError as detail:
             msg = "Error reading line: {}. The end field is not " \
                   "an integer.\nError message: {}".format(line_number, detail)
-            sys.exit(msg)
+            log.error(msg)
+            sys.exit(1)
 
         if prev_chrom == chrom:
             assert prev_start <= start, \
@@ -499,7 +516,7 @@ def file_to_intervaltree(file_name):
         valid_intervals += 1
 
     if valid_intervals == 0:
-        sys.stderr.write("No valid intervals were found in file {}".format(file_name))
+        log.debug("No valid intervals were found in file {}".format(file_name))
     file_h.close()
 
     return interval_tree, min_value, max_value
@@ -547,13 +564,16 @@ class PlotBedGraph(TrackPlot):
         score_list = []
         pos_list = []
 
-        if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
-            chrom_region = toBytes(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+        # if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+        #     chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
-                chrom_region = toBytes(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+
+            # if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+            #     chrom_region = toBytes(chrom_region)
 
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             score_list.append(float(region.data[0]))
@@ -573,8 +593,8 @@ class PlotBedGraph(TrackPlot):
             try:
                 self.ax.fill_between(pos_list, score_list, facecolor=self.properties['color'])
             except ValueError:
-                sys.stderr.write("Invalid color {} for {}. "
-                                 "Using gray instead.".format(self.properties['color'], self.properties['file']))
+                log.debug("Invalid color {} for {}. "
+                          "Using gray instead.".format(self.properties['color'], self.properties['file']))
                 self.ax.fill_between(pos_list, score_list, facecolor='gray')
 
         self.ax.set_frame_on(False)
@@ -620,12 +640,16 @@ class PlotBedGraphMatrix(PlotBedGraph):
 
         start_pos = []
         matrix_rows = []
-        if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
-            chrom_region = toBytes(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+
+        # if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+        #     chrom_region = toBytes(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
-                chrom_region = toBytes(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+
+            # if type(next(iter(self.interval_tree))) is np.bytes_ or type(next(iter(self.interval_tree))) is bytes:
+            #     chrom_region = toBytes(chrom_region)
 
         for region in sorted(self.interval_tree[chrom_region][start_region - 10000:end_region + 10000]):
             start_pos.append(region.begin)
@@ -665,7 +689,7 @@ class PlotBedGraphMatrix(PlotBedGraph):
                              "[{}-{}]".format(ymin_print, ymax_print),
                              horizontalalignment='left',
                              verticalalignment='bottom')
-            if 'plot horizontal lines' in self.properties and self.properties['horizontal lines']:
+            if 'plot horizontal lines' in self.properties and self.properties['plot horizontal lines']:
                 # plot horizontal lines to compare values
                 self.ax.hlines(np.arange(0, 1.1, 0.1), start_region, end_region, linestyle="--",
                                zorder=0, color='grey')
@@ -702,7 +726,7 @@ class PlotBigWig(TrackPlot):
         self.ax = ax
         self.label_ax = label_ax
         formated_region = "{}:{}-{}".format(chrom_region, start_region, end_region)
-        print("plotting {}".format(self.properties['file']))
+        log.info("plotting {}".format(self.properties['file']))
         # compute the score in bins of 10000 SLOW
     #    score = np.array([self.bw.query(region[0], x, x+10000,1)[0]['mean']
     #                      for x in range(region[1], region[2], 10000)])
@@ -713,26 +737,26 @@ class PlotBigWig(TrackPlot):
                 num_bins = int(self.properties['number of bins'])
             except TypeError:
                 num_bins = 700
-                sys.stderr.write("'number of bins' value: {} for bigwig file {} "
-                                 "is not valid. Using default value (700)".format(self.properties['number of bins'],
-                                                                                  self.properties['file']))
+                log.exception("'number of bins' value: {} for bigwig file {} "
+                              "is not valid. Using default value (700)".format(self.properties['number of bins'],
+                                                                               self.properties['file']))
 
-        if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
-            chrom_region = toBytes(chrom_region)
-        # chrom_region = toBytes(chrom_region)
-        # print('chrom_region', chrom_region, type(chrom_region))
-        # print('list(self.bw.chroms())[0]', list(self.bw.chroms())[0], type(list(self.bw.chroms())[0]))
+        chrom_region = check_chrom_str_bytes(self.bw.chroms(), chrom_region)
+
+        # if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
+        #     chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.bw.chroms()):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
-                chrom_region = toBytes(chrom_region)
-            # chrom_region = toBytes(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.bw.chroms(), chrom_region)
+
+            # if type(next(iter(self.bw.chroms()))) is np.bytes_ or type(next(iter(self.bw.chroms()))) is bytes:
+            #     chrom_region = toBytes(chrom_region)
 
         if chrom_region not in list(self.bw.chroms()):
-            sys.stderr.write("Can not read region {} from bigwig file:\n\n"
-                             "{}\n\nPlease check that the chromosome name is part of the bigwig file "
-                             "and that the region is valid".format(formated_region, self.properties['file']))
+            log.error("Can not read region {} from bigwig file:\n\n"
+                      "{}\n\nPlease check that the chromosome name is part of the bigwig file "
+                      "and that the region is valid".format(formated_region, self.properties['file']))
 
         # on rare occasions pyBigWig may throw an error, apparently caused by a corruption
         # of the memory. This only occurs when calling trackPlot from different
@@ -746,11 +770,11 @@ class PlotBigWig(TrackPlot):
                 import pyBigWig
                 self.bw = pyBigWig.open(self.properties['file'])
 
-                print("error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries))
+                log.debug("error found while reading bigwig scores ({}).\nTrying again. Iter num: {}".format(e, num_tries))
                 pass
             else:
                 if num_tries > 1:
-                    print("After {} the scores could be computed".format(num_tries))
+                    log.info("After {} the scores could be computed".format(num_tries))
                 break
 
         x_values = np.linspace(start_region, end_region, num_bins)
@@ -761,10 +785,10 @@ class PlotBigWig(TrackPlot):
                 try:
                     size = float(size)
                 except ValueError:
-                    exit("Invalid value: 'type = {}' in section: {}\n"
-                         "A number was expected and found '{}'".format(self.properties['type'],
-                                                                       self.properties['section_name'],
-                                                                       size))
+                    log.debug("Invalid value: 'type = {}' in section: {}\n"
+                              "A number was expected and found '{}'".format(self.properties['type'],
+                                                                            self.properties['section_name'],
+                                                                            size))
             else:
                 plot_type = self.properties['type']
                 size = None
@@ -776,9 +800,9 @@ class PlotBigWig(TrackPlot):
                 self.ax.plot(x_values, scores_per_bin, '.', markersize=size, color=self.properties['color'])
 
             else:
-                exit("Invalid: 'type = {}' in section: {}\n".format(self.properties['type'],
-                                                                    self.properties['section_name'],
-                                                                    size))
+                log.error("Invalid: 'type = {}' in section: {}\n".format(self.properties['type'],
+                                                                         self.properties['section_name'],
+                                                                         size))
         else:
             self.ax.fill_between(x_values, scores_per_bin, linewidth=0.1,
                                  color=self.properties['color'],
@@ -796,11 +820,8 @@ class PlotBigWig(TrackPlot):
         else:
             self.ax.set_ylim(ymin, ymax)
 
-    #    self.ax.set_yticks([ymax])
         ydelta = ymax - ymin
 
-    #    self.ax.set_yticklabels(["{}-{}".format(int(ymin), int(ymax))], size='large')
-        # set min max
         if float(ymax) % 1 == 0:
             ymax_print = int(ymax)
         else:
@@ -830,15 +851,21 @@ class PlotBigWig(TrackPlot):
 
 class PlotHiCMatrix(TrackPlot):
 
-    def __init__(self, properties_dict):
+    def __init__(self, properties_dict, p_region=None):
         # to avoid the color bar to span all the
         # width of the axis I pass two axes
         # to plot_matrix
         self.properties = properties_dict
 
-        self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'])
+        log.debug("self.properties", self.properties)
+        if p_region is None:  # or not self.properties['file'].endswith('.cool'):
+            self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'])
+        else:
+            self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'], chrnameList=[p_region])
+
         if len(self.hic_ma.matrix.data) == 0:
-            exit("Matrix {} is empty".format(self.properties['file']))
+            log.error("Matrix {} is empty".format(self.properties['file']))
+            exit(1)
         if 'show_masked_bins' in self.properties and self.properties['show_masked_bins'] == 'yes':
             pass
         else:
@@ -848,21 +875,24 @@ class PlotHiCMatrix(TrackPlot):
         if 'transform' in self.properties:
             if self.properties['transform'] == 'log1p':
                 if self.hic_ma.matrix.data.min() + 1 < 0:
-                    exit("\n*ERROR*\nMatrix contains negative values.\n"
-                         "log1p transformation can not be applied to \n"
-                         "values in matrix: {}".format(self.properties['file']))
+                    log.error("\n*ERROR*\nMatrix contains negative values.\n"
+                              "log1p transformation can not be applied to \n"
+                              "values in matrix: {}".format(self.properties['file']))
+                    exit(1)
 
             elif self.properties['transform'] == '-log':
                 if self.hic_ma.matrix.data.min() < 0:
-                    exit("\n*ERROR*\nMatrix contains negative values.\n"
-                         "log(-1 * <values>) transformation can not be applied to \n"
-                         "values in matrix: {}".format(self.properties['file']))
+                    log.error("\n*ERROR*\nMatrix contains negative values.\n"
+                              "log(-1 * <values>) transformation can not be applied to \n"
+                              "values in matrix: {}".format(self.properties['file']))
+                    exit(1)
 
             elif self.properties['transform'] == 'log':
                 if self.hic_ma.matrix.data.min() < 0:
-                    exit("\n*ERROR*\nMatrix contains negative values.\n"
-                         "log transformation can not be applied to \n"
-                         "values in matrix: {}".format(self.properties['file']))
+                    log.error("\n*ERROR*\nMatrix contains negative values.\n"
+                              "log transformation can not be applied to \n"
+                              "values in matrix: {}".format(self.properties['file']))
+                    exit(1)
 
         new_intervals = hicexplorer.utilities.enlarge_bins(self.hic_ma.cut_intervals)
         self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = \
@@ -887,8 +917,8 @@ class PlotHiCMatrix(TrackPlot):
         # with an array containing the max value found
         # in the matrix
         if sum(self.hic_ma.matrix.diagonal()) == 0:
-            sys.stderr.write("Filling main diagonal with max value "
-                             "because it empty and looks bad...\n")
+            log.info("Filling main diagonal with max value "
+                     "because it empty and looks bad...\n")
             max_value = self.hic_ma.matrix.data.max()
             main_diagonal = scipy.sparse.dia_matrix(([max_value] * self.hic_ma.matrix.shape[0], [0]),
                                                     shape=self.hic_ma.matrix.shape)
@@ -918,19 +948,22 @@ class PlotHiCMatrix(TrackPlot):
         self.ax = ax
 
         chrom_sizes = self.hic_ma.get_chromosome_sizes()
+        chrom = check_chrom_str_bytes(chrom_sizes, chrom)
 
-        if type(next(iter(chrom_sizes))) is np.bytes_ or type(next(iter(chrom_sizes))) is bytes:
-            chrom = toBytes(chrom)
+        # if type(next(iter(chrom_sizes))) is np.bytes_ or type(next(iter(chrom_sizes))) is bytes:
+        #     chrom = toBytes(chrom)
 
         if chrom not in list(chrom_sizes):
             chrom = change_chrom_names(chrom)
-            if type(next(iter(chrom_sizes))) is np.bytes_ or type(next(iter(chrom_sizes))) is bytes:
-                chrom = toBytes(chrom)
+            chrom = check_chrom_str_bytes(chrom_sizes, chrom)
+
+            # if type(next(iter(chrom_sizes))) is np.bytes_ or type(next(iter(chrom_sizes))) is bytes:
+            #     chrom = toBytes(chrom)
 
         if region_end > chrom_sizes[chrom]:
-            sys.stderr.write("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
-            sys.stderr.write("{} size: {}. Region to plot {}-{}\n".format(chrom, chrom_sizes[chrom],
-                                                                          region_start, region_end))
+            log.error("*Error*\nThe region to plot extends beyond the chromosome size. Please check.\n")
+            log.error("{} size: {}. Region to plot {}-{}\n".format(chrom, chrom_sizes[chrom],
+                                                                   region_start, region_end))
 
         # expand region to plus depth on both sides
         # to avoid a 45 degree 'cut' on the edges
@@ -1001,8 +1034,8 @@ class PlotHiCMatrix(TrackPlot):
 
             vmin = np.median(distant_diagonal_values)
 
-        sys.stderr.write("setting min, max values for track {} to: {}, {}\n".format(self.properties['section_name'],
-                                                                                    vmin, vmax))
+        log.info("setting min, max values for track {} to: {}, {}\n".format(self.properties['section_name'],
+                                                                            vmin, vmax))
         img = self.pcolormesh_45deg(matrix, start_pos, vmax=vmax, vmin=vmin)
         img.set_rasterized(True)
         if self.plot_inverted:
@@ -1051,7 +1084,7 @@ class PlotHiCMatrix(TrackPlot):
                 from matplotlib.ticker import LogFormatter
                 formatter = LogFormatter(10, labelOnlyBase=False)
                 aa = np.array([1, 2, 5])
-                tick_values = np.concatenate([aa * 10**x for x in range(10)])
+                tick_values = np.concatenate([aa * 10 ** x for x in range(10)])
                 cobar = plt.colorbar(img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
                 """
                 aa = np.array([0, 1, 2, 3, 4, 5])
@@ -1079,9 +1112,6 @@ class PlotHiCMatrix(TrackPlot):
 
         except ValueError:
             pass
-        # self.label_ax.text(0.3, 0.0, self.properties['title'], rotation=90,
-        #                   horizontalalignment='left', size='large',
-        #                   verticalalignment='bottom', transform=self.label_ax.transAxes)
 
     def pcolormesh_45deg(self, matrix_c, start_pos_vector, vmin=None,
                          vmax=None):
@@ -1131,8 +1161,8 @@ class PlotXAxis(TrackPlot):
                       for x in ticks]
             labels[-2] += " Mbp"
 
-        print(ticks)
-        print(labels)
+        log.debug(ticks)
+        log.debug(labels)
         ax.axis["x"] = ax.new_floating_axis(0, 0.5)
 
         ax.axis["x"].axis.set_ticklabels(labels)
@@ -1164,7 +1194,8 @@ class PlotBoundaries(TrackPlot):
                     chrom, start, end = line.strip().split('\t')[0:3]
                 except Exception as detail:
                     msg = 'Could not read line\n{}\n. {}'.format(line, detail)
-                    sys.exit(msg)
+                    log.exception(msg)
+                    sys.exit(1)
 
                 try:
                     start = int(start)
@@ -1172,7 +1203,8 @@ class PlotBoundaries(TrackPlot):
                 except ValueError as detail:
                     msg = "Error reading line: {}. One of the fields is not " \
                           "an integer.\nError message: {}".format(line_number, detail)
-                    sys.exit(msg)
+                    log.error(msg)
+                    sys.exit(1)
 
                 assert start <= end, "Error in line #{}, end1 larger than start1 in {}".format(line_number, line)
 
@@ -1210,7 +1242,7 @@ class PlotBoundaries(TrackPlot):
             valid_intervals += 1
 
         if valid_intervals == 0:
-            sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file']))
+            log.error("No valid intervals were found in file {}".format(self.properties['file']))
 
         file_h.close()
         self.interval_tree = interval_tree
@@ -1222,15 +1254,17 @@ class PlotBoundaries(TrackPlot):
         x = []
         y = []
 
-        if type(next(iter(self.interval_tree))) is np.bytes_:
-            chrom_region = toBytes(chrom_region)
-        if type(next(iter(self.interval_tree))) is str:
-            chrom_region = toString(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+
+        # if type(next(iter(self.interval_tree))) is np.bytes_:
+        #     chrom_region = toBytes(chrom_region)
+        # if type(next(iter(self.interval_tree))) is str:
+        #     chrom_region = toString(chrom_region)
         if chrom_region not in self.interval_tree:
             orig = chrom_region
             chrom_region = change_chrom_names(chrom_region)
 
-            print('changing {} to {}'.format(orig, chrom_region))
+            log.debug('changing {} to {}'.format(orig, chrom_region))
 
         for region in sorted(self.interval_tree[chrom_region][start_region:end_region]):
             """
@@ -1306,11 +1340,12 @@ class PlotBed(TrackPlot):
             bp_per_inch = region_len / fig_width
             font_in_bp = font_in_inches * bp_per_inch
             self.len_w = font_in_bp
-            print("len of w set to: {} bp".format(self.len_w))
+            log.debug("len of w set to: {} bp".format(self.len_w))
         else:
             self.len_w = 1
 
-        bed_file_h = ReadBed(opener(self.properties['file']))
+        bed_file_obj = opener(self.properties['file'])
+        bed_file_h = ReadBed(bed_file_obj)
         self.bed_type = bed_file_h.file_type
         valid_intervals = 0
         self.max_num_row = {}
@@ -1341,7 +1376,7 @@ class PlotBed(TrackPlot):
                     if bed.start < prev.start:
                         import ipdb
                         ipdb.set_trace()
-                    assert bed.start >= prev.start, "*Error* Bed file not sorted. Please sort using sort -k1,1 -k2,2n"
+                    assert bed.start >= prev.start, log.error("*Error* Bed file not sorted. Please sort using sort -k1,1 -k2,2n")
                 if prev.chromosome != bed.chromosome:
                     # init var
                     row_last_position = []
@@ -1380,10 +1415,10 @@ class PlotBed(TrackPlot):
             if free_row > self.max_num_row[bed.chromosome]:
                 self.max_num_row[bed.chromosome] = free_row
 
-        print(self.max_num_row)
-
+        log.debug(self.max_num_row)
+        bed_file_obj.close()
         if valid_intervals == 0:
-            sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file_name']))
+            log.error("No valid intervals were found in file {}".format(self.properties['file_name']))
 
     def get_y_pos(self, bed, free_row):
         """
@@ -1410,12 +1445,15 @@ class PlotBed(TrackPlot):
         self.counter = 0
         self.small_relative = 0.004 * (end_region - start_region)
         self.process_bed(ax.get_figure().get_figwidth(), start_region, end_region)
-        if type(next(iter(self.interval_tree))) is np.bytes_:
-            chrom_region = toBytes(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
+
+        # if type(next(iter(self.interval_tree))) is np.bytes_:
+        #     chrom_region = toBytes(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.interval_tree))) is np.bytes_:
-                chrom_region = toBytes(chrom_region)
+            # if type(next(iter(self.interval_tree))) is np.bytes_:
+            #     chrom_region = toBytes(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.interval_tree, chrom_region)
 
         genes_overlap = sorted(self.interval_tree[chrom_region][start_region:end_region])
 
@@ -1488,11 +1526,11 @@ class PlotBed(TrackPlot):
                         verticalalignment='center', fontproperties=self.fp)
 
         if self.counter == 0:
-            sys.stderr.write("*Warning* No intervals were found for file {} \n"
-                             "in section '{}' for the interval plotted ({}:{}-{}).\n"
-                             "".format(self.properties['file'],
-                                       self.properties['section_name'],
-                                       chrom_region, start_region, end_region))
+            log.warning("*Warning* No intervals were found for file {} \n"
+                        "in section '{}' for the interval plotted ({}:{}-{}).\n"
+                        "".format(self.properties['file'],
+                                  self.properties['section_name'],
+                                  chrom_region, start_region, end_region))
 
         ymax = 0
 
@@ -1504,7 +1542,7 @@ class PlotBed(TrackPlot):
         else:
             ymin = max_ypos + self.properties['interval_height']
 
-        print("ylim {},{}".format(ymin, ymax))
+        log.debug("ylim {},{}".format(ymin, ymax))
         # the axis is inverted (thus, ymax < ymin)
         ax.set_ylim(ymin, ymax)
 
@@ -1742,7 +1780,8 @@ class PlotArcs(TrackPlot):
                 except Exception as detail:
                     msg = 'File not valid. The format is chrom1 start1, end1, ' \
                           'chrom2, start2, end2, score\nError: {}\n in line\n {}'.format(detail, line)
-                    sys.exit(msg)
+                    log.exception(msg)
+                    sys.exit(1)
 
                 try:
                     start1 = int(start1)
@@ -1752,7 +1791,8 @@ class PlotArcs(TrackPlot):
                 except ValueError as detail:
                     msg = "Error reading line: {}. One of the fields is not " \
                           "an integer.\nError message: {}".format(line_number, detail)
-                    sys.exit(msg)
+                    log.exception(msg)
+                    sys.exit(1)
 
                 assert start1 <= end1, "Error in line #{}, end1 larger than start1 in {}".format(line_number, line)
                 assert start2 <= end2, "Error in line #{}, end2 larger than start2 in {}".format(line_number, line)
@@ -1761,10 +1801,11 @@ class PlotArcs(TrackPlot):
                 except ValueError as detail:
                     msg = "Error reading line: {}. The score is not valid {}. " \
                           "\nError message: {}".format(line_number, detail)
-                    sys.exit(msg)
+                    log.exception(msg)
+                    sys.exit(1)
 
                 if chrom1 != chrom2:
-                    sys.stderr.write("Only links in same chromosome are considere. Skipping line\n{}\n".format(line))
+                    log.debug("Only links in same chromosome are considere. Skipping line\n{}\n".format(line))
                     continue
 
                 if chrom1 not in interval_tree:
@@ -1781,7 +1822,7 @@ class PlotArcs(TrackPlot):
                 valid_intervals += 1
 
         if valid_intervals == 0:
-            sys.stderr.write("No valid intervals were found in file {}".format(self.properties['file']))
+            log.debug("No valid intervals were found in file {}".format(self.properties['file']))
 
         file_h.close()
         self.interval_tree = interval_tree
@@ -1802,12 +1843,16 @@ class PlotArcs(TrackPlot):
         from matplotlib.patches import Arc
         max_diameter = 0
         count = 0
-        if type(next(iter(self.intval_tree))) is not np.bytes_:
-            chrom_region = toString(chrom_region)
+        chrom_region = check_chrom_str_bytes(self.intval_tree, chrom_region)
+
+        # if type(next(iter(self.intval_tree))) is not np.bytes_:
+        #     chrom_region = toString(chrom_region)
         if chrom_region not in list(self.interval_tree):
             chrom_region = change_chrom_names(chrom_region)
-            if type(next(iter(self.intval_tree))) is not np.bytes_:
-                chrom_region = toString(chrom_region)
+            # if type(next(iter(self.intval_tree))) is not np.bytes_:
+            #     chrom_region = toString(chrom_region)
+            chrom_region = check_chrom_str_bytes(self.intval_tree, chrom_region)
+
         arcs_in_region = sorted(self.interval_tree[chrom_region][region_start:region_end])
 
         for idx, interval in enumerate(arcs_in_region):
@@ -1828,7 +1873,7 @@ class PlotArcs(TrackPlot):
             ax.add_patch(Arc((center, 0), diameter,
                              diameter * 2, 0, 0, 180, color=self.properties['color'], lw=line_width))
 
-        print("{} arcs plotted".format(count))
+        log.debug("{} arcs plotted".format(count))
         if 'orientation' in self.properties and self.properties['orientation'] == 'inverted':
             ax.set_ylim(max_diameter, -1)
         else:
@@ -1838,24 +1883,3 @@ class PlotArcs(TrackPlot):
         label_ax.text(0.3, 0.0, self.properties['title'],
                       horizontalalignment='left', size='large',
                       verticalalignment='bottom', transform=label_ax.transAxes)
-
-
-def change_chrom_names(chrom):
-    """
-    Changes UCSC chromosome names to ensembl chromosome names
-    and vice versa.
-    """
-    # TODO: mapping from chromosome names like mithocondria is missing
-
-    # python 2 / 3 issue with string, bytes and np.bytes_
-    # if chrom.startswith('chr'):
-
-    chrom = toString(chrom)
-    if chrom.startswith('chr'):
-        # remove the chr part from chromosome name
-        chrom = chrom[3:]
-    else:
-        # prefix with 'chr' the chromosome name
-        chrom = 'chr' + chrom
-
-    return chrom
