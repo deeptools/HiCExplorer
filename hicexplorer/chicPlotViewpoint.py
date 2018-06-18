@@ -93,8 +93,13 @@ def main(args=None):
                 data_background.append(background_data[key][0])
 
         else:
-            data = list(interaction_data.values())
-            viewpoint_index = list(interaction_data.keys()).index(0)
+            data = []
+            interaction_key = sorted(interaction_data)
+            for key in interaction_key:
+                data.append(interaction_data[key])
+            log.debug('data {}'.format(interaction_key))
+            viewpoint_index = interaction_key.index(0)
+            # log.debug('viewpoint_index {}'.format(viewpoint_index))
 
         
         # xticklabels = viewpointObj.createXlabels()
