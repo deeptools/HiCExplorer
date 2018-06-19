@@ -1,0 +1,2 @@
+File	inward pairs	inward pairs %	outward pairs	outward pairs %	left pairs	left pairs %	right pairs	right pairs %
+R1_R2_restrictionFile.cool	40	0.220994475138	58	0.32044198895	48	0.265193370166	35	0.193370165746

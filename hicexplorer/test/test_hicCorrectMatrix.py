@@ -6,15 +6,15 @@ import numpy.testing as nt
 from matplotlib.testing.compare import compare_images
 
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
+ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/hicCorrectMatrix/"
 
 
 def test_correct_matrix():
-    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
 
     args = "correct --matrix {} --chromosomes chrUextra chr3LHet --iterNum 500 " \
-        " --outFileName {} --filterThreshold -1.5 5.0".format(ROOT + "small_test_matrix.h5",
+        " --outFileName {} --filterThreshold -1.5 5.0".format(ROOT + "R1_R2.cool",
                                                               outfile.name).split()
     hicCorrectMatrix.main(args)
 
@@ -30,7 +30,7 @@ def test_correct_matrix_diagnostic_plot():
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
     args = "diagnostic_plot --matrix {} --chromosomes chrUextra chr3LHet " \
-        " --plotName {}".format(ROOT + "small_test_matrix.h5",
+        " --plotName {}".format(ROOT + "R1_R2.cool",
                                 outfile.name).split()
     hicCorrectMatrix.main(args)
 

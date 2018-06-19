@@ -1,4 +1,12 @@
 from .matrixFile import MatrixFile
+import tables
+from scipy.sparse import csr_matrix, dia_matrix, coo_matrix, triu, tril
+import numpy as np
+from hicexplorer.utilities import toString
+from hicexplorer.utilities import convertNansToOnes
+
+from past.builtins import zip
+
 import logging
 log = logging.getLogger(__name__)
 class H5(MatrixFile):
@@ -14,14 +22,14 @@ class H5(MatrixFile):
         :param matrix_filename:
         :return: matrix, cut_intervals, nan_bins, distance_counts, correction_factors
         """
-        with tables.open_file(self._matrixFileName) as f:
+        with tables.open_file(self.matrixFileName) as f:
             parts = {}
             for matrix_part in ('data', 'indices', 'indptr', 'shape'):
                 parts[matrix_part] = getattr(f.root.matrix, matrix_part).read()
 
             matrix = csr_matrix(tuple([parts['data'], parts['indices'], parts['indptr']]),
                                 shape=parts['shape'])
-            matrix = hiCMatrix.fillLowerTriangle(matrix)
+            # matrix = hiCMatrix.fillLowerTriangle(matrix)
             # get intervals
             intvals = {}
             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):

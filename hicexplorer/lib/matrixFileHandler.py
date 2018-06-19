@@ -10,11 +10,11 @@ class MatrixFileHandler():
     This class handles the load and save of the different Hi-C contact matrix formats.
     """
 
-    def __init__(self, pFileType='Cool', pMatrixFile=None, pChrnameList=None, pCooler_only_init=None, 
+    def __init__(self, pFileType='cool', pMatrixFile=None, pChrnameList=None, pCooler_only_init=None, 
                     pApplyCorrectionCooler=None):
         
-        self.class_ = getattr(importlib.import_module('.' + pFileType.lower(), package='hicexplorer.lib'), pFileType)
-        if pFileType == 'Cool' and pCooler_only_init:
+        self.class_ = getattr(importlib.import_module('.' + pFileType.lower(), package='hicexplorer.lib'), pFileType.title())
+        if pFileType == 'cool' and pCooler_only_init:
             self.matrixFile = self.class_(pMatrixFile, pCooler_only_init)
         else:
             self.matrixFile = self.class_(pMatrixFile)
@@ -26,8 +26,13 @@ class MatrixFileHandler():
     
     def set_matrix_variables(self, pMatrix, pCutIntervals, pNanBins, pCorrectionFactors, pDistanceCounts):
         self.matrixFile.set_matrix_variables(pMatrix, pCutIntervals, pNanBins, pCorrectionFactors, pDistanceCounts)
+        log.info('self.matrix {}'.format(self.matrixFile.matrix))
+        log.info('self.nan_bins {}'.format(self.matrixFile.nan_bins))
+        log.info('self.cut_intervals {}'.format(self.matrixFile.cut_intervals))
+        log.info('self.correction_factors {}'.format(self.matrixFile.correction_factors)) 
 
     def save(self, pName, pSymmetric, pApplyCorrection):
+        log.debug('Save data, call save function of specific implementatin')
         self.matrixFile.save(pName, pSymmetric, pApplyCorrection)
         
     def load_init(self):

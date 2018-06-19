@@ -123,7 +123,7 @@ setup(
              'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
-             'bin/hicLog2Ratio', 'bin/hicConvertToCool'],
+             'bin/hicLog2Ratio', 'bin/hicConvertFileFormats'],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
     package_data={'hicexplorer': ['qc_template.html']},
