@@ -462,7 +462,8 @@ def main(args=None):
     if args.chromosomeOrder is not None and len(args.chromosomeOrder) > 1:
         open_cooler_chromosome_order = False
 
-    if is_cooler and not args.region2 and open_cooler_chromosome_order:
+    # TODO: temporary deactivation of this branch. Giving some error, will be fixed later.
+    if False and is_cooler and not args.region2 and open_cooler_chromosome_order:
         log.debug("Retrieve data from cooler format and use its benefits.")
         regionsToRetrieve = None
         if args.region:

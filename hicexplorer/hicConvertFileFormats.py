@@ -4,7 +4,7 @@ from hicexplorer import HiCMatrix
 from hicexplorer._version import __version__
 from hicexplorer.hicMergeMatrixBins import merge_bins
 import numpy as np
-
+import sys
 from hic2cool import hic2cool_convert
 import logging
 log = logging.getLogger(__name__)
@@ -36,8 +36,8 @@ def parse_arguments(args=None):
                                 help='file format of the matrix file. \n'
                                 'The following options are available: `h5` (native HiCExplorer '
                                 'format based on hdf5 storage format), '
-                                ' `cool`, `hic` `homer`',
-                                choices=['h5', 'cool', 'hic', 'homer'],
+                                ' `cool`, `hic`, `homer`, `hicpro`',
+                                choices=['h5', 'cool', 'hic', 'homer', 'hicpro'],
                                 default='h5',
                                 required=True)
 
@@ -69,7 +69,10 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
-
+    parserOpt.add_argument('--bedFileHicpro', '-bf',
+                                help='Bed file(s) of hicpro file format.',
+                                nargs='+',
+                                required=False)
     return parser
 
 
@@ -85,16 +88,26 @@ def main(args=None):
             hic2cool_convert(matrix, args.outFileName, 0)
         return
     elif args.inputFormat in ['hicpro', 'homer', 'h5'] and args.outputFormat == 'cool':
+        if args.inputFormat == 'hicpro':
+            if len(args.matrices) != len(args.bedFileHicpro):
+                log.error('Number of matrices and associated bed files need to be the same.')
+                log.error('Matrices: {}; Bed files: {}'.format(len(args.matrices), len(args.bedFileHicpro)))
+                sys.exit(1)
+           
+        for i, matrix in enumerate(args.matrices):
+            if args.inputFormat == 'hicpro':
+                matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix,
+                                        pBedFileHicPro=args.bedFileHicpro[i])
+            else:
+                matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix)
 
-        for matrix in args.matrices:
-            matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix)
             matrix_, cut_intervals, nan_bins, \
                 correction_factors, distance_counts = matrixFileHandlerInput.load()
 
-            log.info('self.matrix {}'.format(matrix_))
-            log.info('self.nan_bins {}'.format(nan_bins))
-            log.info('self.cut_intervals {}'.format(cut_intervals))
-            log.info('self.correction_factors {}'.format(correction_factors))
+            log.debug('self.matrix {}'.format(matrix_))
+            log.debug('self.nan_bins {}'.format(nan_bins))
+            log.debug('self.cut_intervals {}'.format(cut_intervals))
+            log.debug('self.correction_factors {}'.format(correction_factors))
       
             matrixFileHandlerOutput = MatrixFileHandler()
 

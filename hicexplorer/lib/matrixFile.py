@@ -3,13 +3,14 @@ log = logging.getLogger(__name__)
 
 class MatrixFile():
 
-    def __init__(self, pMatrixFileName=None):
+    def __init__(self, pMatrixFileName=None, pBedFile=None):
         self.matrixFileName = pMatrixFileName
         self.matrix = None
         self.cut_intervals = None
         self.nan_bins = None
         self.correction_factors = None
         self.distance_counts = None
+        self.bedFile = pBedFile
 
     def load(self):
         pass

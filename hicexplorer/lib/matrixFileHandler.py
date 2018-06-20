@@ -11,11 +11,13 @@ class MatrixFileHandler():
     """
 
     def __init__(self, pFileType='cool', pMatrixFile=None, pChrnameList=None, pCooler_only_init=None, 
-                    pApplyCorrectionCooler=None):
+                    pApplyCorrectionCooler=None, pBedFileHicPro=None):
         
         self.class_ = getattr(importlib.import_module('.' + pFileType.lower(), package='hicexplorer.lib'), pFileType.title())
         if pFileType == 'cool' and pCooler_only_init:
             self.matrixFile = self.class_(pMatrixFile, pCooler_only_init)
+        elif pFileType == 'hicpro':
+            self.matrixFile = self.class_(pMatrixFile=pMatrixFile, pBedFile=pBedFileHicPro)
         else:
             self.matrixFile = self.class_(pMatrixFile)
 
