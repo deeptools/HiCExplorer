@@ -9,6 +9,7 @@
 import pytest
 from tempfile import NamedTemporaryFile, mkdtemp
 import os
+import shutil
 from psutil import virtual_memory
 
 from hicexplorer.utilities import genomicRegion
@@ -31,23 +32,19 @@ ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 # test_build_matrix
 sam_R1 = ROOT + "small_test_R1_unsorted.bam"
 sam_R2 = ROOT + "small_test_R2_unsorted.bam"
+bam_R1 = ROOT + "R1_1000.bam"
+bam_R2 = ROOT + "R2_1000.bam"
 dpnii_file = ROOT + "DpnII.bed"
 outFile = NamedTemporaryFile(suffix='.h5', delete=False)
 qc_folder = mkdtemp(prefix="testQC_")
-# test_AggregateContacts
-matrix = ROOT + 'Li_et_al_2015.h5'
-BED = ROOT + 'hicAggregateContacts/test_regions.bed'
-BED2 = ROOT + 'hicAggregateContacts/test_regions.bed'
-outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
-diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_heatmap_', delete=False)
 
 
-@pytest.mark.parametrize("sam1", [sam_R1])  # required
-@pytest.mark.parametrize("sam2", [sam_R2])  # required
+@pytest.mark.parametrize("sam1", [bam_R1])  # required
+@pytest.mark.parametrize("sam2", [bam_R2])  # required
 @pytest.mark.parametrize("outFile", [outFile])  # required
 @pytest.mark.parametrize("qcFolder", [qc_folder])  # required
 @pytest.mark.parametrize("outBam", ['/tmp/test.bam'])
-@pytest.mark.parametrize("binSize", [5000])  # required | restrictionCutFile
+@pytest.mark.parametrize("binSize", [100000])  # required | restrictionCutFile
 @pytest.mark.parametrize("restrictionCutFile", [dpnii_file])  # required | binSize
 @pytest.mark.parametrize("minDistance", [150])
 @pytest.mark.parametrize("maxDistance", [1500])
@@ -82,13 +79,17 @@ def test_build_matrix_bin_size(sam1, sam2, outFile, qcFolder, outBam, binSize,
 
     hicBuildMatrix.main(args)
 
+    os.unlink(outFile.name)
+    shutil.rmtree(qcFolder)
+    # os.unlink("/tmp/test.bam")
+
 
 @pytest.mark.parametrize("sam1", [sam_R1])  # required
 @pytest.mark.parametrize("sam2", [sam_R2])  # required
 @pytest.mark.parametrize("outFile", [outFile])  # required
 @pytest.mark.parametrize("qcFolder", [qc_folder])  # required
 @pytest.mark.parametrize("outBam", ['/tmp/test.bam'])
-@pytest.mark.parametrize("binSize", [5000])  # required | restrictionCutFile
+@pytest.mark.parametrize("binSize", [100000])  # required | restrictionCutFile
 @pytest.mark.parametrize("restrictionCutFile", [dpnii_file])  # required | binSize
 @pytest.mark.parametrize("minDistance", [150])
 @pytest.mark.parametrize("maxDistance", [1500])
@@ -114,13 +115,17 @@ def test_build_matrix_restrictionCutFile_one(sam1, sam2, outFile, qcFolder, outB
 
     hicBuildMatrix.main(args)
 
+    os.unlink(outFile.name)
+    shutil.rmtree(qcFolder)
+    # os.unlink("/tmp/test.bam")
 
-@pytest.mark.parametrize("sam1", [sam_R1])  # required
-@pytest.mark.parametrize("sam2", [sam_R2])  # required
+
+@pytest.mark.parametrize("sam1", [bam_R1])  # required
+@pytest.mark.parametrize("sam2", [bam_R2])  # required
 @pytest.mark.parametrize("outFile", [outFile])  # required
 @pytest.mark.parametrize("qcFolder", [qc_folder])  # required
 @pytest.mark.parametrize("outBam", ['/tmp/test.bam'])
-@pytest.mark.parametrize("binSize", [5000])  # required | restrictionCutFile
+@pytest.mark.parametrize("binSize", [100000])  # required | restrictionCutFile
 @pytest.mark.parametrize("restrictionCutFile", [dpnii_file])  # required | binSize
 @pytest.mark.parametrize("minDistance", [150])
 @pytest.mark.parametrize("maxDistance", [1500])
@@ -145,7 +150,7 @@ def test_build_matrix_restrictionCutFile_two(sam1, sam2, outFile, qcFolder, outB
            "--danglingSequence {} " \
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
-           "--region {} --removeSelfLigation {} ".format(sam_R1, sam_R2,
+           "--region {} --removeSelfLigation {} ".format(bam_R1, bam_R2,
                                                          restrictionCutFile, outFile.name,
                                                          qcFolder,
                                                          restrictionSequence,
@@ -156,13 +161,17 @@ def test_build_matrix_restrictionCutFile_two(sam1, sam2, outFile, qcFolder, outB
                                                          removeSelfLigation).split()
     hicBuildMatrix.main(args)
 
+    os.unlink(outFile.name)
+    shutil.rmtree(qcFolder)
+    # os.unlink("/tmp/test.bam")
 
-@pytest.mark.parametrize("sam1", [sam_R1])  # required
-@pytest.mark.parametrize("sam2", [sam_R2])  # required
+
+@pytest.mark.parametrize("sam1", [bam_R1])  # required
+@pytest.mark.parametrize("sam2", [bam_R2])  # required
 @pytest.mark.parametrize("outFile", [outFile])  # required
 @pytest.mark.parametrize("qcFolder", [qc_folder])  # required
 @pytest.mark.parametrize("outBam", ['/tmp/test.bam'])
-@pytest.mark.parametrize("binSize", [5000])  # required | restrictionCutFile
+@pytest.mark.parametrize("binSize", [100000])  # required | restrictionCutFile
 @pytest.mark.parametrize("restrictionCutFile", [dpnii_file])  # required | binSize
 @pytest.mark.parametrize("minDistance", [150])
 @pytest.mark.parametrize("maxDistance", [1500])
@@ -185,7 +194,7 @@ def test_build_matrix_restrictionCutFile_three(sam1, sam2, outFile, qcFolder, ou
            "--danglingSequence {} " \
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
-           "--removeSelfLigation {} ".format(sam_R1, sam_R2,
+           "--removeSelfLigation {} ".format(bam_R1, bam_R2,
                                              restrictionCutFile, outFile.name, qcFolder,
                                              restrictionSequence, danglingSequence,
                                              minDistance, maxLibraryInsertSize, threads,
@@ -193,13 +202,17 @@ def test_build_matrix_restrictionCutFile_three(sam1, sam2, outFile, qcFolder, ou
 
     hicBuildMatrix.main(args)
 
+    os.unlink(outFile.name)
+    shutil.rmtree(qcFolder)
+    # os.unlink("/tmp/test.bam")
 
-@pytest.mark.parametrize("sam1", [sam_R1])  # required
-@pytest.mark.parametrize("sam2", [sam_R2])  # required
+
+@pytest.mark.parametrize("sam1", [bam_R1])  # required
+@pytest.mark.parametrize("sam2", [bam_R2])  # required
 @pytest.mark.parametrize("outFile", [outFile])  # required
 @pytest.mark.parametrize("qcFolder", [qc_folder])  # required
 @pytest.mark.parametrize("outBam", ['/tmp/test.bam'])
-@pytest.mark.parametrize("binSize", [5000])  # required | restrictionCutFile
+@pytest.mark.parametrize("binSize", [100000])  # required | restrictionCutFile
 @pytest.mark.parametrize("restrictionCutFile", [dpnii_file])  # required | binSize
 @pytest.mark.parametrize("minDistance", [150])
 @pytest.mark.parametrize("maxDistance", [1500])
@@ -222,7 +235,7 @@ def test_build_matrix_restrictionCutFile_four(sam1, sam2, outFile, qcFolder, out
            "--danglingSequence {} " \
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
-           "--removeSelfLigation {} --keepSelfCircles ".format(sam_R1, sam_R2,
+           "--removeSelfLigation {} --keepSelfCircles ".format(bam_R1, bam_R2,
                                                                restrictionCutFile,
                                                                outFile.name, qcFolder,
                                                                restrictionSequence,
@@ -234,13 +247,17 @@ def test_build_matrix_restrictionCutFile_four(sam1, sam2, outFile, qcFolder, out
 
     hicBuildMatrix.main(args)
 
+    os.unlink(outFile.name)
+    shutil.rmtree(qcFolder)
+    # os.unlink("/tmp/test.bam")
 
-@pytest.mark.parametrize("sam1", [sam_R1])  # required
-@pytest.mark.parametrize("sam2", [sam_R2])  # required
+
+@pytest.mark.parametrize("sam1", [bam_R1])  # required
+@pytest.mark.parametrize("sam2", [bam_R2])  # required
 @pytest.mark.parametrize("outFile", [outFile])  # required
 @pytest.mark.parametrize("qcFolder", [qc_folder])  # required
 @pytest.mark.parametrize("outBam", ['/tmp/test.bam'])
-@pytest.mark.parametrize("binSize", [5000])  # required | restrictionCutFile
+@pytest.mark.parametrize("binSize", [100000])  # required | restrictionCutFile
 @pytest.mark.parametrize("restrictionCutFile", [dpnii_file])  # required | binSize
 @pytest.mark.parametrize("minDistance", [150])
 @pytest.mark.parametrize("maxDistance", [1500])
@@ -264,7 +281,7 @@ def test_build_matrix_restrictionCutFile_five(sam1, sam2, outFile, qcFolder, out
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
            "--removeSelfLigation {} --keepSelfCircles " \
-           "--minMappingQuality {} ".format(sam_R1, sam_R2,
+           "--minMappingQuality {} ".format(bam_R1, bam_R2,
                                             restrictionCutFile, outFile.name, qcFolder,
                                             restrictionSequence, danglingSequence,
                                             minDistance, maxLibraryInsertSize, threads,
@@ -272,13 +289,17 @@ def test_build_matrix_restrictionCutFile_five(sam1, sam2, outFile, qcFolder, out
 
     hicBuildMatrix.main(args)
 
+    os.unlink(outFile.name)
+    shutil.rmtree(qcFolder)
+    # os.unlink("/tmp/test.bam")
 
-@pytest.mark.parametrize("sam1", [sam_R1])  # required
-@pytest.mark.parametrize("sam2", [sam_R2])  # required
+
+@pytest.mark.parametrize("sam1", [bam_R1])  # required
+@pytest.mark.parametrize("sam2", [bam_R2])  # required
 @pytest.mark.parametrize("outFile", [outFile])  # required
 @pytest.mark.parametrize("qcFolder", [qc_folder])  # required
 @pytest.mark.parametrize("outBam", ['/tmp/test.bam'])
-@pytest.mark.parametrize("binSize", [5000])  # required | restrictionCutFile
+@pytest.mark.parametrize("binSize", [100000])  # required | restrictionCutFile
 @pytest.mark.parametrize("restrictionCutFile", [dpnii_file])  # required | binSize
 @pytest.mark.parametrize("minDistance", [150])
 @pytest.mark.parametrize("maxDistance", [1500])
@@ -302,7 +323,7 @@ def test_build_matrix_restrictionCutFile_six(sam1, sam2, outFile, qcFolder, outB
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
            "--removeSelfLigation {} --keepSelfCircles " \
-           "--minMappingQuality {} --inputBufferSize {} ".format(sam_R1, sam_R2,
+           "--minMappingQuality {} --inputBufferSize {} ".format(bam_R1, bam_R2,
                                                                  restrictionCutFile,
                                                                  outFile.name, qcFolder,
                                                                  restrictionSequence,
@@ -316,13 +337,17 @@ def test_build_matrix_restrictionCutFile_six(sam1, sam2, outFile, qcFolder, outB
 
     hicBuildMatrix.main(args)
 
+    os.unlink(outFile.name)
+    shutil.rmtree(qcFolder)
+    # os.unlink("/tmp/test.bam")
 
-@pytest.mark.parametrize("sam1", [sam_R1])  # required
-@pytest.mark.parametrize("sam2", [sam_R2])  # required
+
+@pytest.mark.parametrize("sam1", [bam_R1])  # required
+@pytest.mark.parametrize("sam2", [bam_R2])  # required
 @pytest.mark.parametrize("outFile", [outFile])  # required
 @pytest.mark.parametrize("qcFolder", [qc_folder])  # required
 @pytest.mark.parametrize("outBam", ['/tmp/test.bam'])
-@pytest.mark.parametrize("binSize", [5000])  # required | restrictionCutFile
+@pytest.mark.parametrize("binSize", [100000])  # required | restrictionCutFile
 @pytest.mark.parametrize("restrictionCutFile", [dpnii_file])  # required | binSize
 @pytest.mark.parametrize("minDistance", [150])
 @pytest.mark.parametrize("maxDistance", [1500])
@@ -347,7 +372,7 @@ def test_build_matrix_restrictionCutFile_seven(sam1, sam2, outFile, qcFolder, ou
            "--maxLibraryInsertSize {} --threads {} " \
            "--removeSelfLigation {} --keepSelfCircles " \
            "--minMappingQuality {} --inputBufferSize {} " \
-           "--doTestRun ".format(sam_R1, sam_R2,
+           "--doTestRun ".format(bam_R1, bam_R2,
                                  restrictionCutFile, outFile.name, qcFolder,
                                  restrictionSequence, danglingSequence,
                                  minDistance, maxLibraryInsertSize, threads,
@@ -356,13 +381,17 @@ def test_build_matrix_restrictionCutFile_seven(sam1, sam2, outFile, qcFolder, ou
 
     hicBuildMatrix.main(args)
 
+    os.unlink(outFile.name)
+    shutil.rmtree(qcFolder)
+    # os.unlink("/tmp/test.bam")
 
-@pytest.mark.parametrize("sam1", [sam_R1])  # required
-@pytest.mark.parametrize("sam2", [sam_R2])  # required
+
+@pytest.mark.parametrize("sam1", [bam_R1])  # required
+@pytest.mark.parametrize("sam2", [bam_R2])  # required
 @pytest.mark.parametrize("outFile", [outFile])  # required
 @pytest.mark.parametrize("qcFolder", [qc_folder])  # required
 @pytest.mark.parametrize("outBam", ['/tmp/test.bam'])
-@pytest.mark.parametrize("binSize", [5000])  # required | restrictionCutFile
+@pytest.mark.parametrize("binSize", [100000])  # required | restrictionCutFile
 @pytest.mark.parametrize("restrictionCutFile", [dpnii_file])  # required | binSize
 @pytest.mark.parametrize("minDistance", [150])
 @pytest.mark.parametrize("maxDistance", [1500])
@@ -387,7 +416,7 @@ def test_build_matrix_restrictionCutFile_eight(sam1, sam2, outFile, qcFolder, ou
            "--maxLibraryInsertSize {} --threads {} " \
            "--removeSelfLigation {} --keepSelfCircles " \
            "--minMappingQuality {} --inputBufferSize {} " \
-           "--doTestRun --skipDuplicationCheck ".format(sam_R1, sam_R2,
+           "--doTestRun --skipDuplicationCheck ".format(bam_R1, bam_R2,
                                                         restrictionCutFile, outFile.name,
                                                         qcFolder, restrictionSequence,
                                                         danglingSequence, minDistance,
@@ -398,123 +427,6 @@ def test_build_matrix_restrictionCutFile_eight(sam1, sam2, outFile, qcFolder, ou
 
     hicBuildMatrix.main(args)
 
-
-@pytest.mark.skipif(MID_MEMORY > memory,
-                    reason="Travis has too less memory to run it.")
-@pytest.mark.parametrize("matrix", [matrix])  # required
-@pytest.mark.parametrize("outFileName", [outfile_aggregate_plots])  # required
-@pytest.mark.parametrize("BED", [BED])  # required
-@pytest.mark.parametrize("ran", ['50000:900000'])  # required
-@pytest.mark.parametrize("BED2", [BED2])
-@pytest.mark.parametrize("numberOfBins", [30])
-@pytest.mark.parametrize("transform", ['total-counts', 'z-score', 'obs/exp', 'none'])
-@pytest.mark.parametrize("avgType", ['mean', 'median'])
-@pytest.mark.parametrize("outFilePrefixMatrix", ['outFilePrefix'])
-@pytest.mark.parametrize("outFileContactPairs", ['outFileContactPairs'])
-@pytest.mark.parametrize("diagnosticHeatmapFile", [diagnosticHeatmapFile])
-@pytest.mark.parametrize("kmeans", [4])
-@pytest.mark.parametrize("hclust", [4])
-@pytest.mark.parametrize("howToCluster", ['full', 'center', 'diagonal'])
-@pytest.mark.parametrize("chromosomes", ['X'])
-@pytest.mark.parametrize("colorMap", ['RdYlBu_r'])
-@pytest.mark.parametrize("plotType", ['2d', '3d'])
-@pytest.mark.parametrize("vMin", [0.01])
-@pytest.mark.parametrize("vMax", [1.0])
-def test_aggregate_contacts(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins, transform,
-                            avgType, outFilePrefixMatrix, outFileContactPairs,
-                            diagnosticHeatmapFile, kmeans, hclust, howToCluster,
-                            chromosomes, colorMap, plotType, vMin, vMax):
-    """
-        Test will run all configurations defined by the parametrized option.
-    """
-    # test outFilePrefixMatrix
-    args = "--matrix {} --outFileName {} --BED {} --range {} --BED2 {} " \
-           "--numberOfBins {} --transform {} --avgType {} --outFilePrefixMatrix {} " \
-           "--kmeans {} --hclust {} " \
-           "--howToCluster {} --chromosomes {} --colorMap {} --plotType {} --vMin {} " \
-           "--vMax {} --disable_bbox_tight".format(matrix, outFileName.name, BED, ran,
-                                                   BED2, numberOfBins, transform, avgType,
-                                                   outFilePrefixMatrix,
-                                                   kmeans, hclust,
-                                                   howToCluster, chromosomes, colorMap,
-                                                   plotType, vMin, vMax).split()
-    hicexplorer.hicAggregateContacts.main(args)
-    os.remove(outFileName.name)
-
-
-@pytest.mark.skipif(MID_MEMORY > memory,
-                    reason="Travis has too less memory to run it.")
-@pytest.mark.parametrize("matrix", [matrix])  # required
-@pytest.mark.parametrize("outFileName", [outfile_aggregate_plots])  # required
-@pytest.mark.parametrize("BED", [BED])  # required
-@pytest.mark.parametrize("ran", ['50000:900000'])  # required
-@pytest.mark.parametrize("BED2", [BED2])
-@pytest.mark.parametrize("numberOfBins", [30])
-@pytest.mark.parametrize("transform", ['total-counts', 'z-score', 'obs/exp', 'none'])
-@pytest.mark.parametrize("avgType", ['mean', 'median'])
-@pytest.mark.parametrize("outFilePrefixMatrix", ['outFilePrefix'])
-@pytest.mark.parametrize("outFileContactPairs", ['outFileContactPairs'])
-@pytest.mark.parametrize("diagnosticHeatmapFile", [diagnosticHeatmapFile])
-@pytest.mark.parametrize("kmeans", [4])
-@pytest.mark.parametrize("hclust", [4])
-@pytest.mark.parametrize("howToCluster", ['full', 'center', 'diagonal'])
-@pytest.mark.parametrize("chromosomes", ['X'])
-@pytest.mark.parametrize("colorMap", ['RdYlBu_r'])
-@pytest.mark.parametrize("plotType", ['2d', '3d'])
-@pytest.mark.parametrize("vMin", [0.01])
-@pytest.mark.parametrize("vMax", [1.0])
-def test_aggregate_contacts_two(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins,
-                                transform, avgType, outFilePrefixMatrix,
-                                outFileContactPairs, diagnosticHeatmapFile, kmeans,
-                                hclust, howToCluster, chromosomes, colorMap, plotType,
-                                vMin, vMax):
-    # test outFileContactPairs^
-    args = "--matrix {} --outFileName {} --BED {} --range {} --BED2 {} " \
-           "--numberOfBins {} --transform {} --avgType {} --outFileContactPairs {} " \
-           "--kmeans {} --hclust {} " \
-           "--howToCluster {} --chromosomes {} --colorMap {} --plotType {} --vMin {} " \
-           "--vMax {} --disable_bbox_tight".format(matrix, outFileName.name, BED, ran,
-                                                   BED2, numberOfBins, transform, avgType,
-                                                   outFileContactPairs,
-                                                   kmeans, hclust,
-                                                   howToCluster, chromosomes, colorMap,
-                                                   plotType, vMin, vMax).split()
-    hicexplorer.hicAggregateContacts.main(args)
-    os.remove(outFileName.name)
-
-
-@pytest.mark.skipif(MID_MEMORY > memory,
-                    reason="Travis has too less memory to run it.")
-@pytest.mark.parametrize("matrix", [matrix])  # required
-@pytest.mark.parametrize("outFileName", [outfile_aggregate_plots])  # required
-@pytest.mark.parametrize("BED", [BED])  # required
-@pytest.mark.parametrize("ran", ['50000:900000'])  # required
-@pytest.mark.parametrize("BED2", [BED2])
-@pytest.mark.parametrize("numberOfBins", [30])
-@pytest.mark.parametrize("transform", ['total-counts', 'z-score', 'obs/exp', 'none'])
-@pytest.mark.parametrize("avgType", ['mean', 'median'])
-@pytest.mark.parametrize("outFilePrefixMatrix", ['outFilePrefix'])
-@pytest.mark.parametrize("outFileContactPairs", ['outFileContactPairs'])
-@pytest.mark.parametrize("diagnosticHeatmapFile", [diagnosticHeatmapFile])
-@pytest.mark.parametrize("kmeans", [4])
-@pytest.mark.parametrize("hclust", [4])
-@pytest.mark.parametrize("howToCluster", ['full', 'center', 'diagonal'])
-@pytest.mark.parametrize("chromosomes", ['X'])
-@pytest.mark.parametrize("colorMap", ['RdYlBu_r'])
-@pytest.mark.parametrize("plotType", ['2d', '3d'])
-@pytest.mark.parametrize("vMin", [0.01])
-@pytest.mark.parametrize("vMax", [1.0])
-def test_aggregate_contacts_three(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins,
-                                  transform, avgType, outFilePrefixMatrix,
-                                  outFileContactPairs, diagnosticHeatmapFile, kmeans,
-                                  hclust, howToCluster, chromosomes, colorMap, plotType,
-                                  vMin, vMax):
-    # test diagnosticHeatmapFile
-    # first test with all parameters failed due to unknown error.
-    args = "--matrix {} --BED {} " \
-           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 4 " \
-           "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight " \
-           "--BED2 {}".format(matrix, BED, BED2, out_agg=outFileName.name,
-                              out_heat=diagnosticHeatmapFile.name)
-
-    hicexplorer.hicAggregateContacts.main(args.split())
+    os.unlink(outFile.name)
+    shutil.rmtree(qcFolder)
+    # os.unlink("/tmp/test.bam")
