@@ -83,16 +83,16 @@ jobs:
         - python setup.py install
       # command to run tests
       script:
-        - py.test hicexplorer/test/long_runs/test_build_matrix_trivial_runs.py --doctest-modules --capture=sys
+        - py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py --doctest-modules --capture=sys
       - stage: test long run
       script:
-        - py.test hicexplorer/test/long_runs/test_buildMatrix.py --doctest-modules --capture=sys
+        - py.test hicexplorer/test/long_run/test_buildMatrix.py --doctest-modules --capture=sys
       - stage: test long run
       script:
-        - py.test hicexplorer/test/long_runs/test_hicAggregateContacts_trivial_runs.py --doctest-modules --capture=sys
+        - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py --doctest-modules --capture=sys
       - stage: test long run
       script:
-        - py.test hicexplorer/test/long_runs/test_hicAggregateContacts_trivial_runs_two.py --doctest-modules --capture=sys
+        - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py --doctest-modules --capture=sys
       - stage: test long run
       script:
-        - py.test hicexplorer/test/long_runs/test_hicAggregateContacts_trivial_runs_three.py --doctest-modules --capture=sys
+        - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py --doctest-modules --capture=sys
