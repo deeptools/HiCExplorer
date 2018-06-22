@@ -48,21 +48,19 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("plotType", ['2d', '3d'])
 @pytest.mark.parametrize("vMin", [0.01])
 @pytest.mark.parametrize("vMax", [1.0])
-def test_aggregate_contacts(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins, transform,
-                            avgType, outFilePrefixMatrix, outFileContactPairs,
-                            diagnosticHeatmapFile, kmeans, hclust, howToCluster,
-                            chromosomes, colorMap, plotType, vMin, vMax):
-    """
-        Test will run all configurations defined by the parametrized option.
-    """
-    # test outFilePrefixMatrix
+def test_aggregate_contacts_two(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins,
+                                transform, avgType, outFilePrefixMatrix,
+                                outFileContactPairs, diagnosticHeatmapFile, kmeans,
+                                hclust, howToCluster, chromosomes, colorMap, plotType,
+                                vMin, vMax):
+    # test outFileContactPairs^
     args = "--matrix {} --outFileName {} --BED {} --range {} --BED2 {} " \
-           "--numberOfBins {} --transform {} --avgType {} --outFilePrefixMatrix {} " \
+           "--numberOfBins {} --transform {} --avgType {} --outFileContactPairs {} " \
            "--kmeans {} --hclust {} " \
            "--howToCluster {} --chromosomes {} --colorMap {} --plotType {} --vMin {} " \
            "--vMax {} --disable_bbox_tight".format(matrix, outFileName.name, BED, ran,
                                                    BED2, numberOfBins, transform, avgType,
-                                                   outFilePrefixMatrix,
+                                                   outFileContactPairs,
                                                    kmeans, hclust,
                                                    howToCluster, chromosomes, colorMap,
                                                    plotType, vMin, vMax).split()

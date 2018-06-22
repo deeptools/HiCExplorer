@@ -5,7 +5,7 @@ import os
 import numpy.testing as nt
 
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
+ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
 
 
 def test_correct_matrix():

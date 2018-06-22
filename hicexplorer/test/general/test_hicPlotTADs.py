@@ -5,7 +5,7 @@ import os.path
 import pytest
 import sys
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
+ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
 
 h5_browser_track = """
 

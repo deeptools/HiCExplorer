@@ -6,7 +6,7 @@ import os
 import numpy.testing as nt
 
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
+ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
 sam_R1 = ROOT + "small_test_R1_unsorted.bam"
 sam_R2 = ROOT + "small_test_R2_unsorted.bam"
 dpnii_file = ROOT + "DpnII.bed"

@@ -5,7 +5,7 @@ import os
 import numpy.testing as nt
 import numpy as np
 import pyBigWig
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
+ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
 
 import logging
 log = logging.getLogger(__name__)
