@@ -14,7 +14,6 @@ from psutil import virtual_memory
 
 from hicexplorer.utilities import genomicRegion
 from hicexplorer import hicBuildMatrix as hicBuildMatrix
-import hicexplorer.hicAggregateContacts
 
 mem = virtual_memory()
 memory = mem.total / 2**30

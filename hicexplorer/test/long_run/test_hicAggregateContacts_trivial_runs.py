@@ -1,11 +1,8 @@
 import pytest
-from tempfile import NamedTemporaryFile, mkdtemp
+from tempfile import NamedTemporaryFile
 import os
-import shutil
 from psutil import virtual_memory
 
-from hicexplorer.utilities import genomicRegion
-from hicexplorer import hicBuildMatrix as hicBuildMatrix
 import hicexplorer.hicAggregateContacts
 
 mem = virtual_memory()
