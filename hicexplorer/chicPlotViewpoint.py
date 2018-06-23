@@ -11,8 +11,10 @@ import sys
 import numpy as np
 import hicexplorer.HiCMatrix as hm
 from hicexplorer.utilities import toString
+from hicexplorer._version import __version__
 # from hicexplorer.chicViewpointBackgroundModel import getViewpointValues
 from .lib import Viewpoint
+from .lib import Utilities
 
 import matplotlib
 matplotlib.use('Agg')
@@ -45,7 +47,9 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
                                 help='path to the background file which should be used for plotting',
                                 required=False)
-
+    parserOpt.add_argument('--viewpointDataFile', '-vdf',
+                                help='path to data file which holds the used data of the viewpoint and the backgroundmodel per bin.',
+                                required=False)
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
                            'ouput is a raster graphics image (e.g png, jpg)',
@@ -64,6 +68,7 @@ def parse_arguments(args=None):
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
+    utilitiesObj = Utilities()
     if args.backgroundModelFile:
         background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
         # log.debug('background data {}'.format(background_data))
@@ -78,6 +83,9 @@ def main(args=None):
         ax = plt.subplot(111)
         header, interaction_data = viewpointObj.readInteractionFile(interactionFile)
         matrix_name, viewpoint, upstream_range, downstream_range = header.split('\t')
+        viewpoint_ = viewpoint.split(':')
+        referencePointString = viewpoint_[0] + ':' + utilitiesObj.in_units(viewpoint_[1]) + " - " + utilitiesObj.in_units(viewpoint_[2])
+
         matrix_name = matrix_name[1:]
         data = []
 
@@ -123,7 +131,7 @@ def main(args=None):
             ax.plot(range(len(data_background)), data_background, '--r', alpha=0.7, label=header)
         ax.set_xticks([0, viewpoint_index, len(data)])
 
-        ax.set_xticklabels([upstream_range, viewpoint, downstream_range])
+        ax.set_xticklabels([upstream_range, referencePointString, downstream_range])
         ax.set_ylabel('Number of interactions')
     #     # left, width = .45, .5
     #     # bottom, height = .25, .7
@@ -140,3 +148,9 @@ def main(args=None):
 
         plt.savefig(outFileName + '_' + header + '.' + fileFormat, dpi=args.dpi)
         plt.close(fig)
+
+        if args.viewpointDataFile:
+            # data of viewpoint is stored in 'data'
+            # data of background: data_background
+            # index values: range between upstream_range and downstream range
+            # TODO: bin size is missing

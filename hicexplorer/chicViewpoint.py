@@ -14,7 +14,9 @@ import numpy as np
 import hicexplorer.HiCMatrix as hm
 from hicexplorer.utilities import toString
 from .lib import Viewpoint
-
+from .lib import Utilities
+from hicexplorer._version import __version__
+from scipy.stats import zscore
 # from hicexplorer.chicViewpointBackgroundModel import getViewpointValues
 import matplotlib
 matplotlib.use('Agg')
@@ -49,10 +51,10 @@ def parse_arguments(args=None):
                                 'single reference point or \'chr 100 200\' for a reference region and per line one reference point',
                                 required=True)
 
-    parserRequired.add_argument('--outFileName', '-o', 
-                                help='One bed file each reference point and for each matrix is created.'
-                                ' Naming is: interactionOutFileName_matrixName_ReferencePoint.bed',
-                                required=True)
+    # parserRequired.add_argument('--outFileName', '-o', 
+    #                             help='One bed file each reference point and for each matrix is created.'
+    #                             ' Naming is: interactionOutFileName_matrixName_ReferencePoint.bed',
+    #                             required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
@@ -77,6 +79,7 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     viewpointObj = Viewpoint()
+    utilitiesObj = Utilities()
 
     referencePoints = viewpointObj.readReferencePointFile(args.referencePoint)
 
@@ -89,15 +92,29 @@ def main(args=None):
         for referencePoint in referencePoints:
             log.debug('referencePoint {}'.format(referencePoint))
             region_start, region_end = viewpointObj.calculateViewpointRange(referencePoint, args.range)
-            
-            data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
+            log.debug('region_start {}'.format(region_start))
+            log.debug('region_end {}'.format(region_end))
+            log.debug('args.range {}'.format(args.range))
+            # log.debug('region_end {}'.format(region_end))
 
+
+            data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
+            z_score_data = zscore(data_list)
+            log.debug('data_list {}'.format(data_list))
             if args.averageContactBin > 0:
                 data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
             if args.relativeValues:
                 viewpointObj.computeRelativeValues(data_list)
             interaction_data = viewpointObj.createInteractionFileData(referencePoint, referencePoint[0], region_start, region_end, data_list)
+
             referencePointString = ':'.join(str(i) for i in referencePoint)
-            header_information = matrix + '\t' + referencePointString + '\t' + str(args.range[0]) + '\t' + str(args.range[1])
-            viewpointObj.writeInteractionFile(args.outFileName + '_' + matrix + '_' + referencePointString, interaction_data, header_information)
+
+
+            
+            region_start_in_units = utilitiesObj.in_units(region_start)
+            region_end_in_units = utilitiesObj.in_units(region_end)
+
+            header_information = matrix + '\t' + referencePointString + '\t' + str(region_start_in_units) + '\t' + str(region_end_in_units)
+            matrix_name = '.'.join(matrix.split('.')[:-1])
+            viewpointObj.writeInteractionFile(matrix_name + '_' + referencePointString, interaction_data, header_information, z_score_data)
             
