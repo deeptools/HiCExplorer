@@ -28,8 +28,6 @@ jobs:
         - conda install --yes python=2.7 flake8
       script:
         - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712 ; fi
-jobs:
-  include:
     - stage: test
       # Setup anaconda
       before_install:
@@ -49,10 +47,10 @@ jobs:
         - conda info -a
       # Install packages
       install:
-      - conda install --yes -c conda-forge -c bioconda python=$TRAVIS_PYTHON_VERSION --file requirements.txt
-      - conda install --yes -c conda-forge -c bioconda pytest
-      - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then conda install --yes -c defaults -c conda-forge -c bioconda configparser ; fi
-      - python setup.py install
+        - conda install --yes -c conda-forge -c bioconda python=$TRAVIS_PYTHON_VERSION --file requirements.txt
+        - conda install --yes -c conda-forge -c bioconda pytest
+        - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then conda install --yes -c defaults -c conda-forge -c bioconda configparser ; fi
+        - python setup.py install
       # command to run tests
       script:
         - py.test hicexplorer/test/pytest_collected_items.py --doctest-modules --capture=sys
@@ -62,3 +60,4 @@ jobs:
     - script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py --doctest-modules --capture=sys
     - script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py --doctest-modules --capture=sys
     - script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py --doctest-modules --capture=sys
+      
