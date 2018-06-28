@@ -50,18 +50,22 @@ install:
   - conda install --yes -c conda-forge -c bioconda pytest
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then conda install --yes -c defaults -c conda-forge -c bioconda configparser ; fi
   - python setup.py install
-# command to run tests
-script:
-  - py.test hicexplorer/test/pytest_collected_items.py --doctest-modules --capture=sys
-script:
-  - py.test hicexplorer/test/general/ --doctest-modules --capture=sys
-script:
-  - py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py --doctest-modules --capture=sys
-script:
-  - py.test hicexplorer/test/long_run/test_buildMatrix.py --doctest-modules --capture=sys
-script:
-  - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py --doctest-modules --capture=sys
-script:
-  - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py --doctest-modules --capture=sys
-script:
-  - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py --doctest-modules --capture=sys
+jobs:
+  include:
+    - stage: test
+      # command to run tests
+      script:
+        - py.test hicexplorer/test/pytest_collected_items.py --doctest-modules --capture=sys
+      script:
+        - py.test hicexplorer/test/general/ --doctest-modules --capture=sys
+      script:
+        - py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py --doctest-modules --capture=sys
+      script:
+        - py.test hicexplorer/test/long_run/test_buildMatrix.py --doctest-modules --capture=sys
+      script:
+        - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py --doctest-modules --capture=sys
+      script:
+        - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py --doctest-modules --capture=sys
+      script:
+        - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py --doctest-modules --capture=sys
+      
