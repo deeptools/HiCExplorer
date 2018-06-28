@@ -9,8 +9,7 @@ os:
   - osx
 stages:
   - lint
-  - test general
-  - test longrun
+  - test
 jobs:
   include:
     - stage: lint
@@ -29,7 +28,7 @@ jobs:
         - conda install --yes python=2.7 flake8
       script:
         - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712 ; fi
-    - stage: test general
+    - stage: test
       # Setup anaconda
       before_install:
         - export HIC_TEST_DATA_DIR="`pwd`/hicexplorer/test/test_data/"
@@ -53,10 +52,28 @@ jobs:
         - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then conda install --yes -c defaults -c conda-forge -c bioconda configparser ; fi
         - python setup.py install
       # command to run tests
+      matrix:
+        include:
+          - env: TRAVIS_PYTHON_VERSION=2.7
+            os: linux
+          - env: TRAVIS_PYTHON_VERSION=3.6
+            os: linux
+          - env: TRAVIS_PYTHON_VERSION=2.7
+            os: osx
+          - env: TRAVIS_PYTHON_VERSION=3.6
+            os: osx
       script:
         - py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
         - py.test hicexplorer/test/general/ --doctest-modules --capture=sys
-    - stage: test longrun
+    - stage: test
+      env:
+        - TRAVIS_PYTHON_VERSION=3.6
+      os:
+        - linux
+      script:
+        - py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
+        - py.test hicexplorer/test/general/ --doctest-modules --capture=sys
+
       # Setup anaconda
       before_install:
         - export HIC_TEST_DATA_DIR="`pwd`/hicexplorer/test/test_data/"
