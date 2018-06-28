@@ -28,9 +28,10 @@ jobs:
         - conda install --yes python=2.7 flake8
       script:
         - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712 ; fi
-jobs:
-  include:
     - stage: test
+      env:
+        -TO_TEST=GENERAL
+        -TO_TEST=LONGRUN
       # Setup anaconda
       before_install:
         - export HIC_TEST_DATA_DIR="`pwd`/hicexplorer/test/test_data/"
@@ -55,16 +56,10 @@ jobs:
       - python setup.py install
       # command to run tests
       script:
-        - py.test hicexplorer/test/pytest_collected_items.py --doctest-modules --capture=sys
-      script:
-        - py.test hicexplorer/test/general/ --doctest-modules --capture=sys
-      script:
-        - py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py --doctest-modules --capture=sys
-      script:
-        - py.test hicexplorer/test/long_run/test_buildMatrix.py --doctest-modules --capture=sys
-      script:
-        - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py --doctest-modules --capture=sys
-      script:
-        - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py --doctest-modules --capture=sys
-      script:
-        - py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py --doctest-modules --capture=sys
+        - if ["$TO_TEST" = "GENERAL"]; then py.test hicexplorer/test/pytest_collected_items.py --doctest-modules --capture=sys ; fi
+        - if ["$TO_TEST" = "GENERAL"]; then py.test hicexplorer/test/general/ --doctest-modules --capture=sys ; fi
+        - if ["$TO_TEST" = "LONGRUN"]; then py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py --doctest-modules --capture=sys ; fi
+        - if ["$TO_TEST" = "LONGRUN"]; then py.test hicexplorer/test/long_run/test_buildMatrix.py --doctest-modules --capture=sys ; fi
+        - if ["$TO_TEST" = "LONGRUN"]; then py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py --doctest-modules --capture=sys ; fi
+        - if ["$TO_TEST" = "LONGRUN"]; then py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py --doctest-modules --capture=sys ; fi
+        - if ["$TO_TEST" = "LONGRUN"]; then py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py --doctest-modules --capture=sys ; fi
