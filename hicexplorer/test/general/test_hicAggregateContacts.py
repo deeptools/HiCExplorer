@@ -7,7 +7,7 @@ import hicexplorer.hicAggregateContacts
 import pytest
 from psutil import virtual_memory
 mem = virtual_memory()
-memory = mem.total / 2**30
+memory = mem.total / 2 ** 30
 
 # memory in GB the test computer needs to have to run the test case
 LOW_MEMORY = 2

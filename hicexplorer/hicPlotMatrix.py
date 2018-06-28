@@ -14,7 +14,6 @@ from hicexplorer.utilities import check_cooler
 from hicexplorer._version import __version__
 import numpy as np
 import pyBigWig
-from builtins import range
 from past.builtins import zip
 
 import argparse
@@ -138,9 +137,12 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
 
-    return parser
+    #  Used for automatic testing
+    parserOpt.add_argument('--disable_tight_layout',
+                           help=argparse.SUPPRESS,
+                           action='store_true')
 
-# relabel xticks
+    return parser
 
 
 def relabel_ticks(pXTicks):
@@ -227,16 +229,8 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         cax = divider.append_axes("right", size="2.5%", pad=0.09)
     else:
         cax = pBigwig['axis_colorbar']
-    if args.log1p:
-        from matplotlib.ticker import LogFormatter
-        formatter = LogFormatter(10, labelOnlyBase=False)
-        # get a useful log scale
-        # that looks like [1, 2, 5, 10, 20, 50, 100, ... etc]
-        aa = np.array([1, 2, 5])
-        tick_values = np.concatenate([aa * 10 ** x for x in range(10)])
-        cbar = fig.colorbar(img3, ticks=tick_values, format=formatter, cax=cax)
-    else:
-        cbar = fig.colorbar(img3, cax=cax)
+
+    cbar = fig.colorbar(img3, cax=cax)
 
     cbar.solids.set_edgecolor("face")  # to avoid white lines in the color bar in pdf plots
     if args.scoreName:
@@ -322,7 +316,7 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
         col = idx % chrom_per_row
         if pBigwig:
             inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07],
-                                                          subplot_spec=grids[row, col], wspace=0.0, hspace=0.1)
+                                                          subplot_spec=grids[row, col], wspace=0.1, hspace=0.1)
             axis = plt.subplot(inner_grid[0, 0])
             axis_eigenvector = plt.subplot(inner_grid[1, 0])
             axis_scale = plt.subplot(inner_grid[0, 1])
@@ -347,14 +341,15 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
                 matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
                 matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
 
-                if args.log:
-                    matrix = np.log(matrix)
             except Exception:
                 log.debug("Clearing of matrix failed.")
             log.debug("any nanafter remove of nan: {}".format(np.isnan(matrix).any()))
             log.debug("any inf after remove of inf: {}".format(np.isinf(matrix).any()))
         if args.log1p:
             matrix += 1
+            norm = LogNorm()
+
+        elif args.log:
             norm = LogNorm()
 
         bigwig_info = None
@@ -560,13 +555,12 @@ def main(args=None):
                 matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
                 matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
 
-            if args.log:
-                matrix = np.log(matrix)
-
         log.debug("any nan after remove of nan: {}".format(np.isnan(matrix).any()))
         log.debug("any inf after remove of inf: {}".format(np.isinf(matrix).any()))
         if args.log1p:
             matrix += 1
+            norm = LogNorm()
+        elif args.log:
             norm = LogNorm()
 
         if args.bigwig:
@@ -602,13 +596,14 @@ def main(args=None):
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info)
 
-    if args.perChromosome or args.bigwig:
-        try:
-            plt.tight_layout()
-        except UserWarning:
-            log.info("Failed to tight layout. Using regular plot.")
-        except ValueError:
-            log.info("Failed to tight layout. Using regular plot.")
+    if not args.disable_tight_layout:
+        if args.perChromosome or args.bigwig:
+            try:
+                plt.tight_layout()
+            except UserWarning:
+                log.info("Failed to tight layout. Using regular plot.")
+            except ValueError:
+                log.info("Failed to tight layout. Using regular plot.")
 
     plt.savefig(args.outFileName, dpi=args.dpi)
     plt.close(fig)
@@ -651,7 +646,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
             log.error("Eigenvector input files have different formats.")
             exit()
 
-    x = []
+    x_values = []
     bigwig_scores = []
     if file_format == "bigwig" or file_format == 'bw':
         for i, bigwigFile in enumerate(pNameOfBigwigList):
@@ -681,8 +676,10 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                     log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
                     return
 
+                _x_vals = np.linspace(region_start, region_end, num_bins)
+                assert len(_x_vals) == len(scores_per_bin)
+                x_values.extend(_x_vals)
                 bigwig_scores.extend(scores_per_bin)
-                x.extend(np.linspace(region_start, region_end, num_bins))
                 pAxis.set_xlim(region_start, region_end)
 
             elif pChromosomeSizes:
@@ -694,17 +691,21 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                         log.info("bigwig file as no chromosome named: {}.".format(chrom))
                         return
                     # chrom = check_chrom_str_bytes(pChromosomeSizes, chrom)
-                    # set the bin size to aproximately 100kb
-                    num_bins = int(pChromosomeSizes[chrom] / 1e5)
+                    # set the bin size to approximately 100kb
+                    # or to the chromosome size if this happens to be less than 100kb
+                    chunk_size = min(1e5, pChromosomeSizes[chrom])
+                    num_bins = int(pChromosomeSizes[chrom] / chunk_size)
                     scores_per_bin = np.array(bw.stats(chrom_, 0, pChromosomeSizes[chrom], nBins=num_bins)).astype(float)
 
                     if scores_per_bin is None:
                         log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
                         return
 
+                    _x_vals = np.linspace(chrom_length_sum, chrom_length_sum + pChromosomeSizes[chrom], num_bins)
+                    assert len(_x_vals) == len(scores_per_bin)
+                    x_values.extend(_x_vals)
                     bigwig_scores.extend(scores_per_bin)
 
-                    x.extend(np.linspace(chrom_length_sum, chrom_length_sum + pChromosomeSizes[chrom], num_bins))
                     chrom_length_sum += pChromosomeSizes[chrom]
 
                 pAxis.set_xlim(0, chrom_length_sum)
@@ -753,7 +754,5 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
     #
     #             pAxis.set_xlim(region_start, region_end * 2)
 
-    if x is not None and bigwig_scores is not None:
-        pAxis.fill_between(x, 0, bigwig_scores, edgecolor='none')
-
-    # pAxis.get_xaxis().set_visible(False)
+    if x_values is not None and bigwig_scores is not None:
+        pAxis.fill_between(x_values, 0, bigwig_scores, edgecolor='none')

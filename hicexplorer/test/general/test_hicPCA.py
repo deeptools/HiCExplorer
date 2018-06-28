@@ -30,8 +30,8 @@ def are_files_equal(file1, file2):
 
 
 def are_files_equal_bigwig(file1, file2):
-    chrom_list = ['chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr2RHet', 'chr3RHet', 'chr2LHet', 'chr4', 'chrYHet',
-                  'chrU', 'chrX', 'chrXHet', 'chrUextra', 'chrM', 'chr3LHet']
+    chrom_list = ['chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr2RHet', 'chr3RHet', 'chr2LHet', 'chr4',
+                  'chrU', 'chrX', 'chrXHet', 'chr3LHet']
     bw_file1 = pyBigWig.open(file1)
     bw_file2 = pyBigWig.open(file2)
 
