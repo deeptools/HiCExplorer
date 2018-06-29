@@ -37,6 +37,7 @@ install:
 script:
   - py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
   - py.test hicexplorer/test/general/ --doctest-modules --capture=sys
+  - py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
 jobs:
   include:
     - stage: lint
