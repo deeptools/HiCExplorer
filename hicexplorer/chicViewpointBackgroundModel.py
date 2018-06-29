@@ -55,7 +55,6 @@ def parse_arguments(args=None):
     return parser
 
 
-
 def main():
 
     args = parse_arguments().parse_args()

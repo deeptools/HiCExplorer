@@ -1,10 +1,10 @@
-# as input 
+# as input
 # - n bedfiles with interactions
 # - 1 background model file
 # - plot:
 #       - one image with all in one file
 #       - create n bedfiles
-# how to show background model? 
+# how to show background model?
 
 import argparse
 import sys
@@ -37,7 +37,6 @@ def parse_arguments(args=None):
                                 required=True,
                                 nargs='+')
 
-
     parserRequired.add_argument('--outFileName', '-o',
                                 help='File name to save the image.',
                                 required=True)
@@ -45,11 +44,11 @@ def parse_arguments(args=None):
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
-                                help='path to the background file which should be used for plotting',
-                                required=False)
+                           help='path to the background file which should be used for plotting',
+                           required=False)
     parserOpt.add_argument('--viewpointDataFile', '-vdf',
-                                help='path to data file which holds the used data of the viewpoint and the backgroundmodel per bin.',
-                                required=False)
+                           help='path to data file which holds the used data of the viewpoint and the backgroundmodel per bin.',
+                           required=False)
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
                            'ouput is a raster graphics image (e.g png, jpg)',
@@ -63,8 +62,6 @@ def parse_arguments(args=None):
     return parser
 
 
-
-
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
@@ -72,11 +69,10 @@ def main(args=None):
     if args.backgroundModelFile:
         background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
         # log.debug('background data {}'.format(background_data))
-       
+
         background_data_sorted = sorted(background_data)
         # log.debug('background data {}'.format(background_data))
-        background_data_list= list(background_data.values())
-    
+        background_data_list = list(background_data.values())
 
     for interactionFile in args.interactionFile:
         fig = plt.figure(figsize=(6.4, 4.8))
@@ -89,7 +85,6 @@ def main(args=None):
         matrix_name = matrix_name[1:]
         data = []
 
-        
         if args.backgroundModelFile:
             viewpoint_index = background_data_sorted.index(0)
 
@@ -111,19 +106,17 @@ def main(args=None):
             viewpoint_index = interaction_key.index(0)
             # log.debug('viewpoint_index {}'.format(viewpoint_index))
 
-        
         # xticklabels = viewpointObj.createXlabels()
         # log.debug('header {}'.format(header))
         # log.debug('data {}'.format(data))
-
 
     # fig = plt.figure(figsize=(6.4, 4.8))
     # ax = plt.subplot(111)
     # matrices_plot_legend = []
     # for i, data in enumerate(data_list):
     #     matrices_plot_legend.append(ax.plot(range(len(data)), data, alpha=0.7, label=matrix_name_legend[i])[0])
-    
-    # # if 
+
+    # # if
 
         legend = [matrix_name, 'background model']
         ax.plot(range(len(data)), data, alpha=0.7, label=header)
@@ -137,7 +130,7 @@ def main(args=None):
     #     # bottom, height = .25, .7
     #     # right = left + width
     #     # top = bottom + height
-    #     # if 
+    #     # if
         plt.legend(legend, loc='upper right')
     #     if not args.plotOneImage:
     #         plt.savefig(args.outFileName, dpi=args.dpi)
@@ -154,3 +147,4 @@ def main(args=None):
             # data of background: data_background
             # index values: range between upstream_range and downstream range
             # TODO: bin size is missing
+            pass

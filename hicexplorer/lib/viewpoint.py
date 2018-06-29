@@ -3,6 +3,8 @@ import numpy as np
 
 import logging
 log = logging.getLogger(__name__)
+
+
 class Viewpoint():
 
     def __init__(self, pHiCMatrix=None):
@@ -34,14 +36,20 @@ class Viewpoint():
         with open(pBedFile) as fh:
             header = fh.readline()
             for line in fh.readlines():
-                line_ = line.split('\t')
+                ### Addition header information for end users
+                if line.strip().startswith('#'):
+                    continue
+                
+                line_ = line.strip().split('\t')
                 # data.append(float(line_[-2]))
-                distance[int(line_[-1])] = float(line_[-2])
+                # relative postion and relative interactions
+                log.debug('line_ {}'.format(line_))
+                distance[int(line_[-3])] = float(line_[-2])
                 # log.debug('line_[-2] {} line_[-1] {}'.format(int(line_[-1]), float(line_[-2])))
         return header, distance
 
     def readBackgroundDataFile(self, pBedFile):
-        
+
         distance = {}
         with open(pBedFile) as fh:
             for line in fh.readlines():
@@ -56,10 +64,11 @@ class Viewpoint():
         with open(pBedFile + '.bed', 'w') as fh:
             fh.write('#{}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{}\t{:.12f}\n".
-                        format(interaction[0],interaction[1],interaction[2],
-                        interaction[3],interaction[4],interaction[5],
-                        interaction[6], interaction[7], pZscoreData[j]))
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\n".
+                         format(interaction[0], interaction[1], interaction[2],
+                                interaction[3], interaction[4], interaction[5],
+                                interaction[6], interaction[7], pZscoreData[j]))
+        return
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
         # hic = pHiCMatrix
@@ -74,8 +83,7 @@ class Viewpoint():
         # log.debug('view_point_end {}'.format(view_point_end))
         # log.debug('view_point_range {}'.format(view_point_range))
 
-
-        elements_of_viewpoint = (view_point_range[1] - view_point_range[0]) #- (view_point_end - view_point_start) + 1
+        elements_of_viewpoint = (view_point_range[1] - view_point_range[0])  # - (view_point_end - view_point_start) + 1
         # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
 
         data_list = np.zeros(elements_of_viewpoint)
@@ -103,7 +111,7 @@ class Viewpoint():
         data_list_new[index_before_viewpoint] = np.sum(data_list[index_before_viewpoint: index_before_viewpoint + view_point_end - view_point_start])
         # log.debug('len {}'.format(len(data_list[index_before_viewpoint: index_before_viewpoint + view_point_end - view_point_start])))
         # log.debug('index until end: {} '.format(index_before_viewpoint + view_point_end - view_point_start))
-        data_list_new[index_before_viewpoint+1:] = data_list[index_before_viewpoint + view_point_end - view_point_start:]
+        data_list_new[index_before_viewpoint + 1:] = data_list[index_before_viewpoint + view_point_end - view_point_start:]
         # log.debug('len data_list_new {}'.format(len(data_list_new)))
         return data_list_new
 
@@ -114,20 +122,20 @@ class Viewpoint():
         elements_of_viewpoint = view_point_range[1] - view_point_range[0] - (view_point_end - view_point_start) + 1
 
         interactions_list = []
-        chrom, start, _ , _ = self.hicMatrix.getBinPos(view_point_start)
+        chrom, start, _, _ = self.hicMatrix.getBinPos(view_point_start)
         _, _, end, _ = self.hicMatrix.getBinPos(view_point_end)
         interaction_positions = list(range(view_point_range[0], view_point_start, 1))
         interaction_positions.extend([view_point_start])
-        interaction_positions.extend(list(range(view_point_end+1, view_point_range[1], 1)))
+        interaction_positions.extend(list(range(view_point_end + 1, view_point_range[1], 1)))
         # log.debug('interaction_positions {}'.format(interaction_positions))
         # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
-        relative_position = -1 
+        relative_position = -1
         # flipToEnd = (view_point_end - view_point_start) + 1
         # log.
         for j, idx in zip(range(elements_of_viewpoint), interaction_positions):
-            
+
             chrom_second, start_second, end_second, _ = self.hicMatrix.getBinPos(idx)
-            if relative_position < 0 :
+            if relative_position < 0:
                 relative_position = int(start_second) - int(start)
                 # log.debug('start_second {}, start {}, {}'.format(start_second, start, idx))
 
@@ -138,7 +146,7 @@ class Viewpoint():
             # log.debug('start_second {}'.format(start_second))
             # log.debug('foo {}'.format(foo))
 
-            interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, float(pInteractionData[j]), relative_position))
+            interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, relative_position, float(pInteractionData[j])))
 
         return interactions_list
 
@@ -170,26 +178,26 @@ class Viewpoint():
             start = i - window_size_upstream
             end = i + window_size + 1
             average_contacts[i] = np.mean(pData[start:end])
-        
+
         # handle border conditions
         for i in range(window_size):
             start = i - window_size_upstream
             if start < 0:
                 start = 0
             end = i + window_size + 1
-        
+
             average_contacts[i] = np.mean(pData[start:end])
             average_contacts[-(i + 1)] = np.mean(pData[-end:])
         return average_contacts
-        
+
     def computeRelativeValues(self, pData):
         sumValue = np.sum(pData)
         pData /= sumValue
         return pData
 
     def calculateViewpointRange(self, pViewpoint, pRange):
-        max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1]-1)[2]
-        
+        max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
+
         region_start = int(pViewpoint[1]) - pRange[0]
         if region_start < 0:
             region_start = 0
@@ -198,12 +206,12 @@ class Viewpoint():
         if region_end > max_length:
             region_end = max_length - 1
         # log.debug('viewpoint range: {} {} max length {}'.format(region_start, region_end, max_length ))
-        return region_start, region_end 
-    
+        return region_start, region_end
+
     def createXlabels(self, pHeader, ):
 
         if len(referencePoint) == 2:
-   
+
             ax.set_xticks([0, view_point_start - view_point_range[0], view_point_range[1] - view_point_range[0]])
             xticklabels = [None] * 3
             xticklabels[0] = relabelTicks((int(referencePoint[1]) - region_start) * (-1))
