@@ -8,7 +8,7 @@ import os
 from os.path import basename, dirname
 
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
+ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
 original_matrix = ROOT + "small_test_matrix_50kb_res.h5"
 
 

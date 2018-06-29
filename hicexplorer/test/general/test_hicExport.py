@@ -5,7 +5,7 @@ from tempfile import NamedTemporaryFile
 import os
 import numpy.testing as nt
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/hicExport/"
+ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/hicExport/"
 
 NPZ_MATRIX = ROOT + "matrix.npz"
 COOL_MATRIX = ROOT + "matrix.cool"

@@ -9,8 +9,8 @@ from psutil import virtual_memory
 mem = virtual_memory()
 memory = mem.total / 2 ** 30
 import hicexplorer.hicPlotMatrix
-tolerance = 20  # default matplotlib pixed difference tolerance
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
+tolerance = 60  # default matplotlib pixed difference tolerance
+ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
 
 # memory in GB the test computer needs to have to run the test case
 LOW_MEMORY = 2
