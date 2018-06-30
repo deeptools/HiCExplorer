@@ -77,26 +77,37 @@ def main(args=None):
     for interactionFile in args.interactionFile:
         fig = plt.figure(figsize=(6.4, 4.8))
         ax = plt.subplot(111)
-        header, interaction_data = viewpointObj.readInteractionFile(interactionFile)
+        header, interaction_data, z_score_data = viewpointObj.readInteractionFile(interactionFile)
         matrix_name, viewpoint, upstream_range, downstream_range = header.split('\t')
         viewpoint_ = viewpoint.split(':')
         referencePointString = viewpoint_[0] + ':' + utilitiesObj.in_units(viewpoint_[1]) + " - " + utilitiesObj.in_units(viewpoint_[2])
 
         matrix_name = matrix_name[1:]
         data = []
+        z_score = []
 
         if args.backgroundModelFile:
             viewpoint_index = background_data_sorted.index(0)
 
             data_background = []
+            data_background_mean = []
+
             # interaction_data = sorted(interaction_data)
             for key in background_data_sorted:
                 if key in interaction_data:
                     data.append(interaction_data[key])
                 else:
                     data.append(0)
-                data_background.append(background_data[key][0])
 
+                if key in z_score_data:
+                    z_score.append(z_score_data[key])
+                else:
+                    z_score.append(0)
+
+                data_background.append(background_data[key][0])
+                data_background_mean.append(background_data[key][1])
+            
+            
         else:
             data = []
             interaction_key = sorted(interaction_data)
@@ -119,9 +130,17 @@ def main(args=None):
     # # if
 
         legend = [matrix_name, 'background model']
-        ax.plot(range(len(data)), data, alpha=0.7, label=header)
+        data_plot_label = ax.plot(range(len(data)), data, alpha=0.7, label=matrix_name)
+        # z_score
+        ax_sub = ax.twinx()
+        data_plot_label += ax_sub.plot(range(len(z_score)), z_score, '--b', alpha=0.7, label='z-score')
+        ax_sub.set_ylabel('z-score', color='r')
+
         if args.backgroundModelFile:
-            ax.plot(range(len(data_background)), data_background, '--r', alpha=0.7, label=header)
+            data_background = np.array(data_background)
+            data_background_mean = np.array(data_background_mean)
+            data_plot_label += ax.plot(range(len(data_background)), data_background, '--r', alpha=0.7, label='background model')
+            ax.fill_between(range(len(data_background)), data_background + data_background_mean,  data_background - data_background_mean , facecolor='red', alpha=0.5)
         ax.set_xticks([0, viewpoint_index, len(data)])
 
         ax.set_xticklabels([upstream_range, referencePointString, downstream_range])
@@ -131,7 +150,12 @@ def main(args=None):
     #     # right = left + width
     #     # top = bottom + height
     #     # if
-        plt.legend(legend, loc='upper right')
+
+        # added these three lines
+        # data_plot_label = lns1+lns2+lns3
+        data_legend = [label.get_label() for label in data_plot_label]
+        ax.legend(data_plot_label, data_legend, loc=0)
+        # plt.legend(legend, loc='upper right')
     #     if not args.plotOneImage:
     #         plt.savefig(args.outFileName, dpi=args.dpi)
     #         plt.close(fig)
@@ -146,5 +170,9 @@ def main(args=None):
             # data of viewpoint is stored in 'data'
             # data of background: data_background
             # index values: range between upstream_range and downstream range
-            # TODO: bin size is missing
+            # TODO: bin size is missing --> bin size is given with relative distance
+            # with open('outputPlot' + '.bed', 'w') as fh:
+            #     fh.write('#{}\n'.format(header))
+            #     for data_, data_background_,  in data:
+
             pass

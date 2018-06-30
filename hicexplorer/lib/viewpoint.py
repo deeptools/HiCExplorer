@@ -31,8 +31,8 @@ class Viewpoint():
 
     def readInteractionFile(self, pBedFile):
         # use header info to store reference point, and based matrix
-        data = []
-        distance = {}
+        interaction_data = {}
+        z_score = {}
         with open(pBedFile) as fh:
             header = fh.readline()
             for line in fh.readlines():
@@ -44,9 +44,10 @@ class Viewpoint():
                 # data.append(float(line_[-2]))
                 # relative postion and relative interactions
                 log.debug('line_ {}'.format(line_))
-                distance[int(line_[-3])] = float(line_[-2])
+                interaction_data[int(line_[-3])] = float(line_[-2])
+                z_score[int(line_[-3])] = float(line_[-1])
                 # log.debug('line_[-2] {} line_[-1] {}'.format(int(line_[-1]), float(line_[-2])))
-        return header, distance
+        return header, interaction_data, z_score
 
     def readBackgroundDataFile(self, pBedFile):
 
