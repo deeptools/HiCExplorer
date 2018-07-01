@@ -462,7 +462,7 @@ class hiCMatrix:
                 depth = max_depth_in_bins
             else:
                 depth = m_size
-                estimated_size_dense_matrix = m_size**2 * 8
+                estimated_size_dense_matrix = m_size ** 2 * 8
                 if estimated_size_dense_matrix > 100e6:
                     log.info("To compute z-scores a dense matrix is required. This will use \n"
                              "{} Mb of memory.\n To reduce memory use the maxdeph option."
@@ -718,6 +718,331 @@ class hiCMatrix:
         self.matrix = mat
         return self.matrix
 
+# <<<<<<< HEAD
+# =======
+#     def save_bing_ren(self, fileName):
+#         """
+#         Saves the matrix using bing ren's
+#         method which is chrom_name\tstart_bin\tend_bin\tvalues...
+#         """
+#         if os.path.isdir(fileName):
+#             exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(fileName))
+
+#         if fileName[-3:] != '.gz':
+#             fileName += '.gz'
+
+#         try:
+#             fileh = gzip.open(fileName, 'wt')
+#         except IOError:
+#             msg = "{} file can't be opened for writing".format(fileName)
+#             raise msg
+
+#         colNames = []
+#         for x in range(self.matrix.shape[0]):
+#             chrom, start, end = self.cut_intervals[x][0:3]
+#             colNames.append("{}\t{}\t{}".format(chrom, start, end))
+
+#         for row in range(self.matrix.shape[0]):
+#             values = [str(x) for x in self.matrix[row, :].toarray().flatten()]
+#             fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values)))
+
+#         fileh.close()
+
+#     def save_dekker(self, fileName):
+#         """
+#         Saves the matrix using dekker format
+#         """
+#         if os.path.isdir(fileName):
+#             exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(fileName))
+
+#         if fileName[-3:] != '.gz':
+#             fileName += '.gz'
+
+#         try:
+#             fileh = gzip.open(fileName, 'wt')
+#         except IOError:
+#             msg = "{} file can't be opened for writing".format(fileName)
+#             raise msg
+
+#         colNames = []
+#         for x in range(self.matrix.shape[0]):
+#             chrom, start, end = self.cut_intervals[x][0:3]
+#             colNames.append("{}|--|{}:{}-{}".format(x, toString(chrom), start, end))  # adds dm3 to the end (?problem..)
+
+#         fileh.write("#converted from hicexplorer\n")
+#         fileh.write("\t" + "\t".join(colNames) + "\n")
+#         for row in range(self.matrix.shape[0]):
+#             values = [str(x) for x in self.matrix[row, :].toarray().flatten()]
+#             fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values)))
+
+#         fileh.close()
+
+#     def save_lieberman(self, fileName):
+#         """
+#         Saves the matrix using lieberman format. Given an output directory name and resolution of the matrix.
+
+#         In contrast to other methods, when saving using liebermans format a folder is required
+#         where the data is saved per chromosome
+#         """
+
+#         if os.path.isfile(fileName):
+#             exit("a file with the same name as the given path exists ({}). Please choose a folder.".format(fileName))
+
+#         if not os.path.isdir(fileName):
+#             os.mkdir(fileName)
+
+#         resolution = self.getBinSize()
+#         if not self.bin_size_homogeneous:
+#             log.warning("*WARNING* The hic matrix contains bins of difference size but\n"
+#                         "the 'lieberman' format requires equally spaced bins. The program\n"
+#                         "will proceed but the results may be unreliable.\n")
+
+#         for chrom in list(self.interval_trees):
+#             chrstart, chrend = self.getChrBinRange(chrom)
+#             chrwise_mat = self.matrix[chrstart:chrend, chrstart:chrend]
+#             if len(chrwise_mat.data) > 0:
+#                 log.info("Saving chromosome {}...\n".format(chrom))
+#                 chrwise_mat_coo = triu(chrwise_mat, k=0, format='csr').tocoo()
+#                 start = chrwise_mat_coo.row * resolution
+#                 end = chrwise_mat_coo.col * resolution
+#                 fileh = gzip.open("{}/chr{}.gz".format(fileName, chrom), 'wt')
+#                 fileh.write("#converted from HiCExplorer format\n")
+#                 for idx in range(len(start)):
+#                     fileh.write("{}\t{}\t{}\n".format(start[idx], end[idx], chrwise_mat_coo.data[idx]))
+#                 fileh.close()
+
+#     def save_GInteractions(self, fileName):
+#         """
+#         Saves the matrix using bioconductor's GInteraction format. `bin_pos1 , bin_pos2, number of interactions`
+#         """
+#         self.restoreMaskedBins()
+#         log.debug(self.matrix.shape)
+#         mat_coo = triu(self.matrix, k=0, format='csr').tocoo()
+#         fileh = open("{}.tsv".format(fileName), 'w')
+#         for idx, counts in enumerate(mat_coo.data):
+#             chr_row, start_row, end_row, _ = self.cut_intervals[mat_coo.row[idx]]
+#             chr_col, start_col, end_col, _ = self.cut_intervals[mat_coo.col[idx]]
+#             fileh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chr_row, int(start_row), int(end_row),
+#                                                               chr_col, int(start_col), int(end_col), counts))
+#         fileh.close()
+
+#     def create_empty_cool_file(self, pFileName):
+#         bins_data_frame = pd.DataFrame(columns=['chrom', 'start', 'end', 'weight'])
+#         matrix_data_frame = pd.DataFrame(columns=['bin1_id', 'bin2_id', 'count'])
+#         cooler.io.create(cool_uri=pFileName,
+#                          bins=bins_data_frame,
+#                          pixels=matrix_data_frame)
+
+#     def save_cooler(self, pFileName, pSymmetric=True, pApplyCorrection=True):
+#         # for value in self.nan_bins:
+#         self.restoreMaskedBins()
+#         self.matrix = self.matrix.tolil()
+#         if self.nan_bins is not None:
+#             self.matrix[self.nan_bins, :] = 0
+#             self.matrix[:, self.nan_bins] = 0
+#         self.matrix = self.matrix.tocsr()
+
+#         for i in range(len(self.matrix.data)):
+#             if np.isnan(self.matrix.data[i]):
+#                 self.matrix.data[i] = 0
+
+#         self.matrix.eliminate_zeros()
+#         # save only the upper triangle of the
+#         if pSymmetric:
+#             # symmetric matrix
+#             matrix = triu(self.matrix, k=0, format='csr')
+#         else:
+#             matrix = self.matrix
+
+#         cut_intervals_ = []
+#         for value in self.cut_intervals:
+#             cut_intervals_.append(tuple((value[0], value[1], value[2])))
+
+#         bins_data_frame = pd.DataFrame(cut_intervals_, columns=['chrom', 'start', 'end'])
+
+#         # append correction factors if they exist
+#         if self.correction_factors is not None and pApplyCorrection:
+#             weight = convertNansToOnes(np.array(self.correction_factors).flatten())
+#             bins_data_frame = bins_data_frame.assign(weight=weight)
+
+#         # get only the upper triangle of the matrix to save to disk
+#         # upper_triangle = triu(self.matrix, k=0, format='csr')
+#         # create a tuple list and use it to create a data frame
+
+#         # save correction factors and original matrix
+
+#         # revert correction to store orginal matrix
+#         if self.correction_factors is not None and pApplyCorrection:
+#             log.info("Reverting correction factors on matrix...")
+#             instances, features = matrix.nonzero()
+#             self.correction_factors = np.array(self.correction_factors)
+
+#             # do not apply if correction factors are just 1's
+#             if np.sum(self.correction_factors) != len(self.correction_factors):
+#                 instances_factors = self.correction_factors[instances]
+#                 features_factors = self.correction_factors[features]
+
+#                 instances_factors *= features_factors
+#                 matrix.data *= instances_factors
+#                 instances_factors = None
+#                 features_factors = None
+
+#                 matrix.data = np.rint(matrix.data)
+#                 matrix.data = matrix.data.astype(int)
+
+#             data = matrix.data.tolist()
+
+#         else:
+
+#             instances, features = matrix.nonzero()
+#             data = matrix.data.tolist()
+
+#             if matrix.dtype not in [np.int32, int]:
+#                 log.warning("Writing non-standard cooler matrix. Datatype of matrix['count'] is: {}".format(matrix.dtype))
+#                 cooler._writer.COUNT_DTYPE = matrix.dtype
+
+#         if len(instances) == 0 and len(features) == 0:
+#             exit('No data present. Exit.')
+#         else:
+#             matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
+#             matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
+
+#             cooler.io.create(cool_uri=pFileName,
+#                              bins=bins_data_frame,
+#                              pixels=matrix_data_frame,
+#                              append=False)
+
+#     def save_hdf5(self, filename, pSymmetric=True):
+#         """
+#         Saves a matrix using hdf5 format
+#         :param filename:
+#         :return: None
+#         """
+#         self.restoreMaskedBins()
+#         if not filename.endswith(".h5"):
+#             filename += ".h5"
+
+#         # if the file name already exists
+#         # try to find a new suitable name
+#         if os.path.isfile(filename):
+#             log.warning("*WARNING* File already exists {}\n "
+#                         "Overwriting ...\n".format(filename))
+
+#             from os import unlink
+#             unlink(filename)
+#         try:
+#             nan_bins = np.array(self.nan_bins)
+#         except Exception:
+#             nan_bins = np.array([])
+#         # save only the upper triangle of the
+#         if pSymmetric:
+#             # symmetric matrix
+#             matrix = triu(self.matrix, k=0, format='csr')
+#         else:
+#             matrix = self.matrix
+#         filters = tables.Filters(complevel=5, complib='blosc')
+#         with tables.open_file(filename, mode="w", title="HiCExplorer matrix") as h5file:
+#             matrix_group = h5file.create_group("/", "matrix", )
+#             # save the parts of the csr matrix
+#             for matrix_part in ('data', 'indices', 'indptr', 'shape'):
+#                 arr = np.array(getattr(matrix, matrix_part))
+#                 atom = tables.Atom.from_dtype(arr.dtype)
+#                 ds = h5file.create_carray(matrix_group, matrix_part, atom,
+#                                           shape=arr.shape,
+#                                           filters=filters)
+#                 ds[:] = arr
+
+#             # save the matrix intervals
+#             intervals_group = h5file.create_group("/", "intervals", )
+#             chr_list, start_list, end_list, extra_list = zip(*self.cut_intervals)
+#             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
+#                 arr = np.array(eval(interval_part))
+#                 atom = tables.Atom.from_dtype(arr.dtype)
+#                 ds = h5file.create_carray(intervals_group, interval_part, atom,
+#                                           shape=arr.shape,
+#                                           filters=filters)
+#                 ds[:] = arr
+
+#             # save nan bins
+#             if len(nan_bins):
+#                 atom = tables.Atom.from_dtype(nan_bins.dtype)
+#                 ds = h5file.create_carray(h5file.root, 'nan_bins', atom,
+#                                           shape=nan_bins.shape,
+#                                           filters=filters)
+#                 ds[:] = nan_bins
+
+#             # save corrections factors
+#             if self.correction_factors is not None and len(self.correction_factors):
+#                 self.correction_factors = np.array(self.correction_factors)
+#                 atom = tables.Atom.from_dtype(self.correction_factors.dtype)
+#                 ds = h5file.create_carray(h5file.root, 'correction_factors', atom,
+#                                           shape=self.correction_factors.shape,
+#                                           filters=filters)
+#                 ds[:] = np.array(self.correction_factors)
+
+#             # save distance counts
+#             if self.distance_counts is not None and len(self.distance_counts):
+#                 atom = tables.Atom.from_dtype(self.distance_counts.dtype)
+#                 ds = h5file.create_carray(h5file.root, 'distance_counts', atom,
+#                                           shape=self.distance_counts.shape,
+#                                           filters=filters)
+#                 ds[:] = np.array(self.distance_counts)
+
+#     def save_npz(self, filename):
+#         """
+#         saves using the numpy npz format. Adequate for small samples.
+#         """
+#         self.restoreMaskedBins()
+#         chrNameList, startList, endList, extraList = zip(*self.cut_intervals)
+#         try:
+#             nan_bins = self.nan_bins
+#         except Exception:
+#             nan_bins = np.array([])
+#         # save only the upper triangle of the
+#         # symmetric matrix
+#         matrix = triu(self.matrix, k=0, format='csr')
+#         try:
+#             np.savez(
+#                 filename, matrix=matrix, chrNameList=chrNameList,
+#                 startList=startList, endList=endList, extraList=extraList,
+#                 nan_bins=nan_bins, correction_factors=self.correction_factors)
+#         except Exception as e:
+#             log.debug("error saving matrix: {}".format(e))
+#             try:
+#                 log.info("Matrix can not be saved because is too big!")
+#                 log.version_info("Eliminating entries with only one count.")
+
+#                 # try to remove noise by deleting 1
+#                 matrix.data = matrix.data - 1
+#                 matrix.eliminate_zeros()
+#                 np.savez(
+#                     filename, matrix=matrix, chrNameList=chrNameList,
+#                     startList=startList, endList=endList, extraList=extraList,
+#                     nan_bins=nan_bins)
+#             except Exception:
+#                 log.exception("Try failed. Matrix can not be saved because it is too big!")
+#             exit()
+
+#     def save(self, pMatrixName, pSymmetric=True, pApplyCorrection=False):
+#         """To save please specifiy the ending of your format i.e. 'output_matrix.format' Supported are: 'dekker', 'ren',
+#             'lieberman', 'npz', 'GInteractions', 'h5' and 'cool'.
+#         """
+#         if pMatrixName.endswith('dekker') == 'dekker':
+#             self.save_dekker(pMatrixName)
+#         elif pMatrixName.endswith('ren'):
+#             self.save_bing_ren(pMatrixName)
+#         elif pMatrixName.endswith('lieberman'):
+#             self.save_lieberman(pMatrixName)
+#         elif pMatrixName.endswith('npz'):
+#             self.save_npz(pMatrixName)
+#         elif pMatrixName.endswith('GInteractions'):
+#             self.save_GInteractions(pMatrixName)
+#         elif pMatrixName.endswith('cool'):
+#             self.save_cooler(pMatrixName, pSymmetric=pSymmetric, pApplyCorrection=pApplyCorrection)
+#         else:
+#             self.save_hdf5(pMatrixName, pSymmetric=pSymmetric)
+
+# >>>>>>> develop
     def diagflat(self, value=np.nan):
         """
         sets

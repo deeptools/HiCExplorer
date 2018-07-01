@@ -54,8 +54,7 @@ http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html#correctio
 """
     )
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(__version__))
 
     subparsers = parser.add_subparsers(
         title="Options",
@@ -572,7 +571,7 @@ def main(args=None):
 
     log.info("matrix contains {} data points. Sparsity {:.3f}.".format(
         len(ma.matrix.data),
-        float(len(ma.matrix.data)) / (ma.matrix.shape[0]**2)))
+        float(len(ma.matrix.data)) / (ma.matrix.shape[0] ** 2)))
 
     if args.skipDiagonal:
         ma.diagflat(value=0)

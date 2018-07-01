@@ -10,25 +10,7 @@ os:
 stages:
   - lint
   - test
-jobs:
-  include:
-    - stage: lint
-      env:
-        - LINT=1
-        - TRAVIS_PYTHON_VERSION=2.7
-      before_install:
-        - curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh
-        - bash miniconda.sh -b -p $HOME/miniconda
-        - PATH_WITHOUT_CONDA="$PATH"
-        - export PATH="$HOME/miniconda/bin:$PATH"
-        - hash -r
-        - conda config --set always_yes yes --set changeps1 no
-        - conda update -q conda
-      install:
-        - conda install --yes python=2.7 flake8
-      script:
-        - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712 ; fi
-   
+
 # Setup anaconda
 before_install:
   - export HIC_TEST_DATA_DIR="`pwd`/hicexplorer/test/test_data/"
@@ -45,14 +27,111 @@ before_install:
   - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
-
 # Install packages
 install:
   - conda install --yes -c conda-forge -c bioconda python=$TRAVIS_PYTHON_VERSION --file requirements.txt
   - conda install --yes -c conda-forge -c bioconda pytest
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then conda install --yes -c defaults -c conda-forge -c bioconda configparser ; fi
   - python setup.py install
-
 # command to run tests
 script:
-  - py.test hicexplorer --doctest-modules
+  - py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
+  - py.test hicexplorer/test/general/ --doctest-modules --capture=sys
+  - py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
+jobs:
+  include:
+    - stage: lint
+      env:
+        - LINT=1
+      before_install:
+        - curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - PATH_WITHOUT_CONDA="$PATH"
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - hash -r
+        - conda config --set always_yes yes --set changeps1 no
+        - conda update -q conda
+      install:
+        - conda install --yes python=2.7 flake8
+      script:
+        - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F403,E402,F999,F405,E712 ; fi
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_buildMatrix.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_buildMatrix.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_buildMatrix.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_buildMatrix.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py
