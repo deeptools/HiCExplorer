@@ -70,7 +70,10 @@ class hiCMatrix:
 
         if pMatrixFile is not None:
             log.debug('Load self.matrixFileHandler')
-            self.matrixFileHandler = MatrixFileHandler(pMatrixFile=pMatrixFile, pChrnameList=pChrnameList, pCooler_only_init=pCooler_only_init, 
+            fileType = 'cool'
+            if pMatrixFile.endswith('.h5'):
+                fileType = 'h5'
+            self.matrixFileHandler = MatrixFileHandler(pFileType=fileType, pMatrixFile=pMatrixFile, pChrnameList=pChrnameList, pCooler_only_init=pCooler_only_init, 
                                          pApplyCorrectionCooler=pApplyCorrectionCooler)
             self.matrix, self.cut_intervals, self.nan_bins, \
                  self.correction_factors, self.distance_counts = self.matrixFileHandler.load()
