@@ -1391,9 +1391,10 @@ def main(args=None):
 
     mappable_unique_high_quality_pairs = iter_num - (one_mate_unmapped + one_mate_low_quality + one_mate_not_unique)
 
-    log_file_name = os.path.join(args.QCfolder, "QC.log")
+    log_file_name = os.path.join(args.QCfolder, "HiCex_QC.log")
     log_file = open(log_file_name, 'w')
     log_file.write("""
+# hicBuildMatrix Statistics
 File\t{}\t\t
 Pairs considered\t{}\t\t
 Min rest. site distance\t{}\t\t
