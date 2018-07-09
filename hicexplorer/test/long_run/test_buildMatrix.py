@@ -39,7 +39,7 @@ def test_build_matrix(capsys):
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
     # print("MATRIX NAME:", outfile.name)
     print(set(os.listdir(ROOT + "QC/")))
-    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(ROOT + "QC/HiCex_QC.log", qc_folder + "/HiCex_QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
     # accept delta of 60 kb, file size is around 4.5 MB
@@ -74,7 +74,7 @@ def test_build_matrix_cooler():
 
     nt.assert_equal(cut_interval_new_, cut_interval_test_)
     # print(set(os.listdir(ROOT + "QC/")))
-    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(ROOT + "QC/HiCex_QC.log", qc_folder + "/HiCex_QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
     os.unlink(outfile.name)
@@ -101,7 +101,7 @@ def test_build_matrix_rf():
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
     print(set(os.listdir(ROOT + "QC_rc/")))
-    assert are_files_equal(ROOT + "QC_rc/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(ROOT + "QC_rc/HiCex_QC.log", qc_folder + "/HiCex_QC.log")
     assert set(os.listdir(ROOT + "QC_rc/")) == set(os.listdir(qc_folder))
 
     os.unlink(outfile.name)
