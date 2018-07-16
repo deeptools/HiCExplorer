@@ -33,6 +33,7 @@ class Viewpoint():
         # use header info to store reference point, and based matrix
         interaction_data = {}
         z_score = {}
+        interaction_file_data = {}
         with open(pBedFile) as fh:
             header = fh.readline()
             for line in fh.readlines():
@@ -46,8 +47,9 @@ class Viewpoint():
                 log.debug('line_ {}'.format(line_))
                 interaction_data[int(line_[-3])] = float(line_[-2])
                 z_score[int(line_[-3])] = float(line_[-1])
+                interaction_file_data[int(line_[-3])] = line_
                 # log.debug('line_[-2] {} line_[-1] {}'.format(int(line_[-1]), float(line_[-2])))
-        return header, interaction_data, z_score
+        return header, interaction_data, z_score, interaction_file_data
 
     def readBackgroundDataFile(self, pBedFile):
 

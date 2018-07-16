@@ -12,7 +12,6 @@ import numpy as np
 import hicexplorer.HiCMatrix as hm
 from hicexplorer.utilities import toString
 from hicexplorer._version import __version__
-# from hicexplorer.chicViewpointBackgroundModel import getViewpointValues
 from .lib import Viewpoint
 from .lib import Utilities
 
@@ -46,12 +45,12 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
                            help='path to the background file which should be used for plotting',
                            required=False)
-    parserOpt.add_argument('--viewpointDataFile', '-vdf',
+    parserOpt.add_argument('--outputViewpointFile', '-ovf',
                            help='path to data file which holds the used data of the viewpoint and the backgroundmodel per bin.',
                            required=False)
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
-                           'ouput is a raster graphics image (e.g png, jpg)',
+                           'output is a raster graphics image (e.g png, jpg)',
                            type=int,
                            default=300)
 
@@ -68,16 +67,14 @@ def main(args=None):
     utilitiesObj = Utilities()
     if args.backgroundModelFile:
         background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
-        # log.debug('background data {}'.format(background_data))
 
         background_data_sorted = sorted(background_data)
-        # log.debug('background data {}'.format(background_data))
         background_data_list = list(background_data.values())
 
     for interactionFile in args.interactionFile:
         fig = plt.figure(figsize=(6.4, 4.8))
         ax = plt.subplot(111)
-        header, interaction_data, z_score_data = viewpointObj.readInteractionFile(interactionFile)
+        header, interaction_data, z_score_data, interaction_file_data_raw = viewpointObj.readInteractionFile(interactionFile)
         matrix_name, viewpoint, upstream_range, downstream_range = header.split('\t')
         viewpoint_ = viewpoint.split(':')
         referencePointString = viewpoint_[0] + ':' + utilitiesObj.in_units(viewpoint_[1]) + " - " + utilitiesObj.in_units(viewpoint_[2])
@@ -92,7 +89,6 @@ def main(args=None):
             data_background = []
             data_background_mean = []
 
-            # interaction_data = sorted(interaction_data)
             for key in background_data_sorted:
                 if key in interaction_data:
                     data.append(interaction_data[key])
@@ -106,6 +102,21 @@ def main(args=None):
 
                 data_background.append(background_data[key][0])
                 data_background_mean.append(background_data[key][1])
+
+                if args.outputViewpointFile:
+                
+                    if key in interaction_file_data_raw:
+                        log.debug('key: {} interaction_file_data_raw[key] {}'.format(key, interaction_file_data_raw[key]))
+                        line_data_raw = interaction_file_data_raw[key]
+                        line_data_raw.append(background_data[key][0])
+                        interaction_file_data_raw[key] = line_data_raw
+                        log.debug('key: {} interaction_file_data_raw[key] {}'.format(key, interaction_file_data_raw[key]))
+
+                        line_data_raw = interaction_file_data_raw[key]
+                        line_data_raw.append(background_data[key][1])
+                        interaction_file_data_raw[key] = line_data_raw
+                        log.debug('key: {} interaction_file_data_raw[key] {}'.format(key, interaction_file_data_raw[key]))
+
             
             
         else:
@@ -115,19 +126,7 @@ def main(args=None):
                 data.append(interaction_data[key])
             log.debug('data {}'.format(interaction_key))
             viewpoint_index = interaction_key.index(0)
-            # log.debug('viewpoint_index {}'.format(viewpoint_index))
-
-        # xticklabels = viewpointObj.createXlabels()
-        # log.debug('header {}'.format(header))
-        # log.debug('data {}'.format(data))
-
-    # fig = plt.figure(figsize=(6.4, 4.8))
-    # ax = plt.subplot(111)
-    # matrices_plot_legend = []
-    # for i, data in enumerate(data_list):
-    #     matrices_plot_legend.append(ax.plot(range(len(data)), data, alpha=0.7, label=matrix_name_legend[i])[0])
-
-    # # if
+        
 
         legend = [matrix_name, 'background model']
         data_plot_label = ax.plot(range(len(data)), data, alpha=0.7, label=matrix_name)
@@ -145,28 +144,19 @@ def main(args=None):
 
         ax.set_xticklabels([upstream_range, referencePointString, downstream_range])
         ax.set_ylabel('Number of interactions')
-    #     # left, width = .45, .5
-    #     # bottom, height = .25, .7
-    #     # right = left + width
-    #     # top = bottom + height
-    #     # if
+   
 
-        # added these three lines
-        # data_plot_label = lns1+lns2+lns3
+        # multiple legends in one figure
         data_legend = [label.get_label() for label in data_plot_label]
         ax.legend(data_plot_label, data_legend, loc=0)
-        # plt.legend(legend, loc='upper right')
-    #     if not args.plotOneImage:
-    #         plt.savefig(args.outFileName, dpi=args.dpi)
-    #         plt.close(fig)
-    # if args.plotOneImage:
+      
         outFileName = '.'.join(args.outFileName.split('.')[:-1])
         fileFormat = args.outFileName.split('.')[-1]
 
         plt.savefig(outFileName + '_' + header + '.' + fileFormat, dpi=args.dpi)
         plt.close(fig)
 
-        if args.viewpointDataFile:
+        if args.outputViewpointFile:
             # data of viewpoint is stored in 'data'
             # data of background: data_background
             # index values: range between upstream_range and downstream range
@@ -174,5 +164,30 @@ def main(args=None):
             # with open('outputPlot' + '.bed', 'w') as fh:
             #     fh.write('#{}\n'.format(header))
             #     for data_, data_background_,  in data:
+            interaction_file_data_raw = sorted(interaction_file_data_raw)
+            with open('args.outputViewpointFile', 'w') as output_file:
+                output_file.write('#Chrom_Viewpoint\tStart_Viewpoint\tEndViewpoint\tChrom_Interaction\tStart_Interaction\tEnd_Interaction\tRelative position\tRelative Interactions\tZ-score')
+                
+                if args.backgroundModelFile:
+                    output_file.write('\tbackground model\tbackground model SEM\n')
+                else:
+                    output_file.write('\n')
+                for key in interaction_file_data_raw:
+                    array_ = interaction_file_data_raw[key]
+                    log.debug('key {} interaction_raw {} len() {}'.format(key, interaction_file_data_raw[key], len(interaction_file_data_raw[key])))
+                    output_file.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(array_[0], array_[1], array_[2], \
+                                                                                    array_[3], array_[4], array_[5], \
+                                                                                    array_[6], array_[7], array_[8]))
+                    if args.backgroundModelFile:
+                        output_file.write('\t{}\t{}\n'.format(array_[9], array_[10]))
+                    else:
+                        output_file.write('\n')
 
-            pass
+            log.debug('data: {}'.format(data))
+            log.debug('data_background: {}'.format(data_background))
+            log.debug('upstream_range {}'.format(upstream_range))
+            log.debug('downstream_range {}'.format(downstream_range))
+            log.debug('interaction_data {}'.format(interaction_data))
+            log.debug('zscore {}'.format(z_score))
+
+
