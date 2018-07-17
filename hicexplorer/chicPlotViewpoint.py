@@ -104,21 +104,16 @@ def main(args=None):
                 data_background_mean.append(background_data[key][1])
 
                 if args.outputViewpointFile:
-                
+
                     if key in interaction_file_data_raw:
-                        log.debug('key: {} interaction_file_data_raw[key] {}'.format(key, interaction_file_data_raw[key]))
                         line_data_raw = interaction_file_data_raw[key]
                         line_data_raw.append(background_data[key][0])
                         interaction_file_data_raw[key] = line_data_raw
-                        log.debug('key: {} interaction_file_data_raw[key] {}'.format(key, interaction_file_data_raw[key]))
 
                         line_data_raw = interaction_file_data_raw[key]
                         line_data_raw.append(background_data[key][1])
                         interaction_file_data_raw[key] = line_data_raw
-                        log.debug('key: {} interaction_file_data_raw[key] {}'.format(key, interaction_file_data_raw[key]))
 
-            
-            
         else:
             data = []
             interaction_key = sorted(interaction_data)
@@ -126,7 +121,6 @@ def main(args=None):
                 data.append(interaction_data[key])
             log.debug('data {}'.format(interaction_key))
             viewpoint_index = interaction_key.index(0)
-        
 
         legend = [matrix_name, 'background model']
         data_plot_label = ax.plot(range(len(data)), data, alpha=0.7, label=matrix_name)
@@ -139,17 +133,16 @@ def main(args=None):
             data_background = np.array(data_background)
             data_background_mean = np.array(data_background_mean)
             data_plot_label += ax.plot(range(len(data_background)), data_background, '--r', alpha=0.7, label='background model')
-            ax.fill_between(range(len(data_background)), data_background + data_background_mean,  data_background - data_background_mean , facecolor='red', alpha=0.5)
+            ax.fill_between(range(len(data_background)), data_background + data_background_mean, data_background - data_background_mean, facecolor='red', alpha=0.5)
         ax.set_xticks([0, viewpoint_index, len(data)])
 
         ax.set_xticklabels([upstream_range, referencePointString, downstream_range])
         ax.set_ylabel('Number of interactions')
-   
 
         # multiple legends in one figure
         data_legend = [label.get_label() for label in data_plot_label]
         ax.legend(data_plot_label, data_legend, loc=0)
-      
+
         outFileName = '.'.join(args.outFileName.split('.')[:-1])
         fileFormat = args.outFileName.split('.')[-1]
 
@@ -157,37 +150,23 @@ def main(args=None):
         plt.close(fig)
 
         if args.outputViewpointFile:
-            # data of viewpoint is stored in 'data'
-            # data of background: data_background
-            # index values: range between upstream_range and downstream range
-            # TODO: bin size is missing --> bin size is given with relative distance
-            # with open('outputPlot' + '.bed', 'w') as fh:
-            #     fh.write('#{}\n'.format(header))
-            #     for data_, data_background_,  in data:
-            interaction_file_data_raw = sorted(interaction_file_data_raw)
-            with open('args.outputViewpointFile', 'w') as output_file:
-                output_file.write('#Chrom_Viewpoint\tStart_Viewpoint\tEndViewpoint\tChrom_Interaction\tStart_Interaction\tEnd_Interaction\tRelative position\tRelative Interactions\tZ-score')
-                
+
+            interaction_file_data_raw_sorted = sorted(interaction_file_data_raw)
+            with open(args.outputViewpointFile, 'w') as output_file:
+                output_file.write('#ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\tZ-score')
+
                 if args.backgroundModelFile:
                     output_file.write('\tbackground model\tbackground model SEM\n')
                 else:
                     output_file.write('\n')
-                for key in interaction_file_data_raw:
+                for key in interaction_file_data_raw_sorted:
+
                     array_ = interaction_file_data_raw[key]
-                    log.debug('key {} interaction_raw {} len() {}'.format(key, interaction_file_data_raw[key], len(interaction_file_data_raw[key])))
-                    output_file.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(array_[0], array_[1], array_[2], \
-                                                                                    array_[3], array_[4], array_[5], \
-                                                                                    array_[6], array_[7], array_[8]))
+
+                    output_file.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(array_[0], array_[1], array_[2],
+                                                                                  array_[3], array_[4], array_[5],
+                                                                                  array_[6], array_[7], array_[8]))
                     if args.backgroundModelFile:
                         output_file.write('\t{}\t{}\n'.format(array_[9], array_[10]))
                     else:
                         output_file.write('\n')
-
-            log.debug('data: {}'.format(data))
-            log.debug('data_background: {}'.format(data_background))
-            log.debug('upstream_range {}'.format(upstream_range))
-            log.debug('downstream_range {}'.format(downstream_range))
-            log.debug('interaction_data {}'.format(interaction_data))
-            log.debug('zscore {}'.format(z_score))
-
-
