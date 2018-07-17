@@ -50,11 +50,6 @@ def parse_arguments(args=None):
                                 'single reference point or \'chr 100 200\' for a reference region and per line one reference point',
                                 required=True)
 
-    # parserRequired.add_argument('--outFileName', '-o',
-    #                             help='One bed file each reference point and for each matrix is created.'
-    #                             ' Naming is: interactionOutFileName_matrixName_ReferencePoint.bed',
-    #                             required=True)
-
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--averageContactBin',
@@ -85,11 +80,7 @@ def main(args=None):
         viewpointObj.setHiCMatrixObj(hic_ma)
 
         for referencePoint in referencePoints:
-            log.debug('referencePoint {}'.format(referencePoint))
             region_start, region_end = viewpointObj.calculateViewpointRange(referencePoint, args.range)
-            log.debug('region_start {}'.format(region_start))
-            log.debug('region_end {}'.format(region_end))
-            log.debug('args.range {}'.format(args.range))
 
             data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
             z_score_data = zscore(data_list)

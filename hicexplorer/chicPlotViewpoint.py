@@ -72,8 +72,9 @@ def main(args=None):
         background_data_list = list(background_data.values())
 
     for interactionFile in args.interactionFile:
-        fig = plt.figure(figsize=(6.4, 4.8))
+        fig = plt.figure(figsize=(9.4, 4.8))
         ax = plt.subplot(111)
+        plt.subplots_adjust(left=0.1, right=0.85)
         header, interaction_data, z_score_data, interaction_file_data_raw = viewpointObj.readInteractionFile(interactionFile)
         matrix_name, viewpoint, upstream_range, downstream_range = header.split('\t')
         viewpoint_ = viewpoint.split(':')
@@ -123,17 +124,23 @@ def main(args=None):
             viewpoint_index = interaction_key.index(0)
 
         legend = [matrix_name, 'background model']
-        data_plot_label = ax.plot(range(len(data)), data, alpha=0.7, label=matrix_name)
+        data_plot_label = ax.plot(range(len(data)), data, alpha=0.9, label=matrix_name)
+
         # z_score
         ax_sub = ax.twinx()
-        data_plot_label += ax_sub.plot(range(len(z_score)), z_score, '--b', alpha=0.7, label='z-score')
-        ax_sub.set_ylabel('z-score', color='r')
+        data_plot_label += ax_sub.plot(range(len(z_score)), z_score, '--y', alpha=0.7, label='z-score')
+        ax_sub.set_ylabel('z-score', color='y')
 
         if args.backgroundModelFile:
+            ax_sub_background = ax.twinx()
+            ax_sub_background.spines["right"].set_position(("axes", 1.1))
+            ax_sub_background.set_ylabel('background model', color='r')
+
             data_background = np.array(data_background)
             data_background_mean = np.array(data_background_mean)
-            data_plot_label += ax.plot(range(len(data_background)), data_background, '--r', alpha=0.7, label='background model')
-            ax.fill_between(range(len(data_background)), data_background + data_background_mean, data_background - data_background_mean, facecolor='red', alpha=0.5)
+            data_plot_label += ax_sub_background.plot(range(len(data_background)), data_background, '--r', alpha=0.5, label='background model')
+            ax_sub_background.fill_between(range(len(data_background)), data_background + data_background_mean, data_background - data_background_mean, facecolor='red', alpha=0.3)
+
         ax.set_xticks([0, viewpoint_index, len(data)])
 
         ax.set_xticklabels([upstream_range, referencePointString, downstream_range])

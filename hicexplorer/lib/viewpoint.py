@@ -1,4 +1,3 @@
-
 import numpy as np
 
 import logging
@@ -36,13 +35,12 @@ class Viewpoint():
         with open(pBedFile) as fh:
             header = fh.readline()
             for line in fh.readlines():
-                ### Addition header information for end users
+                # Addition header information for end users
                 if line.strip().startswith('#'):
                     continue
-                
+
                 line_ = line.strip().split('\t')
                 # relative postion and relative interactions
-                log.debug('line_ {}'.format(line_))
                 interaction_data[int(line_[-3])] = float(line_[-2])
                 z_score[int(line_[-3])] = float(line_[-1])
                 interaction_file_data[int(line_[-3])] = line_
@@ -88,7 +86,7 @@ class Viewpoint():
                 # elif j > view_point_end:
                 #     index_viewpoint = j
                 data_list[j] += self.hicMatrix.matrix[view_point_start_, idx]
-                
+
             view_point_start_ += 1
 
         elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
@@ -96,13 +94,13 @@ class Viewpoint():
 
         index_before_viewpoint = view_point_start - view_point_range[0]
 
-        ### elements before the viewpoint
+        # elements before the viewpoint
         data_list_new[0:index_before_viewpoint] = data_list[0:index_before_viewpoint]
 
-        ### summation because the viewpoint can be not only one bin but can contain multiple 
+        # summation because the viewpoint can be not only one bin but can contain multiple
         data_list_new[index_before_viewpoint] = np.sum(data_list[index_before_viewpoint: index_before_viewpoint + view_point_end - view_point_start + 1])
-       
-        ### elements after the viewpoint
+
+        # elements after the viewpoint
         data_list_new[index_before_viewpoint + 1:] = data_list[index_before_viewpoint + view_point_end - view_point_start + 1:]
         return data_list_new
 
@@ -186,27 +184,5 @@ class Viewpoint():
         region_end = int(pViewpoint[2]) + pRange[1]
         if region_end > max_length:
             region_end = max_length - 1
-        # log.debug('viewpoint range: {} {} max length {}'.format(region_start, region_end, max_length ))
+
         return region_start, region_end
-
-    def createXlabels(self, pHeader, ):
-
-        if len(referencePoint) == 2:
-
-            ax.set_xticks([0, view_point_start - view_point_range[0], view_point_range[1] - view_point_range[0]])
-            xticklabels = [None] * 3
-            xticklabels[0] = relabelTicks((int(referencePoint[1]) - region_start) * (-1))
-            xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
-            xticklabels[2] = relabelTicks(region_end - int(referencePoint[1]))
-
-        # elif len(referencePoint) == 3:
-
-        #     # fit scale: start coordinate is 0 --> view_point_range[0]
-        #     ax.set_xticks([0, view_point_start - view_point_range[0], view_point_end - view_point_range[0], view_point_range[1] - view_point_range[0]])
-        #     xticklabels = [None] * 4
-        #     xticklabels[0] = relabelTicks((int(referencePoint[1]) - region_start) * (-1))
-        #     xticklabels[1] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[1]))
-        #     xticklabels[2] = referencePoint[0] + ":" + relabelTicks(int(referencePoint[2]))
-        #     xticklabels[3] = relabelTicks(region_end - int(referencePoint[1]))
-
-        return xticks, xticklabel
