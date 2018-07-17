@@ -84,18 +84,16 @@ def main(args=None):
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.setHiCMatrixObj(hic_ma)
 
-        # bin_size = hic_ma.getBinSize()
         for referencePoint in referencePoints:
             log.debug('referencePoint {}'.format(referencePoint))
             region_start, region_end = viewpointObj.calculateViewpointRange(referencePoint, args.range)
             log.debug('region_start {}'.format(region_start))
             log.debug('region_end {}'.format(region_end))
             log.debug('args.range {}'.format(args.range))
-            # log.debug('region_end {}'.format(region_end))
 
             data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
             z_score_data = zscore(data_list)
-            log.debug('data_list {}'.format(data_list))
+            # log.debug('data_list {}'.format(data_list))
             if args.averageContactBin > 0:
                 data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
             if args.relativeValues:
@@ -108,8 +106,6 @@ def main(args=None):
             region_end_in_units = utilitiesObj.in_units(region_end)
 
             header_information = matrix + '\t' + referencePointString + '\t' + str(region_start_in_units) + '\t' + str(region_end_in_units)
-            header_information += '\n# Rows are: Viewpoint: Chromosom start end\n#Interaction region with Chromosome start end; '
-            header_information += '\n# Relative position to Viewpoint; \n#percentage of interaction: interactions at pos / sum(interactions); \n#z-score ' 
-            header_information += '\n# Chrom_Viewpoint\tStart_Viewpoint\tEndViewpoint\tChrom_Interaction\tStart_Interaction\tEnd_Interaction\tRelative position\tRelative Interactions\tZ-score\n#'
+            header_information += '\n# ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\tZ-score\n#'
             matrix_name = '.'.join(matrix.split('.')[:-1])
             viewpointObj.writeInteractionFile(matrix_name + '_' + referencePointString, interaction_data, header_information, z_score_data)
