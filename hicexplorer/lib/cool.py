@@ -1,7 +1,7 @@
 import cooler
 import logging
 import numpy as np
-from scipy.sparse import csr_matrix, dia_matrix, coo_matrix, triu, tril
+from scipy.sparse import triu
 import pandas as pd
 from past.builtins import zip
 
@@ -9,6 +9,7 @@ log = logging.getLogger(__name__)
 from .matrixFile import MatrixFile
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import convertNansToOnes
+
 
 class Cool(MatrixFile):
 
@@ -22,6 +23,8 @@ class Cool(MatrixFile):
     #     return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
 
     def load(self, pApplyCorrection=None, pChrnameList=None, pMatrixOnly=None):
+        log.debug('Load in cool format')
+
         if self.matrixFileName is None:
             log.info('No matrix is initalized')
         if pApplyCorrection is None:
@@ -63,7 +66,7 @@ class Cool(MatrixFile):
             cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end']][:]
 
         correction_factors = None
-        log.debug("{} {}".format(correction_factors_data_frame, pApplyCorrection))
+        # log.debug("{} {}".format(correction_factors_data_frame, pApplyCorrection))
 
         if correction_factors_data_frame is not None and pApplyCorrection:
             log.debug("Apply correction factors")
@@ -108,11 +111,8 @@ class Cool(MatrixFile):
 
         return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
-
-
     # def set_matrix_variables(self, pMatrix, pCutIntervals, pNanBins, pCorrectionFactors, pDistanceCounts):
     #     super().set_matrix_variables(pMatrix, pCutIntervals, pNanBins, pCorrectionFactors, pDistanceCounts)
-
 
     # def __create_empty_cool_file(self, pFileName):
     #     bins_data_frame = pd.DataFrame(columns=['chrom', 'start', 'end', 'weight'])
@@ -122,6 +122,8 @@ class Cool(MatrixFile):
     #                      pixels=matrix_data_frame)
 
     def save(self, pFileName, pSymmetric=True, pApplyCorrection=True):
+        log.debug('Save in cool format')
+
         # log.info('self.matrix {}'.format(self.matrix))
         # log.info('self.nan_bins {}'.format(self.nan_bins))
         # log.info('self.cut_intervals {}'.format(self.cut_intervals))
@@ -129,27 +131,33 @@ class Cool(MatrixFile):
         # log.info('pApplyCorrection {}'.format(pApplyCorrection))
 
         # for value in self.nan_bins:
-        # 
+        #
 
-    
         self.matrix = self.matrix.tolil()
         if self.nan_bins is not None:
             self.matrix[self.nan_bins, :] = 0
             self.matrix[:, self.nan_bins] = 0
         self.matrix = self.matrix.tocsr()
+        # log.info('self.matrix after nan handling{}'.format(self.matrix))
 
         for i in range(len(self.matrix.data)):
             if np.isnan(self.matrix.data[i]):
                 self.matrix.data[i] = 0
+        # log.info('self.matrix after nan handling II {}'.format(self.matrix))
 
         self.matrix.eliminate_zeros()
+        # log.info('self.matrix after eliminate zeros{}'.format(self.matrix))
 
         # save only the upper triangle of the
         if pSymmetric:
             # symmetric matrix
-            matrix = triu(self.matrix, k=0, format='csr')
+            matrix = triu(self.matrix, format='csr')
+            # log.debug('Symmetric {}'.format(pSymmetric))
         else:
             matrix = self.matrix
+            # log.debug('SymmetricELSEs {}'.format(pSymmetric))
+
+        # log.info('matrix after symmetric{}'.format(matrix))
 
         cut_intervals_ = []
         for value in self.cut_intervals:
@@ -203,6 +211,7 @@ class Cool(MatrixFile):
         else:
             # log.debug(' data: {}'.format(data))
             matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
+            # log.debug('Save cool, data: {}'.format(matrix_tuple_list))
             matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
 
             cooler.io.create(cool_uri=pFileName,

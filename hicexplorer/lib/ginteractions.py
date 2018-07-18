@@ -2,11 +2,13 @@
 from .matrixFile import MatrixFile
 import logging
 log = logging.getLogger(__name__)
+from scipy.sparse import triu
+
+
 class Ginteractions(MatrixFile):
 
     def __init__(self, pMatrixFile):
         super().__init__(pMatrixFile)
-    
 
     def __save_GInteractions(self, fileName):
         self.restoreMaskedBins()

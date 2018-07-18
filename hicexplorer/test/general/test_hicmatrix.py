@@ -12,6 +12,7 @@ from intervaltree import IntervalTree, Interval
 import numpy as np
 import numpy.testing as nt
 from scipy.sparse import csr_matrix
+from tempfile import NamedTemporaryFile
 
 from hicexplorer import HiCMatrix as hm
 
@@ -22,7 +23,7 @@ warnings.filterwarnings("ignore")
 ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
 
 
-def test_save_load():
+def test_save_load_cool():
     outfile = '/tmp/matrix.cool'
     cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
                      ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
@@ -30,7 +31,7 @@ def test_save_load():
     hic.nan_bins = []
     matrix = np.array([[1, 8, 5, 3, 0],
                        [0, 4, 15, 5, 1],
-                       [0, 0, 0, np.nan, 2],
+                       [0, 0, 0, 0, 2],
                        [0, 0, 0, 0, 1],
                        [0, 0, 0, 0, 0]])
 
@@ -38,19 +39,51 @@ def test_save_load():
     # make matrix symmetric
     hic.setMatrix(hic.matrix, cut_intervals)
     hic.fillLowerTriangle()
-    hic.correction_factors = np.array([0.5, 1, 2, 3, 4])
-    hic.nan_bins = np.array([4])
+    # hic.correction_factors = np.array([0.5, 1, 2, 3, 4])
+    # hic.nan_bins = np.array([4])
 
     hic.save(outfile)
 
     cool_obj = hm.hiCMatrix(outfile)
-    nt.assert_equal(hic.correction_factors, cool_obj.correction_factors)
+    # nt.assert_equal(hic.correction_factors, cool_obj.correction_factors)
     nt.assert_equal(hic.matrix.data, cool_obj.matrix.data)
     nt.assert_equal(hic.matrix.indices, cool_obj.matrix.indices)
     nt.assert_equal(hic.matrix.indptr, cool_obj.matrix.indptr)
     nt.assert_equal(hic.nan_bins, cool_obj.nan_bins)
 
     nt.assert_equal(hic.cut_intervals, cool_obj.cut_intervals)
+    unlink(outfile)
+
+
+def test_save_load_h5():
+    outfile = '/tmp/matrix.h5'
+    cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
+                     ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
+    hic = hm.hiCMatrix()
+    hic.nan_bins = []
+    matrix = np.array([[1, 8, 5, 3, 0],
+                       [0, 4, 15, 5, 1],
+                       [0, 0, 0, 0, 2],
+                       [0, 0, 0, 0, 1],
+                       [0, 0, 0, 0, 0]])
+
+    hic.matrix = csr_matrix(matrix)
+    # make matrix symmetric
+    hic.setMatrix(hic.matrix, cut_intervals)
+    hic.fillLowerTriangle()
+    # hic.correction_factors = np.array([0.5, 1, 2, 3, 4])
+    # hic.nan_bins = np.array([4])
+
+    hic.save(outfile)
+
+    h5_obj = hm.hiCMatrix(outfile)
+    # nt.assert_equal(hic.correction_factors, h5_obj.correction_factors)
+    nt.assert_equal(hic.matrix.data, h5_obj.matrix.data)
+    nt.assert_equal(hic.matrix.indices, h5_obj.matrix.indices)
+    nt.assert_equal(hic.matrix.indptr, h5_obj.matrix.indptr)
+    nt.assert_equal(hic.nan_bins, h5_obj.nan_bins)
+
+    nt.assert_equal(hic.cut_intervals, h5_obj.cut_intervals)
     unlink(outfile)
 
 
@@ -655,8 +688,14 @@ def test_save():
 
     see also single test for these formats (marked as xfail)
     """
-    matrix_h5 = '/tmp/matrix.h5'
-    matrix_cool = '/tmp/matrix.cool'
+
+    outfile_cool = NamedTemporaryFile(suffix='.cool', delete=False)
+    outfile_cool.close()
+
+    outfile_h5 = NamedTemporaryFile(suffix='.cool', delete=False)
+    outfile_h5.close()
+    # matrix_h5 = '/tmp/matrix.h5'
+    # matrix_cool = '/tmp/matrix.cool'
     # matrix_npz = '/tmp/matrix.npz'
     # matrix_gz = '/tmp/matrix.gz'
 
@@ -677,25 +716,15 @@ def test_save():
     hic.fillLowerTriangle()
 
     # test .h5
-    hic.save(matrix_h5)
-    h5_test = hm.hiCMatrix(matrix_h5)
+    hic.save(outfile_h5.name)
+    h5_test = hm.hiCMatrix(outfile_h5.name)
 
     # test cool
-    hic.save(matrix_cool)
-    cool_test = hm.hiCMatrix(matrix_cool)
-
-    # # test npz
-    # hic.save(matrix_npz)
-    # npz_test = hm.hiCMatrix(matrix_npz)
-
-    # # test dekker
-    # hic.save(matrix_gz)
-    # dekker_test = hm.hiCMatrix(matrix_gz)
+    hic.save(outfile_cool.name)
+    cool_test = hm.hiCMatrix(outfile_cool.name)
 
     nt.assert_equal(hic.getMatrix(), h5_test.getMatrix())
     nt.assert_equal(hic.getMatrix(), cool_test.getMatrix())
-    # nt.assert_equal(hic.getMatrix(), npz_test.getMatrix())
-    # nt.assert_equal(hic.getMatrix(), dekker_test.getMatrix())
 
 
 def test_diagflat():

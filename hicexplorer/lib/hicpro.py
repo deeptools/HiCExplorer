@@ -1,15 +1,16 @@
 from .matrixFile import MatrixFile
-from scipy.sparse import csr_matrix, dia_matrix, coo_matrix, triu, tril
+from scipy.sparse import csr_matrix
 
 import logging
 log = logging.getLogger(__name__)
+
+
 class Hicpro(MatrixFile):
 
     def __init__(self, pMatrixFile, pBedFile):
         super().__init__(pMatrixFileName=pMatrixFile, pBedFile=pBedFile)
         # self.bedFile = pBedFile
-    
-    
+
     def load(self):
         instances = []
         features = []
@@ -18,7 +19,7 @@ class Hicpro(MatrixFile):
             for line in matrix_file:
                 x, y, value = line.strip().split('\t')
                 instances.append(int(x) - 1)
-                features.append(int(y) -1 )
+                features.append(int(y) - 1)
                 data.append(float(value))
         cut_intervals = []
         with open(self.bedFile, 'r') as bed_file:
@@ -30,11 +31,9 @@ class Hicpro(MatrixFile):
         log.debug('max instances {}'.format(max(instances)))
         log.debug('min instances {}'.format(min(instances)))
 
-
         log.debug('features {}'.format(len(features)))
         log.debug('max features {}'.format(max(features)))
         log.debug('min features {}'.format(min(features)))
-
 
         log.debug('data {}'.format(len(data)))
         log.debug('cut_intervals {}'.format(len(cut_intervals)))

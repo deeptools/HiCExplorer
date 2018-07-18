@@ -1,6 +1,7 @@
 import logging
 log = logging.getLogger(__name__)
 
+
 class MatrixFile():
 
     def __init__(self, pMatrixFileName=None, pBedFile=None):
@@ -14,10 +15,10 @@ class MatrixFile():
 
     def load(self):
         pass
-    
+
     def save(self):
         pass
-    
+
     def is_of_type(self):
         return False
 

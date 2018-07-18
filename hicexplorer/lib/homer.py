@@ -2,18 +2,20 @@ from .matrixFile import MatrixFile
 from scipy.sparse import csr_matrix
 import logging
 log = logging.getLogger(__name__)
+
+
 class Homer(MatrixFile):
 
     def __init__(self, pMatrixFile):
         super().__init__(pMatrixFile)
-    
+
     def load(self):
-        instances = []
-        features = []
-        data = []
+        # instances = []
+        # features = []
+        # data = []
         cut_intervals = []
-        x = 0
-        y = 0
+        # x = 0
+        # y = 0
         with open(self.matrixFileName, 'r') as matrix_file:
             values = matrix_file.readline()
             values = values.split('\t')

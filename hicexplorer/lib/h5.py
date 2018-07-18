@@ -1,20 +1,21 @@
 from .matrixFile import MatrixFile
 import tables
-from scipy.sparse import csr_matrix, dia_matrix, coo_matrix, triu, tril
+from scipy.sparse import csr_matrix, triu
 import numpy as np
 from hicexplorer.utilities import toString
-from hicexplorer.utilities import convertNansToOnes
+# from hicexplorer.utilities import convertNansToOnes
 
 from past.builtins import zip
-
+from os import unlink
+import os
 import logging
 log = logging.getLogger(__name__)
+
+
 class H5(MatrixFile):
 
     def __init__(self, pMatrixFile):
         super().__init__(pMatrixFile)
-    
-
 
     def load(self):
         """
@@ -22,6 +23,8 @@ class H5(MatrixFile):
         :param matrix_filename:
         :return: matrix, cut_intervals, nan_bins, distance_counts, correction_factors
         """
+        log.debug('Load in h5 format')
+
         with tables.open_file(self.matrixFileName) as f:
             parts = {}
             for matrix_part in ('data', 'indices', 'indptr', 'shape'):
@@ -67,17 +70,15 @@ class H5(MatrixFile):
 
             return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
-    
-
-   
-
     def save(self, filename, pSymmetric=True, pApplyCorrection=None):
         """
         Saves a matrix using hdf5 format
         :param filename:
         :return: None
         """
-        self.restoreMaskedBins()
+        log.debug('Save in h5 format')
+
+        # self.restoreMaskedBins()
         if not filename.endswith(".h5"):
             filename += ".h5"
 
@@ -87,12 +88,12 @@ class H5(MatrixFile):
             log.warning("*WARNING* File already exists {}\n "
                         "Overwriting ...\n".format(filename))
 
-            from os import unlink
             unlink(filename)
-        try:
-            nan_bins = np.array(self.nan_bins)
-        except Exception:
-            nan_bins = np.array([])
+        if self.nan_bins is None:
+            self.nan_bins = np.array([])
+        elif not isinstance(self.nan_bins, np.ndarray):
+            self.nan_bins = np.array(self.nan_bins)
+
         # save only the upper triangle of the
         if pSymmetric:
             # symmetric matrix
@@ -123,12 +124,12 @@ class H5(MatrixFile):
                 ds[:] = arr
 
             # save nan bins
-            if len(nan_bins):
-                atom = tables.Atom.from_dtype(nan_bins.dtype)
+            if len(self.nan_bins):
+                atom = tables.Atom.from_dtype(self.nan_bins.dtype)
                 ds = h5file.create_carray(h5file.root, 'nan_bins', atom,
-                                          shape=nan_bins.shape,
+                                          shape=self.nan_bins.shape,
                                           filters=filters)
-                ds[:] = nan_bins
+                ds[:] = self.nan_bins
 
             # save corrections factors
             if self.correction_factors is not None and len(self.correction_factors):

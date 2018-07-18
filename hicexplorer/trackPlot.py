@@ -861,7 +861,7 @@ class PlotHiCMatrix(TrackPlot):
         if p_region is None:  # or not self.properties['file'].endswith('.cool'):
             self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'])
         else:
-            self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'], chrnameList=[p_region])
+            self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'], pChrnameList=[p_region])
 
         if len(self.hic_ma.matrix.data) == 0:
             log.error("Matrix {} is empty".format(self.properties['file']))

@@ -31,8 +31,8 @@ def test_build_matrix():
 
     qc_folder = mkdtemp(prefix="testQC_")
     args = "-s {} {} --outFileName {} -bs 100000 -b /tmp/test.bam --QCfolder {} --threads 4".format(sam_R1, sam_R2,
-                                                                                                  outfile.name,
-                                                                                                  qc_folder).split()
+                                                                                                    outfile.name,
+                                                                                                    qc_folder).split()
     hicBuildMatrix.main(args)
 
     test = hm.hiCMatrix(ROOT_DEFAULT + "R1_R2.cool")

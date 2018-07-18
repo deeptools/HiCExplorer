@@ -5,10 +5,10 @@ from past.builtins import zip
 from six import iteritems
 
 import numpy as np
-import os
+# import os
 import sys
 from collections import OrderedDict
-from scipy.sparse import csr_matrix, dia_matrix, coo_matrix, triu, tril
+from scipy.sparse import csr_matrix, dia_matrix, triu, tril
 from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 import tables
@@ -17,7 +17,7 @@ from .utilities import toBytes
 from .utilities import toString
 from .utilities import check_chrom_str_bytes
 from .lib import MatrixFileHandler
-import gzip
+# import gzip
 
 import cooler
 
@@ -34,11 +34,11 @@ warnings.simplefilter(action='ignore', category=tables.exceptions.FlavorWarning)
 
 
 # try to import pandas if exists
-try:
-    import pandas as pd
-    pandas = True
-except ImportError:
-    pandas = False
+# try:
+#     import pandas as pd
+#     pandas = True
+# except ImportError:
+#     pandas = False
 
 
 class hiCMatrix:
@@ -48,8 +48,8 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, pMatrixFile=None, pChrnameList=None, pCooler_only_init=None, 
-                    pApplyCorrectionCooler=None):
+    def __init__(self, pMatrixFile=None, pChrnameList=None, pCooler_only_init=None,
+                 pApplyCorrectionCooler=None):
         # self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
         # self.distance_counts = None  # only defined when getCountsByDistance is called
@@ -73,10 +73,10 @@ class hiCMatrix:
             fileType = 'cool'
             if pMatrixFile.endswith('.h5'):
                 fileType = 'h5'
-            self.matrixFileHandler = MatrixFileHandler(pFileType=fileType, pMatrixFile=pMatrixFile, pChrnameList=pChrnameList, pCooler_only_init=pCooler_only_init, 
-                                         pApplyCorrectionCooler=pApplyCorrectionCooler)
+            self.matrixFileHandler = MatrixFileHandler(pFileType=fileType, pMatrixFile=pMatrixFile, pChrnameList=pChrnameList, pCooler_only_init=pCooler_only_init,
+                                                       pApplyCorrectionCooler=pApplyCorrectionCooler)
             self.matrix, self.cut_intervals, self.nan_bins, \
-                 self.correction_factors, self.distance_counts = self.matrixFileHandler.load()
+                self.correction_factors, self.distance_counts = self.matrixFileHandler.load()
 
             # log.info('self.matrix {}'.format(self.matrix))
             # log.info('self.cut_intervals {}'.format(self.cut_intervals))
@@ -110,11 +110,15 @@ class hiCMatrix:
         """ As an output format cooler and mcooler are supported.
         """
         if self.matrixFileHandler is None:
-            self.matrixFileHandler = MatrixFileHandler()
+            fileType = 'cool'
+            if pMatrixName.endswith('h5'):
+                fileType = 'h5'
+            self.matrixFileHandler = MatrixFileHandler(pFileType=fileType)
+
         self.restoreMaskedBins()
         self.matrixFileHandler.set_matrix_variables(self.matrix, self.cut_intervals, self.nan_bins,
-                                                        self.correction_factors, self.distance_counts)
-        if pMatrixName.endswith('cool'):
+                                                    self.correction_factors, self.distance_counts)
+        if pMatrixName.endswith('cool') or pMatrixName.endswith('h5'):
             self.matrixFileHandler.save(pMatrixName, pSymmetric=pSymmetric, pApplyCorrection=pApplyCorrection)
 
     # @staticmethod
@@ -1396,8 +1400,7 @@ class hiCMatrix:
 
         return chrom_sizes
 
-    @staticmethod
-    def intervalListToIntervalTree(interval_list):
+    def intervalListToIntervalTree(self, interval_list):
         """
         given an ordered list of (chromosome name, start, end)
         this is transformed to a number of interval trees,
@@ -1436,4 +1439,3 @@ def check_cooler(pFileName):
     if pFileName.endswith('.cool') or cooler.io.is_cooler(pFileName) or'.mcool' in pFileName:
         return True
     return False
-
