@@ -121,7 +121,6 @@ class hiCMatrix:
         if pMatrixName.endswith('cool') or pMatrixName.endswith('h5'):
             self.matrixFileHandler.save(pMatrixName, pSymmetric=pSymmetric, pApplyCorrection=pApplyCorrection)
 
-    # @staticmethod
     def fillLowerTriangle(self):
         """
         checks if the matrix is complete or if only half of the matrix was saved.
@@ -131,7 +130,10 @@ class hiCMatrix:
         >>> import numpy as np
         >>> A = csr_matrix(np.array([[12,5,3,2,0],[0,11,4,1,1],
         ... [0,0,9,6,0], [0,0,0,10,0], [0,0,0,0,0]]), dtype=np.int32)
-        >>> B = hiCMatrix.fillLowerTriangle(A)
+        >>> hm = hiCMatrix()
+        >>> hm.matrix = A
+        >>> hm.fillLowerTriangle()
+        >>> B = hm.matrix
         >>> B.todense()
         matrix([[12,  5,  3,  2,  0],
                 [ 5, 11,  4,  1,  1],
@@ -140,7 +142,7 @@ class hiCMatrix:
                 [ 0,  1,  0,  0,  0]], dtype=int32)
 
         """
-        log.debug('sum of tril: {}'.format(tril(self.matrix, k=-1).sum()))
+        # log.debug('sum of tril: {}'.format(tril(self.matrix, k=-1).sum()))
         if tril(self.matrix, k=-1).sum() == 0:
             # this case means that the lower triangle of the
             # symmetric matrix (below the main diagonal)

@@ -17,7 +17,7 @@ REMOVE_OUTPUT = True
 
 
 # Some definitions needed for tests
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/test_data/"
+ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 # test_AggregateContacts
 matrix = ROOT + 'Li_et_al_2015.h5'
 # matrix = ROOT + 'R1_R2_1000.h5'

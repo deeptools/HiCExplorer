@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore")
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
+ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
 
 def test_save_load_cool():

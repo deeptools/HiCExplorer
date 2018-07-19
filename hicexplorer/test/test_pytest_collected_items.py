@@ -6,7 +6,7 @@ import pytest
 import re
 import os
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data/")
 
 
 def test_number_of_collected_items(capsys):
