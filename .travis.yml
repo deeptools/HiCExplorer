@@ -58,35 +58,35 @@ jobs:
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=2.7
-      script: py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs.py
     - stage: test
       os: osx
       env: TRAVIS_PYTHON_VERSION=2.7
-      script: py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs.py
     - stage: test
       os: osx
       env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_build_matrix_trivial_runs.py
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=2.7
-      script: py.test hicexplorer/test/long_run/test_buildMatrix.py
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix.py
     - stage: test
       os: osx
       env: TRAVIS_PYTHON_VERSION=2.7
-      script: py.test hicexplorer/test/long_run/test_buildMatrix.py
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_buildMatrix.py
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix.py
     - stage: test
       os: osx
       env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_buildMatrix.py
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=2.7
