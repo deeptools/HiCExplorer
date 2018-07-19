@@ -3,9 +3,10 @@ from .matrixFile import MatrixFile
 import logging
 log = logging.getLogger(__name__)
 from scipy.sparse import triu
+from builtins import super
 
 
-class Ginteractions(MatrixFile):
+class Ginteractions(MatrixFile, object):
 
     def __init__(self, pMatrixFile):
         super().__init__(pMatrixFile)

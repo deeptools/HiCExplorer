@@ -4,14 +4,14 @@ import numpy as np
 from scipy.sparse import triu
 import pandas as pd
 from past.builtins import zip
-
+from builtins import super
 log = logging.getLogger(__name__)
 from .matrixFile import MatrixFile
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import convertNansToOnes
 
 
-class Cool(MatrixFile):
+class Cool(MatrixFile, object):
 
     def __init__(self, pMatrixFile=None, pCooler_only_init=None):
         super().__init__(pMatrixFile)

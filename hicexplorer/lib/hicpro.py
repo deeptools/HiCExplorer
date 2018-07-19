@@ -1,11 +1,12 @@
 from .matrixFile import MatrixFile
 from scipy.sparse import csr_matrix
+from builtins import super
 
 import logging
 log = logging.getLogger(__name__)
 
 
-class Hicpro(MatrixFile):
+class Hicpro(MatrixFile, object):
 
     def __init__(self, pMatrixFile, pBedFile):
         super().__init__(pMatrixFileName=pMatrixFile, pBedFile=pBedFile)

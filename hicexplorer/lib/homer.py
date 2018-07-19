@@ -1,10 +1,12 @@
 from .matrixFile import MatrixFile
 from scipy.sparse import csr_matrix
+from builtins import super
+
 import logging
 log = logging.getLogger(__name__)
 
 
-class Homer(MatrixFile):
+class Homer(MatrixFile, object):
 
     def __init__(self, pMatrixFile):
         super().__init__(pMatrixFile)

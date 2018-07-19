@@ -1,5 +1,6 @@
 
 # import .cool
+
 import logging
 log = logging.getLogger(__name__)
 # class MCool(Cool):

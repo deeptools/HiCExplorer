@@ -3,7 +3,7 @@ import tables
 from scipy.sparse import csr_matrix, triu
 import numpy as np
 from hicexplorer.utilities import toString
-# from hicexplorer.utilities import convertNansToOnes
+from builtins import super
 
 from past.builtins import zip
 from os import unlink
@@ -12,7 +12,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class H5(MatrixFile):
+class H5(MatrixFile, object):
 
     def __init__(self, pMatrixFile):
         super().__init__(pMatrixFile)
