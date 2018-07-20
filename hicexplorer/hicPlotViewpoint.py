@@ -103,7 +103,7 @@ def relabelTicks(pTick):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-
+    log.warning('This tool is depricated. Please use chicViewpoint, chicViewpointBackgroundModel and chicPlotViewpoint.')
     if args.region:
         if sys.version_info[0] == 2:
             args.region = args.region.translate(None, ",.;|!{}()").replace("-", ":")
@@ -132,7 +132,7 @@ def main(args=None):
         interactions_list = []
     matrix_name_legend = []
     for matrix in args.matrix:
-        hic_matrix = hm.hiCMatrix(pMatrix)
+        hic_matrix = hm.hiCMatrix(matrix)
         if args.chromosome is not None:
             hic_matrix.keepOnlyTheseChr(args.chromosome)
         view_point_start, view_point_end, view_point_range, data_list_, interactions_list_ \

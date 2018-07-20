@@ -61,7 +61,7 @@ def main():
 
     viewpointObj = Viewpoint()
     referencePoints = viewpointObj.readReferencePointFile(args.referencePoints)
-    interactions = []
+    # interactions = []
 
     # elements_of_viewpoint = args.range * 2 / hic_ma.bin_size
     relative_counts_conditions = []

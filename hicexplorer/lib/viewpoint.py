@@ -75,11 +75,11 @@ class Viewpoint():
 
         data_list = np.zeros(elements_of_viewpoint)
         view_point_start_ = view_point_start
-        interactions_list = None
+        # interactions_list = None
 
         while view_point_start_ <= view_point_end:
             chrom, start, end, _ = self.hicMatrix.getBinPos(view_point_start_)
-            index_viewpoint = 0
+            # index_viewpoint = 0
             for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
                 # if j < view_point_start:
                 #     index_viewpoint = j

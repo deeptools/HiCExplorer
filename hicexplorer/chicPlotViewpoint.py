@@ -69,7 +69,7 @@ def main(args=None):
         background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
 
         background_data_sorted = sorted(background_data)
-        background_data_list = list(background_data.values())
+        # background_data_list = list(background_data.values())
 
     for interactionFile in args.interactionFile:
         fig = plt.figure(figsize=(9.4, 4.8))
@@ -123,7 +123,7 @@ def main(args=None):
             log.debug('data {}'.format(interaction_key))
             viewpoint_index = interaction_key.index(0)
 
-        legend = [matrix_name, 'background model']
+        # legend = [matrix_name, 'background model']
         data_plot_label = ax.plot(range(len(data)), data, alpha=0.9, label=matrix_name)
 
         # z_score

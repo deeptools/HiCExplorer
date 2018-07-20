@@ -1,11 +1,12 @@
 import logging
 log = logging.getLogger(__name__)
 
+
 class Utilities():
 
     def __init__(self):
         pass
-    
+
     def in_units(self, pBasePosition):
         pBasePosition = float(pBasePosition)
         log.debug("pBasePosition {}".format(pBasePosition))
@@ -20,7 +21,7 @@ class Utilities():
             labels += " bp"
         return labels
     # def relabel_ticks(self, pXTicks):
-        
+
     #     # log.debug('type pXTicks {} '.format(type(pXTicks)))
     #     if pXTicks[-1] > 1.5e6:
     #         labels = ["{:.2f} ".format(x / 1e6)
