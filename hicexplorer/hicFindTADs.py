@@ -294,7 +294,7 @@ def get_incremental_step_size(min_win_size, max_win_size, start_step_len):
     step = -1
     while 1:
         step += 1
-        inc_step = min_win_size + int(start_step_len * (step**1.5))
+        inc_step = min_win_size + int(start_step_len * (step ** 1.5))
         if step > 1 and inc_step == incremental_step[-1]:
             continue
         if inc_step > max_win_size:
@@ -1111,6 +1111,7 @@ class HicFindTads(object):
             pool = multiprocessing.Pool(self.num_processors)
             log.info("Using {} processors\n".format(self.num_processors))
             res = pool.map_async(func, TASKS).get(9999999)
+            pool.close()
         else:
             res = map(func, TASKS)
 
