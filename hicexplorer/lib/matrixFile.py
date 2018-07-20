@@ -14,13 +14,13 @@ class MatrixFile():
         self.bedFile = pBedFile
 
     def load(self):
-        pass
+        log.error('Not implemented')
 
     def save(self):
-        pass
+        log.error('Not implemented')
 
     def is_of_type(self):
-        return False
+        log.error('Not implemented')
 
     def set_matrix_variables(self, pMatrix, pCutIntervals, pNanBins, pCorrectionFactors, pDistanceCounts):
         self.matrix = pMatrix

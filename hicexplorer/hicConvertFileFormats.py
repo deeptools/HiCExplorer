@@ -18,7 +18,7 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Conversion of Hi-C matrices of different file formats to m/cool.',
+        description='Conversion of Hi-C matrices of different file formats to cool.',
         add_help=False)
 
     parserRequired = parser.add_argument_group('Required arguments')
