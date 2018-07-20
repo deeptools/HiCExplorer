@@ -60,6 +60,13 @@ def convertInfsToZeros(ma):
     return ma
 
 
+def convertNansToOnes(pArray):
+    nan_elements = np.flatnonzero(np.isnan(pArray))
+    if len(nan_elements) > 0:
+        pArray[nan_elements] = 1.0
+    return pArray
+
+
 def myAverage(valuesArray, avgType='mean'):
 
     valuesArray = valuesArray[np.logical_not(np.isnan(valuesArray))]

@@ -6,7 +6,7 @@ import numpy.testing as nt
 from matplotlib.testing.compare import compare_images
 
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
+ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
 
 def test_correct_matrix():

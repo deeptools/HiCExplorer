@@ -549,7 +549,7 @@ def main(args=None):
 
     # args.chromosomes
     if check_cooler(args.matrix) and args.chromosomes is not None and len(args.chromosomes) == 1:
-        ma = hm.hiCMatrix(args.matrix, chrnameList=toString(args.chromosomes))
+        ma = hm.hiCMatrix(args.matrix, pChrnameList=toString(args.chromosomes))
     else:
         ma = hm.hiCMatrix(args.matrix)
 

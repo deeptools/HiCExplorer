@@ -9,7 +9,7 @@ from scipy.sparse import csr_matrix
 # ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 # original_matrix = ROOT + "small_test_matrix_50kb_res"
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
+ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 sam_R1 = ROOT + "small_test_R1_unsorted.bam"
 sam_R2 = ROOT + "small_test_R2_unsorted.bam"
 dpnii_file = ROOT + "DpnII.bed"

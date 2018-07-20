@@ -18,7 +18,7 @@ REMOVE_OUTPUT = True
 # DIFF = 60
 
 
-ROOT = os.path.dirname(os.path.abspath(__file__)) + "/../test_data/"
+ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 tolerance = 13  # default matplotlib pixed difference tolerance
 
 

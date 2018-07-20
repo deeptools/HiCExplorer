@@ -1,0 +1,2 @@
+File	inter chromosomal	inter chromosomal %	short range < 20kb	short range < 20kb %	long range	long range %
+R1_R2.cool	24	0.111627906977	61	0.283720930233	130	0.604651162791
