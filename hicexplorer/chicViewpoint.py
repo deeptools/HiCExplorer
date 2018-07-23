@@ -56,10 +56,10 @@ def parse_arguments(args=None):
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
                            default=0)
-    parserOpt.add_argument('--relativeValues',
-                           help='Write relative contacts instead of absolute ones to interaction file. Relative to total number of counts of a viewpoint.',
-                           required=False,
-                           action='store_true')
+    # parserOpt.add_argument('--relativeValues',
+    #                        help='Write relative contacts instead of absolute ones to interaction file. Relative to total number of counts of a viewpoint.',
+    #                        required=False,
+    #                        action='store_true')
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
@@ -83,20 +83,21 @@ def main(args=None):
             region_start, region_end = viewpointObj.calculateViewpointRange(referencePoint, args.range)
 
             data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
-            z_score_data = zscore(data_list)
-            # log.debug('data_list {}'.format(data_list))
             if args.averageContactBin > 0:
                 data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
-            if args.relativeValues:
-                viewpointObj.computeRelativeValues(data_list)
-            interaction_data = viewpointObj.createInteractionFileData(referencePoint, referencePoint[0], region_start, region_end, data_list)
+            # if args.relativeValues:
+            data_list_raw = data_list
+            viewpointObj.computeRelativeValues(data_list)
+            z_score_data = zscore(data_list)
 
-            referencePointString = ':'.join(str(i) for i in referencePoint)
+            interaction_data = viewpointObj.createInteractionFileData(referencePoint, referencePoint[0], region_start, region_end, data_list, data_list_raw)
+
+            referencePointString = '_'.join(str(i) for i in referencePoint)
 
             region_start_in_units = utilitiesObj.in_units(region_start)
             region_end_in_units = utilitiesObj.in_units(region_end)
 
-            header_information = matrix + '\t' + referencePointString + '\t' + str(region_start_in_units) + '\t' + str(region_end_in_units)
-            header_information += '\n# ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\tZ-score\n#'
+            header_information = '\t'.join([matrix, referencePointString, str(region_start_in_units), str(region_end_in_units)])
+            header_information += '\n# ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\tZ-score\tRaw\n#'
             matrix_name = '.'.join(matrix.split('.')[:-1])
-            viewpointObj.writeInteractionFile(matrix_name + '_' + referencePointString, interaction_data, header_information, z_score_data)
+            viewpointObj.writeInteractionFile('_'.join([matrix_name, referencePointString]), interaction_data, header_information, z_score_data)
