@@ -17,9 +17,9 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-                    Build a background model for viewpoints.
+                    Build a background model for viewpoints, the viewpoints over all samples (matrices) are used to build the background model.
                     An example usage is:
-                    $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
+                    $ chicViewpointBackgroundModel -m matrix1.h5 matrix2.h5 matrix3.h5 -rp referencePointsFile.bed --range 20000 40000 
                     """
     )
 
@@ -35,7 +35,8 @@ def parse_arguments(args=None):
                                 type=str,
                                 required=True)
     parserRequired.add_argument('--range', '-r',
-                                help='Region around the viewpoint to consider.',
+                                help='Region around the viewpoint to consider in basepairs, first is upstream, second downstream.'
+                                ' E.g. \'--range 20000 40000\' for 20kb upstream to 40kb downstream of a viewpoint. Do NOT use a \'-\' prefix for upstream range.',
                                 type=int,
                                 required=True,
                                 nargs=2)
@@ -56,14 +57,11 @@ def parse_arguments(args=None):
 
 
 def main():
-
     args = parse_arguments().parse_args()
 
     viewpointObj = Viewpoint()
     referencePoints = viewpointObj.readReferencePointFile(args.referencePoints)
-    # interactions = []
 
-    # elements_of_viewpoint = args.range * 2 / hic_ma.bin_size
     relative_counts_conditions = []
     relative_positions = set()
     bin_size = 0
@@ -78,7 +76,7 @@ def main():
 
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
-        viewpointObj.setHiCMatrixObj(hic_ma)
+        viewpointObj.hicMatrix = hic_ma
         background_model_data = {}
         bin_size = hic_ma.getBinSize()
         for referencePoint in referencePoints:
@@ -94,7 +92,6 @@ def main():
             view_point_start, _ = viewpointObj.getReferencePointAsMatrixIndices(referencePoint)
             view_point_range_start, view_point_range_end = \
                 viewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
-            log.debug('len data_list: {}'.format(len(data_list)))
             for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
                 relative_position = i - view_point_start
                 if relative_position in background_model_data:
@@ -104,9 +101,8 @@ def main():
                     relative_positions.add(relative_position)
 
         # compute the percentage of each position with respect to the total interaction count
-        total_count = 0.0
-        for key, value in background_model_data.items():
-            total_count += value
+
+        total_count = sum(background_model_data.values())
 
         relative_counts = background_model_data
 
@@ -130,6 +126,7 @@ def main():
         mean_percentage[relative_position] = count / i
         sem[relative_position] = (count / i) / math.sqrt(i)
 
+    # write result to file
     with open(args.outFileName, 'w') as file:
         for relative_position in relative_positions:
             relative_position_in_genomic_scale = relative_position * bin_size
