@@ -1,4 +1,4 @@
-from hicexplorer import hicPlotViewpoint
+from hicexplorer import chicPlotViewpoint
 from tempfile import NamedTemporaryFile
 import os
 
@@ -28,7 +28,7 @@ def test_plot_single_point():
     outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint1', delete=False)
     matrix = ROOT + 'Li_et_al_2015.h5'
     args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {} --dpi 300".format(matrix, outfile.name).split()
-    hicPlotViewpoint.main(args)
+    chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32Mb.png', outfile.name, tol=40)
     assert res is None, res
@@ -41,7 +41,7 @@ def test_plot_single_point_two_matrices():
     outfile = NamedTemporaryFile(suffix='.png', prefix='viewpoint1', delete=False)
     matrix = ROOT + 'Li_et_al_2015.h5' + ' ' + ROOT + 'Li_et_al_2015_twice.h5'
     args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {} --dpi 300".format(matrix, outfile.name).split()
-    hicPlotViewpoint.main(args)
+    chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32Mb_twice.png', outfile.name, tol=40)
     assert res is None, res
@@ -56,7 +56,7 @@ def test_plot_single_point_interaction_file():
     matrix = ROOT + 'Li_et_al_2015.h5'
 
     args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {} -i {} --dpi 300".format(matrix, outfile.name, outfile_interactions.name).split()
-    hicPlotViewpoint.main(args)
+    chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32Mb.png', outfile.name, tol=40)
     assert res is None, res
@@ -73,7 +73,7 @@ def test_plot_single_point_interaction_file_two_matrices():
     matrix = ROOT + 'Li_et_al_2015.h5' + ' ' + ROOT + 'Li_et_al_2015_twice.h5'
 
     args = "--matrix {} --region X:3000000-3500000 -rp X:3200000 --outFileName {} -i {} --dpi 300".format(matrix, outfile.name, 'viewpoint_interactons').split()
-    hicPlotViewpoint.main(args)
+    chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32Mb_twice.png', outfile.name, tol=40)
     assert res is None, res
@@ -91,7 +91,7 @@ def test_plot_region():
     matrix = ROOT + 'Li_et_al_2015.h5'
 
     args = "--matrix {} --region X:3000000-3500000 -rp X:3200000-3300000 --outFileName {} --dpi 300".format(matrix, outfile.name).split()
-    hicPlotViewpoint.main(args)
+    chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + '/hicPlotViewpoint/li_viewpoint_32-33Mb.png', outfile.name, tol=40)
     assert res is None, res
@@ -107,7 +107,7 @@ def test_plot_region_interaction_file():
     matrix = ROOT + 'Li_et_al_2015.h5'
 
     args = "--matrix {} --region X:3000000-3500000 -rp X:3200000-3300000  --outFileName {} -i {} --dpi 300".format(matrix, outfile.name, outfile_interactions.name).split()
-    hicPlotViewpoint.main(args)
+    chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + 'hicPlotViewpoint/li_viewpoint_32-33Mb.png', outfile.name, tol=40)
     assert res is None, res

@@ -103,7 +103,7 @@ def relabelTicks(pTick):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-    log.warning('This tool is depricated. Please use chicViewpoint, chicViewpointBackgroundModel and chicPlotViewpoint.')
+    log.warning('This tool is deprecated. Please use chicViewpoint, chicViewpointBackgroundModel and chicPlotViewpoint.')
     if args.region:
         if sys.version_info[0] == 2:
             args.region = args.region.translate(None, ",.;|!{}()").replace("-", ":")
