@@ -17,7 +17,10 @@ from .lib import Utilities
 
 import matplotlib
 matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
 import os
 
 import math
@@ -53,6 +56,12 @@ def parse_arguments(args=None):
                            'output is a raster graphics image (e.g png, jpg)',
                            type=int,
                            default=300)
+    parserOpt.add_argument('--range',
+                            help='Defines the region upstream and downstream of a reference point which should be included. '
+                            'Format is --region upstream downstream',
+                            required=False,
+                            type=int,
+                            nargs=2)
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
@@ -73,12 +82,17 @@ def main(args=None):
 
     for interactionFile in args.interactionFile:
         fig = plt.figure(figsize=(9.4, 4.8))
-        ax = plt.subplot(111)
-        plt.subplots_adjust(left=0.1, right=0.85)
+        # ax = plt.subplot(111)
+        gs = gridspec.GridSpec(2, 2, height_ratios=[0.90, 0.1], width_ratios=[0.97, 0.03])
+        gs.update(hspace=0.2, wspace=0.05)
+        ax1 = plt.subplot(gs[0, 0])
+        ax2 = plt.subplot(gs[1, 0])
+        # ax3 = plt.subplot(gs[0, 1])
+        # plt.subplots_adjust(left=0.1, right=0.85)
         header, interaction_data, z_score_data, interaction_file_data_raw = viewpointObj.readInteractionFile(interactionFile)
         matrix_name, viewpoint, upstream_range, downstream_range = header.split('\t')
-        viewpoint_ = viewpoint.split(':')
-        referencePointString = viewpoint_[0] + ':' + utilitiesObj.in_units(viewpoint_[1]) + " - " + utilitiesObj.in_units(viewpoint_[2])
+        _viewpoint = viewpoint.split(':')
+        referencePointString = _viewpoint[0] + ':' + utilitiesObj.in_units(_viewpoint[1]) + " - " + utilitiesObj.in_units(_viewpoint[2])
 
         matrix_name = matrix_name[1:]
         data = []
@@ -124,15 +138,21 @@ def main(args=None):
             viewpoint_index = interaction_key.index(0)
 
         # legend = [matrix_name, 'background model']
-        data_plot_label = ax.plot(range(len(data)), data, alpha=0.9, label=matrix_name)
+        data_plot_label = ax1.plot(range(len(data)), data, alpha=0.9, label=matrix_name)
 
         # z_score
-        ax_sub = ax.twinx()
-        data_plot_label += ax_sub.plot(range(len(z_score)), z_score, '--y', alpha=0.7, label='z-score')
-        ax_sub.set_ylabel('z-score', color='y')
+        # ax_sub = ax.twinx()
+
+        _z_score = np.empty([2, len(z_score)])
+        _z_score[:, :] = z_score
+        ax2.xaxis.set_visible(False)
+        ax2.yaxis.set_visible(False)
+
+
+        ax2.contourf(_z_score)
 
         if args.backgroundModelFile:
-            ax_sub_background = ax.twinx()
+            ax_sub_background = ax1.twinx()
             ax_sub_background.spines["right"].set_position(("axes", 1.1))
             ax_sub_background.set_ylabel('background model', color='r')
 
@@ -141,14 +161,14 @@ def main(args=None):
             data_plot_label += ax_sub_background.plot(range(len(data_background)), data_background, '--r', alpha=0.5, label='background model')
             ax_sub_background.fill_between(range(len(data_background)), data_background + data_background_mean, data_background - data_background_mean, facecolor='red', alpha=0.3)
 
-        ax.set_xticks([0, viewpoint_index, len(data)])
+        ax1.set_xticks([0, viewpoint_index, len(data)])
 
-        ax.set_xticklabels([upstream_range, referencePointString, downstream_range])
-        ax.set_ylabel('Number of interactions')
+        ax1.set_xticklabels([upstream_range, referencePointString, downstream_range])
+        ax1.set_ylabel('Number of interactions')
 
         # multiple legends in one figure
         data_legend = [label.get_label() for label in data_plot_label]
-        ax.legend(data_plot_label, data_legend, loc=0)
+        ax1.legend(data_plot_label, data_legend, loc=0)
 
         outFileName = '.'.join(args.outFileName.split('.')[:-1])
         fileFormat = args.outFileName.split('.')[-1]
