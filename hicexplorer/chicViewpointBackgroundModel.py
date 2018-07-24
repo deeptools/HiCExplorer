@@ -60,7 +60,7 @@ def main():
     args = parse_arguments().parse_args()
 
     viewpointObj = Viewpoint()
-    referencePoints = viewpointObj.readReferencePointFile(args.referencePoints)
+    referencePoints, _ = viewpointObj.readReferencePointFile(args.referencePoints)
 
     relative_counts_conditions = []
     relative_positions = set()
