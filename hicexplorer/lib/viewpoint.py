@@ -245,16 +245,12 @@ class Viewpoint():
         return region_start, region_end
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
-        header, interaction_data, z_score_data, interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
-        log.debug('header: {}'.format(header))
+        header, interaction_data, z_score_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
         matrix_name, viewpoint, upstream_range, downstream_range, gene = header.split('\t')
 
-        # _viewpoint = viewpoint.split('_')
-        # referencePointString = _viewpoint[0] + ':' + utilitiesObj.in_units(_viewpoint[1]) + " - " + utilitiesObj.in_units(_viewpoint[2])
-
-        # matrix_name = matrix_name[1:]
         data = []
         z_score = []
+        interaction_file_data_raw = {}
         if pRange:
             background_data_keys_sorted = sorted(pBackgroundModel)
 
@@ -279,26 +275,18 @@ class Viewpoint():
             for key in background_data_keys_sorted:
                 if key in interaction_data:
                     data.append(interaction_data[key])
-                # else:
-                #     data.append(0)
 
                     if key in z_score_data:
                         z_score.append(z_score_data[key])
-                    # else:
-                    #     z_score.append(0)
 
                     data_background.append(pBackgroundModel[key][0])
                     data_background_mean.append(pBackgroundModel[key][1])
 
-                    # if args.outputViewpointFile:
-
-                    if key in interaction_file_data_raw:
-                        line_data_raw = interaction_file_data_raw[key]
+                    if key in _interaction_file_data_raw:
+                        line_data_raw = _interaction_file_data_raw[key]
                         line_data_raw.append(pBackgroundModel[key][0])
-                        interaction_file_data_raw[key] = line_data_raw
-
-                        line_data_raw = interaction_file_data_raw[key]
                         line_data_raw.append(pBackgroundModel[key][1])
+
                         interaction_file_data_raw[key] = line_data_raw
 
         else:
@@ -306,42 +294,29 @@ class Viewpoint():
             interaction_key = sorted(interaction_data)
             for key in interaction_key:
                 data.append(interaction_data[key])
-            log.debug('data {}'.format(interaction_key))
             viewpoint_index = interaction_key.index(0)
-        log.debug('raw data {}'.format(interaction_file_data_raw[0]))
+
         return header, data, data_background, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName):
         data_plot_label = pAxis.plot(range(len(pData)), pData, '--' + pColor, alpha=0.9, label=pLabelName)
 
-        # pAxis.set_xticks([0, viewpoint_index, len(pData)])
-
-        # pAxis.set_xticklabels([upstream_range, 'referencePointString', downstream_range])
-        # pAxis.set_ylabel('Number of interactions')
-
-        # # multiple legends in one figure
-        # data_legend = [label.get_label() for label in data_plot_label]
-        # pAxis.legend(data_plot_label, data_legend, loc=0)
         return data_plot_label
 
     def plotBackgroundModel(self, pAxis, pBackgroundData, pBackgroundDataMean):
-        # ax_sub_background = pAxis.twinx()
-        # ax_sub_background.spines["right"].set_position(("axes", 1.1))
-        # ax_sub_background.set_ylabel('background model')
-
         pBackgroundData = np.array(pBackgroundData)
         pBackgroundDataMean = np.array(pBackgroundDataMean)
         data_plot_label = pAxis.plot(range(len(pBackgroundData)), pBackgroundData, '--r', alpha=0.5, label='background model')
         pAxis.fill_between(range(len(pBackgroundData)), pBackgroundData + pBackgroundDataMean, pBackgroundData - pBackgroundDataMean, facecolor='red', alpha=0.3)
         return data_plot_label
 
-    def plotZscore(self, pAxis, pAxisLabel, pZscoreData, pLabelText):
+    def plotZscore(self, pAxis, pAxisLabel, pZscoreData, pLabelText, pCmap):
 
         _z_score = np.empty([2, len(pZscoreData)])
         _z_score[:, :] = pZscoreData
         pAxis.xaxis.set_visible(False)
         pAxis.yaxis.set_visible(False)
-        pAxis.contourf(_z_score)
+        pAxis.contourf(_z_score, cmap=pCmap)
         pAxisLabel.text(0, 0, pLabelText)
         pAxisLabel.xaxis.set_visible(False)
         pAxisLabel.yaxis.set_visible(False)
@@ -349,8 +324,8 @@ class Viewpoint():
 
     def writePlotData(self, pInteractionFileDataRaw, pFileName, pBackgroundModel):
         interaction_file_data_raw_sorted = sorted(pInteractionFileDataRaw)
-        with open(pFileName, 'w') as output_file:
-            output_file.write('#ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\tZ-score')
+        with open(pFileName + '.bed', 'w') as output_file:
+            output_file.write('#ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\tZ-score\tRaw')
 
             if pBackgroundModel:
                 output_file.write('\tbackground model\tbackground model SEM\n')
@@ -360,10 +335,10 @@ class Viewpoint():
 
                 _array = pInteractionFileDataRaw[key]
 
-                output_file.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(_array[0], _array[1], _array[2],
-                                                                              _array[3], _array[4], _array[5],
-                                                                              _array[6], _array[7], _array[8]))
+                output_file.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(_array[0], _array[1], _array[2],
+                                                                                  _array[3], _array[4], _array[5],
+                                                                                  _array[6], _array[7], _array[8], _array[9]))
                 if pBackgroundModel:
-                    output_file.write('\t{}\t{}\n'.format(_array[9], _array[10]))
+                    output_file.write('\t{}\t{}\n'.format(_array[10], _array[11]))
                 else:
                     output_file.write('\n')

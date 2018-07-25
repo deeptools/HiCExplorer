@@ -42,9 +42,6 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--outFileName', '-o',
                                 help='File name to save the image.',
                                 required=True)
-    parserRequired.add_argument('--outputViewpointFile', '-ovf',
-                                help='path to data file which holds the used data of the viewpoint and the backgroundmodel per bin.',
-                                required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
@@ -63,6 +60,11 @@ def parse_arguments(args=None):
                            required=False,
                            type=int,
                            nargs=2)
+    parserOpt.add_argument('--colorMapZscore',
+                           help='Color map to use for the z-score. Available '
+                           'values can be seen here: '
+                           'http://matplotlib.org/examples/color/colormaps_reference.html',
+                           default='viridis')
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
@@ -81,53 +83,55 @@ def main(args=None):
     if args.backgroundModelFile:
         background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
 
-        # background_data_list = list(background_data.values())
-
     number_of_rows_plot = len(args.interactionFile)
-
+    matplotlib.rcParams.update({'font.size': 9})
     fig = plt.figure(figsize=(9.4, 4.8))
-    # ax = plt.subplot(111)
-    z_score_heights = [0.1] * number_of_rows_plot
-    # TODO add check that ratio is greater than 0
 
-    gs = gridspec.GridSpec(1 + len(args.interactionFile), 2, height_ratios=[0.90 - (0.1 * number_of_rows_plot), *z_score_heights], width_ratios=[0.97, 0.03])
+    z_score_heights = [0.07] * number_of_rows_plot
+    viewpoint_height_ratio = 0.95 - (0.07 * number_of_rows_plot)
+    if viewpoint_height_ratio < 0.4:
+        viewpoint_height_ratio = 0.4
+        _ratio = 0.6 / len(number_of_rows_plot)
+        z_score_heights = [_ratio] * number_of_rows_plot
+
+    gs = gridspec.GridSpec(1 + len(args.interactionFile), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.85, 0.15])
     gs.update(hspace=0.5, wspace=0.05)
     ax1 = plt.subplot(gs[0, 0])
     ax2 = plt.subplot(gs[1, 0])
 
-    # z_score_axis = ax2.subplot(len(args.interactionFile))
     colors = ['g', 'b', 'c', 'm', 'y', 'k']
     background_plot = True
     data_plot_label = None
     for i, interactionFile in enumerate(args.interactionFile):
 
         header, data, background_data_plot, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index = viewpointObj.getDataForPlotting(interactionFile, args.range, background_data)
-        log.debug('header {}'.format(header))
-        matrix_name, viewpoint, upstream_range, downstream_range, gene = header.split('\t')
-
+        matrix_name, viewpoint, upstream_range, downstream_range, gene = header.strip().split('\t')
+        matrix_name = matrix_name[1:].split('.')[0]
         if data_plot_label:
-            data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene)
+            data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name)
         else:
-            data_plot_label = viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene)
+            data_plot_label = viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name)
 
         if background_plot:
-            data_plot_label += viewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot, pBackgroundDataMean=data_background_mean)
+            data_plot_label += viewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
+                                                                pBackgroundDataMean=data_background_mean)
             background_plot = False
 
-        viewpointObj.plotZscore(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score, pLabelText=gene)
+        viewpointObj.plotZscore(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
+                                pLabelText=gene + ': ' + matrix_name, pCmap=args.colorMapZscore)
 
-        # if args.outputViewpointFile:
-        viewpointObj.writePlotData(interaction_file_data_raw, args.outputViewpointFile, args.backgroundModelFile)
+        viewpointObj.writePlotData(interaction_file_data_raw, matrix_name + '_' + gene + '_raw_plot', args.backgroundModelFile)
 
     ax1.set_ylabel('Number of interactions')
     ax1.set_xticks([0, viewpoint_index, len(background_data_plot)])
-    ax1.set_xticklabels([upstream_range, 'Viewpoint', downstream_range])
+
+    if args.range:
+        ax1.set_xticklabels([str(-args.range[0]), 'Viewpoint', str(args.range[1])])
+    else:
+        ax1.set_xticklabels([upstream_range, 'Viewpoint', downstream_range])
 
     # multiple legends in one figure
     data_legend = [label.get_label() for label in data_plot_label]
     ax1.legend(data_plot_label, data_legend, loc=0)
-    # outFileName = '.'.join(args.outFileName.split('.')[:-1])
-    # fileFormat = args.outFileName.split('.')[-1]
-    # plt.savefig(outFileName + '_' + header + '.' + fileFormat, dpi=args.dpi)
     plt.savefig(args.outFileName, dpi=args.dpi)
     plt.close(fig)
