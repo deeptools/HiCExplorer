@@ -861,7 +861,7 @@ class PlotHiCMatrix(TrackPlot):
         if p_region is None:  # or not self.properties['file'].endswith('.cool'):
             self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'])
         else:
-            self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'], chrnameList=[p_region])
+            self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'], pChrnameList=[p_region])
 
         if len(self.hic_ma.matrix.data) == 0:
             log.error("Matrix {} is empty".format(self.properties['file']))
@@ -1099,15 +1099,16 @@ class PlotHiCMatrix(TrackPlot):
             # adjust the labels of the colorbar
             labels = cobar.ax.get_yticklabels()
             ticks = cobar.ax.get_yticks()
-            if ticks[0] == 0:
-                # if the label is at the start of the colobar
-                # move it above avoid being cut or overlapping with other track
-                labels[0].set_verticalalignment('bottom')
-            if ticks[-1] == 1:
-                # if the label is at the end of the colobar
-                # move it a bit inside to avoid overlapping
-                # with other labels
-                labels[-1].set_verticalalignment('top')
+            if ticks is not None and len(ticks) > 0:
+                if ticks[0] == 0:
+                    # if the label is at the start of the colobar
+                    # move it above avoid being cut or overlapping with other track
+                    labels[0].set_verticalalignment('bottom')
+                if ticks[-1] == 1:
+                    # if the label is at the end of the colobar
+                    # move it a bit inside to avoid overlapping
+                    # with other labels
+                    labels[-1].set_verticalalignment('top')
             cobar.ax.set_yticklabels(labels)
 
         except ValueError:
