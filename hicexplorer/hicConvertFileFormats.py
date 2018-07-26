@@ -45,9 +45,9 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--outputFormat',
                                 help='Output format. The following options are available: `h5` (native HiCExplorer '
                                 'format based on hdf5 storage format). '
-                                ' `cool` and `hic`',
+                                ' `cool` and `ginteractions`',
                                 default='cool',
-                                choices=['cool', 'mcool'],
+                                choices=['cool', 'h5', 'ginteractions'],
                                 required=True)
 
     # parserRequired.add_argument("--modus", "-mo",
@@ -88,7 +88,7 @@ def main(args=None):
         for matrix in args.matrices:
             hic2cool_convert(matrix, args.outFileName, 0)
         return
-    elif args.inputFormat in ['hicpro', 'homer', 'h5'] and args.outputFormat == 'cool':
+    elif args.inputFormat in ['hicpro', 'homer', 'h5']:  # and args.outputFormat in ['cool':
         if args.inputFormat == 'hicpro':
             if len(args.matrices) != len(args.bedFileHicpro):
                 log.error('Number of matrices and associated bed files need to be the same.')
@@ -102,21 +102,16 @@ def main(args=None):
             else:
                 matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix)
 
-            matrix_, cut_intervals, nan_bins, \
+            _matrix, cut_intervals, nan_bins, \
                 correction_factors, distance_counts = matrixFileHandlerInput.load()
 
-            log.debug('self.matrix {}'.format(matrix_))
-            log.debug('self.nan_bins {}'.format(nan_bins))
-            log.debug('self.cut_intervals {}'.format(cut_intervals))
-            log.debug('self.correction_factors {}'.format(correction_factors))
+            matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat)
 
-            matrixFileHandlerOutput = MatrixFileHandler()
-
-            matrixFileHandlerOutput.set_matrix_variables(matrix_, cut_intervals, nan_bins,
+            matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                          correction_factors, distance_counts)
             log.debug('Setting done')
 
-            matrixFileHandlerOutput.save(matrix + '.cool', pSymmetric=True, pApplyCorrection=False)
+            matrixFileHandlerOutput.save(matrix + '.' + args.outputFormat, pSymmetric=True, pApplyCorrection=False)
 
     # create hiC matrix with given input format
     # additional file needed for lieberman format
