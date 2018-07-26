@@ -465,16 +465,10 @@ def main(args=None):
     open_cooler_chromosome_order = True
     if args.chromosomeOrder is not None and len(args.chromosomeOrder) > 1:
         open_cooler_chromosome_order = False
-<<<<<<< HEAD
-    # is_cooler = False
-    if is_cooler and not args.region2 and open_cooler_chromosome_order:
-        log.info("Retrieve data from cooler format and use its benefits.")
-=======
 
     # TODO: temporary deactivation of this branch. Giving some error, will be fixed later.
     if False and is_cooler and not args.region2 and open_cooler_chromosome_order:
         log.debug("Retrieve data from cooler format and use its benefits.")
->>>>>>> develop
         regionsToRetrieve = None
         if args.region:
             regionsToRetrieve = []
@@ -771,7 +765,6 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
     #
     #             pAxis.set_xlim(region_start, region_end * 2)
 
-<<<<<<< HEAD
     if x is not None and bigwig_scores is not None:
         pAxis.fill_between(x, 0, bigwig_scores, edgecolor='none')
 
@@ -824,7 +817,3 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix):
         pAxis.plot(x_list, y_list, 'ro', lw=3)
         # plt.setp(l, markersize=10)
         # plt.setp(l, markerfacecolor='C0')
-=======
-    if x_values is not None and bigwig_scores is not None:
-        pAxis.fill_between(x_values, 0, bigwig_scores, edgecolor='none')
->>>>>>> develop
