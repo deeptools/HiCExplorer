@@ -83,9 +83,9 @@ def main(args=None):
             if args.averageContactBin > 0:
                 data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
             data_list_raw = np.copy(data_list)
+            z_score_data = zscore(data_list)
 
             data_list = viewpointObj.computeRelativeValues(data_list)
-            z_score_data = zscore(data_list)
 
             interaction_data = viewpointObj.createInteractionFileData(referencePoint, referencePoint[0], region_start, region_end, data_list, data_list_raw)
 
