@@ -5,12 +5,9 @@ import argparse
 from matplotlib import use as mplt_use
 mplt_use('Agg')
 from unidecode import unidecode
-<<<<<<< HEAD
 import numpy.testing as nt
-=======
 import cooler
 
->>>>>>> develop
 import logging
 log = logging.getLogger(__name__)
 
