@@ -2,13 +2,13 @@ from __future__ import division
 import argparse
 from past.builtins import zip
 from scipy.sparse import lil_matrix
-from copy import deepcopy
 
 from hicexplorer.iterativeCorrection import iterativeCorrection
 from hicexplorer import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
+from hicexplorer.utilities import check_cooler
 
 import numpy as np
 debug = 0
@@ -54,8 +54,7 @@ http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html#correctio
 """
     )
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(__version__))
 
     subparsers = parser.add_subparsers(
         title="Options",
@@ -549,15 +548,13 @@ def main(args=None):
         log.setLevel(logging.INFO)
 
     # args.chromosomes
-    if (args.matrix.endswith('.cool') or '.mcool' in args.matrix) and args.chromosomes is not None and len(args.chromosomes) == 1:
-        ma = hm.hiCMatrix(args.matrix, chrnameList=toString(args.chromosomes))
+    if check_cooler(args.matrix) and args.chromosomes is not None and len(args.chromosomes) == 1:
+        ma = hm.hiCMatrix(args.matrix, pChrnameList=toString(args.chromosomes))
     else:
         ma = hm.hiCMatrix(args.matrix)
 
         if args.chromosomes:
             ma.reorderChromosomes(toString(args.chromosomes))
-
-    ma.set_uncorrected_matrix(deepcopy(ma.matrix))
 
     # mask all zero value bins
     row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
@@ -574,7 +571,7 @@ def main(args=None):
 
     log.info("matrix contains {} data points. Sparsity {:.3f}.".format(
         len(ma.matrix.data),
-        float(len(ma.matrix.data)) / (ma.matrix.shape[0]**2)))
+        float(len(ma.matrix.data)) / (ma.matrix.shape[0] ** 2)))
 
     if args.skipDiagonal:
         ma.diagflat(value=0)
@@ -648,4 +645,4 @@ def main(args=None):
     ma.printchrtoremove(sorted(list(total_filtered_out)),
                         label="Total regions to be removed", restore_masked_bins=False)
 
-    ma.save(args.outFileName)
+    ma.save(args.outFileName, pApplyCorrection=False)

@@ -44,6 +44,7 @@ from hicexplorer.utilities import opener
 
 from hicexplorer.utilities import change_chrom_names
 from hicexplorer.utilities import check_chrom_str_bytes
+from hicexplorer.utilities import check_cooler
 
 reload(sys)
 if sys.version_info <= (3, 0):
@@ -393,7 +394,7 @@ class PlotTracks(object):
         file = track_dict['file'].strip()
         if file.endswith(".bed") or file.endswith(".bed.gz"):
             file_type = 'bed'
-        elif file.endswith(".npz") or file.endswith(".h5") or file.endswith(".cool") or '.mcool' in file:
+        elif file.endswith(".npz") or file.endswith(".h5") or check_cooler(file):
             file_type = 'hic_matrix'
         elif file.endswith(".bw"):
             file_type = 'bigwig'
@@ -846,7 +847,7 @@ class PlotHiCMatrix(TrackPlot):
         if p_region is None:  # or not self.properties['file'].endswith('.cool'):
             self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'])
         else:
-            self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'], chrnameList=[p_region])
+            self.hic_ma = HiCMatrix.hiCMatrix(self.properties['file'], pChrnameList=[p_region])
 
         if len(self.hic_ma.matrix.data) == 0:
             log.error("Matrix {} is empty".format(self.properties['file']))
@@ -1069,7 +1070,7 @@ class PlotHiCMatrix(TrackPlot):
                 from matplotlib.ticker import LogFormatter
                 formatter = LogFormatter(10, labelOnlyBase=False)
                 aa = np.array([1, 2, 5])
-                tick_values = np.concatenate([aa * 10**x for x in range(10)])
+                tick_values = np.concatenate([aa * 10 ** x for x in range(10)])
                 cobar = plt.colorbar(img, ticks=tick_values, format=formatter, ax=self.cbar_ax, fraction=0.95)
                 """
                 aa = np.array([0, 1, 2, 3, 4, 5])
@@ -1084,15 +1085,16 @@ class PlotHiCMatrix(TrackPlot):
             # adjust the labels of the colorbar
             labels = cobar.ax.get_yticklabels()
             ticks = cobar.ax.get_yticks()
-            if ticks[0] == 0:
-                # if the label is at the start of the colobar
-                # move it above avoid being cut or overlapping with other track
-                labels[0].set_verticalalignment('bottom')
-            if ticks[-1] == 1:
-                # if the label is at the end of the colobar
-                # move it a bit inside to avoid overlapping
-                # with other labels
-                labels[-1].set_verticalalignment('top')
+            if ticks is not None and len(ticks) > 0:
+                if ticks[0] == 0:
+                    # if the label is at the start of the colobar
+                    # move it above avoid being cut or overlapping with other track
+                    labels[0].set_verticalalignment('bottom')
+                if ticks[-1] == 1:
+                    # if the label is at the end of the colobar
+                    # move it a bit inside to avoid overlapping
+                    # with other labels
+                    labels[-1].set_verticalalignment('top')
             cobar.ax.set_yticklabels(labels)
 
         except ValueError:

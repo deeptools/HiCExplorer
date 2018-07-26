@@ -1,14 +1,15 @@
 numpy = 1.13.*
 scipy =1.0.*
 matplotlib =2.1.*
-pysam = 0.11.*
+pysam >= 0.11.2
 intervaltree = 2.1.*
 biopython >= 1.68
 pytables = 3.3.*
 pandas = 0.20.*
 pybigwig = 0.3.*
-cooler = 0.7.*
+cooler = 0.7.6
 jinja2 = 2.9.*
 six = 1.10.*
 future = 0.16.*
 unidecode = 0.4.*
+hic2cool

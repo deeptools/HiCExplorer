@@ -5,7 +5,12 @@ import argparse
 from matplotlib import use as mplt_use
 mplt_use('Agg')
 from unidecode import unidecode
+<<<<<<< HEAD
 import numpy.testing as nt
+=======
+import cooler
+
+>>>>>>> develop
 import logging
 log = logging.getLogger(__name__)
 
@@ -63,6 +68,13 @@ def convertInfsToZeros_ArrayFloat(pArray):
     if len(inf_elements) > 0:
         pArray[inf_elements] = 0.0
     return pArray
+
+def convertNansToOnes(pArray):
+    nan_elements = np.flatnonzero(np.isnan(pArray))
+    if len(nan_elements) > 0:
+        pArray[nan_elements] = 1.0
+    return pArray
+
 
 def myAverage(valuesArray, avgType='mean'):
 
@@ -129,7 +141,10 @@ def genomicRegion(string):
         return None
     # remove undesired characters that may be present and
     # replace - by :
-    region = region.translate(None, ",;|!{}()").replace("-", ":")
+    if sys.version_info[0] == 2:
+        region = region.translate(None, ",;|!{}()").replace("-", ":")
+    if sys.version_info[0] == 3:
+        region = region.translate(str.maketrans('', '', ",;|!{}()")).replace("-", ":")
     if len(region) == 0:
         raise argparse.ArgumentTypeError(
             "{} is not a valid region".format(string))
@@ -297,6 +312,8 @@ def toString(s):
         return s.decode('ascii')
     if isinstance(s, list):
         return [toString(x) for x in s]
+    if isinstance(s, np.ndarray):
+        return s.astype(str)
     return s
 
 
@@ -385,3 +402,9 @@ def remove_non_ascii(pText):
     https://stackoverflow.com/questions/20078816/replace-non-ascii-characters-with-a-single-space/20079244
     """
     return unidecode(pText)
+
+
+def check_cooler(pFileName):
+    if pFileName.endswith('.cool') or cooler.io.is_cooler(pFileName) or'.mcool' in pFileName:
+        return True
+    return False

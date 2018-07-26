@@ -1,0 +1,2 @@
+File	inward pairs	inward pairs %	outward pairs	outward pairs %	left pairs	left pairs %	right pairs	right pairs %
+R1_R2.cool	42	0.219895287958	66	0.34554973822	48	0.251308900524	35	0.183246073298

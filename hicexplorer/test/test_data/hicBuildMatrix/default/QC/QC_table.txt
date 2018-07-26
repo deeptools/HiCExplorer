@@ -1,0 +1,2 @@
+File	Max library insert size	Min rest. site distance	One mate low quality	One mate not close to rest site	One mate not unique	One mate unmapped	Pairs considered	Pairs mappable, unique and high quality	Pairs used	dangling end	duplicated pairs	inter chromosomal	inward pairs	left pairs	long range	outward pairs	right pairs	same fragment	self circle	self ligation (removed)	short range < 20kb
+R1_R2.cool	1000	300	164	0	13	506	983	300	215	0	0	24	42	48	130	66	35	85	0	0	61
