@@ -60,6 +60,13 @@ def convertInfsToZeros(ma):
     return ma
 
 
+def convertNansToOnes(pArray):
+    nan_elements = np.flatnonzero(np.isnan(pArray))
+    if len(nan_elements) > 0:
+        pArray[nan_elements] = 1.0
+    return pArray
+
+
 def myAverage(valuesArray, avgType='mean'):
 
     valuesArray = valuesArray[np.logical_not(np.isnan(valuesArray))]
@@ -125,7 +132,10 @@ def genomicRegion(string):
         return None
     # remove undesired characters that may be present and
     # replace - by :
-    region = region.translate(None, ",;|!{}()").replace("-", ":")
+    if sys.version_info[0] == 2:
+        region = region.translate(None, ",;|!{}()").replace("-", ":")
+    if sys.version_info[0] == 3:
+        region = region.translate(str.maketrans('', '', ",;|!{}()")).replace("-", ":")
     if len(region) == 0:
         raise argparse.ArgumentTypeError(
             "{} is not a valid region".format(string))

@@ -5,7 +5,7 @@ import sys
 import subprocess
 import re
 
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.command.sdist import sdist as _sdist
 from setuptools.command.install import install as _install
 
@@ -96,7 +96,7 @@ class install(_install):
 install_requires_py = ["numpy == 1.13.*",
                        "scipy == 1.0.*",
                        "matplotlib == 2.1.*",
-                       "pysam == 0.11.*",
+                       "pysam >= 0.11.2",
                        "intervaltree == 2.1.*",
                        "biopython >= 1.68",
                        "tables == 3.3.*",
@@ -117,13 +117,14 @@ setup(
     version=get_version(),
     author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff',
     author_email='deeptools@googlegroups.com',
-    packages=['hicexplorer'],
+    packages=find_packages(),
     scripts=['bin/findRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindEnrichedContacts', 'bin/hicFindTADs',
              'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
-             'bin/hicLog2Ratio', 'bin/hicDetectLongRangeContacts'],
+             'bin/hicLog2Ratio', 'bin/hicDetectLongRangeContacts',
+             'bin/hicConvertFileFormats'],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
     package_data={'hicexplorer': ['qc_template.html']},

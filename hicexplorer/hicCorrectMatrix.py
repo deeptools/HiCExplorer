@@ -54,8 +54,7 @@ http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html#correctio
 """
     )
 
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
+    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(__version__))
 
     subparsers = parser.add_subparsers(
         title="Options",
@@ -550,7 +549,7 @@ def main(args=None):
 
     # args.chromosomes
     if check_cooler(args.matrix) and args.chromosomes is not None and len(args.chromosomes) == 1:
-        ma = hm.hiCMatrix(args.matrix, chrnameList=toString(args.chromosomes))
+        ma = hm.hiCMatrix(args.matrix, pChrnameList=toString(args.chromosomes))
     else:
         ma = hm.hiCMatrix(args.matrix)
 
@@ -572,7 +571,7 @@ def main(args=None):
 
     log.info("matrix contains {} data points. Sparsity {:.3f}.".format(
         len(ma.matrix.data),
-        float(len(ma.matrix.data)) / (ma.matrix.shape[0]**2)))
+        float(len(ma.matrix.data)) / (ma.matrix.shape[0] ** 2)))
 
     if args.skipDiagonal:
         ma.diagflat(value=0)
