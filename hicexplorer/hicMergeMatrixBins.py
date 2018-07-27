@@ -225,7 +225,7 @@ def merge_bins(hic, num_bins):
     run merge_matrix
     >>> merge_matrix = merge_bins(hic, 2)
     >>> merge_matrix.cut_intervals
-    [('a', 0, 20, 0.75), ('a', 20, 40, 0.55000000000000004), ('b', 40, 50, 1.0)]
+    [('a', 0, 20, 0.75), ('a', 20, 40, 0.55), ('b', 40, 50, 1.0)]
     >>> merge_matrix.matrix.todense()
     matrix([[120,  28,   1],
             [ 28, 177,   4],

@@ -419,19 +419,19 @@ class hiCMatrix:
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.setMatrix(hic.matrix, cut_intervals)
         >>> hic.convert_to_obs_exp_matrix().todense()
-        matrix([[ 1. ,  0.8,  1. ,  1. ,  0. ],
-                [ 0. ,  4. ,  1.5,  1. ,  1. ],
-                [ 0. ,  0. ,  0. ,  0.7,  2. ],
-                [ 0. ,  0. ,  0. ,  0. ,  1. ],
-                [ 0. ,  0. ,  0. ,  0. ,  0. ]])
+        matrix([[1. , 0.8, 1. , 1. , 0. ],
+                [0. , 4. , 1.5, 1. , 1. ],
+                [0. , 0. , 0. , 0.7, 2. ],
+                [0. , 0. , 0. , 0. , 1. ],
+                [0. , 0. , 0. , 0. , 0. ]])
 
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.convert_to_obs_exp_matrix(maxdepth=20).todense()
-        matrix([[ 1. ,  0.8,  1. ,  0. ,  0. ],
-                [ 0. ,  4. ,  1.5,  1. ,  0. ],
-                [ 0. ,  0. ,  0. ,  0.7,  nan],
-                [ 0. ,  0. ,  0. ,  0. ,  nan],
-                [ 0. ,  0. ,  0. ,  0. ,  0. ]])
+        matrix([[1. , 0.8, 1. , 0. , 0. ],
+                [0. , 4. , 1.5, 1. , 0. ],
+                [0. , 0. , 0. , 0.7, nan],
+                [0. , 0. , 0. , 0. , nan],
+                [0. , 0. , 0. , 0. , 0. ]])
 
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.convert_to_obs_exp_matrix(zscore=True).todense()
@@ -1270,11 +1270,11 @@ class hiCMatrix:
 
         >>> hic.restoreMaskedBins()
         >>> hic.matrix.todense()
-        matrix([[  0.,  10.,   5.,   0.,   0.],
-                [ 10.,   0.,  15.,   0.,   1.],
-                [  5.,  15.,   0.,   0.,   3.],
-                [  0.,   0.,   0.,   0.,   0.],
-                [  0.,   1.,   3.,   0.,   0.]])
+        matrix([[ 0., 10.,  5.,  0.,  0.],
+                [10.,  0., 15.,  0.,  1.],
+                [ 5., 15.,  0.,  0.,  3.],
+                [ 0.,  0.,  0.,  0.,  0.],
+                [ 0.,  1.,  3.,  0.,  0.]])
 
         >>> hic.cut_intervals
         [('a', 0, 10, 1), ('a', 10, 20, 1), ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
