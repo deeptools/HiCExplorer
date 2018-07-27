@@ -5,7 +5,6 @@ import argparse
 from matplotlib import use as mplt_use
 mplt_use('Agg')
 from unidecode import unidecode
-import numpy.testing as nt
 import cooler
 
 import logging
@@ -60,11 +59,13 @@ def convertInfsToZeros(ma):
         ma.data[inf_elements] = 0
     return ma
 
+
 def convertInfsToZeros_ArrayFloat(pArray):
     inf_elements = np.flatnonzero(np.isinf(pArray))
     if len(inf_elements) > 0:
         pArray[inf_elements] = 0.0
     return pArray
+
 
 def convertNansToOnes(pArray):
     nan_elements = np.flatnonzero(np.isnan(pArray))
@@ -221,7 +222,7 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
     distance = np.absolute(row - col)
     # log.info("len(expected_interactions): {}".format(len(expected_interactions)))
     # log.info("len(distance): {}".format(len(distance)))
-    
+
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
 
@@ -252,14 +253,14 @@ def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
     # log.info("len)distance; {}".format(len(distance)))
     # log.info("len)expected_interactions_in_distance_; {}".format(len(expected_interactions_in_distance_)))
-    
+
     # log.info("expected_interactions_in_distance_[distance[0]]: {}".format(type(expected_interactions_in_distance_[distance[0]])))
-    
+
     if len(pSubmatrix.data) > 0:
         data_type = type(pSubmatrix.data[0])
-        # from copy import deepcopy 
+        # from copy import deepcopy
         # data = deepcopy(pSubmatrix.data)
-        
+
         expected = expected_interactions_in_distance_[distance]
         # log.info("len(expected); {}".format(len(expected)))
         # log.info("len(data): {}".format(len(pSubmatrix.data)))
@@ -267,7 +268,6 @@ def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
         pSubmatrix.data /= expected
         # data2 = deepcopy(data)
         pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
-
 
     # for i in range(len(pSubmatrix.data)):
     #     try:
@@ -290,10 +290,10 @@ def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     #         print(mu)
     #         log.info("data: {}".format(data[mu]))
     #         log.info("data: {}".format(data2[mu]))
-            
+
     #         # data2
     #         log.info("pSubmatrix.data: {}".format(pSubmatrix.data[mu]))
-    
+
     return pSubmatrix
 
 
