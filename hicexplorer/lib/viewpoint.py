@@ -4,7 +4,7 @@ import logging
 log = logging.getLogger(__name__)
 import copy
 
-
+import sys
 class Viewpoint():
 
     def __init__(self, pHiCMatrix=None):
@@ -15,17 +15,18 @@ class Viewpoint():
         This function reads a text file which contains reference points. Reference points are 
 
         Reference points need to be tab seperated
-        and contain the chromosome, the reference start point and/or the reference end point:
+        and contain the chromosome, the reference start point and/or the reference end point, and the gene:
 
-        chr start
+        chr start gene
 
         or 
 
-        chr start end
+        chr start end gene
 
         Per line one reference point.
 
-        Returns a list of tuples with (chr, start, end), if only a start index is given, end = start. 
+        Returns a list of tuples with (chr, start, end), if only a start index is given, end = start and a list of genes. 
+
         '''
         viewpoints = []
         gene_list = []
@@ -34,12 +35,17 @@ class Viewpoint():
                 _line = line.strip().split('\t')
                 if len(line) == 0:
                     continue
-                if len(_line) == 2:
+                if len(_line) == 3:
                     chrom, start, end = _line[0], _line[1], _line[1]
+                    log.debug('_line: {}'.format(_line))
+                    gene_list.append(_line[2])
+
                 else:
                     chrom, start, end = _line[:3]
+                    gene_list.append(_line[3])
+
                 viewpoints.append((chrom, start, end))
-                gene_list.append(_line[3])
+            
         return viewpoints, gene_list
 
     def readInteractionFile(self, pBedFile):
@@ -114,9 +120,10 @@ class Viewpoint():
         view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(pReferencePoint)
 
         view_point_range = self.getViewpointRangeAsMatrixIndices(pChromViewpoint, pRegion_start, pRegion_end)
-
+        log.debug('key view_point_range {} {}'.format(pRegion_start, pRegion_end))
+    
         elements_of_viewpoint = (view_point_range[1] - view_point_range[0])
-
+        log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
         data_list = np.zeros(elements_of_viewpoint)
         _view_point_start = view_point_start
 
@@ -129,6 +136,7 @@ class Viewpoint():
 
         elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
         data_list_new = np.zeros(elements_of_viewpoint)
+        log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
 
         index_before_viewpoint = view_point_start - view_point_range[0]
 
@@ -244,6 +252,18 @@ class Viewpoint():
 
         return region_start, region_end
 
+    def interaction_background_data(self, pBackground, pRange):
+
+        background_model = []
+        background_model_sem = []
+
+        for key in pBackground:
+            if key >= -pRange[0] and key <= pRange[1]:
+                background_model.append(pBackground[key][0])
+                background_model_sem.append(pBackground[key][1])
+                log.debug('key background {}'.format(key))
+        return  np.array(background_model), np.array(background_model_sem)
+
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
         header, interaction_data, z_score_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
         matrix_name, viewpoint, upstream_range, downstream_range, gene = header.split('\t')
@@ -342,3 +362,16 @@ class Viewpoint():
                     output_file.write('\t{}\t{}\n'.format(_array[10], _array[11]))
                 else:
                     output_file.write('\n')
+
+    def rbz_score(self, pRelativeInteractions, pBackgroundModel, pBackgroundModelSEM):
+        _rbz_score = np.empty(len(pRelativeInteractions))
+        if len(pRelativeInteractions) != len(pBackgroundModel) or \
+            len(pRelativeInteractions) != len(pBackgroundModelSEM):
+            sys.exit('Computing of rbz-score failed, data is having different size. ' + 
+                            '\nrelative interactions {} background model {} background model SEM {}'.format(len(pRelativeInteractions), 
+                                                            len(pBackgroundModel), len(pBackgroundModelSEM)))
+            return
+        _rbz_score = pRelativeInteractions - pBackgroundModel
+        _rbz_score /= pBackgroundModelSEM
+
+        return _rbz_score

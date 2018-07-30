@@ -49,13 +49,17 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--referencePoint', '-rp', help='Reference point file. Needs to be in the format: \'chr 100\' for a '
                                 'single reference point or \'chr 100 200\' for a reference region and per line one reference point',
                                 required=True)
-
+    parserRequired.add_argument('--backgroundModelFile', '-bmf',
+                           help='path to the background file which is necessary to compute the rbz-score',
+                           required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--averageContactBin',
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
                            default=0)
+
+    
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
@@ -83,9 +87,16 @@ def main(args=None):
             if args.averageContactBin > 0:
                 data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
             data_list_raw = np.copy(data_list)
-            z_score_data = zscore(data_list)
+
+            
+
 
             data_list = viewpointObj.computeRelativeValues(data_list)
+
+            if args.backgroundModelFile:
+                _background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
+                _backgroundModelData, _backgroundModelSEM = viewpointObj.interaction_background_data(_background_model, args.range)
+                rbz_score_data = viewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
 
             interaction_data = viewpointObj.createInteractionFileData(referencePoint, referencePoint[0], region_start, region_end, data_list, data_list_raw)
 
@@ -95,6 +106,7 @@ def main(args=None):
             region_end_in_units = utilitiesObj.in_units(region_end)
 
             header_information = '\t'.join([matrix, referencePointString, str(region_start_in_units), str(region_end_in_units), gene_list[i]])
-            header_information += '\n# ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\tZ-score\tRaw\n#'
+            header_information += '\n# ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
             matrix_name = '.'.join(matrix.split('.')[:-1])
-            viewpointObj.writeInteractionFile('_'.join([matrix_name, referencePointString, gene_list[i]]), interaction_data, header_information, z_score_data)
+            matrix_name = '_'.join([matrix_name, referencePointString, gene_list[i]])
+            viewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
