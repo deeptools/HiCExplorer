@@ -65,6 +65,11 @@ def parse_arguments(args=None):
                            'values can be seen here: '
                            'http://matplotlib.org/examples/color/colormaps_reference.html',
                            default='viridis')
+    parserOpt.add_argument('--rbzScore', '-rbz',
+                           help='Plot rbz-score as a colorbar',
+                           choices=['integrated', 'heatmap', ''],
+                           default=''
+                           )                        
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
@@ -94,17 +99,25 @@ def main(args=None):
         _ratio = 0.6 / len(number_of_rows_plot)
         z_score_heights = [_ratio] * number_of_rows_plot
 
-    gs = gridspec.GridSpec(1 + len(args.interactionFile), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.85, 0.15])
-    gs.update(hspace=0.5, wspace=0.05)
-    ax1 = plt.subplot(gs[0, 0])
-    ax2 = plt.subplot(gs[1, 0])
-
+    if args.rbzScore == 'heatmap':
+        gs = gridspec.GridSpec(1 + len(args.interactionFile), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
+        gs.update(hspace=0.5, wspace=0.05)
+        ax1 = plt.subplot(gs[0, 0])
+        ax1.margins(x=0)
+        ax2 = plt.subplot(gs[1, 0])
+    else:
+        # gs = gridspec.GridSpec(1 + len(args.interactionFile), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.85, 0.15])
+        # gs.update(hspace=0.5, wspace=0.05)
+        ax1 = plt.subplot()
     colors = ['g', 'b', 'c', 'm', 'y', 'k']
     background_plot = True
     data_plot_label = None
     for i, interactionFile in enumerate(args.interactionFile):
 
         header, data, background_data_plot, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index = viewpointObj.getDataForPlotting(interactionFile, args.range, background_data)
+        if len(data) <= 1 or len(z_score) <= 1:
+            log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile, args.range))
+            continue
         matrix_name, viewpoint, upstream_range, downstream_range, gene = header.strip().split('\t')
         matrix_name = matrix_name[1:].split('.')[0]
         if data_plot_label:
@@ -116,22 +129,26 @@ def main(args=None):
             data_plot_label += viewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
                                                                 pBackgroundDataMean=data_background_mean)
             background_plot = False
-
-        viewpointObj.plotZscore(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
-                                pLabelText=gene + ': ' + matrix_name, pCmap=args.colorMapZscore)
+        if args.rbzScore == 'heatmap':
+            viewpointObj.plotZscore(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
+                                pLabelText=gene + ': ' + matrix_name, pCmap=args.colorMapZscore,
+                                pFigure=fig)
+        elif args.rbzScore == 'integrated':
+            data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=z_score, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' rbz-score')
 
         viewpointObj.writePlotData(interaction_file_data_raw, matrix_name + '_' + gene + '_raw_plot', args.backgroundModelFile)
 
-    ax1.set_ylabel('Number of interactions')
-    ax1.set_xticks([0, viewpoint_index, len(background_data_plot)])
+    if data_plot_label is not None:
+        ax1.set_ylabel('Number of interactions')
+        ax1.set_xticks([0, viewpoint_index, len(data)-1])
 
-    if args.range:
-        ax1.set_xticklabels([str(-args.range[0]), 'Viewpoint', str(args.range[1])])
-    else:
-        ax1.set_xticklabels([upstream_range, 'Viewpoint', downstream_range])
+        if args.range:
+            ax1.set_xticklabels([str(-args.range[0]), 'Viewpoint', str(args.range[1])])
+        else:
+            ax1.set_xticklabels([upstream_range, 'Viewpoint', downstream_range])
 
-    # multiple legends in one figure
-    data_legend = [label.get_label() for label in data_plot_label]
-    ax1.legend(data_plot_label, data_legend, loc=0)
-    plt.savefig(args.outFileName, dpi=args.dpi)
+        # multiple legends in one figure
+        data_legend = [label.get_label() for label in data_plot_label]
+        ax1.legend(data_plot_label, data_legend, loc=0)
+        plt.savefig(args.outFileName, dpi=args.dpi)
     plt.close(fig)

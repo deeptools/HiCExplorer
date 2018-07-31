@@ -95,7 +95,7 @@ def main(args=None):
 
             if args.backgroundModelFile:
                 _background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
-                _backgroundModelData, _backgroundModelSEM = viewpointObj.interaction_background_data(_background_model, args.range)
+                _backgroundModelData, _backgroundModelSEM = viewpointObj.interactionBackgroundData(_background_model, args.range)
                 rbz_score_data = viewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
 
             interaction_data = viewpointObj.createInteractionFileData(referencePoint, referencePoint[0], region_start, region_end, data_list, data_list_raw)

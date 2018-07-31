@@ -5,6 +5,8 @@ log = logging.getLogger(__name__)
 import copy
 
 import sys
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 class Viewpoint():
 
     def __init__(self, pHiCMatrix=None):
@@ -118,15 +120,20 @@ class Viewpoint():
         if the reference point is larger than one bin of the Hi-C matrix, it is considered as one bin and the values are summed together.
         '''
         view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(pReferencePoint)
+        log.debug('view_point_start {}'.format(view_point_start))
+        log.debug('view_point_end {}'.format(view_point_end))
 
         view_point_range = self.getViewpointRangeAsMatrixIndices(pChromViewpoint, pRegion_start, pRegion_end)
+        view_point_range = list(view_point_range)
+        view_point_range[1] += 1
         log.debug('key view_point_range {} {}'.format(pRegion_start, pRegion_end))
     
         elements_of_viewpoint = (view_point_range[1] - view_point_range[0])
+        log.debug('view_point_range {}'.format(view_point_range))
         log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
         data_list = np.zeros(elements_of_viewpoint)
         _view_point_start = view_point_start
-
+        # TODO: check border handling! --> view_point_range[1] + 1 issue
         while _view_point_start <= view_point_end:
             chrom, start, end, _ = self.hicMatrix.getBinPos(_view_point_start)
             for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
@@ -158,6 +165,8 @@ class Viewpoint():
         '''
         view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(pReferencePoint)
         view_point_range = self.getViewpointRangeAsMatrixIndices(pChromViewpoint, pRegion_start, pRegion_end)
+        view_point_range = list(view_point_range)
+        view_point_range[1] += 1
         elements_of_viewpoint = view_point_range[1] - view_point_range[0] - (view_point_end - view_point_start) + 1
 
         interactions_list = []
@@ -183,7 +192,12 @@ class Viewpoint():
         '''
         Returns the matrix indices of a chromosome and a specific position.
         '''
-        return self.hicMatrix.getRegionBinRange(pChromViewpoint, pRegion_start, pRegion_end)
+        _range = self.hicMatrix.getRegionBinRange(pChromViewpoint, pRegion_start, pRegion_end)
+        # log.debug('_range {}'.format(_range))
+        # log.debug('invert range[0], {} '.format(self.hicMatrix.getBinPos(_range[0])))
+        # log.debug('invert range[1], {} '.format(self.hicMatrix.getBinPos(_range[1])))
+
+        return _range
 
     def getReferencePointAsMatrixIndices(self, pReferencePoint):
         '''
@@ -240,6 +254,7 @@ class Viewpoint():
         '''
         This function computes the correct start and end position of a viewpoint given the viewpoint and the range.
         '''
+        # log.debug('self.hicMatrix.getChrBinRange(pViewpoint[0]) {}'.format(self.hicMatrix.getChrBinRange(pViewpoint[0])))
         max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
 
         region_start = int(pViewpoint[1]) - pRange[0]
@@ -248,21 +263,15 @@ class Viewpoint():
 
         region_end = int(pViewpoint[2]) + pRange[1]
         if region_end > max_length:
-            region_end = max_length - 1
+            region_end = max_length
+        log.debug('pViewpoint {}'.format(pViewpoint))
+        log.debug('pRange {}'.format(pRange))
+        log.debug('region_start {}'.format(region_start))
+        log.debug('region_end {}'.format(region_end))
 
         return region_start, region_end
 
-    def interaction_background_data(self, pBackground, pRange):
-
-        background_model = []
-        background_model_sem = []
-
-        for key in pBackground:
-            if key >= -pRange[0] and key <= pRange[1]:
-                background_model.append(pBackground[key][0])
-                background_model_sem.append(pBackground[key][1])
-                log.debug('key background {}'.format(key))
-        return  np.array(background_model), np.array(background_model_sem)
+    
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
         header, interaction_data, z_score_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
@@ -272,7 +281,6 @@ class Viewpoint():
         z_score = []
         interaction_file_data_raw = {}
         if pRange:
-            background_data_keys_sorted = sorted(pBackgroundModel)
 
             interaction_data_keys = copy.deepcopy(list(interaction_data.keys()))
             for key in interaction_data_keys:
@@ -280,6 +288,8 @@ class Viewpoint():
                     continue
                 interaction_data.pop(key, None)
             if pBackgroundModel:
+                background_data_keys_sorted = sorted(pBackgroundModel)
+
                 for key in background_data_keys_sorted:
                     if key >= -pRange[0] and key <= pRange[1]:
                         continue
@@ -316,6 +326,7 @@ class Viewpoint():
                 data.append(interaction_data[key])
             viewpoint_index = interaction_key.index(0)
 
+        log.debug('rbz-score {}'.format(z_score))
         return header, data, data_background, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName):
@@ -330,14 +341,20 @@ class Viewpoint():
         pAxis.fill_between(range(len(pBackgroundData)), pBackgroundData + pBackgroundDataMean, pBackgroundData - pBackgroundDataMean, facecolor='red', alpha=0.3)
         return data_plot_label
 
-    def plotZscore(self, pAxis, pAxisLabel, pZscoreData, pLabelText, pCmap):
+    def plotZscore(self, pAxis, pAxisLabel, pZscoreData, pLabelText, pCmap, pFigure):
 
         _z_score = np.empty([2, len(pZscoreData)])
         _z_score[:, :] = pZscoreData
         pAxis.xaxis.set_visible(False)
         pAxis.yaxis.set_visible(False)
-        pAxis.contourf(_z_score, cmap=pCmap)
-        pAxisLabel.text(0, 0, pLabelText)
+        img = pAxis.contourf(_z_score, cmap=pCmap)
+        divider = make_axes_locatable(pAxisLabel)
+        cax = divider.append_axes("left", size="20%", pad=0.09)
+        colorbar = pFigure.colorbar(img, cax=cax, ticks=[min(pZscoreData), max(pZscoreData)])
+
+        colorbar.ax.set_ylabel('rbz-score', size=6)
+
+        pAxisLabel.text(0.45, 0, pLabelText, size=7)
         pAxisLabel.xaxis.set_visible(False)
         pAxisLabel.yaxis.set_visible(False)
         pAxisLabel.set_frame_on(False)
@@ -362,6 +379,18 @@ class Viewpoint():
                     output_file.write('\t{}\t{}\n'.format(_array[10], _array[11]))
                 else:
                     output_file.write('\n')
+
+    def interactionBackgroundData(self, pBackground, pRange):
+
+        background_model = []
+        background_model_sem = []
+
+        for key in pBackground:
+            if key >= -pRange[0] and key <= pRange[1]:
+                background_model.append(pBackground[key][0])
+                background_model_sem.append(pBackground[key][1])
+                log.debug('key background {}'.format(key))
+        return  np.array(background_model), np.array(background_model_sem)
 
     def rbz_score(self, pRelativeInteractions, pBackgroundModel, pBackgroundModelSEM):
         _rbz_score = np.empty(len(pRelativeInteractions))
