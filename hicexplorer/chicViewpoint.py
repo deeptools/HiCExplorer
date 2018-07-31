@@ -50,16 +50,14 @@ def parse_arguments(args=None):
                                 'single reference point or \'chr 100 200\' for a reference region and per line one reference point',
                                 required=True)
     parserRequired.add_argument('--backgroundModelFile', '-bmf',
-                           help='path to the background file which is necessary to compute the rbz-score',
-                           required=True)
+                                help='path to the background file which is necessary to compute the rbz-score',
+                                required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--averageContactBin',
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
                            default=0)
-
-    
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
@@ -88,9 +86,6 @@ def main(args=None):
                 data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
             data_list_raw = np.copy(data_list)
 
-            
-
-
             data_list = viewpointObj.computeRelativeValues(data_list)
 
             if args.backgroundModelFile:
@@ -98,7 +93,9 @@ def main(args=None):
                 _backgroundModelData, _backgroundModelSEM = viewpointObj.interactionBackgroundData(_background_model, args.range)
                 rbz_score_data = viewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
 
-            interaction_data = viewpointObj.createInteractionFileData(referencePoint, referencePoint[0], region_start, region_end, data_list, data_list_raw)
+            interaction_data = viewpointObj.createInteractionFileData(referencePoint, referencePoint[0],
+                                                                      region_start, region_end, data_list, data_list_raw,
+                                                                      gene_list[i])
 
             referencePointString = '_'.join(str(j) for j in referencePoint)
 

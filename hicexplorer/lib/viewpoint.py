@@ -56,13 +56,13 @@ class Viewpoint():
         Reads an interaction file produced by chicViewpoint. Contains header information, these lines
         start with '#'. 
         Interactions files contain:
-        Chromosome Viewpoint, Start, End, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
+        Chromosome Viewpoint, Start, End, Gene, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
         Relative number of interactions, z-score based on relative interactions.
 
         This function returns:
         - header as  a string
         - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}  
-        - z-score in relation to relative position as a dict (same format as interaction data)
+        - rbz-score in relation to relative position as a dict (same format as interaction data)
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
         # use header info to store reference point, and based matrix
@@ -106,10 +106,10 @@ class Viewpoint():
         with open(pBedFile + '.bed', 'w') as fh:
             fh.write('#{}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
                          format(interaction[0], interaction[1], interaction[2],
                                 interaction[3], interaction[4], interaction[5],
-                                interaction[6], interaction[7], pZscoreData[j], interaction[8]))
+                                interaction[6], interaction[7], interaction[8], pZscoreData[j], interaction[9]))
         return
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
@@ -158,7 +158,7 @@ class Viewpoint():
         data_list_new[index_before_viewpoint + 1:] = data_list[index_before_viewpoint + view_point_end - view_point_start + 1:]
         return data_list_new
 
-    def createInteractionFileData(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionData, pInteractionDataRaw):
+    def createInteractionFileData(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionData, pInteractionDataRaw, pGene):
         '''
         Creates out of internal information a list of tuples which can be written to an interaction file.
         Tuple contains:
@@ -185,7 +185,7 @@ class Viewpoint():
             else:
                 relative_position = int(end_second) - int(end)
 
-            interactions_list.append((chrom, start, end, chrom_second, start_second, end_second, relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
+            interactions_list.append((chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
 
         return interactions_list
 
@@ -265,6 +265,7 @@ class Viewpoint():
 
         region_end = int(pViewpoint[2]) + pRange[1]
         if region_end > max_length:
+            # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
             region_end = max_length - 1
         # log.debug('pViewpoint {}'.format(pViewpoint))
         # log.debug('pRange {}'.format(pRange))
@@ -363,7 +364,7 @@ class Viewpoint():
     def writePlotData(self, pInteractionFileDataRaw, pFileName, pBackgroundModel):
         interaction_file_data_raw_sorted = sorted(pInteractionFileDataRaw)
         with open(pFileName + '.bed', 'w') as output_file:
-            output_file.write('#ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\tZ-score\tRaw')
+            output_file.write('#ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw')
 
             if pBackgroundModel:
                 output_file.write('\tbackground model\tbackground model SEM\n')
@@ -373,11 +374,11 @@ class Viewpoint():
 
                 _array = pInteractionFileDataRaw[key]
 
-                output_file.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(_array[0], _array[1], _array[2],
-                                                                                  _array[3], _array[4], _array[5],
-                                                                                  _array[6], _array[7], _array[8], _array[9]))
+                output_file.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(_array[0], _array[1], _array[2],
+                                                                                      _array[3], _array[4], _array[5],
+                                                                                      _array[6], _array[7], _array[8], _array[9], _array[10]))
                 if pBackgroundModel:
-                    output_file.write('\t{}\t{}\n'.format(_array[10], _array[11]))
+                    output_file.write('\t{}\t{}\n'.format(_array[11], _array[12]))
                 else:
                     output_file.write('\n')
 
