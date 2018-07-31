@@ -69,7 +69,7 @@ def parse_arguments(args=None):
                            help='Plot rbz-score as a colorbar',
                            choices=['integrated', 'heatmap', ''],
                            default=''
-                           )                        
+                           )
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
@@ -131,8 +131,8 @@ def main(args=None):
             background_plot = False
         if args.rbzScore == 'heatmap':
             viewpointObj.plotZscore(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
-                                pLabelText=gene + ': ' + matrix_name, pCmap=args.colorMapZscore,
-                                pFigure=fig)
+                                    pLabelText=gene + ': ' + matrix_name, pCmap=args.colorMapZscore,
+                                    pFigure=fig)
         elif args.rbzScore == 'integrated':
             data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=z_score, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' rbz-score')
 
@@ -140,7 +140,7 @@ def main(args=None):
 
     if data_plot_label is not None:
         ax1.set_ylabel('Number of interactions')
-        ax1.set_xticks([0, viewpoint_index, len(data)-1])
+        ax1.set_xticks([0, viewpoint_index, len(data) - 1])
 
         if args.range:
             ax1.set_xticklabels([str(-args.range[0]), 'Viewpoint', str(args.range[1])])

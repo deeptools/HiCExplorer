@@ -277,6 +277,10 @@ class hiCMatrix:
             exit(1)
 
         try:
+            # log.debug('len(self.interval_trees[chrname]) {}'.format(len(self.interval_trees[chrname])))
+            # log.debug('startpos {}'.format(startpos))
+            # log.debug('endpos {}'.format(endpos))
+            # log.debug('{}'.format())
             startbin = sorted(self.interval_trees[chrname][startpos:startpos + 1])[0].data
             endbin = sorted(self.interval_trees[chrname][endpos:endpos + 1])[0].data
         except IndexError:

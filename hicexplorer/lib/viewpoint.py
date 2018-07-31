@@ -7,6 +7,7 @@ import copy
 import sys
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+
 class Viewpoint():
 
     def __init__(self, pHiCMatrix=None):
@@ -47,7 +48,7 @@ class Viewpoint():
                     gene_list.append(_line[3])
 
                 viewpoints.append((chrom, start, end))
-            
+
         return viewpoints, gene_list
 
     def readInteractionFile(self, pBedFile):
@@ -120,17 +121,17 @@ class Viewpoint():
         if the reference point is larger than one bin of the Hi-C matrix, it is considered as one bin and the values are summed together.
         '''
         view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(pReferencePoint)
-        log.debug('view_point_start {}'.format(view_point_start))
-        log.debug('view_point_end {}'.format(view_point_end))
+        # log.debug('view_point_start {}'.format(view_point_start))
+        # log.debug('view_point_end {}'.format(view_point_end))
 
         view_point_range = self.getViewpointRangeAsMatrixIndices(pChromViewpoint, pRegion_start, pRegion_end)
         view_point_range = list(view_point_range)
         view_point_range[1] += 1
-        log.debug('key view_point_range {} {}'.format(pRegion_start, pRegion_end))
-    
+        # log.debug('key view_point_range {} {}'.format(pRegion_start, pRegion_end))
+
         elements_of_viewpoint = (view_point_range[1] - view_point_range[0])
-        log.debug('view_point_range {}'.format(view_point_range))
-        log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
+        # log.debug('view_point_range {}'.format(view_point_range))
+        # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
         data_list = np.zeros(elements_of_viewpoint)
         _view_point_start = view_point_start
         # TODO: check border handling! --> view_point_range[1] + 1 issue
@@ -143,7 +144,7 @@ class Viewpoint():
 
         elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
         data_list_new = np.zeros(elements_of_viewpoint)
-        log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
+        # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
 
         index_before_viewpoint = view_point_start - view_point_range[0]
 
@@ -192,6 +193,7 @@ class Viewpoint():
         '''
         Returns the matrix indices of a chromosome and a specific position.
         '''
+
         _range = self.hicMatrix.getRegionBinRange(pChromViewpoint, pRegion_start, pRegion_end)
         # log.debug('_range {}'.format(_range))
         # log.debug('invert range[0], {} '.format(self.hicMatrix.getBinPos(_range[0])))
@@ -263,15 +265,14 @@ class Viewpoint():
 
         region_end = int(pViewpoint[2]) + pRange[1]
         if region_end > max_length:
-            region_end = max_length
-        log.debug('pViewpoint {}'.format(pViewpoint))
-        log.debug('pRange {}'.format(pRange))
-        log.debug('region_start {}'.format(region_start))
-        log.debug('region_end {}'.format(region_end))
+            region_end = max_length - 1
+        # log.debug('pViewpoint {}'.format(pViewpoint))
+        # log.debug('pRange {}'.format(pRange))
+        # log.debug('region_start {}'.format(region_start))
+        # log.debug('region_end {}'.format(region_end))
+        # log.debug('max_length {}'.format(max_length))
 
         return region_start, region_end
-
-    
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
         header, interaction_data, z_score_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
@@ -390,15 +391,15 @@ class Viewpoint():
                 background_model.append(pBackground[key][0])
                 background_model_sem.append(pBackground[key][1])
                 log.debug('key background {}'.format(key))
-        return  np.array(background_model), np.array(background_model_sem)
+        return np.array(background_model), np.array(background_model_sem)
 
     def rbz_score(self, pRelativeInteractions, pBackgroundModel, pBackgroundModelSEM):
         _rbz_score = np.empty(len(pRelativeInteractions))
         if len(pRelativeInteractions) != len(pBackgroundModel) or \
-            len(pRelativeInteractions) != len(pBackgroundModelSEM):
-            sys.exit('Computing of rbz-score failed, data is having different size. ' + 
-                            '\nrelative interactions {} background model {} background model SEM {}'.format(len(pRelativeInteractions), 
-                                                            len(pBackgroundModel), len(pBackgroundModelSEM)))
+                len(pRelativeInteractions) != len(pBackgroundModelSEM):
+            sys.exit('Computing of rbz-score failed, data is having different size. ' +
+                     '\nrelative interactions {} background model {} background model SEM {}'.format(len(pRelativeInteractions),
+                                                                                                     len(pBackgroundModel), len(pBackgroundModelSEM)))
             return
         _rbz_score = pRelativeInteractions - pBackgroundModel
         _rbz_score /= pBackgroundModelSEM
