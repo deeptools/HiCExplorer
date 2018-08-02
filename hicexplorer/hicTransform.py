@@ -82,7 +82,7 @@ def main(args=None):
 
     args = parse_arguments().parse_args(args)
 
-    hic_ma = hm.hiCMatrix(matrixFile=args.matrix)
+    hic_ma = hm.hiCMatrix(pMatrixFile=args.matrix)
     log.info("hic_ma.matrix: {}".format(hic_ma.matrix))
     if args.chromosomes:
         hic_ma.keepOnlyTheseChr(args.chromosomes)

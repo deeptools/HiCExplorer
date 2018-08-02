@@ -489,6 +489,7 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
     file_name = args.diagnosticHeatmapFile.name
     log.info('Heatmap file saved under: {}'.format(file_name))
     plt.savefig(file_name, dpi=args.dpi, bbox_inches='tight')
+    plt.close()
 
 
 def main(args=None):

@@ -1,0 +1,2 @@
+File	One mate not close to rest site	One mate not close to rest site %	dangling end	dangling end %	duplicated pairs	duplicated pairs %	same fragment	same fragment %	self circle	self circle %	self ligation (removed)	self ligation (removed) %
+R1_R2.cool	0	0.0	0	0.0	0	0.0	85	0.283333333333	0	0.0	0	0.0
