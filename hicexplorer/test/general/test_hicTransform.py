@@ -10,6 +10,7 @@ from os.path import basename, dirname
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 original_matrix = ROOT + "small_test_matrix_50kb_res.h5"
+DELTA_DECIMAL = 2
 
 
 def test_hic_transfer_all():
@@ -24,19 +25,19 @@ def test_hic_transfer_all():
     # obs_exp
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_small_50kb.h5")
     new = hm.hiCMatrix(dirname_new + "/obs_exp_" + basename_new)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(dirname_new + "/obs_exp_" + basename_new)
 
     # pearson
     test = hm.hiCMatrix(ROOT + "hicTransform/pearson_small_50kb.h5")
     new = hm.hiCMatrix(dirname_new + "/pearson_" + basename_new)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(dirname_new + "/pearson_" + basename_new)
 
     # covariance
     test = hm.hiCMatrix(ROOT + "hicTransform/covariance_small_50kb.h5")
     new = hm.hiCMatrix(dirname_new + "/covariance_" + basename_new)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(dirname_new + "/covariance_" + basename_new)
     os.unlink(outfile.name)
 
@@ -51,7 +52,7 @@ def test_hic_transfer_obs_exp():
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_small_50kb.h5")
 
     new = hm.hiCMatrix(outfile.name)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
 
 
@@ -66,7 +67,7 @@ def test_hic_transfer_pearson():
     test = hm.hiCMatrix(ROOT + "hicTransform/pearson_small_50kb.h5")
 
     new = hm.hiCMatrix(outfile.name)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
 
 
@@ -80,5 +81,5 @@ def test_hic_transfer_covariance():
     test = hm.hiCMatrix(ROOT + "hicTransform/covariance_small_50kb.h5")
 
     new = hm.hiCMatrix(outfile.name)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
