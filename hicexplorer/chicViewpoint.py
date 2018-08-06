@@ -79,7 +79,8 @@ def main(args=None):
         viewpointObj.hicMatrix = hic_ma
 
         for i, referencePoint in enumerate(referencePoints):
-            region_start, region_end = viewpointObj.calculateViewpointRange(referencePoint, args.range)
+            # log.debug('referencePoint {}'.format(referencePoint))
+            region_start, region_end, _range = viewpointObj.calculateViewpointRange(referencePoint, args.range)
 
             data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
             if args.averageContactBin > 0:
@@ -90,7 +91,7 @@ def main(args=None):
 
             if args.backgroundModelFile:
                 _background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
-                _backgroundModelData, _backgroundModelSEM = viewpointObj.interactionBackgroundData(_background_model, args.range)
+                _backgroundModelData, _backgroundModelSEM = viewpointObj.interactionBackgroundData(_background_model, _range)
                 rbz_score_data = viewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
 
             interaction_data = viewpointObj.createInteractionFileData(referencePoint, referencePoint[0],

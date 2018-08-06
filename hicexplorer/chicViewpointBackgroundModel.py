@@ -81,7 +81,7 @@ def main():
         bin_size = hic_ma.getBinSize()
         for referencePoint in referencePoints:
 
-            region_start, region_end = viewpointObj.calculateViewpointRange(referencePoint, args.range)
+            region_start, region_end, _ = viewpointObj.calculateViewpointRange(referencePoint, args.range)
 
             data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
 

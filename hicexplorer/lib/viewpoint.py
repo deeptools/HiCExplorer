@@ -134,7 +134,7 @@ class Viewpoint():
         # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
         data_list = np.zeros(elements_of_viewpoint)
         _view_point_start = view_point_start
-        # TODO: check border handling! --> view_point_range[1] + 1 issue
+
         while _view_point_start <= view_point_end:
             chrom, start, end, _ = self.hicMatrix.getBinPos(_view_point_start)
             for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
@@ -257,23 +257,30 @@ class Viewpoint():
         This function computes the correct start and end position of a viewpoint given the viewpoint and the range.
         '''
         # log.debug('self.hicMatrix.getChrBinRange(pViewpoint[0]) {}'.format(self.hicMatrix.getChrBinRange(pViewpoint[0])))
-        max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
-
+        max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[1]
+        # log.debug()
+        _range = [pRange[0], pRange[1]]
         region_start = int(pViewpoint[1]) - pRange[0]
         if region_start < 0:
             region_start = 0
+            # _range[0] = self.hicMatrix.getBinSize * divmod(int(pViewpoint[1]), self.hicMatrix.getBinSize())[0]
+            _range[0] = int(pViewpoint[1])
 
         region_end = int(pViewpoint[2]) + pRange[1]
         if region_end > max_length:
             # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
             region_end = max_length - 1
+            # log.debug('max_length {}'.format(max_length))
+            # _range[1] = self.hicMatrix.getBinSize * divmod((max_length - int(pViewpoint[2])), self.hicMatrix.getBinSize())[0]
+            _range[1] = (max_length - int(pViewpoint[2]))
+
         # log.debug('pViewpoint {}'.format(pViewpoint))
         # log.debug('pRange {}'.format(pRange))
         # log.debug('region_start {}'.format(region_start))
         # log.debug('region_end {}'.format(region_end))
         # log.debug('max_length {}'.format(max_length))
 
-        return region_start, region_end
+        return region_start, region_end, _range
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
         header, interaction_data, z_score_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
@@ -386,12 +393,12 @@ class Viewpoint():
 
         background_model = []
         background_model_sem = []
-
+        # log.debug('pRange {}'.format(pRange))
         for key in pBackground:
             if key >= -pRange[0] and key <= pRange[1]:
                 background_model.append(pBackground[key][0])
                 background_model_sem.append(pBackground[key][1])
-                log.debug('key background {}'.format(key))
+                # log.debug('key background {}'.format(key))
         return np.array(background_model), np.array(background_model_sem)
 
     def rbz_score(self, pRelativeInteractions, pBackgroundModel, pBackgroundModelSEM):
