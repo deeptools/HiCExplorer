@@ -5,10 +5,10 @@ from past.builtins import zip
 from six import iteritems
 
 import numpy as np
-import os
-
+# import os
+import sys
 from collections import OrderedDict
-from scipy.sparse import csr_matrix, dia_matrix, coo_matrix, triu, tril
+from scipy.sparse import csr_matrix, dia_matrix, triu, tril
 from scipy.sparse import vstack as sparse_vstack
 from scipy.sparse import hstack as sparse_hstack
 import tables
@@ -16,8 +16,8 @@ from intervaltree import IntervalTree, Interval
 from .utilities import toBytes
 from .utilities import toString
 from .utilities import check_chrom_str_bytes
-
-import gzip
+from .lib import MatrixFileHandler
+# import gzip
 
 import cooler
 
@@ -34,11 +34,11 @@ warnings.simplefilter(action='ignore', category=tables.exceptions.FlavorWarning)
 
 
 # try to import pandas if exists
-try:
-    import pandas as pd
-    pandas = True
-except ImportError:
-    pandas = False
+# try:
+#     import pandas as pd
+#     pandas = True
+# except ImportError:
+#     pandas = False
 
 
 class hiCMatrix:
@@ -48,273 +48,80 @@ class hiCMatrix:
     get sub matrices by chrname.
     """
 
-    def __init__(self, matrixFile=None, file_format=None, skiprows=None, chrnameList=None, bplimit=None,
-                 cooler_only_init=None, pIntraChromosomalOnly=None):
-        self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
+    def __init__(self, pMatrixFile=None, pChrnameList=None, pCooler_only_init=None,
+                 pApplyCorrectionCooler=None):
+        # self.correction_factors = None  # this value is set in case a matrix was iteratively corrected
         self.non_homogeneous_warning_already_printed = False
-        self.distance_counts = None  # only defined when getCountsByDistance is called
+        # self.distance_counts = None  # only defined when getCountsByDistance is called
         self.bin_size = None
         self.bin_size_homogeneous = None  # track if the bins are equally spaced or not
-        self.nan_bins = np.array([])
-        # self.uncorrected_matrix = None
+        self.uncorrected_matrix = None
 
-        # when NaN bins are masked, this variable becomes contains the bin index
-        # needed to put the masked bins back into the matrix.
+        self.matrix = None
+        self.cut_intervals = None
+        self.nan_bins = None
+        self.correction_factors = None
+        self.distance_counts = None
+        # # when NaN bins are masked, this variable becomes contains the bin index
+        # # needed to put the masked bins back into the matrix.
         self.orig_bin_ids = []
         self.orig_cut_intervals = []  # similar to orig_bin_ids. Used to identify the position of masked nan bins
+        self.matrixFileHandler = None
 
-        if matrixFile:
-            self.nan_bins = np.array([])
+        if pMatrixFile is not None:
+            log.debug('Load self.matrixFileHandler')
+            fileType = 'cool'
+            if pMatrixFile.endswith('.h5'):
+                fileType = 'h5'
+            self.matrixFileHandler = MatrixFileHandler(pFileType=fileType, pMatrixFile=pMatrixFile, pChrnameList=pChrnameList, pCooler_only_init=pCooler_only_init,
+                                                       pApplyCorrectionCooler=pApplyCorrectionCooler)
+            self.matrix, self.cut_intervals, self.nan_bins, \
+                self.correction_factors, self.distance_counts = self.matrixFileHandler.load()
 
-            if file_format is None or file_format == 'hic_matrix':
-                if matrixFile.endswith(".npz"):
-                    file_format = 'npz'
-                elif matrixFile.endswith(".h5"):
-                    file_format = 'h5'
-                elif matrixFile.endswith('.gz'):
-                    file_format = 'dekker'
-                elif check_cooler(matrixFile):
-                    file_format = 'cool'
-                # by default assume that the matrix file_format is hd5
-                else:
-                    file_format = 'h5'
+            # log.info('self.matrix {}'.format(self.matrix))
+            # log.info('self.cut_intervals {}'.format(self.cut_intervals))
+            # log.info('self.nan_bins {}'.format(self.nan_bins))
+            # log.info('self.correction_factors {}'.format(self.correction_factors))
+            # log.info('self.distance_counts {}'.format(self.distance_counts))
+            # log.info('self.matrix {}'.format(self.matrix))
+            if self.nan_bins is None:
+                self.nan_bins = np.array([])
+            # log.debug('Apply fillLowerTriangle')
+            # log.debug('self.matix before: {}'.format(self.matrix))
+            # log.debug('self.matix.shape before: {}'.format(self.matrix.shape))
 
-            if file_format == 'h5' or file_format == 'hicexplorer':
-                self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
-                    hiCMatrix.load_h5(matrixFile)
-                self.restoreMaskedBins()
+            self.fillLowerTriangle()
+            # log.debug('self.matix after: {}'.format(self.matrix))
 
-            elif file_format == 'npz':
-                self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
-                    hiCMatrix.load_npz(matrixFile)
-                self.restoreMaskedBins()
-
-            elif file_format == 'dekker':
-                self.cut_intervals = self.getDekkerBins(matrixFile)
-                if not skiprows:
-                    # +1 to also skip the column labels
-                    skiprows = len(self.header) + 1
-                self.matrix = csr_matrix(
-                    np.loadtxt(matrixFile,
-                               skiprows=skiprows,
-                               usecols=list(range(1, len(self.cut_intervals) + 1))))
-
-                """
-                # convert nans to zeros
-                self.matrix.data[np.isnan(self.matrix.data)] = 0
-                self.matrix.eliminate_zeros()
-                # mask zero count bins:
-                row_sum = np.asarray(self.matrix.sum(axis=1)).flatten()
-                self.maskBins(np.flatnonzero(row_sum==0))
-                """
-            # elif file_format == 'lieberman':  # lieberman format needs additional arguments : chrnameList
-            #     lieberman_data = self.getLiebermanBins(filenameList=matrixFile, chrnameList=chrnameList)
-            #     self.cut_intervals = lieberman_data['cut_intervals']
-            #     self.matrix = lieberman_data['matrix']
-            elif file_format == 'lieberman':  # lieberman format needs additional arguments : chrnameList
-                lieberman_data = self.getLiebermanBins(filenameList=matrixFile, chrnameList=chrnameList)
-                self.cut_intervals = lieberman_data['cut_intervals']
-                self.matrix = lieberman_data['matrix']
-            elif file_format == 'cool':
-                # if not cooler.io.is_cooler(matrixFile) or '.mcool' not in:
-                #     exit("Input file ends with '.cool' but is not in cooler file format: {}".format(matrixFile))
-                if cooler_only_init:
-                    self.load_cool_only_init(matrixFile)
-                    self.cut_intervals = None
-                    self.nan_bins = None
-                    self.distance_counts = None
-                    self.correction_factors = None
-                    self.matrix = None
-                    return
-                else:
-                    self.matrix, self.cut_intervals, self.nan_bins, self.distance_counts, self.correction_factors = \
-                        self.load_cool(matrixFile, pChrnameList=chrnameList, pIntraChromosomalOnly=pIntraChromosomalOnly)
-                    self.restoreMaskedBins()
-            else:
-                exit("matrix format not known.")
-
+            self.restoreMaskedBins()
             self.interval_trees, self.chrBinBoundaries = \
                 self.intervalListToIntervalTree(self.cut_intervals)
+        elif pCooler_only_init:
+            self.matrixFileHandler = MatrixFileHandler()
+        elif pMatrixFile is None:
+            # self.matrixFileHandler = MatrixFileHandler()
 
-    def load_cool_only_init(self, pMatrixFile):
-        self.cooler_file = cooler.Cooler(pMatrixFile)
-
-    def load_cool_matrix(self, pChr):
-        return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
-
-    def load_cool(self, pMatrixFile, pChrnameList=None, pMatrixOnly=None, pIntraChromosomalOnly=None):
-        try:
-            cooler_file = cooler.Cooler(pMatrixFile)
-        except Exception:
-            log.info("Could not open cooler file. Maybe the path is wrong or the given node is not available.")
-            log.info('The following file was tried to open: {}'.format(pMatrixFile))
-            log.info("The following nodes are available: {}".format(cooler.io.ls(pMatrixFile.split("::")[0])))
-            exit()
-
-        if pChrnameList is None:
-            matrix = cooler_file.matrix(balance=False, sparse=True)[:].tocsr()
+            log.info('Only init object, no matrix given.')
         else:
-            if len(pChrnameList) == 1:
-                try:
-                    matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0]).tocsr()
-                except ValueError:
-                    exit("Wrong chromosome format. Please check UCSC / ensembl notation.")
-            else:
-                exit("Operation to load more as one region is not supported.")
+            log.error('matrix file not given')
+            sys.exit(1)
 
-        cut_intervals_data_frame = None
-        correction_factors_data_frame = None
-
-        if pChrnameList is not None:
-            if len(pChrnameList) == 1:
-                cut_intervals_data_frame = cooler_file.bins().fetch(pChrnameList[0])
-
-                if 'weight' in cut_intervals_data_frame:
-                    correction_factors_data_frame = cut_intervals_data_frame['weight']
-            else:
-                exit("Operation to load more than one chr from bins is not supported.")
-        else:
-            if 'weight' in cooler_file.bins():
-                correction_factors_data_frame = cooler_file.bins()[['weight']][:]
-
-            cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end']][:]
-
-        correction_factors = None
-        if correction_factors_data_frame is not None:
-            log.debug("Apply correction factors")
-            # apply correction factors to matrix
-            # a_i,j = a_i,j / c_i *c_j
-            matrix.eliminate_zeros()
-            matrix.data = matrix.data.astype(float)
-
-            correction_factors = convertNansToOnes(np.array(correction_factors_data_frame.values).flatten())
-            # apply only if there are not only 1's
-            if np.sum(correction_factors) != len(correction_factors):
-                instances, features = matrix.nonzero()
-                instances_factors = correction_factors[instances]
-                features_factors = correction_factors[features]
-                instances_factors *= features_factors
-                matrix.data /= instances_factors
-
-        cut_intervals = []
-
-        for values in cut_intervals_data_frame.values:
-            cut_intervals.append(tuple([toString(values[0]), values[1], values[2], 1.0]))
-
-        # try to restore nan_bins.
-        try:
-            shape = matrix.shape[0] if matrix.shape[0] < matrix.shape[1] else matrix.shape[1]
-            nan_bins = np.array(range(shape))
-            nan_bins = np.setxor1d(nan_bins, matrix.indices)
-
-            i = 0
-            while i < len(nan_bins):
-                if nan_bins[i] >= shape:
-                    break
-                i += 1
-            nan_bins = nan_bins[:i]
-
-        except Exception:
-            nan_bins = None
-
-        distance_counts = None
-
-        matrix = hiCMatrix.fillLowerTriangle(matrix)
-
-        return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
-
-    @staticmethod
-    def load_h5(matrix_filename):
+    def save(self, pMatrixName, pSymmetric=True, pApplyCorrection=False):
+        """ As an output format cooler and mcooler are supported.
         """
-        Loads a matrix stored in h5 format
-        :param matrix_filename:
-        :return: matrix, cut_intervals, nan_bins, distance_counts, correction_factors
-        """
-        with tables.open_file(matrix_filename) as f:
-            parts = {}
-            for matrix_part in ('data', 'indices', 'indptr', 'shape'):
-                parts[matrix_part] = getattr(f.root.matrix, matrix_part).read()
+        if self.matrixFileHandler is None:
+            fileType = 'cool'
+            if pMatrixName.endswith('h5'):
+                fileType = 'h5'
+            self.matrixFileHandler = MatrixFileHandler(pFileType=fileType)
 
-            matrix = csr_matrix(tuple([parts['data'], parts['indices'], parts['indptr']]),
-                                shape=parts['shape'])
-            matrix = hiCMatrix.fillLowerTriangle(matrix)
-            # get intervals
-            intvals = {}
-            for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
-                if toString(interval_part) == toString('chr_list'):
-                    chrom_list = getattr(f.root.intervals, interval_part).read()
-                    intvals[interval_part] = toString(chrom_list)
-                else:
-                    intvals[interval_part] = getattr(f.root.intervals, interval_part).read()
+        self.restoreMaskedBins()
+        self.matrixFileHandler.set_matrix_variables(self.matrix, self.cut_intervals, self.nan_bins,
+                                                    self.correction_factors, self.distance_counts)
+        if pMatrixName.endswith('cool') or pMatrixName.endswith('h5'):
+            self.matrixFileHandler.save(pMatrixName, pSymmetric=pSymmetric, pApplyCorrection=pApplyCorrection)
 
-            cut_intervals = zip(intvals['chr_list'], intvals['start_list'], intvals['end_list'], intvals['extra_list'])
-            assert len(cut_intervals) == matrix.shape[0], \
-                "Error loading matrix. Length of bin intervals ({}) is different than the " \
-                "size of the matrix ({})".format(len(cut_intervals), matrix.shape[0])
-
-            # get nan_bins
-            if hasattr(f.root, 'nan_bins'):
-                nan_bins = f.root.nan_bins.read()
-            else:
-                nan_bins = np.array([])
-
-            # get correction factors
-            if hasattr(f.root, 'correction_factors'):
-                correction_factors = f.root.correction_factors.read()
-                assert len(correction_factors) == matrix.shape[0], \
-                    "Error loading matrix. Length of correction factors does not" \
-                    "match size of matrix"
-            else:
-                correction_factors = None
-
-            # get correction factors
-            if hasattr(f.root, 'distance_counts'):
-                distance_counts = f.root.correction_factors.read()
-            else:
-                distance_counts = None
-
-            return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
-
-    @staticmethod
-    def load_npz(matrixFile):
-        _ma = np.load(matrixFile, fix_imports=True, encoding="latin1")
-        matrix = hiCMatrix.fillLowerTriangle(_ma['matrix'].tolist())
-        if 'dist_counts' not in _ma:
-            distance_counts = None
-        else:
-            distance_counts = _ma['dist_counts'].tolist()
-
-        cut_intervals = zip(toString(_ma['chrNameList']), _ma['startList'],
-                            _ma['endList'], _ma['extraList'])
-
-        assert len(cut_intervals) == matrix.shape[0], \
-            "Corrupted matrix file. Matrix size and " \
-            "matrix bin definitions do not correspond"
-        if 'nan_bins' in list(_ma):
-            nan_bins = _ma['nan_bins']
-        else:
-            nan_bins = np.array([])
-
-        if 'correction_factors' in list(_ma):
-            try:
-                # None value
-                # for correction_factors is saved by numpy
-                # as: array(None, dtype=object)
-                # Thus, to get the original None value
-                # the first item of the array is taken.
-                _ma['correction_factors'][0]
-                assert len(_ma['correction_factors']) == matrix.shape[0], \
-                    "length of correction factors and length of matrix are different."
-                correction_factors = _ma['correction_factors']
-            except IndexError:
-                correction_factors = None
-        else:
-            correction_factors = None
-
-        return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
-
-    @staticmethod
-    def fillLowerTriangle(matrix):
+    def fillLowerTriangle(self):
         """
         checks if the matrix is complete or if only half of the matrix was saved.
         Returns a whole matrix.
@@ -323,7 +130,10 @@ class hiCMatrix:
         >>> import numpy as np
         >>> A = csr_matrix(np.array([[12,5,3,2,0],[0,11,4,1,1],
         ... [0,0,9,6,0], [0,0,0,10,0], [0,0,0,0,0]]), dtype=np.int32)
-        >>> B = hiCMatrix.fillLowerTriangle(A)
+        >>> hm = hiCMatrix()
+        >>> hm.matrix = A
+        >>> hm.fillLowerTriangle()
+        >>> B = hm.matrix
         >>> B.todense()
         matrix([[12,  5,  3,  2,  0],
                 [ 5, 11,  4,  1,  1],
@@ -332,14 +142,15 @@ class hiCMatrix:
                 [ 0,  1,  0,  0,  0]], dtype=int32)
 
         """
-        if tril(matrix, k=-1).sum() == 0:
+        # log.debug('sum of tril: {}'.format(tril(self.matrix, k=-1).sum()))
+        if tril(self.matrix, k=-1).sum() == 0:
             # this case means that the lower triangle of the
             # symmetric matrix (below the main diagonal)
             # is zero. In this case, replace the lower
             # triangle using the upper triangle
-            matrix = matrix + triu(matrix, 1).T
+            self.matrix = self.matrix + triu(self.matrix, 1).T
 
-        return matrix
+        # return matrix
 
     def setCutIntervals(self, cut_intervals):
         """
@@ -397,96 +208,6 @@ class hiCMatrix:
             self.bin_size = median
         return self.bin_size
 
-    def getDekkerBins(self, fileName):
-        """
-        Reads a gziped Hi-C matrix in Decker's format
-        This format has row and column headers and comments
-        with the prefix '#'. The following code skips the
-        header while saving it in the self.header list
-        and then reads and returns the column headers.
-        The headers have the format bin_id|species|chrom:start-end
-        for example 'bin1000000|dm3|chr4:1-50001'
-        """
-
-        i = 0
-        self.header = []
-        try:
-            for line in gzip.open(fileName, 'rb').readlines():
-
-                if line.startswith(b"#"):
-                    self.header.append(line)
-                    continue
-                i += 1
-                if i == 1:  # this is the first line that is not
-                            # a comment which contains the column headers
-                            # that are equal to the row headers
-                    colLabels = line.split(b"\t")
-                    nameList = []
-                    startList = []
-                    endList = []
-                    binIdList = []
-
-                    for lab in colLabels[1:]:
-                        (binId, species, position) = lab.split(b"|")
-                        (chrName, pos) = position.split(b":")
-                        (start, end) = pos.split(b"-")
-                        binIdList.append(binId)
-                        nameList.append(chrName)
-                        startList.append(int(start))
-                        endList.append(int(end))
-                    break
-
-        except IOError:
-            log.exception("Error reading {}.\nDoes the file exists? "
-                          "Is it gzipped?".format(fileName))
-            exit(1)
-
-        return zip(nameList, startList, endList, binIdList)
-
-    def getLiebermanBins(self, filenameList, chrnameList, pandas=pandas):
-        """
-        Reads a list of txt file in liberman's format and returns
-        cut intervals and matrix. Each file is seperated by chr name
-        and contains: locus1,locus2,and contact score seperated by tab.
-        """
-
-        # Create empty row, col, value for the matrix
-
-        row = np.array([]).astype("int")
-        col = np.array([]).astype("int")
-        value = np.array([])
-        cut_intervals = []
-        dim = 0
-        # for each chr, append the row, col, value to the first one. Extend the dim
-        for i in range(0, len(filenameList)):
-            if pandas is True:
-                chrd = pd.read_csv(filenameList[i], sep="\t", header=None)
-                chrdata = chrd.as_matrix()
-            else:
-                log.info("Pandas unavailable. Reading files using numpy (slower)..")
-                chrdata = np.loadtxt(filenameList[i])
-
-            # define resolution as the median of the difference of the rows
-            # in the data table.
-
-            resolution = np.median(np.diff(np.unique(np.sort(chrdata[:, 1]))))
-
-            chrcol = (chrdata[:, 1] / resolution).astype(int)
-            chrrow = (chrdata[:, 0] / resolution).astype(int)
-
-            chrdim = max(max(chrcol), max(chrrow)) + 1
-            row = np.concatenate([row, chrrow + dim])
-            col = np.concatenate([col, chrcol + dim])
-            value = np.concatenate([value, chrdata[:, 2]])
-            dim += chrdim
-
-            for _bin in range(chrdim):
-                cut_intervals.append((chrnameList[i], _bin * resolution, (_bin + 1) * resolution, 0))
-
-        final_mat = coo_matrix((value, (row, col)), shape=(dim, dim))
-        lieberman_data = dict(cut_intervals=cut_intervals, matrix=final_mat)
-        return lieberman_data
-
     def getMatrix(self):
         matrix = self.matrix.todense()
         if len(self.nan_bins):
@@ -506,12 +227,7 @@ class hiCMatrix:
         Given a chromosome name,
         This functions return the start and end bin indices in the matrix
         """
-        # chrName = check_chrom_str_bytes(self.chrBinBoundaries, chrName)
-        # if type(next(iter(self.chrBinBoundaries))) != type(chrName):
-        #     if type(next(iter(self.chrBinBoundaries))) is str:
-        #         chrName = toString(chrName)
-        #     elif type(next(iter(self.chrBinBoundaries))) in [bytes, np.bytes_]:
-        #         chrName = toBytes(chrName)
+
         return self.chrBinBoundaries[chrName]
 
     def getChrNames(self):
@@ -545,12 +261,16 @@ class hiCMatrix:
                 elif type(next(iter(self.interval_trees))) is np.bytes_:
                     chrname = toBytes(chrname)
             # chr_end_pos = chromosome_size[chrname]
-            self.interval_trees[chrname]
+            # self.interval_trees[chrname]
+            if chrname not in self.interval_trees:
+                log.exception("chromosome: {} name not found in matrix".format(chrname))
+                log.exception("valid names are:")
+                exit(1)
         except KeyError:
 
             log.exception("chromosome: {} name not found in matrix".format(chrname))
             log.exception("valid names are:")
-            log.exception(self.interval_trees.keys())
+            # log.exception(list(self.interval_trees))
             exit(1)
         try:
             startpos = int(startpos)
@@ -561,9 +281,13 @@ class hiCMatrix:
             exit(1)
 
         try:
+
             startbin = sorted(self.interval_trees[chrname][startpos:startpos + 1])[0].data
             endbin = sorted(self.interval_trees[chrname][endpos:endpos + 1])[0].data
         except IndexError:
+            # log.exception("chrname: " + chrname)
+            # log.exception("len intervaltree: "+len(self.interval_trees[chrname]))
+            # log.exception("start and end pos:" + startpos + ":::" + endpos )
             log.exception("Index error")
             return None
 
@@ -703,19 +427,19 @@ class hiCMatrix:
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.setMatrix(hic.matrix, cut_intervals)
         >>> hic.convert_to_obs_exp_matrix().todense()
-        matrix([[ 1. ,  0.8,  1. ,  1. ,  0. ],
-                [ 0. ,  4. ,  1.5,  1. ,  1. ],
-                [ 0. ,  0. ,  0. ,  0.7,  2. ],
-                [ 0. ,  0. ,  0. ,  0. ,  1. ],
-                [ 0. ,  0. ,  0. ,  0. ,  0. ]])
+        matrix([[1. , 0.8, 1. , 1. , 0. ],
+                [0. , 4. , 1.5, 1. , 1. ],
+                [0. , 0. , 0. , 0.7, 2. ],
+                [0. , 0. , 0. , 0. , 1. ],
+                [0. , 0. , 0. , 0. , 0. ]])
 
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.convert_to_obs_exp_matrix(maxdepth=20).todense()
-        matrix([[ 1. ,  0.8,  1. ,  0. ,  0. ],
-                [ 0. ,  4. ,  1.5,  1. ,  0. ],
-                [ 0. ,  0. ,  0. ,  0.7,  nan],
-                [ 0. ,  0. ,  0. ,  0. ,  nan],
-                [ 0. ,  0. ,  0. ,  0. ,  0. ]])
+        matrix([[1. , 0.8, 1. , 0. , 0. ],
+                [0. , 4. , 1.5, 1. , 0. ],
+                [0. , 0. , 0. , 0.7, nan],
+                [0. , 0. , 0. , 0. , nan],
+                [0. , 0. , 0. , 0. , 0. ]])
 
         >>> hic.matrix = csr_matrix(matrix)
         >>> hic.convert_to_obs_exp_matrix(zscore=True).todense()
@@ -755,7 +479,7 @@ class hiCMatrix:
                 depth = max_depth_in_bins
             else:
                 depth = m_size
-                estimated_size_dense_matrix = m_size**2 * 8
+                estimated_size_dense_matrix = m_size ** 2 * 8
                 if estimated_size_dense_matrix > 100e6:
                     log.info("To compute z-scores a dense matrix is required. This will use \n"
                              "{} Mb of memory.\n To reduce memory use the maxdeph option."
@@ -910,158 +634,6 @@ class hiCMatrix:
 
         return self.matrix
 
-    def getCountsByDistance(self, mean=False, per_chr=False):
-        """
-        computes counts for each intrachromosomal distance.
-        better used with a corrected matrix
-
-
-        Parameters
-        ----------
-        mean : if set to true (default) the mean of the distance value is returned instead of a list with each of the
-                elements
-        per_chr: set to true if the computation should be done per chromosome
-
-        Returns
-        -------
-        returns a dictionary having as key the distance
-        and as value an array containing the matrix values
-        corresponding to that distance
-
-
-        Examples
-        --------
-        >>> from scipy.sparse import coo_matrix
-        >>> import numpy as np
-        >>> row, col = np.triu_indices(5)
-        >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
-        ... ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
-        >>> hic = hiCMatrix()
-        >>> hic.nan_bins = []
-        >>> matrix = np.array([
-        ... [ 0, 10,  5, 3, 0],
-        ... [ 0,  0, 15, 5, 1],
-        ... [ 0,  0,  0, 7, 3],
-        ... [ 0,  0,  0, 0, 1],
-        ... [ 0,  0,  0, 0, 0]])
-
-        make the matrix symmetric:
-        >>> hic.matrix = csr_matrix(matrix + matrix.T)
-        >>> hic.setMatrix(csr_matrix(matrix + matrix.T), cut_intervals)
-        >>> result = hic.getCountsByDistance()
-        >>> result_sorted = sorted(result)
-        >>> for r in result_sorted:
-        ...     print(result[r])
-        [0 1 3 1]
-        [0 0 0 0 0]
-        [10 15  7]
-        [5 5]
-        [3]
-
-        Test get distance counts per chromosome
-        >>> hic.distance_counts = None
-        >>> result = hic.getCountsByDistance(per_chr=True)
-        >>> result_sorted = sorted(result)
-        >>> for r in result_sorted:
-        ...     result_tmp = sorted(result[r])
-        ...     for i in result_tmp:
-        ...         print(result[r][i])
-        [0 0 0 0]
-        [10 15  7]
-        [5 5]
-        [3]
-        [0]
-
-        Test the removal of masked bins
-        >>> hic.nan_bins = [3]
-        >>> hic.distance_counts = None
-        >>> result = hic.getCountsByDistance()
-        >>> result_sorted = sorted(result)
-        >>> for r in result_sorted:
-        ...     print(result[r])
-        [0 1 3]
-        [0 0 0 0]
-        [10 15]
-        [5]
-
-        Test bins that are of different size
-        >>> cut_intervals = [('a', 0, 12, 1), ('a', 12, 25, 1),
-        ... ('a', 25, 35, 1), ('a', 35, 41, 1), ('b', 41, 50, 1)]
-        >>> hic = hiCMatrix()
-        >>> hic.nan_bins = []
-        >>> hic.matrix = csr_matrix(matrix + matrix.T)
-        >>> hic.setMatrix(csr_matrix(matrix + matrix.T), cut_intervals)
-        >>> result = hic.getCountsByDistance()
-        >>> result_sorted = sorted(result)
-        >>> for r in result_sorted:
-        ...     print(result[r])
-        [0 1 3 1]
-        [0 0 0 0 0]
-        [10 15  7]
-        [5 5]
-        [3]
-        """
-
-        if self.distance_counts:
-            return self.distance_counts
-
-        cut_intervals = hiCMatrix.fit_cut_intervals(self.cut_intervals)
-
-        M, N = self.matrix.shape
-        # get the row and col indices of the upper triangle
-        # of a square matrix of size M
-        rows, cols = np.triu_indices(M)
-
-        # put a negative number to all masked bins
-        #
-        # the upper triangle of the sparse data matrix is
-        # converted into a dense matrix and represented
-        # as a vector
-        data = np.asarray(self.matrix.todense()[(rows, cols)]).flatten()
-
-        # convert nans to zeros. Otherwise the computations will fail
-        if np.any(np.isnan(data)):
-            num_nan = len(np.flatnonzero(np.isnan(data)))
-            log.info("converting {} ({:.2f}) nans "
-                     "to zeros".format(num_nan,
-                                       float(num_nan) / len(data)))
-            data[np.isnan(data)] = 0
-
-        # get a vector of all distances. The order is the same
-        # as the 'data' vector
-        dist_list, chrom_list = hiCMatrix.getDistList(rows, cols,
-                                                      cut_intervals)
-
-        """
-        remove all zeros corresponding to masked bins, needs to be done
-        after the dist_list computation to get the distances right
-        """
-        # compute the overlap between rows and self.nan_bins
-        # The row_res vector is boolean and contains 'False'
-        # for all row ids that are in self.nan_bin
-        row_res = np.invert(np.in1d(rows, self.nan_bins))
-        col_res = np.invert(np.in1d(cols, self.nan_bins))
-
-        # get data values for which row_res and col_res are both true
-        data = data[row_res & col_res]
-        dist_list = dist_list[row_res & col_res]
-        chrom_list = chrom_list[row_res & col_res]
-
-        if per_chr:
-            distance = {}
-            for chr_name in self.getChrNames():
-                _chr_data = data[chrom_list == chr_name]
-                _chr_dist_list = dist_list[chrom_list == chr_name]
-                distance[chr_name] = hiCMatrix.dist_list_to_dict(_chr_data,
-                                                                 _chr_dist_list)
-        else:
-            distance = hiCMatrix.dist_list_to_dict(data, dist_list)
-        self.distance_counts = distance
-        if mean:
-            return [np.mean(distance[x]) for x in range(len(distance))]
-        else:
-            return distance
-
     @staticmethod
     def dist_list_to_dict(data, dist_list):
         """
@@ -1101,20 +673,6 @@ class hiCMatrix:
             distance[distance_unique[index]] = groups[index]
 
         return distance
-
-    @staticmethod
-    def getUnwantedChrs():
-        # too drosophila specific. Should remove this function
-        unwanted_chr = {'chrM', 'chrYHet', 'chrXHet', 'chrUextra', 'chrU', 'chr3RHet', 'chr3LHet', 'chr2RHet',
-                        'chr2LHet'}
-        return unwanted_chr
-
-    def filterUnwantedChr(self, chromosome=None):
-        if chromosome:
-            self.keepOnlyTheseChr([chromosome])
-        else:
-            wanted = set(self.getChrNames()).difference(self.getUnwantedChrs())
-            self.keepOnlyTheseChr(wanted)
 
     def keepOnlyTheseChr(self, chromosome_list):
         """
@@ -1177,325 +735,331 @@ class hiCMatrix:
         self.matrix = mat
         return self.matrix
 
-    def save_bing_ren(self, fileName):
-        """
-        Saves the matrix using bing ren's
-        method which is chrom_name\tstart_bin\tend_bin\tvalues...
-        """
-        if os.path.isdir(fileName):
-            exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(fileName))
+# <<<<<<< HEAD
+# =======
+#     def save_bing_ren(self, fileName):
+#         """
+#         Saves the matrix using bing ren's
+#         method which is chrom_name\tstart_bin\tend_bin\tvalues...
+#         """
+#         if os.path.isdir(fileName):
+#             exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(fileName))
 
-        if fileName[-3:] != '.gz':
-            fileName += '.gz'
+#         if fileName[-3:] != '.gz':
+#             fileName += '.gz'
 
-        try:
-            fileh = gzip.open(fileName, 'wt')
-        except IOError:
-            msg = "{} file can't be opened for writing".format(fileName)
-            raise msg
+#         try:
+#             fileh = gzip.open(fileName, 'wt')
+#         except IOError:
+#             msg = "{} file can't be opened for writing".format(fileName)
+#             raise msg
 
-        colNames = []
-        for x in range(self.matrix.shape[0]):
-            chrom, start, end = self.cut_intervals[x][0:3]
-            colNames.append("{}\t{}\t{}".format(chrom, start, end))
+#         colNames = []
+#         for x in range(self.matrix.shape[0]):
+#             chrom, start, end = self.cut_intervals[x][0:3]
+#             colNames.append("{}\t{}\t{}".format(chrom, start, end))
 
-        for row in range(self.matrix.shape[0]):
-            values = [str(x) for x in self.matrix[row, :].toarray().flatten()]
-            fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values)))
+#         for row in range(self.matrix.shape[0]):
+#             values = [str(x) for x in self.matrix[row, :].toarray().flatten()]
+#             fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values)))
 
-        fileh.close()
+#         fileh.close()
 
-    def save_dekker(self, fileName):
-        """
-        Saves the matrix using dekker format
-        """
-        if os.path.isdir(fileName):
-            exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(fileName))
+#     def save_dekker(self, fileName):
+#         """
+#         Saves the matrix using dekker format
+#         """
+#         if os.path.isdir(fileName):
+#             exit('Please specify a file name to save the data. The given file name is a folder: \n{}\n'.format(fileName))
 
-        if fileName[-3:] != '.gz':
-            fileName += '.gz'
+#         if fileName[-3:] != '.gz':
+#             fileName += '.gz'
 
-        try:
-            fileh = gzip.open(fileName, 'wt')
-        except IOError:
-            msg = "{} file can't be opened for writing".format(fileName)
-            raise msg
+#         try:
+#             fileh = gzip.open(fileName, 'wt')
+#         except IOError:
+#             msg = "{} file can't be opened for writing".format(fileName)
+#             raise msg
 
-        colNames = []
-        for x in range(self.matrix.shape[0]):
-            chrom, start, end = self.cut_intervals[x][0:3]
-            colNames.append("{}|--|{}:{}-{}".format(x, toString(chrom), start, end))  # adds dm3 to the end (?problem..)
+#         colNames = []
+#         for x in range(self.matrix.shape[0]):
+#             chrom, start, end = self.cut_intervals[x][0:3]
+#             colNames.append("{}|--|{}:{}-{}".format(x, toString(chrom), start, end))  # adds dm3 to the end (?problem..)
 
-        fileh.write("#converted from hicexplorer\n")
-        fileh.write("\t" + "\t".join(colNames) + "\n")
-        for row in range(self.matrix.shape[0]):
-            values = [str(x) for x in self.matrix[row, :].toarray().flatten()]
-            fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values)))
+#         fileh.write("#converted from hicexplorer\n")
+#         fileh.write("\t" + "\t".join(colNames) + "\n")
+#         for row in range(self.matrix.shape[0]):
+#             values = [str(x) for x in self.matrix[row, :].toarray().flatten()]
+#             fileh.write("{}\t{}\n".format(colNames[row], "\t".join(values)))
 
-        fileh.close()
+#         fileh.close()
 
-    def save_lieberman(self, fileName):
-        """
-        Saves the matrix using lieberman format. Given an output directory name and resolution of the matrix.
+#     def save_lieberman(self, fileName):
+#         """
+#         Saves the matrix using lieberman format. Given an output directory name and resolution of the matrix.
 
-        In contrast to other methods, when saving using liebermans format a folder is required
-        where the data is saved per chromosome
-        """
+#         In contrast to other methods, when saving using liebermans format a folder is required
+#         where the data is saved per chromosome
+#         """
 
-        if os.path.isfile(fileName):
-            exit("a file with the same name as the given path exists ({}). Please choose a folder.".format(fileName))
+#         if os.path.isfile(fileName):
+#             exit("a file with the same name as the given path exists ({}). Please choose a folder.".format(fileName))
 
-        if not os.path.isdir(fileName):
-            os.mkdir(fileName)
+#         if not os.path.isdir(fileName):
+#             os.mkdir(fileName)
 
-        resolution = self.getBinSize()
-        if not self.bin_size_homogeneous:
-            log.warning("*WARNING* The hic matrix contains bins of difference size but\n"
-                        "the 'lieberman' format requires equally spaced bins. The program\n"
-                        "will proceed but the results may be unreliable.\n")
+#         resolution = self.getBinSize()
+#         if not self.bin_size_homogeneous:
+#             log.warning("*WARNING* The hic matrix contains bins of difference size but\n"
+#                         "the 'lieberman' format requires equally spaced bins. The program\n"
+#                         "will proceed but the results may be unreliable.\n")
 
-        for chrom in list(self.interval_trees):
-            chrstart, chrend = self.getChrBinRange(chrom)
-            chrwise_mat = self.matrix[chrstart:chrend, chrstart:chrend]
-            if len(chrwise_mat.data) > 0:
-                log.info("Saving chromosome {}...\n".format(chrom))
-                chrwise_mat_coo = triu(chrwise_mat, k=0, format='csr').tocoo()
-                start = chrwise_mat_coo.row * resolution
-                end = chrwise_mat_coo.col * resolution
-                fileh = gzip.open("{}/chr{}.gz".format(fileName, chrom), 'wt')
-                fileh.write("#converted from HiCExplorer format\n")
-                for idx in range(len(start)):
-                    fileh.write("{}\t{}\t{}\n".format(start[idx], end[idx], chrwise_mat_coo.data[idx]))
-                fileh.close()
+#         for chrom in list(self.interval_trees):
+#             chrstart, chrend = self.getChrBinRange(chrom)
+#             chrwise_mat = self.matrix[chrstart:chrend, chrstart:chrend]
+#             if len(chrwise_mat.data) > 0:
+#                 log.info("Saving chromosome {}...\n".format(chrom))
+#                 chrwise_mat_coo = triu(chrwise_mat, k=0, format='csr').tocoo()
+#                 start = chrwise_mat_coo.row * resolution
+#                 end = chrwise_mat_coo.col * resolution
+#                 fileh = gzip.open("{}/chr{}.gz".format(fileName, chrom), 'wt')
+#                 fileh.write("#converted from HiCExplorer format\n")
+#                 for idx in range(len(start)):
+#                     fileh.write("{}\t{}\t{}\n".format(start[idx], end[idx], chrwise_mat_coo.data[idx]))
+#                 fileh.close()
 
-    def save_GInteractions(self, fileName):
-        self.restoreMaskedBins()
-        log.debug(self.matrix.shape)
-        mat_coo = triu(self.matrix, k=0, format='csr').tocoo()
-        fileh = open("{}.tsv".format(fileName), 'w')
-        for idx, counts in enumerate(mat_coo.data):
-            chr_row, start_row, end_row, _ = self.cut_intervals[mat_coo.row[idx]]
-            chr_col, start_col, end_col, _ = self.cut_intervals[mat_coo.col[idx]]
-            fileh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chr_row, int(start_row), int(end_row),
-                                                              chr_col, int(start_col), int(end_col), counts))
-        fileh.close()
+#     def save_GInteractions(self, fileName):
+#         """
+#         Saves the matrix using bioconductor's GInteraction format. `bin_pos1 , bin_pos2, number of interactions`
+#         """
+#         self.restoreMaskedBins()
+#         log.debug(self.matrix.shape)
+#         mat_coo = triu(self.matrix, k=0, format='csr').tocoo()
+#         fileh = open("{}.tsv".format(fileName), 'w')
+#         for idx, counts in enumerate(mat_coo.data):
+#             chr_row, start_row, end_row, _ = self.cut_intervals[mat_coo.row[idx]]
+#             chr_col, start_col, end_col, _ = self.cut_intervals[mat_coo.col[idx]]
+#             fileh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chr_row, int(start_row), int(end_row),
+#                                                               chr_col, int(start_col), int(end_col), counts))
+#         fileh.close()
 
-    def create_empty_cool_file(self, pFileName):
-        bins_data_frame = pd.DataFrame(columns=['chrom', 'start', 'end', 'weight'])
-        matrix_data_frame = pd.DataFrame(columns=['bin1_id', 'bin2_id', 'count'])
-        cooler.io.create(cool_uri=pFileName,
-                         bins=bins_data_frame,
-                         pixels=matrix_data_frame)
+#     def create_empty_cool_file(self, pFileName):
+#         bins_data_frame = pd.DataFrame(columns=['chrom', 'start', 'end', 'weight'])
+#         matrix_data_frame = pd.DataFrame(columns=['bin1_id', 'bin2_id', 'count'])
+#         cooler.io.create(cool_uri=pFileName,
+#                          bins=bins_data_frame,
+#                          pixels=matrix_data_frame)
 
-    def save_cooler(self, pFileName, pSymmetric=True, pApplyCorrection=True):
-        # for value in self.nan_bins:
-        self.restoreMaskedBins()
-        self.matrix = self.matrix.tolil()
-        if self.nan_bins is not None:
-            self.matrix[self.nan_bins, :] = 0
-            self.matrix[:, self.nan_bins] = 0
-        self.matrix = self.matrix.tocsr()
+#     def save_cooler(self, pFileName, pSymmetric=True, pApplyCorrection=True):
+#         # for value in self.nan_bins:
+#         self.restoreMaskedBins()
+#         self.matrix = self.matrix.tolil()
+#         if self.nan_bins is not None:
+#             self.matrix[self.nan_bins, :] = 0
+#             self.matrix[:, self.nan_bins] = 0
+#         self.matrix = self.matrix.tocsr()
 
-        for i in range(len(self.matrix.data)):
-            if np.isnan(self.matrix.data[i]):
-                self.matrix.data[i] = 0
+#         for i in range(len(self.matrix.data)):
+#             if np.isnan(self.matrix.data[i]):
+#                 self.matrix.data[i] = 0
 
-        self.matrix.eliminate_zeros()
-        # save only the upper triangle of the
-        if pSymmetric:
-            # symmetric matrix
-            matrix = triu(self.matrix, k=0, format='csr')
-        else:
-            matrix = self.matrix
+#         self.matrix.eliminate_zeros()
+#         # save only the upper triangle of the
+#         if pSymmetric:
+#             # symmetric matrix
+#             matrix = triu(self.matrix, k=0, format='csr')
+#         else:
+#             matrix = self.matrix
 
-        cut_intervals_ = []
-        for value in self.cut_intervals:
-            cut_intervals_.append(tuple((value[0], value[1], value[2])))
+#         cut_intervals_ = []
+#         for value in self.cut_intervals:
+#             cut_intervals_.append(tuple((value[0], value[1], value[2])))
 
-        bins_data_frame = pd.DataFrame(cut_intervals_, columns=['chrom', 'start', 'end'])
+#         bins_data_frame = pd.DataFrame(cut_intervals_, columns=['chrom', 'start', 'end'])
 
-        # append correction factors if they exist
-        if self.correction_factors is not None and pApplyCorrection:
-            weight = convertNansToOnes(np.array(self.correction_factors).flatten())
-            bins_data_frame = bins_data_frame.assign(weight=weight)
+#         # append correction factors if they exist
+#         if self.correction_factors is not None and pApplyCorrection:
+#             weight = convertNansToOnes(np.array(self.correction_factors).flatten())
+#             bins_data_frame = bins_data_frame.assign(weight=weight)
 
-        # get only the upper triangle of the matrix to save to disk
-        # upper_triangle = triu(self.matrix, k=0, format='csr')
-        # create a tuple list and use it to create a data frame
+#         # get only the upper triangle of the matrix to save to disk
+#         # upper_triangle = triu(self.matrix, k=0, format='csr')
+#         # create a tuple list and use it to create a data frame
 
-        # save correction factors and original matrix
+#         # save correction factors and original matrix
 
-        # revert correction to store orginal matrix
-        if self.correction_factors is not None and pApplyCorrection:
-            log.info("Reverting correction factors on matrix...")
-            instances, features = matrix.nonzero()
-            self.correction_factors = np.array(self.correction_factors)
+#         # revert correction to store orginal matrix
+#         if self.correction_factors is not None and pApplyCorrection:
+#             log.info("Reverting correction factors on matrix...")
+#             instances, features = matrix.nonzero()
+#             self.correction_factors = np.array(self.correction_factors)
 
-            # do not apply if correction factors are just 1's
-            if np.sum(self.correction_factors) != len(self.correction_factors):
-                instances_factors = self.correction_factors[instances]
-                features_factors = self.correction_factors[features]
+#             # do not apply if correction factors are just 1's
+#             if np.sum(self.correction_factors) != len(self.correction_factors):
+#                 instances_factors = self.correction_factors[instances]
+#                 features_factors = self.correction_factors[features]
 
-                instances_factors *= features_factors
-                matrix.data *= instances_factors
-                instances_factors = None
-                features_factors = None
+#                 instances_factors *= features_factors
+#                 matrix.data *= instances_factors
+#                 instances_factors = None
+#                 features_factors = None
 
-                matrix.data = np.rint(matrix.data)
-                matrix.data = matrix.data.astype(int)
+#                 matrix.data = np.rint(matrix.data)
+#                 matrix.data = matrix.data.astype(int)
 
-            data = matrix.data.tolist()
+#             data = matrix.data.tolist()
 
-        else:
+#         else:
 
-            instances, features = matrix.nonzero()
-            data = matrix.data.tolist()
+#             instances, features = matrix.nonzero()
+#             data = matrix.data.tolist()
 
-            if matrix.dtype not in [np.int32, int]:
-                log.warning("Writing non-standard cooler matrix. Datatype of matrix['count'] is: {}".format(matrix.dtype))
-                cooler._writer.COUNT_DTYPE = matrix.dtype
+#             if matrix.dtype not in [np.int32, int]:
+#                 log.warning("Writing non-standard cooler matrix. Datatype of matrix['count'] is: {}".format(matrix.dtype))
+#                 cooler._writer.COUNT_DTYPE = matrix.dtype
 
-        if len(instances) == 0 and len(features) == 0:
-            exit('No data present. Exit.')
-        else:
-            matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
-            matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
+#         if len(instances) == 0 and len(features) == 0:
+#             exit('No data present. Exit.')
+#         else:
+#             matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
+#             matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
 
-            cooler.io.create(cool_uri=pFileName,
-                             bins=bins_data_frame,
-                             pixels=matrix_data_frame,
-                             append=False)
+#             cooler.io.create(cool_uri=pFileName,
+#                              bins=bins_data_frame,
+#                              pixels=matrix_data_frame,
+#                              append=False)
 
-    def save_hdf5(self, filename, pSymmetric=True):
-        """
-        Saves a matrix using hdf5 format
-        :param filename:
-        :return: None
-        """
-        self.restoreMaskedBins()
-        if not filename.endswith(".h5"):
-            filename += ".h5"
+#     def save_hdf5(self, filename, pSymmetric=True):
+#         """
+#         Saves a matrix using hdf5 format
+#         :param filename:
+#         :return: None
+#         """
+#         self.restoreMaskedBins()
+#         if not filename.endswith(".h5"):
+#             filename += ".h5"
 
-        # if the file name already exists
-        # try to find a new suitable name
-        if os.path.isfile(filename):
-            log.warning("*WARNING* File already exists {}\n "
-                        "Overwriting ...\n".format(filename))
+#         # if the file name already exists
+#         # try to find a new suitable name
+#         if os.path.isfile(filename):
+#             log.warning("*WARNING* File already exists {}\n "
+#                         "Overwriting ...\n".format(filename))
 
-            from os import unlink
-            unlink(filename)
-        try:
-            nan_bins = np.array(self.nan_bins)
-        except Exception:
-            nan_bins = np.array([])
-        # save only the upper triangle of the
-        if pSymmetric:
-            # symmetric matrix
-            matrix = triu(self.matrix, k=0, format='csr')
-        else:
-            matrix = self.matrix
-        filters = tables.Filters(complevel=5, complib='blosc')
-        with tables.open_file(filename, mode="w", title="HiCExplorer matrix") as h5file:
-            matrix_group = h5file.create_group("/", "matrix", )
-            # save the parts of the csr matrix
-            for matrix_part in ('data', 'indices', 'indptr', 'shape'):
-                arr = np.array(getattr(matrix, matrix_part))
-                atom = tables.Atom.from_dtype(arr.dtype)
-                ds = h5file.create_carray(matrix_group, matrix_part, atom,
-                                          shape=arr.shape,
-                                          filters=filters)
-                ds[:] = arr
+#             from os import unlink
+#             unlink(filename)
+#         try:
+#             nan_bins = np.array(self.nan_bins)
+#         except Exception:
+#             nan_bins = np.array([])
+#         # save only the upper triangle of the
+#         if pSymmetric:
+#             # symmetric matrix
+#             matrix = triu(self.matrix, k=0, format='csr')
+#         else:
+#             matrix = self.matrix
+#         filters = tables.Filters(complevel=5, complib='blosc')
+#         with tables.open_file(filename, mode="w", title="HiCExplorer matrix") as h5file:
+#             matrix_group = h5file.create_group("/", "matrix", )
+#             # save the parts of the csr matrix
+#             for matrix_part in ('data', 'indices', 'indptr', 'shape'):
+#                 arr = np.array(getattr(matrix, matrix_part))
+#                 atom = tables.Atom.from_dtype(arr.dtype)
+#                 ds = h5file.create_carray(matrix_group, matrix_part, atom,
+#                                           shape=arr.shape,
+#                                           filters=filters)
+#                 ds[:] = arr
 
-            # save the matrix intervals
-            intervals_group = h5file.create_group("/", "intervals", )
-            chr_list, start_list, end_list, extra_list = zip(*self.cut_intervals)
-            for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
-                arr = np.array(eval(interval_part))
-                atom = tables.Atom.from_dtype(arr.dtype)
-                ds = h5file.create_carray(intervals_group, interval_part, atom,
-                                          shape=arr.shape,
-                                          filters=filters)
-                ds[:] = arr
+#             # save the matrix intervals
+#             intervals_group = h5file.create_group("/", "intervals", )
+#             chr_list, start_list, end_list, extra_list = zip(*self.cut_intervals)
+#             for interval_part in ('chr_list', 'start_list', 'end_list', 'extra_list'):
+#                 arr = np.array(eval(interval_part))
+#                 atom = tables.Atom.from_dtype(arr.dtype)
+#                 ds = h5file.create_carray(intervals_group, interval_part, atom,
+#                                           shape=arr.shape,
+#                                           filters=filters)
+#                 ds[:] = arr
 
-            # save nan bins
-            if len(nan_bins):
-                atom = tables.Atom.from_dtype(nan_bins.dtype)
-                ds = h5file.create_carray(h5file.root, 'nan_bins', atom,
-                                          shape=nan_bins.shape,
-                                          filters=filters)
-                ds[:] = nan_bins
+#             # save nan bins
+#             if len(nan_bins):
+#                 atom = tables.Atom.from_dtype(nan_bins.dtype)
+#                 ds = h5file.create_carray(h5file.root, 'nan_bins', atom,
+#                                           shape=nan_bins.shape,
+#                                           filters=filters)
+#                 ds[:] = nan_bins
 
-            # save corrections factors
-            if self.correction_factors is not None and len(self.correction_factors):
-                self.correction_factors = np.array(self.correction_factors)
-                atom = tables.Atom.from_dtype(self.correction_factors.dtype)
-                ds = h5file.create_carray(h5file.root, 'correction_factors', atom,
-                                          shape=self.correction_factors.shape,
-                                          filters=filters)
-                ds[:] = np.array(self.correction_factors)
+#             # save corrections factors
+#             if self.correction_factors is not None and len(self.correction_factors):
+#                 self.correction_factors = np.array(self.correction_factors)
+#                 atom = tables.Atom.from_dtype(self.correction_factors.dtype)
+#                 ds = h5file.create_carray(h5file.root, 'correction_factors', atom,
+#                                           shape=self.correction_factors.shape,
+#                                           filters=filters)
+#                 ds[:] = np.array(self.correction_factors)
 
-            # save distance counts
-            if self.distance_counts is not None and len(self.distance_counts):
-                atom = tables.Atom.from_dtype(self.distance_counts.dtype)
-                ds = h5file.create_carray(h5file.root, 'distance_counts', atom,
-                                          shape=self.distance_counts.shape,
-                                          filters=filters)
-                ds[:] = np.array(self.distance_counts)
+#             # save distance counts
+#             if self.distance_counts is not None and len(self.distance_counts):
+#                 atom = tables.Atom.from_dtype(self.distance_counts.dtype)
+#                 ds = h5file.create_carray(h5file.root, 'distance_counts', atom,
+#                                           shape=self.distance_counts.shape,
+#                                           filters=filters)
+#                 ds[:] = np.array(self.distance_counts)
 
-    def save_npz(self, filename):
-        """
-        saves using the numpy npz format. Adequate for small samples.
-        """
-        self.restoreMaskedBins()
-        chrNameList, startList, endList, extraList = zip(*self.cut_intervals)
-        try:
-            nan_bins = self.nan_bins
-        except Exception:
-            nan_bins = np.array([])
-        # save only the upper triangle of the
-        # symmetric matrix
-        matrix = triu(self.matrix, k=0, format='csr')
-        try:
-            np.savez(
-                filename, matrix=matrix, chrNameList=chrNameList,
-                startList=startList, endList=endList, extraList=extraList,
-                nan_bins=nan_bins, correction_factors=self.correction_factors)
-        except Exception as e:
-            log.debug("error saving matrix: {}".format(e))
-            try:
-                log.info("Matrix can not be saved because is too big!")
-                log.version_info("Eliminating entries with only one count.")
+#     def save_npz(self, filename):
+#         """
+#         saves using the numpy npz format. Adequate for small samples.
+#         """
+#         self.restoreMaskedBins()
+#         chrNameList, startList, endList, extraList = zip(*self.cut_intervals)
+#         try:
+#             nan_bins = self.nan_bins
+#         except Exception:
+#             nan_bins = np.array([])
+#         # save only the upper triangle of the
+#         # symmetric matrix
+#         matrix = triu(self.matrix, k=0, format='csr')
+#         try:
+#             np.savez(
+#                 filename, matrix=matrix, chrNameList=chrNameList,
+#                 startList=startList, endList=endList, extraList=extraList,
+#                 nan_bins=nan_bins, correction_factors=self.correction_factors)
+#         except Exception as e:
+#             log.debug("error saving matrix: {}".format(e))
+#             try:
+#                 log.info("Matrix can not be saved because is too big!")
+#                 log.version_info("Eliminating entries with only one count.")
 
-                # try to remove noise by deleting 1
-                matrix.data = matrix.data - 1
-                matrix.eliminate_zeros()
-                np.savez(
-                    filename, matrix=matrix, chrNameList=chrNameList,
-                    startList=startList, endList=endList, extraList=extraList,
-                    nan_bins=nan_bins)
-            except Exception:
-                log.exception("Try failed. Matrix can not be saved because it is too big!")
-            exit()
+#                 # try to remove noise by deleting 1
+#                 matrix.data = matrix.data - 1
+#                 matrix.eliminate_zeros()
+#                 np.savez(
+#                     filename, matrix=matrix, chrNameList=chrNameList,
+#                     startList=startList, endList=endList, extraList=extraList,
+#                     nan_bins=nan_bins)
+#             except Exception:
+#                 log.exception("Try failed. Matrix can not be saved because it is too big!")
+#             exit()
 
-    def save(self, pMatrixName, pSymmetric=True, pApplyCorrection=False):
-        """To save please specifiy the ending of your format i.e. 'output_matrix.format' Supported are: 'dekker', 'ren',
-            'lieberman', 'npz', 'GInteractions', 'h5' and 'cool'.
-        """
-        if pMatrixName.endswith('dekker') == 'dekker':
-            self.save_dekker(pMatrixName)
-        elif pMatrixName.endswith('ren'):
-            self.save_bing_ren(pMatrixName)
-        elif pMatrixName.endswith('lieberman'):
-            self.save_lieberman(pMatrixName)
-        elif pMatrixName.endswith('npz'):
-            self.save_npz(pMatrixName)
-        elif pMatrixName.endswith('GInteractions'):
-            self.save_GInteractions(pMatrixName)
-        elif pMatrixName.endswith('cool'):
-            self.save_cooler(pMatrixName, pSymmetric=pSymmetric, pApplyCorrection=pApplyCorrection)
-        else:
-            self.save_hdf5(pMatrixName, pSymmetric=pSymmetric)
+#     def save(self, pMatrixName, pSymmetric=True, pApplyCorrection=False):
+#         """To save please specifiy the ending of your format i.e. 'output_matrix.format' Supported are: 'dekker', 'ren',
+#             'lieberman', 'npz', 'GInteractions', 'h5' and 'cool'.
+#         """
+#         if pMatrixName.endswith('dekker') == 'dekker':
+#             self.save_dekker(pMatrixName)
+#         elif pMatrixName.endswith('ren'):
+#             self.save_bing_ren(pMatrixName)
+#         elif pMatrixName.endswith('lieberman'):
+#             self.save_lieberman(pMatrixName)
+#         elif pMatrixName.endswith('npz'):
+#             self.save_npz(pMatrixName)
+#         elif pMatrixName.endswith('GInteractions'):
+#             self.save_GInteractions(pMatrixName)
+#         elif pMatrixName.endswith('cool'):
+#             self.save_cooler(pMatrixName, pSymmetric=pSymmetric, pApplyCorrection=pApplyCorrection)
+#         else:
+#             self.save_hdf5(pMatrixName, pSymmetric=pSymmetric)
 
+# >>>>>>> develop
     def diagflat(self, value=np.nan):
         """
         sets
@@ -1565,18 +1129,6 @@ class hiCMatrix:
             "length of correction factors and length of matrix are different."
         self.correction_factors = correction_factors
 
-    def reorderChromosomes_old(self, new_chr_order):
-        if len(new_chr_order) != len(self.chrBinBoundaries):
-            return
-        dest = 0
-        new_chr_order = check_chrom_str_bytes(self.chrBinBoundaries, new_chr_order)
-
-        for chrName in new_chr_order:
-            orig = self.chrBinBoundaries[chrName]
-
-            self.reorderMatrix(orig, dest)
-            dest += orig[1] - orig[0]
-
     def reorderChromosomes(self, new_chr_order):
         new_order = []
         new_chr_order = check_chrom_str_bytes(self.chrBinBoundaries, new_chr_order)
@@ -1614,14 +1166,6 @@ class hiCMatrix:
 
         self.interval_trees, self.chrBinBoundaries = \
             self.intervalListToIntervalTree(self.cut_intervals)
-
-    def removeBins(self, bin_ids):
-        """ given an array of ids, all rows and columns
-        matching those ids are removed
-        """
-
-        to_keep = np.delete(list(range(self.matrix.shape[1])), bin_ids)
-        self.reorderBins(to_keep)
 
     def maskBins(self, bin_ids=None):
         """
@@ -1734,11 +1278,11 @@ class hiCMatrix:
 
         >>> hic.restoreMaskedBins()
         >>> hic.matrix.todense()
-        matrix([[  0.,  10.,   5.,   0.,   0.],
-                [ 10.,   0.,  15.,   0.,   1.],
-                [  5.,  15.,   0.,   0.,   3.],
-                [  0.,   0.,   0.,   0.,   0.],
-                [  0.,   1.,   3.,   0.,   0.]])
+        matrix([[ 0., 10.,  5.,  0.,  0.],
+                [10.,  0., 15.,  0.,  1.],
+                [ 5., 15.,  0.,  0.,  3.],
+                [ 0.,  0.,  0.,  0.,  0.],
+                [ 0.,  1.,  3.,  0.,  0.]])
 
         >>> hic.cut_intervals
         [('a', 0, 10, 1), ('a', 10, 20, 1), ('a', 20, 30, 1), ('a', 30, 40, 1), ('b', 40, 50, 1)]
@@ -1824,58 +1368,6 @@ class hiCMatrix:
 
         self.setMatrixValues(mat)
 
-    def truncTrans_bk(self, high=0.0005):
-        """Truncates trans contacts to remove blowouts
-
-        :param:  high : float, 0<high<1, optional
-            Fraction of top trans interactions to be removed
-        """
-        M, N = self.matrix.shape
-        rows, cols = np.triu_indices(M, 1)
-        dist_list = hiCMatrix.getDistList(rows, cols)
-        data = np.asarray(self.matrix.todense()[(rows, cols)]).flatten()
-
-        max_inter = np.percentile(data[dist_list == -1], 100. * (1 - high))
-
-        to_clip = np.flatnonzero((data >= max_inter) & (dist_list == -1))
-        rows_to_clip = rows[to_clip]
-        cols_to_clip = cols[to_clip]
-        mat = self.matrix.tolil()
-        mat[(rows_to_clip, cols_to_clip)] = max_inter
-        mat[(cols_to_clip, rows_to_clip)] = max_inter
-
-        self.setMatrixValues(mat)
-
-    def removePoorRegions(self, cutoff=2):
-        """Removes "cutoff" percent of bins with least counts.
-        Also, removes bins that have less than sequencedFraction
-        unique reads  with respect
-        to the total number of reads found in the bin. (which
-        includes multi reads).
-
-        :param:  cutoff : int, 0<cutoff<100
-        Percent of lowest-counts bins to be removed
-
-        """
-        # remove all nan values
-        self.matrix.data[np.isnan(self.matrix.data)] = 0
-        # using the row sum, find and remove those
-        # bins that have the botton 1%
-        row_sum = np.asarray(self.matrix.sum(axis=1)).flatten()
-        min_threshold = np.percentile(row_sum, cutoff)
-        to_remove = np.flatnonzero(row_sum <= min_threshold)
-        # code to count were the bins are going to be removed
-        chrom, start, end, cov = zip(*self.cut_intervals)
-        chrom = np.sort(np.array(chrom)[to_remove])
-        chr_count = np.diff(np.concatenate(
-            [np.unique(np.sort(chrom), return_index=True)[1],
-             [len(chrom)]]))
-        chr_dict = dict(zip(chrom[chr_count], chr_count))
-        log.info('num poor regions to remove {}\n{}\n'.format(
-            len(to_remove),
-            chr_dict))
-        self.maskBins(to_remove)
-
     def printchrtoremove(self, to_remove, label="Number of poor regions to remove", restore_masked_bins=True):
         """
         prints out the number of bin per chromosomes
@@ -1910,25 +1402,6 @@ class hiCMatrix:
         log.info('{}: {} {}'.format(label, len(to_remove), cnt))
         self.prev_to_remove = to_remove
 
-    def removeBySequencedCount(self, sequencedFraction=0.5):
-        """
-        Removes bins that have less than sequencedFraction
-        unique reads  with respect
-        to the total number of reads found in the bin. (which
-        includes multi reads).
-
-        :param:   sequencedFraction: float, optional, 0<x<1
-            Fraction of the bin that needs to be sequenced in order
-            to keep the bin
-
-        """
-        chrNameList, startList, endList, coverage = zip(*self.cut_intervals)
-        if type(coverage[0]) != np.float64:
-            return
-        to_remove = np.flatnonzero(np.array(coverage) < sequencedFraction)
-        self.maskBins(to_remove)
-        return to_remove
-
     def get_chromosome_sizes(self):
         chrom_sizes = OrderedDict()
         for chrom, (start_bin, end_bin) in iteritems(self.chrBinBoundaries):
@@ -1937,8 +1410,7 @@ class hiCMatrix:
 
         return chrom_sizes
 
-    @staticmethod
-    def intervalListToIntervalTree(interval_list):
+    def intervalListToIntervalTree(self, interval_list):
         """
         given an ordered list of (chromosome name, start, end)
         this is transformed to a number of interval trees,
@@ -1977,10 +1449,3 @@ def check_cooler(pFileName):
     if pFileName.endswith('.cool') or cooler.io.is_cooler(pFileName) or'.mcool' in pFileName:
         return True
     return False
-
-
-def convertNansToOnes(pArray):
-    nan_elements = np.flatnonzero(np.isnan(pArray))
-    if len(nan_elements) > 0:
-        pArray[nan_elements] = 1.0
-    return pArray
