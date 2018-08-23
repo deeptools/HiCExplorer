@@ -166,11 +166,14 @@ class Cool(MatrixFile, object):
 
         # log.info('matrix after symmetric{}'.format(matrix))
 
-        cut_intervals_ = []
-        for value in self.cut_intervals:
-            cut_intervals_.append(tuple((value[0], value[1], value[2])))
-
-        bins_data_frame = pd.DataFrame(cut_intervals_, columns=['chrom', 'start', 'end'])
+        # cut_intervals_ = []
+        # log.debug('self.cut_intervals {}'.format(self.cut_intervals))
+        # bins_data_frame = np.array(self.cut_intervals)
+        # bins_data_frame = bins_data_frame[:,2]
+        # for value in self.cut_intervals:
+        #     cut_intervals_.append(tuple((value[0], value[1], value[2])))
+        # log.debug('cut_intervals_ created')
+        bins_data_frame = pd.DataFrame(self.cut_intervals, columns=['chrom', 'start', 'end', 'interactions']).drop('interactions', axis=1)
 
         # append correction factors if they exist
         if self.correction_factors is not None and pApplyCorrection:
@@ -217,9 +220,15 @@ class Cool(MatrixFile, object):
             exit('No data present. Exit.')
         else:
             # log.debug(' data: {}'.format(data))
-            matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
+            # matrix_tuple_list = zip(instances.tolist(), features.tolist(), data)
+            matrix_tuple_list = np.stack((instances.tolist(), features.tolist()), axis=-1)
+            # log.debug(matrix_tuple_list)
             # log.debug('Save cool, data: {}'.format(matrix_tuple_list))
-            matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id', 'count'])
+            matrix_data_frame = pd.DataFrame(matrix_tuple_list, columns=['bin1_id', 'bin2_id'], dtype=np.int32)
+            
+            matrix_data_frame = matrix_data_frame.assign(count=data)
+            
+            # log.debug(matrix_data_frame)
 
             cooler.io.create(cool_uri=pFileName,
                              bins=bins_data_frame,
