@@ -56,6 +56,11 @@ Computes long range contacts within the given contact matrix
                            type=int,
                            default=20,
                            help='p')
+    parserOpt.add_argument('--maxLoopDistance', '-ld',
+                           type=int,
+                           default=5000000,
+                           help='maximum distance of a loop')
+
     parserOpt.add_argument('--chromosomeOrder',
                            help='Chromosomes and order in which the chromosomes should be saved. If not all chromosomes '
                            'are given, the missing chromosomes are left out. For example, --chromosomeOrder chrX will '
@@ -63,7 +68,7 @@ Computes long range contacts within the given contact matrix
                            nargs='+')
 
     parserOpt.add_argument('--region',
-                                help='The format is chr:start-end ',
+                                help='The format is chr:start-end. The region should not be longer than 5MB.',
                                 required=True)
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
@@ -117,7 +122,7 @@ def compute_zscore_matrix(pMatrix):
     return csr_matrix((data, (instances, features)), shape=(pMatrix.shape[0], pMatrix.shape[1]))
 
 def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pThreshold, pWindowSize, pPValue,
-                                pMinValueRemove, pMinNeighborhoodSize):
+                                pMinValueRemove, pMinNeighborhoodSize, pMaxLoopDistance):
 
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
@@ -131,12 +136,14 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pThreshold, pWindowSi
     data = data[mask]
     instances = instances[mask]
     features = features[mask]
-
+    if len(features) == 0:
+        log.info('No loops detected.')
+        exit()
     candidates = [*zip(instances, features)]
 
     candidates, pValueList = candidate_uniform_distribution_test(pHiCMatrix, candidates, pWindowSize, pPValue,
                                                                     pMinValueRemove, pMinNeighborhoodSize)
-    return cluster_to_genome_position_mapping(pHiCMatrix, candidates, pValueList)
+    return cluster_to_genome_position_mapping(pHiCMatrix, candidates, pValueList, pMaxLoopDistance)
 
 
 
@@ -177,17 +184,17 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
         uniform_distribution = np.random.uniform(low=np.min(neighborhood), high=np.max(neighborhood), size=len(neighborhood))
         
        
-        if i < 10:
-            log.info('neigborhood {}'.format(neighborhood))
-            log.info('max(neigborhood) {}'.format(np.max(neighborhood)))
+        # if i < 10:
+        #     log.info('neigborhood {}'.format(neighborhood))
+        #     log.info('max(neigborhood) {}'.format(np.max(neighborhood)))
             
-            log.info('uniform_distribution {}'.format(uniform_distribution))
+        #     log.info('uniform_distribution {}'.format(uniform_distribution))
             
         # test_result = f_oneway(neighborhood, uniform_distribution)
         test_result = mannwhitneyu(neighborhood, uniform_distribution)
         pvalue = test_result[1]
-        if i < 10:      
-            log.info('pvalue {}'.format(pvalue))
+        # if i < 10:      
+        #     log.info('pvalue {}'.format(pvalue))
         if np.isnan(pvalue):
             mask.append(False)
             continue
@@ -218,7 +225,7 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
             continue
         if cluster in cluster_dict:
             if pvalues[i] < cluster_dict[cluster][1]:
-                log.info('cluster: {}, cluster_dict[cluster] {}'.format(cluster, cluster_dict[cluster]))
+                # log.info('cluster: {}, cluster_dict[cluster] {}'.format(cluster, cluster_dict[cluster]))
                 mask[cluster_dict[cluster][0]] = False
                 cluster_dict[cluster] = [i, pvalues[i]]
                 mask.append(True)
@@ -250,19 +257,50 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
         if pvalues[i] < largest_p_i:
             accepted_index.append(candidate)
             pvalues_accepted.append(pvalues[i])
+    if len(accepted_index) == 0:
+        log.info('No loops detected.')
+        exit()
+    # remove duplicate elements
+    for i, candidate in enumerate(accepted_index):
+        if candidate[0] > candidate[1]:
+            _tmp = candidate[0]
+            candidate[0] = candidate[1]
+            candidate[1] = _tmp
+    duplicate_set_x = set([])
+    duplicate_set_y = set([])
 
-    log.info('Accepted candidates: {}'.format(len(accepted_index)))
-    log.info('Accepted candidates: {}'.format(accepted_index))
+    delete_index = []
+    for i, candidate in enumerate(accepted_index):
+        if candidate[0] in duplicate_set_x and candidate[1] in duplicate_set_y:
+            delete_index.append(i)
+        else:
+            duplicate_set_x.add(candidate[0])
+            duplicate_set_y.add(candidate[1])
+
+    log.debug('delete_index {}'.format(delete_index))
+    delete_index = np.array(delete_index)
+    accepted_index = np.array(accepted_index)
+    pvalues_accepted = np.array(pvalues_accepted)
+    accepted_index = np.delete(accepted_index, delete_index, axis=0)
+    pvalues_accepted = np.delete(pvalues_accepted, delete_index, axis=0)
+
+    log.debug('accepted_index {}'.format(accepted_index))
+    # log.info('Accepted candidates: {}'.format(len(accepted_index)))
+    # log.info('Accepted candidates: {}'.format(accepted_index))
 
     return accepted_index, pvalues_accepted
 
 
-def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList):
+def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList, pMaxLoopDistance):
     # mapping: chr_X, start, end, chr_Y, start, end, cluster_id
     mapped_cluster = []
     for i, candidate in enumerate(pCandidates):
         chr_x, start_x, end_x, _ = pHicMatrix.getBinPos(candidate[0])
         chr_y, start_y, end_y, _ = pHicMatrix.getBinPos(candidate[1])
+        distance = abs(int(start_x) - int(start_y))
+        if distance > pMaxLoopDistance:
+            log.debug('Distance: {}'.format(distance/1e6))
+            continue
         mapped_cluster.append((chr_x, start_x, end_x, chr_y, start_y, end_y, pPValueList[i]))
     return mapped_cluster
 
@@ -275,6 +313,12 @@ def write_bedgraph(pClusters, pOutFileName, pStartRegion, pEndRegion):
                     and cluster_item[4] >= pStartRegion and cluster_item[5] <= pEndRegion:
                 fh.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % cluster_item)
 
+    with open('loops_domains.bed', 'w') as fh:
+        for cluster_item in pClusters:
+            if cluster_item[1] >= pStartRegion and cluster_item[2] <= pEndRegion \
+                    and cluster_item[4] >= pStartRegion and cluster_item[5] <= pEndRegion:
+                    fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(cluster_item[0], cluster_item[1], cluster_item[4], 1, cluster_item[6],
+                                                    ".", cluster_item[1], cluster_item[4], "x,x,x"))
 
 def main():
 
@@ -296,17 +340,17 @@ def main():
         if args.chromosomeOrder:
             regionsToRetrieve = args.chromosomeOrder
 
-        hic_matrix = hm.hiCMatrix(args.matrix, chrnameList=regionsToRetrieve)
+        hic_matrix = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=regionsToRetrieve)
     else:
         hic_matrix = hm.hiCMatrix(args.matrix)
         if args.chromosomeOrder:
             hic_matrix.keepOnlyTheseChr(args.chromosomeOrder)
         if args.region:
             chrom, region_start, region_end = translate_region(args.region)
-            log.info("{}".format(args.region))
-            log.info("{}".format(chrom))
-            log.info("{}".format(region_start))
-            log.info("{}".format(region_end))
+            # log.info("{}".format(args.region))
+            # log.info("{}".format(chrom))
+            # log.info("{}".format(region_start))
+            # log.info("{}".format(region_end))
             
             hic_matrix.keepOnlyTheseChr([chrom])
             # hic_matrix.matrix = hic_matrix.matrix[idx1, :][:, idx2]
@@ -317,7 +361,7 @@ def main():
         hic_matrix.save(args.scoreMatrixName)
     mapped_clusters = compute_long_range_contacts(hic_matrix, z_score_matrix, args.zScoreThreshold,
                                                   args.windowSize, args.pValue, args.minValueRemove, 
-                                                  args.minNeighborhoodSize)
+                                                  args.minNeighborhoodSize, args.maxLoopDistance)
 
     # write it to bedgraph / bigwig file
     write_bedgraph(mapped_clusters, args.outFileName, region_start, region_end)
