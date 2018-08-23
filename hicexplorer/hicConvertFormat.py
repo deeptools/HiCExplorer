@@ -58,15 +58,15 @@ def parse_arguments(args=None):
     #                             help="Store different sample in one mcool file.")
     parserOpt = parser.add_argument_group('Optional arguments')
 
-    parserOpt.add_argument("--removeCorrection", "-rc",
-                           action='store_true',
-                           help="Do not apply correction factors and store original data. Option only for cool input files.")
     parserOpt.add_argument('--correction_name',
                            help='Name of the column which stores the correction factors. The information about the '
-                                'column names can be figured out with the tool hicInfo.',
+                                'column names can be figured out with the tool hicInfo. Option only for cool input files.',
                            default='weight')
     parserOpt.add_argument('--correction_division',
-                           help='If set, division is applied for correction. Default is a multiplication',
+                           help='If set, division is applied for correction. Default is a multiplication. Option only for cool input files.',
+                           action='store_true')
+    parserOpt.add_argument('--store_applied_correction',
+                           help='Store the applied correction and do not set correction factors. Option only for cool input files.',
                            action='store_true')
     # parserOpt.
     parserOpt.add_argument("--resolutions", '-r',
@@ -125,7 +125,8 @@ def main(args=None):
 
             if args.outputFormat in ['cool', 'h5']:
                 matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat)
-
+                if args.store_applied_correction:
+                    correction_factors = None
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                              correction_factors, distance_counts)
                 matrixFileHandlerOutput.save(matrix + '.' + args.outputFormat, pSymmetric=True, pApplyCorrection=False)
