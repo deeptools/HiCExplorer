@@ -61,6 +61,13 @@ def parse_arguments(args=None):
     parserOpt.add_argument("--removeCorrection", "-rc",
                            action='store_true',
                            help="Do not apply correction factors and store original data. Option only for cool input files.")
+    parserOpt.add_argument('--correction_name',
+                           help='Name of the column which stores the correction factors. The information about the '
+                                'column names can be figured out with the tool hicInfo.',
+                           default='weight')
+    parserOpt.add_argument('--correction_division',
+                           help='If set, division is applied for correction. Default is a multiplication',
+                           action='store_true')
     # parserOpt.
     parserOpt.add_argument("--resolutions", '-r',
                            nargs='+',
@@ -90,8 +97,7 @@ def main(args=None):
         for matrix in args.matrices:
             hic2cool_convert(matrix, args.outFileName, 0)
         return
-    elif args.inputFormat in ['hicpro', 'homer', 'h5']:
-        log.debug("muh foo")
+    elif args.inputFormat in ['hicpro', 'homer', 'h5', 'cool']:
         if args.inputFormat == 'hicpro':
             if len(args.matrices) != len(args.bedFileHicpro):
                 log.error('Number of matrices and associated bed files need to be the same.')
@@ -103,7 +109,14 @@ def main(args=None):
                 matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix,
                                                            pBedFileHicPro=args.bedFileHicpro[i])
             else:
-                matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix)
+                correction_operator = None
+
+                if args.correction_division:
+                    correction_operator = '/'
+
+                matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix,
+                                                           pCorrectionFactorTable=args.correction_name,
+                                                           pCorrectionOperator=correction_operator)
 
             _matrix, cut_intervals, nan_bins, \
                 correction_factors, distance_counts = matrixFileHandlerInput.load()
@@ -117,7 +130,7 @@ def main(args=None):
                                                              correction_factors, distance_counts)
                 matrixFileHandlerOutput.save(matrix + '.' + args.outputFormat, pSymmetric=True, pApplyCorrection=False)
             elif args.outputFormat in ['mcool']:
-                log.debug('outformat is mcooll')
+                log.debug('outformat is mcool')
                 if args.resolutions and len(args.matrices) > 1:
                     log.error('Please define either one matrix and many resolutions which should be created.')
                 if args.resolutions:

@@ -121,6 +121,9 @@ class hiCMatrix:
         if pMatrixName.endswith('cool') or pMatrixName.endswith('h5'):
             self.matrixFileHandler.save(pMatrixName, pSymmetric=pSymmetric, pApplyCorrection=pApplyCorrection)
 
+    def getInformationCoolerBinNames(self):
+        log.info('The following columns are available: {}'.format(self.matrixFileHandler.matrixFile.getInformationCoolerBinNames()))
+
     def fillLowerTriangle(self):
         """
         checks if the matrix is complete or if only half of the matrix was saved.

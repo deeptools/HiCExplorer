@@ -1383,11 +1383,11 @@ def main(args=None):
             merged_matrix = hicMergeMatrixBins.merge_bins(hic_ma, _mergeFactor)
             matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
             matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
-                                                            merged_matrix.cut_intervals,
-                                                            merged_matrix.nan_bins,
-                                                            merged_matrix.correction_factors,
-                                                            merged_matrix.distance_counts)
-            matrixFileHandlerOutput.save(matrix + '.' + args.outputFormat + '::/resolutions/' + str(resolution), pSymmetric=True, pApplyCorrection=False)
+                                                         merged_matrix.cut_intervals,
+                                                         merged_matrix.nan_bins,
+                                                         merged_matrix.correction_factors,
+                                                         merged_matrix.distance_counts)
+            matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(resolution), pSymmetric=True, pApplyCorrection=False)
 
     else:
         hic_ma.save(args.outFileName.name)

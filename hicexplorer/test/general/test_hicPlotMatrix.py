@@ -124,6 +124,7 @@ def test_hicPlotMatrix_cool_region1():
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
 
+
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_h5_region1():
@@ -137,6 +138,7 @@ def test_hicPlotMatrix_h5_region1():
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
+
 
 @pytest.mark.skipif(HIGH_MEMORY > memory,
                     reason="Travis has too less memory to run it.")

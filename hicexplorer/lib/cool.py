@@ -16,11 +16,14 @@ class Cool(MatrixFile, object):
     def __init__(self, pMatrixFile=None, pCooler_only_init=None):
         super().__init__(pMatrixFile)
         self.chrnameList = None
+        self.correctionFactorTable = 'weight'
+        self.correctionOperator = '*'
+
     def only_init(self):
         self.cooler_file = cooler.Cooler(self.matrixFileName)
 
-    # def __load_cool_matrix(self, pChr):
-    #     return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
+    def getInformationCoolerBinNames(self):
+        return cooler.Cooler(self.matrixFileName).bins().columns.values
 
     def load(self, pApplyCorrection=None, pMatrixOnly=None):
         log.debug('Load in cool format')
@@ -55,13 +58,13 @@ class Cool(MatrixFile, object):
             if len(self.chrnameList) == 1:
                 cut_intervals_data_frame = cooler_file.bins().fetch(self.chrnameList[0])
 
-                if 'weight' in cut_intervals_data_frame:
-                    correction_factors_data_frame = cut_intervals_data_frame['weight']
+                if self.correctionFactorTable in cut_intervals_data_frame:
+                    correction_factors_data_frame = cut_intervals_data_frame[self.correctionFactorTable]
             else:
                 exit("Operation to load more than one chr from bins is not supported.")
         else:
-            if pApplyCorrection and 'weight' in cooler_file.bins():
-                correction_factors_data_frame = cooler_file.bins()[['weight']][:]
+            if pApplyCorrection and self.correctionFactorTable in cooler_file.bins():
+                correction_factors_data_frame = cooler_file.bins()[[self.correctionFactorTable]][:]
 
             cut_intervals_data_frame = cooler_file.bins()[['chrom', 'start', 'end']][:]
 
@@ -82,7 +85,11 @@ class Cool(MatrixFile, object):
                 instances_factors = correction_factors[instances]
                 features_factors = correction_factors[features]
                 instances_factors *= features_factors
-                matrix.data *= instances_factors
+
+                if self.correctionOperator == '*':
+                    matrix.data *= instances_factors
+                elif self.correctionOperator == '/':
+                    matrix.data /= instances_factors
 
         cut_intervals = []
 
