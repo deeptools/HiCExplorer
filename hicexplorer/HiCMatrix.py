@@ -261,12 +261,16 @@ class hiCMatrix:
                 elif type(next(iter(self.interval_trees))) is np.bytes_:
                     chrname = toBytes(chrname)
             # chr_end_pos = chromosome_size[chrname]
-            self.interval_trees[chrname]
+            # self.interval_trees[chrname]
+            if chrname not in self.interval_trees:
+                log.exception("chromosome: {} name not found in matrix".format(chrname))
+                log.exception("valid names are:")
+                exit(1)
         except KeyError:
 
             log.exception("chromosome: {} name not found in matrix".format(chrname))
             log.exception("valid names are:")
-            log.exception(self.interval_trees.keys())
+            # log.exception(list(self.interval_trees))
             exit(1)
         try:
             startpos = int(startpos)
@@ -277,9 +281,13 @@ class hiCMatrix:
             exit(1)
 
         try:
+
             startbin = sorted(self.interval_trees[chrname][startpos:startpos + 1])[0].data
             endbin = sorted(self.interval_trees[chrname][endpos:endpos + 1])[0].data
         except IndexError:
+            # log.exception("chrname: " + chrname)
+            # log.exception("len intervaltree: "+len(self.interval_trees[chrname]))
+            # log.exception("start and end pos:" + startpos + ":::" + endpos )
             log.exception("Index error")
             return None
 

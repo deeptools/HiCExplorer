@@ -1,1 +1,1 @@
-from .matrixFileHandler import MatrixFileHandler
+from .matrixFileHandler import MatrixFileHandler  # noqa: F401
