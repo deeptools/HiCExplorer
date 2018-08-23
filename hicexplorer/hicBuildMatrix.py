@@ -144,7 +144,7 @@ def parse_arguments(args=None):
                             'Optional for mcool file format: Define multiple resolutions which are all a multiple of the first value. '
                             ' Example: --binSize 10000 20000 50000 will create a mcool file formate containing the three defined resolutions.',
                        type=int,
-                       nargs='+'
+                       nargs='+',
                        default=10000)
 
     group.add_argument('--restrictionCutFile', '-rs',

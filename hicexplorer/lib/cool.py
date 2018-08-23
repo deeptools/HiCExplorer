@@ -15,16 +15,16 @@ class Cool(MatrixFile, object):
 
     def __init__(self, pMatrixFile=None, pCooler_only_init=None):
         super().__init__(pMatrixFile)
-
+        self.chrnameList = None
     def only_init(self):
         self.cooler_file = cooler.Cooler(self.matrixFileName)
 
     # def __load_cool_matrix(self, pChr):
     #     return self.cooler_file.matrix(balance=False, as_pixels=True).fetch(pChr)
 
-    def load(self, pApplyCorrection=None, pChrnameList=None, pMatrixOnly=None):
+    def load(self, pApplyCorrection=None, pMatrixOnly=None):
         log.debug('Load in cool format')
-
+        log.debug('self.chrnameList {}'.format(self.chrnameList))
         if self.matrixFileName is None:
             log.info('No matrix is initalized')
         if pApplyCorrection is None:
@@ -37,12 +37,12 @@ class Cool(MatrixFile, object):
             log.info("The following nodes are available: {}".format(cooler.io.ls(self.matrixFileName.split("::")[0])))
             exit()
 
-        if pChrnameList is None:
+        if self.chrnameList is None:
             matrix = cooler_file.matrix(balance=False, sparse=True)[:].tocsr()
         else:
-            if len(pChrnameList) == 1:
+            if len(self.chrnameList) == 1:
                 try:
-                    matrix = cooler_file.matrix(balance=False, sparse=True).fetch(pChrnameList[0]).tocsr()
+                    matrix = cooler_file.matrix(balance=False, sparse=True).fetch(self.chrnameList[0]).tocsr()
                 except ValueError:
                     exit("Wrong chromosome format. Please check UCSC / ensembl notation.")
             else:
@@ -51,9 +51,9 @@ class Cool(MatrixFile, object):
         cut_intervals_data_frame = None
         correction_factors_data_frame = None
 
-        if pChrnameList is not None:
-            if len(pChrnameList) == 1:
-                cut_intervals_data_frame = cooler_file.bins().fetch(pChrnameList[0])
+        if self.chrnameList is not None:
+            if len(self.chrnameList) == 1:
+                cut_intervals_data_frame = cooler_file.bins().fetch(self.chrnameList[0])
 
                 if 'weight' in cut_intervals_data_frame:
                     correction_factors_data_frame = cut_intervals_data_frame['weight']
