@@ -141,11 +141,17 @@ class Cool(MatrixFile, object):
         #
 
         self.matrix = self.matrix.tolil()
+        log.info('self.matrix after to lil{}'.format(self.matrix))
+
         if self.nan_bins is not None:
             self.matrix[self.nan_bins, :] = 0
+            log.info('self.matrix after nnan_to 0 part 1{}'.format(self.matrix))
+
             self.matrix[:, self.nan_bins] = 0
+            log.info('self.matrix after nnan_to 0 part 1g{}'.format(self.matrix))
+
         self.matrix = self.matrix.tocsr()
-        log.info('self.matrix after nan handling{}'.format(self.matrix))
+        log.info('self.matrix after nan handling to csr{}'.format(self.matrix))
 
         for i in range(len(self.matrix.data)):
             if np.isnan(self.matrix.data[i]):
