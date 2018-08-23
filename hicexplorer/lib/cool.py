@@ -145,15 +145,15 @@ class Cool(MatrixFile, object):
             self.matrix[self.nan_bins, :] = 0
             self.matrix[:, self.nan_bins] = 0
         self.matrix = self.matrix.tocsr()
-        # log.info('self.matrix after nan handling{}'.format(self.matrix))
+        log.info('self.matrix after nan handling{}'.format(self.matrix))
 
         for i in range(len(self.matrix.data)):
             if np.isnan(self.matrix.data[i]):
                 self.matrix.data[i] = 0
-        # log.info('self.matrix after nan handling II {}'.format(self.matrix))
+        log.info('self.matrix after nan handling II {}'.format(self.matrix))
 
         self.matrix.eliminate_zeros()
-        # log.info('self.matrix after eliminate zeros{}'.format(self.matrix))
+        log.info('self.matrix after eliminate zeros{}'.format(self.matrix))
 
         # save only the upper triangle of the
         if pSymmetric:
@@ -164,7 +164,7 @@ class Cool(MatrixFile, object):
             matrix = self.matrix
             # log.debug('SymmetricELSEs {}'.format(pSymmetric))
 
-        # log.info('matrix after symmetric{}'.format(matrix))
+        log.info('matrix after symmetric{}'.format(matrix))
 
         # cut_intervals_ = []
         # log.debug('self.cut_intervals {}'.format(self.cut_intervals))
