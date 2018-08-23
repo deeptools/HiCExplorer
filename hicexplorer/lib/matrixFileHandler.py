@@ -15,10 +15,13 @@ class MatrixFileHandler():
         self.class_ = getattr(importlib.import_module('.' + pFileType.lower(), package='hicexplorer.lib'), pFileType.title())
         if pFileType == 'cool' and pCooler_only_init:
             self.matrixFile = self.class_(pMatrixFile, pCooler_only_init)
+            self.matrixFile.chrnameList = pChrnameList
         elif pFileType == 'hicpro':
             self.matrixFile = self.class_(pMatrixFile=pMatrixFile, pBedFile=pBedFileHicPro)
         else:
             self.matrixFile = self.class_(pMatrixFile)
+            if pFileType == 'cool':
+                self.matrixFile.chrnameList = pChrnameList
 
     def load(self):
 

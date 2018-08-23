@@ -124,6 +124,19 @@ def test_hicPlotMatrix_cool_region1():
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
 
+@pytest.mark.skipif(LOW_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_h5_region1():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_cool', delete=False)
+
+    args = "--matrix {0}/Li_et_al_2015.h5 --region X:3000000-3500000 " \
+           "--outFileName  {1} ".format(ROOT, outfile.name).split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/Li_chrX30-35_cool.png', outfile.name, tol=tolerance)
+    assert res is None, res
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
 
 @pytest.mark.skipif(HIGH_MEMORY > memory,
                     reason="Travis has too less memory to run it.")

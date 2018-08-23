@@ -63,7 +63,7 @@ def parse_arguments(args=None):
 
 
 def remove_nans_if_needed(hic):
-    if len(hic.nan_bins):
+    if hic.nan_bins is not None and len(hic.nan_bins):
         # Usually, only corrected matrices contain NaN bins.
         # this need to be removed before merging the bins.
         hic.maskBins(hic.nan_bins)
