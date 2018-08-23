@@ -128,11 +128,16 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pThreshold, pWindowSi
     # keep: z-score value, (x, y) coordinate
 
     zscore_matrix = pZscoreMatrix
+    zscore_matrix.eliminate_zeros()
     instances, features = zscore_matrix.nonzero()
     data = zscore_matrix.data.astype(float)
 
+    log.debug('len(instances) {}, len(features) {}'.format(len(instances), len(features)))
+    log.debug('len(data) {}'.format(len(data)))
     # filter by threshold
     mask = data >= pThreshold
+    log.debug('len(data) {}, len(mask) {}'.format(len(data), len(mask)) )
+
     data = data[mask]
     instances = instances[mask]
     features = features[mask]
@@ -325,7 +330,8 @@ def main():
     args = parse_arguments().parse_args()
 
     is_cooler = check_cooler(args.matrix)
-    
+    if args.region:
+        chrom, region_start, region_end = translate_region(args.region)
     log.info("Cooler or no cooler: {}".format(is_cooler))
     open_cooler_chromosome_order = True
     if args.chromosomeOrder is not None and len(args.chromosomeOrder) > 1:
@@ -345,8 +351,7 @@ def main():
         hic_matrix = hm.hiCMatrix(args.matrix)
         if args.chromosomeOrder:
             hic_matrix.keepOnlyTheseChr(args.chromosomeOrder)
-        if args.region:
-            chrom, region_start, region_end = translate_region(args.region)
+       
             # log.info("{}".format(args.region))
             # log.info("{}".format(chrom))
             # log.info("{}".format(region_start))
