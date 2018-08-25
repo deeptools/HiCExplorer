@@ -140,7 +140,7 @@ class Cool(MatrixFile, object):
             instances_factors = correction_factors[_instances]
             features_factors = correction_factors[_features]
             instances_factors *= features_factors
-
+            self.matrix.data = self.matrix.data.astype(float)
             self.matrix.data *= instances_factors
 
         # set possible nans in data to 0
@@ -182,6 +182,8 @@ class Cool(MatrixFile, object):
                 features_factors = self.correction_factors[features]
 
                 instances_factors *= features_factors
+                self.matrix.data = self.matrix.data.astype(float)
+                
                 self.matrix.data /= instances_factors
                 instances_factors = None
                 features_factors = None
