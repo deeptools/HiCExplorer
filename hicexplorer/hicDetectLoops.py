@@ -363,7 +363,10 @@ def main():
     hic_matrix.matrix = hic_matrix.matrix + hic_matrix.matrix.transpose() - csr_matrix(np.diag(hic_matrix.matrix.diagonal()))
     z_score_matrix = compute_zscore_matrix(hic_matrix.matrix)
     if args.scoreMatrixName:
-        hic_matrix.save(args.scoreMatrixName)
+        hic_matrix_save = hm.hiCMatrix(pMatrixFile=args.scoreMatrixName)
+        hic_matrix_save.setMatrix(z_score_matrix, hic_matrix.cut_intervals)
+        hic_matrix_save.save(args.scoreMatrixName)
+
     mapped_clusters = compute_long_range_contacts(hic_matrix, z_score_matrix, args.zScoreThreshold,
                                                   args.windowSize, args.pValue, args.minValueRemove, 
                                                   args.minNeighborhoodSize, args.maxLoopDistance)
