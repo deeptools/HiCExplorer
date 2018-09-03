@@ -1,6 +1,6 @@
 from __future__ import division
 from hicexplorer import hicTransform
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 import numpy.testing as nt
 
 from tempfile import NamedTemporaryFile

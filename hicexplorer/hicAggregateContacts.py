@@ -10,7 +10,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
-import hicexplorer.HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 import hicexplorer.utilities
 from .utilities import toString
 from .utilities import check_chrom_str_bytes

@@ -37,7 +37,7 @@ from collections import OrderedDict
 
 from intervaltree import IntervalTree, Interval
 
-import hicexplorer.HiCMatrix as HiCMatrix
+from hicmatrix import HiCMatrix
 import hicexplorer.utilities
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import opener

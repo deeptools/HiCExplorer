@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 from .lib import MatrixFileHandler
 
 from hicexplorer import hicMergeMatrixBins
-from hicexplorer import HiCMatrix
+from hicmatrix import HiCMatrix
 
 
 def parse_arguments(args=None):

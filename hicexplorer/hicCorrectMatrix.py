@@ -4,7 +4,7 @@ from past.builtins import zip
 from scipy.sparse import lil_matrix
 
 from hicexplorer.iterativeCorrection import iterativeCorrection
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
