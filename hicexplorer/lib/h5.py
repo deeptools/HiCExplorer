@@ -48,26 +48,34 @@ class H5(MatrixFile, object):
                 "size of the matrix ({})".format(len(cut_intervals), matrix.shape[0])
 
             # get nan_bins
-            if hasattr(f.root, 'nan_bins'):
-                nan_bins = f.root.nan_bins.read()
-            else:
+            try:
+                if hasattr(f.root, 'nan_bins'):
+                    nan_bins = f.root.nan_bins.read()
+                else:
+                    nan_bins = np.array([])
+            except:
                 nan_bins = np.array([])
 
             # get correction factors
-            if hasattr(f.root, 'correction_factors'):
-                correction_factors = f.root.correction_factors.read()
-                assert len(correction_factors) == matrix.shape[0], \
-                    "Error loading matrix. Length of correction factors does not" \
-                    "match size of matrix"
-            else:
+            try:
+                if hasattr(f.root, 'correction_factors'):
+                    correction_factors = f.root.correction_factors.read()
+                    assert len(correction_factors) == matrix.shape[0], \
+                        "Error loading matrix. Length of correction factors does not" \
+                        "match size of matrix"
+                else:
+                    correction_factors = None
+            except:
                 correction_factors = None
 
-            # get correction factors
-            if hasattr(f.root, 'distance_counts'):
-                distance_counts = f.root.correction_factors.read()
-            else:
+            try:
+                # get correction factors
+                if hasattr(f.root, 'distance_counts'):
+                    distance_counts = f.root.correction_factors.read()
+                else:
+                    distance_counts = None
+            except:
                 distance_counts = None
-
             return matrix, cut_intervals, nan_bins, distance_counts, correction_factors
 
     def save(self, filename, pSymmetric=True, pApplyCorrection=None):
