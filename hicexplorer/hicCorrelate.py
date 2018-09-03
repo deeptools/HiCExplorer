@@ -269,7 +269,7 @@ def main(args=None):
         log.info("loading hic matrix {}\n".format(matrix))
 
         if (check_cooler(args.matrices[i])) and args.chromosomes is not None and len(args.chromosomes) == 1:
-            _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes)
+            _mat = hm.hiCMatrix(matrix, pChrnameList=args.chromosomes)
         else:
             _mat = hm.hiCMatrix(matrix)
             if args.chromosomes:

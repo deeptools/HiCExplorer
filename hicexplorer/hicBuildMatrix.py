@@ -30,6 +30,9 @@ from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 import hicexplorer.hicPrepareQCreport as QC
 
+from .lib import MatrixFileHandler
+
+from hicexplorer import hicMergeMatrixBins
 import logging
 log = logging.getLogger(__name__)
 
@@ -137,8 +140,11 @@ def parse_arguments(args=None):
                        help='Size in bp for the bins. The bin size depends '
                             'on the depth of sequencing. Use a larger bin size for '
                             'libraries sequenced with lower depth. Alternatively, the location of '
-                            'the restriction sites can be given (see --restrictionCutFile). ',
+                            'the restriction sites can be given (see --restrictionCutFile). '
+                            'Optional for mcool file format: Define multiple resolutions which are all a multiple of the first value. '
+                            ' Example: --binSize 10000 20000 50000 will create a mcool file formate containing the three defined resolutions.',
                        type=int,
+                       nargs='+',
                        default=10000)
 
     group.add_argument('--restrictionCutFile', '-rs',
@@ -1086,7 +1092,7 @@ def main(args=None):
 
         rf_positions = intervalListToIntervalTree(rf_interval)
     else:
-        bin_intervals = get_bins(args.binSize, chrom_sizes, args.region)
+        bin_intervals = get_bins(args.binSize[0], chrom_sizes, args.region)
 
     matrix_size = len(bin_intervals)
     bin_intval_tree = intervalListToIntervalTree(bin_intervals)
@@ -1370,7 +1376,21 @@ def main(args=None):
     # will say that the file already exists.
     unlink(args.outFileName.name)
 
-    hic_ma.save(args.outFileName.name)
+    if args.outFileName.name.endswith('.mcool') and args.binSize is not None and len(args.binSize) > 2:
+
+        for resolution in args.binSize[1:]:
+            _mergeFactor = int(resolution) // args.binSize[0]
+            merged_matrix = hicMergeMatrixBins.merge_bins(hic_ma, _mergeFactor)
+            matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
+            matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
+                                                         merged_matrix.cut_intervals,
+                                                         merged_matrix.nan_bins,
+                                                         merged_matrix.correction_factors,
+                                                         merged_matrix.distance_counts)
+            matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(resolution), pSymmetric=True, pApplyCorrection=False)
+
+    else:
+        hic_ma.save(args.outFileName.name)
 
     """
     if args.restrictionCutFile:
