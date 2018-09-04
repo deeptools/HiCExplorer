@@ -10,7 +10,7 @@ import pyBigWig
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import exp_obs_matrix_lieberman
+from hicexplorer.utilities import exp_obs_matrix_lieberman, exp_obs_matrix_norm
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.parserCommon import CustomFormatter
 from hicexplorer.utilities import toString
@@ -70,6 +70,9 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            'correlation.',
                            default=None,
                            nargs='+')
+    parserOpt.add_argument('--norm',
+                           help='Differen obs-exp normalization',
+                           action='store_true')
     parserOpt.add_argument('--geneTrack',
                            help='The gene track is needed to decide if the values of the eigenvector need a sign flip or not.',
                            default=None)
@@ -153,10 +156,15 @@ def main(args=None):
         chr_range = ma.getChrBinRange(chrname)
 
         submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
-
-        exp_obs_matrix_ = exp_obs_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
-        exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
-        exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
+        if args.norm:
+            exp_obs_matrix_ = exp_obs_matrix_norm(submatrix, length_chromosome, chromosome_count)
+            exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
+            exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
+            
+        else:
+            exp_obs_matrix_ = exp_obs_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
+            exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
+            exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
 
         pearson_correlation_matrix = np.corrcoef(exp_obs_matrix_)
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
