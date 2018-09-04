@@ -247,19 +247,11 @@ def expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
 
+    occurences = np.zeros(pSubmatrix.shape[0])
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
-
-    count_times_i = np.arange(float(len(expected_interactions)))
-    pChromosome_count = np.int(pChromosome_count)
-    pLength_chromosome = np.int(pLength_chromosome)
-    count_times_i *= pChromosome_count
-    count_times_i -= pLength_chromosome
-    count_times_i *= np.int(-1)
-    count_times_i *= np.sqrt(count_times_i)
-    expected_interactions /= count_times_i
-    log.debug('exp_obs_matrix_lieberman {}'.format(expected_interactions))
-
+        occurences[distance_] += 1
+    expected_interactions /= occurences
     return expected_interactions
 
 def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
@@ -292,18 +284,17 @@ def exp_obs_matrix_norm(pSubmatrix, pLength_chromosome, pChromosome_count):
         that genomic distance
     """
 
-    expected_interactions_in_distance_ = expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix)
+    expected_interactions_in_distance = expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix)
+    
+    row_sums = np.array(pSubmatrix.sum(axis=1).T).flatten()
+    total_interactions = pSubmatrix.sum()
+
     row, col = pSubmatrix.nonzero()
-    distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
-
-    if len(pSubmatrix.data) > 0:
-        data_type = type(pSubmatrix.data[0])
-
-        expected = expected_interactions_in_distance_[distance]
-        pSubmatrix.data = pSubmatrix.data.astype(np.float32)
-        pSubmatrix.data /= expected
-        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
-
+    # data = pSubmatrix.data.tolist()
+    for i in range(len(row)):
+        expected = expected_interactions_in_distance[np.absolute(row[i]-col[i])] 
+        expected /= row_sums[row[i]] * row_sums[col[i]] / total_interactions
+        pSubmatrix.data[i] /= expected
     return pSubmatrix
 
 def toString(s):

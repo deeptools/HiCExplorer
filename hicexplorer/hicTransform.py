@@ -112,7 +112,7 @@ def main(args=None):
             submatrix.astype(float)
             submatrix = _obs_exp_norm(submatrix, length_chromosome, chromosome_count)
 
-            # submatrix = __pearson(submatrix)
+            submatrix = __pearson(submatrix)
             trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
 
         hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
