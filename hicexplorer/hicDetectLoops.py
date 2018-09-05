@@ -5,7 +5,7 @@ from sklearn.metrics.pairwise import euclidean_distances
 from scipy.sparse import csr_matrix
 
 from scipy.stats import normaltest, f_oneway, mannwhitneyu
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import check_cooler
@@ -68,8 +68,8 @@ Computes long range contacts within the given contact matrix
                            nargs='+')
 
     parserOpt.add_argument('--region',
-                                help='The format is chr:start-end. The region should not be longer than 5MB.',
-                                required=True)
+                           help='The format is chr:start-end. The region should not be longer than 5MB.',
+                           required=True)
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -121,6 +121,7 @@ def compute_zscore_matrix(pMatrix):
 
     return csr_matrix((data, (instances, features)), shape=(pMatrix.shape[0], pMatrix.shape[1]))
 
+
 def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pThreshold, pWindowSize, pPValue,
                                 pMinValueRemove, pMinNeighborhoodSize, pMaxLoopDistance):
 
@@ -136,7 +137,7 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pThreshold, pWindowSi
     log.debug('len(data) {}'.format(len(data)))
     # filter by threshold
     mask = data >= pThreshold
-    log.debug('len(data) {}, len(mask) {}'.format(len(data), len(mask)) )
+    log.debug('len(data) {}, len(mask) {}'.format(len(data), len(mask)))
 
     data = data[mask]
     instances = instances[mask]
@@ -147,9 +148,8 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pThreshold, pWindowSi
     candidates = [*zip(instances, features)]
 
     candidates, pValueList = candidate_uniform_distribution_test(pHiCMatrix, candidates, pWindowSize, pPValue,
-                                                                    pMinValueRemove, pMinNeighborhoodSize)
+                                                                 pMinValueRemove, pMinNeighborhoodSize)
     return cluster_to_genome_position_mapping(pHiCMatrix, candidates, pValueList, pMaxLoopDistance)
-
 
 
 def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
@@ -174,7 +174,6 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
         start_y = candidate[1] - pWindowSize if candidate[1] - pWindowSize > 0 else 0
         end_y = candidate[1] + pWindowSize if candidate[1] + pWindowSize < y_max else y_max
 
-        
         neighborhood = pHiCMatrix.matrix[start_x:end_x, start_y:end_y].toarray().flatten()
         if i < 10:
             log.info('candidate: {}'.format(candidate))
@@ -187,42 +186,41 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
             mask.append(False)
             continue
         uniform_distribution = np.random.uniform(low=np.min(neighborhood), high=np.max(neighborhood), size=len(neighborhood))
-        
-       
+
         # if i < 10:
         #     log.info('neigborhood {}'.format(neighborhood))
         #     log.info('max(neigborhood) {}'.format(np.max(neighborhood)))
-            
+
         #     log.info('uniform_distribution {}'.format(uniform_distribution))
-            
+
         # test_result = f_oneway(neighborhood, uniform_distribution)
         test_result = mannwhitneyu(neighborhood, uniform_distribution)
         pvalue = test_result[1]
-        # if i < 10:      
+        # if i < 10:
         #     log.info('pvalue {}'.format(pvalue))
         if np.isnan(pvalue):
             mask.append(False)
             continue
         mask.append(True)
-            
+
         pvalues.append(pvalue)
- 
+
     mask = np.array(mask)
 
-    ##### Find other candidates within window size
-    ##### accept only the candidate with the lowest pvalue
+    # Find other candidates within window size
+    # accept only the candidate with the lowest pvalue
 
-    # remove candidates which 
-    #  - do not full fill neighborhood size requirement 
+    # remove candidates which
+    #  - do not full fill neighborhood size requirement
     #  - have a nan pvalue
     pCandidates = np.array(pCandidates)
-    
+
     pCandidates = pCandidates[mask]
     mask = []
-    
+
     distances = euclidean_distances(pCandidates)
     # # call DBSCAN
-    clusters = dbscan(X=distances, eps=pWindowSize+1, metric='precomputed', min_samples=2)[1]
+    clusters = dbscan(X=distances, eps=pWindowSize + 1, metric='precomputed', min_samples=2)[1]
     cluster_dict = {}
     for i, cluster in enumerate(clusters):
         if cluster == -1:
@@ -236,12 +234,12 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
                 mask.append(True)
             else:
                 mask.append(False)
-                
+
         else:
             cluster_dict[cluster] = [i, pvalues[i]]
             mask.append(True)
-            
-    # Remove values within the window size of other candidates    
+
+    # Remove values within the window size of other candidates
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
     pvalues = np.array(pvalues)
@@ -304,7 +302,7 @@ def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList, pMa
         chr_y, start_y, end_y, _ = pHicMatrix.getBinPos(candidate[1])
         distance = abs(int(start_x) - int(start_y))
         if distance > pMaxLoopDistance:
-            log.debug('Distance: {}'.format(distance/1e6))
+            log.debug('Distance: {}'.format(distance / 1e6))
             continue
         mapped_cluster.append((chr_x, start_x, end_x, chr_y, start_y, end_y, pPValueList[i]))
     return mapped_cluster
@@ -322,8 +320,9 @@ def write_bedgraph(pClusters, pOutFileName, pStartRegion, pEndRegion):
         for cluster_item in pClusters:
             if cluster_item[1] >= pStartRegion and cluster_item[2] <= pEndRegion \
                     and cluster_item[4] >= pStartRegion and cluster_item[5] <= pEndRegion:
-                    fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(cluster_item[0], cluster_item[1], cluster_item[4], 1, cluster_item[6],
-                                                    ".", cluster_item[1], cluster_item[4], "x,x,x"))
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(cluster_item[0], cluster_item[1], cluster_item[4], 1, cluster_item[6],
+                                                                       ".", cluster_item[1], cluster_item[4], "x,x,x"))
+
 
 def main():
 
@@ -332,13 +331,13 @@ def main():
     is_cooler = check_cooler(args.matrix)
     if args.region:
         chrom, region_start, region_end = translate_region(args.region)
-    log.info("Cooler or no cooler: {}".format(is_cooler))
+    # log.info("Cooler or no cooler: {}".format(is_cooler))
     open_cooler_chromosome_order = True
     if args.chromosomeOrder is not None and len(args.chromosomeOrder) > 1:
         open_cooler_chromosome_order = False
 
     if is_cooler and open_cooler_chromosome_order:
-        log.info("Retrieve data from cooler format and use its benefits.")
+        # log.info("Retrieve data from cooler format and use its benefits.")
         regionsToRetrieve = None
         if args.region:
             regionsToRetrieve = []
@@ -351,14 +350,8 @@ def main():
         hic_matrix = hm.hiCMatrix(args.matrix)
         if args.chromosomeOrder:
             hic_matrix.keepOnlyTheseChr(args.chromosomeOrder)
-       
-            # log.info("{}".format(args.region))
-            # log.info("{}".format(chrom))
-            # log.info("{}".format(region_start))
-            # log.info("{}".format(region_end))
-            
+
             hic_matrix.keepOnlyTheseChr([chrom])
-            # hic_matrix.matrix = hic_matrix.matrix[idx1, :][:, idx2]
 
     hic_matrix.matrix = hic_matrix.matrix + hic_matrix.matrix.transpose() - csr_matrix(np.diag(hic_matrix.matrix.diagonal()))
     z_score_matrix = compute_zscore_matrix(hic_matrix.matrix)
@@ -368,8 +361,8 @@ def main():
         hic_matrix_save.save(args.scoreMatrixName)
 
     mapped_clusters = compute_long_range_contacts(hic_matrix, z_score_matrix, args.zScoreThreshold,
-                                                  args.windowSize, args.pValue, args.minValueRemove, 
+                                                  args.windowSize, args.pValue, args.minValueRemove,
                                                   args.minNeighborhoodSize, args.maxLoopDistance)
 
-    # write it to bedgraph / bigwig file
+    # write it to bedgraph
     write_bedgraph(mapped_clusters, args.outFileName, region_start, region_end)
