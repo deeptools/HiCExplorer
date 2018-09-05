@@ -4,7 +4,7 @@ from __future__ import division
 
 import sys
 import argparse
-from hicexplorer import HiCMatrix as Hm
+from hicmatrix import HiCMatrix as hm
 from past.builtins import zip
 from builtins import range
 import numpy as np
@@ -134,7 +134,7 @@ def get_boundary_bin_id(hic, bed_fh):
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-    hic_ma = Hm.hiCMatrix(args.matrix)
+    hic_ma = hm.hiCMatrix(args.matrix)
     hic_ma.restoreMaskedBins()
 
     # the bin id of boundary positions

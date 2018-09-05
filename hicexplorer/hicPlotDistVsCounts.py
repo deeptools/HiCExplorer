@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import argparse
 
-import hicexplorer.HiCMatrix as HiCMatrix
+from hicmatrix import HiCMatrix
 from hicexplorer._version import __version__
 
 import matplotlib

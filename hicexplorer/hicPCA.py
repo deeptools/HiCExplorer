@@ -8,7 +8,7 @@ from scipy.stats import pearsonr
 import numpy as np
 import pyBigWig
 
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import exp_obs_matrix_lieberman
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros

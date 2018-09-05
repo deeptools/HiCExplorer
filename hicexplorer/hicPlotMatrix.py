@@ -1,7 +1,7 @@
 from __future__ import division
 
 import sys
-import hicexplorer.HiCMatrix as HiCMatrix
+from hicmatrix import HiCMatrix
 from hicexplorer.utilities import writableFile
 from hicexplorer.utilities import toString, toBytes
 from hicexplorer.utilities import enlarge_bins

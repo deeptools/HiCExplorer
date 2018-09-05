@@ -1,5 +1,5 @@
 from hicexplorer import hicBuildMatrix as hicBuildMatrix
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from tempfile import NamedTemporaryFile, mkdtemp
 import shutil
 import os

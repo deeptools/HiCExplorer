@@ -7,7 +7,7 @@ from builtins import range
 import logging
 log = logging.getLogger(__name__)
 
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
 from hicexplorer._version import __version__
 

@@ -5,7 +5,7 @@ from os.path import basename, dirname
 from scipy.sparse import csr_matrix, lil_matrix
 import numpy as np
 
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import exp_obs_matrix_lieberman
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
