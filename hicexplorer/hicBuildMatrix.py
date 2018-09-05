@@ -25,7 +25,7 @@ from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 
 # own tools
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 import hicexplorer.hicPrepareQCreport as QC

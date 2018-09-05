@@ -1,9 +1,9 @@
 from __future__ import division
 import argparse
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
-from hicexplorer.HiCMatrix import check_cooler
+from hicmatrix.HiCMatrix import check_cooler
 import logging
 log = logging.getLogger(__name__)
 

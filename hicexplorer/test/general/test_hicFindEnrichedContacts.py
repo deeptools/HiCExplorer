@@ -1,6 +1,6 @@
 """ Testsuite for hicFindEnrichedContacts """
 from hicexplorer import hicFindEnrichedContacts as hicfec
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 import os
 import numpy as np
 import numpy.testing as nt

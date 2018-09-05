@@ -3,7 +3,7 @@ import argparse
 import time
 import scipy.stats
 import scipy.sparse
-from hicexplorer import HiCMatrix
+from hicmatrix import HiCMatrix
 import hicexplorer.parserCommon
 from hicexplorer._version import __version__
 import numpy as np

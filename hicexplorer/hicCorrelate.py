@@ -8,7 +8,7 @@ from past.builtins import map
 from scipy.sparse import triu
 from scipy.stats import pearsonr, spearmanr
 
-import hicexplorer.HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import check_cooler
 # for plotting
