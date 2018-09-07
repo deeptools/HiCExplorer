@@ -1,19 +1,11 @@
-# as input
-# - n bedfiles with interactions
-# - 1 background model file
-# - plot:
-#       - one image with all in one file
-#       - create n bedfiles
-# how to show background model?
-
 import argparse
 import sys
 import numpy as np
-import hicexplorer.HiCMatrix as hm
-from hicexplorer.utilities import toString
+import hicmatrix.HiCMatrix as hm
+from hicexplorer import utilities
+
 from hicexplorer._version import __version__
 from .lib import Viewpoint
-from .lib import Utilities
 
 import matplotlib
 matplotlib.use('Agg')
@@ -81,9 +73,8 @@ def parse_arguments(args=None):
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
-    utilitiesObj = Utilities()
     background_data = None
-    background_data_sorted = None
+    # background_data_sorted = None
 
     if args.backgroundModelFile:
         background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
@@ -104,7 +95,6 @@ def main(args=None):
         gs.update(hspace=0.5, wspace=0.05)
         ax1 = plt.subplot(gs[0, 0])
         ax1.margins(x=0)
-        ax2 = plt.subplot(gs[1, 0])
     else:
         # gs = gridspec.GridSpec(1 + len(args.interactionFile), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.85, 0.15])
         # gs.update(hspace=0.5, wspace=0.05)

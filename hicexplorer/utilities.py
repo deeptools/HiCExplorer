@@ -405,3 +405,18 @@ def check_cooler(pFileName):
     if pFileName.endswith('.cool') or cooler.io.is_cooler(pFileName) or'.mcool' in pFileName:
         return True
     return False
+
+
+def in_units(self, pBasePosition):
+    pBasePosition = float(pBasePosition)
+    log.debug("pBasePosition {}".format(pBasePosition))
+    if pBasePosition > 1.5e6:
+        labels = "{:.2f} ".format(pBasePosition / 1e6)
+        labels += " Mbp"
+    elif pBasePosition > 1500:
+        labels = "{:.0f}".format(pBasePosition / 1e3)
+        labels += " Kbp"
+    else:
+        labels = "{:.2f} ".format((pBasePosition))
+        labels += " bp"
+    return labels

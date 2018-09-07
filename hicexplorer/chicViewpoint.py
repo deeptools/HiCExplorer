@@ -1,23 +1,11 @@
-# compute viewpoint interaction data and write it to an interaction file
-# a)
-# - option to smooth values
-# - n matrices:
-# - m referencePoints via input file: should one referencePoint via bash be supported?
-# - output: n * m interaction files
-# - +/- around it
-# - option: values as counts or percentage
-#
-
 import argparse
 import sys
 import numpy as np
-import hicexplorer.HiCMatrix as hm
-from hicexplorer.utilities import toString
+import hicmatrix.HiCMatrix as hm
+from hicexplorer import utilities
 from .lib import Viewpoint
-from .lib import Utilities
 from hicexplorer._version import __version__
 from scipy.stats import zscore
-# from hicexplorer.chicViewpointBackgroundModel import getViewpointValues
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -70,7 +58,6 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     viewpointObj = Viewpoint()
-    utilitiesObj = Utilities()
 
     referencePoints, gene_list = viewpointObj.readReferencePointFile(args.referencePoint)
 
@@ -99,8 +86,8 @@ def main(args=None):
 
             referencePointString = '_'.join(str(j) for j in referencePoint)
 
-            region_start_in_units = utilitiesObj.in_units(region_start)
-            region_end_in_units = utilitiesObj.in_units(region_end)
+            region_start_in_units = utilities.in_units(region_start)
+            region_end_in_units = utilities.in_units(region_end)
 
             header_information = '\t'.join([matrix, referencePointString, str(region_start_in_units), str(region_end_in_units), gene_list[i]])
             header_information += '\n# ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
