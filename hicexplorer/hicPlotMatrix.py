@@ -1,7 +1,7 @@
 from __future__ import division
 
 import sys
-import hicexplorer.HiCMatrix as HiCMatrix
+from hicmatrix import HiCMatrix
 from hicexplorer.utilities import writableFile
 from hicexplorer.utilities import toString, toBytes
 from hicexplorer.utilities import enlarge_bins
@@ -457,23 +457,22 @@ def main(args=None):
     if args.chromosomeOrder is not None and len(args.chromosomeOrder) > 1:
         open_cooler_chromosome_order = False
 
-    # TODO: temporary deactivation of this branch. Giving some error, will be fixed later.
-    if False and is_cooler and not args.region2 and open_cooler_chromosome_order:
+    if is_cooler and not args.region2 and open_cooler_chromosome_order:
         log.debug("Retrieve data from cooler format and use its benefits.")
         regionsToRetrieve = None
         if args.region:
             regionsToRetrieve = []
             regionsToRetrieve.append(args.region)
-            if args.region2:
-                chrom2, region_start2, region_end2 = translate_region(args.region2)
-                regionsToRetrieve.append(args.region2)
+            # if args.region2:
+            #     chrom2, region_start2, region_end2 = translate_region(args.region2)
+            #     regionsToRetrieve.append(args.region2)
         if args.chromosomeOrder:
             args.region = None
             args.region2 = None
             regionsToRetrieve = args.chromosomeOrder
 
-        ma = HiCMatrix.hiCMatrix(args.matrix, chrnameList=regionsToRetrieve)
-
+        ma = HiCMatrix.hiCMatrix(args.matrix, pChrnameList=regionsToRetrieve)
+        log.debug('Shape {}'.format(ma.matrix.shape))
         if args.clearMaskedBins:
             ma.maskBins(ma.nan_bins)
             # to avoid gaps in the plot, bins flanking the masked bins
@@ -485,11 +484,14 @@ def main(args=None):
             chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
 
         matrix = np.asarray(ma.matrix.todense().astype(float))
-
+        matrix_length = len(matrix[0])
+        log.debug("Number of data points matrix_cool: {}".format(matrix_length))
     else:
         ma = HiCMatrix.hiCMatrix(args.matrix)
         if args.clearMaskedBins:
             ma.maskBins(ma.nan_bins)
+            new_intervals = enlarge_bins(ma.cut_intervals)
+            ma.setCutIntervals(new_intervals)
         if args.chromosomeOrder:
             args.region = None
             args.region2 = None

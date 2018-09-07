@@ -10,7 +10,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
-import hicexplorer.HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 import hicexplorer.utilities
 from .utilities import toString
 from .utilities import check_chrom_str_bytes
@@ -161,6 +161,11 @@ def parse_arguments(args=None):
     parserPlot.add_argument('--disable_bbox_tight',
                             help=argparse.SUPPRESS,
                             action='store_true')
+    parserOpt.add_argument('--dpi',
+                           help='Optional parameter: Resolution for the image in case the'
+                           'ouput is a raster graphics image (e.g png, jpg)',
+                           type=int,
+                           default=300)
     return parser
 
 
@@ -404,9 +409,9 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
         fig.colorbar(img, cax=cbar_x, orientation='horizontal')
 
     if args.disable_bbox_tight:
-        plt.savefig(args.outFileName.name, dpi=100)
+        plt.savefig(args.outFileName.name, dpi=args.dpi)
     else:
-        plt.savefig(args.outFileName.name, dpi=100, bbox_inches='tight')
+        plt.savefig(args.outFileName.name, dpi=args.dpi, bbox_inches='tight')
 
     plt.close()
 
@@ -483,7 +488,7 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
 
     file_name = args.diagnosticHeatmapFile.name
     log.info('Heatmap file saved under: {}'.format(file_name))
-    plt.savefig(file_name, dpi=200, bbox_inches='tight')
+    plt.savefig(file_name, dpi=args.dpi, bbox_inches='tight')
     plt.close()
 
 

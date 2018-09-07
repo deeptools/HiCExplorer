@@ -6,7 +6,7 @@ import logging
 import argparse
 import json
 from collections import OrderedDict
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer.utilities import enlarge_bins
 from scipy import sparse
 import numpy as np

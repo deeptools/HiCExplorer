@@ -1,5 +1,5 @@
 from hicexplorer import hicFindTADs
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from tempfile import mkdtemp
 import shutil
 import os

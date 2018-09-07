@@ -1,5 +1,5 @@
 from hicexplorer import hicCorrectMatrix
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from tempfile import NamedTemporaryFile
 import os
 import numpy.testing as nt

@@ -1,7 +1,7 @@
 import argparse
 import sys
 import numpy as np
-import hicexplorer.HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer.utilities import toString
 from hicexplorer.chicViewpointBackgroundModel import getViewpointValues
 import matplotlib
