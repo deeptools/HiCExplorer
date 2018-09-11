@@ -135,7 +135,7 @@ def parse_arguments(args=None):
                            help='Scale the values of a bigwig file by the given factor.',
                            type=float,
                            default=1.0)
-    parserOpt.add_argument('--longRangeContacts',
+    parserOpt.add_argument('--loops',
                            help='Bedgraph file to plot detected long range contacts '
                            'from hicDetectLongRangeContacts.',
                            type=str,
@@ -171,7 +171,7 @@ def relabel_ticks(pXTicks):
 
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                 ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pBigwig=None,
-                pLongRangeContacts=None, pHiCMatrix=None):
+                pLoops=None, pHiCMatrix=None):
     log.debug("plotting heatmap")
     if ma.shape[0] < 5:
         # This happens when a tiny matrix wants to be plotted, or by using per chromosome and
@@ -256,8 +256,8 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     if xlabel is not None:
         xlabel = toString(xlabel)
         axHeat2.set_xlabel(xlabel)
-    if pLongRangeContacts:
-        plotLongRangeContacts(axHeat2, pLongRangeContacts, pHiCMatrix)
+    if pLoops:
+        plotLongRangeContacts(axHeat2, pLoops, pHiCMatrix)
         # pLongRangeContacts=None, pHiCMatrix=None
         # plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix)
     if pBigwig:
@@ -638,7 +638,7 @@ def main(args=None):
         plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
-                    pLongRangeContacts=args.longRangeContacts, pHiCMatrix=ma)
+                    pLoops=args.loops, pHiCMatrix=ma)
 
     if not args.disable_tight_layout:
         if args.perChromosome or args.bigwig:

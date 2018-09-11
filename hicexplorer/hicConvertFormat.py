@@ -9,7 +9,7 @@ from hic2cool import hic2cool_convert
 import logging
 log = logging.getLogger(__name__)
 
-from .lib import MatrixFileHandler
+from hicmatrix.lib import MatrixFileHandler
 
 from hicexplorer import hicMergeMatrixBins
 from hicmatrix import HiCMatrix
@@ -32,9 +32,9 @@ def parse_arguments(args=None):
                                 nargs='+',
                                 required=True)
 
-    # parserRequired.add_argument('--outFileName', '-o',
-    #                             help='File name to save the exported matrix.',
-    #                             required=True)
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the exported matrix.',
+                                required=True)
 
     parserRequired.add_argument('--inputFormat',
                                 help='file format of the matrix file. \n'
