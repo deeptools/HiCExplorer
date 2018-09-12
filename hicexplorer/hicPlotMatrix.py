@@ -194,7 +194,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
 
     img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
-    axHeat2.invert_yaxis()
     img3.set_rasterized(True)
 
     if args.region:
@@ -257,9 +256,13 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         xlabel = toString(xlabel)
         axHeat2.set_xlabel(xlabel)
     if pLoops:
-        plotLongRangeContacts(axHeat2, pLoops, pHiCMatrix)
+        log.debug('pLoops called')
+
+        plotLongRangeContacts(axHeat2, pLoops, pHiCMatrix, args.region)
         # pLongRangeContacts=None, pHiCMatrix=None
         # plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix)
+    axHeat2.invert_yaxis()
+    
     if pBigwig:
         axHeat2.xaxis.set_label_position("top")
         axHeat2.xaxis.tick_top()
@@ -273,7 +276,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
 
         else:
             axis_bigwig.append(pBigwig['axis'])
-            vertical_flip = None
+            vertical_flip = [None, None]
         for i, _axis in enumerate(axis_bigwig): 
             if args.region:
                 plotBigwig(_axis, pBigwig['args'].bigwig, pChromosomeSizes=chrBinBoundaries,
@@ -782,7 +785,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
       
 
 
-def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix):
+def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion):
 
     x_list = []
     y_list = []
@@ -793,11 +796,26 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix):
             try:
                 chrom_X, start_X, end_X = fields[0:3]
                 chrom_Y, start_Y, end_Y = fields[3:6]
+                if chrom_X != pRegion[0] or chrom_Y != pRegion[0]:
+                    log.debug('wrong region')
+                    continue
                 x = int(start_X)
                 y = int(start_Y)
+
+
+                # if int(pRegion[1]) > x or int(pRegion[1]) > x:
+                #     continue
+                # if int(pRegion[2]) > y or int(pRegion[2]) > x:
+                #     continue
+
                 x_list.append(x)
                 y_list.append(y)
             except:
                 pass
+        log.debug('region 1 {} region2 {}'.format(pRegion[1], pRegion[2]))
+        pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
+        pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
+        log.debug('Size of x_list {}'.format(len(x_list)))
+        log.debug('Size of y_list {}'.format(len(y_list)))
 
-        pAxis.plot(x_list, y_list, 'ro', lw=3)
+        pAxis.plot(x_list, y_list, 'ro', lw=5)
