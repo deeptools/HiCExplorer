@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 from copy import deepcopy
 import cooler
 from multiprocessing import Process, Queue
-
+import time
 
 def parse_arguments(args=None):
 
