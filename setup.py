@@ -106,7 +106,8 @@ install_requires_py = ["numpy == 1.13.*",
                        "future == 0.16.*",
                        "cooler == 0.7.*",
                        "jinja2 == 2.9.*",
-                       "unidecode == 0.4.*"
+                       "unidecode == 0.4.*",
+                       "hicmatrix == 2.2"
                        ]
 
 if sys.version_info[0] == 2:
@@ -123,8 +124,8 @@ setup(
              'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
-             'bin/hicLog2Ratio', 'bin/hicDetectLongRangeContacts',
-             'bin/hicConvertFileFormats'],
+             'bin/hicLog2Ratio', 'bin/hicDetectLongRangeContacts','bin/hicDetectLoops',
+             'bin/hicConvertFormat'],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
     package_data={'hicexplorer': ['qc_template.html']},

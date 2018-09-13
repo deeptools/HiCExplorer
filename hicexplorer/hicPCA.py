@@ -4,17 +4,19 @@ import argparse
 
 from scipy.sparse import csr_matrix
 from scipy import linalg
-
+from scipy.stats import pearsonr
 import numpy as np
 import pyBigWig
 
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import exp_obs_matrix_lieberman
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.parserCommon import CustomFormatter
 from hicexplorer.utilities import toString
+from hicexplorer.utilities import opener
 
+from .readBed import ReadBed
 import logging
 log = logging.getLogger(__name__)
 
@@ -68,13 +70,59 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            'correlation.',
                            default=None,
                            nargs='+')
-
+    parserOpt.add_argument('--geneTrack',
+                           help='The gene track is needed to decide if the values of the eigenvector need a sign flip or not.',
+                           default=None)
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
 
     return parser
+
+
+def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
+    '''
+    This function correlates the eigenvectors per chromosome with the gene density.
+    If the correlation is negative, the eigenvector values are multiplied with -1.
+    '''
+
+    file_h = opener(pGeneTrack)
+    bed = ReadBed(file_h)
+
+    gene_occurrence = np.zeros(len(pMatrix.cut_intervals))
+    gene_occurrence_per_chr = {}
+
+    chromosome_list = pMatrix.getChrNames()
+
+    for interval in bed:
+        chromosome_name = interval.chromosome
+        if chromosome_name not in chromosome_list:
+            continue
+        # in which bin of the Hi-C matrix is the given gene?
+        bin_id = pMatrix.getRegionBinRange(interval.chromosome, interval.start, interval.end)
+
+        # add +1 for one gene occurrence in this bin
+        gene_occurrence[bin_id[1]] += 1
+
+    for chromosome in chromosome_list:
+        # where is the start and the end bin of a chromosome?
+        bin_id = pMatrix.getChrBinRange(chromosome)
+        gene_occurrence_per_chr[chromosome] = gene_occurrence[bin_id[0]: bin_id[1]]
+
+    # change from [[1,2], [3,4], [5,6]] to [[1,3,5],[2,4,6]]
+    pEigenvector = np.array(pEigenvector).real.transpose()
+
+    # correlate gene density and eigenvector values.
+    # if positive correlation, do nothing, if negative, flip the values.
+    # computed per chromosome
+    for chromosome in chromosome_list:
+        bin_id = pMatrix.getChrBinRange(chromosome)
+        for i, eigenvector in enumerate(pEigenvector):
+            _correlation = pearsonr(eigenvector[bin_id[0]:bin_id[1]].real, gene_occurrence_per_chr[chromosome])
+            if _correlation[0] < 0:
+                eigenvector[bin_id[0]:bin_id[1]] = np.negative(eigenvector[bin_id[0]:bin_id[1]])
+    return np.array(pEigenvector).transpose()
 
 
 def main(args=None):
@@ -103,7 +151,6 @@ def main(args=None):
         length_chromosome += chr_range[1] - chr_range[0]
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
-        log.debug("Computing pca for chromosome: {}".format(chrname))
 
         submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
 
@@ -127,6 +174,9 @@ def main(args=None):
         start_list += start
         end_list += end
 
+    if args.geneTrack:
+        vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.geneTrack)
+
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):
             assert(len(vecs_list) == len(chrom_list))
@@ -144,10 +194,10 @@ def main(args=None):
             exit(1)
         old_chrom = chrom_list[0]
         header = []
-        for i, chrom_ in enumerate(chrom_list):
-            if old_chrom != chrom_:
+        for i, _chrom in enumerate(chrom_list):
+            if old_chrom != _chrom:
                 header.append((toString(old_chrom), end_list[i - 1]))
-            old_chrom = chrom_
+            old_chrom = _chrom
 
         header.append((toString(chrom_list[-1]), end_list[-1]))
         for idx, outfile in enumerate(args.outputFileName):
@@ -155,9 +205,9 @@ def main(args=None):
             log.debug("bigwig: len(chrom_list) {}".format(len(chrom_list)))
 
             assert(len(vecs_list) == len(chrom_list))
-            chrom_list_ = []
-            start_list_ = []
-            end_list_ = []
+            _chrom_list = []
+            _start_list = []
+            _end_list = []
             values = []
 
             bw = pyBigWig.open(outfile, 'w')
@@ -170,12 +220,12 @@ def main(args=None):
                     if isinstance(value[idx], np.complex):
                         value[idx] = value[idx].real
                     values.append(value[idx])
-                    chrom_list_.append(toString(chrom_list[i]))
-                    start_list_.append(start_list[i])
-                    end_list_.append(end_list[i])
+                    _chrom_list.append(toString(chrom_list[i]))
+                    _start_list.append(start_list[i])
+                    _end_list.append(end_list[i])
 
             # write entries
-            bw.addEntries(chrom_list_, start_list_, ends=end_list_, values=values)
+            bw.addEntries(_chrom_list, _start_list, ends=_end_list, values=values)
             bw.close()
     else:
         log.error("Output format not known: {}".format(args.format))
