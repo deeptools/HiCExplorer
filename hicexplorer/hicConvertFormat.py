@@ -103,8 +103,15 @@ def main(args=None):
             exit(1)
     if args.inputFormat == 'hic' and args.outputFormat == 'cool':
         log.info('Converting with hic2cool.')
-        for matrix in args.matrices:
-            hic2cool_convert(matrix, args.outFileName, 0)
+        for i, matrix in enumerate(args.matrices):
+            if args.resolutions is None:
+                hic2cool_convert(matrix, args.outFileName[i], 0)
+            else:
+                out_name = args.outFileName[i].split('.')
+                out_name[-2] = split_name[-2] + '_' + str(resolution)
+                out_name = '.'.join(out_name)
+                for resolution in args.resolutions:
+                    hic2cool_convert(matrix, out_name, resolution)
         return
     elif args.inputFormat in ['hicpro', 'homer', 'h5', 'cool']:
         if args.inputFormat == 'hicpro':
