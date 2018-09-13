@@ -15,6 +15,7 @@ import numpy as np
 import logging
 log = logging.getLogger(__name__)
 from copy import deepcopy
+import cooler
 
 
 def parse_arguments(args=None):
@@ -37,13 +38,13 @@ Computes long range contacts within the given contact matrix
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--zScoreThreshold', '-zt',
                            type=float,
-                           default=5.0,
+                           default=8.0,
                            help='z-score threshold to detect long range interactions')
     parserOpt.add_argument('--zScoreMatrixName', '-zs',
                            help='Saves the computed z-score matrix')
     parserOpt.add_argument('--windowSize', '-w',
                            type=int,
-                           default=2,
+                           default=4,
                            help='Window size')
 
     parserOpt.add_argument('--pValue', '-p',
@@ -61,17 +62,17 @@ Computes long range contacts within the given contact matrix
                            help='The minimum number of interactions a detected peaks needs to have to be considered.')
     parserOpt.add_argument('--maxLoopDistance', '-mld',
                            type=int,
-                           help='maximum distance of a loop')
+                           help='maximum distance of a loop, usually loops are within a distance of ~2MB.')
 
-    parserOpt.add_argument('--chromosomeOrder',
+    parserOpt.add_argument('--chromosomes',
                            help='Chromosomes and order in which the chromosomes should be saved. If not all chromosomes '
                            'are given, the missing chromosomes are left out. For example, --chromosomeOrder chrX will '
                            'export a matrix only containing chromosome X.',
                            nargs='+')
 
     parserOpt.add_argument('--region',
-                           help='The format is chr:start-end. The region should not be longer than 5MB.',
-                           required=True)
+                           help='The format is chr:start-end.',
+                           required=False)
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -312,70 +313,100 @@ def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList, pMa
     return mapped_cluster
 
 
-def write_bedgraph(pClusters, pOutFileName, pStartRegion, pEndRegion):
+def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
 
     with open(pOutFileName, 'w') as fh:
-        for cluster_item in pClusters:
-            if cluster_item[1] >= pStartRegion and cluster_item[2] <= pEndRegion \
-                    and cluster_item[4] >= pStartRegion and cluster_item[5] <= pEndRegion:
-                fh.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % cluster_item)
+        for loop_item in pLoops:
+            if pStartRegion and pEndRegion:
+                if loop_item[1] >= pStartRegion and loop_item[2] <= pEndRegion \
+                        and loop_item[4] >= pStartRegion and loop_item[5] <= pEndRegion:
+                    fh.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % loop_item)
+            else:
+                fh.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % loop_item)
 
     with open('loops_domains.bed', 'w') as fh:
-        for cluster_item in pClusters:
-            if cluster_item[1] >= pStartRegion and cluster_item[2] <= pEndRegion \
-                    and cluster_item[4] >= pStartRegion and cluster_item[5] <= pEndRegion:
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(cluster_item[0], cluster_item[1], cluster_item[4], 1, cluster_item[6],
-                                                                       ".", cluster_item[1], cluster_item[4], "x,x,x"))
+        for loop_item in pLoops:
+            if pStartRegion and pEndRegion:
+
+                if loop_item[1] >= pStartRegion and loop_item[2] <= pEndRegion \
+                        and loop_item[4] >= pStartRegion and loop_item[5] <= pEndRegion:
+                    fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(loop_item[0], loop_item[1], loop_item[4], 1, loop_item[6],
+                                                                           ".", loop_item[1], loop_item[4], "x,x,x"))
+            else:
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(loop_item[0], loop_item[1], loop_item[4], 1, loop_item[6],
+                                                                       ".", loop_item[1], loop_item[4], "x,x,x"))
+
+
+def compute_loops(pHiCMatrix, pRegion, pArgs):
+    log.debug("Compute z-score matrix")
+    z_score_matrix = compute_zscore_matrix(pHiCMatrix.matrix)
+    if pArgs.zScoreMatrixName:
+
+        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
+
+        matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, pHiCMatrix.cut_intervals, pHiCMatrix.nan_bins,
+                                                     None, pHiCMatrix.distance_counts)
+        matrixFileHandlerOutput.save(
+            pRegion + '_' + pArgs.scoreMatrixName, pSymmetric=True, pApplyCorrection=False)
+
+    candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_matrix, pArgs.zScoreThreshold,
+                                                         pArgs.windowSize, pArgs.pValue, pArgs.qValue,
+                                                         pArgs.peakInteractionsThreshold)
+
+    mapped_loops = cluster_to_genome_position_mapping(
+        pHiCMatrix, candidates, pValueList, pArgs.maxLoopDistance)
+
+    # write it to bedgraph
+    return mapped_loops
 
 
 def main():
 
     args = parse_arguments().parse_args()
 
+    if args.region is not None and args.chromosomes is not None:
+        log.error('Please choose either --region or --chromosomes.')
+        exit(1)
     is_cooler = check_cooler(args.matrix)
 
-    open_cooler_chromosome_order = True
-    if args.chromosomeOrder is not None and len(args.chromosomeOrder) > 1:
-        open_cooler_chromosome_order = False
     if args.region:
         chrom, region_start, region_end = translate_region(args.region)
-    if is_cooler and open_cooler_chromosome_order:
-        regionsToRetrieve = None
-        if args.region:
-            regionsToRetrieve = []
-            regionsToRetrieve.append(args.region)
-        elif args.chromosomeOrder:
-            regionsToRetrieve = args.chromosomeOrder
 
-        hic_matrix = hm.hiCMatrix(
-            pMatrixFile=args.matrix, pChrnameList=regionsToRetrieve)
-    else:
-        hic_matrix = hm.hiCMatrix(args.matrix)
-        if args.region:
+        if is_cooler:
+            hic_matrix = hm.hiCMatrix(
+                pMatrixFile=args.matrix, pChrnameList=[args.region])
+        else:
+            hic_matrix = hm.hiCMatrix(args.matrix)
             hic_matrix.keepOnlyTheseChr([chrom])
-        elif args.chromosomeOrder:
-            hic_matrix.keepOnlyTheseChr(args.chromosomeOrder)
+        mapped_loops = compute_loops(hic_matrix, region_str, args)
+        write_bedgraph(mapped_loops, args.outFileName, region_start, region_end)
 
-    hic_matrix.matrix = hic_matrix.matrix + hic_matrix.matrix.transpose() - \
-        csr_matrix(np.diag(hic_matrix.matrix.diagonal()))
-    log.debug("Compute z-score matrix")
-    z_score_matrix = compute_zscore_matrix(hic_matrix.matrix)
-    if args.zScoreMatrixName:
+    else:
+        mapped_loops = []
 
-        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
+        if not is_cooler:
+            hic_matrix = hm.hiCMatrix(args.matrix)
+            hic_matrix.keepOnlyTheseChr([chromosome])
+            matrix = deepcopy(hic_matrix.matrix)
+            cut_intervals = deepcopy(hic_matrix.cut_intervals)
 
-        matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, hic_matrix.cut_intervals, hic_matrix.nan_bins,
-                                                     None, hic_matrix.distance_counts)
-        matrixFileHandlerOutput.save(
-            args.scoreMatrixName, pSymmetric=True, pApplyCorrection=False)
+        if args.chromosomes is None:
+            # get all chromosomes from cooler file
+            if not is_cooler:
+                chromosomes_list = list(hic_matrix.chrBinBoundaries)
+            else:
+                chromosomes_list = cooler.Cooler(args.matrix).chromnames
+        else:
+            chromosomes_list = args.chromosomes
 
-    candidates, pValueList = compute_long_range_contacts(hic_matrix, z_score_matrix, args.zScoreThreshold,
-                                                         args.windowSize, args.pValue, args.qValue,
-                                                         args.peakInteractionsThreshold)
+        for chromosome in chromosomes_list:
+            if is_cooler:
+                hic_matrix = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=[chromosome])
+            else:
+                hic_matrix.setMatrix(deepcopy(matrix), deepcopy(cut_intervals))
+                hic_matrix.keepOnlyTheseChr([chromosome])
 
-    mapped_clusters = cluster_to_genome_position_mapping(
-        hic_matrix, candidates, pValueList, args.maxLoopDistance)
+            mapped_loops.extend(compute_loops(hic_matrix, chromosome, args))
+        write_bedgraph(mapped_loops, args.outFileName)
 
-    log.info("Number of detected loops: {}".format(len(mapped_clusters)))
-    # write it to bedgraph
-    write_bedgraph(mapped_clusters, args.outFileName, region_start, region_end)
+    log.info("Number of detected loops: {}".format(len(mapped_loops)))
