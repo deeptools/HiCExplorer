@@ -16,6 +16,7 @@ import logging
 log = logging.getLogger(__name__)
 from copy import deepcopy
 import cooler
+from multiprocessing import Process, Queue
 
 
 def parse_arguments(args=None):
@@ -73,6 +74,13 @@ Computes long range contacts within the given contact matrix
     parserOpt.add_argument('--region',
                            help='The format is chr:start-end.',
                            required=False)
+    parserOpt.add_argument('--threads',
+                           help='The chromosomes are processed independent of each other. If the number of to be '
+                           'processed chromosomes is greater than one, each chromosome will be computed with on its own core.',
+                           required=False,
+                           default=4,
+                           type=int
+                           )
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -337,7 +345,7 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
                                                                        ".", loop_item[1], loop_item[4], "x,x,x"))
 
 
-def compute_loops(pHiCMatrix, pRegion, pArgs):
+def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     log.debug("Compute z-score matrix")
     z_score_matrix = compute_zscore_matrix(pHiCMatrix.matrix)
     if pArgs.zScoreMatrixName:
@@ -356,8 +364,10 @@ def compute_loops(pHiCMatrix, pRegion, pArgs):
     mapped_loops = cluster_to_genome_position_mapping(
         pHiCMatrix, candidates, pValueList, pArgs.maxLoopDistance)
 
-    # write it to bedgraph
-    return mapped_loops
+    if pQueue is None:
+        return mapped_loops
+    else:
+        pQueue.put([mapped_loops])
 
 
 def main():
@@ -399,14 +409,70 @@ def main():
         else:
             chromosomes_list = args.chromosomes
 
-        for chromosome in chromosomes_list:
-            if is_cooler:
-                hic_matrix = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=[chromosome])
-            else:
-                hic_matrix.setMatrix(deepcopy(matrix), deepcopy(cut_intervals))
-                hic_matrix.keepOnlyTheseChr([chromosome])
+        if len(chromosomes_list) == 1:
+            single_core = True
+        else:
+            single_core = False
 
-            mapped_loops.extend(compute_loops(hic_matrix, chromosome, args))
+        if single_core:
+            for chromosome in chromosomes_list:
+                if is_cooler:
+                    hic_matrix = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=[chromosome])
+                else:
+                    hic_matrix.setMatrix(deepcopy(matrix), deepcopy(cut_intervals))
+                    hic_matrix.keepOnlyTheseChr([chromosome])
+
+                mapped_loops.extend(compute_loops(hic_matrix, chromosome, args))
+        else:
+            queue = [None] * args.threads
+            process = [None] * args.threads
+            all_data_processed = False
+            all_threads_done = False
+            thread_done = [False] * args.threads
+            count_call_of_read_input = 0
+            while not all_data_processed or not all_threads_done:
+                for i in range(args.threads):
+                    if queue[i] is None and not all_data_processed:
+
+                        queue[i] = Queue()
+                        thread_done[i] = False
+                        if is_cooler:
+                            hic_matrix = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=[chromosomes_list[count_call_of_read_input]])
+                        else:
+                            hic_matrix.setMatrix(deepcopy(matrix), deepcopy(cut_intervals))
+                            hic_matrix.keepOnlyTheseChr([chromosomes_list[count_call_of_read_input]])
+
+                        process[i] = Process(target=compute_loops, kwargs=dict(
+                            pHiCMatrix=hic_matrix,
+                            pRegion=chromosomes_list[count_call_of_read_input],
+                            pArgs=args,
+                            pQueue=queue[i]
+                        ))
+                        process[i].start()
+                        if count_call_of_read_input < len(chromosomes_list):
+                            count_call_of_read_input += 1
+                        else:
+                            all_data_processed = True
+                    elif queue[i] is not None and not queue[i].empty():
+                        result = queue[i].get()
+                        mapped_loops.extend(result[0])
+
+                        queue[i] = None
+                        process[i].join()
+                        process[i].terminate()
+                        process[i] = None
+                        thread_done[i] = True
+                    elif all_data_processed and queue[i] is None:
+                        thread_done[i] = True
+                    else:
+                        time.sleep(1)
+
+                if all_data_processed:
+                    all_threads_done = True
+                    for thread in thread_done:
+                        if not thread:
+                            all_threads_done = False
+
         write_bedgraph(mapped_loops, args.outFileName)
 
     log.info("Number of detected loops: {}".format(len(mapped_loops)))
