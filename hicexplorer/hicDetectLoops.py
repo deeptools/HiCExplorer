@@ -159,7 +159,7 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pZscoreThreshold, pWi
 
     if len(features) == 0:
         log.info('No loops detected.')
-        exit()
+        return None, None
     candidates = [*zip(instances, features)]
 
     candidates, pValueList = candidate_uniform_distribution_test(
@@ -280,7 +280,7 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
             pvalues_accepted.append(pvalues[i])
     if len(accepted_index) == 0:
         log.info('No loops detected.')
-        exit()
+        return None, None
     # remove duplicate elements
     for i, candidate in enumerate(accepted_index):
         if candidate[0] > candidate[1]:
@@ -360,7 +360,12 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_matrix, pArgs.zScoreThreshold,
                                                          pArgs.windowSize, pArgs.pValue, pArgs.qValue,
                                                          pArgs.peakInteractionsThreshold)
-
+    if candidates is None:
+        if pQueue is None:
+            return None
+        else:
+            pQueue.put([None])
+            return
     mapped_loops = cluster_to_genome_position_mapping(
         pHiCMatrix, candidates, pValueList, pArgs.maxLoopDistance)
 
@@ -368,6 +373,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         return mapped_loops
     else:
         pQueue.put([mapped_loops])
+    return
 
 
 def main():
@@ -421,8 +427,9 @@ def main():
                 else:
                     hic_matrix.setMatrix(deepcopy(matrix), deepcopy(cut_intervals))
                     hic_matrix.keepOnlyTheseChr([chromosome])
-
-                mapped_loops.extend(compute_loops(hic_matrix, chromosome, args))
+                loops = compute_loops(hic_matrix, chromosome, args)
+                if loops is not None:
+                    mapped_loops.extend(loops)
         else:
             queue = [None] * args.threads
             process = [None] * args.threads
@@ -455,7 +462,8 @@ def main():
                             all_data_processed = True
                     elif queue[i] is not None and not queue[i].empty():
                         result = queue[i].get()
-                        mapped_loops.extend(result[0])
+                        if result[0] is not None:
+                            mapped_loops.extend(result[0])
 
                         queue[i] = None
                         process[i].join()
@@ -473,6 +481,7 @@ def main():
                         if not thread:
                             all_threads_done = False
 
-        write_bedgraph(mapped_loops, args.outFileName)
+        if len(mapped_loops) > 0:
+            write_bedgraph(mapped_loops, args.outFileName)
 
     log.info("Number of detected loops: {}".format(len(mapped_loops)))
