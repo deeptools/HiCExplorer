@@ -19,6 +19,7 @@ import cooler
 from multiprocessing import Process, Queue
 import time
 
+
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
@@ -63,6 +64,7 @@ Computes long range contacts within the given contact matrix
                            help='The minimum number of interactions a detected peaks needs to have to be considered.')
     parserOpt.add_argument('--maxLoopDistance', '-mld',
                            type=int,
+                           default=5000000,
                            help='maximum distance of a loop, usually loops are within a distance of ~2MB.')
 
     parserOpt.add_argument('--chromosomes',
@@ -103,37 +105,29 @@ def compute_zscore_matrix(pMatrix):
     instances, features = pMatrix.nonzero()
 
     pMatrix.data = pMatrix.data.astype(float)
-    # data = deepcopy(pMatrix.data)
+    data = deepcopy(pMatrix.data)
     distances = np.absolute(instances - features)
     sigma_2 = np.zeros(pMatrix.shape[0])
+
     # shifts all values by one, but 0 / mean is prevented
     sum_per_distance = np.ones(pMatrix.shape[0])
-    np.nan_to_num(pMatrix.data, copy=False)
+    np.nan_to_num(data, copy=False)
 
-    sum_per_distance, distance_count = _sum_per_distance(
-        sum_per_distance, pMatrix.data, distances)
+    sum_per_distance, distance_count = _sum_per_distance(sum_per_distance, data, distances)
     # compute mean
-
     mean_adjusted = sum_per_distance / distance_count
     # compute sigma squared
-    data = np.array(len(pMatrix.data), dtype=float)
-    for i, distance in enumerate(distances):
-        data[i] = pMatrix.data[i] - mean_adjusted[distance]
+    data_mean = pMatrix.data - mean_adjusted[distances]
+    data = np.square(data_mean)
 
-    data = np.square(data)
-    for i, distance in enumerate(distances):
-        sigma_2[distance] += data[i]
+    for i in range(len(instances)):
+        sigma_2[distances[i]] += data[i]
 
     sigma_2 /= distance_count
     sigma = np.sqrt(sigma_2)
+    data_mean /= sigma[distances]
 
-    for i, distance in enumerate(distances):
-        data[i] = (data[i]) / sigma[distance]
-    sigma_2 = None
-    sigma = None
-    mean = None
-    sum_per_distance = None
-    return data
+    return data_mean
 
 
 def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWindowSize, pPValue, pQValue, pPeakInteractionsThreshold):
@@ -142,35 +136,26 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWind
     # keep: z-score value, (x, y) coordinate
 
     # keep only z-score values (peaks) if they have more interactions than pPeakInteractionsThreshold
-    
-    instances, features = pHiCMatrix.matrix.nonzero()
-    
 
-    log.debug('len(instances) {}, len(features) {}'.format(
-        len(instances), len(features)))
-    log.debug('len(data) {}'.format(len(pZscoreData)))
+    instances, features = pHiCMatrix.matrix.nonzero()
+
     # filter by threshold
     mask = pZscoreData >= pZscoreThreshold
     pZscoreData = None
-    # log.debug('len(pZscoreData) {}, len(mask) {}'.format(len(pZscoreData), len(mask)))
 
     mask_interactions = pHiCMatrix.matrix.data > pPeakInteractionsThreshold
 
     mask = np.logical_and(mask, mask_interactions)
-    # pZscoreData = pZscoreData[mask]
 
     instances = instances[mask]
     features = features[mask]
 
     if len(features) == 0:
-        log.info('No loops detected.')
         return None, None
     candidates = [*zip(instances, features)]
-
     candidates, pValueList = candidate_uniform_distribution_test(
         pHiCMatrix, candidates, pWindowSize, pPValue, pQValue)
     return candidates, pValueList
-    # return cluster_to_genome_position_mapping(pHiCMatrix, candidates, pValueList, pMaxLoopDistance)
 
 
 def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, pQValue):
@@ -225,7 +210,6 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
         else:
             mask.append(False)
 
-    log.debug('MW-Test and p-value filtering...DONE')
     mask = np.array(mask)
 
     # Find other candidates within window size
@@ -237,7 +221,7 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
     pCandidates = np.array(pCandidates)
 
     pCandidates = pCandidates[mask]
-    log.debug('Number of candidates: {}'.format(len(pCandidates)))
+    # log.debug('Number of candidates: {}'.format(len(pCandidates)))
 
     mask = []
 
@@ -271,20 +255,17 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
     # FDR
     pvalues_ = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
     pvalues_ = np.sort(pvalues_)
-    log.info('pvalues_ {}'.format(pvalues_))
     largest_p_i = -np.inf
     for i, p in enumerate(pvalues_):
         if p <= (pQValue * (i + 1) / len(pvalues_)):
             if p >= largest_p_i:
                 largest_p_i = p
     pvalues_accepted = []
-    log.info('largest_p_i {}'.format(largest_p_i))
     for i, candidate in enumerate(pCandidates):
         if pvalues[i] < largest_p_i:
             accepted_index.append(candidate)
             pvalues_accepted.append(pvalues[i])
     if len(accepted_index) == 0:
-        log.info('No loops detected.')
         return None, None
     # remove duplicate elements
     for i, candidate in enumerate(accepted_index):
@@ -351,7 +332,17 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
 
 
 def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
-    log.debug("Compute z-score matrix")
+    # log.debug("Compute z-score matrix")
+    max_loop_distance = None
+    if pArgs.maxLoopDistance:
+        max_loop_distance = pArgs.maxLoopDistance / pHiCMatrix.getBinSize()
+        instances, features = pHiCMatrix.matrix.nonzero()
+
+        distances = np.absolute(instances - features)
+        mask = distances > max_loop_distance
+        pHiCMatrix.matrix.data[mask] = 0
+        pHiCMatrix.matrix.eliminate_zeros()
+
     z_score_data = compute_zscore_matrix(pHiCMatrix.matrix)
     if pArgs.zScoreMatrixName:
 
@@ -367,6 +358,8 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
                                                          pArgs.windowSize, pArgs.pValue, pArgs.qValue,
                                                          pArgs.peakInteractionsThreshold)
     if candidates is None:
+        log.info('Computed loops for {}: 0'.format(pRegion))
+
         if pQueue is None:
             return None
         else:
@@ -374,6 +367,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             return
     mapped_loops = cluster_to_genome_position_mapping(
         pHiCMatrix, candidates, pValueList, pArgs.maxLoopDistance)
+    log.info('Computed loops for {}: {}'.format(pRegion, len(mapped_loops)))
 
     if pQueue is None:
         return mapped_loops
@@ -446,7 +440,9 @@ def main():
             while not all_data_processed or not all_threads_done:
                 for i in range(args.threads):
                     if queue[i] is None and not all_data_processed:
-
+                        if count_call_of_read_input >= len(chromosomes_list):
+                            all_data_processed = True
+                            continue
                         queue[i] = Queue()
                         thread_done[i] = False
                         if is_cooler:
@@ -490,4 +486,4 @@ def main():
         if len(mapped_loops) > 0:
             write_bedgraph(mapped_loops, args.outFileName)
 
-    log.info("Number of detected loops: {}".format(len(mapped_loops)))
+    log.info("Number of detected loops for all regions: {}".format(len(mapped_loops)))
