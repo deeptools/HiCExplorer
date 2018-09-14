@@ -9,7 +9,7 @@ from hic2cool import hic2cool_convert
 import logging
 log = logging.getLogger(__name__)
 
-from .lib import MatrixFileHandler
+from hicmatrix.lib import MatrixFileHandler
 
 from hicexplorer import hicMergeMatrixBins
 from hicmatrix import HiCMatrix
