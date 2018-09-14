@@ -90,11 +90,11 @@ Computes long range contacts within the given contact matrix
     return parser
 
 
-def _sum_per_distance(pSum_per_distance, pData, pDistances, pN):
+def _sum_per_distance(pSum_per_distance, pData, pDistances):
     distance_count = np.zeros(len(pSum_per_distance))
-    for i in range(pN):
-        pSum_per_distance[pDistances[i]] += pData[i]
-        distance_count[pDistances[i]] += 1
+    for i, distance in enumerate(pDistances):
+        pSum_per_distance[distance] += pData[i]
+        distance_count[distance] += 1
     return pSum_per_distance, distance_count
 
 
@@ -103,56 +103,61 @@ def compute_zscore_matrix(pMatrix):
     instances, features = pMatrix.nonzero()
 
     pMatrix.data = pMatrix.data.astype(float)
-    data = deepcopy(pMatrix.data)
+    # data = deepcopy(pMatrix.data)
     distances = np.absolute(instances - features)
     sigma_2 = np.zeros(pMatrix.shape[0])
-
     # shifts all values by one, but 0 / mean is prevented
     sum_per_distance = np.ones(pMatrix.shape[0])
-    np.nan_to_num(data, copy=False)
+    np.nan_to_num(pMatrix.data, copy=False)
 
     sum_per_distance, distance_count = _sum_per_distance(
-        sum_per_distance, data, distances, len(instances))
+        sum_per_distance, pMatrix.data, distances)
     # compute mean
 
     mean_adjusted = sum_per_distance / distance_count
     # compute sigma squared
-    for i in range(len(instances)):
-        sigma_2[distances[i]
-                ] += np.square(data[i] - mean_adjusted[distances[i]])
+    data = np.array(len(pMatrix.data), dtype=float)
+    for i, distance in enumerate(distances):
+        data[i] = pMatrix.data[i] - mean_adjusted[distance]
+
+    data = np.square(data)
+    for i, distance in enumerate(distances):
+        sigma_2[distance] += data[i]
 
     sigma_2 /= distance_count
     sigma = np.sqrt(sigma_2)
 
-    for i in range(len(instances)):
-        data[i] = (pMatrix.data[i] - mean_adjusted[distances[i]]) / \
-            sigma[distances[i]]
+    for i, distance in enumerate(distances):
+        data[i] = (data[i]) / sigma[distance]
+    sigma_2 = None
+    sigma = None
+    mean = None
+    sum_per_distance = None
+    return data
 
-    return csr_matrix((data, (instances, features)), shape=(pMatrix.shape[0], pMatrix.shape[1]))
 
-
-def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pZscoreThreshold, pWindowSize, pPValue, pQValue, pPeakInteractionsThreshold):
+def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWindowSize, pPValue, pQValue, pPeakInteractionsThreshold):
 
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
 
     # keep only z-score values (peaks) if they have more interactions than pPeakInteractionsThreshold
-    zscore_matrix = pZscoreMatrix
-    zscore_matrix.eliminate_zeros()
-    instances, features = zscore_matrix.nonzero()
-    data = zscore_matrix.data.astype(float)
+    
+    instances, features = pHiCMatrix.matrix.nonzero()
+    
 
     log.debug('len(instances) {}, len(features) {}'.format(
         len(instances), len(features)))
-    log.debug('len(data) {}'.format(len(data)))
+    log.debug('len(data) {}'.format(len(pZscoreData)))
     # filter by threshold
-    mask = data >= pZscoreThreshold
-    log.debug('len(data) {}, len(mask) {}'.format(len(data), len(mask)))
+    mask = pZscoreData >= pZscoreThreshold
+    pZscoreData = None
+    # log.debug('len(pZscoreData) {}, len(mask) {}'.format(len(pZscoreData), len(mask)))
 
     mask_interactions = pHiCMatrix.matrix.data > pPeakInteractionsThreshold
 
     mask = np.logical_and(mask, mask_interactions)
-    data = data[mask]
+    # pZscoreData = pZscoreData[mask]
 
     instances = instances[mask]
     features = features[mask]
@@ -347,17 +352,18 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
 
 def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     log.debug("Compute z-score matrix")
-    z_score_matrix = compute_zscore_matrix(pHiCMatrix.matrix)
+    z_score_data = compute_zscore_matrix(pHiCMatrix.matrix)
     if pArgs.zScoreMatrixName:
 
         matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
-
+        instances, features = pHiCMatrix.matrix.nonzero()
+        z_score_matrix = csr_matrix((z_score_data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
         matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, pHiCMatrix.cut_intervals, pHiCMatrix.nan_bins,
                                                      None, pHiCMatrix.distance_counts)
         matrixFileHandlerOutput.save(
             pRegion + '_' + pArgs.scoreMatrixName, pSymmetric=True, pApplyCorrection=False)
 
-    candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_matrix, pArgs.zScoreThreshold,
+    candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_data, pArgs.zScoreThreshold,
                                                          pArgs.windowSize, pArgs.pValue, pArgs.qValue,
                                                          pArgs.peakInteractionsThreshold)
     if candidates is None:
@@ -394,7 +400,7 @@ def main():
         else:
             hic_matrix = hm.hiCMatrix(args.matrix)
             hic_matrix.keepOnlyTheseChr([chrom])
-        mapped_loops = compute_loops(hic_matrix, region_str, args)
+        mapped_loops = compute_loops(hic_matrix, args.region, args)
         write_bedgraph(mapped_loops, args.outFileName, region_start, region_end)
 
     else:
