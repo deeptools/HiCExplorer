@@ -124,7 +124,8 @@ def parse_arguments(args=None):
                            'example be used to visualize A/B compartments or '
                            'ChIP-seq data.',
                            type=str,
-                           default=None)
+                           default=None,
+                           nargs='+')
     parserOpt.add_argument('--bigwigAdditionalVerticalAxis',
                            help='Add an additional axis to determine the values of a bigwig file in 2D better.',
                            action='store_true')
@@ -611,8 +612,16 @@ def main(args=None):
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
         if args.bigwig:
+            number_of_rows_plot = len(args.bigwig)
+            bigwig_heights = [0.07] * number_of_rows_plot
+            bigwig_height_ratio = 0.95 - (0.07 * number_of_rows_plot)
+            if bigwig_height_ratio < 0.4:
+                bigwig_height_ratio = 0.4
+                _ratio = 0.6 / len(number_of_rows_plot)
+                bigwig_heights = [_ratio] * number_of_rows_plot
+
             if args.bigwigAdditionalVerticalAxis:
-                gs = gridspec.GridSpec(2, 3, height_ratios=[0.90, 0.1], width_ratios=[0.15, 0.82, 0.03])
+                gs = gridspec.GridSpec(1 + len(args.bigwig), 3, height_ratios=[0.90, 0.1], width_ratios=[0.15, 0.82, 0.03])
                 gs.update(hspace=0.05, wspace=0.05)
                 bigwig_vertical_axis = plt.subplot(gs[0, 0])
                 ax1 = plt.subplot(gs[0, 1])
@@ -623,12 +632,16 @@ def main(args=None):
                 bigwig_info['axis_colorbar'] = ax3
                 bigwig_info['axis_vertical'] = bigwig_vertical_axis
             else:
-                gs = gridspec.GridSpec(2, 2, height_ratios=[0.90, 0.1], width_ratios=[0.97, 0.03])
+                # [0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
+                gs = gridspec.GridSpec(1 + len(args.bigwig), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *bigwig_heights], width_ratios=[0.97, 0.03])
                 gs.update(hspace=0.05, wspace=0.05)
                 ax1 = plt.subplot(gs[0, 0])
-                ax2 = plt.subplot(gs[1, 0])
+                ax2_list = []
+                for i in range(len(args.bigwig)):
+                    ax2_list.append(plt.subplot(gs[1+i, 0]))
+                # ax2 = plt.subplot(gs[1, 0])
                 ax3 = plt.subplot(gs[0, 1])
-                bigwig_info['axis'] = ax2
+                bigwig_info['axis'] = ax2_list
                 bigwig_info['axis_colorbar'] = ax3
         else:
             ax1 = None
@@ -677,30 +690,33 @@ def make_start_pos_array(ma):
 
 def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None, pVertical=False):
     log.debug('plotting eigenvector')
-    pAxis.set_frame_on(False)
-    if pVertical:
-        pAxis.yaxis.set_visible(False)
-
-    else:
-        pAxis.xaxis.set_visible(False)
+    
 
     # pNameOfBigwigList is not a list, but to make room for future options
     # requiring more than one bigwig file I set this to a list intentionally.
-    pNameOfBigwigList = [pNameOfBigwigList]
-    file_format = pNameOfBigwigList[0].split(".")[-1]
-    if file_format != 'bigwig' and file_format != 'bw':
-        log.error("Given files are not bigwig")
-        exit()
+    # pNameOfBigwigList = [pNameOfBigwigList]
+    for file in pNameOfBigwigList:
+        file_format = file.split(".")[-1]
+        if file_format != 'bigwig' and file_format != 'bw':
+            log.error("Given files are not bigwig")
+            exit(1)
 
-    for bigwig_file in pNameOfBigwigList:
-        if bigwig_file.split('.')[-1] != file_format:
-            log.error("Eigenvector input files have different formats.")
-            exit()
+    # for bigwig_file in pNameOfBigwigList:
+    #     if bigwig_file.split('.')[-1] != file_format:
+    #         log.error("Eigenvector input files have different formats.")
+    #         exit()
 
-    x_values = []
-    bigwig_scores = []
+    
     if file_format == "bigwig" or file_format == 'bw':
         for i, bigwigFile in enumerate(pNameOfBigwigList):
+            x_values = []
+            bigwig_scores = []
+            pAxis[i].set_frame_on(False)
+            if pVertical:
+                pAxis[i].yaxis.set_visible(False)
+
+            else:
+                pAxis[i].xaxis.set_visible(False)
             bw = pyBigWig.open(bigwigFile)
             bigwig_scores = []
             if pRegion:
@@ -734,7 +750,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 if pVertical:
                     pAxis.set_ylim(region_start, region_end)
                 else:
-                    pAxis.set_xlim(region_start, region_end)
+                    pAxis[i].set_xlim(region_start, region_end)
 
             elif pChromosomeSizes:
                 chrom_length_sum = 0
@@ -764,7 +780,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 if pVertical:
                     pAxis.set_ylim(0, chrom_length_sum)
                 else:
-                    pAxis.set_xlim(0, chrom_length_sum)
+                    pAxis[i].set_xlim(0, chrom_length_sum)
 
             log.debug("Number of data points: {}".format(len(bigwig_scores)))
 
@@ -777,11 +793,11 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 bigwig_scores = np.array(bigwig_scores)
                 bigwig_scores *= pScaleFactorBigwig
 
-    if x_values is not None and bigwig_scores is not None:
-        if pVertical:
-            pAxis.fill_between(np.flip(bigwig_scores, 0), x_values, edgecolor='none')
-        else:
-            pAxis.fill_between(x_values, 0, bigwig_scores, edgecolor='none')
+            if x_values is not None and bigwig_scores is not None:
+                if pVertical:
+                    pAxis.fill_between(np.flip(bigwig_scores, 0), x_values, edgecolor='none')
+                else:
+                    pAxis[i].fill_between(x_values, 0, bigwig_scores, edgecolor='none')
       
 
 
