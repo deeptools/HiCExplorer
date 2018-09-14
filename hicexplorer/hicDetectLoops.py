@@ -352,7 +352,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, pHiCMatrix.cut_intervals, pHiCMatrix.nan_bins,
                                                      None, pHiCMatrix.distance_counts)
         matrixFileHandlerOutput.save(
-            pRegion + '_' + pArgs.scoreMatrixName, pSymmetric=True, pApplyCorrection=False)
+            pRegion + '_' + pArgs.zScoreMatrixName, pSymmetric=True, pApplyCorrection=False)
 
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_data, pArgs.zScoreThreshold,
                                                          pArgs.windowSize, pArgs.pValue, pArgs.qValue,
