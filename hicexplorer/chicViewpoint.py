@@ -72,6 +72,16 @@ def main(args=None):
             data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
             if args.averageContactBin > 0:
                 data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
+            
+            
+            bin_start_viewpoint, bin_end_viewpoint = viewpointObj.hicMatrix.getRegionBinRange(referencePoint[0], region_start, region_end)
+            # log.debug('region_start {}'.format(foo))
+            # log.debug('region_end {}'.format(region_end))
+
+            # log.debug('len(data_list) {}'.format(len(data_list)))
+            data_list = data_list[bin_start_viewpoint:bin_end_viewpoint]
+            # log.debug('len(data_list) {}'.format(len(data_list)))
+
             data_list_raw = np.copy(data_list)
 
             data_list = viewpointObj.computeRelativeValues(data_list)
