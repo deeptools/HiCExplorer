@@ -83,7 +83,7 @@ def main():
             region_start, region_end, _ = viewpointObj.calculateViewpointRange(referencePoint, args.range)
 
             data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
-
+            # log.debug('len(data_list) {}'.format(len(data_list)))
             if args.averageContactBin > 0:
                 data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
 
@@ -91,7 +91,7 @@ def main():
             view_point_start, _ = viewpointObj.getReferencePointAsMatrixIndices(referencePoint)
             view_point_range_start, view_point_range_end = \
                 viewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
-            for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
+            for i, data in enumerate(data_list):
                 relative_position = i - view_point_start
                 if relative_position in background_model_data:
                     background_model_data[relative_position] += data
@@ -125,9 +125,15 @@ def main():
         mean_percentage[relative_position] = count / i
         sem[relative_position] = (count / i) / math.sqrt(i)
 
+    # log.debug('relative positions {}'.format(relative_positions))
+    # log.debug('region_start {} region_end {}'.format(region_start, region_end))
+    lower_limit_range = args.range[0] * (-1) / bin_size
+    upper_limit_range = args.range[1]  / bin_size
+
     # write result to file
     with open(args.outFileName, 'w') as file:
         for relative_position in relative_positions:
-            relative_position_in_genomic_scale = relative_position * bin_size
-            file.write("{}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, mean_percentage[relative_position],
-                                                       sem[relative_position]))
+            if lower_limit_range <= relative_position and relative_position <= upper_limit_range:
+                relative_position_in_genomic_scale = relative_position * bin_size
+                file.write("{}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, mean_percentage[relative_position],
+                                                        sem[relative_position]))
