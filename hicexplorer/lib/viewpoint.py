@@ -140,12 +140,13 @@ class Viewpoint():
 
 
 
-          ### fix
+        ### fix
         elements_of_viewpoint  = max(self.hicMatrix.matrix.shape[0], self.hicMatrix.matrix.shape[1])
         data_list = np.zeros(elements_of_viewpoint)
+        # _data_list = np.zeros(elements_of_viewpoint)
 
         _view_point_start = view_point_start
-
+        # import numpy.testing as nt
         while _view_point_start <= view_point_end:
             chrom, start, end, _ = self.hicMatrix.getBinPos(_view_point_start)
             data_list += self.hicMatrix.matrix[_view_point_start, :].toarray().flatten()
@@ -153,7 +154,7 @@ class Viewpoint():
             #     data_list[i] += self.hicMatrix.matrix[_view_point_start, i]
 
             _view_point_start += 1
-
+        # nt.assert_array_equal(data_list, _data_list)
         # data_list = data_list[view_point_range[0]:view_point_range[1]]
 
 

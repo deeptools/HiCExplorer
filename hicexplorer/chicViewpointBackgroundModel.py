@@ -64,17 +64,10 @@ def parse_arguments(args=None):
 
 def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
-    # view_point_start, view_point_end = pViewpointObj.getReferencePointAsMatrixIndices(pReferencePoints[0])
-
-    # elements_of_viewpoint  = max(pViewpointObj.hicMatrix.matrix.shape[0], pViewpointObj.hicMatrix.matrix.shape[1])
-    # elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
-    # interactions = np.zeros(elements_of_viewpoint)
-    log.debug('Computing {} reference points'.format(len(pReferencePoints)))
     background_model_data = {}
     relative_positions = set()
 
-    for referencePoint in pReferencePoints:
-        log.debug('computing: {}'.format(referencePoint))
+    for i, referencePoint in enumerate(pReferencePoints):
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
 
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
@@ -82,21 +75,22 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
 
-        # interactions += data_list
         # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
         view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
         view_point_range_start, view_point_range_end = \
             pViewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
-        for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
-            relative_position = i - view_point_start
+        
+
+        for j, data in enumerate(data_list):
+            relative_position = j - view_point_start
             if relative_position in background_model_data:
                 background_model_data[relative_position] += data
             else:
                 background_model_data[relative_position] = data
                 relative_positions.add(relative_position)
-        log.debug('computing: {}...DONE'.format(referencePoint))
         
     pQueue.put([background_model_data, relative_positions])
+    return
 
 def main():
     args = parse_arguments().parse_args()
@@ -121,6 +115,7 @@ def main():
     process = [None] * args.threads
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
+        # hic_ma.
         viewpointObj.hicMatrix = hic_ma
         background_model_data = None
         bin_size = hic_ma.getBinSize()
@@ -149,7 +144,7 @@ def main():
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
                     foo = queue[i].get()
-                    log.debug('len(queue[i].get() {}'.format(len(foo)))
+                    # log.debug('len(queue[i].get() {}'.format(len(foo)))
                     background_model_data_thread, relative_positions_thread = foo
                     if background_model_data is None:
                         background_model_data = background_model_data_thread
@@ -169,35 +164,14 @@ def main():
                 if queue[i] is not None:
                     all_data_collected = False
             time.sleep(1)
-        # for referencePoint in referencePoints:
-
-        #     region_start, region_end, _ = viewpointObj.calculateViewpointRange(referencePoint, args.range)
-
-        #     data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
-        #     # log.debug('len(data_list) {}'.format(len(data_list)))
-        #     if args.averageContactBin > 0:
-        #         data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
-
-        #     # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
-        #     view_point_start, _ = viewpointObj.getReferencePointAsMatrixIndices(referencePoint)
-        #     view_point_range_start, view_point_range_end = \
-        #         viewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
-        #     for i, data in enumerate(data_list):
-        #         relative_position = i - view_point_start
-        #         if relative_position in background_model_data:
-        #             background_model_data[relative_position] += data
-        #         else:
-        #             background_model_data[relative_position] = data
-        #             relative_positions.add(relative_position)
-
-        # compute the percentage of each position with respect to the total interaction count
+      
 
         total_count = sum(background_model_data.values())
-
         relative_counts = background_model_data
 
         for key in relative_counts:
             relative_counts[key] /= total_count
+        
         relative_counts_conditions.append(relative_counts)
 
     # for models of all conditions:
@@ -206,6 +180,7 @@ def main():
     mean_percentage = {}
     sem = {}
     relative_positions = sorted(relative_positions)
+
     for relative_position in relative_positions:
         i = 0
         count = 0
@@ -215,9 +190,6 @@ def main():
                 count += condition[relative_position]
         mean_percentage[relative_position] = count / i
         sem[relative_position] = (count / i) / math.sqrt(i)
-
-    # log.debug('relative positions {}'.format(relative_positions))
-    # log.debug('region_start {} region_end {}'.format(region_start, region_end))
     lower_limit_range = args.range[0] * (-1) / bin_size
     upper_limit_range = args.range[1]  / bin_size
 
