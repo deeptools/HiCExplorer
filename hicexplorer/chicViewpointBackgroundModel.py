@@ -3,6 +3,8 @@ import argparse
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 import math
+from multiprocessing import Process, Queue
+import time
 import logging
 log = logging.getLogger(__name__)
 
@@ -47,6 +49,12 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--outFileName', '-o',
                            help='The name of the background model file',
                            default='background_model.bed')
+    parserOpt.add_argument('--threads',
+                           help='Number of threads. Using the python multiprocessing module. ',
+                           required=False,
+                           default=4,
+                           type=int
+                           )
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -54,6 +62,39 @@ def parse_arguments(args=None):
 
     return parser
 
+def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
+
+    # view_point_start, view_point_end = pViewpointObj.getReferencePointAsMatrixIndices(pReferencePoints[0])
+
+    # elements_of_viewpoint  = max(pViewpointObj.hicMatrix.matrix.shape[0], pViewpointObj.hicMatrix.matrix.shape[1])
+    # elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
+    # interactions = np.zeros(elements_of_viewpoint)
+    log.debug('Computing {} reference points'.format(len(pReferencePoints)))
+    background_model_data = {}
+    relative_positions = set()
+
+    for referencePoint in pReferencePoints:
+
+        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
+
+        data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
+
+        if pArgs.averageContactBin > 0:
+            data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
+
+        # interactions += data_list
+        # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
+        view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
+        view_point_range_start, view_point_range_end = \
+            pViewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
+        for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
+            relative_position = i - view_point_start
+            if relative_position in background_model_data:
+                background_model_data[relative_position] += data
+            else:
+                background_model_data[relative_position] = data
+                relative_positions.add(relative_position)
+    pQueue.put([background_model_data, relative_positions])
 
 def main():
     args = parse_arguments().parse_args()
@@ -73,31 +114,77 @@ def main():
     # - compute mean percentage for each bin
     # - compute SEM = Standard deviation / (square root of sample size)
 
+    referencePointsPerThread = len(referencePoints) // args.threads
+    queue = [None] * args.threads
+    process = [None] * args.threads
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
-        background_model_data = {}
+        background_model_data = None
         bin_size = hic_ma.getBinSize()
-        for referencePoint in referencePoints:
+        all_data_collected = False
 
-            region_start, region_end, _ = viewpointObj.calculateViewpointRange(referencePoint, args.range)
 
-            data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
-            # log.debug('len(data_list) {}'.format(len(data_list)))
-            if args.averageContactBin > 0:
-                data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
+        for i in range(args.threads):
+            
+            if i < args.threads - 1:
+                referencePointsThread = referencePoints[i*referencePointsPerThread:(i+1)*referencePointsPerThread]
+            else:
+                referencePointsThread = referencePoints[i*referencePointsPerThread:]
 
-            # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
-            view_point_start, _ = viewpointObj.getReferencePointAsMatrixIndices(referencePoint)
-            view_point_range_start, view_point_range_end = \
-                viewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
-            for i, data in enumerate(data_list):
-                relative_position = i - view_point_start
-                if relative_position in background_model_data:
-                    background_model_data[relative_position] += data
-                else:
-                    background_model_data[relative_position] = data
-                    relative_positions.add(relative_position)
+            queue[i] = Queue()
+            process[i] = Process(target=compute_background, kwargs=dict(
+                pReferencePoints = referencePointsThread,
+                pViewpointObj = viewpointObj,
+                pArgs= args,
+                pQueue = queue[i] 
+                )
+            )
+
+            process[i].start()
+
+        while not all_data_collected:
+            for i in range(args.threads):
+                if queue[i] is not None and not queue[i].empty():
+                    background_model_data_thread, relative_positions_thread = queue[i].get()
+                    if background_model_data is None:
+                        background_model_data = background_model_data_thread
+                    else:
+                        for relativePosition in background_model_data_thread:
+                            if relativePosition in background_model_data:
+                                background_model_data[background_model_data] += background_model_data_thread[relativePosition]
+                            else:
+                                background_model_data[background_model_data] = background_model_data_thread[relativePosition]
+
+                        relative_positions = relative_positions.union(relative_positions_thread)
+                    queue[i] = None
+                    process[i].join()
+                    process[i].terminate()
+                    process[i] = None
+                all_data_collected = True
+                if queue[i] is not None:
+                    all_data_collected = False
+            time.sleep(1)
+        # for referencePoint in referencePoints:
+
+        #     region_start, region_end, _ = viewpointObj.calculateViewpointRange(referencePoint, args.range)
+
+        #     data_list = viewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
+        #     # log.debug('len(data_list) {}'.format(len(data_list)))
+        #     if args.averageContactBin > 0:
+        #         data_list = viewpointObj.smoothInteractionValues(data_list, args.averageContactBin)
+
+        #     # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
+        #     view_point_start, _ = viewpointObj.getReferencePointAsMatrixIndices(referencePoint)
+        #     view_point_range_start, view_point_range_end = \
+        #         viewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
+        #     for i, data in enumerate(data_list):
+        #         relative_position = i - view_point_start
+        #         if relative_position in background_model_data:
+        #             background_model_data[relative_position] += data
+        #         else:
+        #             background_model_data[relative_position] = data
+        #             relative_positions.add(relative_position)
 
         # compute the percentage of each position with respect to the total interaction count
 
