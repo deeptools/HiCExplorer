@@ -120,7 +120,7 @@ def main():
         background_model_data = None
         bin_size = hic_ma.getBinSize()
         all_data_collected = False
-
+        thread_done = [False] * args.threads
 
         for i in range(args.threads):
             
@@ -139,7 +139,7 @@ def main():
             )
 
             process[i].start()
-
+        
         while not all_data_collected:
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
@@ -160,11 +160,15 @@ def main():
                     process[i].join()
                     process[i].terminate()
                     process[i] = None
-                all_data_collected = True
-                if queue[i] is not None:
+                    thread_done[i] = True
+            all_data_collected = True
+            for thread in thread_done:
+                if not thread:
                     all_data_collected = False
             time.sleep(1)
-      
+
+        del hic_ma
+        del viewpointObj.hicMatrix
 
         total_count = sum(background_model_data.values())
         relative_counts = background_model_data
