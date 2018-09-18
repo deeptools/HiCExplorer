@@ -40,7 +40,7 @@ class Viewpoint():
                     continue
                 if len(_line) == 3:
                     chrom, start, end = _line[0], _line[1], _line[1]
-                    log.debug('_line: {}'.format(_line))
+                    # log.debug('_line: {}'.format(_line))
                     gene_list.append(_line[2])
 
                 else:
@@ -126,38 +126,23 @@ class Viewpoint():
         view_point_range = list(view_point_range)
         view_point_range[1] += 1
 
-        # elements_of_viewpoint = (view_point_range[1] - view_point_range[0])
-        # data_list = np.zeros(elements_of_viewpoint)
+        # if  pRegion_end <  view_point_end:
+        # log.debug('referencePoint greater than range: view_point_range{} view_point_start {} view_point_end{}'.format(view_point_range,view_point_start,view_point_end))
         _view_point_start = view_point_start
-
-        # while _view_point_start <= view_point_end:
-        #     chrom, start, end, _ = self.hicMatrix.getBinPos(_view_point_start)
-        #     for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
-        #         data_list[j] += self.hicMatrix.matrix[_view_point_start, idx]
-
-        #     _view_point_start += 1
-
-
-
 
         ### fix
         elements_of_viewpoint  = max(self.hicMatrix.matrix.shape[0], self.hicMatrix.matrix.shape[1])
         data_list = np.zeros(elements_of_viewpoint)
-        # _data_list = np.zeros(elements_of_viewpoint)
 
         _view_point_start = view_point_start
-        # import numpy.testing as nt
         while _view_point_start <= view_point_end:
             chrom, start, end, _ = self.hicMatrix.getBinPos(_view_point_start)
             data_list += self.hicMatrix.matrix[_view_point_start, :].toarray().flatten()
-            # for i in range(elements_of_viewpoint):
-            #     data_list[i] += self.hicMatrix.matrix[_view_point_start, i]
 
             _view_point_start += 1
-        # nt.assert_array_equal(data_list, _data_list)
-        # data_list = data_list[view_point_range[0]:view_point_range[1]]
 
-
+        if view_point_start == view_point_end:
+            return data_list
         elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
         data_list_new = np.zeros(elements_of_viewpoint)
 
@@ -337,7 +322,7 @@ class Viewpoint():
                 data.append(interaction_data[key])
             viewpoint_index = interaction_key.index(0)
 
-        log.debug('rbz-score {}'.format(z_score))
+        # log.debug('rbz-score {}'.format(z_score))
         return header, data, data_background, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName):

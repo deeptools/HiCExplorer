@@ -407,9 +407,9 @@ def check_cooler(pFileName):
     return False
 
 
-def in_units(self, pBasePosition):
+def in_units(pBasePosition):
     pBasePosition = float(pBasePosition)
-    log.debug("pBasePosition {}".format(pBasePosition))
+    # log.debug("pBasePosition {}".format(pBasePosition))
     if pBasePosition > 1.5e6:
         labels = "{:.2f} ".format(pBasePosition / 1e6)
         labels += " Mbp"

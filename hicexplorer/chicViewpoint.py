@@ -59,29 +59,35 @@ def parse_arguments(args=None):
                            version='%(prog)s {}'.format(__version__))
     return parser
 
-def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix):
+def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel):
 
-    for referencePoint in pReferencePoints:
+    for i, referencePoint in enumerate(pReferencePoints):
         region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
-
+        # log.debug('_range {}'.format(_range))
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
         
-        
+        # log.debug('region_start, region_end {} {}'.format(region_start, region_end))
         bin_start_viewpoint, bin_end_viewpoint = pViewpointObj.hicMatrix.getRegionBinRange(referencePoint[0], region_start, region_end)
+        if bin_start_viewpoint == bin_end_viewpoint:
+            bin_end_viewpoint += 1
+        # log.debug('len(data_list) {}'.format(len(data_list)))
 
+        # log.debug('bin_start_viewpoint {} bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
         data_list = data_list[bin_start_viewpoint:bin_end_viewpoint]
-
+        # log.debug('len(data_list) {}'.format(len(data_list)))
         data_list_raw = np.copy(data_list)
 
         data_list = pViewpointObj.computeRelativeValues(data_list)
 
-        if pArgs.backgroundModelFile:
-            _background_model = pViewpointObj.readBackgroundDataFile(pArgs.backgroundModelFile)
-            _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(_background_model, _range)
-            rbz_score_data = pViewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
+        # if pArgs.backgroundModelFile:
+        _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
+        if len(data_list) == len(_backgroundModelData):
 
+            rbz_score_data = pViewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
+        else:
+            continue
         interaction_data = pViewpointObj.createInteractionFileData(referencePoint, referencePoint[0],
                                                                     region_start, region_end, data_list, data_list_raw,
                                                                     pGeneList[i])
@@ -97,7 +103,8 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
         pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
 
-    pQueue.put(True)
+    pQueue.put(['Done'])
+    return
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -108,11 +115,23 @@ def main(args=None):
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
+    background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
 
         all_data_collected = False
+
+        # log.debug('len(referencePoints) {}'.format(referencePoints))
+
+        # compute_viewpoint(
+        #         pViewpointObj = viewpointObj,
+        #         pArgs = args,
+        #         pQueue = None,
+        #         pReferencePoints = referencePoints,
+        #         pGeneList = gene_list,
+        #         pMatrix = matrix,
+        #         pBackgroundModel = background_model)
 
         for i in range(args.threads):
             
@@ -130,7 +149,8 @@ def main(args=None):
                 pQueue =queue[i],
                 pReferencePoints = referencePointsThread,
                 pGeneList = geneListThread,
-                pMatrix = matrix
+                pMatrix = matrix,
+                pBackgroundModel = background_model
                 )
             )
 
@@ -139,13 +159,17 @@ def main(args=None):
         while not all_data_collected:
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
-                    foo = queue[i].get()
-                    queue[i] = None
+                    _ = queue[i].get()
                     process[i].join()
                     process[i].terminate()
                     process[i] = None
-                all_data_collected = True
-                if queue[i] is not None:
+                #     log.debug('Thread {} DONE'.format(i))
+                # log.debug('Thread {} WAIT'.format(i))
+                
+            all_data_collected = True
+            
+            for i in range(args.threads):
+                if process[i] is not None:
                     all_data_collected = False
             time.sleep(1)
 
