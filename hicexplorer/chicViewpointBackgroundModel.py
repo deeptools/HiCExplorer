@@ -74,7 +74,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
     relative_positions = set()
 
     for referencePoint in pReferencePoints:
-
+        log.debug('computing: {}'.format(referencePoint))
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
 
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
@@ -94,6 +94,8 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
             else:
                 background_model_data[relative_position] = data
                 relative_positions.add(relative_position)
+        log.debug('computing: {}...DONE'.format(referencePoint))
+        
     pQueue.put([background_model_data, relative_positions])
 
 def main():
@@ -146,15 +148,17 @@ def main():
         while not all_data_collected:
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
-                    background_model_data_thread, relative_positions_thread = queue[i].get()
+                    foo = queue[i].get()
+                    log.debug('len(queue[i].get() {}'.format(len(foo)))
+                    background_model_data_thread, relative_positions_thread = foo
                     if background_model_data is None:
                         background_model_data = background_model_data_thread
                     else:
                         for relativePosition in background_model_data_thread:
                             if relativePosition in background_model_data:
-                                background_model_data[background_model_data] += background_model_data_thread[relativePosition]
+                                background_model_data[relativePosition] += background_model_data_thread[relativePosition]
                             else:
-                                background_model_data[background_model_data] = background_model_data_thread[relativePosition]
+                                background_model_data[relativePosition] = background_model_data_thread[relativePosition]
 
                         relative_positions = relative_positions.union(relative_positions_thread)
                     queue[i] = None

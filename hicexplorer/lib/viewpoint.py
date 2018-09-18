@@ -148,8 +148,9 @@ class Viewpoint():
 
         while _view_point_start <= view_point_end:
             chrom, start, end, _ = self.hicMatrix.getBinPos(_view_point_start)
-            for i in range(elements_of_viewpoint):
-                data_list[i] += self.hicMatrix.matrix[_view_point_start, i]
+            data_list += self.hicMatrix.matrix[_view_point_start, :].toarray().flatten()
+            # for i in range(elements_of_viewpoint):
+            #     data_list[i] += self.hicMatrix.matrix[_view_point_start, i]
 
             _view_point_start += 1
 
