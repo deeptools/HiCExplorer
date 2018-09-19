@@ -75,9 +75,14 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         # log.debug('len(data_list) {}'.format(len(data_list)))
 
         # log.debug('bin_start_viewpoint {} bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
+        data_list_raw = np.copy(data_list)
+        data_list_raw = data_list_raw[bin_start_viewpoint:bin_end_viewpoint]
+        
+        data_list = pViewpointObj.computeRelativeValues(data_list)
+        
         data_list = data_list[bin_start_viewpoint:bin_end_viewpoint]
         # log.debug('len(data_list) {}'.format(len(data_list)))
-        data_list_raw = np.copy(data_list)
+        # data_list_raw = np.copy(data_list)
 
         data_list = pViewpointObj.computeRelativeValues(data_list)
 
