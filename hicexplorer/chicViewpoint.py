@@ -84,7 +84,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         # log.debug('len(data_list) {}'.format(len(data_list)))
         # data_list_raw = np.copy(data_list)
 
-        data_list = pViewpointObj.computeRelativeValues(data_list)
+        # data_list = pViewpointObj.computeRelativeValues(data_list)
 
         # if pArgs.backgroundModelFile:
         _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
