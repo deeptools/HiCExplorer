@@ -62,7 +62,7 @@ def parse_arguments(args=None):
 def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel):
 
     for i, referencePoint in enumerate(pReferencePoints):
-        region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
+        region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, (500000, 500000))
         # log.debug('_range {}'.format(_range))
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
         if pArgs.averageContactBin > 0:

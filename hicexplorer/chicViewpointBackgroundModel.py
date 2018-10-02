@@ -68,7 +68,8 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
     relative_positions = set()
 
     for i, referencePoint in enumerate(pReferencePoints):
-        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
+
+        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (500000, 500000))
 
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
 
