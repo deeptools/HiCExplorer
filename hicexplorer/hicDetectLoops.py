@@ -4,7 +4,7 @@ from sklearn.cluster import dbscan
 from sklearn.metrics.pairwise import euclidean_distances
 from scipy.sparse import csr_matrix
 # from scipy import stats
-from scipy.stats import normaltest, f_oneway, mannwhitneyu, zscore
+from scipy.stats import normaltest, f_oneway, mannwhitneyu, zscore, kstest, norm, expon
 from hicmatrix import HiCMatrix as hm
 from hicmatrix.lib import MatrixFileHandler
 from hicexplorer._version import __version__
@@ -153,12 +153,12 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWind
     if len(features) == 0:
         return None, None
     candidates = [*zip(instances, features)]
-    candidates, pValueList = candidate_uniform_distribution_test(
+    candidates, pValueList = candidate_multivariant_gaussian_distribution_test(
         pHiCMatrix, candidates, pWindowSize, pPValue, pQValue)
     return candidates, pValueList
 
 
-def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, pQValue):
+def candidate_multivariant_gaussian_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, pQValue):
     # this function test if the values in the neighborhood of a
     # function follow a normal distribution, given the significance level pValue.
     # if they do, the candidate is rejected, otherwise accepted
@@ -188,27 +188,59 @@ def candidate_uniform_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pP
         neighborhood = pHiCMatrix.matrix[start_x:end_x,
                                          start_y:end_y].toarray().flatten()
 
-        expected_neighborhood = np.random.uniform(low=np.min(
-            neighborhood), high=np.max(neighborhood), size=len(neighborhood))
+        # expected_neighborhood = np.random.uniform(low=np.min(
+        #     neighborhood), high=np.max(neighborhood), size=len(neighborhood))
 
-        neighborhood = np.nan_to_num(neighborhood)
-        expected_neighborhood = np.nan_to_num(expected_neighborhood)
+        # neighborhood = np.nan_to_num(neighborhood)
+        # expected_neighborhood = np.nan_to_num(expected_neighborhood)
 
-        try:
-            test_result = mannwhitneyu(neighborhood, expected_neighborhood)
-        except Exception:
+
+        # try:
+        #     test_result = mannwhitneyu(neighborhood, expected_neighborhood)
+        # except Exception:
+        #     mask.append(False)
+        #     continue
+
+
+        mean = np.mean(neighborhood)
+        mask_data = neighborhood < mean
+        noise_region = neighborhood[mask_data]
+        mask_data = neighborhood >= mean
+        peak_region = neighborhood[mask_data]
+        loc, scale =norm.fit(noise_region)
+        noise_norm = norm(loc=loc, scale=scale)
+        if len(noise_region) == 0:
             mask.append(False)
             continue
-        pvalue = test_result[1]
-
-        if np.isnan(pvalue):
+        test_statistic_noise = kstest(noise_region, noise_norm.cdf)
+        
+        loc, scale =expon.fit(peak_region)
+        peak_norm = expon(loc=loc, scale=scale)
+        if len(peak_region) == 0:
             mask.append(False)
             continue
-        if pvalue < pPValue:
+
+        test_statistic_peak = kstest(peak_region, peak_norm.cdf, alternative = 'greater')
+    
+
+        if np.isnan(test_statistic_noise[1]) or np.isnan(test_statistic_peak[1]):
+            mask.append(False)
+            continue
+        if test_statistic_peak[0] <= pPValue:
             mask.append(True)
-            pvalues.append(pvalue)
+            pvalues.append(1.0 - test_statistic_peak[1])
         else:
             mask.append(False)
+        # pvalue = test_result[1]
+
+        # if np.isnan(pvalue):
+        #     mask.append(False)
+        #     continue
+        # if pvalue < pPValue:
+        #     mask.append(True)
+        #     pvalues.append(pvalue)
+        # else:
+        #     mask.append(False)
 
     mask = np.array(mask)
 
