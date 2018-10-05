@@ -40,31 +40,31 @@ Computes long range contacts within the given contact matrix
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--zScoreThreshold', '-zt',
                            type=float,
-                           default=8.0,
+                           default=5.0,
                            help='z-score threshold to detect long range interactions')
     parserOpt.add_argument('--zScoreMatrixName', '-zs',
                            help='Saves the computed z-score matrix')
     parserOpt.add_argument('--windowSize', '-w',
                            type=int,
-                           default=4,
+                           default=5,
                            help='Window size')
 
-    parserOpt.add_argument('--pValue', '-p',
+    parserOpt.add_argument('--dValue', '-d',
                            type=float,
-                           default=0.05,
-                           help='p-value')
-    parserOpt.add_argument('--qValue', '-q',
-                           type=float,
-                           default=0.05,
-                           help='q value for FDR')
+                           default=0.15,
+                           help='d-value')
+    # parserOpt.add_argument('--qValue', '-q',
+    #                        type=float,
+    #                        default=0.05,
+    #                        help='q value for FDR')
 
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
-                           default=10,
+                           default=8,
                            help='The minimum number of interactions a detected peaks needs to have to be considered.')
     parserOpt.add_argument('--maxLoopDistance', '-mld',
                            type=int,
-                           default=5000000,
+                           default=3000000,
                            help='maximum distance of a loop, usually loops are within a distance of ~2MB.')
 
     parserOpt.add_argument('--chromosomes',
@@ -130,7 +130,7 @@ def compute_zscore_matrix(pMatrix):
     return data_mean
 
 
-def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWindowSize, pPValue, pQValue, pPeakInteractionsThreshold):
+def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWindowSize, pDValue, pPeakInteractionsThreshold):
 
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
@@ -141,7 +141,7 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWind
 
     # filter by threshold
     mask = pZscoreData >= pZscoreThreshold
-    pZscoreData = None
+    # pZscoreData = None
 
     mask_interactions = pHiCMatrix.matrix.data > pPeakInteractionsThreshold
 
@@ -149,16 +149,16 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWind
 
     instances = instances[mask]
     features = features[mask]
-
+    pZscoreData = pZscoreData[mask]
     if len(features) == 0:
         return None, None
     candidates = [*zip(instances, features)]
-    candidates, pValueList = candidate_multivariant_gaussian_distribution_test(
-        pHiCMatrix, candidates, pWindowSize, pPValue, pQValue)
+    candidates, pValueList = candidate_peak_exponential_distribution_test(
+        pHiCMatrix, candidates, pWindowSize, pDValue, pZscoreData)
     return candidates, pValueList
 
 
-def candidate_multivariant_gaussian_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, pQValue):
+def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pDValue, pZscore):
     # this function test if the values in the neighborhood of a
     # function follow a normal distribution, given the significance level pValue.
     # if they do, the candidate is rejected, otherwise accepted
@@ -172,8 +172,8 @@ def candidate_multivariant_gaussian_distribution_test(pHiCMatrix, pCandidates, p
     y_max = pHiCMatrix.matrix.shape[1]
     maximal_value = 0
 
+   
     mask = []
-
     for i, candidate in enumerate(pCandidates):
 
         start_x = candidate[0] - \
@@ -188,31 +188,9 @@ def candidate_multivariant_gaussian_distribution_test(pHiCMatrix, pCandidates, p
         neighborhood = pHiCMatrix.matrix[start_x:end_x,
                                          start_y:end_y].toarray().flatten()
 
-        # expected_neighborhood = np.random.uniform(low=np.min(
-        #     neighborhood), high=np.max(neighborhood), size=len(neighborhood))
-
-        # neighborhood = np.nan_to_num(neighborhood)
-        # expected_neighborhood = np.nan_to_num(expected_neighborhood)
-
-
-        # try:
-        #     test_result = mannwhitneyu(neighborhood, expected_neighborhood)
-        # except Exception:
-        #     mask.append(False)
-        #     continue
-
-
         mean = np.mean(neighborhood)
-        mask_data = neighborhood < mean
-        noise_region = neighborhood[mask_data]
         mask_data = neighborhood >= mean
         peak_region = neighborhood[mask_data]
-        loc, scale =norm.fit(noise_region)
-        noise_norm = norm(loc=loc, scale=scale)
-        if len(noise_region) == 0:
-            mask.append(False)
-            continue
-        test_statistic_noise = kstest(noise_region, noise_norm.cdf)
         
         loc, scale =expon.fit(peak_region)
         peak_norm = expon(loc=loc, scale=scale)
@@ -223,24 +201,14 @@ def candidate_multivariant_gaussian_distribution_test(pHiCMatrix, pCandidates, p
         test_statistic_peak = kstest(peak_region, peak_norm.cdf, alternative = 'greater')
     
 
-        if np.isnan(test_statistic_noise[1]) or np.isnan(test_statistic_peak[1]):
+        if np.isnan(test_statistic_peak[1]):
             mask.append(False)
             continue
-        if test_statistic_peak[0] <= pPValue:
+        if test_statistic_peak[0] <= pDValue:
             mask.append(True)
-            pvalues.append(1.0 - test_statistic_peak[1])
+            pvalues.append(test_statistic_peak[0])
         else:
             mask.append(False)
-        # pvalue = test_result[1]
-
-        # if np.isnan(pvalue):
-        #     mask.append(False)
-        #     continue
-        # if pvalue < pPValue:
-        #     mask.append(True)
-        #     pvalues.append(pvalue)
-        # else:
-        #     mask.append(False)
 
     mask = np.array(mask)
 
@@ -253,10 +221,10 @@ def candidate_multivariant_gaussian_distribution_test(pHiCMatrix, pCandidates, p
     pCandidates = np.array(pCandidates)
 
     pCandidates = pCandidates[mask]
+    pZscore = pZscore[mask]
     # log.debug('Number of candidates: {}'.format(len(pCandidates)))
 
     mask = []
-
     distances = euclidean_distances(pCandidates)
     # # call DBSCAN
     clusters = dbscan(X=distances, eps=pWindowSize,
@@ -267,40 +235,31 @@ def candidate_multivariant_gaussian_distribution_test(pHiCMatrix, pCandidates, p
             mask.append(True)
             continue
         if cluster in cluster_dict:
-            if pvalues[i] < cluster_dict[cluster][1]:
+            if pZscore[i] > cluster_dict[cluster][1]:
                 mask[cluster_dict[cluster][0]] = False
-                cluster_dict[cluster] = [i, pvalues[i]]
+                cluster_dict[cluster] = [i, pZscore[i]]
                 mask.append(True)
             else:
                 mask.append(False)
 
         else:
-            cluster_dict[cluster] = [i, pvalues[i]]
+            cluster_dict[cluster] = [i, pZscore[i]]
             mask.append(True)
 
     # Remove values within the window size of other candidates
     mask = np.array(mask)
-    pCandidates = pCandidates[mask]
-    pvalues = np.array(pvalues)
-    pvalues = pvalues[mask]
+    pCandidates = np.array(pCandidates)
 
-    # FDR
-    pvalues_ = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
-    pvalues_ = np.sort(pvalues_)
-    largest_p_i = -np.inf
-    for i, p in enumerate(pvalues_):
-        if p <= (pQValue * (i + 1) / len(pvalues_)):
-            if p >= largest_p_i:
-                largest_p_i = p
-    pvalues_accepted = []
-    for i, candidate in enumerate(pCandidates):
-        if pvalues[i] < largest_p_i:
-            accepted_index.append(candidate)
-            pvalues_accepted.append(pvalues[i])
-    if len(accepted_index) == 0:
+    pCandidates = pCandidates[mask]
+    log.debug('len(pCandidates) {}'.format(len(pCandidates)))
+    mask = []
+
+    
+    
+    if len(pCandidates) == 0:
         return None, None
     # remove duplicate elements
-    for i, candidate in enumerate(accepted_index):
+    for i, candidate in enumerate(pCandidates):
         if candidate[0] > candidate[1]:
             _tmp = candidate[0]
             candidate[0] = candidate[1]
@@ -309,7 +268,7 @@ def candidate_multivariant_gaussian_distribution_test(pHiCMatrix, pCandidates, p
     duplicate_set_y = set([])
 
     delete_index = []
-    for i, candidate in enumerate(accepted_index):
+    for i, candidate in enumerate(pCandidates):
         if candidate[0] in duplicate_set_x and candidate[1] in duplicate_set_y:
             delete_index.append(i)
         else:
@@ -317,12 +276,12 @@ def candidate_multivariant_gaussian_distribution_test(pHiCMatrix, pCandidates, p
             duplicate_set_y.add(candidate[1])
 
     delete_index = np.array(delete_index)
-    accepted_index = np.array(accepted_index)
-    pvalues_accepted = np.array(pvalues_accepted)
-    accepted_index = np.delete(accepted_index, delete_index, axis=0)
+    pCandidates = np.array(pCandidates)
+    pvalues_accepted = np.array(pvalues)
+    pCandidates = np.delete(pCandidates, delete_index, axis=0)
     pvalues_accepted = np.delete(pvalues_accepted, delete_index, axis=0)
 
-    return accepted_index, pvalues_accepted
+    return pCandidates, pvalues_accepted
 
 
 def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList, pMaxLoopDistance):
@@ -387,7 +346,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             pRegion + '_' + pArgs.zScoreMatrixName, pSymmetric=True, pApplyCorrection=False)
 
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_data, pArgs.zScoreThreshold,
-                                                         pArgs.windowSize, pArgs.pValue, pArgs.qValue,
+                                                         pArgs.windowSize, pArgs.dValue,
                                                          pArgs.peakInteractionsThreshold)
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
