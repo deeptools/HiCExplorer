@@ -834,4 +834,4 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
         log.debug('Size of x_list {}'.format(len(x_list)))
         log.debug('Size of y_list {}'.format(len(y_list)))
 
-        pAxis.plot(x_list, y_list, 'ro', lw=5)
+        pAxis.plot(x_list, y_list, 'ro', lw=2)
