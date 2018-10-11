@@ -171,7 +171,7 @@ def precluster(pCandidates, pZscore, pWindowSize):
     mask = np.absolute(candidateT[0] - candidateT[1]) > 4
     pCandidates = pCandidates[mask]
     pZscore = pZscore[mask]
-
+    candidates_per_cluster = 20
     if len(pCandidates) > 100:
         n_bins = (len(pCandidates) // 100) + 1
         x_values = pCandidates.T[0]
@@ -193,24 +193,28 @@ def precluster(pCandidates, pZscore, pWindowSize):
         
         distances = euclidean_distances(candidate)
         # # call DBSCAN
-        clusters = dbscan(X=distances, eps=4,
+        clusters = dbscan(X=distances, eps=1.5,
                         metric='precomputed', min_samples=2, n_jobs=1)[1]
+        # log.debug('Size clusters: {}'.format(clusters))                
         cluster_dict = {}
         for i, cluster in enumerate(clusters):
             if cluster == -1:
-                cluster_dict[i] = [i, pCandidates[z_score_count][0]]
+                # some random high number to not come in conflict with real clusters
+                cluster_dict[i+10000] = [[i, pZscore[z_score_count]]]
                 z_score_count += 1
                 continue
             if cluster in cluster_dict:
-                if pCandidates[z_score_count][0] < cluster_dict[cluster][1]:
-                    cluster_dict[cluster] = [i, pCandidates[z_score_count][0]]
-
+                    cluster_dict[cluster].append([i, pZscore[z_score_count]])
             else:
-                cluster_dict[cluster] = [i, pCandidates[z_score_count][0]]
+                cluster_dict[cluster] = [[i, pZscore[z_score_count]]]
             z_score_count += 1
         # print(cluster_dict)
         for key in cluster_dict:
-            mask[selector + cluster_dict[key][0]] = True
+
+            indices = np.argsort(np.array(cluster_dict[key]).T[1])
+            for index in indices[-candidates_per_cluster:]:
+
+                mask[selector + cluster_dict[key][index][0]] = True
         if len(cluster_candidates) != 1:
             selector += elements[j]
     # Remove values within the window size of other candidates
@@ -252,7 +256,7 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
     seen_values = {}
     for i, candidate in enumerate(pCandidates):
         if candidate[0] in seen_values:
-            if [candidate[1]] in seen_values[candidate[0]]:
+            if candidate[1] in seen_values[candidate[0]]:
                 mask.append(False)
             else:
                 seen_values[candidate[0]].append(candidate[1])
@@ -267,12 +271,14 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
     mask = []
     # pre-clustering:
     log.debug('pCandidates after duplicate remove: {}'.format(len(pCandidates)))
+    # return pCandidates, np.array([1] * len(pCandidates)   ) 
 
     pCandidates, pZscore = precluster(pCandidates, pZscore, pWindowSize)
     # pCandidates, pZscore = precluster(pCandidates, pZscore, pWindowSize, 1)
 
     log.debug('pCandidates after clustering: {}'.format(len(pCandidates)))
-
+    
+    # return pCandidates, np.array([1] * len(pCandidates)   ) 
     mask = []
     # normalized_average_neighborhood = np.zeros((pWindowSize * 2 ) **2)
     neighborhood_list = []
