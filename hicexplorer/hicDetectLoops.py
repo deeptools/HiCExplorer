@@ -2,9 +2,9 @@ from __future__ import division
 import argparse
 from sklearn.cluster import dbscan
 from sklearn.metrics.pairwise import euclidean_distances
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, triu
 # from scipy import stats
-from scipy.stats import normaltest, f_oneway, mannwhitneyu, zscore, kstest, norm, expon
+from scipy.stats import normaltest, f_oneway, mannwhitneyu, zscore, kstest, norm, expon, maxwell
 from hicmatrix import HiCMatrix as hm
 from hicmatrix.lib import MatrixFileHandler
 from hicexplorer._version import __version__
@@ -104,9 +104,9 @@ def compute_zscore_matrix(pMatrix, pInteractionHeight):
 
 
     pMatrix.data = pMatrix.data.astype(float)
-    mask = pMatrix.data < pInteractionHeight
-    pMatrix.data[mask] = 0
-    pMatrix.eliminate_zeros()
+    # mask = pMatrix.data < pInteractionHeight
+    # pMatrix.data[mask] = 0
+    # pMatrix.eliminate_zeros()
 
     instances, features = pMatrix.nonzero()
 
@@ -130,6 +130,7 @@ def compute_zscore_matrix(pMatrix, pInteractionHeight):
 
     sigma_2 /= distance_count
     sigma = np.sqrt(sigma_2)
+    sigma /= np.sqrt(distance_count)
     data_mean /= sigma[distances]
 
     return data_mean
@@ -143,7 +144,10 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWind
     # keep only z-score values (peaks) if they have more interactions than pPeakInteractionsThreshold
 
     instances, features = pHiCMatrix.matrix.nonzero()
-
+    log.debug('Number of candidates 147: {}'.format(len(instances)))
+    #  instances, features = pHiCMatrix.matrix.nonzero()
+    z_score_matrix = csr_matrix((pZscoreData, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
+        
     # filter by threshold
     mask = pZscoreData >= pZscoreThreshold
     # pZscoreData = None
@@ -158,9 +162,26 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWind
     interactionHeight = pHiCMatrix.matrix.data[mask]
     if len(features) == 0:
         return None, None
-    candidates = [*zip(instances, features)]
+    candidates = np.array([*zip(instances, features)])
+
+    log.debug('Number of candidates after z-score and height pruning: {}'.format(len(candidates)))
+
+    number_of_candidates = 0
+    i = 0
+    while number_of_candidates != len(candidates):
+        number_of_candidates = len(candidates)
+
+        candidates, _ = window_zscore_cluster(candidates, pWindowSize, z_score_matrix)
+        i +=1 
+
+        log.debug('iterations: {}'.format(i))
+        if len(candidates) == 0:
+            return None, None
+
     candidates, pValueList = candidate_peak_exponential_distribution_test(
-        pHiCMatrix, candidates, pWindowSize, pPValue, pQValue, pZscoreData)
+        z_score_matrix, candidates, pWindowSize, pPValue, pQValue, None)
+    if candidates is not None:
+        log.debug('Candidates: {}'.format(candidates[:20]))
     return candidates, pValueList
 
 def precluster(pCandidates, pZscore, pWindowSize):
@@ -171,7 +192,7 @@ def precluster(pCandidates, pZscore, pWindowSize):
     mask = np.absolute(candidateT[0] - candidateT[1]) > 4
     pCandidates = pCandidates[mask]
     pZscore = pZscore[mask]
-    candidates_per_cluster = 20
+    candidates_per_cluster = 5
     if len(pCandidates) > 100:
         n_bins = (len(pCandidates) // 100) + 1
         x_values = pCandidates.T[0]
@@ -192,6 +213,7 @@ def precluster(pCandidates, pZscore, pWindowSize):
     for j, candidate in enumerate(cluster_candidates):
         
         distances = euclidean_distances(candidate)
+        log.debug('distances: {}'.format(distances))
         # # call DBSCAN
         clusters = dbscan(X=distances, eps=1.5,
                         metric='precomputed', min_samples=2, n_jobs=1)[1]
@@ -212,7 +234,7 @@ def precluster(pCandidates, pZscore, pWindowSize):
         for key in cluster_dict:
 
             indices = np.argsort(np.array(cluster_dict[key]).T[1])
-            for index in indices[-candidates_per_cluster:]:
+            for index in indices[:candidates_per_cluster]:
 
                 mask[selector + cluster_dict[key][index][0]] = True
         if len(cluster_candidates) != 1:
@@ -227,31 +249,8 @@ def precluster(pCandidates, pZscore, pWindowSize):
 
     return pCandidates, pZscore
 
-
-def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, pQValue, pZscore):
-    # this function test if the values in the neighborhood of a
-    # function follow a normal distribution, given the significance level pValue.
-    # if they do, the candidate is rejected, otherwise accepted
-    # The neighborhood is defined as: the square around a candidate i.e. x-pWindowSize,  :
-    accepted_index = []
-    mask = []
-    pvalues = []
-    deleted_index = []
-    high_impact_values = []
-    x_max = pHiCMatrix.matrix.shape[0]
-    y_max = pHiCMatrix.matrix.shape[1]
-    maximal_value = 0
-    log.debug('pCandidates initial: {}'.format(len(pCandidates)))
-
-    if len(pCandidates) == 0:
-        return None, None
-   
-    pCandidates = np.array(pCandidates)
-    for candidate in pCandidates:
-        if candidate[0] > candidate[1]:
-            _tmp = candidate[0]
-            candidate[0] = candidate[1]
-            candidate[1] = _tmp
+def filter_duplicates(pCandidates):
+    
     mask = []
     seen_values = {}
     for i, candidate in enumerate(pCandidates):
@@ -264,24 +263,129 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
         else:
             seen_values[candidate[0]] = [candidate[1]]
             mask.append(True)
-        
+    
+    return mask
+
+def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
+    x_max = pZScoreMatrix.shape[0]
+    y_max = pZScoreMatrix.shape[1]
+    new_candidate_list = []
+
+    for candidate in pCandidates:
+
+        start_x = candidate[0] - \
+            pWindowSize if candidate[0] - pWindowSize > 0 else 0
+        end_x = candidate[0] + pWindowSize if candidate[0] + \
+            pWindowSize < x_max else x_max
+        start_y = candidate[1] - \
+            pWindowSize if candidate[1] - pWindowSize > 0 else 0
+        end_y = candidate[1] + pWindowSize if candidate[1] + \
+            pWindowSize < y_max else y_max
+
+        neighborhood = pZScoreMatrix[start_x:end_x, start_y:end_y].toarray().flatten()
+        if candidate[0] in [81, 82] and candidate[1] in [82, 83, 88]:
+            log.debug('x {} y {} max: {}'.format(candidate[0], candidate[1], np.max(neighborhood)))
+        # zscore_neighborhood = zscore(neighborhood)
+        if len(neighborhood) == 0:
+            continue
+        argmax = np.argmax(neighborhood)
+        # if np.max(zscore_neighborhood) < 3:
+            # continue
+        x = argmax // (pWindowSize * 2)
+        y = argmax % (pWindowSize * 2)
+        if candidate[0] in [81, 82]  and candidate[1] in [82, 83, 88]:
+            log.debug('x {} y {}'.format(candidate[0], candidate[1]))
+            log.debug('pWindowSize {} x {} y {}'.format(pWindowSize, x, y))
+            log.debug('x_new {} y_new {} \n'.format((candidate[0] - pWindowSize) + x, (candidate[1] - pWindowSize) + y))
+
+
+
+        candidate_x = (candidate[0] - pWindowSize) + x if (candidate[0] - pWindowSize + x) < x_max else x_max - 1
+        candidate_y = (candidate[1] - pWindowSize) + y if  (candidate[1] - pWindowSize + y) < y_max else y_max - 1 
+        if candidate_x < 0 or candidate_y < 0:
+            continue
+        new_candidate_list.append([candidate_x, candidate_y])
+    # pCandidates = window_zscore_cluster(pCandidates, pWindowSize, pHiCMatrix)
+    # log.debug('candidates: {}'.format(new_candidate_list[:50]))
+    mask = filter_duplicates(new_candidate_list)
+
     mask = np.array(mask)
+    pCandidates = np.array(new_candidate_list)
     pCandidates = pCandidates[mask]
-    pZscore = pZscore[mask]
+    return pCandidates, mask
+
+def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, pQValue, pZscore):
+    # this function test if the values in the neighborhood of a
+    # function follow a normal distribution, given the significance level pValue.
+    # if they do, the candidate is rejected, otherwise accepted
+    # The neighborhood is defined as: the square around a candidate i.e. x-pWindowSize,  :
+    accepted_index = []
+    mask = []
+    pvalues = []
+    deleted_index = []
+    high_impact_values = []
+    x_max = pHiCMatrix.shape[0]
+    y_max = pHiCMatrix.shape[1]
+    maximal_value = 0
+    log.debug('pCandidates initial: {}'.format(len(pCandidates)))
+
+
+    if len(pCandidates) == 0:
+        return None, None
+   
+    pCandidates = np.array(pCandidates)
+    # for candidate in pCandidates:
+    #     if candidate[0] > candidate[1]:
+    #         _tmp = candidate[0]
+    #         candidate[0] = candidate[1]
+    #         candidate[1] = _tmp
+    # mask = filter_duplicates(pCandidates)
+   
+        
+    # mask = np.array(mask)
+    # pCandidates = pCandidates[mask]
+    # pZscore = pZscore[mask]
     mask = []
     # pre-clustering:
     log.debug('pCandidates after duplicate remove: {}'.format(len(pCandidates)))
     # return pCandidates, np.array([1] * len(pCandidates)   ) 
 
-    pCandidates, pZscore = precluster(pCandidates, pZscore, pWindowSize)
-    # pCandidates, pZscore = precluster(pCandidates, pZscore, pWindowSize, 1)
+    # pCandidates, pZscore = precluster(pCandidates, pZscore, pWindowSize)
 
-    log.debug('pCandidates after clustering: {}'.format(len(pCandidates)))
     
     # return pCandidates, np.array([1] * len(pCandidates)   ) 
     mask = []
     # normalized_average_neighborhood = np.zeros((pWindowSize * 2 ) **2)
     neighborhood_list = []
+    # pCandidates = window_zscore_cluster(pCandidates, pWindowSize, pHiCMatrix)
+
+    # mask = filter_duplicates(pCandidates)
+
+    # mask = np.array(mask)
+
+    # # Find other candidates within window size
+    # # accept only the candidate with the lowest pvalue
+
+    # # remove candidates which
+    # #  - do not full fill neighborhood size requirement
+    # #  - have a nan pvalue
+    # pCandidates = np.array(pCandidates)
+
+    # pCandidates = pCandidates[mask]
+    # pZscore = pZscore[mask]
+    # for candidate in pCandidates:
+    #     if candidate[0] > candidate[1]:
+    #         _tmp = candidate[0]
+    #         candidate[0] = candidate[1]
+    #         candidate[1] = _tmp
+    # mask = filter_duplicates(pCandidates)
+   
+        
+    # mask = np.array(mask)
+    # pCandidates = pCandidates[mask]
+    # # pZscore = pZscore[mask]
+    # log.debug('pCandidates after z-score neighborhood: {}'.format(len(pCandidates)))
+    mask = []
     for i, candidate in enumerate(pCandidates):
 
         start_x = candidate[0] - \
@@ -293,23 +397,32 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
         end_y = candidate[1] + pWindowSize if candidate[1] + \
             pWindowSize < y_max else y_max
 
-        neighborhood = pHiCMatrix.matrix[start_x:end_x,
+        neighborhood = pHiCMatrix[start_x:end_x,
                                          start_y:end_y].toarray().flatten()
+        # zscore_neighborhood = zscore(neighborhood)
+
+        # argmax = np.argmax(zscore_neighborhood)
+        # x = argmax // pWindowSize
+        # y = argmax % pWindowSize
+        # candidate[0] = (candidate[0] - pWindowSize) + x
+        # candidate[1] = (candidate[1] - pWindowSize) + y
 
         mean = np.mean(neighborhood)
         mask_data = neighborhood >= mean
         peak_region = neighborhood[mask_data]
-        if np.absolute(mean - np.max(neighborhood)) < 10 or np.absolute(mean - np.max(neighborhood)) < mean * 2:
+        # if np.absolute(mean - np.max(neighborhood)) < 10 or np.absolute(mean - np.max(neighborhood)) < mean * 2:
+        #     mask.append(False)
+        #     continue
+
+        if len(peak_region) == 0:
             mask.append(False)
             continue
         loc, scale =expon.fit(peak_region)
         peak_norm = expon(loc=loc, scale=scale)
-        if len(peak_region) == 0:
-            mask.append(False)
-            continue
+        
 
-        # test_statistic_peak = kstest(peak_region, peak_norm.cdf, alternative = 'greater')
-        test_statistic_peak = kstest(peak_region, peak_norm.cdf)
+        test_statistic_peak = kstest(peak_region, peak_norm.cdf)#, alternative = 'greater')
+        # test_statistic_peak = kstest(peak_region, peak_norm.cdf)
     
 
         if np.isnan(test_statistic_peak[1]):
@@ -320,22 +433,18 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
             pvalues.append(test_statistic_peak[1])
         else:
             mask.append(False)
-
+    
     mask = np.array(mask)
-
-    # Find other candidates within window size
-    # accept only the candidate with the lowest pvalue
-
-    # remove candidates which
-    #  - do not full fill neighborhood size requirement
-    #  - have a nan pvalue
-    pCandidates = np.array(pCandidates)
-
     pCandidates = pCandidates[mask]
+
     log.debug('pCandidates after testing: {}'.format(len(pCandidates)))
 
-    pZscore = pZscore[mask]
+    # pZscore = pZscore[mask]
     pvalues = np.array(pvalues)
+    if len(pCandidates) == 0:
+        return None, None
+    # pCandidates, pvalues = precluster(pCandidates, pvalues, pWindowSize)
+
     # pvalues = pvalues[mask]
     # log.debug('Number of candidates: {}'.format(len(pCandidates)))
     if len(pCandidates) == 0:
@@ -392,7 +501,8 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
     pCandidates = pCandidates[mask]
 
     log.debug('pCandidates after fdr: {}'.format(len(pCandidates)))
-
+    if len(pCandidates) == 0:
+        return None, None
     return pCandidates, pvalues
 
 
@@ -436,15 +546,20 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
 
 def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     # log.debug("Compute z-score matrix")
+    pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
+    log.debug('len(instances) after length pruning I {}'.format(len(pHiCMatrix.matrix.data)))
     max_loop_distance = None
     if pArgs.maxLoopDistance:
         max_loop_distance = pArgs.maxLoopDistance / pHiCMatrix.getBinSize()
         instances, features = pHiCMatrix.matrix.nonzero()
-
+        log.debug('len(instances) {}'.format(len(instances)))
         distances = np.absolute(instances - features)
         mask = distances > max_loop_distance
         pHiCMatrix.matrix.data[mask] = 0
         pHiCMatrix.matrix.eliminate_zeros()
+        log.debug('len(instances) after length pruning II{}'.format(len(pHiCMatrix.matrix.data)))
+
+    
 
     z_score_data = compute_zscore_matrix(pHiCMatrix.matrix, pArgs.peakInteractionsThreshold)
     if pArgs.zScoreMatrixName:
