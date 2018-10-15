@@ -411,7 +411,9 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
 
         mean = np.mean(neighborhood)
         mask_data = neighborhood >= mean
-        peak_region = neighborhood[mask_data]
+        z_score_neighborhood_mask = zscore(neighborhood) >= 1.0
+
+        peak_region = neighborhood[z_score_neighborhood_mask]
         if np.absolute(mean - np.max(neighborhood)) < 10 or np.absolute(mean - np.max(neighborhood)) < mean * 2:
             mask.append(False)
             continue
@@ -421,10 +423,9 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
         if len(peak_region) == 0:
             mask.append(False)
             continue
-        z_score_neighborhood_mask = zscore(neighborhood) >= 1.9
+        # z_score_neighborhood_mask = zscore(neighborhood) >= 1.9
         if len(neighborhood[z_score_neighborhood_mask]) < 3:
             mask.append(False)
-
             continue
         loc, scale =expon.fit(peak_region)
         peak_norm = expon(loc=loc, scale=scale)
