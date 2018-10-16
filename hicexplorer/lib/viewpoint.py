@@ -83,17 +83,33 @@ class Viewpoint():
                 interaction_file_data[int(_line[-4])] = _line
         return header, interaction_data, z_score, interaction_file_data
 
-    def readBackgroundDataFile(self, pBedFile):
+    def readBackgroundDataFile(self, pBedFile, pRange):
         '''
         Reads a background data file, containing per line a tab delimited content:
         Relative position to viewpoint, relative interaction count to total number of interactions of all viewpoints over all samples, SEM value of this data point.
         '''
         distance = {}
+
         with open(pBedFile) as fh:
             for line in fh.readlines():
                 _line = line.split('\t')
                 distance[int(_line[0])] = [float(_line[1]), float(_line[2])]
 
+        max_key = max(distance)
+        min_key = min(distance)
+        keys = list(distance.keys())
+        inc = np.absolute(np.absolute(keys[0]) - np.absolute(keys[1]))
+        if max_key < pRange[1]:
+            i = max_value
+            while i < pRange[1]:
+                i += inc
+                distance[i] = distance[max_key]
+        
+        if min_key > pRange[0]:
+            i = min_key
+            while i > pRange[0]:
+                i -= inc
+                distance[i] = distance[min_key]
         return distance
 
     def writeInteractionFile(self, pBedFile, pData, pHeader, pZscoreData):
@@ -133,14 +149,17 @@ class Viewpoint():
         ### fix
         elements_of_viewpoint  = max(self.hicMatrix.matrix.shape[0], self.hicMatrix.matrix.shape[1])
         data_list = np.zeros(elements_of_viewpoint)
+        # data_list_test = np.zeros(elements_of_viewpoint)
 
+        start_chromosome, end_chromosome = self.hicMatrix.getChrBinRange(pChromViewpoint)
         _view_point_start = view_point_start
         while _view_point_start <= view_point_end:
             chrom, start, end, _ = self.hicMatrix.getBinPos(_view_point_start)
-            data_list += self.hicMatrix.matrix[_view_point_start, :].toarray().flatten()
+            # for j, idx in zip(range(elements_of_viewpoint), range(start_chromosome, end_chromosome, 1)):
+            #     data_list[j] += self.hicMatrix.matrix[_view_point_start, idx]
+            data_list += self.hicMatrix.matrix[_view_point_start, start_chromosome:end_chromosome].toarray().flatten()
 
             _view_point_start += 1
-
         if view_point_start == view_point_end:
             return data_list
         elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
@@ -339,6 +358,7 @@ class Viewpoint():
 
     def plotZscore(self, pAxis, pAxisLabel, pZscoreData, pLabelText, pCmap, pFigure):
 
+        
         _z_score = np.empty([2, len(pZscoreData)])
         _z_score[:, :] = pZscoreData
         pAxis.xaxis.set_visible(False)

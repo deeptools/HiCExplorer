@@ -120,7 +120,7 @@ def main(args=None):
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
-    background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
+    background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range)
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
