@@ -141,7 +141,7 @@ class Viewpoint():
         if the reference point is larger than one bin of the Hi-C matrix, it is considered as one bin and the values are summed together.
         '''
         view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(pReferencePoint)
-        log.debug('view_point_start {}, view_point_end {}'.format(view_point_start, view_point_end))
+        # log.debug('view_point_start {}, view_point_end {}'.format(view_point_start, view_point_end))
         view_point_range = self.getViewpointRangeAsMatrixIndices(pChromViewpoint, pRegion_start, pRegion_end)
         view_point_range = list(view_point_range)
         view_point_range[1] += 1
@@ -167,7 +167,7 @@ class Viewpoint():
 
             _view_point_start += 1 
         if view_point_start == view_point_end:
-            log.debug('return because start and end are equal.')
+            # log.debug('return because start and end are equal.')
             return data_list
         # log.debug('view_point_start {} view_point_end {} elements_of_viewpoint {}'.format(view_point_start, view_point_end, elements_of_viewpoint))
         elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
@@ -284,11 +284,11 @@ class Viewpoint():
         '''
         This function computes the correct start and end position of a viewpoint given the viewpoint and the range.
         '''
-        log.debug('pViewpoint {}'.format(pViewpoint))
-        log.debug('pRange {}'.format(pRange))
+        # log.debug('pViewpoint {}'.format(pViewpoint))
+        # log.debug('pRange {}'.format(pRange))
 
         max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
-        log.debug('max_length {}'.format(max_length))
+        # log.debug('max_length {}'.format(max_length))
 
         _range = [pRange[0], pRange[1]]
         region_start = int(pViewpoint[1]) - pRange[0]

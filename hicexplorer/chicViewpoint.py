@@ -52,15 +52,21 @@ def parse_arguments(args=None):
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
                            default=0)
-
+    parserOpt.add_argument('--fixateRange', '-fs',
+                           help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
+                           required=False,
+                           default=500000,
+                           type=int
+                           )
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
     return parser
 
-def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pFixateRange):
+def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel):
 
+    # fixateRange = 
     for i, referencePoint in enumerate(pReferencePoints):
         region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
         # log.debug('region_start {}, region_end{}'.format(region_start, region_end))
@@ -78,7 +84,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         bin_start_viewpoint, bin_end_viewpoint = pViewpointObj.hicMatrix.getRegionBinRange(referencePoint[0], region_start, region_end)
         start_chromosome, end_chromosome = pViewpointObj.hicMatrix.getChrBinRange(referencePoint[0])
         bin_start_viewpoint = bin_start_viewpoint - start_chromosome
-        end_chromosome = end_chromosome - start_chromosome
+        bin_end_viewpoint = bin_end_viewpoint - start_chromosome 
         bin_end_viewpoint = bin_end_viewpoint - (view_point_end - view_point_start) + 1
 
         # if bin_start_viewpoint == bin_end_viewpoint:
@@ -111,8 +117,31 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         # log.debug('_backgroundModelSEM {}'.format(_backgroundModelSEM[:10]))
 
         # set values which are in a distance larger than fixatedRange to value of index of this range.
-        # mask = 
+        region_start_fixated, region_end_fixated, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
+        bin_start_viewpoint_fixated, bin_end_viewpoint_fixated = pViewpointObj.hicMatrix.getRegionBinRange(referencePoint[0], region_start_fixated, region_end_fixated)
+        # log.debug('region_start_fixated {}, region_end_fixated {}'.format(region_start_fixated, region_end_fixated))
+        # log.debug('bin_start_viewpoint_fixated {}, bin_end_viewpoint_fixated {}'.format(bin_start_viewpoint_fixated, bin_end_viewpoint_fixated))
+        # log.debug('start_chromosome {}'.format(start_chromosome))
+        bin_start_viewpoint_fixated = bin_start_viewpoint_fixated - start_chromosome
+        bin_end_viewpoint_fixated = bin_end_viewpoint_fixated - start_chromosome
+
+        # log.debug('>>>bin_start_viewpoint_fixated {}, bin_end_viewpoint_fixated {}'.format(bin_start_viewpoint_fixated, bin_end_viewpoint_fixated))
+
+        bin_end_viewpoint_fixated = bin_end_viewpoint_fixated - (view_point_end - view_point_start) + 1
+        # log.debug('bin_end_viewpoint_fixated {}, bin_end_viewpoint_fixated {}'.format(region_start_fixated, region_end_fixated))
+        # log.debug('bin_start_viewpoint {}, bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
+        bin_start_viewpoint_fixated =  bin_start_viewpoint_fixated - bin_start_viewpoint
+        bin_end_viewpoint_fixated = len(data_list) - (bin_end_viewpoint - bin_end_viewpoint_fixated)
+        # log.debug('<<<<<bin_start_viewpoint_fixated {}, bin_end_viewpoint_fixated {}\n'.format(bin_start_viewpoint_fixated, bin_end_viewpoint_fixated))
+        # exit(0)
+        
+        data_list[:bin_start_viewpoint_fixated] = data_list[bin_start_viewpoint_fixated]
+        data_list[bin_end_viewpoint_fixated:] = data_list[bin_end_viewpoint_fixated]
+
         rbz_score_data = pViewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
+
+        rbz_score_data[:bin_start_viewpoint_fixated] = rbz_score_data[bin_start_viewpoint_fixated]
+        rbz_score_data[bin_end_viewpoint_fixated:] = rbz_score_data[bin_end_viewpoint_fixated]
 
         # log.debug('rbz_score_data {}'.format(rbz_score_data[:10]))
 
