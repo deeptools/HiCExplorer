@@ -97,7 +97,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
             else:
                 background_model_data[relative_position] = data
                 relative_positions.add(relative_position)
-        log.debug('min {}, max{}'.format(min(background_model_data), max(background_model_data)))
+        # log.debug('min {}, max{}'.format(min(background_model_data), max(background_model_data)))
         # log.debug('relative_positions {}'.format(relative_positions))
     pQueue.put([background_model_data, relative_positions])
     return
@@ -164,7 +164,7 @@ def main():
                                 background_model_data[relativePosition] += background_model_data_thread[relativePosition]
                             else:
                                 background_model_data[relativePosition] = background_model_data_thread[relativePosition]
-                        log.debug('relative_positions_thread {}'.format(relative_positions_thread))
+                        # log.debug('relative_positions_thread {}'.format(relative_positions_thread))
 
                     relative_positions = relative_positions.union(relative_positions_thread)
                     queue[i] = None
@@ -183,14 +183,14 @@ def main():
 
         total_count = sum(background_model_data.values())
         relative_counts = background_model_data
-
+        
         for key in relative_counts:
             relative_counts[key] /= total_count
         
         relative_counts_conditions.append(relative_counts)
 
-    log.debug('background_model_data {}'.format(background_model_data))
-    log.debug('relative_positions {}'.format(relative_positions))
+    # log.debug('background_model_data {}'.format(background_model_data))
+    # log.debug('relative_positions {}'.format(relative_positions))
 
     # for models of all conditions:
     # - compute mean percentage for each bin

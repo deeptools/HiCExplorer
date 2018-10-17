@@ -100,7 +100,7 @@ class Viewpoint():
         keys = list(distance.keys())
         inc = np.absolute(np.absolute(keys[0]) - np.absolute(keys[1]))
         if max_key < pRange[1]:
-            i = max_value
+            i = max_key
             while i < pRange[1]:
                 i += inc
                 distance[i] = distance[max_key]
@@ -147,25 +147,32 @@ class Viewpoint():
         _view_point_start = view_point_start
 
         ### fix
-        elements_of_viewpoint  = max(self.hicMatrix.matrix.shape[0], self.hicMatrix.matrix.shape[1])
+        start_chromosome, end_chromosome = self.hicMatrix.getChrBinRange(pChromViewpoint)
+
+        elements_of_viewpoint  = np.absolute(end_chromosome - start_chromosome)
         data_list = np.zeros(elements_of_viewpoint)
         # data_list_test = np.zeros(elements_of_viewpoint)
 
-        start_chromosome, end_chromosome = self.hicMatrix.getChrBinRange(pChromViewpoint)
         _view_point_start = view_point_start
         while _view_point_start <= view_point_end:
             chrom, start, end, _ = self.hicMatrix.getBinPos(_view_point_start)
             # for j, idx in zip(range(elements_of_viewpoint), range(start_chromosome, end_chromosome, 1)):
             #     data_list[j] += self.hicMatrix.matrix[_view_point_start, idx]
+            # log.debug('_view_point_start {}, start_chromosome {}, end_chromosome {}'.format(_view_point_start, start_chromosome, end_chromosome))
             data_list += self.hicMatrix.matrix[_view_point_start, start_chromosome:end_chromosome].toarray().flatten()
 
             _view_point_start += 1
         if view_point_start == view_point_end:
             return data_list
+        # log.debug('view_point_start {} view_point_end {} elements_of_viewpoint {}'.format(view_point_start, view_point_end, elements_of_viewpoint))
         elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
         data_list_new = np.zeros(elements_of_viewpoint)
 
         # index_before_viewpoint = view_point_start - view_point_range[0]
+        # view_point_start and view_point_end have the index position in respect to the full matrix.
+        # the index values for these in the array data_list and data_list_new need to be adjusted to the chromosome
+        view_point_start = view_point_start - start_chromosome
+        view_point_end = view_point_end - start_chromosome
         index_before_viewpoint = view_point_start
         # elements before the viewpoint
         data_list_new[0:index_before_viewpoint] = data_list[0:index_before_viewpoint]
