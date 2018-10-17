@@ -35,7 +35,7 @@ def parse_arguments(args=None):
                                 type=int,
                                 nargs=2)
 
-    parserRequired.add_argument('--referencePoint', '-rp', help='Reference point file. Needs to be in the format: \'chr 100\' for a '
+    parserRequired.add_argument('--referencePoints', '-rp', help='Reference point file. Needs to be in the format: \'chr 100\' for a '
                                 'single reference point or \'chr 100 200\' for a reference region and per line one reference point',
                                 required=True)
     parserRequired.add_argument('--backgroundModelFile', '-bmf',
@@ -59,26 +59,39 @@ def parse_arguments(args=None):
                            version='%(prog)s {}'.format(__version__))
     return parser
 
-def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel):
+def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pFixateRange):
 
     for i, referencePoint in enumerate(pReferencePoints):
         region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
+        # log.debug('region_start {}, region_end{}'.format(region_start, region_end))
         # log.debug('_range {}'.format(_range))
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
         
         # log.debug('region_start, region_end {} {}'.format(region_start, region_end))
+
+        # these are absolute bin values for the full matrix
+        # need to be adjusted for the chromosome
+        view_point_start, view_point_end = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
+
         bin_start_viewpoint, bin_end_viewpoint = pViewpointObj.hicMatrix.getRegionBinRange(referencePoint[0], region_start, region_end)
-        if bin_start_viewpoint == bin_end_viewpoint:
-            bin_end_viewpoint += 1
+        start_chromosome, end_chromosome = pViewpointObj.hicMatrix.getChrBinRange(referencePoint[0])
+        bin_start_viewpoint = bin_start_viewpoint - start_chromosome
+        end_chromosome = end_chromosome - start_chromosome
+        bin_end_viewpoint = bin_end_viewpoint - (view_point_end - view_point_start) + 1
+
+        # if bin_start_viewpoint == bin_end_viewpoint:
+        #     bin_end_viewpoint += 1
         # log.debug('len(data_list) {}'.format(len(data_list)))
 
         # log.debug('bin_start_viewpoint {} bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
         data_list_raw = np.copy(data_list)
         data_list_raw = data_list_raw[bin_start_viewpoint:bin_end_viewpoint]
+        # log.debug('bin_start_viewpoint{}, bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
         
         data_list = pViewpointObj.computeRelativeValues(data_list)
+        # log.debug('data_list before pruning {}'.format(len(data_list)))
         
         data_list = data_list[bin_start_viewpoint:bin_end_viewpoint]
         # log.debug('len(data_list) {}'.format(len(data_list)))
@@ -87,12 +100,24 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         # data_list = pViewpointObj.computeRelativeValues(data_list)
 
         # if pArgs.backgroundModelFile:
-        _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
-        if len(data_list) == len(_backgroundModelData):
+        # log.debug('data_list {}'.format(len(data_list)))
+        # log.debug('data_list_raw {}'.format(len(data_list_raw)))
+        # log.debug('background: {}'.format(pBackgroundModel))
+        # log.debug('len background: {}'.format(len(pBackgroundModel)))
 
-            rbz_score_data = pViewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
-        else:
-            continue
+        _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
+        # if len(data_list) == len(_backgroundModelData):
+        # log.debug('_backgroundModelData {}'.format(_backgroundModelData[:10]))
+        # log.debug('_backgroundModelSEM {}'.format(_backgroundModelSEM[:10]))
+
+        # set values which are in a distance larger than fixatedRange to value of index of this range.
+        # mask = 
+        rbz_score_data = pViewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
+
+        # log.debug('rbz_score_data {}'.format(rbz_score_data[:10]))
+
+        # else:
+            # continue
         interaction_data = pViewpointObj.createInteractionFileData(referencePoint, referencePoint[0],
                                                                     region_start, region_end, data_list, data_list_raw,
                                                                     pGeneList[i])
@@ -103,7 +128,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         region_end_in_units = utilities.in_units(region_end)
 
         header_information = '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(region_end_in_units), pGeneList[i]])
-        header_information += '\n# ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
+        header_information += '\n# ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('.')[:-1])
         matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
         pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
@@ -116,7 +141,7 @@ def main(args=None):
 
     viewpointObj = Viewpoint()
 
-    referencePoints, gene_list = viewpointObj.readReferencePointFile(args.referencePoint)
+    referencePoints, gene_list = viewpointObj.readReferencePointFile(args.referencePoints)
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
