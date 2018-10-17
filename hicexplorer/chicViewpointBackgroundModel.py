@@ -55,7 +55,7 @@ def parse_arguments(args=None):
                            default=4,
                            type=int
                            )
-    parserOpt.add_argument('--fixateScore', '-fs',
+    parserOpt.add_argument('--fixateRange', '-fs',
                            help='Fixate score of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
                            required=False,
                            default=500000,
@@ -72,7 +72,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     background_model_data = {}
     relative_positions = set()
-    fixateScoreAt = pArgs.fixateScore // pViewpointObj.hicMatrix.getBinSize()
+    fixateRangeAt = pArgs.fixateRange// pViewpointObj.hicMatrix.getBinSize()
     for i, referencePoint in enumerate(pReferencePoints):
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
 
@@ -90,7 +90,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
         for j, data in enumerate(data_list):
             relative_position = j - view_point_start
             
-            if np.absolute(relative_position) > fixateScoreAt:
+            if np.absolute(relative_position) > fixateRangeAt:
                 continue 
             if relative_position in background_model_data:
                 background_model_data[relative_position] += data
