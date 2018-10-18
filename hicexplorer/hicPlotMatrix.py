@@ -125,6 +125,15 @@ def parse_arguments(args=None):
                            'ChIP-seq data.',
                            type=str,
                            default=None)
+    parserOpt.add_argument('--vMinBigwig',
+                           help='Minimum score value for bigwig.',
+                           type=float,
+                           default=None)
+
+    parserOpt.add_argument('--vMaxBigWig',
+                           help='Maximum score value for bigwig',
+                           type=float,
+                           default=None)
     parserOpt.add_argument('--flipBigwigSign',
                            help='The sign of the bigwig values are flipped. Useful if hicPCA gives inverted values.',
                            action='store_true')
@@ -251,11 +260,12 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
             log.debug('region')
             plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pChromosomeSizes=chrBinBoundaries,
                        pRegion=pBigwig['args'].region, pXticks=xticks, pFlipBigwigSign=args.flipBigwigSign,
-                       pScaleFactorBigwig=args.scaleFactorBigwig)
+                       pScaleFactorBigwig=args.scaleFactorBigwig, pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
         else:
             log.debug('else region')
             plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=chrBinBoundaries,
-                       pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig)
+                       pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, 
+                       pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
 
 
 def translate_region(region_string):
@@ -633,7 +643,8 @@ def make_start_pos_array(ma):
     return start_pos
 
 
-def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None):
+def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None,
+                    pValueMin=None, pValueMax=None):
     log.debug('plotting eigenvector')
     pAxis.set_frame_on(False)
     pAxis.xaxis.set_visible(False)
@@ -725,6 +736,8 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 log.info("Scaling bigwig values.")
                 bigwig_scores = np.array(bigwig_scores)
                 bigwig_scores *= pScaleFactorBigwig
+            if pValueMin is not None or pValueMax is not None
+                bigwig_scores = bigwig_scores.clip(pValueMin, pValueMax)
 
     # else:
     #     for i, bigwigFile in enumerate(pNameOfBigwigList):
