@@ -120,13 +120,15 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
 
 
         if len(data_list) != len(_backgroundModelData):
-            log.debug('referencePoint {}'.format(referencePoint))
-            log.debug('bin_start_viewpoint {}  :bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
-            log.debug('len(data_list) {}'.format(len(data_list)))
-            log.debug('len(len(_backgroundModelData)) {}'.format(len(_backgroundModelData)))
-            log.debug('len_data_list {}'.format(len_data_list))
-            log.debug('start_chromosome {}, end_chromosome {}'.format(start_chromosome, end_chromosome))
-            log.debug('view_point_start {}, view_point_end {}' .format(reference_point_start, reference_point_end))
+            # log.debug('referencePoint {}'.format(referencePoint))
+            # log.debug('bin_start_viewpoint {}  :bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
+            # log.debug('len(data_list) {}'.format(len(data_list)))
+            # log.debug('len(len(_backgroundModelData)) {}'.format(len(_backgroundModelData)))
+            # log.debug('len_data_list {}'.format(len_data_list))
+            # log.debug('start_chromosome {}, end_chromosome {}'.format(start_chromosome, end_chromosome))
+            # log.debug('view_point_start {}, view_point_end {}' .format(reference_point_start, reference_point_end))
+            log.debug('datalist[375:425] {}'.format(data_list[375:425]))
+
         # if len(data_list) == len(_backgroundModelData):
         # log.debug('_backgroundModelData {}'.format(_backgroundModelData[:10]))
         # log.debug('_backgroundModelSEM {}'.format(_backgroundModelSEM[:10]))
