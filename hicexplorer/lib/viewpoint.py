@@ -289,7 +289,7 @@ class Viewpoint():
 
         max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
         # log.debug('max_length {}'.format(max_length))
-
+        bin_size = self.hicMatrix.getBinSize()
         _range = [pRange[0], pRange[1]]
         region_start = int(pViewpoint[1]) - pRange[0]
         if region_start < 0:
@@ -300,7 +300,7 @@ class Viewpoint():
         if region_end > max_length:
             # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
             region_end = max_length - 1
-            _range[1] = (max_length - int(pViewpoint[2]))
+            _range[1] = (max_length - int(pViewpoint[2])) + bin_size
         # log.debug()
         return region_start, region_end, _range
 
@@ -421,6 +421,7 @@ class Viewpoint():
             if key >= -pRange[0] and key <= pRange[1]:
                 background_model.append(pBackground[key][0])
                 background_model_sem.append(pBackground[key][1])
+
                 # log.debug('key background {}'.format(key))
         return np.array(background_model), np.array(background_model_sem)
 
@@ -428,10 +429,10 @@ class Viewpoint():
         _rbz_score = np.empty(len(pRelativeInteractions))
         if len(pRelativeInteractions) != len(pBackgroundModel) or \
                 len(pRelativeInteractions) != len(pBackgroundModelSEM):
-            sys.exit('Computing of rbz-score failed, data is having different size. ' +
+            log.info('Computing of rbz-score failed, data is having different size. ' +
                      '\nrelative interactions {} background model {} background model SEM {}'.format(len(pRelativeInteractions),
                                                                                                      len(pBackgroundModel), len(pBackgroundModelSEM)))
-            return
+            return None
         _rbz_score = pRelativeInteractions - pBackgroundModel
         _rbz_score /= pBackgroundModelSEM
 
