@@ -243,15 +243,17 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     if xlabel is not None:
         xlabel = toString(xlabel)
         axHeat2.set_xlabel(xlabel)
-
+    log.debug('foo')
     if pBigwig:
         axHeat2.xaxis.set_label_position("top")
         axHeat2.xaxis.tick_top()
         if args.region:
+            log.debug('region')
             plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pChromosomeSizes=chrBinBoundaries,
                        pRegion=pBigwig['args'].region, pXticks=xticks, pFlipBigwigSign=args.flipBigwigSign,
                        pScaleFactorBigwig=args.scaleFactorBigwig)
         else:
+            log.debug('else region')
             plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=chrBinBoundaries,
                        pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig)
 

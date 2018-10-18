@@ -220,8 +220,6 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
     expected_interactions = np.zeros(pSubmatrix.shape[0])
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
-    # log.info("len(expected_interactions): {}".format(len(expected_interactions)))
-    # log.info("len(distance): {}".format(len(distance)))
 
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
@@ -234,11 +232,27 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
     count_times_i *= np.int(-1)
 
     expected_interactions /= count_times_i
-    # for i in range(len(expected_interactions)):
-    #     expected_interactions[i] /= pLength_chromosome - (pChromosome_count * i)
+    log.debug('exp_obs_matrix_lieberman {}'.format(expected_interactions))
 
     return expected_interactions
 
+def expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix):
+    """
+        Computes the function I_chrom(s) for a given chromosome.
+    """
+    log.debug('pLength_chromosome {}'.format(pLength_chromosome))
+    log.debug('pChromosome_count {}'.format(pChromosome_count))
+
+    expected_interactions = np.zeros(pSubmatrix.shape[0])
+    row, col = pSubmatrix.nonzero()
+    distance = np.absolute(row - col)
+
+    occurences = np.zeros(pSubmatrix.shape[0])
+    for i, distance_ in enumerate(distance):
+        expected_interactions[distance_] += pSubmatrix.data[i]
+        occurences[distance_] += 1
+    expected_interactions /= occurences
+    return expected_interactions
 
 def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
@@ -251,51 +265,37 @@ def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     expected_interactions_in_distance_ = expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSubmatrix)
     row, col = pSubmatrix.nonzero()
     distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
-    # log.info("len)distance; {}".format(len(distance)))
-    # log.info("len)expected_interactions_in_distance_; {}".format(len(expected_interactions_in_distance_)))
-
-    # log.info("expected_interactions_in_distance_[distance[0]]: {}".format(type(expected_interactions_in_distance_[distance[0]])))
 
     if len(pSubmatrix.data) > 0:
         data_type = type(pSubmatrix.data[0])
-        # from copy import deepcopy
-        # data = deepcopy(pSubmatrix.data)
 
         expected = expected_interactions_in_distance_[distance]
-        # log.info("len(expected); {}".format(len(expected)))
-        # log.info("len(data): {}".format(len(pSubmatrix.data)))
         pSubmatrix.data = pSubmatrix.data.astype(np.float32)
         pSubmatrix.data /= expected
-        # data2 = deepcopy(data)
         pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
-
-    # for i in range(len(pSubmatrix.data)):
-    #     try:
-    #         if expected_interactions_in_distance_[distance[i]] == 0:
-    #             pSubmatrix.data[i] = 0.0
-    #         else:
-    #             pSubmatrix.data[i] = pSubmatrix.data[i] / expected_interactions_in_distance_[distance[i]]
-    #     except Exception:
-    #         log.debug("pSubmatrix.data[i]: {}".format(pSubmatrix.data[i]))
-    #         log.debug("distance[i]: {}".format(distance[i]))
-    #         log.debug("expected_interactions_in_distance_[distance[i]]: {} ".format(expected_interactions_in_distance_[distance[i]]))
-    #         exit(1)
-    # if len(pSubmatrix.data) > 0:
-
-    #     try:
-    #         nt.assert_equal(data, pSubmatrix.data)
-    #     except:
-    #         foo = data - pSubmatrix.data
-    #         mu = np.nonzero(foo)
-    #         print(mu)
-    #         log.info("data: {}".format(data[mu]))
-    #         log.info("data: {}".format(data2[mu]))
-
-    #         # data2
-    #         log.info("pSubmatrix.data: {}".format(pSubmatrix.data[mu]))
-
     return pSubmatrix
 
+
+def exp_obs_matrix_norm(pSubmatrix, pLength_chromosome, pChromosome_count):
+    """
+        Creates normalized contact matrix M* by
+        dividing each entry by the gnome-wide
+        expected contacts for loci at
+        that genomic distance
+    """
+
+    expected_interactions_in_distance = expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix)
+    
+    row_sums = np.array(pSubmatrix.sum(axis=1).T).flatten()
+    total_interactions = pSubmatrix.sum()
+
+    row, col = pSubmatrix.nonzero()
+    # data = pSubmatrix.data.tolist()
+    for i in range(len(row)):
+        expected = expected_interactions_in_distance[np.absolute(row[i]-col[i])] 
+        expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
+        pSubmatrix.data[i] /= expected
+    return pSubmatrix
 
 def toString(s):
     """
