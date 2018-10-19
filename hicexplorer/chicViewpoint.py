@@ -66,7 +66,6 @@ def parse_arguments(args=None):
 
 def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel):
 
-    # fixateRange = 
     for i, referencePoint in enumerate(pReferencePoints):
         # range of viewpoint with reference point in the middle in genomic units
         region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
@@ -76,13 +75,12 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
 
 
+
         # these are absolute bin values for the full matrix
         # need to be adjusted for the chromosome
         reference_point_start, reference_point_end = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
-        # log.debug('reference_point_start {}, reference_point_end {}'.format(reference_point_start, reference_point_end ))
         # index values in bin units
         bin_start_viewpoint, bin_end_viewpoint = pViewpointObj.hicMatrix.getRegionBinRange(referencePoint[0], region_start, region_end)
-        # log.debug('x {}, z{}'.format(reference_point_start-bin_start_viewpoint, bin_end_viewpoint-reference_point_end) )
 
         # start and end index of chromosome in bin units
         start_chromosome, end_chromosome = pViewpointObj.hicMatrix.getChrBinRange(referencePoint[0])
@@ -90,71 +88,34 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         bin_end_viewpoint = bin_end_viewpoint - start_chromosome 
 
         bin_end_viewpoint = bin_end_viewpoint - (reference_point_end - reference_point_start) + 1
-
         
-        # if bin_start_viewpoint == bin_end_viewpoint:
-        #     bin_end_viewpoint += 1
-        # log.debug('len(data_list) {}'.format(len(data_list)))
-
-        # log.debug('bin_start_viewpoint {} bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
         data_list_raw = np.copy(data_list)
         data_list_raw = data_list_raw[bin_start_viewpoint:bin_end_viewpoint]
-        # log.debug('bin_start_viewpoint{}, bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
         
         data_list = pViewpointObj.computeRelativeValues(data_list)
-        # log.debug('data_list before pruning {}'.format(len(data_list)))
         len_data_list = len(data_list)
         data_list = data_list[bin_start_viewpoint:bin_end_viewpoint]
-        # log.debug('len(data_list) {}'.format(len(data_list)))
-        # data_list_raw = np.copy(data_list)
-
-        # data_list = pViewpointObj.computeRelativeValues(data_list)
-
-        # if pArgs.backgroundModelFile:
-        # log.debug('data_list {}'.format(len(data_list)))
-        # log.debug('data_list_raw {}'.format(len(data_list_raw)))
-        # log.debug('background: {}'.format(pBackgroundModel))
-        # log.debug('len background: {}'.format(len(pBackgroundModel)))
 
         _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
 
-
-        if len(data_list) != len(_backgroundModelData):
-            # pass
-            log.debug('referencePoint {}'.format(referencePoint))
-            log.debug('bin_start_viewpoint {}  :bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
-            log.debug('len(data_list) {}'.format(len(data_list)))
-            log.debug('len(len(_backgroundModelData)) {}'.format(len(_backgroundModelData)))
-            log.debug('len_data_list {}'.format(len_data_list))
-            log.debug('start_chromosome {}, end_chromosome {}'.format(start_chromosome, end_chromosome))
-            log.debug('view_point_start {}, view_point_end {}\n' .format(reference_point_start, reference_point_end))
-            # log.debug('datalist[375:425] {}'.format(data_list[395:425]))
-            # log.debug('_backgroundModelData[375:425] {}'.format(_backgroundModelData[395:425]))
-
-
-        # if len(data_list) == len(_backgroundModelData):
-        # log.debug('_backgroundModelData {}'.format(_backgroundModelData[:10]))
-        # log.debug('_backgroundModelSEM {}'.format(_backgroundModelSEM[:10]))
+        # not that clean implemented but it works :(
+        if len(data_list) < len(_backgroundModelData) and bin_end_viewpoint == len_data_list:
+            _backgroundModelData = _backgroundModelData[:-1]
+            _backgroundModelSEM = _backgroundModelSEM[:-1]
+        elif len(data_list) > len(_backgroundModelData) and bin_end_viewpoint == len_data_list:
+            data_list = data_list[:-1]
 
         # set values which are in a distance larger than fixatedRange to value of index of this range.
         region_start_fixated, region_end_fixated, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
         
         bin_start_viewpoint_fixated, bin_end_viewpoint_fixated = pViewpointObj.hicMatrix.getRegionBinRange(referencePoint[0], region_start_fixated, region_end_fixated)
-        # log.debug('region_start_fixated {}, region_end_fixated {}'.format(region_start_fixated, region_end_fixated))
-        # log.debug('bin_start_viewpoint_fixated {}, bin_end_viewpoint_fixated {}'.format(bin_start_viewpoint_fixated, bin_end_viewpoint_fixated))
-        # log.debug('start_chromosome {}'.format(start_chromosome))
         bin_start_viewpoint_fixated = bin_start_viewpoint_fixated - start_chromosome
         bin_end_viewpoint_fixated = bin_end_viewpoint_fixated - start_chromosome
 
-        # log.debug('>>>bin_start_viewpoint_fixated {}, bin_end_viewpoint_fixated {}'.format(bin_start_viewpoint_fixated, bin_end_viewpoint_fixated))
 
         bin_end_viewpoint_fixated = bin_end_viewpoint_fixated - (reference_point_end - reference_point_start)
-        # log.debug('bin_end_viewpoint_fixated {}, bin_end_viewpoint_fixated {}'.format(region_start_fixated, region_end_fixated))
-        # log.debug('bin_start_viewpoint {}, bin_end_viewpoint {}'.format(bin_start_viewpoint, bin_end_viewpoint))
         bin_start_viewpoint_fixated =  bin_start_viewpoint_fixated - bin_start_viewpoint
         bin_end_viewpoint_fixated = len(data_list) - (bin_end_viewpoint - bin_end_viewpoint_fixated) +1
-        # log.debug('<<<<<bin_start_viewpoint_fixated {}, bin_end_viewpoint_fixated {}\n'.format(bin_start_viewpoint_fixated, bin_end_viewpoint_fixated))
-        # exit(0)
 
         if bin_start_viewpoint_fixated > 0:
             data_list[:bin_start_viewpoint_fixated] = data_list[bin_start_viewpoint_fixated]
@@ -171,11 +132,6 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         if bin_end_viewpoint_fixated < len(rbz_score_data):
             rbz_score_data[bin_end_viewpoint_fixated:] = rbz_score_data[bin_end_viewpoint_fixated]
 
-        # log.debug('rbz_score_data {}'.format(rbz_score_data[:10]))
-
-        # else:
-            # continue
-        
         interaction_data = pViewpointObj.createInteractionFileData(referencePoint, referencePoint[0],
                                                                     region_start, region_end, data_list, data_list_raw,
                                                                     pGeneList[i])
