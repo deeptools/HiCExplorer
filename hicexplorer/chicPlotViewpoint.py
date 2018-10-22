@@ -57,6 +57,14 @@ def parse_arguments(args=None):
                            'values can be seen here: '
                            'http://matplotlib.org/examples/color/colormaps_reference.html',
                            default='viridis')
+    parserOpt.add_argument('--maxZscore', '-maz',
+                           help='Maximal value for z-score. Values above are set to this value.',
+                           type=float,
+                           default=None)
+    parserOpt.add_argument('--minZscore', '-mz',
+                           help='Minimal value for z-score. Values below are set to this value.',
+                           type=float,
+                           default=None)
     parserOpt.add_argument('--rbzScore', '-rbz',
                            help='Plot rbz-score as a colorbar',
                            choices=['integrated', 'heatmap', ''],
@@ -77,7 +85,7 @@ def main(args=None):
     # background_data_sorted = None
 
     if args.backgroundModelFile:
-        background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile)
+        background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range)
 
     number_of_rows_plot = len(args.interactionFile)
     matplotlib.rcParams.update({'font.size': 9})
@@ -119,10 +127,13 @@ def main(args=None):
             data_plot_label += viewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
                                                                 pBackgroundDataMean=data_background_mean)
             background_plot = False
+        if args.minZscore is not None or args.maxZscore is not None:
+            z_score = np.array(z_score, dtype=np.float32)
+            z_score.clip(args.minZscore , args.maxZscore, z_score)
         if args.rbzScore == 'heatmap':
             viewpointObj.plotZscore(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
                                     pLabelText=gene + ': ' + matrix_name, pCmap=args.colorMapZscore,
-                                    pFigure=fig)
+                                    pFigure=fig,)
         elif args.rbzScore == 'integrated':
             data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=z_score, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' rbz-score')
 

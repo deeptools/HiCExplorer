@@ -83,17 +83,37 @@ class Viewpoint():
                 interaction_file_data[int(_line[-4])] = _line
         return header, interaction_data, z_score, interaction_file_data
 
-    def readBackgroundDataFile(self, pBedFile):
+    def readBackgroundDataFile(self, pBedFile, pRange):
         '''
         Reads a background data file, containing per line a tab delimited content:
         Relative position to viewpoint, relative interaction count to total number of interactions of all viewpoints over all samples, SEM value of this data point.
         '''
         distance = {}
+
         with open(pBedFile) as fh:
             for line in fh.readlines():
                 _line = line.split('\t')
                 distance[int(_line[0])] = [float(_line[1]), float(_line[2])]
 
+        max_key = max(distance)
+        min_key = min(distance)
+        keys = list(distance.keys())
+        inc = np.absolute(np.absolute(keys[0]) - np.absolute(keys[1]))
+        if max_key < pRange[1]:
+            i = max_key
+            while i < pRange[1]:
+                i += inc
+                # log.debug('i {}'.format(i))
+                distance[i] = distance[max_key]
+        
+        # log.debug('min_key {} pRange[0] {}'.format(min_key , pRange[0]))
+        if min_key > -pRange[0]:
+            i = min_key
+            while i > -pRange[0]:
+                i -= inc
+                # log.debug('i {}'.format(i))
+
+                distance[i] = distance[min_key]
         return distance
 
     def writeInteractionFile(self, pBedFile, pData, pHeader, pZscoreData):
@@ -121,7 +141,7 @@ class Viewpoint():
         if the reference point is larger than one bin of the Hi-C matrix, it is considered as one bin and the values are summed together.
         '''
         view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(pReferencePoint)
-
+        # log.debug('view_point_start {}, view_point_end {}'.format(view_point_start, view_point_end))
         view_point_range = self.getViewpointRangeAsMatrixIndices(pChromViewpoint, pRegion_start, pRegion_end)
         view_point_range = list(view_point_range)
         view_point_range[1] += 1
@@ -131,22 +151,33 @@ class Viewpoint():
         _view_point_start = view_point_start
 
         ### fix
-        elements_of_viewpoint  = max(self.hicMatrix.matrix.shape[0], self.hicMatrix.matrix.shape[1])
+        start_chromosome, end_chromosome = self.hicMatrix.getChrBinRange(pChromViewpoint)
+
+        elements_of_viewpoint  = np.absolute(end_chromosome - start_chromosome)
         data_list = np.zeros(elements_of_viewpoint)
+        # data_list_test = np.zeros(elements_of_viewpoint)
 
         _view_point_start = view_point_start
         while _view_point_start <= view_point_end:
             chrom, start, end, _ = self.hicMatrix.getBinPos(_view_point_start)
-            data_list += self.hicMatrix.matrix[_view_point_start, :].toarray().flatten()
+            # for j, idx in zip(range(elements_of_viewpoint), range(start_chromosome, end_chromosome, 1)):
+            #     data_list[j] += self.hicMatrix.matrix[_view_point_start, idx]
+            # log.debug('_view_point_start {}, start_chromosome {}, end_chromosome {}'.format(_view_point_start, start_chromosome, end_chromosome))
+            data_list += self.hicMatrix.matrix[_view_point_start, start_chromosome:end_chromosome].toarray().flatten()
 
-            _view_point_start += 1
-
+            _view_point_start += 1 
         if view_point_start == view_point_end:
+            # log.debug('return because start and end are equal.')
             return data_list
+        # log.debug('view_point_start {} view_point_end {} elements_of_viewpoint {}'.format(view_point_start, view_point_end, elements_of_viewpoint))
         elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
         data_list_new = np.zeros(elements_of_viewpoint)
 
         # index_before_viewpoint = view_point_start - view_point_range[0]
+        # view_point_start and view_point_end have the index position in respect to the full matrix.
+        # the index values for these in the array data_list and data_list_new need to be adjusted to the chromosome
+        view_point_start = view_point_start - start_chromosome
+        view_point_end = view_point_end - start_chromosome
         index_before_viewpoint = view_point_start
         # elements before the viewpoint
         data_list_new[0:index_before_viewpoint] = data_list[0:index_before_viewpoint]
@@ -253,8 +284,12 @@ class Viewpoint():
         '''
         This function computes the correct start and end position of a viewpoint given the viewpoint and the range.
         '''
-        max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
+        # log.debug('pViewpoint {}'.format(pViewpoint))
+        # log.debug('pRange {}'.format(pRange))
 
+        max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
+        # log.debug('max_length {}'.format(max_length))
+        bin_size = self.hicMatrix.getBinSize()
         _range = [pRange[0], pRange[1]]
         region_start = int(pViewpoint[1]) - pRange[0]
         if region_start < 0:
@@ -265,8 +300,8 @@ class Viewpoint():
         if region_end > max_length:
             # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
             region_end = max_length - 1
-            _range[1] = (max_length - int(pViewpoint[2]))
-
+            _range[1] = (max_length - int(pViewpoint[2])) + bin_size
+        # log.debug()
         return region_start, region_end, _range
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
@@ -339,6 +374,7 @@ class Viewpoint():
 
     def plotZscore(self, pAxis, pAxisLabel, pZscoreData, pLabelText, pCmap, pFigure):
 
+        
         _z_score = np.empty([2, len(pZscoreData)])
         _z_score[:, :] = pZscoreData
         pAxis.xaxis.set_visible(False)
@@ -385,6 +421,7 @@ class Viewpoint():
             if key >= -pRange[0] and key <= pRange[1]:
                 background_model.append(pBackground[key][0])
                 background_model_sem.append(pBackground[key][1])
+
                 # log.debug('key background {}'.format(key))
         return np.array(background_model), np.array(background_model_sem)
 
@@ -392,11 +429,11 @@ class Viewpoint():
         _rbz_score = np.empty(len(pRelativeInteractions))
         if len(pRelativeInteractions) != len(pBackgroundModel) or \
                 len(pRelativeInteractions) != len(pBackgroundModelSEM):
-            sys.exit('Computing of rbz-score failed, data is having different size. ' +
+            log.info('Computing of rbz-score failed, data is having different size. ' +
                      '\nrelative interactions {} background model {} background model SEM {}'.format(len(pRelativeInteractions),
                                                                                                      len(pBackgroundModel), len(pBackgroundModelSEM)))
-            return
+            return None
         _rbz_score = pRelativeInteractions - pBackgroundModel
         _rbz_score /= pBackgroundModelSEM
 
-        return _rbz_score
+        return np.nan_to_num(_rbz_score)

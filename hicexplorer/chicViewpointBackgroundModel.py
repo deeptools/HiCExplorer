@@ -55,6 +55,12 @@ def parse_arguments(args=None):
                            default=4,
                            type=int
                            )
+    parserOpt.add_argument('--fixateRange', '-fs',
+                           help='Fixate score of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
+                           required=False,
+                           default=500000,
+                           type=int
+                           )
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -66,7 +72,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     background_model_data = {}
     relative_positions = set()
-
+    fixateRangeAt = pArgs.fixateRange// pViewpointObj.hicMatrix.getBinSize()
     for i, referencePoint in enumerate(pReferencePoints):
 
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (500000, 500000))
@@ -84,12 +90,16 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
         for j, data in enumerate(data_list):
             relative_position = j - view_point_start
+            
+            if np.absolute(relative_position) > fixateRangeAt:
+                continue 
             if relative_position in background_model_data:
                 background_model_data[relative_position] += data
             else:
                 background_model_data[relative_position] = data
                 relative_positions.add(relative_position)
-        
+        # log.debug('min {}, max{}'.format(min(background_model_data), max(background_model_data)))
+        # log.debug('relative_positions {}'.format(relative_positions))
     pQueue.put([background_model_data, relative_positions])
     return
 
@@ -122,7 +132,7 @@ def main():
         bin_size = hic_ma.getBinSize()
         all_data_collected = False
         thread_done = [False] * args.threads
-
+        log.debug('matrix read, starting processing')
         for i in range(args.threads):
             
             if i < args.threads - 1:
@@ -155,8 +165,9 @@ def main():
                                 background_model_data[relativePosition] += background_model_data_thread[relativePosition]
                             else:
                                 background_model_data[relativePosition] = background_model_data_thread[relativePosition]
+                        # log.debug('relative_positions_thread {}'.format(relative_positions_thread))
 
-                        relative_positions = relative_positions.union(relative_positions_thread)
+                    relative_positions = relative_positions.union(relative_positions_thread)
                     queue[i] = None
                     process[i].join()
                     process[i].terminate()
@@ -173,11 +184,14 @@ def main():
 
         total_count = sum(background_model_data.values())
         relative_counts = background_model_data
-
+        
         for key in relative_counts:
             relative_counts[key] /= total_count
         
         relative_counts_conditions.append(relative_counts)
+
+    # log.debug('background_model_data {}'.format(background_model_data))
+    # log.debug('relative_positions {}'.format(relative_positions))
 
     # for models of all conditions:
     # - compute mean percentage for each bin
