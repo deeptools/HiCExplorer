@@ -7,7 +7,7 @@ import numpy as np
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import exp_obs_matrix_lieberman
+from hicexplorer.utilities import exp_obs_matrix_lieberman, exp_obs_matrix_norm
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 
@@ -40,7 +40,7 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--method', '-me',
                            help='Transformation method to use. If the option all is used, all three matrices in '
                            'consecutively way (input -> obs_exp -> pearson -> covariance) are created.',
-                           choices=['obs_exp', 'pearson', 'covariance', 'all'],
+                           choices=['obs_exp', 'pearson', 'covariance', 'all', 'norm'],
                            default='obs_exp')
 
     parserOpt.add_argument('--chromosomes',
@@ -48,7 +48,7 @@ def parse_arguments(args=None):
                            'correlation.',
                            default=None,
                            nargs='+')
-
+   
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads for pearson correlation.',
                            required=False,
@@ -77,10 +77,22 @@ def __pearson(pSubmatrix):
     pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
     return pearson_correlation_matrix
 
+def _obs_exp_norm(pSubmatrix, pLengthChromosome, pChromosomeCount):
+    
+    exp_obs_matrix_ = exp_obs_matrix_norm(pSubmatrix, pLengthChromosome, pChromosomeCount)
+    exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_))
+    exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
+    return exp_obs_matrix_
 
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
+
+    if not args.outFileName.endswith('.h5') or args.outFileName.endswith('.cool'):
+        log.error('Output filetype not known.')
+        log.error('It is: {}'.format(args.outFileName))
+        log.error('Accepted is .h5 or .cool')
+        exit(1)
 
     hic_ma = hm.hiCMatrix(pMatrixFile=args.matrix)
     log.info("hic_ma.matrix: {}".format(hic_ma.matrix))
@@ -94,7 +106,25 @@ def main(args=None):
         length_chromosome += chr_range[1] - chr_range[0]
     trasf_matrix = lil_matrix(hic_ma.matrix.shape)
 
-    if args.method == 'obs_exp':
+    if args.method == 'norm':
+        trasf_matrix = lil_matrix(hic_ma.matrix.shape)
+        # trasf_matrix_pearson = lil_matrix(hic_ma.matrix.shape)
+        # trasf_matrix_corr = lil_matrix(hic_ma.matrix.shape)
+
+        for chrname in hic_ma.getChrNames():
+            chr_range = hic_ma.getChrBinRange(chrname)
+            submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+
+            submatrix.astype(float)
+            submatrix = _obs_exp_norm(submatrix, length_chromosome, chromosome_count)
+
+            submatrix = __pearson(submatrix)
+            trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
+
+        # hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
+        # hic_ma.save('obs_norm_pearson.'+ args.outFileName, pSymmetric=False, pApplyCorrection=False)
+
+    elif args.method == 'obs_exp':
         for chrname in hic_ma.getChrNames():
             chr_range = hic_ma.getChrBinRange(chrname)
             submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]

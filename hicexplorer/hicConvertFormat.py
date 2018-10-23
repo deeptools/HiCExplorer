@@ -51,7 +51,7 @@ def parse_arguments(args=None):
                                 'format based on hdf5 storage format). '
                                 ' `cool` and `ginteractions`',
                                 default='cool',
-                                choices=['cool', 'h5',
+                                choices=['cool', 'h5', 'homer',
                                          'ginteractions', 'mcool'],
                                 required=True)
 
@@ -73,6 +73,10 @@ def parse_arguments(args=None):
                            action='store_true')
     parserOpt.add_argument('--chromosome',
                            help='Load only one chromosome. Option only for cool input files.')
+    parserOpt.add_argument('--enforce_integer',
+                           help='Enforce datatype of counts to integer. Option only for cool input files.',
+                           action='store_true')
+                           
     # parserOpt.
     parserOpt.add_argument("--resolutions", '-r',
                            nargs='+',
@@ -103,10 +107,20 @@ def main(args=None):
             exit(1)
     if args.inputFormat == 'hic' and args.outputFormat == 'cool':
         log.info('Converting with hic2cool.')
-        for matrix in args.matrices:
-            hic2cool_convert(matrix, args.outFileName, 0)
+        for i, matrix in enumerate(args.matrices):
+            if args.resolutions is None:
+                hic2cool_convert(matrix, args.outFileName[i], 0)
+            else:
+                out_name = args.outFileName[i].split('.')
+                out_name[-2] = split_name[-2] + '_' + str(resolution)
+                out_name = '.'.join(out_name)
+                for resolution in args.resolutions:
+                    hic2cool_convert(matrix, out_name, resolution)
         return
     elif args.inputFormat in ['hicpro', 'homer', 'h5', 'cool']:
+        applyCorrection = True
+        if args.store_applied_correction:
+            applyCorrection = False
         if args.inputFormat == 'hicpro':
             if len(args.matrices) != len(args.bedFileHicpro):
                 log.error(
@@ -131,23 +145,23 @@ def main(args=None):
                 matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix,
                                                            pCorrectionFactorTable=args.correction_name,
                                                            pCorrectionOperator=correction_operator,
-                                                           pChrnameList=chromosomes_to_load)
+                                                           pChrnameList=chromosomes_to_load,
+                                                           pEnforceInteger=args.enforce_integer)
 
             _matrix, cut_intervals, nan_bins, \
                 correction_factors, distance_counts = matrixFileHandlerInput.load()
 
             log.debug('Setting done')
 
-            if args.outputFormat in ['cool', 'h5']:
-                matrixFileHandlerOutput = MatrixFileHandler(
-                    pFileType=args.outputFormat)
-                if args.store_applied_correction:
-                    correction_factors = None
+            if args.outputFormat in ['cool', 'h5', 'homer', 'ginteractions']:
+                matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat)
+                
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                              correction_factors, distance_counts)
                 matrixFileHandlerOutput.save(
-                    args.outFileName[i] + '.' + args.outputFormat, pSymmetric=True, pApplyCorrection=False)
+                    args.outFileName[i] + '.' + args.outputFormat, pSymmetric=True, pApplyCorrection=applyCorrection)
             elif args.outputFormat in ['mcool']:
+                
                 log.debug('outformat is mcool')
                 if args.resolutions and len(args.matrices) > 1:
                     log.error(
@@ -163,15 +177,14 @@ def main(args=None):
                         _mergeFactor = int(resolution) // bin_size
                         merged_matrix = hicMergeMatrixBins.merge_bins(
                             hic_matrix, _mergeFactor)
-                        matrixFileHandlerOutput = MatrixFileHandler(
-                            pFileType='cool')
+                        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pEnforceInteger=args.enforce_integer)
                         matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
                                                                      merged_matrix.cut_intervals,
                                                                      merged_matrix.nan_bins,
                                                                      merged_matrix.correction_factors,
                                                                      merged_matrix.distance_counts)
                         matrixFileHandlerOutput.save(args.outFileName[0] + '.mcool' + '::/resolutions/' + str(
-                            resolution), pSymmetric=True, pApplyCorrection=False)
+                            resolution), pSymmetric=True, pApplyCorrection=applyCorrection)
 
                 else:
                     hic_matrix = HiCMatrix.hiCMatrix()
@@ -182,4 +195,4 @@ def main(args=None):
                     matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                                  correction_factors, distance_counts)
                     matrixFileHandlerOutput.save(args.outFileName[0] + '.mcool' + '::/resolutions/' + str(
-                        bin_size), pSymmetric=True, pApplyCorrection=False)
+                        bin_size), pSymmetric=True, pApplyCorrection=applyCorrection)
