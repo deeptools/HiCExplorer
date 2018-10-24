@@ -48,8 +48,10 @@ def remove_outliers(data, max_deviation=3.5):
 
 def convertNansToZeros(ma):
     nan_elements = np.flatnonzero(np.isnan(ma.data))
+    data_type = type(ma.data[0])
     if len(nan_elements) > 0:
-        ma.data[nan_elements] = 0
+        # if data_type == np.float
+        ma.data[nan_elements] = 0.0
     return ma
 
 
@@ -61,6 +63,10 @@ def convertInfsToZeros(ma):
 
 
 def convertInfsToZeros_ArrayFloat(pArray):
+    nan_elements = np.flatnonzero(np.isnan(pArray))
+    if len(nan_elements) > 0:
+        pArray[nan_elements] = 0.0
+
     inf_elements = np.flatnonzero(np.isinf(pArray))
     if len(inf_elements) > 0:
         pArray[inf_elements] = 0.0
@@ -248,10 +254,18 @@ def expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix
     distance = np.absolute(row - col)
 
     occurences = np.zeros(pSubmatrix.shape[0])
+    data_type = type(pSubmatrix.data[0])
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
         occurences[distance_] += 1
     expected_interactions /= occurences
+    log.debug('occurences {}'.format(occurences))
+    log.debug('expected_interactions {}'.format(expected_interactions))
+
+    # expected_interactions = convertNansToZeros(expected_interactions)
+    expected_interactions = convertInfsToZeros_ArrayFloat(expected_interactions).astype(data_type)
+    log.debug('expected_interactions {}'.format(expected_interactions))
+
     return expected_interactions
 
 def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
@@ -293,8 +307,23 @@ def exp_obs_matrix_norm(pSubmatrix, pLength_chromosome, pChromosome_count):
     # data = pSubmatrix.data.tolist()
     for i in range(len(row)):
         expected = expected_interactions_in_distance[np.absolute(row[i]-col[i])] 
-        expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
-        pSubmatrix.data[i] /= expected
+        # log.debug('1row expected: {}'.format(expected))
+
+        # expected *= row_sums[row[i]] * (row_sums[col[i]] / total_interactions)
+        expected *= row_sums[row[i]] 
+        # log.debug('2row expected: {}'.format(expected))
+
+        expected *= (row_sums[col[i]])
+        # log.debug('3row expected: {}'.format(expected))
+
+        expected /= total_interactions
+        # log.debug('4 row expected: {} '.format(expected))
+        # log.debug('5 pSubmatrix.data[i]: {} \n'.format(pSubmatrix.data[i]))
+
+        if expected == 0.0:
+            pSubmatrix.data[i] = 0
+        else:
+            pSubmatrix.data[i] /= expected
     return pSubmatrix
 
 def toString(s):

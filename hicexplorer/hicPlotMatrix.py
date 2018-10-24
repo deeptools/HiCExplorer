@@ -129,7 +129,6 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--bigwigAdditionalVerticalAxis',
                            help='Add an additional axis to determine the values of a bigwig file in 2D better.',
                            action='store_true')
-                           default=None)
     parserOpt.add_argument('--vMinBigwig',
                            help='Minimum score value for bigwig.',
                            type=float,

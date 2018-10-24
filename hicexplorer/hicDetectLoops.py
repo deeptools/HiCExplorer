@@ -18,7 +18,7 @@ from copy import deepcopy
 import cooler
 from multiprocessing import Process, Queue
 import time
-
+from hicexplorer.utilities import exp_obs_matrix_lieberman, exp_obs_matrix_norm
 
 def parse_arguments(args=None):
 
@@ -178,11 +178,11 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWind
         if len(candidates) == 0:
             return None, None
 
-    candidates, pValueList = candidate_peak_exponential_distribution_test(
-        z_score_matrix, candidates, pWindowSize, pPValue, pQValue, None)
+    # candidates, pValueList = candidate_peak_exponential_distribution_test(
+    #     z_score_matrix, candidates, pWindowSize, pPValue, pQValue, None)
     if candidates is not None:
         log.debug('Candidates: {}'.format(candidates[:20]))
-    return candidates, pValueList
+    return candidates, [1] * len(candidates)
 
 def precluster(pCandidates, pZscore, pWindowSize):
     cluster_candidates = []
@@ -304,6 +304,8 @@ def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
         candidate_y = (candidate[1] - pWindowSize) + y if  (candidate[1] - pWindowSize + y) < y_max else y_max - 1 
         if candidate_x < 0 or candidate_y < 0:
             continue
+        if np.absolute(candidate_x - candidate_y) < 4:
+            continue
         new_candidate_list.append([candidate_x, candidate_y])
     # pCandidates = window_zscore_cluster(pCandidates, pWindowSize, pHiCMatrix)
     # log.debug('candidates: {}'.format(new_candidate_list[:50]))
@@ -410,7 +412,7 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
         mean = np.mean(neighborhood)
         mask_data = neighborhood >= mean
         peak_region = neighborhood[mask_data]
-        # if np.absolute(mean - np.max(neighborhood)) < 10 or np.absolute(mean - np.max(neighborhood)) < mean * 2:
+        # if np.absolute(mean - np.max(neighborhood)) < 10:
         #     mask.append(False)
         #     continue
 
@@ -560,8 +562,21 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         log.debug('len(instances) after length pruning II{}'.format(len(pHiCMatrix.matrix.data)))
 
     
+    # obs_exp_norm_matrix = exp_obs_matrix_norm(pHiCMatrix.matrix, 1, 1)
+    obs_exp_norm_matrix = exp_obs_matrix_lieberman(pHiCMatrix.matrix, pHiCMatrix.matrix.shape[0], 23)
 
-    z_score_data = compute_zscore_matrix(pHiCMatrix.matrix, pArgs.peakInteractionsThreshold)
+
+    obs_exp_norm_matrix.eliminate_zeros()
+    # log.debug('obs-exp-normalising done')
+    # matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
+    # instances, features = pHiCMatrix.matrix.nonzero()
+    # z_score_matrix = csr_matrix((obs_exp_norm_matrix.data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
+    # matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, pHiCMatrix.cut_intervals, pHiCMatrix.nan_bins,
+    #                                                 None, pHiCMatrix.distance_counts)
+    # matrixFileHandlerOutput.save(
+    #     pRegion + '_' + 'obs_exp_lieberman.cool', pSymmetric=True, pApplyCorrection=False)
+    
+    z_score_data = compute_zscore_matrix(obs_exp_norm_matrix, pArgs.peakInteractionsThreshold)
     if pArgs.zScoreMatrixName:
 
         matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
@@ -571,7 +586,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
                                                      None, pHiCMatrix.distance_counts)
         matrixFileHandlerOutput.save(
             pRegion + '_' + pArgs.zScoreMatrixName, pSymmetric=True, pApplyCorrection=False)
-
+    # exit()
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_data, pArgs.zScoreThreshold,
                                                          pArgs.windowSize, pArgs.pValue, pArgs.qValue,
                                                          pArgs.peakInteractionsThreshold)
