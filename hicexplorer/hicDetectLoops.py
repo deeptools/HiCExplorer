@@ -178,11 +178,11 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWind
         if len(candidates) == 0:
             return None, None
 
-    # candidates, pValueList = candidate_peak_exponential_distribution_test(
-    #     z_score_matrix, candidates, pWindowSize, pPValue, pQValue, None)
+    candidates, pValueList = candidate_peak_exponential_distribution_test(
+        z_score_matrix, candidates, pWindowSize, pPValue, pQValue, None)
     if candidates is not None:
         log.debug('Candidates: {}'.format(candidates[:20]))
-    return candidates, [1] * len(candidates)
+    return candidates, pValueList
 
 def precluster(pCandidates, pZscore, pWindowSize):
     cluster_candidates = []
@@ -411,30 +411,39 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
 
         mean = np.mean(neighborhood)
         mask_data = neighborhood >= mean
-        peak_region = neighborhood[mask_data]
-        # if np.absolute(mean - np.max(neighborhood)) < 10:
-        #     mask.append(False)
-        #     continue
+        # z_score_neighborhood_mask = zscore(neighborhood) >= 1.0
 
+        peak_region = neighborhood[mask_data]
+        if np.absolute(mean - np.max(neighborhood)) < 5:
+            mask.append(False)
+            continue
+        if np.absolute(mean - np.mean(peak_region)) < 5:
+            mask.append(False)
+            continue
         if len(peak_region) == 0:
             mask.append(False)
             continue
-        loc, scale =expon.fit(peak_region)
-        peak_norm = expon(loc=loc, scale=scale)
+        # z_score_neighborhood_mask = zscore(neighborhood) >= 1.9
+        # if len(neighborhood[mask_data]) < 3:
+        #     mask.append(False)
+        #     continue
+        mask.append(True)
+        # loc, scale =expon.fit(peak_region)
+        # peak_norm = expon(loc=loc, scale=scale)
         
 
-        test_statistic_peak = kstest(peak_region, peak_norm.cdf)#, alternative = 'greater')
-        # test_statistic_peak = kstest(peak_region, peak_norm.cdf)
+        # test_statistic_peak = kstest(peak_region, peak_norm.cdf)#, alternative = 'greater')
+        # # test_statistic_peak = kstest(peak_region, peak_norm.cdf)
     
 
-        if np.isnan(test_statistic_peak[1]):
-            mask.append(False)
-            continue
-        if test_statistic_peak[1] <= pPValue and test_statistic_peak[1] > 0:
-            mask.append(True)
-            pvalues.append(test_statistic_peak[1])
-        else:
-            mask.append(False)
+        # if np.isnan(test_statistic_peak[1]):
+        #     mask.append(False)
+        #     continue
+        # if test_statistic_peak[1] <= pPValue and test_statistic_peak[1] > 0:
+        #     mask.append(True)
+        #     pvalues.append(test_statistic_peak[1])
+        # else:
+        #     mask.append(False)
     
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
@@ -442,7 +451,7 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
     log.debug('pCandidates after testing: {}'.format(len(pCandidates)))
 
     # pZscore = pZscore[mask]
-    pvalues = np.array(pvalues)
+    # pvalues = np.array(pvalues)
     if len(pCandidates) == 0:
         return None, None
     # pCandidates, pvalues = precluster(pCandidates, pvalues, pWindowSize)
@@ -452,15 +461,15 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
     if len(pCandidates) == 0:
         return None, None
   
-    mask = []
+    # mask = []
     
 
-    # for i, candidate in enumerate(pCandidates):
-    #     if pvalues[i] <= largest_p_i:
-    #         accepted_index.append(candidate)
-    #         pvalues_accepted.append(pvalues[i])
-    if len(pCandidates) == 0:
-        return None, None
+    # # for i, candidate in enumerate(pCandidates):
+    # #     if pvalues[i] <= largest_p_i:
+    # #         accepted_index.append(candidate)
+    # #         pvalues_accepted.append(pvalues[i])
+    # if len(pCandidates) == 0:
+    #     return None, None
     # remove duplicate elements
     # for candidate in pCandidates:
     #     if candidate[0] > candidate[1]:
@@ -489,23 +498,23 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
     # pQValue = 0.01
     
     
-    pvalues_ = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
-    pvalues_ = np.sort(pvalues_)
-    largest_p_i = -np.inf
-    for i, p in enumerate(pvalues_):
-        if p <= (pQValue * (i + 1) / len(pvalues_)):
-            if p >= largest_p_i:
-                largest_p_i = p
-    # pvalues_accepted = []
+    # pvalues_ = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
+    # pvalues_ = np.sort(pvalues_)
+    # largest_p_i = -np.inf
+    # for i, p in enumerate(pvalues_):
+    #     if p <= (pQValue * (i + 1) / len(pvalues_)):
+    #         if p >= largest_p_i:
+    #             largest_p_i = p
+    # # pvalues_accepted = []
 
-    mask = pvalues <= largest_p_i
-    pvalues = pvalues[mask]
-    pCandidates = pCandidates[mask]
+    # mask = pvalues <= largest_p_i
+    # pvalues = pvalues[mask]
+    # pCandidates = pCandidates[mask]
 
-    log.debug('pCandidates after fdr: {}'.format(len(pCandidates)))
-    if len(pCandidates) == 0:
-        return None, None
-    return pCandidates, pvalues
+    # log.debug('pCandidates after fdr: {}'.format(len(pCandidates)))
+    # if len(pCandidates) == 0:
+    #     return None, None
+    return pCandidates, [1] * pCandidates
 
 
 def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList, pMaxLoopDistance):
