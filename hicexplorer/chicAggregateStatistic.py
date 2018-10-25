@@ -42,8 +42,8 @@ def parse_arguments(args=None):
                            required=True,
                            type=int,
                            nargs=2)
-    parserRequired.add_argument('--rbzScore', '-rbz',
-                           help='Detect all rbz score above this value as significant',
+    parserRequired.add_argument('--acceptThreshold', '-at',
+                           help='Detect all bins with threshold above this value as significant',
                            type=float,
                            default=1.96,
                            required=True)
@@ -61,14 +61,84 @@ def parse_arguments(args=None):
     return parser
 
 
+def filter_scores(pScoresDictionary, pThreshold, pRange):
+
+    accepted_scores = {}
+    for key in pScoresDictionary:
+        if key < -pRange[0] or key > pRange[1]:
+            continue
+        if pScoresDictionary[key][0] >= pThreshold:
+            accepted_scores[key] = pScoresDictionary[key]
+    return accepted_scores
+
+
+def merge_neighbors(pScoresDictionary, pMergeThreshold = 1000):
+
+    key_list = list(pScoresDictionary.keys())
+
+    # [[start, ..., end]]
+    neighborhoods = []
+    neighborhoods.append([key_list[0], key_list[0]])
+    scores = [pScoresDictionary[key_list[0]]]
+    
+    for key in key_list[1:]:
+        
+        if np.absolute(key - neighborhoods[-1][0]) <= pMergeThreshold or np.absolute(key - neighborhoods[-1][1]) <= pMergeThreshold:
+            neighborhoods[-1][-1] = key
+            scores[-1] += pScoresDictionary[key]
+        else:
+            neighborhoods.append([key, key])
+            scores.append(pScoresDictionary[key])
+
+    for i in range(len(neighborhoods)):
+        scores[i] /= len(neighborhoods[i])
+
+    return neighborhoods, scores
+
+def write (pOutFileName, pNeighborhoods, pScores, pInteractionLines, pThreshold):
+
+    with open(pOutFileName, 'w') as file:
+        file.write('# Significant regions with rbz-score higher as ' + str(pThreshold) + '\n')
+        file.write('#ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRel Inter viewpoint\trbz-score viewpoint\tRaw viewpoint\tRel Inter target\trbz-score target\tRaw target')
+        file.write('\n')
+        for i in range(len(pNeighborhoods)):
+            start = pNeighborhoods[i][0]
+            end = pNeighborhoods[i][1]
+            pInteractionLines[start]
+            pInteractionLines[end][-3:]
+            new_end = pInteractionLines[end][6]
+
+            pInteractionLines[0][-3:]
+
+            new_line = '\t'.join(pInteractionLines[start][:6])
+            new_line += '\t' + new_end
+            new_line += '\t' + '\t'.join(pInteractionLines[0][8:])
+            new_line += '\t' + str(pScores[i][0]) + '\t' + str(pScores[i][1]) + '\t' + str(pScores[i][2])
+
+            new_line += '\n'
+            file.write(new_line)
+
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
     background_data = None
 
+    relative_interaction = False
+    rbz_score = True
     # read all interaction files.
     for interactionFile in args.interactionFile:
-        _, interaction_data, z_score, interaction_file_data = viewpointObj.readInteractionFile(interactionFile)
+        header, interaction_data, interaction_file_data = viewpointObj.readInteractionFileForAggregateStatistics(interactionFile)
+
+        accepted_scores = filter_scores(interaction_data, args.acceptThreshold, args.range)
+        merged_neighborhood = merge_neighbors(accepted_scores)
+        # log.debug('accepted_scores {}'.format(accepted_scores))
+        # log.debug('merge_neighbored {}'.format(merged_neighborhood))
+        outFileName = interactionFile.split('.')[0] + 'z_score_merged.bed'
+        write(outFileName, merged_neighborhood[0], merged_neighborhood[1], interaction_file_data, args.acceptThreshold)
+        # log.debug('header {}'.format(header))
+        # log.debug('interaction_data {}'.format(interaction_data))
+        # log.debug('z_score {}'.format(z_score))
+
 
     
