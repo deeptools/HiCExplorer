@@ -560,8 +560,11 @@ def main(args=None):
 
         if args.log or args.log1p:
             mask = matrix == 0
-            matrix[mask] = np.nanmin(matrix[mask == False])
-
+            try:
+                matrix[mask] = np.nanmin(matrix[mask == False])
+            except ValueError:
+                log.info('Matrix contains only 0. Set all values to {}'.format(np.finfo(float).tiny))
+                matrix[mask] = np.finfo(float).tiny
             if np.isnan(matrix).any() or np.isinf(matrix).any():
                 log.debug("any nan {}".format(np.isnan(matrix).any()))
                 log.debug("any inf {}".format(np.isinf(matrix).any()))
