@@ -736,7 +736,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 log.info("Scaling bigwig values.")
                 bigwig_scores = np.array(bigwig_scores)
                 bigwig_scores *= pScaleFactorBigwig
-            if pValueMin is not None or pValueMax is not None
+            if pValueMin is not None or pValueMax is not None:
                 bigwig_scores = bigwig_scores.clip(pValueMin, pValueMax)
 
     # else:
