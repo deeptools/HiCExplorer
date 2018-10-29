@@ -174,44 +174,27 @@ class Viewpoint():
         if the reference point is larger than one bin of the Hi-C matrix, it is considered as one bin and the values are summed together.
         '''
         view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(pReferencePoint)
-        # log.debug('view_point_start {}, view_point_end {}'.format(view_point_start, view_point_end))
+
         view_point_range = self.getViewpointRangeAsMatrixIndices(pChromViewpoint, pRegion_start, pRegion_end)
         view_point_range = list(view_point_range)
         view_point_range[1] += 1
 
-        # if  pRegion_end <  view_point_end:
-        # log.debug('referencePoint greater than range: view_point_range{} view_point_start {} view_point_end{}'.format(view_point_range,view_point_start,view_point_end))
-        _view_point_start = view_point_start
-
-        ### fix
-        start_chromosome, end_chromosome = self.hicMatrix.getChrBinRange(pChromViewpoint)
-
-        elements_of_viewpoint  = np.absolute(end_chromosome - start_chromosome)
+        elements_of_viewpoint = (view_point_range[1] - view_point_range[0])
         data_list = np.zeros(elements_of_viewpoint)
-        # data_list_test = np.zeros(elements_of_viewpoint)
-
         _view_point_start = view_point_start
+
         while _view_point_start <= view_point_end:
             chrom, start, end, _ = self.hicMatrix.getBinPos(_view_point_start)
-            # for j, idx in zip(range(elements_of_viewpoint), range(start_chromosome, end_chromosome, 1)):
-            #     data_list[j] += self.hicMatrix.matrix[_view_point_start, idx]
-            # log.debug('_view_point_start {}, start_chromosome {}, end_chromosome {}'.format(_view_point_start, start_chromosome, end_chromosome))
-            data_list += self.hicMatrix.matrix[_view_point_start, start_chromosome:end_chromosome].toarray().flatten()
+            for j, idx in zip(range(elements_of_viewpoint), range(view_point_range[0], view_point_range[1], 1)):
+                data_list[j] += self.hicMatrix.matrix[_view_point_start, idx]
 
-            _view_point_start += 1 
-        if view_point_start == view_point_end:
-            # log.debug('return because start and end are equal.')
-            return data_list
-        # log.debug('view_point_start {} view_point_end {} elements_of_viewpoint {}'.format(view_point_start, view_point_end, elements_of_viewpoint))
+            _view_point_start += 1
+
         elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
         data_list_new = np.zeros(elements_of_viewpoint)
 
-        # index_before_viewpoint = view_point_start - view_point_range[0]
-        # view_point_start and view_point_end have the index position in respect to the full matrix.
-        # the index values for these in the array data_list and data_list_new need to be adjusted to the chromosome
-        view_point_start = view_point_start - start_chromosome
-        view_point_end = view_point_end - start_chromosome
-        index_before_viewpoint = view_point_start
+        index_before_viewpoint = view_point_start - view_point_range[0]
+
         # elements before the viewpoint
         data_list_new[0:index_before_viewpoint] = data_list[0:index_before_viewpoint]
 

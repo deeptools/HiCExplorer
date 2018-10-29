@@ -35,12 +35,7 @@ def parse_arguments(args=None):
                                 help='Bed file contains all reference points which should be used to build the background model.',
                                 type=str,
                                 required=True)
-    parserRequired.add_argument('--range', '-r',
-                                help='Region around the viewpoint to consider in basepairs, first is upstream, second downstream.'
-                                ' E.g. \'--range 20000 40000\' for 20kb upstream to 40kb downstream of a viewpoint. Do NOT use a \'-\' prefix for upstream range.',
-                                type=int,
-                                required=True,
-                                nargs=2)
+    
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--averageContactBin',
                            help='Average the contacts of n bins, written to last column.',
@@ -75,8 +70,9 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
     fixateRangeAt = pArgs.fixateRange// pViewpointObj.hicMatrix.getBinSize()
     for i, referencePoint in enumerate(pReferencePoints):
 
-        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (500000, 500000))
+        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
+        log.debug('region_start {}, region_end {}'.format(region_start, region_end))
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
 
         if pArgs.averageContactBin > 0:
@@ -88,11 +84,19 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
             pViewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
         
 
-        for j, data in enumerate(data_list):
-            relative_position = j - view_point_start
+        # for j, data in enumerate(data_list):
+        #     relative_position = j - view_point_start
             
-            if np.absolute(relative_position) > fixateRangeAt:
-                continue 
+        #     # if np.absolute(relative_position) > fixateRangeAt:
+        #     #     continue 
+        #     if relative_position in background_model_data:
+        #         background_model_data[relative_position] += data
+        #     else:
+        #         background_model_data[relative_position] = data
+        #         relative_positions.add(relative_position)
+
+        for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
+            relative_position = i - view_point_start
             if relative_position in background_model_data:
                 background_model_data[relative_position] += data
             else:
@@ -184,7 +188,7 @@ def main():
 
         total_count = sum(background_model_data.values())
         relative_counts = background_model_data
-        
+        # for the current condition compute the relative interactions per relative distance
         for key in relative_counts:
             relative_counts[key] /= total_count
         
@@ -204,18 +208,20 @@ def main():
         i = 0
         count = 0
         for condition in relative_counts_conditions:
+            # count the number of relative interactions at 'relative_position' if this position exists in the condition
             if relative_position in condition:
                 i += 1
                 count += condition[relative_position]
+        # mean_percentage is given by number of relative interactions at a relative position divided by the number of conditions
         mean_percentage[relative_position] = count / i
         sem[relative_position] = (count / i) / math.sqrt(i)
-    lower_limit_range = args.range[0] * (-1) / bin_size
-    upper_limit_range = args.range[1]  / bin_size
+    # lower_limit_range = args.range[0] * (-1) / bin_size
+    # upper_limit_range = args.range[1]  / bin_size
 
     # write result to file
     with open(args.outFileName, 'w') as file:
         for relative_position in relative_positions:
-            if lower_limit_range <= relative_position and relative_position <= upper_limit_range:
-                relative_position_in_genomic_scale = relative_position * bin_size
-                file.write("{}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, mean_percentage[relative_position],
-                                                        sem[relative_position]))
+            # if lower_limit_range <= relative_position and relative_position <= upper_limit_range:
+            relative_position_in_genomic_scale = relative_position * bin_size
+            file.write("{}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, mean_percentage[relative_position],
+                                                    sem[relative_position]))
