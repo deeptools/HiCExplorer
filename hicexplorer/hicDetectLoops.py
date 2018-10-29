@@ -148,9 +148,14 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
     #  instances, features = pHiCMatrix.matrix.nonzero()
     # z_score_matrix = csr_matrix((pZscoreData, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
         
+    # filter by distance
+    mask_distance = np.absolute(instances - features) >= 4
+
     # filter by threshold
 
     mask = pZscoreMatrix.data >= pZscoreThreshold
+    mask = np.logical_and(mask, mask_distance)
+
     zscore_mean = np.mean(pZscoreMatrix.data[mask])
     mask = pZscoreMatrix.data >= zscore_mean
     log.debug('Used zscore-Mean {}'.format(zscore_mean))
@@ -164,6 +169,9 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
     # log.debug('mask_interactions {}'.format(mask_interactions))
 
     mask = np.logical_and(mask, mask_interactions)
+    mask = np.logical_and(mask, mask_distance)
+
+
     # log.debug('mask {}'.format(mask))
 
 
