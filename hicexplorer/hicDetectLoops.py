@@ -100,32 +100,32 @@ def _sum_per_distance(pSum_per_distance, pData, pDistances):
     return pSum_per_distance, distance_count
 
 
-def compute_zscore_matrix(pMatrix, pInteractionHeight):
+def compute_zscore_matrix(pInstances, pFeatures, pData):
 
 
-    pMatrix.data = pMatrix.data.astype(float)
+    pData = pData.astype(float)
     # mask = pMatrix.data < pInteractionHeight
     # pMatrix.data[mask] = 0
     # pMatrix.eliminate_zeros()
 
-    instances, features = pMatrix.nonzero()
+    # instances, features = pMatrix.nonzero()
 
-    data = deepcopy(pMatrix.data)
-    distances = np.absolute(instances - features)
-    sigma_2 = np.zeros(pMatrix.shape[0])
+    data = deepcopy(pData)
+    distances = np.absolute(pInstances - pFeatures)
+    sigma_2 = np.zeros(len(data))
 
     # shifts all values by one, but 0 / mean is prevented
-    sum_per_distance = np.ones(pMatrix.shape[0])
+    sum_per_distance = np.ones(len(data))
     np.nan_to_num(data, copy=False)
 
     sum_per_distance, distance_count = _sum_per_distance(sum_per_distance, data, distances)
     # compute mean
     mean_adjusted = sum_per_distance / distance_count
     # compute sigma squared
-    data_mean = pMatrix.data - mean_adjusted[distances]
+    data_mean = pData - mean_adjusted[distances]
     data = np.square(data_mean)
 
-    for i in range(len(instances)):
+    for i in range(len(pInstances)):
         sigma_2[distances[i]] += data[i]
 
     sigma_2 /= distance_count
@@ -136,30 +136,41 @@ def compute_zscore_matrix(pMatrix, pInteractionHeight):
     return data_mean
 
 
-def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWindowSize, pPValue, pQValue, pPeakInteractionsThreshold):
+def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, pZscoreThreshold, pWindowSize, pPValue, pQValue, pPeakInteractionsThreshold):
 
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
 
     # keep only z-score values (peaks) if they have more interactions than pPeakInteractionsThreshold
 
-    instances, features = pHiCMatrix.matrix.nonzero()
+    instances, features = pAdjustedHiCMatrix.nonzero()
     log.debug('Number of candidates 147: {}'.format(len(instances)))
     #  instances, features = pHiCMatrix.matrix.nonzero()
-    z_score_matrix = csr_matrix((pZscoreData, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
+    # z_score_matrix = csr_matrix((pZscoreData, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
         
     # filter by threshold
-    mask = pZscoreData >= pZscoreThreshold
-    # pZscoreData = None
 
-    mask_interactions = pHiCMatrix.matrix.data > pPeakInteractionsThreshold
+    mask = pZscoreMatrix.data >= pZscoreThreshold
+    zscore_mean = np.mean(pZscoreMatrix.data[mask])
+    mask = pZscoreMatrix.data >= zscore_mean
+    log.debug('Used zscore-Mean {}'.format(zscore_mean))
+
+    # pZscoreData = None
+    log.debug('pPeakInteractionsThreshold {}'.format(pPeakInteractionsThreshold))
+    mask_interactions = pAdjustedHiCMatrix.data > pPeakInteractionsThreshold
+    log.debug('len(mask_interactions) {}'.format(len(mask_interactions)))
+    log.debug('len(mask) {}'.format(len(mask)))
+
+    # log.debug('mask_interactions {}'.format(mask_interactions))
 
     mask = np.logical_and(mask, mask_interactions)
+    # log.debug('mask {}'.format(mask))
+
 
     instances = instances[mask]
     features = features[mask]
-    pZscoreData = pZscoreData[mask]
-    interactionHeight = pHiCMatrix.matrix.data[mask]
+    # pZscoreData = pZscoreData[mask]
+    # interactionHeight = pHiCMatrix.matrix.data[mask]
     if len(features) == 0:
         return None, None
     candidates = np.array([*zip(instances, features)])
@@ -171,7 +182,7 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWind
     while number_of_candidates != len(candidates):
         number_of_candidates = len(candidates)
 
-        candidates, _ = window_zscore_cluster(candidates, pWindowSize, z_score_matrix)
+        candidates, _ = window_zscore_cluster(candidates, pWindowSize, pZscoreMatrix)
         i +=1 
 
         log.debug('iterations: {}'.format(i))
@@ -179,7 +190,7 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreData, pZscoreThreshold, pWind
             return None, None
 
     candidates, pValueList = candidate_peak_exponential_distribution_test(
-        z_score_matrix, candidates, pWindowSize, pPValue, pQValue, None)
+        pHiCMatrix.matrix, candidates, pWindowSize, pPValue, pQValue, None)
     if candidates is not None:
         log.debug('Candidates: {}'.format(candidates[:20]))
     return candidates, pValueList
@@ -283,8 +294,8 @@ def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
             pWindowSize < y_max else y_max
 
         neighborhood = pZScoreMatrix[start_x:end_x, start_y:end_y].toarray().flatten()
-        if candidate[0] in [81, 82] and candidate[1] in [82, 83, 88]:
-            log.debug('x {} y {} max: {}'.format(candidate[0], candidate[1], np.max(neighborhood)))
+        # if candidate[0] in [81, 82] and candidate[1] in [82, 83, 88]:
+        #     log.debug('x {} y {} max: {}'.format(candidate[0], candidate[1], np.max(neighborhood)))
         # zscore_neighborhood = zscore(neighborhood)
         if len(neighborhood) == 0:
             continue
@@ -293,10 +304,10 @@ def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
             # continue
         x = argmax // (pWindowSize * 2)
         y = argmax % (pWindowSize * 2)
-        if candidate[0] in [81, 82]  and candidate[1] in [82, 83, 88]:
-            log.debug('x {} y {}'.format(candidate[0], candidate[1]))
-            log.debug('pWindowSize {} x {} y {}'.format(pWindowSize, x, y))
-            log.debug('x_new {} y_new {} \n'.format((candidate[0] - pWindowSize) + x, (candidate[1] - pWindowSize) + y))
+        # if candidate[0] in [81, 82]  and candidate[1] in [82, 83, 88]:
+        #     log.debug('x {} y {}'.format(candidate[0], candidate[1]))
+        #     log.debug('pWindowSize {} x {} y {}'.format(pWindowSize, x, y))
+        #     log.debug('x_new {} y_new {} \n'.format((candidate[0] - pWindowSize) + x, (candidate[1] - pWindowSize) + y))
 
 
 
@@ -427,23 +438,23 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
         # if len(neighborhood[mask_data]) < 3:
         #     mask.append(False)
         #     continue
-        mask.append(True)
-        # loc, scale =expon.fit(peak_region)
-        # peak_norm = expon(loc=loc, scale=scale)
+        # mask.append(True)
+        loc, scale = expon.fit(peak_region)
+        peak_norm = expon(loc=loc, scale=scale)
         
 
-        # test_statistic_peak = kstest(peak_region, peak_norm.cdf)#, alternative = 'greater')
+        test_statistic_peak = kstest(peak_region, peak_norm.cdf)#, alternative = 'greater')
         # # test_statistic_peak = kstest(peak_region, peak_norm.cdf)
     
 
-        # if np.isnan(test_statistic_peak[1]):
-        #     mask.append(False)
-        #     continue
-        # if test_statistic_peak[1] <= pPValue and test_statistic_peak[1] > 0:
-        #     mask.append(True)
-        #     pvalues.append(test_statistic_peak[1])
-        # else:
-        #     mask.append(False)
+        if np.isnan(test_statistic_peak[1]):
+            mask.append(False)
+            continue
+        if test_statistic_peak[1] <= pPValue and test_statistic_peak[1] > 0:
+            mask.append(True)
+            pvalues.append(test_statistic_peak[1])
+        else:
+            mask.append(False)
     
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
@@ -557,6 +568,7 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
 
 def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     # log.debug("Compute z-score matrix")
+
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
     log.debug('len(instances) after length pruning I {}'.format(len(pHiCMatrix.matrix.data)))
     max_loop_distance = None
@@ -571,32 +583,36 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         log.debug('len(instances) after length pruning II{}'.format(len(pHiCMatrix.matrix.data)))
 
     
+    pHiCMatrix.matrix.eliminate_zeros()
+    shape_of_matrix = pHiCMatrix.matrix.shape
+    instances, features = deepcopy(pHiCMatrix.matrix.nonzero())
+    data_hic = deepcopy(pHiCMatrix.matrix.data)
     # obs_exp_norm_matrix = exp_obs_matrix_norm(pHiCMatrix.matrix, 1, 1)
-    obs_exp_norm_matrix = exp_obs_matrix_lieberman(pHiCMatrix.matrix, pHiCMatrix.matrix.shape[0], 23)
+    obs_exp_norm_matrix = exp_obs_matrix_lieberman(deepcopy(pHiCMatrix.matrix), pHiCMatrix.matrix.shape[0], 23)
 
+    mask = obs_exp_norm_matrix.data != 0
+    instances = instances[mask]
+    features = features[mask]
+    data_hic = data_hic[mask]
 
     obs_exp_norm_matrix.eliminate_zeros()
-    # log.debug('obs-exp-normalising done')
-    # matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
-    # instances, features = pHiCMatrix.matrix.nonzero()
-    # z_score_matrix = csr_matrix((obs_exp_norm_matrix.data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
-    # matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, pHiCMatrix.cut_intervals, pHiCMatrix.nan_bins,
-    #                                                 None, pHiCMatrix.distance_counts)
-    # matrixFileHandlerOutput.save(
-    #     pRegion + '_' + 'obs_exp_lieberman.cool', pSymmetric=True, pApplyCorrection=False)
+    instances_obs_exp, features_obs_exp = obs_exp_norm_matrix.nonzero()
+    data_obs_exp = obs_exp_norm_matrix.data
     
-    z_score_data = compute_zscore_matrix(obs_exp_norm_matrix, pArgs.peakInteractionsThreshold)
-    if pArgs.zScoreMatrixName:
+    z_score_data = compute_zscore_matrix(instances_obs_exp, features_obs_exp, data_obs_exp)
 
+    # instances, features = obs_exp_norm_matrix.nonzero()
+    z_score_matrix = csr_matrix((z_score_data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
+    if pArgs.zScoreMatrixName:
         matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
-        instances, features = pHiCMatrix.matrix.nonzero()
-        z_score_matrix = csr_matrix((z_score_data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
+        
         matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, pHiCMatrix.cut_intervals, pHiCMatrix.nan_bins,
                                                      None, pHiCMatrix.distance_counts)
         matrixFileHandlerOutput.save(
             pRegion + '_' + pArgs.zScoreMatrixName, pSymmetric=True, pApplyCorrection=False)
     # exit()
-    candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_data, pArgs.zScoreThreshold,
+    adjusted_hic_matrix = csr_matrix((data_hic, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
+    candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_matrix, adjusted_hic_matrix, pArgs.zScoreThreshold,
                                                          pArgs.windowSize, pArgs.pValue, pArgs.qValue,
                                                          pArgs.peakInteractionsThreshold)
     if candidates is None:
