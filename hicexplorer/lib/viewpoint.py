@@ -224,6 +224,9 @@ class Viewpoint():
         interaction_positions.extend([view_point_start])
         interaction_positions.extend(list(range(view_point_end + 1, view_point_range[1], 1)))
         relative_position = -1
+        log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
+        log.debug('interaction_positions {}'.format(interaction_positions))
+
         for j, idx in zip(range(elements_of_viewpoint), interaction_positions):
 
             chrom_second, start_second, end_second, _ = self.hicMatrix.getBinPos(idx)
