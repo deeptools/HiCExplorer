@@ -49,6 +49,31 @@ def test_find_TADs_fdr():
     shutil.rmtree(tad_folder)
 
 
+def test_find_TADs_fdr_chromosomes():
+    # full test case with build of the matrix and search for tads
+    matrix = ROOT + "small_test_matrix.h5"
+    tad_folder = mkdtemp(prefix="test_case_find_tads_fdr_chromosomes")
+    args = "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 2 --step 20000 \
+    --outPrefix {}/test_multiFDR_chromosomes --minBoundaryDistance 20000 \
+    --correctForMultipleTesting fdr --thresholdComparisons 0.5 --chromosomes chr2L chr3R".format(matrix, tad_folder).split()
+
+    hicFindTADs.main(args)
+
+    new = hm.hiCMatrix(tad_folder + "/test_multiFDR_chromosomes_zscore_matrix.h5")
+    test = hm.hiCMatrix(ROOT + 'find_TADs/FDR_chromosomes/multiFDR_zscore_matrix.h5')
+    nt.assert_equal(test.matrix.data, new.matrix.data)
+    nt.assert_equal(test.cut_intervals, new.cut_intervals)
+
+    print(tad_folder + "/test_multiFDR_boundaries.bed")
+    assert are_files_equal(ROOT + "find_TADs/FDR_chromosomes/multiFDR_boundaries.bed", tad_folder + "/test_multiFDR_chromosomes_boundaries.bed")
+    assert are_files_equal(ROOT + "find_TADs/FDR_chromosomes/multiFDR_domains.bed", tad_folder + "/test_multiFDR_chromosomes_domains.bed")
+    assert are_files_equal(ROOT + "find_TADs/FDR_chromosomes/multiFDR_tad_score.bm", tad_folder + "/test_multiFDR_chromosomes_tad_score.bm")
+    assert are_files_equal(ROOT + "find_TADs/FDR_chromosomes/multiFDR_boundaries.gff", tad_folder + "/test_multiFDR_chromosomes_boundaries.gff")
+    # assert are_files_equal
+    assert are_files_equal(ROOT + "find_TADs/FDR_chromosomes/multiFDR_score.bedgraph", tad_folder + "/test_multiFDR_chromosomes_score.bedgraph")
+
+    shutil.rmtree(tad_folder)
+
 # def test_find_TADs_fdr_dekker():
 #     # full test case with build of the matrix and search for tads
 #     matrix = ROOT + "dekker.txt.gz"
