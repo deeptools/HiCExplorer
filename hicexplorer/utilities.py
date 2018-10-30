@@ -232,7 +232,7 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
     count_times_i *= np.int(-1)
 
     expected_interactions /= count_times_i
-    log.debug('exp_obs_matrix_lieberman {}'.format(expected_interactions))
+    # log.debug('exp_obs_matrix_lieberman {}'.format(expected_interactions))
 
     return expected_interactions
 
@@ -240,8 +240,8 @@ def expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix
     """
         Computes the function I_chrom(s) for a given chromosome.
     """
-    log.debug('pLength_chromosome {}'.format(pLength_chromosome))
-    log.debug('pChromosome_count {}'.format(pChromosome_count))
+    # log.debug('pLength_chromosome {}'.format(pLength_chromosome))
+    # log.debug('pChromosome_count {}'.format(pChromosome_count))
 
     expected_interactions = np.zeros(pSubmatrix.shape[0])
     row, col = pSubmatrix.nonzero()
