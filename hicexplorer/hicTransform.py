@@ -38,9 +38,8 @@ def parse_arguments(args=None):
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--method', '-me',
-                           help='Transformation method to use. If the option all is used, all three matrices in '
-                           'consecutively way (input -> obs_exp -> pearson -> covariance) are created.',
-                           choices=['obs_exp', 'pearson', 'covariance', 'all', 'norm'],
+                           help='Transformation method to use for input matrix. Transformation is computed per chromosome.',
+                           choices=['obs_exp', 'pearson', 'covariance', 'norm'],
                            default='obs_exp')
 
     parserOpt.add_argument('--chromosomes',
@@ -88,7 +87,7 @@ def main(args=None):
 
     args = parse_arguments().parse_args(args)
 
-    if not args.outFileName.endswith('.h5') or args.outFileName.endswith('.cool'):
+    if not args.outFileName.endswith('.h5') and not args.outFileName.endswith('.cool'):
         log.error('Output filetype not known.')
         log.error('It is: {}'.format(args.outFileName))
         log.error('Accepted is .h5 or .cool')
@@ -118,7 +117,7 @@ def main(args=None):
             submatrix.astype(float)
             submatrix = _obs_exp_norm(submatrix, length_chromosome, chromosome_count)
 
-            submatrix = __pearson(submatrix)
+            # submatrix = __pearson(submatrix)
             trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
 
         # hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
@@ -154,43 +153,43 @@ def main(args=None):
             corrmatrix = np.cov(submatrix.todense())
             trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(corrmatrix)
 
-    elif args.method == 'all':
-        trasf_matrix_obs_exp = lil_matrix(hic_ma.matrix.shape)
-        trasf_matrix_pearson = lil_matrix(hic_ma.matrix.shape)
-        trasf_matrix_corr = lil_matrix(hic_ma.matrix.shape)
+    # elif args.method == 'all':
+    #     trasf_matrix_obs_exp = lil_matrix(hic_ma.matrix.shape)
+    #     trasf_matrix_pearson = lil_matrix(hic_ma.matrix.shape)
+    #     trasf_matrix_corr = lil_matrix(hic_ma.matrix.shape)
 
-        for chrname in hic_ma.getChrNames():
-            chr_range = hic_ma.getChrBinRange(chrname)
-            submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+    #     for chrname in hic_ma.getChrNames():
+    #         chr_range = hic_ma.getChrBinRange(chrname)
+    #         submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
 
-            submatrix.astype(float)
-            submatrix = __obs_exp(submatrix, length_chromosome, chromosome_count)
+    #         submatrix.astype(float)
+    #         submatrix = __obs_exp(submatrix, length_chromosome, chromosome_count)
 
-            trasf_matrix_obs_exp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
-            submatrix = __pearson(submatrix)
+    #         trasf_matrix_obs_exp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
+    #         submatrix = __pearson(submatrix)
 
-            trasf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
-            corrmatrix = np.cov(submatrix)
-            trasf_matrix_corr[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(corrmatrix)
+    #         trasf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
+    #         corrmatrix = np.cov(submatrix)
+    #         trasf_matrix_corr[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(corrmatrix)
 
-        hic_ma.setMatrix(trasf_matrix_obs_exp.tocsr(), cut_intervals=hic_ma.cut_intervals)
+    #     hic_ma.setMatrix(trasf_matrix_obs_exp.tocsr(), cut_intervals=hic_ma.cut_intervals)
 
-        basename_outFileName = basename(args.outFileName)
-        basename_obs_exp = "obs_exp_" + basename_outFileName
-        basename_pearson = "pearson_" + basename_outFileName
-        basename_covariance = "covariance_" + basename_outFileName
-        path = dirname(args.outFileName)
-        if path != '':
-            path += '/'
+    #     basename_outFileName = basename(args.outFileName)
+    #     basename_obs_exp = "obs_exp_" + basename_outFileName
+    #     basename_pearson = "pearson_" + basename_outFileName
+    #     basename_covariance = "covariance_" + basename_outFileName
+    #     path = dirname(args.outFileName)
+    #     if path != '':
+    #         path += '/'
 
-        hic_ma.save(path + basename_obs_exp, pSymmetric=False, pApplyCorrection=False)
+    #     hic_ma.save(path + basename_obs_exp, pSymmetric=False, pApplyCorrection=False)
 
-        hic_ma.setMatrix(trasf_matrix_pearson.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(path + basename_pearson, pSymmetric=False, pApplyCorrection=False)
+    #     hic_ma.setMatrix(trasf_matrix_pearson.tocsr(), cut_intervals=hic_ma.cut_intervals)
+    #     hic_ma.save(path + basename_pearson, pSymmetric=False, pApplyCorrection=False)
 
-        hic_ma.setMatrix(trasf_matrix_corr.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(path + basename_covariance, pSymmetric=False, pApplyCorrection=False)
+    #     hic_ma.setMatrix(trasf_matrix_corr.tocsr(), cut_intervals=hic_ma.cut_intervals)
+    #     hic_ma.save(path + basename_covariance, pSymmetric=False, pApplyCorrection=False)
 
-    if not args.method == 'all':
-        hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
-        hic_ma.save(args.outFileName, pSymmetric=False, pApplyCorrection=False)
+    # if not args.method == 'all':
+    hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
+    hic_ma.save(args.outFileName, pSymmetric=False, pApplyCorrection=False)
