@@ -71,7 +71,7 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            default=None,
                            nargs='+')
     parserOpt.add_argument('--norm',
-                           help='Differen obs-exp normalization',
+                           help='Different obs-exp normalization',
                            action='store_true')
     parserOpt.add_argument('--geneTrack',
                            help='The gene track is needed to decide if the values of the eigenvector need a sign flip or not.',
