@@ -130,7 +130,7 @@ def parse_arguments(args=None):
                            type=float,
                            default=None)
 
-    parserOpt.add_argument('--vMaxBigWig',
+    parserOpt.add_argument('--vMaxBigwig',
                            help='Maximum score value for bigwig',
                            type=float,
                            default=None)
@@ -727,14 +727,12 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 pAxis.set_xlim(0, chrom_length_sum)
 
             log.debug("Number of data points: {}".format(len(bigwig_scores)))
-
+            bigwig_scores = np.array(bigwig_scores)
             if pFlipBigwigSign:
                 log.info("Flipping sign of bigwig values.")
-                bigwig_scores = np.array(bigwig_scores)
                 bigwig_scores *= -1
             if pScaleFactorBigwig is not None and pScaleFactorBigwig != 1.0:
                 log.info("Scaling bigwig values.")
-                bigwig_scores = np.array(bigwig_scores)
                 bigwig_scores *= pScaleFactorBigwig
             if pValueMin is not None or pValueMax is not None:
                 bigwig_scores = bigwig_scores.clip(pValueMin, pValueMax)
