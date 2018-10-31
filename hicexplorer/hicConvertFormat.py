@@ -159,7 +159,7 @@ def main(args=None):
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                              correction_factors, distance_counts)
                 matrixFileHandlerOutput.save(
-                    args.outFileName[i] + '.' + args.outputFormat, pSymmetric=True, pApplyCorrection=applyCorrection)
+                    args.outFileName[i], pSymmetric=True, pApplyCorrection=applyCorrection)
             elif args.outputFormat in ['mcool']:
                 
                 log.debug('outformat is mcool')
@@ -183,7 +183,7 @@ def main(args=None):
                                                                      merged_matrix.nan_bins,
                                                                      merged_matrix.correction_factors,
                                                                      merged_matrix.distance_counts)
-                        matrixFileHandlerOutput.save(args.outFileName[0] + '.mcool' + '::/resolutions/' + str(
+                        matrixFileHandlerOutput.save(args.outFileName[0] + '::/resolutions/' + str(
                             resolution), pSymmetric=True, pApplyCorrection=applyCorrection)
 
                 else:
@@ -194,5 +194,5 @@ def main(args=None):
                         pFileType='cool')
                     matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                                  correction_factors, distance_counts)
-                    matrixFileHandlerOutput.save(args.outFileName[0] + '.mcool' + '::/resolutions/' + str(
+                    matrixFileHandlerOutput.save(args.outFileName[0] + '::/resolutions/' + str(
                         bin_size), pSymmetric=True, pApplyCorrection=applyCorrection)
