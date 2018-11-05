@@ -1,6 +1,6 @@
 import os.path
 from tempfile import NamedTemporaryFile
-from  hicexplorer import hicConvertFormat
+from hicexplorer import hicConvertFormat
 from hicmatrix import HiCMatrix as hm
 import numpy.testing as nt
 
@@ -55,7 +55,6 @@ def test_hicConvertFormat_h5_to_cool():
     # os.unlink(outfile.name)
 
 
-
 def test_hicConvertFormat_h5_to_homer():
 
     # original_matrix = ''
@@ -70,7 +69,6 @@ def test_hicConvertFormat_h5_to_homer():
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     # os.unlink(outfile.name)
-
 
 
 def test_hicConvertFormat_h5_to_ginteractions():
@@ -88,6 +86,7 @@ def test_hicConvertFormat_h5_to_ginteractions():
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     # os.unlink(outfile.name)
 
+
 def test_hicConvertFormat_h5_to_mcool():
 
     # original_matrix = ''
@@ -102,6 +101,7 @@ def test_hicConvertFormat_h5_to_mcool():
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     # os.unlink(outfile.name)
+
 
 def test_hicConvertFormat_cool_to_h5():
 

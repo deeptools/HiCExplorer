@@ -264,7 +264,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         else:
             log.debug('else region')
             plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=chrBinBoundaries,
-                       pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, 
+                       pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig,
                        pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
 
 
@@ -647,7 +647,7 @@ def make_start_pos_array(ma):
 
 
 def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None,
-                    pValueMin=None, pValueMax=None):
+               pValueMin=None, pValueMax=None):
     log.debug('plotting eigenvector')
     pAxis.set_frame_on(False)
     pAxis.xaxis.set_visible(False)

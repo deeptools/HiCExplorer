@@ -47,7 +47,7 @@ def parse_arguments(args=None):
                            'correlation.',
                            default=None,
                            nargs='+')
-   
+
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads for pearson correlation.',
                            required=False,
@@ -76,12 +76,14 @@ def __pearson(pSubmatrix):
     pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
     return pearson_correlation_matrix
 
+
 def _obs_exp_norm(pSubmatrix, pLengthChromosome, pChromosomeCount):
-    
+
     exp_obs_matrix_ = exp_obs_matrix_norm(pSubmatrix, pLengthChromosome, pChromosomeCount)
     exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_))
     exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
     return exp_obs_matrix_
+
 
 def main(args=None):
 

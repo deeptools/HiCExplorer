@@ -39,6 +39,7 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig():
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
 
+
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig_vmin_vmax():
@@ -47,7 +48,7 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig_vmin_vmax
 
     args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
         "--outFileName  {1} --log1p --clearMaskedBins --bigwig {2} --vMinBigwig {3} --vMaxBigwig {4}".format(ROOT, outfile.name,
-                                                                            ROOT + "bigwig_chrx_2e6_5e6.bw", 0, 1).split()
+                                                                                                             ROOT + "bigwig_chrx_2e6_5e6.bw", 0, 1).split()
     test_image_path = ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_log1p_clearmaskedbins_vbigwigmin_vbigwigmax.png'
 
     hicexplorer.hicPlotMatrix.main(args)
@@ -56,6 +57,7 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig_vmin_vmax
 
 #     if REMOVE_OUTPUT:
 #         os.remove(outfile.name)
+
 
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")

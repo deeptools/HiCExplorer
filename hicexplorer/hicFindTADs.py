@@ -384,7 +384,7 @@ class HicFindTads(object):
         """
 
         # if matrix is string, loaded, else, assume is a HiCMatrix object
-        
+
         self.set_matrix(matrix, pChromosomes)
         if max_depth is not None and min_depth is not None and max_depth <= min_depth:
             log.error("Please check that maxDepth is larger than minDepth.")
@@ -1179,7 +1179,7 @@ class HicFindTads(object):
                 fields = line.strip().split('\t')
                 chrom, start, end = fields[0:3]
                 if pChromosomes is not None:
-                    if chrom in pChromsomes:
+                    if chrom in pChromosomes:
                         chrom_list.append(chrom)
                         start_list.append(int(float(start)))
                         end_list.append(int(float(end)))

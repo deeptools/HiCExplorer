@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 
 DELTA_DECIMAL = 0
 
+
 def are_files_equal(file1, file2):
     equal = True
     with open(file1) as textfile1, open(file2) as textfile2:
@@ -148,13 +149,12 @@ def test_pca_bigwig_gene_density_intermediate_matrices():
     gene_track = ROOT + 'dm3_genes.bed.gz'
     chromosomes = 'chrX chrXHet'
     args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --geneTrack {} --chromosomes {} --pearsonMatrix {} --obsexpMatrix {}"\
-                    .format(matrix, pca1.name, pca2.name, gene_track, chromosomes, pearson_matrix.name, obs_exp_matrix.name).split()
+        .format(matrix, pca1.name, pca2.name, gene_track, chromosomes, pearson_matrix.name, obs_exp_matrix.name).split()
     hicPCA.main(args)
 
     chrom_list = ['chrX', 'chrXHet']
     assert are_files_equal_bigwig(ROOT + "hicPCA/pca1_gene_track.bw", pca1.name, chrom_list)
     assert are_files_equal_bigwig(ROOT + "hicPCA/pca2_gene_track.bw", pca2.name, chrom_list)
-
 
     test_pearson = hm.hiCMatrix(ROOT + "hicPCA/pearson_intermediate.h5")
 
@@ -169,11 +169,11 @@ def test_pca_bigwig_gene_density_intermediate_matrices():
     # assert are_files_equal_bigwig(ROOT + "hicPCA/pearson_intermediate.h5", pearson_matrix.name, chrom_list)
     # assert are_files_equal_bigwig(ROOT + "hicPCA/obs_exp_intermediate.h5", obs_exp_matrix.name, chrom_list)
 
-
     os.unlink(pca1.name)
     os.unlink(pca2.name)
     os.unlink(obs_exp_matrix.name)
     os.unlink(pearson_matrix.name)
+
 
 def test_pca_bigwig_gene_density_intermediate_matrices_norm():
     pca1 = NamedTemporaryFile(suffix='.bw', delete=False)
@@ -188,7 +188,7 @@ def test_pca_bigwig_gene_density_intermediate_matrices_norm():
     gene_track = ROOT + 'dm3_genes.bed.gz'
     chromosomes = 'chrX chrXHet'
     args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --geneTrack {} --chromosomes {} --pearsonMatrix {} --obsexpMatrix {} --norm"\
-                    .format(matrix, pca1.name, pca2.name, gene_track, chromosomes, pearson_matrix.name, obs_exp_matrix.name).split()
+        .format(matrix, pca1.name, pca2.name, gene_track, chromosomes, pearson_matrix.name, obs_exp_matrix.name).split()
     hicPCA.main(args)
 
     chrom_list = ['chrX', 'chrXHet']

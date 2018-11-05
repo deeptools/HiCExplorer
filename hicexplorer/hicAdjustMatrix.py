@@ -29,16 +29,16 @@ def parse_arguments(args=None):
                                 help='File name to save the adjusted matrix.',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--chromosomes', '-c', 
-                                nargs='+',
-                                help='List of chromosomes to keep / remove')
+    parserOpt.add_argument('--chromosomes', '-c',
+                           nargs='+',
+                           help='List of chromosomes to keep / remove')
     parserOpt.add_argument('--action',
                            help='Keep / remove the list of specified chromosomes / regions ',
-                           default='keep', 
+                           default='keep',
                            choices=['keep', 'remove', 'mask']
-                            )
+                           )
     parserOpt.add_argument('--regions', '-r',
-                                help='BED file which stores a list of regions to keep / remove')
+                           help='BED file which stores a list of regions to keep / remove')
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -49,13 +49,13 @@ def parse_arguments(args=None):
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-   
+
     if args.chromosomes is not None and args.regions is not None:
         log.error('Please specify either --chromosomes or --regions.')
         exit(1)
     hic_ma = None
     if args.chromosomes:
-        
+
         if check_cooler(args.matrix) and len(args.chromosomes) == 1 and args.action == 'keep':
             hic_ma = hm.hiCMatrix(args.matrix, pChrnameList=args.chromosomes)
         else:
@@ -81,7 +81,7 @@ def main(args=None):
                     continue
                 if len(_line) == 3:
                     chrom, start, end = _line[0], _line[1], _line[2]
-                   
+
                 genomic_regions.append((chrom, start, end))
 
         # log.debug('genomic_regions {}'.format(genomic_regions))
@@ -97,7 +97,7 @@ def main(args=None):
             hic_ma.maskBins(matrix_indices_regions)
 
         elif args.action == 'remove':
-        
+
             full_matrix_range = np.array(range(0, max(hic_ma.matrix.shape[0], hic_ma.matrix.shape[1])))
             matrix_indices_regions = np.array(matrix_indices_regions)
             full_matrix_range[matrix_indices_regions] = -1

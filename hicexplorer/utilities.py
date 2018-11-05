@@ -236,6 +236,7 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
 
     return expected_interactions
 
+
 def expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix):
     """
         Computes the function I_chrom(s) for a given chromosome.
@@ -253,6 +254,7 @@ def expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix
         occurences[distance_] += 1
     expected_interactions /= occurences
     return expected_interactions
+
 
 def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
@@ -285,17 +287,18 @@ def exp_obs_matrix_norm(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
 
     expected_interactions_in_distance = expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix)
-    
+
     row_sums = np.array(pSubmatrix.sum(axis=1).T).flatten()
     total_interactions = pSubmatrix.sum()
 
     row, col = pSubmatrix.nonzero()
     # data = pSubmatrix.data.tolist()
     for i in range(len(row)):
-        expected = expected_interactions_in_distance[np.absolute(row[i]-col[i])] 
+        expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
         expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
         pSubmatrix.data[i] /= expected
     return pSubmatrix
+
 
 def toString(s):
     """
