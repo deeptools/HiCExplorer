@@ -6,7 +6,7 @@ from hicexplorer.utilities import toString
 from hicmatrix.HiCMatrix import check_cooler
 import logging
 log = logging.getLogger(__name__)
-
+import numpy as np
 from scipy.sparse import csr_matrix, save_npz
 
 
@@ -35,6 +35,7 @@ $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
     parserRequired.add_argument('--range', '-ra',
                                 help='BED file which stores a list of regions to keep / remove',
                                 nargs=2,
+                                type=int,
                                 required=True)
     parserRequired.add_argument('--outFileName', '-out',
                                 help='File name to save the adjusted matrix.',
@@ -49,10 +50,11 @@ $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
     return parser
 
 
-def calculateViewpointRange(self, pHiCMatrix, pViewpoint, pRange):
+def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange):
     '''
     This function computes the correct start and end position of a viewpoint given the viewpoint and the range.
     '''
+
 
     max_length = pHiCMatrix.getBinPos(pHiCMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
     bin_size = pHiCMatrix.getBinSize()
@@ -69,6 +71,8 @@ def calculateViewpointRange(self, pHiCMatrix, pViewpoint, pRange):
         _range[1] = (max_length - int(pViewpoint[2])) + bin_size
     return region_start, region_end, _range
 
+def getBinIndices(pHiCMatrix, pViewpoint):
+    return pHiCMatrix.getRegionBinRange(pViewpoint[0], pViewpoint[1], pViewpoint[2])
 
 def main():
 
@@ -76,25 +80,31 @@ def main():
 
     hic_ma = hm.hiCMatrix(pMatrixFile=args.matrix)
     indices_values = []
-
+    
     with open(args.regions, 'r') as file:
         for line in file.readlines():
             _line = line.strip().split('\t')
+            log.debug('_line {}'.format(_line))
             if len(line) == 0:
                 continue
-            if len(_line) == 3:
+            if len(_line) == 2:
                 chrom, start = _line[0], _line[1]
 
             viewpoint = (chrom, start, start)
-            start_bin, end_bin = calculateViewpointRange(hic_ma, viewpoint, args.range)
+            log.debug('viewpoint {}'.format(viewpoint))
+            start_range_genomic, end_range_genomic, _ = calculateViewpointRange(hic_ma, viewpoint, args.range)
+            start_bin, end_bin = getBinIndices(hic_ma, (chrom, start_range_genomic, end_range_genomic))
             indices_values.append([start_bin, end_bin])
 
     dimensions_new_matrix = (args.range[0] // hic_ma.getBinSize()) + (args.range[1] // hic_ma.getBinSize())
 
     summed_matrix = csr_matrix((dimensions_new_matrix, dimensions_new_matrix), dtype=np.float32)
-
+    log.debug('indices_values {}'.format(indices_values))
+    log.debug('shaoe matrux {}'.format(summed_matrix.shape))
     for start, end in indices_values:
-        summed_matrix += hic_ma.matrix[start:end, start:end]
+        log.debug('shape {}'.format(hic_ma.matrix[start:end, start:end].shape))
+        log.debug('size; {}'.format(np.absolute(start-end)))
+        # summed_matrix += hic_ma.matrix[start:end, start:end]
 
     summed_matrix /= len(indices_values)
 
