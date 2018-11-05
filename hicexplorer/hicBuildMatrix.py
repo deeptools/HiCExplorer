@@ -30,7 +30,7 @@ from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 import hicexplorer.hicPrepareQCreport as QC
 
-from .lib import MatrixFileHandler
+from hicmatrix.lib import MatrixFileHandler
 
 from hicexplorer import hicMergeMatrixBins
 import logging
