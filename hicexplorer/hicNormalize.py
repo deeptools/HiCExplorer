@@ -50,7 +50,7 @@ def main():
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
         if args.normalize == 'smallest':
-            sum_list = hic_ma.matrix.sum()
+            sum_list.append(hic_ma.matrix.sum())
         hic_matrix_list.append(hic_ma)
         
     if args.normalize == 'norm_range':
@@ -60,26 +60,39 @@ def main():
             min_value = np.min(hic_matrix.matrix.data)
             max_value = np.max(hic_matrix.matrix.data)
             min_max_difference = np.float64(max_value - min_value)
-            log.debug(type(min_max_difference))
-            log.debug(type(hic_matrix.matrix.data[0]))
+            # log.debug(type(min_max_difference))
+            # log.debug(type(hic_matrix.matrix.data[0]))
 
             hic_matrix.matrix.data -= min_value
             hic_matrix.matrix.data /= min_max_difference
             output_name_array = args.matrices[i].split('.')
             output_name_array[-2] += '_norm'
             output_name = '.'.join(output_name_array)
-            hic_matrix.save(output_name)
+            hic_matrix.save(output_name, pApplyCorrection=False)
     elif args.normalize == 'smallest':
         argmin = np.argmin(sum_list)
+        # log.debug('argmin {}'.format(argmin))
+        # log.debug('sum_list {}'.format(sum_list))
+        # log.debug('len sum_list {}'.format(len(sum_list)))
+
+
         for i, hic_matrix in enumerate(hic_matrix_list):
             hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
             if i != argmin:
                 adjust_factor = sum_list[i] / sum_list[argmin]
+                # log.debug('sum_list[i] {}'.format(sum_list[i]))
+                # log.debug('sum_list[argmin]{}'.format(sum_list[argmin]))
+                # log.debug('adjust_factor {}'.format(adjust_factor))
+
+                # log.debug('sum of data BEFORE correction {}'.format(np.sum(hic_matrix.matrix.data)))
+
                 hic_matrix.matrix.data /= adjust_factor
+
+                # log.debug('sum of data after correction {}'.format(np.sum(hic_matrix.matrix.data)))
             output_name_array = args.matrices[i].split('.')
             output_name_array[-2] += '_norm'
             output_name = '.'.join(output_name_array)
-            hic_matrix.save(output_name)
+            hic_matrix.save(output_name, pApplyCorrection=False)
 
 
 # TODO: remove normalization factors because they no longer hold true
