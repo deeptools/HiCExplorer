@@ -15,4 +15,3 @@ unidecode = 1.0.*
 hic2cool = 0.4.*
 scikit-learn = 0.19.*
 psutil = 5.4.7
-hicmatrix = 2.2
