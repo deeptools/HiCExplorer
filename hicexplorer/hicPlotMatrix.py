@@ -130,7 +130,7 @@ def parse_arguments(args=None):
                            type=float,
                            default=None)
 
-    parserOpt.add_argument('--vMaxBigWig',
+    parserOpt.add_argument('--vMaxBigwig',
                            help='Maximum score value for bigwig',
                            type=float,
                            default=None)
@@ -264,7 +264,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         else:
             log.debug('else region')
             plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=chrBinBoundaries,
-                       pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, 
+                       pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig,
                        pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
 
 
@@ -560,8 +560,11 @@ def main(args=None):
 
         if args.log or args.log1p:
             mask = matrix == 0
-            matrix[mask] = np.nanmin(matrix[mask == False])
-
+            try:
+                matrix[mask] = np.nanmin(matrix[mask == False])
+            except ValueError:
+                log.info('Matrix contains only 0. Set all values to {}'.format(np.finfo(float).tiny))
+                matrix[mask] = np.finfo(float).tiny
             if np.isnan(matrix).any() or np.isinf(matrix).any():
                 log.debug("any nan {}".format(np.isnan(matrix).any()))
                 log.debug("any inf {}".format(np.isinf(matrix).any()))
@@ -644,7 +647,7 @@ def make_start_pos_array(ma):
 
 
 def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None,
-                    pValueMin=None, pValueMax=None):
+               pValueMin=None, pValueMax=None):
     log.debug('plotting eigenvector')
     pAxis.set_frame_on(False)
     pAxis.xaxis.set_visible(False)
@@ -727,14 +730,12 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 pAxis.set_xlim(0, chrom_length_sum)
 
             log.debug("Number of data points: {}".format(len(bigwig_scores)))
-
+            bigwig_scores = np.array(bigwig_scores)
             if pFlipBigwigSign:
                 log.info("Flipping sign of bigwig values.")
-                bigwig_scores = np.array(bigwig_scores)
                 bigwig_scores *= -1
             if pScaleFactorBigwig is not None and pScaleFactorBigwig != 1.0:
                 log.info("Scaling bigwig values.")
-                bigwig_scores = np.array(bigwig_scores)
                 bigwig_scores *= pScaleFactorBigwig
             if pValueMin is not None or pValueMax is not None:
                 bigwig_scores = bigwig_scores.clip(pValueMin, pValueMax)

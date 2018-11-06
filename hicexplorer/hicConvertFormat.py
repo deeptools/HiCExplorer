@@ -76,7 +76,7 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--enforce_integer',
                            help='Enforce datatype of counts to integer. Option only for cool input files.',
                            action='store_true')
-                           
+
     # parserOpt.
     parserOpt.add_argument("--resolutions", '-r',
                            nargs='+',
@@ -112,7 +112,7 @@ def main(args=None):
                 hic2cool_convert(matrix, args.outFileName[i], 0)
             else:
                 out_name = args.outFileName[i].split('.')
-                out_name[-2] = split_name[-2] + '_' + str(resolution)
+                out_name[-2] = out_name[-2] + '_' + str(args.resolutions)
                 out_name = '.'.join(out_name)
                 for resolution in args.resolutions:
                     hic2cool_convert(matrix, out_name, resolution)
@@ -155,13 +155,13 @@ def main(args=None):
 
             if args.outputFormat in ['cool', 'h5', 'homer', 'ginteractions']:
                 matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat)
-                
+
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                              correction_factors, distance_counts)
                 matrixFileHandlerOutput.save(
-                    args.outFileName[i] + '.' + args.outputFormat, pSymmetric=True, pApplyCorrection=applyCorrection)
+                    args.outFileName[i], pSymmetric=True, pApplyCorrection=applyCorrection)
             elif args.outputFormat in ['mcool']:
-                
+
                 log.debug('outformat is mcool')
                 if args.resolutions and len(args.matrices) > 1:
                     log.error(
@@ -183,7 +183,7 @@ def main(args=None):
                                                                      merged_matrix.nan_bins,
                                                                      merged_matrix.correction_factors,
                                                                      merged_matrix.distance_counts)
-                        matrixFileHandlerOutput.save(args.outFileName[0] + '.mcool' + '::/resolutions/' + str(
+                        matrixFileHandlerOutput.save(args.outFileName[0] + '::/resolutions/' + str(
                             resolution), pSymmetric=True, pApplyCorrection=applyCorrection)
 
                 else:
@@ -194,5 +194,5 @@ def main(args=None):
                         pFileType='cool')
                     matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                                  correction_factors, distance_counts)
-                    matrixFileHandlerOutput.save(args.outFileName[0] + '.mcool' + '::/resolutions/' + str(
+                    matrixFileHandlerOutput.save(args.outFileName[0] + '::/resolutions/' + str(
                         bin_size), pSymmetric=True, pApplyCorrection=applyCorrection)

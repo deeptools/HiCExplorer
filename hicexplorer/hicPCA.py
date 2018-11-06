@@ -71,17 +71,17 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            default=None,
                            nargs='+')
     parserOpt.add_argument('--norm',
-                           help='Differen obs-exp normalization',
+                           help='Different obs-exp normalization',
                            action='store_true')
     parserOpt.add_argument('--geneTrack',
                            help='The gene track is needed to decide if the values of the eigenvector need a sign flip or not.',
                            default=None)
     parserOpt.add_argument('--pearsonMatrix', '-pm',
                            help='Writes the obs/exp to Pearson matrix which was used to compute the PCA to a file.'
-                           ) 
+                           )
     parserOpt.add_argument('--obsexpMatrix', '-oem',
                            help='Writes the obs/exp which was used to compute the PCA to a file.'
-                           )          
+                           )
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -157,7 +157,7 @@ def main(args=None):
     chromosome_count = len(ma.getChrNames())
     if args.pearsonMatrix:
         trasf_matrix_pearson = lil_matrix(ma.matrix.shape)
-        
+
     if args.obsexpMatrix:
         trasf_matrix_obsexp = lil_matrix(ma.matrix.shape)
 
@@ -172,7 +172,7 @@ def main(args=None):
             exp_obs_matrix_ = exp_obs_matrix_norm(submatrix, length_chromosome, chromosome_count)
             exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
             exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
-            
+
         else:
             exp_obs_matrix_ = exp_obs_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
             exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
@@ -184,10 +184,9 @@ def main(args=None):
         pearson_correlation_matrix = np.corrcoef(exp_obs_matrix_)
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
         pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
-        
+
         if args.pearsonMatrix:
             trasf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(pearson_correlation_matrix)
-
 
         corrmatrix = np.cov(pearson_correlation_matrix)
         corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
@@ -202,17 +201,16 @@ def main(args=None):
         start_list += start
         end_list += end
 
-        
     if args.pearsonMatrix:
         file_type = 'cool'
         if args.pearsonMatrix.endswith('.h5'):
             file_type = 'h5'
         matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
         matrixFileHandlerOutput.set_matrix_variables(trasf_matrix_pearson.tocsr(),
-                                                        ma.cut_intervals,
-                                                        ma.nan_bins,
-                                                        ma.correction_factors,
-                                                        ma.distance_counts)
+                                                     ma.cut_intervals,
+                                                     ma.nan_bins,
+                                                     ma.correction_factors,
+                                                     ma.distance_counts)
         matrixFileHandlerOutput.save(args.pearsonMatrix, pSymmetric=True, pApplyCorrection=False)
 
     if args.obsexpMatrix:
@@ -221,10 +219,10 @@ def main(args=None):
             file_type = 'h5'
         matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
         matrixFileHandlerOutput.set_matrix_variables(trasf_matrix_obsexp.tocsr(),
-                                                        ma.cut_intervals,
-                                                        ma.nan_bins,
-                                                        ma.correction_factors,
-                                                        ma.distance_counts)
+                                                     ma.cut_intervals,
+                                                     ma.nan_bins,
+                                                     ma.correction_factors,
+                                                     ma.distance_counts)
         matrixFileHandlerOutput.save(args.obsexpMatrix, pSymmetric=True, pApplyCorrection=False)
 
     if args.geneTrack:
