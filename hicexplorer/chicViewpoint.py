@@ -64,6 +64,27 @@ def parse_arguments(args=None):
                            version='%(prog)s {}'.format(__version__))
     return parser
 
+
+def getViewpoint(pData, pReferencePoint, pRegionStart, pRegionEnd):
+    background_model_data = {}
+    relative_positions = set()
+    view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(pReferencePoint)
+    view_point_range_start, view_point_range_end = \
+        pViewpointObj.getViewpointRangeAsMatrixIndices(pReferencePoint[0], pRegionStart, pRegionEnd)
+
+    for i, data in zip(range(view_point_range_start, view_point_range_end, 1), pData):
+        relative_position = i - view_point_start
+        if relative_position in background_model_data:
+            background_model_data[relative_position] += data
+        else:
+            background_model_data[relative_position] = data
+            relative_positions.add(relative_position)
+    
+    log.debug()
+    # log.debug()
+    log.debug('background_model_data {}'.format(background_model_data))
+    exit()
+
 def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel):
 
     for i, referencePoint in enumerate(pReferencePoints):
@@ -71,6 +92,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
+        getViewpoint(data_list, referencePoint, region_start, region_end)
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
         data_list_raw = np.copy(data_list)
