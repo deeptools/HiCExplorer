@@ -225,7 +225,7 @@ class Viewpoint():
         interaction_positions.extend(list(range(view_point_end + 1, view_point_range[1], 1)))
         relative_position = -1
         log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
-        log.debug('interaction_positions {}'.format(interaction_positions))
+        # log.debug('interaction_positions {}'.format(interaction_positions))
 
         for j, idx in zip(range(elements_of_viewpoint), interaction_positions):
 
@@ -307,7 +307,7 @@ class Viewpoint():
         # log.debug('pRange {}'.format(pRange))
 
         max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
-        # log.debug('max_length {}'.format(max_length))
+        log.debug('max_length {}'.format(max_length))
         bin_size = self.hicMatrix.getBinSize()
         _range = [pRange[0], pRange[1]]
         region_start = int(pViewpoint[1]) - pRange[0]

@@ -83,10 +83,32 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         rbz_score_data = pViewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
 
         # add values if range is larger than fixate range
-        difference_upstream = -pArgs.range[0] - (-pArgs.fixateRange)
-        difference_downstream = pArgs.range[1] - pArgs.fixateRange
+
+        max_chromosome = pViewpointObj.hicMatrix.getBinPos(pViewpointObj.hicMatrix.getChrBinRange(referencePoint[0])[1] - 1)[2]
+        min_chromosome = pViewpointObj.hicMatrix.getBinPos(pViewpointObj.hicMatrix.getChrBinRange(referencePoint[0])[0] - 1)[1]
+        if region_end >= max_chromosome - 1:
+            downstream_range = pArgs.fixateRange - ((int(referencePoint[2]) + pArgs.fixateRange) - max_chromosome)
+        else:
+            downstream_range = pArgs.fixateRange
+
+        # if region_start < min_chromosome:
+        #     upstream_range = pArgs.fixateRange - ((int(referencePoint[1]) - pArgs.fixateRange) - min_chromosome)
+        # else:
+        upstream_range = pArgs.fixateRange
+
+        log.debug('min_chromosome {}'.format(min_chromosome))
+        log.debug('max_chromosome {}'.format(max_chromosome))
+        log.debug('upstream_range {}'.format(upstream_range))
+        log.debug('downstream_range {}'.format(downstream_range))
+
+        difference_upstream = -pArgs.range[0] - (-upstream_range)
+        difference_downstream = pArgs.range[1] - downstream_range
         difference_upstream //= pViewpointObj.hicMatrix.getBinSize()
         difference_downstream //= pViewpointObj.hicMatrix.getBinSize()
+
+        log.debug('len rbz_score_data {}'.format(len(rbz_score_data)))
+        log.debug('len data_list {}'.format(len(data_list)))
+        log.debug('len data_list_raw {}'.format(len(data_list_raw)))
 
         if difference_upstream < 0:
             # extend with first position
@@ -120,6 +142,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         if difference_downstream < 0:
             # clip
             log.debug('clipping downstream')
+            log.debug('difference_downstream {}'.format(difference_downstream))
 
             rbz_score_data = rbz_score_data[:difference_downstream]
             data_list = data_list[:difference_downstream]
@@ -147,8 +170,9 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
 
         region_start_range, region_end_range, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.range[0], pArgs.range[1]))
 
+
         log.debug('region_start_range {}, region_start_range {}'.format(region_start_range, region_end_range))
-        log.debug('diff range {}'.format(region_start_range-  region_end_range))
+        log.debug('diff range {}'.format((region_start_range - region_end_range) // pViewpointObj.hicMatrix.getBinSize()))
         
         # if region_start_range > region_start:
 
