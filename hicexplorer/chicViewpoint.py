@@ -65,25 +65,53 @@ def parse_arguments(args=None):
     return parser
 
 
-def getViewpoint(pData, pReferencePoint, pRegionStart, pRegionEnd):
-    background_model_data = {}
-    relative_positions = set()
+def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint, pRegionStart, pRegionEnd):
+    data_viewpoint = {}
+    data_background = {}
+    data_sem = {}
     view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(pReferencePoint)
     view_point_range_start, view_point_range_end = \
         pViewpointObj.getViewpointRangeAsMatrixIndices(pReferencePoint[0], pRegionStart, pRegionEnd)
 
     for i, data in zip(range(view_point_range_start, view_point_range_end, 1), pData):
         relative_position = i - view_point_start
-        if relative_position in background_model_data:
-            background_model_data[relative_position] += data
-        else:
-            background_model_data[relative_position] = data
-            relative_positions.add(relative_position)
+        data_viewpoint[relative_position] = data
+            # relative_positions.add(relative_position)
+    for i, data in zip(range(view_point_range_start, view_point_range_end, 1), pBackground):
+        relative_position = i - view_point_start
+        if relative_position in data_background:
+            log.debug('relative_position 2nd time: {}'.format(relative_position))
+            log.debug('relative_position 2nd time: daata {}'.format(data))
+            log.debug('relative_position 2nd time: data 1st time {}'.format(data_background[relative_position]))
+
+        data_background[relative_position] = data
     
-    log.debug()
-    # log.debug()
-    log.debug('background_model_data {}'.format(background_model_data))
-    exit()
+    for i, data in zip(range(view_point_range_start, view_point_range_end, 1), pSEM):
+        relative_position = i - view_point_start
+        data_sem[relative_position] = data
+    
+    for i in data_background:
+        if i in data_viewpoint:
+            continue
+        else:
+            log.debug('key unique: {}'.format(i))
+
+    # log.debug()sssss
+    log.debug('len(data_viewpoint) {}'.format(len(data_viewpoint)))
+    log.debug('len(data_background) {}'.format(len(data_background)))
+    log.debug('len(data_sem) {}'.format(len(data_sem)))
+
+    data = np.fromiter(data_viewpoint.values(), dtype=np.float32)
+    background = np.fromiter(data_background.values(), dtype=np.float32)
+    sem = np.fromiter(data_sem.values(), dtype=np.float32)
+
+    # log.debug('data_viewpoint {}'.format(data_viewpoint))
+    # log.debug('data_background {}'.format(data_background))
+    # log.debug('data_sem {}'.format(data_sem))
+
+    return data, background, sem
+
+    # exit()
 
 def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel):
 
@@ -92,16 +120,28 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
-        getViewpoint(data_list, referencePoint, region_start, region_end)
+        log.debug('len(data_list) {}'.format(len(data_list)))
+
+        _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
+        log.debug(' after interactionBackgroundDaa len(data_list) {}'.format(len(data_list)))
+
+        if len(data_list) != len(_backgroundModelData):
+            data_list, _backgroundModelData, _backgroundModelSEM = adjustViewpointData(pViewpointObj, data_list, _backgroundModelData, _backgroundModelSEM, referencePoint, region_start, region_end)
+        log.debug('Without smoothing: {}'.format(data_list))
+        
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
+            log.debug(' after average len(data_list) {}'.format(len(data_list)))
+        log.debug('With smoothing: {}'.format(data_list))
+        
         data_list_raw = np.copy(data_list)
 
         data_list = pViewpointObj.computeRelativeValues(data_list)
+        log.debug(' after relative values len(data_list) {}'.format(len(data_list)))
+        log.debug('With relative values: {}'.format(data_list))
 
         # if args.backgroundModelFile:
         # _background_model = pViewpointObj.readBackgroundDataFile(args.backgroundModelFile)
-        _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
         rbz_score_data = pViewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
 
         # add values if range is larger than fixate range
@@ -145,9 +185,9 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             data_list_raw_extend[:] = data_list_raw[0]
 
 
-            rbz_score_data = np.concatenate(rbz_score_data_extend, rbz_score_data)
-            data_list = np.concatenate(data_list_extend, data_list)
-            data_list_raw = np.concatenate(data_list_raw_extend, data_list_raw)
+            rbz_score_data = np.concatenate([rbz_score_data_extend, rbz_score_data])
+            data_list = np.concatenate([data_list_extend, data_list])
+            data_list_raw = np.concatenate([data_list_raw_extend, data_list_raw])
 
         elif difference_upstream > 0:
             # clip data
@@ -170,7 +210,8 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             data_list = data_list[:difference_downstream]
             data_list_raw = data_list_raw[:difference_downstream]
         elif difference_downstream > 0:
-            # extend
+            # extendls -lah
+
             log.debug('extending downstream')
 
             rbz_score_data_extend = np.empty(difference_downstream)
@@ -181,9 +222,9 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             data_list_extend[:] = data_list[-1]
             data_list_raw_extend[:] = data_list[-1]
 
-            rbz_score_data = np.concatenate(rbz_score_data, rbz_score_data_extend)
-            data_list = np.concatenate(data_list, data_list_extend)
-            data_list_raw = np.concatenate(data_list_raw, data_list_raw_extend)
+            rbz_score_data = np.concatenate([rbz_score_data, rbz_score_data_extend])
+            data_list = np.concatenate([data_list, data_list_extend])
+            data_list_raw = np.concatenate([data_list_raw, data_list_raw_extend])
 
         log.debug('len rbz_score_data {}'.format(len(rbz_score_data)))
         log.debug('len data_list {}'.format(len(data_list)))
@@ -210,7 +251,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         region_end_in_units = utilities.in_units(region_end)
 
         header_information = '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(region_end_in_units), pGeneList[i]])
-        header_information += '\n# ChrViewpoint\tStart\tEnd\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
+        header_information += '\n# ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('.')[:-1])
         matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
         pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)

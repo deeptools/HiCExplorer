@@ -226,17 +226,22 @@ class Viewpoint():
         relative_position = -1
         log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
         # log.debug('interaction_positions {}'.format(interaction_positions))
+        for j, idx in zip(range(len(pInteractionData)), interaction_positions):
+            try:
 
-        for j, idx in zip(range(elements_of_viewpoint), interaction_positions):
+                chrom_second, start_second, end_second, _ = self.hicMatrix.getBinPos(idx)
+                if relative_position < 0:
+                    relative_position = int(start_second) - int(start)
+                else:
+                    relative_position = int(end_second) - int(end)
 
-            chrom_second, start_second, end_second, _ = self.hicMatrix.getBinPos(idx)
-            if relative_position < 0:
-                relative_position = int(start_second) - int(start)
-            else:
-                relative_position = int(end_second) - int(end)
+                interactions_list.append((chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
+            except:
+                log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
+                log.debug('len(itneraction_position) {}'.format(len(interaction_positions)))
 
-            interactions_list.append((chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
-
+                log.debug('chrom {}, start {}, end {}, pGene {}, chrom_second {}, start_second {}, end_second {}, relative_position {}'.format(chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position))
+                exit(1)
         return interactions_list
 
     def getViewpointRangeAsMatrixIndices(self, pChromViewpoint, pRegion_start, pRegion_end):
@@ -271,13 +276,16 @@ class Viewpoint():
         if pWindowSize % 2 == 0:
             window_size_upstream -= 1
 
+        log.debug('smooth I len(data) {}'.format(len(pData)))
         average_contacts = np.zeros(len(pData))
+        log.debug('smooth II len(average_contacts) {}'.format(len(average_contacts)))
 
         # add upstream and downstream, handle regular case
         for i in range(window_size_upstream, len(pData) - window_size):
             start = i - window_size_upstream
             end = i + window_size + 1
             average_contacts[i] = np.mean(pData[start:end])
+        log.debug('smooth III len(average_contacts) {}'.format(len(average_contacts)))
 
         # handle border conditions
         for i in range(window_size):
@@ -288,6 +296,8 @@ class Viewpoint():
 
             average_contacts[i] = np.mean(pData[start:end])
             average_contacts[-(i + 1)] = np.mean(pData[-end:])
+        log.debug('smooth IV len(average_contacts) {}'.format(len(average_contacts)))
+        
         return average_contacts
 
     def computeRelativeValues(self, pData):
@@ -455,4 +465,8 @@ class Viewpoint():
         _rbz_score = pRelativeInteractions - pBackgroundModel
         _rbz_score /= pBackgroundModelSEM
 
-        return np.nan_to_num(_rbz_score)
+        mask = np.isnan(_rbz_score)
+        _rbz_score[mask] = -1
+        mask = np.isinf(_rbz_score)
+        _rbz_score[mask] = -1
+        return _rbz_score
