@@ -3,7 +3,7 @@ from tempfile import NamedTemporaryFile
 from hicexplorer import hicConvertFormat
 from hicmatrix import HiCMatrix as hm
 import numpy.testing as nt
-
+import numpy as np
 import pytest
 from psutil import virtual_memory
 mem = virtual_memory()
@@ -23,6 +23,8 @@ ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 original_matrix_h5 = ROOT + "/small_test_matrix.h5"
 original_matrix_cool = ROOT + "/small_test_matrix.cool"
 
+original_matrix_h5_li = ROOT + "/small_test_matrix.h5"
+original_matrix_cool_li = ROOT + "/small_test_matrix.cool"
 # test cases for:
 #   - h5 to cool
 #   - h5 to homer
@@ -54,52 +56,36 @@ def test_hicConvertFormat_h5_to_cool():
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     # os.unlink(outfile.name)
 
-
-def test_hicConvertFormat_h5_to_homer():
+def test_hicConvertFormat_h5_to_cool_enforce_integer():
 
     # original_matrix = ''
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
 
-    args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat cool".format(original_matrix_h5, outfile.name).split()
+    args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat cool ".format(original_matrix_h5_li, outfile.name).split()
     hicConvertFormat.main(args)
 
     test = hm.hiCMatrix(original_matrix_cool)
     print(outfile.name)
     new = hm.hiCMatrix(outfile.name)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=0)
+    print('issubclass(test.matrix.data.dtype.type, np.integer) {}'.format(issubclass(test.matrix.data.dtype.type, np.integer)))
+    assert issubclass(test.matrix.data.dtype.type, np.integer)
+
+def test_hicConvertFormat_h5_to_homer():
+    pass
     # os.unlink(outfile.name)
 
 
 def test_hicConvertFormat_h5_to_ginteractions():
-
-    # original_matrix = ''
-    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
-    outfile.close()
-
-    args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat cool".format(original_matrix_h5, outfile.name).split()
-    hicConvertFormat.main(args)
-
-    test = hm.hiCMatrix(original_matrix_cool)
-    print(outfile.name)
-    new = hm.hiCMatrix(outfile.name)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    pass
+   
     # os.unlink(outfile.name)
 
 
 def test_hicConvertFormat_h5_to_mcool():
-
-    # original_matrix = ''
-    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
-    outfile.close()
-
-    args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat cool".format(original_matrix_h5, outfile.name).split()
-    hicConvertFormat.main(args)
-
-    test = hm.hiCMatrix(original_matrix_cool)
-    print(outfile.name)
-    new = hm.hiCMatrix(outfile.name)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    pass
+   
     # os.unlink(outfile.name)
 
 
