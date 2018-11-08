@@ -36,6 +36,10 @@ from hicexplorer import hicMergeMatrixBins
 import logging
 log = logging.getLogger(__name__)
 
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 
 class C_Interval(Structure):
     """Struct to map a Interval form intervaltree as a multiprocessing.sharedctype"""

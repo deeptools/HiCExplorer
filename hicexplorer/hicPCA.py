@@ -10,7 +10,7 @@ import pyBigWig
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import exp_obs_matrix_lieberman, exp_obs_matrix_norm
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.parserCommon import CustomFormatter
 from hicexplorer.utilities import toString
@@ -22,6 +22,8 @@ log = logging.getLogger(__name__)
 
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
+
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments():
@@ -169,19 +171,17 @@ def main(args=None):
 
         submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
         if args.norm:
-            exp_obs_matrix_ = exp_obs_matrix_norm(submatrix, length_chromosome, chromosome_count)
-            exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
-            exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
+            obs_exp_matrix_ = obs_exp_matrix_norm(submatrix)
 
         else:
-            exp_obs_matrix_ = exp_obs_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
-            exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
-            exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
+            obs_exp_matrix_ = obs_exp_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
+        obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_)).todense()
+        obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
 
         if args.obsexpMatrix:
-            trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(exp_obs_matrix_)
+            trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
 
-        pearson_correlation_matrix = np.corrcoef(exp_obs_matrix_)
+        pearson_correlation_matrix = np.corrcoef(obs_exp_matrix_)
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
         pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
 
