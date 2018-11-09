@@ -1380,7 +1380,7 @@ def main(args=None):
     # will say that the file already exists.
     unlink(args.outFileName.name)
 
-    if args.outFileName.name.endswith('.mcool') and args.binSize is not None and len(args.binSize) > 2:
+    if args.outFileName.name.endswith('.cool') and args.binSize is not None and len(args.binSize) > 2:
         
         matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
         matrixFileHandlerOutput.set_matrix_variables(hic_ma.matrix,
@@ -1394,13 +1394,13 @@ def main(args=None):
             hic_matrix_to_merge = deepcopy(hic_ma)
             _mergeFactor = int(resolution) // args.binSize[0]
             merged_matrix = hicMergeMatrixBins.merge_bins(hic_matrix_to_merge, _mergeFactor)
-            matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
+            matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pAppend=True)
             matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
                                                          merged_matrix.cut_intervals,
                                                          merged_matrix.nan_bins,
                                                          merged_matrix.correction_factors,
                                                          merged_matrix.distance_counts)
-            matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(resolution), pSymmetric=True, pApplyCorrection=False, pAppend=True)
+            matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(resolution), pSymmetric=True, pApplyCorrection=False)
 
     else:
         hic_ma.save(args.outFileName.name)
