@@ -1,4 +1,4 @@
-from hicexplorer import hicBuildMatrix as hicBuildMatrix
+from hicexplorer import hicBuildMatrix
 from hicmatrix import HiCMatrix as hm
 from tempfile import NamedTemporaryFile, mkdtemp
 import shutil
