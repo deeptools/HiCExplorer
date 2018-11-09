@@ -31,9 +31,7 @@ def parse_arguments(args=None):
                                 required=True,
                                 nargs='+')
 
-    parserRequired.add_argument('--outFileName', '-o',
-                                help='File name to save the result.',
-                                required=True)
+   
 
 
     parserRequired.add_argument('--range',
@@ -49,6 +47,10 @@ def parse_arguments(args=None):
                            required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
 
+    parserOpt.add_argument('--outFileNameSuffix', '-o',
+                            help='File name suffix to save the result.',
+                            required=False,
+                            default='z_score_merged.bed')
     
     
     parserOpt.add_argument("--mergeBins", "-mb", action='store_true', help="Merge neighboring significant interactions to one. The value is averaged.")
@@ -67,7 +69,7 @@ def filter_scores(pScoresDictionary, pThreshold, pRange):
     for key in pScoresDictionary:
         if key < -pRange[0] or key > pRange[1]:
             continue
-        if pScoresDictionary[key][0] >= pThreshold:
+        if pScoresDictionary[key][1] >= pThreshold:
             accepted_scores[key] = pScoresDictionary[key]
     return accepted_scores
 
@@ -75,6 +77,7 @@ def filter_scores(pScoresDictionary, pThreshold, pRange):
 def merge_neighbors(pScoresDictionary, pMergeThreshold = 1000):
 
     key_list = list(pScoresDictionary.keys())
+    # log.debug('key_list {}'.format(key_list))
 
     # [[start, ..., end]]
     neighborhoods = []
@@ -112,8 +115,12 @@ def write (pOutFileName, pNeighborhoods, pScores, pInteractionLines, pThreshold)
 
             new_line = '\t'.join(pInteractionLines[start][:6])
             new_line += '\t' + new_end
-            new_line += '\t' + '\t'.join(pInteractionLines[0][8:])
-            new_line += '\t' + str(pScores[i][0]) + '\t' + str(pScores[i][1]) + '\t' + str(pScores[i][2])
+            # log.debug('pInteractionLines[0][8:] {}'.format(pInteractionLines[0][8:]))
+            # "\t".join(format(x, ".5f") for x in pInteractionLines[0][8:])
+            # new_line += '\t' + '\t'.join(pInteractionLines[0][8:])
+            new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
+
+            new_line += '\t' + format(pScores[i][0], '10.5f') + '\t' + format(pScores[i][1], '10.5f') + '\t' + format(pScores[i][2], '10.5f')
 
             new_line += '\n'
             file.write(new_line)
@@ -121,20 +128,22 @@ def write (pOutFileName, pNeighborhoods, pScores, pInteractionLines, pThreshold)
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    log.debug('muh')
     viewpointObj = Viewpoint()
     background_data = None
-
+    # log.debug("sdfghjkoihgfghjkl;kjhfvghjkl")
     relative_interaction = False
     rbz_score = True
     # read all interaction files.
     for interactionFile in args.interactionFile:
         header, interaction_data, interaction_file_data = viewpointObj.readInteractionFileForAggregateStatistics(interactionFile)
-
+        # log.debug('interaction_data {}'.format(interaction_data))
         accepted_scores = filter_scores(interaction_data, args.acceptThreshold, args.range)
+        # log.debug('accepted_scores {}'.format(accepted_scores))
         merged_neighborhood = merge_neighbors(accepted_scores)
         # log.debug('accepted_scores {}'.format(accepted_scores))
         # log.debug('merge_neighbored {}'.format(merged_neighborhood))
-        outFileName = interactionFile.split('.')[0] + 'z_score_merged.bed'
+        outFileName = interactionFile.split('.')[0] + '_' + args.outFileNameSuffix
         write(outFileName, merged_neighborhood[0], merged_neighborhood[1], interaction_file_data, args.acceptThreshold)
         # log.debug('header {}'.format(header))
         # log.debug('interaction_data {}'.format(interaction_data))
