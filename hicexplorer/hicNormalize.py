@@ -15,7 +15,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-Normalizes given matrices either to 0 - 1 range or to the smallest given read number of all matrices.
+Normalizes given matrices either to the smallest given read number of all matrices or to 0 - 1 range.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -30,7 +30,12 @@ Normalizes given matrices either to 0 - 1 range or to the smallest given read nu
     parserRequired.add_argument('--normalize', '-n',
                                 help='Normalize to a) 0 to 1 range, b) all matrices to the lowest read count of the given matrices.',
                                 choices=['norm_range', 'smallest'],
-                                default = 'norm_range',
+                                default = 'smallest',
+                                required=True)
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='Output file name for the Hi-C matrix.',
+                                metavar='FILENAME',
+                                nargs='+',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
 
@@ -42,9 +47,9 @@ Normalizes given matrices either to 0 - 1 range or to the smallest given read nu
     return parser
 
 
-def main():
+def main(args=None):
 
-    args = parse_arguments().parse_args()
+    args = parse_arguments().parse_args(args)
     hic_matrix_list = []
     sum_list = []
     for matrix in args.matrices:
@@ -60,39 +65,33 @@ def main():
             min_value = np.min(hic_matrix.matrix.data)
             max_value = np.max(hic_matrix.matrix.data)
             min_max_difference = np.float64(max_value - min_value)
-            # log.debug(type(min_max_difference))
-            # log.debug(type(hic_matrix.matrix.data[0]))
-
+        
             hic_matrix.matrix.data -= min_value
             hic_matrix.matrix.data /= min_max_difference
-            output_name_array = args.matrices[i].split('.')
-            output_name_array[-2] += '_norm'
-            output_name = '.'.join(output_name_array)
-            hic_matrix.save(output_name, pApplyCorrection=False)
+           
+            mask = np.isnan(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
+
+            mask = np.isinf(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
+            hic_matrix.matrix.eliminate_zeros()
+
+            hic_matrix.save(args.outFileName[i], pApplyCorrection=False)
     elif args.normalize == 'smallest':
         argmin = np.argmin(sum_list)
-        # log.debug('argmin {}'.format(argmin))
-        # log.debug('sum_list {}'.format(sum_list))
-        # log.debug('len sum_list {}'.format(len(sum_list)))
-
-
+      
         for i, hic_matrix in enumerate(hic_matrix_list):
             hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
             if i != argmin:
                 adjust_factor = sum_list[i] / sum_list[argmin]
-                # log.debug('sum_list[i] {}'.format(sum_list[i]))
-                # log.debug('sum_list[argmin]{}'.format(sum_list[argmin]))
-                # log.debug('adjust_factor {}'.format(adjust_factor))
-
-                # log.debug('sum of data BEFORE correction {}'.format(np.sum(hic_matrix.matrix.data)))
-
                 hic_matrix.matrix.data /= adjust_factor
+                mask = np.isnan(hic_matrix.matrix.data)
+            
+            mask = np.isnan(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
 
-                # log.debug('sum of data after correction {}'.format(np.sum(hic_matrix.matrix.data)))
-            output_name_array = args.matrices[i].split('.')
-            output_name_array[-2] += '_norm'
-            output_name = '.'.join(output_name_array)
-            hic_matrix.save(output_name, pApplyCorrection=False)
+            mask = np.isinf(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
+            hic_matrix.matrix.eliminate_zeros()
 
-
-# TODO: remove normalization factors because they no longer hold true
+            hic_matrix.save(args.outFileName[i], pApplyCorrection=False)
