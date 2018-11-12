@@ -77,7 +77,9 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--enforce_integer',
                            help='Enforce datatype of counts to integer. Option only for cool input files.',
                            action='store_true')
-
+    parserOpt.add_argument('--load_raw_values',
+                           help='Load only \'count\' data and do not apply a correction. Option only for cool input files.',
+                           action='store_true')
     # parserOpt.
     parserOpt.add_argument("--resolutions", '-r',
                            nargs='+',
@@ -147,14 +149,18 @@ def main(args=None):
                 if args.chromosome:
                     chromosomes_to_load = [args.chromosome]
                 
+                applyCorrectionCoolerLoad = True
+                if args.load_raw_values:
+                    applyCorrectionCoolerLoad = False
                 matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix,
                                                            pCorrectionFactorTable=args.correction_name,
                                                            pCorrectionOperator=correction_operator,
                                                            pChrnameList=chromosomes_to_load,
-                                                           pEnforceInteger=args.enforce_integer)
+                                                           pEnforceInteger=args.enforce_integer,
+                                                           pApplyCorrectionCoolerLoad=applyCorrectionCoolerLoad)
 
             _matrix, cut_intervals, nan_bins, \
-                correction_factors, distance_counts = matrixFileHandlerInput.load()
+                distance_counts, correction_factors = matrixFileHandlerInput.load()
 
             log.debug('Setting done')
 
