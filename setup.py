@@ -124,12 +124,9 @@ setup(
              'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
-<<<<<<< HEAD
-             'bin/hicDetectLoops', 'bin/hicConvertFormat'],
-=======
+             'bin/hicDetectLoops',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize'
              ],
->>>>>>> develop
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
     package_data={'hicexplorer': ['qc_template.html']},

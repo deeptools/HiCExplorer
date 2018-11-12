@@ -702,13 +702,8 @@ def make_start_pos_array(ma):
     return start_pos
 
 
-<<<<<<< HEAD
 def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None, pVertical=False,
                     pValueMin=None, pValueMax=None):
-=======
-def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None,
-               pValueMin=None, pValueMax=None):
->>>>>>> develop
     log.debug('plotting eigenvector')
     
 
