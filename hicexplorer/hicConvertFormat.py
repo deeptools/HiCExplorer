@@ -119,6 +119,9 @@ def main(args=None):
                     hic2cool_convert(matrix, out_name, resolution)
         return
     elif args.inputFormat in ['hicpro', 'homer', 'h5', 'cool']:
+        format_was_h5 = False
+        if args.inputFormat == 'h5':
+            format_was_h5 = True
         applyCorrection = True
         if args.store_applied_correction:
             applyCorrection = False
@@ -156,7 +159,9 @@ def main(args=None):
             log.debug('Setting done')
 
             if args.outputFormat in ['cool', 'h5', 'homer', 'ginteractions']:
-                matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer)
+
+                matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5)
+
 
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                              correction_factors, distance_counts)
@@ -181,6 +186,7 @@ def main(args=None):
                         hic_matrix_res = deepcopy(hic_matrix)
                         
                         _mergeFactor = int(resolution) // bin_size
+
                         log.debug('bin size {}'.format(bin_size))
                         log.debug('_mergeFactor {}'.format(_mergeFactor))
                         if int(resolution) != bin_size:
@@ -191,7 +197,8 @@ def main(args=None):
                         append = False
                         if j > 0:
                             append = True
-                        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pEnforceInteger=args.enforce_integer, pAppend=append)
+                        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pEnforceInteger=args.enforce_integer, pAppend=append, pFileWasH5=format_was_h5)
+
                         matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
                                                                      merged_matrix.cut_intervals,
                                                                      merged_matrix.nan_bins,
@@ -208,7 +215,8 @@ def main(args=None):
                     hic_matrix.setMatrix(_matrix, cut_intervals)
                     bin_size = hic_matrix.getBinSize()
                     matrixFileHandlerOutput = MatrixFileHandler(
-                        pFileType='cool', pAppend=append)
+                        pFileType='cool', , pAppend=append, pFileWasH5=format_was_h5)
+
                     matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                                  correction_factors, distance_counts)
                     matrixFileHandlerOutput.save(args.outFileName[0] + '::/resolutions/' + str(

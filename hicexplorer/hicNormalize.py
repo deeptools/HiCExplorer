@@ -62,7 +62,11 @@ def main(args=None):
     if args.normalize == 'norm_range':
         for i, hic_matrix in enumerate(hic_matrix_list):
             hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
+            mask = np.isnan(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
 
+            mask = np.isinf(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
             min_value = np.min(hic_matrix.matrix.data)
             max_value = np.max(hic_matrix.matrix.data)
             min_max_difference = np.float64(max_value - min_value)
@@ -84,6 +88,11 @@ def main(args=None):
         for i, hic_matrix in enumerate(hic_matrix_list):
             hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
             if i != argmin:
+                mask = np.isnan(hic_matrix.matrix.data)
+                hic_matrix.matrix.data[mask] = 0
+
+                mask = np.isinf(hic_matrix.matrix.data)
+                hic_matrix.matrix.data[mask] = 0
                 adjust_factor = sum_list[i] / sum_list[argmin]
                 hic_matrix.matrix.data /= adjust_factor
                 mask = np.isnan(hic_matrix.matrix.data)
