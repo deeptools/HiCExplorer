@@ -29,7 +29,7 @@ def test_hicAggregateContacts():
     outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
 
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
-           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight ".\
+           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100".\
         format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'
@@ -42,7 +42,6 @@ def test_hicAggregateContacts():
     os.remove(outfile_aggregate_plots.name)
 
 
-@pytest.mark.xfail
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicAggregateContacts_cooler():
@@ -50,10 +49,10 @@ def test_hicAggregateContacts_cooler():
     outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
 
     args = "--matrix {root}/Li_et_al_2015.cool --BED {root}/hicAggregateContacts/test_regions.bed " \
-           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight ".\
+           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100".\
         format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
-    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_cool.png'
+    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'
 
     hicexplorer.hicAggregateContacts.main(args.split())
 
@@ -72,7 +71,7 @@ def test_hicAggregateContacts_clustering():
 
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 4 " \
-           "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight " \
+           "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight --dpi 100 " \
            "--BED2 {root}/hicAggregateContacts/test_regions.bed".format(root=ROOT, out_agg=outfile_aggregate_plots.name,
                                                                         out_heat=outfile_heatmaps.name)
 
@@ -91,7 +90,7 @@ def test_hicAggregateContacts_clustering():
     os.remove(outfile_heatmaps.name)
 
 
-@pytest.mark.xfail
+
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicAggregateContacts_clustering_cool():
@@ -101,7 +100,7 @@ def test_hicAggregateContacts_clustering_cool():
 
     args = "--matrix {root}/Li_et_al_2015.cool --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 4 " \
-           "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight " \
+           "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight --dpi 100 " \
            "--BED2 {root}/hicAggregateContacts/test_regions.bed".format(root=ROOT, out_agg=outfile_aggregate_plots.name,
                                                                         out_heat=outfile_heatmaps.name)
 
@@ -127,7 +126,7 @@ def test_hicAggregateContacts_3d():
     outfile_aggregate_3d = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_3d', delete=False)
 
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
-           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 2 " \
+           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 2 --dpi 100 " \
            "--plotType 3d --disable_bbox_tight " \
            "--BED2 {root}/hicAggregateContacts/test_regions.bed".format(root=ROOT, out_agg=outfile_aggregate_3d.name)
 
@@ -141,7 +140,7 @@ def test_hicAggregateContacts_3d():
     os.remove(outfile_aggregate_3d.name)
 
 
-@pytest.mark.xfail
+
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicAggregateContacts_3d_cooler():
@@ -149,7 +148,7 @@ def test_hicAggregateContacts_3d_cooler():
     outfile_aggregate_3d = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_3d', delete=False)
 
     args = "--matrix {root}/Li_et_al_2015.cool --BED {root}/hicAggregateContacts/test_regions.bed " \
-           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 2 " \
+           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 2 --dpi 100 " \
            "--plotType 3d --disable_bbox_tight " \
            "--BED2 {root}/hicAggregateContacts/test_regions.bed".format(root=ROOT, out_agg=outfile_aggregate_3d.name)
 

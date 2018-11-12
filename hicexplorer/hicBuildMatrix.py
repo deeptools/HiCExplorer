@@ -14,7 +14,7 @@ from collections import OrderedDict
 
 from six.moves import xrange
 from future.utils import listitems
-
+from copy import deepcopy
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
 from multiprocessing.sharedctypes import Array, RawArray
@@ -30,11 +30,15 @@ from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 import hicexplorer.hicPrepareQCreport as QC
 
-from .lib import MatrixFileHandler
+from hicmatrix.lib import MatrixFileHandler
 
 from hicexplorer import hicMergeMatrixBins
 import logging
 log = logging.getLogger(__name__)
+
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 class C_Interval(Structure):
@@ -1376,12 +1380,21 @@ def main(args=None):
     # will say that the file already exists.
     unlink(args.outFileName.name)
 
-    if args.outFileName.name.endswith('.mcool') and args.binSize is not None and len(args.binSize) > 2:
+    if args.outFileName.name.endswith('.cool') and args.binSize is not None and len(args.binSize) > 2:
+        
+        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
+        matrixFileHandlerOutput.set_matrix_variables(hic_ma.matrix,
+                                                        hic_ma.cut_intervals,
+                                                        hic_ma.nan_bins,
+                                                        hic_ma.correction_factors,
+                                                        hic_ma.distance_counts)
+        matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(args.binSize[0]), pSymmetric=True, pApplyCorrection=False)
 
         for resolution in args.binSize[1:]:
+            hic_matrix_to_merge = deepcopy(hic_ma)
             _mergeFactor = int(resolution) // args.binSize[0]
-            merged_matrix = hicMergeMatrixBins.merge_bins(hic_ma, _mergeFactor)
-            matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
+            merged_matrix = hicMergeMatrixBins.merge_bins(hic_matrix_to_merge, _mergeFactor)
+            matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pAppend=True)
             matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
                                                          merged_matrix.cut_intervals,
                                                          merged_matrix.nan_bins,

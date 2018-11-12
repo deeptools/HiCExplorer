@@ -20,6 +20,10 @@ log = logging.getLogger(__name__)
 from collections import OrderedDict
 
 
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      description='Takes a list of positions in the hic-matrix and '

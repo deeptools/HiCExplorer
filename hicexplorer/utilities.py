@@ -238,17 +238,17 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
     count_times_i *= np.int(-1)
 
     expected_interactions /= count_times_i
-    log.debug('exp_obs_matrix_lieberman {}'.format(expected_interactions))
+    # log.debug('exp_obs_matrix_lieberman {}'.format(expected_interactions))
 
     return expected_interactions
 
-def expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix):
-    """
-        Computes the function I_chrom(s) for a given chromosome.
-    """
-    log.debug('pLength_chromosome {}'.format(pLength_chromosome))
-    log.debug('pChromosome_count {}'.format(pChromosome_count))
 
+
+def expected_interactions(pSubmatrix):
+    """
+        Computes the expected number of interactions per distance
+    """
+    
     expected_interactions = np.zeros(pSubmatrix.shape[0])
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
@@ -280,12 +280,13 @@ def expected_interactions(pSubmatrix):
 
     return sum_per_distance / binary_interactions_per_distance
 
-def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
+
+def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
         expected contacts for loci at
-        that genomic distance
+        that genomic distance. Method: Lieberman-Aiden 2009
     """
 
     expected_interactions_in_distance_ = expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSubmatrix)
@@ -302,49 +303,41 @@ def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     return pSubmatrix
 
 
-def exp_obs_matrix_norm(pSubmatrix, pLength_chromosome, pChromosome_count):
+def obs_exp_matrix_norm(pSubmatrix):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
         expected contacts for loci at
-        that genomic distance
+        that genomic distance. Expected values contain a genomic distance based factor.
+        Method from: Homer Software
+
+        exp_i,j = expected_interactions_distance(abs(i-j)) * sum(row(i)) * sum(row(j)) / sum(matrix)
+        m_i,j = interaction_i,j / exp_i,j
     """
 
-    expected_interactions_in_distance = expected_interactions_norm(pLength_chromosome, pChromosome_count, pSubmatrix)
-    
+    expected_interactions_in_distance = expected_interactions(pSubmatrix)
+
     row_sums = np.array(pSubmatrix.sum(axis=1).T).flatten()
     total_interactions = pSubmatrix.sum()
 
     row, col = pSubmatrix.nonzero()
     # data = pSubmatrix.data.tolist()
     for i in range(len(row)):
-        expected = expected_interactions_in_distance[np.absolute(row[i]-col[i])] 
-        # log.debug('1row expected: {}'.format(expected))
-
-        # expected *= row_sums[row[i]] * (row_sums[col[i]] / total_interactions)
-        expected *= row_sums[row[i]] 
-        # log.debug('2row expected: {}'.format(expected))
-
-        expected *= (row_sums[col[i]])
-        # log.debug('3row expected: {}'.format(expected))
-
-        expected /= total_interactions
-        # log.debug('4 row expected: {} '.format(expected))
-        # log.debug('5 pSubmatrix.data[i]: {} \n'.format(pSubmatrix.data[i]))
-
-        if expected == 0.0:
-            pSubmatrix.data[i] = 0
-        else:
-            pSubmatrix.data[i] /= expected
+        expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
+        expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
+        pSubmatrix.data[i] /= expected
     return pSubmatrix
 
 
-def exp_obs_matrix(pSubmatrix):
+def obs_exp_matrix(pSubmatrix):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
         expected contacts for loci at
-        that genomic distance
+        that genomic distance.
+
+        exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
+
     """
 
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix)

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 import os.path
+import sys
 import logging
 import argparse
 import json
@@ -12,7 +13,7 @@ from scipy import sparse
 import numpy as np
 import multiprocessing
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString, check_chrom_str_bytes
+from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
 
 # python 2 / 3 compatibility
 from past.builtins import zip
@@ -383,7 +384,7 @@ class HicFindTads(object):
         """
 
         # if matrix is string, loaded, else, assume is a HiCMatrix object
-        
+
         self.set_matrix(matrix, pChromosomes)
         if max_depth is not None and min_depth is not None and max_depth <= min_depth:
             log.error("Please check that maxDepth is larger than minDepth.")
@@ -1178,7 +1179,7 @@ class HicFindTads(object):
                 fields = line.strip().split('\t')
                 chrom, start, end = fields[0:3]
                 if pChromosomes is not None:
-                    if chrom in pChromsomes:
+                    if chrom in pChromosomes:
                         chrom_list.append(chrom)
                         start_list.append(int(float(start)))
                         end_list.append(int(float(end)))
@@ -1371,8 +1372,8 @@ def main(args=None):
                       "Could not find file {}".format(zscore_matrix_file))
             exit(1)
         log.info("\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
-        ft.set_matrix(zscore_matrix_file, pChromosomes)
-        ft.load_bedgraph_matrix(tad_score_file, pChromosomes)
+        ft.set_matrix(zscore_matrix_file, args.chromosomes)
+        ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
 
     elif not os.path.isfile(tad_score_file):
         ft.compute_spectra_matrix()
@@ -1382,9 +1383,9 @@ def main(args=None):
     else:
         log.info("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
         log.info("This file will be used\n")
-        ft.set_matrix(zscore_matrix_file, pChromosomes)
+        ft.set_matrix(zscore_matrix_file, args.chromosomes)
         # ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
-        ft.load_bedgraph_matrix(tad_score_file, pChromsomes)
+        ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
 
     ft.find_boundaries()
     ft.save_domains_and_boundaries(args.outPrefix)
