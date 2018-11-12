@@ -9,6 +9,7 @@ log = logging.getLogger(__name__)
 
 import numpy as np
 
+
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
@@ -30,7 +31,7 @@ Normalizes given matrices either to the smallest given read number of all matric
     parserRequired.add_argument('--normalize', '-n',
                                 help='Normalize to a) 0 to 1 range, b) all matrices to the lowest read count of the given matrices.',
                                 choices=['norm_range', 'smallest'],
-                                default = 'smallest',
+                                default='smallest',
                                 required=True)
     parserRequired.add_argument('--outFileName', '-o',
                                 help='Output file name for the Hi-C matrix.',
@@ -57,7 +58,7 @@ def main(args=None):
         if args.normalize == 'smallest':
             sum_list.append(hic_ma.matrix.sum())
         hic_matrix_list.append(hic_ma)
-        
+
     if args.normalize == 'norm_range':
         for i, hic_matrix in enumerate(hic_matrix_list):
             hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
@@ -69,10 +70,10 @@ def main(args=None):
             min_value = np.min(hic_matrix.matrix.data)
             max_value = np.max(hic_matrix.matrix.data)
             min_max_difference = np.float64(max_value - min_value)
-        
+
             hic_matrix.matrix.data -= min_value
             hic_matrix.matrix.data /= min_max_difference
-           
+
             mask = np.isnan(hic_matrix.matrix.data)
             hic_matrix.matrix.data[mask] = 0
 
@@ -83,7 +84,7 @@ def main(args=None):
             hic_matrix.save(args.outFileName[i], pApplyCorrection=False)
     elif args.normalize == 'smallest':
         argmin = np.argmin(sum_list)
-      
+
         for i, hic_matrix in enumerate(hic_matrix_list):
             hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
             if i != argmin:
@@ -95,7 +96,7 @@ def main(args=None):
                 adjust_factor = sum_list[i] / sum_list[argmin]
                 hic_matrix.matrix.data /= adjust_factor
                 mask = np.isnan(hic_matrix.matrix.data)
-            
+
             mask = np.isnan(hic_matrix.matrix.data)
             hic_matrix.matrix.data[mask] = 0
 
