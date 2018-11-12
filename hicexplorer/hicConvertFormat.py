@@ -118,6 +118,9 @@ def main(args=None):
                     hic2cool_convert(matrix, out_name, resolution)
         return
     elif args.inputFormat in ['hicpro', 'homer', 'h5', 'cool']:
+        format_was_h5 = False
+        if args.inputFormat == 'h5':
+            format_was_h5 = True
         applyCorrection = True
         if args.store_applied_correction:
             applyCorrection = False
@@ -154,7 +157,7 @@ def main(args=None):
             log.debug('Setting done')
 
             if args.outputFormat in ['cool', 'h5', 'homer', 'ginteractions']:
-                matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat)
+                matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pFileWasH5=format_was_h5)
 
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                              correction_factors, distance_counts)
@@ -177,7 +180,7 @@ def main(args=None):
                         _mergeFactor = int(resolution) // bin_size
                         merged_matrix = hicMergeMatrixBins.merge_bins(
                             hic_matrix, _mergeFactor)
-                        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pEnforceInteger=args.enforce_integer)
+                        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5)
                         matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
                                                                      merged_matrix.cut_intervals,
                                                                      merged_matrix.nan_bins,
@@ -191,7 +194,7 @@ def main(args=None):
                     hic_matrix.setMatrix(_matrix, cut_intervals)
                     bin_size = hic_matrix.getBinSize()
                     matrixFileHandlerOutput = MatrixFileHandler(
-                        pFileType='cool')
+                        pFileType='cool', pFileWasH5=format_was_h5)
                     matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                                  correction_factors, distance_counts)
                     matrixFileHandlerOutput.save(args.outFileName[0] + '::/resolutions/' + str(
