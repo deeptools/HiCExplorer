@@ -221,7 +221,7 @@ def main(args=None):
                     hic_matrix.setMatrix(_matrix, cut_intervals)
                     bin_size = hic_matrix.getBinSize()
                     matrixFileHandlerOutput = MatrixFileHandler(
-                        pFileType='cool', , pAppend=append, pFileWasH5=format_was_h5)
+                        pFileType='cool', pAppend=append, pFileWasH5=format_was_h5)
 
                     matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                                  correction_factors, distance_counts)
