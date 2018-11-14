@@ -267,18 +267,19 @@ def expected_interactions(pSubmatrix):
     log.debug('expected_interactions {}'.format(expected_interactions))
 
     return expected_interactions
-def expected_interactions(pSubmatrix):
 
-    instances, features = pSubmatrix.nonzero()
-    distances = np.absolute(instances - features)
-    sum_per_distance = np.ones(pSubmatrix.shape[0])
-    binary_interactions_per_distance = np.ones(pSubmatrix.shape[0])
+# def expected_interactions(pSubmatrix):
 
-    for i, distance in enumerate(distances):
-        sum_per_distance[distance] += pSubmatrix.data[i]
-        binary_interactions_per_distance[distance] += 1
+#     instances, features = pSubmatrix.nonzero()
+#     distances = np.absolute(instances - features)
+#     sum_per_distance = np.ones(pSubmatrix.shape[0])
+#     binary_interactions_per_distance = np.ones(pSubmatrix.shape[0])
 
-    return sum_per_distance / binary_interactions_per_distance
+#     for i, distance in enumerate(distances):
+#         sum_per_distance[distance] += pSubmatrix.data[i]
+#         binary_interactions_per_distance[distance] += 1
+
+#     return sum_per_distance / binary_interactions_per_distance
 
 
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):

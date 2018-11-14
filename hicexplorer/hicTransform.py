@@ -146,6 +146,7 @@ def main(args=None):
             submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
             submatrix.astype(float)
             trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp_lieberman(submatrix, length_chromosome, chromosome_count))
+        trasf_matrix = csr_matrix(trasf_matrix)
 
     elif args.method == 'pearson':
         if args.perChromosome:
@@ -175,9 +176,12 @@ def main(args=None):
             corrmatrix = np.cov(hic_ma.matrix.todense())
             trasf_matrix = csr_matrix(corrmatrix)
 
+    # log.debug('trasf_matrix {}'.format(trasf_matrix))
+
     if args.perChromosome:
         hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
     else:
+        
         hic_ma.setMatrix(trasf_matrix, cut_intervals=hic_ma.cut_intervals)
 
     hic_ma.save(args.outFileName, pSymmetric=True, pApplyCorrection=False)

@@ -18,12 +18,12 @@ from copy import deepcopy
 import cooler
 from multiprocessing import Process, Queue
 import time
-from hicexplorer.utilities import exp_obs_matrix_lieberman, exp_obs_matrix_norm, exp_obs_matrix
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix
 
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=argparse.RawDescriptionHelpFormatter, 
         add_help=False,
         description="""
 Computes long range contacts within the given contact matrix
@@ -46,17 +46,15 @@ Computes long range contacts within the given contact matrix
                            help='Saves the computed z-score matrix')
     parserOpt.add_argument('--windowSize', '-w',
                            type=int,
-                           default=5,
+                           default=10,
                            help='Window size')
 
-    parserOpt.add_argument('--pValue', '-p',
+    parserOpt.add_argument('--dynamicZScoreThreshold', '-d',
                            type=float,
                            default=0.15,
-                           help='d-value')
-    parserOpt.add_argument('--qValue', '-q',
-                           type=float,
-                           default=0.05,
-                           help='q value for FDR')
+                           help='Only candidates with z-scores greater mean(z-scores) * dynamicZScoreThreshold are accepted. With '
+                                'the dynamic z-score threshold it is possible to decrease or increase this filter criteria. ')
+    
 
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
@@ -131,7 +129,8 @@ def compute_zscore_matrix(pInstances, pFeatures, pData):
     return data_mean
 
 
-def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, pZscoreThreshold, pWindowSize, pPValue, pQValue, pPeakInteractionsThreshold):
+def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, pZscoreThreshold, pWindowSize, \
+                                    pPeakInteractionsThreshold, pZscoreMeanFactor):
 
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
@@ -150,7 +149,7 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
     mask = np.logical_and(mask, mask_distance)
 
     zscore_mean = np.mean(pZscoreMatrix.data[mask])
-    mask = pZscoreMatrix.data >= (zscore_mean // 2)
+    mask = pZscoreMatrix.data >= (zscore_mean * pZscoreMeanFactor)
     log.debug('Used zscore-Mean {}'.format(zscore_mean))
 
     log.debug('pPeakInteractionsThreshold {}'.format(pPeakInteractionsThreshold))
@@ -185,11 +184,11 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
         if len(candidates) == 0:
             return None, None
 
-    candidates, pValueList = candidate_peak_exponential_distribution_test(
-        pHiCMatrix.matrix, candidates, pWindowSize, pPValue, pQValue, None)
-    if candidates is not None:
-        log.debug('Candidates: {}'.format(candidates[:20]))
-    return candidates, pValueList
+    candidates = candidate_region_test(
+        pHiCMatrix.matrix, candidates, pWindowSize)
+    # if candidates is not None:
+    #     log.debug('Candidates: {}'.format(candidates[:20]))
+    return candidates, [1] * len(candidates)
 
 
 def filter_duplicates(pCandidates):
@@ -246,7 +245,7 @@ def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
     pCandidates = pCandidates[mask]
     return pCandidates, mask
 
-def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, pQValue, pZscore):
+def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize):
     # this function test if the values in the neighborhood of a
     # function follow a normal distribution, given the significance level pValue.
     # if they do, the candidate is rejected, otherwise accepted
@@ -259,7 +258,7 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
     x_max = pHiCMatrix.shape[0]
     y_max = pHiCMatrix.shape[1]
     maximal_value = 0
-    log.debug('pCandidates initial: {}'.format(len(pCandidates)))
+    log.debug('candidate_region_test initial: {}'.format(len(pCandidates)))
 
 
     if len(pCandidates) == 0:
@@ -301,52 +300,15 @@ def candidate_peak_exponential_distribution_test(pHiCMatrix, pCandidates, pWindo
         if len(peak_region) == 0:
             mask.append(False)
             continue
-      
-        loc, scale = expon.fit(peak_region)
-        peak_norm = expon(loc=loc, scale=scale)
+        mask.append(True)
         
-
-        test_statistic_peak = kstest(peak_region, peak_norm.cdf)#, alternative = 'greater')
-    
-
-        if np.isnan(test_statistic_peak[1]):
-            mask.append(False)
-            continue
-        if test_statistic_peak[1] <= pPValue and test_statistic_peak[1] > 0:
-            mask.append(True)
-            pvalues.append(test_statistic_peak[1])
-        else:
-            mask.append(False)
     
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
-    pvalues = np.array(pvalues)
-    # pvalues = pvalues[mask]
-    log.debug('pCandidates after testing: {}'.format(len(pCandidates)))
+    log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
 
-    if len(pCandidates) == 0:
-        return None, None
-   
+    return pCandidates
     
-    
-    pvalues_ = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
-    pvalues_ = np.sort(pvalues_)
-    largest_p_i = -np.inf
-    for i, p in enumerate(pvalues_):
-        if p <= (pQValue * (i + 1) / len(pvalues_)):
-            if p >= largest_p_i:
-                largest_p_i = p
-    # pvalues_accepted = []
-
-    mask = pvalues <= largest_p_i
-    pvalues = pvalues[mask]
-    pCandidates = pCandidates[mask]
-
-    log.debug('pCandidates after fdr: {}'.format(len(pCandidates)))
-    if len(pCandidates) == 0:
-        return None, None
-    return pCandidates, [1] * pCandidates
-
 
 def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList, pMaxLoopDistance):
     # mapping: chr_X, start, end, chr_Y, start, end, cluster_id
@@ -387,29 +349,28 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
 
 
 def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
-    # log.debug("Compute z-score matrix")
 
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
-    log.debug('len(instances) after length pruning I {}'.format(len(pHiCMatrix.matrix.data)))
     pHiCMatrix.matrix.eliminate_zeros()
 
     max_loop_distance = None
     if pArgs.maxLoopDistance:
         max_loop_distance = pArgs.maxLoopDistance / pHiCMatrix.getBinSize()
         instances, features = pHiCMatrix.matrix.nonzero()
-        log.debug('len(instances) {}'.format(len(instances)))
         distances = np.absolute(instances - features)
         mask = distances > max_loop_distance
         pHiCMatrix.matrix.data[mask] = 0
         pHiCMatrix.matrix.eliminate_zeros()
-        log.debug('len(instances) after length pruning II{}'.format(len(pHiCMatrix.matrix.data)))
 
     
     shape_of_matrix = pHiCMatrix.matrix.shape
     instances, features = deepcopy(pHiCMatrix.matrix.nonzero())
     data_hic = deepcopy(pHiCMatrix.matrix.data)
-    # obs_exp_norm_matrix = exp_obs_matrix_norm(pHiCMatrix.matrix, 1, 1)
-    obs_exp_norm_matrix = exp_obs_matrix_lieberman(deepcopy(pHiCMatrix.matrix), pHiCMatrix.matrix.shape[0], 23)
+    # obs_exp_norm_matrix = obs_exp_matrix(pHiCMatrix.matrix)
+    obs_exp_norm_matrix = obs_exp_matrix_lieberman(deepcopy(pHiCMatrix.matrix), pHiCMatrix.matrix.shape[0], 2)
+    mask = obs_exp_norm_matrix.data < 2
+    obs_exp_norm_matrix.data[mask] = 0
+    # obs_exp_norm_matrix.eliminate_zeros()
     # obs_exp_norm_matrix = exp_obs_matrix(deepcopy(pHiCMatrix.matrix))
 
 
@@ -424,7 +385,6 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     
     z_score_data = compute_zscore_matrix(instances_obs_exp, features_obs_exp, data_obs_exp)
 
-    # instances, features = obs_exp_norm_matrix.nonzero()
     z_score_matrix = csr_matrix((z_score_data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
     if pArgs.zScoreMatrixName:
         matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
@@ -436,8 +396,9 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     # exit()
     adjusted_hic_matrix = csr_matrix((data_hic, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_matrix, adjusted_hic_matrix, pArgs.zScoreThreshold,
-                                                         pArgs.windowSize, pArgs.pValue, pArgs.qValue,
-                                                         pArgs.peakInteractionsThreshold)
+                                                         pArgs.windowSize, 
+                                                         pArgs.peakInteractionsThreshold,
+                                                         pArgs.dynamicZScoreThreshold)
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
 
