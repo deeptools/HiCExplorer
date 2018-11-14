@@ -1,0 +1,29 @@
+
+File	R1_R2.cool		
+Pairs considered	983		
+Min rest. site distance	300		
+Max library insert size	1000		
+
+#	count	(percentage w.r.t. total sequenced reads)
+Pairs mappable, unique and high quality	300	(30.52)
+Pairs used	215	(21.87)
+One mate unmapped	506	(51.48)
+One mate not unique	13	(1.32)
+One mate low quality	164	(16.68)
+
+#	count	(percentage w.r.t. mappable, unique and high quality pairs)
+dangling end	0	(0.00)
+self ligation (removed)	0	(0.00)
+One mate not close to rest site	0	(0.00)
+same fragment	85	(28.33)
+self circle	0	(0.00)
+duplicated pairs	0	(0.00)
+
+#	count	(percentage w.r.t. total valid pairs used)
+inter chromosomal	24	(11.16)
+short range < 20kb	61	(28.37)
+long range	130	(60.47)
+inward pairs	42	(19.53)
+outward pairs	66	(30.70)
+left pairs	48	(22.33)
+right pairs	35	(16.28)

@@ -1,0 +1,2 @@
+File	Pairs used	Pairs used_%	One mate low quality	One mate low quality_%	One mate not unique	One mate not unique_%	One mate unmapped	One mate unmapped_%
+R1_R2_restrictionFile.cool	202	0.205493387589	164	0.166836215666	13	0.0132248219736	506	0.51475076297

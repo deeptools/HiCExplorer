@@ -39,3 +39,7 @@ nosetests.xml
 # Ignore all emacs backup files
 *~
 .Rproj.user
+
+# pytest
+.pytest_cache/
+.cache
