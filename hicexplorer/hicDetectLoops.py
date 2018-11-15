@@ -55,7 +55,26 @@ Computes long range contacts within the given contact matrix
                            help='Only candidates with z-scores greater mean(z-scores) * dynamicZScoreThreshold are accepted. With '
                                 'the dynamic z-score threshold it is possible to decrease or increase this filter criteria. ')
     
+    parserOpt.add_argument('--obsExpMinThreshold', '-oet',
+                           type=float,
+                           default=1.0,
+                           help='Remove values of the computed obs / exp matrix lower than this threshold.')
+    parserOpt.add_argument('--meanMaxValueDifference', '-mmvd',
+                           type=float,
+                           default=5.0,
+                           help='Accept only candidates if the mean value of the candidate neighborhood differs at least this threshold '
+                                'from the maximum value of the candidate neighborhood.')
 
+    parserOpt.add_argument('--meanDifferenceNeighborhoodPeak', '-mdnp',
+                           type=float,
+                           default=1.0,
+                           help='Accept only candidates if the mean value of the candidate neighborhood differs at least this threshold'
+                                ' from the mean of the peak region. ')
+    parserOpt.add_argument('--maxAllowedInteractionsSmallerOne', '-maiso',
+                           type=float,
+                           default=0.01,
+                           help='Refuse candidates if the percentage of values smaller one in the candidate neighborhood is more than'
+                           ' the given threshold.')
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
                            default=8,
@@ -130,7 +149,8 @@ def compute_zscore_matrix(pInstances, pFeatures, pData):
 
 
 def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, pZscoreThreshold, pWindowSize, \
-                                    pPeakInteractionsThreshold, pZscoreMeanFactor):
+                                    pPeakInteractionsThreshold, pZscoreMeanFactor, pMeanMaxValueDifference, 
+                            pMeanDifferenceNeighborhoodPeak, pMaxAllowedInteractionsSmallerOne):
 
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
@@ -185,7 +205,8 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
             return None, None
 
     candidates = candidate_region_test(
-        pHiCMatrix.matrix, candidates, pWindowSize)
+        pHiCMatrix.matrix, candidates, pWindowSize, pMeanMaxValueDifference, 
+                            pMeanDifferenceNeighborhoodPeak, pMaxAllowedInteractionsSmallerOne)
     # if candidates is not None:
     #     log.debug('Candidates: {}'.format(candidates[:20]))
     return candidates, [1] * len(candidates)
@@ -245,7 +266,8 @@ def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
     pCandidates = pCandidates[mask]
     return pCandidates, mask
 
-def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize):
+def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDifference, 
+                            pMeanDifferenceNeighborhoodPeak, pMaxAllowedInteractionsSmallerOne):
     # this function test if the values in the neighborhood of a
     # function follow a normal distribution, given the significance level pValue.
     # if they do, the candidate is rejected, otherwise accepted
@@ -291,13 +313,20 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize):
         mask_data = neighborhood >= mean
 
         peak_region = neighborhood[mask_data]
-        if np.absolute(mean - np.max(neighborhood)) < 5:
+        if np.absolute(mean - np.max(neighborhood)) < pMeanMaxValueDifference:
             mask.append(False)
             continue
-        if np.absolute(mean - np.mean(peak_region)) < 5:
+        if np.absolute(mean - np.mean(peak_region)) < pMeanDifferenceNeighborhoodPeak:
             mask.append(False)
             continue
         if len(peak_region) == 0:
+            mask.append(False)
+            continue
+        sorted_neighborhood = np.sort(neighborhood)
+        index_pos = int(len(neighborhood) * pMaxAllowedInteractionsSmallerOne)
+        if index_pos > len(neighborhood):
+            index_pos = len(neighborhood) - 1
+        if sorted_neighborhood[index_pos] < 1:
             mask.append(False)
             continue
         mask.append(True)
@@ -368,7 +397,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     data_hic = deepcopy(pHiCMatrix.matrix.data)
     # obs_exp_norm_matrix = obs_exp_matrix(pHiCMatrix.matrix)
     obs_exp_norm_matrix = obs_exp_matrix_lieberman(deepcopy(pHiCMatrix.matrix), pHiCMatrix.matrix.shape[0], 2)
-    mask = obs_exp_norm_matrix.data < 2
+    mask = obs_exp_norm_matrix.data < pArgs.obsExpMinThreshold
     obs_exp_norm_matrix.data[mask] = 0
     # obs_exp_norm_matrix.eliminate_zeros()
     # obs_exp_norm_matrix = exp_obs_matrix(deepcopy(pHiCMatrix.matrix))
@@ -398,7 +427,11 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_matrix, adjusted_hic_matrix, pArgs.zScoreThreshold,
                                                          pArgs.windowSize, 
                                                          pArgs.peakInteractionsThreshold,
-                                                         pArgs.dynamicZScoreThreshold)
+                                                         pArgs.dynamicZScoreThreshold,
+                                                         pArgs.meanMaxValueDifference,
+                                                         pArgs.meanDifferenceNeighborhoodPeak,
+                                                         pArgs.maxAllowedInteractionsSmallerOne)
+    
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
 
@@ -469,6 +502,7 @@ def main():
                 else:
                     hic_matrix.setMatrix(deepcopy(matrix), deepcopy(cut_intervals))
                     hic_matrix.keepOnlyTheseChr([chromosome])
+                hic_matrix.maskBins(hic_matrix.nan_bins)
                 loops = compute_loops(hic_matrix, chromosome, args)
                 if loops is not None:
                     mapped_loops.extend(loops)
