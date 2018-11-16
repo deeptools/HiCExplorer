@@ -317,7 +317,7 @@ def obs_exp_matrix(pSubmatrix):
 
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix)
     row, col = pSubmatrix.nonzero()
-    distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
+#    distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
     distance = np.absolute(row - col).astype(np.int32) 
     if len(pSubmatrix.data) > 0:
         data_type = type(pSubmatrix.data[0])
