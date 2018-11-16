@@ -246,8 +246,9 @@ def expected_interactions(pSubmatrix):
     expected_interactions = np.zeros(pSubmatrix.shape[0])
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
-
-    occurences = np.zeros(pSubmatrix.shape[0])
+    #occurences = np.zeros(pSubmatrix.shape[0])
+    occurences = np.arange(1,pSubmatrix.shape[0]+1)
+    occurences = occurences[::-1] #devision is done taking all the memebers of a diagonal into account (as apposed to previous one where only non zero one were counted)
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
         occurences[distance_] += 1
@@ -317,10 +318,9 @@ def obs_exp_matrix(pSubmatrix):
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix)
     row, col = pSubmatrix.nonzero()
     distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
-
+    distance = np.absolute(row - col).astype(np.int32) 
     if len(pSubmatrix.data) > 0:
         data_type = type(pSubmatrix.data[0])
-
         expected = expected_interactions_in_distance_[distance]
         pSubmatrix.data = pSubmatrix.data.astype(np.float32)
         pSubmatrix.data /= expected
