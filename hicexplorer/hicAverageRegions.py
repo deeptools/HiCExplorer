@@ -16,10 +16,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-Prints information about a matrix or matrices including matrix size,
-number of elements, sum of elements, etc.
-An example usage is:
-$ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
+
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -32,14 +29,17 @@ $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
     parserRequired.add_argument('--regions', '-r',
                                 help='BED file which stores a list of regions that are summed and averaged',
                                 required=True)
-    parserRequired.add_argument('--range', '-ra',
-                                help='BED file which stores a list of regions to keep / remove',
+    parserMutuallyExclusiveGroup = parser.add_mutually_exclusive_group()                 
+    parserMutuallyExclusiveGroup.add_argument('--range', '-ra',
+                                help='Range of region up- and downstream of each region to include in genomic units.',
                                 nargs=2,
-                                type=int,
-                                required=True)
+                                type=int)
+    parserMutuallyExclusiveGroup.add_argument('--rangeInBins', '-rib',
+                                help='Range of region up- and downstream of each region to include in bin units.',
+                                nargs=2,
+                                type=int)
     parserRequired.add_argument('--outFileName', '-out',
-                                help='File name to save the adjusted matrix.',
-                                required=True)
+                                help='File name to save the adjusted matrix.')
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
@@ -104,7 +104,7 @@ def main():
     for start, end in indices_values:
         log.debug('shape {}'.format(hic_ma.matrix[start:end, start:end].shape))
         log.debug('size; {}'.format(np.absolute(start-end)))
-        # summed_matrix += hic_ma.matrix[start:end, start:end]
+        summed_matrix += hic_ma.matrix[start:end, start:end]
 
     summed_matrix /= len(indices_values)
 
