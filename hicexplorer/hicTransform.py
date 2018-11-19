@@ -7,7 +7,7 @@ import numpy as np
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix_non_zero, obs_exp_matrix
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 
@@ -39,7 +39,7 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--method', '-me',
                            help='Transformation method to use for input matrix. Transformation is computed per chromosome.',
-                           choices=['obs_exp', 'obs_exp_lieberman', 'pearson', 'covariance', 'norm'],
+                           choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero','pearson', 'covariance', 'norm'],
                            default='obs_exp')
 
     parserOpt.add_argument('--chromosomes',
@@ -93,6 +93,13 @@ def _obs_exp(pSubmatrix):
     obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
     return obs_exp_matrix_
 
+def _obs_exp_non_zero(pSubmatrix):
+
+    obs_exp_matrix_ = obs_exp_matrix_non_zero(pSubmatrix)
+    obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
+    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
+    return obs_exp_matrix_
+
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
@@ -135,6 +142,17 @@ def main(args=None):
             submatrix = _obs_exp(hic_ma.matrix)
             trasf_matrix = csr_matrix(submatrix)
 
+    elif args.method == 'obs_exp_non_zero':
+        if args.perChromosome:
+
+            for chrname in hic_ma.getChrNames():
+                chr_range = hic_ma.getChrBinRange(chrname)
+                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+                submatrix.astype(float)
+                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp_non_zero(submatrix))
+        else:
+            submatrix = _obs_exp(hic_ma.matrix)
+            trasf_matrix = csr_matrix(submatrix)
     elif args.method == 'obs_exp_lieberman':
         length_chromosome = 0
         chromosome_count = len(hic_ma.getChrNames())

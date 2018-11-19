@@ -238,7 +238,7 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
 
 
 
-def expected_interactions(pSubmatrix):
+def expected_interactions_non_zero(pSubmatrix):
     """
         Computes the expected number of interactions per distance
     """
@@ -252,8 +252,35 @@ def expected_interactions(pSubmatrix):
         expected_interactions[distance_] += pSubmatrix.data[i]
         occurences[distance_] += 1
     expected_interactions /= occurences
+
+    mask = np.isnan(expected_interactions)
+    expected_interactions[mask] = 0
+    mask = np.isinf(expected_interactions)
+    expected_interactions[mask] = 0
+
     return expected_interactions
 
+def expected_interactions(pSubmatrix):
+    """
+        Computes the expected number of interactions per distance
+    """
+    
+    expected_interactions = np.zeros(pSubmatrix.shape[0])
+    row, col = pSubmatrix.nonzero()
+    distance = np.absolute(row - col)
+    occurrences = np.arange(pSubmatrix.shape[0]+1, 1, -1)
+    # occurences = np.zeros(pSubmatrix.shape[0])
+    for i, distance_ in enumerate(distance):
+        expected_interactions[distance_] += pSubmatrix.data[i]
+        # occurences[distance_] += 1
+    expected_interactions /= occurrences
+
+    mask = np.isnan(expected_interactions)
+    expected_interactions[mask] = 0
+    mask = np.isinf(expected_interactions)
+    expected_interactions[mask] = 0
+
+    return expected_interactions
 
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
@@ -289,7 +316,7 @@ def obs_exp_matrix_norm(pSubmatrix):
         m_i,j = interaction_i,j / exp_i,j
     """
 
-    expected_interactions_in_distance = expected_interactions(pSubmatrix)
+    expected_interactions_in_distance = expected_interactions_non_zero(pSubmatrix)
 
     row_sums = np.array(pSubmatrix.sum(axis=1).T).flatten()
     total_interactions = pSubmatrix.sum()
@@ -302,6 +329,30 @@ def obs_exp_matrix_norm(pSubmatrix):
         pSubmatrix.data[i] /= expected
     return pSubmatrix
 
+
+def obs_exp_matrix_non_zero(pSubmatrix):
+    """
+        Creates normalized contact matrix M* by
+        dividing each entry by the gnome-wide
+        expected contacts for loci at
+        that genomic distance.
+
+        exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
+
+    """
+
+    expected_interactions_in_distance_ = expected_interactions_non_zero(pSubmatrix)
+    row, col = pSubmatrix.nonzero()
+    distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
+
+    if len(pSubmatrix.data) > 0:
+        data_type = type(pSubmatrix.data[0])
+
+        expected = expected_interactions_in_distance_[distance]
+        pSubmatrix.data = pSubmatrix.data.astype(np.float32)
+        pSubmatrix.data /= expected
+        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+    return pSubmatrix
 
 def obs_exp_matrix(pSubmatrix):
     """
@@ -326,7 +377,6 @@ def obs_exp_matrix(pSubmatrix):
         pSubmatrix.data /= expected
         pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
     return pSubmatrix
-
 def toString(s):
     """
     This takes care of python2/3 differences

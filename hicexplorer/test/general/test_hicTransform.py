@@ -17,7 +17,7 @@ def test_hic_transfer_obs_exp():
     outfile = NamedTemporaryFile(suffix='obs_exp_.h5', delete=False)
     outfile.close()
 
-    args = "--matrix {} --outFileName {} --method obs_exp".format(original_matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method obs_exp_non_zero".format(original_matrix, outfile.name).split()
     hicTransform.main(args)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp.h5")
@@ -30,7 +30,7 @@ def test_hic_transfer_obs_exp_perChromosome():
     outfile = NamedTemporaryFile(suffix='obs_exp_.h5', delete=False)
     outfile.close()
 
-    args = "--matrix {} --outFileName {} --method obs_exp --perChromosome".format(original_matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method obs_exp_non_zero --perChromosome".format(original_matrix, outfile.name).split()
     hicTransform.main(args)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_perChromosome.h5")
