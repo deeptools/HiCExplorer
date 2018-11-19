@@ -18,7 +18,7 @@ from copy import deepcopy
 import cooler
 from multiprocessing import Process, Queue
 import time
-from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix, obs_exp_matrix_non_zero
 
 from scipy.ndimage.filters import gaussian_filter 
 
@@ -91,7 +91,10 @@ Computes long range contacts within the given contact matrix
                            'are given, the missing chromosomes are left out. For example, --chromosomeOrder chrX will '
                            'export a matrix only containing chromosome X.',
                            nargs='+')
-
+    parserOpt.add_argument('--method', '-me',
+                           help='Observed / expected normalization. Either Lieberman or norm. Lieberman is better for high resolution data, norm for less resolution.',
+                           choices=['lieberman', 'norm'],
+                           default='lieberman')
     parserOpt.add_argument('--region',
                            help='The format is chr:start-end.',
                            required=False)
@@ -119,17 +122,17 @@ def _sum_per_distance(pSum_per_distance, pData, pDistances):
     return pSum_per_distance, distance_count
 
 
-def compute_zscore_matrix(pInstances, pFeatures, pData):
+def compute_zscore_matrix(pInstances, pFeatures, pData, pMaxDistance):
 
 
     pData = pData.astype(float)
    
     data = deepcopy(pData)
     distances = np.absolute(pInstances - pFeatures)
-    sigma_2 = np.zeros(len(data))
+    sigma_2 = np.zeros(pMaxDistance)
 
     # shifts all values by one, but 0 / mean is prevented
-    sum_per_distance = np.ones(len(data))
+    sum_per_distance = np.ones(pMaxDistance)
     np.nan_to_num(data, copy=False)
 
     sum_per_distance, distance_count = _sum_per_distance(sum_per_distance, data, distances)
@@ -309,30 +312,37 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDif
 
         neighborhood = pHiCMatrix[start_x:end_x,
                                          start_y:end_y].toarray()
+        
+        for i in range(len(neighborhood)):
+            neighborhood[i, :] = smoothInteractionValues(neighborhood[i, :], 5)
       
-        neighborhood = smooth_values(deepcopy(neighborhood)).flatten()
-        mean = np.mean(neighborhood)
-        mask_data = neighborhood >= mean
+        neighborhood = neighborhood.flatten()
+        variance = np.var(neighborhood)
 
-        peak_region = neighborhood[mask_data]
-        # if 
-        if np.absolute(mean - np.max(neighborhood)) < pMeanMaxValueDifference:
-            mask.append(False)
+        if variance > pMeanDifferenceNeighborhoodPeak:
+            mask.append(True)
             continue
-        if np.absolute(mean - np.mean(peak_region)) < pMeanDifferenceNeighborhoodPeak:
-            mask.append(False)
-            continue
-        if len(peak_region) == 0:
-            mask.append(False)
-            continue
-        sorted_neighborhood = np.sort(neighborhood)
-        index_pos = int(len(neighborhood) * pMaxAllowedInteractionsSmallerOne)
-        if index_pos >= len(neighborhood):
-            index_pos = len(neighborhood) - 1
-        if sorted_neighborhood[index_pos] < 1:
-            mask.append(False)
-            continue
-        mask.append(True)
+        # mean = np.mean(neighborhood)
+        # mask_data = neighborhood >= mean
+
+        # peak_region = neighborhood[mask_data]
+        # if np.absolute(mean - np.max(neighborhood)) < pMeanMaxValueDifference:
+        #     mask.append(False)
+        #     continue
+        # if np.absolute(mean - np.mean(peak_region)) < pMeanDifferenceNeighborhoodPeak:
+        #     mask.append(False)
+        #     continue
+        # if len(peak_region) == 0:
+        #     mask.append(False)
+        #     continue
+        # sorted_neighborhood = np.sort(neighborhood)
+        # index_pos = int(len(neighborhood) * pMaxAllowedInteractionsSmallerOne)
+        # if index_pos >= len(neighborhood):
+        #     index_pos = len(neighborhood) - 1
+        # if sorted_neighborhood[index_pos] < 1:
+        #     mask.append(False)
+        #     continue
+        mask.append(False)
         
     
     mask = np.array(mask)
@@ -341,9 +351,39 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDif
 
     return pCandidates
     
-def smooth_values(pMatrix):
-    return pMatrix
-    # return gaussian_filter(pMatrix, 1)
+def smoothInteractionValues(pData, pWindowSize):
+        '''
+        Adds -pWindowsSize/2 and +pWindowsSize/2 around pData[i] and averages pData[i] by pWindowSize to 
+        smooth the interaction values.
+        '''
+        window_size = np.int(np.floor(pWindowSize / 2))
+        window_size_upstream = window_size
+        if pWindowSize % 2 == 0:
+            window_size_upstream -= 1
+
+        # log.debug('smooth I len(data) {}'.format(len(pData)))
+        average_contacts = np.zeros(len(pData))
+        # log.debug('smooth II len(average_contacts) {}'.format(len(average_contacts)))
+
+        # add upstream and downstream, handle regular case
+        for i in range(window_size_upstream, len(pData) - window_size):
+            start = i - window_size_upstream
+            end = i + window_size + 1
+            average_contacts[i] = np.mean(pData[start:end])
+        # log.debug('smooth III len(average_contacts) {}'.format(len(average_contacts)))
+
+        # handle border conditions
+        for i in range(window_size):
+            start = i - window_size_upstream
+            if start < 0:
+                start = 0
+            end = i + window_size + 1
+
+            average_contacts[i] = np.mean(pData[start:end])
+            average_contacts[-(i + 1)] = np.mean(pData[-end:])
+        # log.debug('smooth IV len(average_contacts) {}'.format(len(average_contacts)))
+        
+        return average_contacts
 
 def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList, pMaxLoopDistance):
     # mapping: chr_X, start, end, chr_Y, start, end, cluster_id
@@ -392,7 +432,16 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     # s
     max_loop_distance = None
     if pArgs.maxLoopDistance:
-        max_loop_distance = pArgs.maxLoopDistance // pHiCMatrix.getBinSize()
+        try:
+            max_loop_distance = pArgs.maxLoopDistance / pHiCMatrix.getBinSize()
+        except Exception:
+            log.info('Computed loops for {}: 0'.format(pRegion))
+
+            if pQueue is None:
+                return None
+            else:
+                pQueue.put([None])
+                return
         instances, features = pHiCMatrix.matrix.nonzero()
         distances = np.absolute(instances - features)
         mask = distances > max_loop_distance
@@ -416,6 +465,26 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     # shape_of_matrix = pHiCMatrix.matrix.shape
     instances, features = deepcopy(pHiCMatrix.matrix.nonzero())
     data_hic = deepcopy(pHiCMatrix.matrix.data)
+    if len(pHiCMatrix.matrix.data) == 0:
+        log.info('Computed loops for {}: 0'.format(pRegion))
+
+        if pQueue is None:
+            return None
+        else:
+            pQueue.put([None])
+            return
+    if pArgs.method == 'lieberman':
+        obs_exp_norm_matrix = obs_exp_matrix_lieberman(deepcopy(pHiCMatrix.matrix), pHiCMatrix.matrix.shape[0], 19)
+    elif pArgs.method == 'norm':
+        obs_exp_norm_matrix = obs_exp_matrix_norm(pHiCMatrix.matrix)
+
+    # obs_exp_norm_matrix = obs_exp_matrix_non_zero(pHiCMatrix.matrix)
+    # obs_exp_norm_matrix = pHiCMatrix.matrix
+
+    mask = obs_exp_norm_matrix.data < pArgs.obsExpMinThreshold
+    obs_exp_norm_matrix.data[mask] = 0
+    # obs_exp_norm_matrix.eliminate_zeros()
+    # obs_exp_norm_matrix = exp_obs_matrix(deepcopy(pHiCMatrix.matrix))
 
     # # obs_exp_norm_matrix = obs_exp_matrix(pHiCMatrix.matrix)
     # obs_exp_norm_matrix = obs_exp_matrix_lieberman(deepcopy(pHiCMatrix.matrix), pHiCMatrix.matrix.shape[0], 2)
@@ -434,7 +503,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     # instances_obs_exp, features_obs_exp = obs_exp_norm_matrix.nonzero()
     # data_obs_exp = obs_exp_norm_matrix.data
     
-    z_score_data = compute_zscore_matrix(instances, features, data_hic)
+    z_score_data = compute_zscore_matrix(instances_obs_exp, features_obs_exp, data_obs_exp, pHiCMatrix.matrix.shape[0])
 
     z_score_matrix = csr_matrix((z_score_data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
     if pArgs.zScoreMatrixName:
