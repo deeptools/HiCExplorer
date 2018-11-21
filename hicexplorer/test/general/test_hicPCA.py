@@ -195,15 +195,26 @@ def test_pca_bigwig_gene_density_intermediate_matrices_norm():
     assert are_files_equal_bigwig(ROOT + "hicPCA/pca1_gene_track.bw", pca1.name, chrom_list)
     assert are_files_equal_bigwig(ROOT + "hicPCA/pca2_gene_track.bw", pca2.name, chrom_list)
 
-    test_pearson = hm.hiCMatrix(ROOT + "hicPCA/pearson_intermediate_norm.cool")
+    test_pearson = hm.hiCMatrix(ROOT + "hicPCA/pearson_norm.cool")
 
     new_pearson = hm.hiCMatrix(pearson_matrix.name)
 
-    test_obs_exp = hm.hiCMatrix(ROOT + "hicPCA/obs_exp_intermediate_norm.cool")
+    test_obs_exp = hm.hiCMatrix(ROOT + "hicPCA/obsexp_norm.cool")
 
     new_obs_exp = hm.hiCMatrix(obs_exp_matrix.name)
+
+    # load h5 matrices to compare if they are store the same data
+    test_obs_exp_h5 = hm.hiCMatrix(ROOT + "hicPCA/obsexp_norm.h5")
+
+    test_pearson_h5 = hm.hiCMatrix(ROOT + "hicPCA/pearson_norm.h5")
+
+
+
     nt.assert_array_almost_equal(test_pearson.matrix.data, new_pearson.matrix.data, decimal=DELTA_DECIMAL)
     nt.assert_array_almost_equal(test_obs_exp.matrix.data, new_obs_exp.matrix.data, decimal=DELTA_DECIMAL)
+
+    nt.assert_array_almost_equal(test_pearson_h5.matrix.data, new_pearson.matrix.data, decimal=DELTA_DECIMAL)
+    nt.assert_array_almost_equal(test_obs_exp_h5.matrix.data, new_obs_exp.matrix.data, decimal=DELTA_DECIMAL)
 
     os.unlink(pca1.name)
     os.unlink(pca2.name)
