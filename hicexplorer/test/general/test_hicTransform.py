@@ -10,30 +10,60 @@ from os.path import basename, dirname
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 original_matrix = ROOT + "small_test_matrix_50kb_res.h5"
+original_matrix_cool = ROOT + "small_test_matrix.cool"
+
 DELTA_DECIMAL = 0
-
-
 def test_hic_transfer_obs_exp():
-    outfile = NamedTemporaryFile(suffix='obs_exp_.h5', delete=False)
+
+    outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
     outfile.close()
 
-    args = "--matrix {} --outFileName {} --method obs_exp_non_zero".format(original_matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method obs_exp".format(original_matrix_cool, outfile.name).split()
     hicTransform.main(args)
 
-    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp.h5")
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp.cool")
 
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
 
 def test_hic_transfer_obs_exp_perChromosome():
-    outfile = NamedTemporaryFile(suffix='obs_exp_.h5', delete=False)
+
+    outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
     outfile.close()
 
-    args = "--matrix {} --outFileName {} --method obs_exp_non_zero --perChromosome".format(original_matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method obs_exp --perChromosome".format(original_matrix_cool, outfile.name).split()
     hicTransform.main(args)
 
-    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_perChromosome.h5")
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_per_chromosome.cool")
+
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    os.unlink(outfile.name)
+
+def test_hic_transfer_obs_exp_non_zero():
+
+    outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
+    outfile.close()
+
+    args = "--matrix {} --outFileName {} --method obs_exp_non_zero".format(original_matrix_cool, outfile.name).split()
+    hicTransform.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_non_zero.cool")
+
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    os.unlink(outfile.name)
+
+def test_hic_transfer_obs_exp_non_zero_perChromosome():
+
+    outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
+    outfile.close()
+
+    args = "--matrix {} --outFileName {} --method obs_exp_non_zero --perChromosome".format(original_matrix_cool, outfile.name).split()
+    hicTransform.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_non_zero_per_chromosome.cool")
 
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
