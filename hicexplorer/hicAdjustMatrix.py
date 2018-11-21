@@ -25,7 +25,7 @@ def parse_arguments(args=None):
                                 'HiCExplorer supports the following file formats: h5 (native HiCExplorer format) '
                                 'and cool.',
                                 required=True)
-    parserRequired.add_argument('--outFileName', '-out',
+    parserRequired.add_argument('--outFileName', '-o',
                                 help='File name to save the adjusted matrix.',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
