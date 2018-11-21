@@ -14,6 +14,7 @@ from hicmatrix.lib import MatrixFileHandler
 from hicexplorer import hicMergeMatrixBins
 from hicmatrix import HiCMatrix
 
+from copy import deepcopy
 
 def parse_arguments(args=None):
     """
@@ -76,7 +77,9 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--enforce_integer',
                            help='Enforce datatype of counts to integer. Option only for cool input files.',
                            action='store_true')
-
+    parserOpt.add_argument('--load_raw_values',
+                           help='Load only \'count\' data and do not apply a correction. Option only for cool input files.',
+                           action='store_true')
     # parserOpt.
     parserOpt.add_argument("--resolutions", '-r',
                            nargs='+',
@@ -118,6 +121,9 @@ def main(args=None):
                     hic2cool_convert(matrix, out_name, resolution)
         return
     elif args.inputFormat in ['hicpro', 'homer', 'h5', 'cool']:
+        format_was_h5 = False
+        if args.inputFormat == 'h5':
+            format_was_h5 = True
         applyCorrection = True
         if args.store_applied_correction:
             applyCorrection = False
@@ -142,19 +148,26 @@ def main(args=None):
                 chromosomes_to_load = None
                 if args.chromosome:
                     chromosomes_to_load = [args.chromosome]
+                
+                applyCorrectionCoolerLoad = True
+                if args.load_raw_values:
+                    applyCorrectionCoolerLoad = False
                 matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix,
                                                            pCorrectionFactorTable=args.correction_name,
                                                            pCorrectionOperator=correction_operator,
                                                            pChrnameList=chromosomes_to_load,
-                                                           pEnforceInteger=args.enforce_integer)
+                                                           pEnforceInteger=args.enforce_integer,
+                                                           pApplyCorrectionCoolerLoad=applyCorrectionCoolerLoad)
 
             _matrix, cut_intervals, nan_bins, \
-                correction_factors, distance_counts = matrixFileHandlerInput.load()
+                distance_counts, correction_factors = matrixFileHandlerInput.load()
 
             log.debug('Setting done')
 
             if args.outputFormat in ['cool', 'h5', 'homer', 'ginteractions']:
-                matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat)
+
+                matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5)
+
 
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                              correction_factors, distance_counts)
@@ -171,13 +184,27 @@ def main(args=None):
                         'Correction factors are removed. They are not valid for any new created resolution')
                     hic_matrix = HiCMatrix.hiCMatrix()
                     hic_matrix.setMatrix(_matrix, cut_intervals)
+
+                
                     bin_size = hic_matrix.getBinSize()
 
-                    for resolution in args.resolutions:
+                    for j, resolution in enumerate(args.resolutions):
+                        hic_matrix_res = deepcopy(hic_matrix)
+                        
                         _mergeFactor = int(resolution) // bin_size
-                        merged_matrix = hicMergeMatrixBins.merge_bins(
-                            hic_matrix, _mergeFactor)
-                        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pEnforceInteger=args.enforce_integer)
+
+                        log.debug('bin size {}'.format(bin_size))
+                        log.debug('_mergeFactor {}'.format(_mergeFactor))
+                        if int(resolution) != bin_size:
+                            merged_matrix = hicMergeMatrixBins.merge_bins(
+                            hic_matrix_res, _mergeFactor)
+                        else:
+                            merged_matrix = hic_matrix_res
+                        append = False
+                        if j > 0:
+                            append = True
+                        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pEnforceInteger=args.enforce_integer, pAppend=append, pFileWasH5=format_was_h5)
+
                         matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
                                                                      merged_matrix.cut_intervals,
                                                                      merged_matrix.nan_bins,
@@ -187,11 +214,15 @@ def main(args=None):
                             resolution), pSymmetric=True, pApplyCorrection=applyCorrection)
 
                 else:
+                    append = False
+                    if i > 0:
+                        append = True
                     hic_matrix = HiCMatrix.hiCMatrix()
                     hic_matrix.setMatrix(_matrix, cut_intervals)
                     bin_size = hic_matrix.getBinSize()
                     matrixFileHandlerOutput = MatrixFileHandler(
-                        pFileType='cool')
+                        pFileType='cool', pAppend=append, pFileWasH5=format_was_h5)
+
                     matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                                  correction_factors, distance_counts)
                     matrixFileHandlerOutput.save(args.outFileName[0] + '::/resolutions/' + str(

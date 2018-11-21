@@ -376,7 +376,7 @@ def test_hicPlotMatrix_perChr_pca1_bigwig():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
-    args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --perChr  --disable_tight_layout " \
+    args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --perChr  --disable_tight_layout " \
            "--outFileName  {1} --bigwig {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)
@@ -436,7 +436,7 @@ def test_hicPlotMatrix_region_pca1_colormap_bigwig():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
-    args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --region chr2L " \
+    args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --region chr2L " \
            "--outFileName  {1} --bigwig {2} --colorMap hot".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_bw.png', outfile.name, tol=tolerance)
@@ -451,7 +451,7 @@ def test_hicPlotMatrix_region_start_end_pca1_colormap_bigwig():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
-    args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --region chr2L:15000000-20000000 " \
+    args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --region chr2L:15000000-20000000 " \
            "--outFileName  {1} --bigwig {2} --colorMap hot".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_15mb-20mb_bw.png', outfile.name, tol=tolerance)
