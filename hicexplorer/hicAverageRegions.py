@@ -29,15 +29,15 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--regions', '-r',
                                 help='BED file which stores a list of regions that are summed and averaged',
                                 required=True)
-    parserMutuallyExclusiveGroup = parser.add_mutually_exclusive_group(required=True)                 
+    parserMutuallyExclusiveGroup = parser.add_mutually_exclusive_group(required=True)
     parserMutuallyExclusiveGroup.add_argument('--range', '-ra',
-                                help='Range of region up- and downstream of each region to include in genomic units.',
-                                nargs=2,
-                                type=int)
+                                              help='Range of region up- and downstream of each region to include in genomic units.',
+                                              nargs=2,
+                                              type=int)
     parserMutuallyExclusiveGroup.add_argument('--rangeInBins', '-rib',
-                                help='Range of region up- and downstream of each region to include in bin units.',
-                                nargs=2,
-                                type=int)
+                                              help='Range of region up- and downstream of each region to include in bin units.',
+                                              nargs=2,
+                                              type=int)
     parserRequired.add_argument('--outFileName', '-out',
                                 help='File name to save the adjusted matrix.')
     parserOpt = parser.add_argument_group('Optional arguments')
@@ -55,7 +55,6 @@ def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange):
     This function computes the correct start and end position of a viewpoint given the reference and the range.
     '''
 
-
     max_length = pHiCMatrix.getBinPos(pHiCMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
     bin_size = pHiCMatrix.getBinSize()
     _range = [pRange[0], pRange[1]]
@@ -71,11 +70,13 @@ def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange):
         _range[1] = (max_length - int(pViewpoint[2])) + bin_size
     return region_start, region_end, _range
 
+
 def getBinIndices(pHiCMatrix, pViewpoint):
     return pHiCMatrix.getRegionBinRange(pViewpoint[0], pViewpoint[1], pViewpoint[2])
 
+
 def calculateViewpointRangeBins(pHiCMatrix, pViewpoint, pRange):
-    
+
     viewpoint_index = getBinIndices(pHiCMatrix, pViewpoint)[0]
     start = viewpoint_index - pRange[0]
     end = viewpoint_index + pRange[1]
@@ -125,5 +126,4 @@ def main(args=None):
 
     summed_matrix /= len(indices_values)
 
-    
     save_npz(args.outFileName, summed_matrix)

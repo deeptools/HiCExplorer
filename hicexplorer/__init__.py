@@ -1,6 +1,6 @@
 import logging
 logging.basicConfig(level=logging.DEBUG)
-import warnings 
+import warnings
 import sys
 
 if not sys.warnoptions:

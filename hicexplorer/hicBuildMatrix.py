@@ -36,7 +36,6 @@ from hicexplorer import hicMergeMatrixBins
 import logging
 log = logging.getLogger(__name__)
 
-import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
@@ -1381,13 +1380,13 @@ def main(args=None):
     unlink(args.outFileName.name)
 
     if args.outFileName.name.endswith('.cool') and args.binSize is not None and len(args.binSize) > 2:
-        
+
         matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
         matrixFileHandlerOutput.set_matrix_variables(hic_ma.matrix,
-                                                        hic_ma.cut_intervals,
-                                                        hic_ma.nan_bins,
-                                                        hic_ma.correction_factors,
-                                                        hic_ma.distance_counts)
+                                                     hic_ma.cut_intervals,
+                                                     hic_ma.nan_bins,
+                                                     hic_ma.correction_factors,
+                                                     hic_ma.distance_counts)
         matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(args.binSize[0]), pSymmetric=True, pApplyCorrection=False)
 
         for resolution in args.binSize[1:]:

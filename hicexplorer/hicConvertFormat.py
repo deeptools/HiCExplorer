@@ -16,6 +16,7 @@ from hicmatrix import HiCMatrix
 
 from copy import deepcopy
 
+
 def parse_arguments(args=None):
     """
     get command line arguments
@@ -148,7 +149,7 @@ def main(args=None):
                 chromosomes_to_load = None
                 if args.chromosome:
                     chromosomes_to_load = [args.chromosome]
-                
+
                 applyCorrectionCoolerLoad = True
                 if args.load_raw_values:
                     applyCorrectionCoolerLoad = False
@@ -168,7 +169,6 @@ def main(args=None):
 
                 matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5)
 
-
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                              correction_factors, distance_counts)
                 matrixFileHandlerOutput.save(
@@ -185,19 +185,18 @@ def main(args=None):
                     hic_matrix = HiCMatrix.hiCMatrix()
                     hic_matrix.setMatrix(_matrix, cut_intervals)
 
-                
                     bin_size = hic_matrix.getBinSize()
 
                     for j, resolution in enumerate(args.resolutions):
                         hic_matrix_res = deepcopy(hic_matrix)
-                        
+
                         _mergeFactor = int(resolution) // bin_size
 
                         log.debug('bin size {}'.format(bin_size))
                         log.debug('_mergeFactor {}'.format(_mergeFactor))
                         if int(resolution) != bin_size:
                             merged_matrix = hicMergeMatrixBins.merge_bins(
-                            hic_matrix_res, _mergeFactor)
+                                hic_matrix_res, _mergeFactor)
                         else:
                             merged_matrix = hic_matrix_res
                         append = False

@@ -237,12 +237,11 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
     return expected_interactions
 
 
-
 def expected_interactions_non_zero(pSubmatrix):
     """
         Computes the expected number of interactions per distance
     """
-    
+
     expected_interactions = np.zeros(pSubmatrix.shape[0])
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
@@ -260,15 +259,16 @@ def expected_interactions_non_zero(pSubmatrix):
 
     return expected_interactions
 
+
 def expected_interactions(pSubmatrix):
     """
         Computes the expected number of interactions per distance
     """
-    
+
     expected_interactions = np.zeros(pSubmatrix.shape[0])
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
-    occurrences = np.arange(pSubmatrix.shape[0]+1, 1, -1)
+    occurrences = np.arange(pSubmatrix.shape[0] + 1, 1, -1)
     # occurences = np.zeros(pSubmatrix.shape[0])
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
@@ -281,6 +281,7 @@ def expected_interactions(pSubmatrix):
     expected_interactions[mask] = 0
 
     return expected_interactions
+
 
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
@@ -354,6 +355,7 @@ def obs_exp_matrix_non_zero(pSubmatrix):
         pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
     return pSubmatrix
 
+
 def obs_exp_matrix(pSubmatrix):
     """
         Creates normalized contact matrix M* by
@@ -377,6 +379,8 @@ def obs_exp_matrix(pSubmatrix):
         pSubmatrix.data /= expected
         pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
     return pSubmatrix
+
+
 def toString(s):
     """
     This takes care of python2/3 differences

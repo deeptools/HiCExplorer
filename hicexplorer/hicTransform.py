@@ -39,7 +39,7 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--method', '-me',
                            help='Transformation method to use for input matrix. Transformation is computed per chromosome.',
-                           choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero','pearson', 'covariance', 'norm'],
+                           choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', 'pearson', 'covariance', 'norm'],
                            default='obs_exp')
 
     parserOpt.add_argument('--chromosomes',
@@ -86,6 +86,7 @@ def _obs_exp_norm(pSubmatrix):
     obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
     return obs_exp_matrix_
 
+
 def _obs_exp(pSubmatrix):
 
     obs_exp_matrix_ = obs_exp_matrix(pSubmatrix)
@@ -93,12 +94,14 @@ def _obs_exp(pSubmatrix):
     obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
     return obs_exp_matrix_
 
+
 def _obs_exp_non_zero(pSubmatrix):
 
     obs_exp_matrix_ = obs_exp_matrix_non_zero(pSubmatrix)
     obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
     obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
     return obs_exp_matrix_
+
 
 def main(args=None):
 
@@ -114,7 +117,6 @@ def main(args=None):
     if args.chromosomes:
         hic_ma.keepOnlyTheseChr(args.chromosomes)
 
-    
     trasf_matrix = lil_matrix(hic_ma.matrix.shape)
 
     if args.method == 'norm':
@@ -175,12 +177,11 @@ def main(args=None):
 
                 trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_pearson(submatrix.todense()))
         else:
-            trasf_matrix= csr_matrix(_pearson(hic_ma.matrix.todense()))
-
+            trasf_matrix = csr_matrix(_pearson(hic_ma.matrix.todense()))
 
     elif args.method == 'covariance':
         if args.perChromosome:
-        
+
             for chrname in hic_ma.getChrNames():
                 chr_range = hic_ma.getChrBinRange(chrname)
                 submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]

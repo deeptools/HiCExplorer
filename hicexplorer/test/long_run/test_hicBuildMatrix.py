@@ -86,8 +86,8 @@ def test_build_matrix_cooler_multiple():
     outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
     args = "-s {} {} --outFileName {} -bs 5000 10000 20000 -b /tmp/test.bam --QCfolder {} --threads 4".format(sam_R1, sam_R2,
-                                                                                                  outfile.name,
-                                                                                                  qc_folder).split()
+                                                                                                              outfile.name,
+                                                                                                              qc_folder).split()
     hicBuildMatrix.main(args)
 
     test_5000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.cool::/resolutions/5000")
@@ -97,7 +97,6 @@ def test_build_matrix_cooler_multiple():
     new_5000 = hm.hiCMatrix(outfile.name + '::/resolutions/5000')
     new_10000 = hm.hiCMatrix(outfile.name + '::/resolutions/10000')
     new_20000 = hm.hiCMatrix(outfile.name + '::/resolutions/20000')
-
 
     nt.assert_equal(test_5000.matrix.data, new_5000.matrix.data)
     nt.assert_equal(test_10000.matrix.data, new_10000.matrix.data)
@@ -140,6 +139,7 @@ def test_build_matrix_cooler_multiple():
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
+
 
 def test_build_matrix_rf():
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)

@@ -54,13 +54,14 @@ def test_hicConvertFormat_h5_to_cool():
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     # os.unlink(outfile.name)
 
+
 def test_hicConvertFormat_h5_to_cool_enforce_integer():
 
     # original_matrix = ''
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
 
-    args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat cool ".format(original_matrix_h5_li, outfile.name).split()
+    args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat cool ".format(original_matrix_cool, outfile.name).split()
     hicConvertFormat.main(args)
 
     test = hm.hiCMatrix(original_matrix_cool)
@@ -70,6 +71,7 @@ def test_hicConvertFormat_h5_to_cool_enforce_integer():
     print('issubclass(test.matrix.data.dtype.type, np.integer) {}'.format(issubclass(test.matrix.data.dtype.type, np.integer)))
     assert issubclass(test.matrix.data.dtype.type, np.integer)
 
+
 def test_hicConvertFormat_h5_to_homer():
     pass
     # os.unlink(outfile.name)
@@ -77,13 +79,13 @@ def test_hicConvertFormat_h5_to_homer():
 
 def test_hicConvertFormat_h5_to_ginteractions():
     pass
-   
+
     # os.unlink(outfile.name)
 
 
 def test_hicConvertFormat_h5_to_mcool():
     pass
-   
+
     # os.unlink(outfile.name)
 
 

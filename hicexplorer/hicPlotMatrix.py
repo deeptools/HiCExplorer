@@ -34,6 +34,7 @@ import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
+
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      description='Creates a Heatmap of a HiC matrix.')

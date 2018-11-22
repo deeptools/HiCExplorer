@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
+
 def test_average_regions():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='average_region', delete=False)
@@ -23,8 +24,8 @@ def test_average_regions():
     res = compare_images(ROOT + '/hicPlotAverageRegions/defaults.png', outfile.name, tol=40)
     assert res is None, res
 
-    
     os.remove(outfile.name)
+
 
 def test_average_regions_plot_log():
 
@@ -36,6 +37,7 @@ def test_average_regions_plot_log():
     res = compare_images(ROOT + '/hicPlotAverageRegions/defaults_log.png', outfile.name, tol=40)
     assert res is None, res
     os.remove(outfile.name)
+
 
 def test_average_regions_plot_log1p():
 

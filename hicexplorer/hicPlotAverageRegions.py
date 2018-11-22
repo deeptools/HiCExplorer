@@ -14,8 +14,10 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
 import numpy as np
-from  scipy.ndimage import  rotate
+from scipy.ndimage import rotate
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
@@ -71,7 +73,7 @@ def parse_arguments(args=None):
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-    
+
     matrix = load_npz(args.matrix)
 
     matrix = matrix.toarray()
@@ -80,8 +82,8 @@ def main(args=None):
     matrix = rotate(matrix, 45)
     matrix_shapes = matrix.shape
     # log.debug('matrix.shapes {}'.format(matrix_shapes))
-    matrix = matrix[:matrix_shapes[0]//2, :]
-    norm=None
+    matrix = matrix[:matrix_shapes[0] // 2, :]
+    norm = None
     if args.vMax is not None or args.vMin is not None:
         matrix = matrix.clip(min=args.vMin, max=args.vMax)
     if args.log1p or args.log:

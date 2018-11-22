@@ -39,7 +39,7 @@ its total contacts of all other TADs.""")
                         help='Name for the resulting matrix file.',
                         required=True)
     parser.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
+                        version='%(prog)s {}'.format(__version__))
     return parser
 
 

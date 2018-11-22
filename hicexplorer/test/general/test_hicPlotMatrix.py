@@ -310,7 +310,6 @@ def test_hicPlotMatrix_perChr():
         os.remove(outfile.name)
 
 
-
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_cool_perChr_log1p():

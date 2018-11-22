@@ -208,8 +208,6 @@ def test_pca_bigwig_gene_density_intermediate_matrices_norm():
 
     test_pearson_h5 = hm.hiCMatrix(ROOT + "hicPCA/pearson_norm.h5")
 
-
-
     nt.assert_array_almost_equal(test_pearson.matrix.data, new_pearson.matrix.data, decimal=DELTA_DECIMAL)
     nt.assert_array_almost_equal(test_obs_exp.matrix.data, new_obs_exp.matrix.data, decimal=DELTA_DECIMAL)
 

@@ -10,6 +10,7 @@ log = logging.getLogger(__name__)
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
+
 def test_average_regions():
 
     outfile = NamedTemporaryFile(suffix='.npz', prefix='average_region', delete=False)
@@ -26,6 +27,7 @@ def test_average_regions():
     nt.assert_almost_equal(test_file.data, new_file.data, decimal=0)
 
     os.remove(outfile.name)
+
 
 def test_average_regions_range_in_bins():
 

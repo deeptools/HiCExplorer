@@ -13,6 +13,8 @@ original_matrix = ROOT + "small_test_matrix_50kb_res.h5"
 original_matrix_cool = ROOT + "small_test_matrix.cool"
 
 DELTA_DECIMAL = 0
+
+
 def test_hic_transfer_obs_exp():
 
     outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
@@ -26,6 +28,7 @@ def test_hic_transfer_obs_exp():
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
+
 
 def test_hic_transfer_obs_exp_perChromosome():
 
@@ -41,6 +44,7 @@ def test_hic_transfer_obs_exp_perChromosome():
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
 
+
 def test_hic_transfer_obs_exp_non_zero():
 
     outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
@@ -55,6 +59,7 @@ def test_hic_transfer_obs_exp_non_zero():
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
 
+
 def test_hic_transfer_obs_exp_non_zero_perChromosome():
 
     outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
@@ -68,6 +73,7 @@ def test_hic_transfer_obs_exp_non_zero_perChromosome():
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
+
 
 def test_hic_transfer_obs_exp_lieberman():
     outfile = NamedTemporaryFile(suffix='obs_exp_lieberman_.h5', delete=False)
@@ -95,6 +101,7 @@ def test_hic_transfer_obs_exp_norm():
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
+
 
 def test_hic_transfer_obs_exp_norm_perChromosome():
     outfile = NamedTemporaryFile(suffix='obs_exp_norm_.h5', delete=False)
@@ -137,6 +144,7 @@ def test_hic_transfer_pearson_perChromosome():
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
 
+
 def test_hic_transfer_covariance():
     outfile = NamedTemporaryFile(suffix='covariance_.h5', delete=False)
     outfile.close()
@@ -148,6 +156,7 @@ def test_hic_transfer_covariance():
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
+
 
 def test_hic_transfer_covariance_perChromosome():
     outfile = NamedTemporaryFile(suffix='covariance_.h5', delete=False)
