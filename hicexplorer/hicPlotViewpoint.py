@@ -8,6 +8,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
+from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
@@ -50,7 +51,8 @@ def parse_arguments(args=None):
                            'ouput is a raster graphics image (e.g png, jpg)',
                            type=int,
                            default=300)
-
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     return parser

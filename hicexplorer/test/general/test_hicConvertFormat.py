@@ -23,8 +23,6 @@ ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 original_matrix_h5 = ROOT + "/small_test_matrix.h5"
 original_matrix_cool = ROOT + "/small_test_matrix.cool"
 
-original_matrix_h5_li = ROOT + "/small_test_matrix.h5"
-original_matrix_cool_li = ROOT + "/small_test_matrix.cool"
 # test cases for:
 #   - h5 to cool
 #   - h5 to homer

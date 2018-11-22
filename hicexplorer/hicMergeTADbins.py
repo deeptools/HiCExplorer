@@ -9,6 +9,7 @@ from past.builtins import zip
 from builtins import range
 import numpy as np
 from hicexplorer.utilities import toString
+from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
@@ -37,7 +38,8 @@ its total contacts of all other TADs.""")
     parser.add_argument('--outFile', '-o',
                         help='Name for the resulting matrix file.',
                         required=True)
-
+    parser.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
     return parser
 
 
