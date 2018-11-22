@@ -68,9 +68,9 @@ def parse_arguments(args=None):
     return parser
 
 
-def main():
+def main(args=None):
 
-    args = parse_arguments().parse_args()
+    args = parse_arguments().parse_args(args)
     
     matrix = load_npz(args.matrix)
 
