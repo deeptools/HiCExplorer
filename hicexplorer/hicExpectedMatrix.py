@@ -6,7 +6,6 @@ import numpy as np
 import os
 from unidecode import unidecode
 from hicmatrix import HiCMatrix as hm
-from hicexplorer.utilities import convertInfsToZeros_ArrayFloat
 import warnings
 
 def parse_arguments():
@@ -28,7 +27,7 @@ def expected_interactions(matrix):
     row, col = matrix.nonzero()
     distance = np.absolute(row - col)
     occurences = np.arange(matrix.shape[0], 0, -1)
-    
+
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += matrix.data[i]
     expected_interactions /= occurences
@@ -49,8 +48,8 @@ def _expected_matrix(matrix):
         data_type = type(matrix.data[0])
         expected = expected_interactions_in_distance_[distance]
         matrix.data = matrix.data.astype(np.float32)
-        matrix.data /= expected
-        matrix.data = convertInfsToZeros_ArrayFloat(matrix.data).astype(data_type)
+        matrix.data = expected
+        matrix.data = np.nan_to_num(matrix.data).astype(data_type)
     return matrix
 
 
