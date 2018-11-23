@@ -61,7 +61,7 @@ def test_hicConvertFormat_h5_to_cool_enforce_integer():
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
 
-    args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat cool ".format(original_matrix_cool, outfile.name).split()
+    args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat cool ".format(original_matrix_h5, outfile.name).split()
     hicConvertFormat.main(args)
 
     test = hm.hiCMatrix(original_matrix_cool)
