@@ -219,7 +219,7 @@ the covariance matrix are computed. All these steps are computed with the comman
 
 .. code-block:: bash
 
-   $ hicPCA -m hic_corrected.h5 --outFileName pca1.bedgraph pca2.bedgraph 
+   $ hicPCA -m hic_corrected.h5 --outFileName pca1.bw pca2.bw --format bigwig 
 
 If the intermediate matrices of this process should be used for plotting run:
  
@@ -233,7 +233,7 @@ The A / B compartments can be plotted with :ref:`hicPlotMatrix`.
 
 .. code-block:: bash
 
-   $ hicPlotMatrix -m pearson_all.h5 --outFileName pca1.png --perChr --pca pca1.bedgraph
+   $ hicPlotMatrix -m pearson_all.h5 --outFileName pca1.png --perChr --bigwig pca1.bw
 
 //.. figure:: ../images/eigenvector1_lieberman.png
 //    :scale: 90 %

@@ -40,13 +40,12 @@ tool                            description
 :ref:`hicPlotMatrix`             Plots a Hi-C matrix as a heatmap
 :ref:`hicPlotTADs`               Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
 :ref:`hicPlotViewpoint`          A plot with the interactions around a reference point or region.
-:ref:`hicAggreagteContacts`      A tool that allows plotting of aggregated Hi-C sub-matrices of a specified list of positions.
+:ref:`hicAggregateContacts`      A tool that allows plotting of aggregated Hi-C sub-matrices of a specified list of positions.
 :ref:`hicSumMatrices`            Adds Hi-C matrices of the same size
 :ref:`hicPlotDistVsCounts`       Plots distance vs. Hi-C counts of corrected data
 :ref:`hicExport`                 Export matrix to text formats
 :ref:`hicInfo`                   Shows information about a Hi-C matrix file (no. of bins, bin length, sum, max, min, etc)
 :ref:`hicCompareMatrices`        Computes difference or ratio between two matrices
-:ref:`hicLog2Ratio`              Computes the log2 ratio between two matrices.
 =============================== ==========================================================================================================================================================
 
 

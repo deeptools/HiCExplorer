@@ -3,6 +3,8 @@ import sys
 import numpy as np
 import argparse
 from matplotlib import use as mplt_use
+from hicexplorer.hicExpectedMatrix import expected_interactions
+
 mplt_use('Agg')
 from unidecode import unidecode
 import cooler
@@ -260,28 +262,6 @@ def expected_interactions_non_zero(pSubmatrix):
     return expected_interactions
 
 
-def expected_interactions(pSubmatrix):
-    """
-        Computes the expected number of interactions per distance
-    """
-
-    expected_interactions = np.zeros(pSubmatrix.shape[0])
-    row, col = pSubmatrix.nonzero()
-    distance = np.absolute(row - col)
-    occurrences = np.arange(pSubmatrix.shape[0] + 1, 1, -1)
-    # occurences = np.zeros(pSubmatrix.shape[0])
-    for i, distance_ in enumerate(distance):
-        expected_interactions[distance_] += pSubmatrix.data[i]
-        # occurences[distance_] += 1
-    expected_interactions /= occurrences
-
-    mask = np.isnan(expected_interactions)
-    expected_interactions[mask] = 0
-    mask = np.isinf(expected_interactions)
-    expected_interactions[mask] = 0
-
-    return expected_interactions
-
 
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
@@ -366,18 +346,16 @@ def obs_exp_matrix(pSubmatrix):
         exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
 
     """
-
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix)
     row, col = pSubmatrix.nonzero()
-    distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
+    distance = np.absolute(row - col).astype(np.int32)
 
     if len(pSubmatrix.data) > 0:
-        data_type = type(pSubmatrix.data[0])
-
         expected = expected_interactions_in_distance_[distance]
         pSubmatrix.data = pSubmatrix.data.astype(np.float32)
         pSubmatrix.data /= expected
-        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data)
+
     return pSubmatrix
 
 
