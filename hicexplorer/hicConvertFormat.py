@@ -4,6 +4,7 @@ import argparse
 from hicexplorer._version import __version__
 # from hicexplorer.hicMergeMatrixBins import merge_bins
 # import numpy as np
+from scipy.sparse import triu
 import sys
 from hic2cool import hic2cool_convert
 import logging
@@ -167,7 +168,11 @@ def main(args=None):
             log.debug('Setting done')
 
             if args.outputFormat in ['cool', 'h5', 'homer', 'ginteractions']:
-
+                if args.outputFormat in ['homer', 'ginteractions']:
+                    # make it a upper triangular matrix in case it is not already
+                    _matrix = triu(_matrix)
+                    # make it a full symmetrical matrix
+                    _matrix = _matrix.maximum(A.T)
                 matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5)
 
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
@@ -179,10 +184,10 @@ def main(args=None):
                 log.debug('outformat is mcool')
                 if args.resolutions and len(args.matrices) > 1:
                     log.error(
-                        'Please define either one matrix and many resolutions which should be created.')
+                        'Please define one matrix and many resolutions which should be created or multiple matrices.')
                 if args.resolutions:
                     log.info(
-                        'Correction factors are removed. They are not valid for any new created resolution')
+                        'Correction factors are removed. They are not valid for any new created resolution.')
                     hic_matrix = HiCMatrix.hiCMatrix()
                     hic_matrix.setMatrix(_matrix, cut_intervals)
 
