@@ -36,7 +36,8 @@ def test_cool_specific_trivial_run(
     # get suffix of input matrix without the dot
     inputFormat = Path(matrices).suffix[1:]
     # create file corresponding to output format
-    outFileName = NamedTemporaryFile(suffix=".{}".format(outputFormat), delete=True)
+    outFileName = NamedTemporaryFile(suffix="test_ConvertFormat_trivial_run_cool.{}".format(outputFormat), delete=False)
+    outFileName.close()
 
     args = "--matrices {} --outFileName {} --outputFormat {} --inputFormat {} --correction_name {} {} {} --chromosome {} {} {}".format(
         matrices,
