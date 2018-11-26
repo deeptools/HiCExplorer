@@ -74,6 +74,22 @@ jobs:
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs_2.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs_2.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs_2.py
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs_2.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
       script: py.test hicexplorer/test/long_run/test_hicBuildMatrix.py
     - stage: test
       os: osx
@@ -135,8 +151,6 @@ jobs:
       os: osx
       env: TRAVIS_PYTHON_VERSION=3.6
       script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py
-<<<<<<< HEAD
-=======
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=2.7
@@ -169,4 +183,3 @@ jobs:
       os: osx
       env: TRAVIS_PYTHON_VERSION=3.6
       script: travis_wait 40 py.test hicexplorer/test/long_run/test_hicConvertFromat_trivial_runs_cool.py
->>>>>>> 5e13ae1... rework .travis.yml to run new long_run tests for hicConvertFromat
