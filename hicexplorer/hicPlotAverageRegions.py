@@ -1,9 +1,6 @@
 from __future__ import division
 import argparse
-from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString
-from hicmatrix.HiCMatrix import check_cooler
 import logging
 log = logging.getLogger(__name__)
 from scipy.sparse import load_npz
@@ -11,8 +8,6 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.gridspec as gridspec
 import numpy as np
 from scipy.ndimage import rotate
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -24,7 +19,8 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-
+        hicPlotAverage regions plots the data computed by hicAverageRegions. It shows the summed up and averaged regions around
+        all given reference points. This is useful to determine the difference between samples if the TAD configuration is equal or changed.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -35,6 +31,7 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--outputFile', '-o',
                                 help='The averaged regions plot.',
                                 required=True)
+
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--log1p',
                            help='Plot the log1p of the matrix values.',
@@ -78,10 +75,8 @@ def main(args=None):
 
     matrix = matrix.toarray()
     matrix = np.triu(matrix)
-    # log.debug('matrix {}'.format(matrix))
     matrix = rotate(matrix, 45)
     matrix_shapes = matrix.shape
-    # log.debug('matrix.shapes {}'.format(matrix_shapes))
     matrix = matrix[:matrix_shapes[0] // 2, :]
     norm = None
     if args.vMax is not None or args.vMin is not None:
@@ -91,8 +86,6 @@ def main(args=None):
         mask = matrix == 0
         mask_nan = np.isnan(matrix)
         mask_inf = np.isinf(matrix)
-        # log.debug("any nan {}".format(np.isnan(matrix).any()))
-        # log.debug("any inf {}".format(np.isinf(matrix).any()))
 
         try:
             matrix[mask] = np.nanmin(matrix[mask == False])
@@ -112,7 +105,6 @@ def main(args=None):
     matrix_axis = axis.matshow(matrix, cmap=args.colorMap, norm=norm)
     divider = make_axes_locatable(axis)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    # axis.set_frame_on(False)
     axis.xaxis.set_visible(False)
     axis.yaxis.set_visible(False)
 

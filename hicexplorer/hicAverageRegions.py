@@ -2,8 +2,6 @@ from __future__ import division
 import argparse
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString
-from hicmatrix.HiCMatrix import check_cooler
 import logging
 log = logging.getLogger(__name__)
 import numpy as np
@@ -16,15 +14,15 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-
+        Sums the interactions around given reference points together and computes an average TAD.
+        This is useful to detect differences in TAD structures between samples.
+        WARNING: Please use it only for fixed bin size interaction matrices. No guarantees how and if it works on restriction site interaction matrices.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrix', '-m',
-                                help='The matrix (or multiple matrices) to get information about. '
-                                'HiCExplorer supports the following file formats: h5 (native HiCExplorer format) '
-                                'and cool.',
+                                help='The matrix to use for the average of TAD regions.',
                                 required=True)
     parserRequired.add_argument('--regions', '-r',
                                 help='BED file which stores a list of regions that are summed and averaged',
@@ -39,7 +37,7 @@ def parse_arguments(args=None):
                                               nargs=2,
                                               type=int)
     parserRequired.add_argument('--outFileName', '-out',
-                                help='File name to save the adjusted matrix.')
+                                help='File name to save the average regions TADs matrix.')
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')

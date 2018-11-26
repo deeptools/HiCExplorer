@@ -25,9 +25,9 @@ Bianca Habermann, Asifa Akhtar, Thomas Manke.
 "High-resolution TADs reveal DNA sequences underlying genome organization in flies".
 Nature Communications, Volume 9, Article number: 189 (2018), doi: https://doi.org/10.1038/s41467-017-02525-w
 
-Joachim Wolff, Vivek Bhardwaj, Stephan Nothjunge, Gautier Richard, Gina Renschler, Ralf Gilsbach, 
-Thomas Manke, Rolf Backofen, Fidel Ramírez, Björn A Grüning. 
-"Galaxy HiCExplorer: a web server for reproducible Hi-C data analysis, quality control and visualization", 
+Joachim Wolff, Vivek Bhardwaj, Stephan Nothjunge, Gautier Richard, Gina Renschler, Ralf Gilsbach,
+Thomas Manke, Rolf Backofen, Fidel Ramírez, Björn A Grüning.
+"Galaxy HiCExplorer: a web server for reproducible Hi-C data analysis, quality control and visualization",
 Nucleic Acids Research, Volume 46, Issue W1, 2 July 2018, Pages W11–W16, doi: https://doi.org/10.1093/nar/gky504
 
 The following is the list of tools:
@@ -53,7 +53,7 @@ The following is the list of tools:
    hicAdjustMatrix          Remove, keep or mask specific regions in a matrix
    hicAverageRegions        Sum up defined reference points and a range up/downstream of it. Useful for TAD analysis
    hicPlotAverageRegions    Plot tool for hicAverageRegions
-   hicNormalize             Normalizes matrices to 0 1 range or to lowest read coverage 
+   hicNormalize             Normalizes matrices to 0 1 range or to lowest read coverage
    hicConvertFormat         Converter for different interaction matrix file formats.
 
 For more information visit: http://hicexplorer.readthedocs.org

@@ -5,7 +5,6 @@ import numpy.testing as nt
 
 from tempfile import NamedTemporaryFile
 import os
-from os.path import basename, dirname
 
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
