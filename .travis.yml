@@ -14,6 +14,7 @@ stages:
 # Setup anaconda
 before_install:
   - export HIC_TEST_DATA_DIR="`pwd`/hicexplorer/test/test_data/"
+  - export PYTHONWARNINGS="ignore"
   - echo $HIC_TEST_DATA_DIR
   - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then curl https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o miniconda.sh ; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh ; fi
@@ -47,6 +48,7 @@ jobs:
         - bash miniconda.sh -b -p $HOME/miniconda
         - PATH_WITHOUT_CONDA="$PATH"
         - export PATH="$HOME/miniconda/bin:$PATH"
+        - export PYTHONWARNINGS="ignore"
         - hash -r
         - conda config --set always_yes yes --set changeps1 no
         - conda update -q conda
