@@ -2,7 +2,14 @@ import os.path
 from tempfile import NamedTemporaryFile
 from hicexplorer import hicConvertFormat
 import pytest
+from hicmatrix import HiCMatrix as hm
+import numpy.testing as nt
+import numpy as np
 
+REMOVE_OUTPUT = True
+# DIFF = 60
+
+DELTA_DECIMAL = 0
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/hicConvertFormat")
 original_matrix_h5 = ROOT + "/small_test_matrix.h5"
 original_matrix_cool = ROOT + "/small_test_matrix.cool"
