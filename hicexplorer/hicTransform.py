@@ -121,7 +121,7 @@ def main(args=None):
 
     trasf_matrix = lil_matrix(hic_ma.matrix.shape)
 
-    if args.method == 'norm':
+    if args.method == 'obs_exp_norm':
         trasf_matrix = lil_matrix(hic_ma.matrix.shape)
         if args.perChromosome:
             for chrname in hic_ma.getChrNames():
