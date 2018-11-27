@@ -25,6 +25,9 @@ log = logging.getLogger(__name__)
 
 # this is a holder vor the
 hic_ma = None
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments(args=None):

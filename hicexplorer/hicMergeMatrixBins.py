@@ -11,6 +11,10 @@ from hicmatrix import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
 from hicexplorer._version import __version__
 
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 
 def parse_arguments(args=None):
 

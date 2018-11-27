@@ -6,6 +6,9 @@ import logging
 log = logging.getLogger(__name__)
 import numpy as np
 from scipy.sparse import csr_matrix, save_npz
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments(args=None):

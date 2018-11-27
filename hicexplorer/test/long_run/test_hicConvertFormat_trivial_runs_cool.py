@@ -5,7 +5,9 @@ import pytest
 from hicmatrix import HiCMatrix as hm
 import numpy.testing as nt
 import numpy as np
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 REMOVE_OUTPUT = True
 # DIFF = 60
 

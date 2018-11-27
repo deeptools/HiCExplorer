@@ -5,7 +5,9 @@ import os
 import numpy as np
 import numpy.testing as nt
 from scipy.sparse import csr_matrix
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 # ROOT = os.path.dirname(os.path.abspath(__file__)) + "/test_data/"
 # original_matrix = ROOT + "small_test_matrix_50kb_res"
 

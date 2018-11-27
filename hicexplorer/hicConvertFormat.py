@@ -17,6 +17,10 @@ from hicmatrix import HiCMatrix
 
 from copy import deepcopy
 
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 
 def parse_arguments(args=None):
     """

@@ -12,6 +12,9 @@ from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 import logging
 log = logging.getLogger(__name__)
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments(args=None):

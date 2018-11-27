@@ -12,6 +12,10 @@ log = logging.getLogger(__name__)
 from .utilities import convertNansToZeros
 from .utilities import remove_outliers
 
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 
 def parse_arguments(args=None):
     """

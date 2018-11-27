@@ -4,7 +4,9 @@ import os
 from psutil import virtual_memory
 
 import hicexplorer.hicAggregateContacts
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 mem = virtual_memory()
 memory = mem.total / 2**30
 

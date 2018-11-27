@@ -5,7 +5,9 @@
 import pytest
 import re
 import os
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data/")
 
 

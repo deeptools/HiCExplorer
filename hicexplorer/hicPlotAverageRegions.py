@@ -12,6 +12,10 @@ import numpy as np
 from scipy.ndimage import rotate
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 
 def parse_arguments(args=None):
 

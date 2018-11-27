@@ -4,7 +4,9 @@ from tempfile import NamedTemporaryFile
 
 from hicexplorer import hicAdjustMatrix
 
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 matrix = ROOT + 'small_test_matrix_50kb_res.h5'
 outfile = NamedTemporaryFile(suffix='.h5', prefix='test_matrix', delete=True)
