@@ -36,7 +36,6 @@ install:
 # command to run tests
 script:
   - py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
-  - py.test hicexplorer/test/general/ --doctest-modules --capture=sys
   - py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
 jobs:
   include:
@@ -55,6 +54,298 @@ jobs:
         - conda install --yes python=2.7 flake8
       script:
         - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504 ; fi
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicAdjustMatrix.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicAdjustMatrix.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicAdjustMatrix.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicAdjustMatrix.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicAggregateContacts.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicAggregateContacts.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicAggregateContacts.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicAggregateContacts.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicAverageRegions.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicAverageRegions.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicAverageRegions.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicAverageRegions.py --doctest-modules --capture=sys
+
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicConvertFormat.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicConvertFormat.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicConvertFormat.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicConvertFormat.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicCorrectMatrix.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicCorrectMatrix.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicCorrectMatrix.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicCorrectMatrix.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicCorrelate.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicCorrelate.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicCorrelate.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicCorrelate.py --doctest-modules --capture=sys
+
+    
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicFindEnrichedContacts.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicFindEnrichedContacts.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicFindEnrichedContacts.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicFindEnrichedContacts.py --doctest-modules --capture=sys
+
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicFindTADs.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicFindTADs.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicFindTADs.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicFindTADs.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicMergeMatrixBins.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicMergeMatrixBins.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicMergeMatrixBins.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicMergeMatrixBins.py --doctest-modules --capture=sys
+      
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicNormalize.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicNormalize.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicNormalize.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicNormalize.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPCA.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPCA.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPCA.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPCA.py --doctest-modules --capture=sys
+  
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPlotAverageRegions.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPlotAverageRegions.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPlotAverageRegions.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPlotAverageRegions.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPlotDistVsCounts.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPlotDistVsCounts.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPlotDistVsCounts.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPlotDistVsCounts.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPlotMatrix.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPlotMatrix.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPlotMatrix.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPlotMatrix.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPlotTADs.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPlotTADs.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPlotTADs.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPlotTADs.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPlotViewpoint.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicPlotViewpoint.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPlotViewpoint.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicPlotViewpoint.py --doctest-modules --capture=sys
+
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicTransform.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=2.7
+      script: py.test hicexplorer/test/general/test_hicTransform.py --doctest-modules --capture=sys
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicTransform.py --doctest-modules --capture=sys
+    - stage: test
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.6
+      script: py.test hicexplorer/test/general/test_hicTransform.py --doctest-modules --capture=sys
+
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=2.7
