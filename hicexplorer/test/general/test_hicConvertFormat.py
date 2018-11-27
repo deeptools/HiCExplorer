@@ -4,15 +4,6 @@ from hicexplorer import hicConvertFormat
 from hicmatrix import HiCMatrix as hm
 import numpy.testing as nt
 import numpy as np
-import pytest
-from psutil import virtual_memory
-mem = virtual_memory()
-memory = mem.total / 2 ** 30
-
-# memory in GB the test computer needs to have to run the test case
-LOW_MEMORY = 2
-MID_MEMORY = 7
-HIGH_MEMORY = 200
 
 REMOVE_OUTPUT = True
 # DIFF = 60

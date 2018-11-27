@@ -4,6 +4,7 @@ import argparse
 from hicexplorer._version import __version__
 # from hicexplorer.hicMergeMatrixBins import merge_bins
 # import numpy as np
+from scipy.sparse import triu
 import sys
 from hic2cool import hic2cool_convert
 import logging
@@ -23,7 +24,13 @@ def parse_arguments(args=None):
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Conversion of Hi-C matrices of different file formats to cool.',
+        description='Conversion of Hi-C matrices of different file formats. We support the conversion of hic to cool format via hic2cool, '
+                    'and homer, HicPro, h5 and cool format to h5, cool, homer or ginteractions format. Moreover, hicConvertFormat accepts multiple input files '
+                    ' from one format with different resolutions and creates a mcool file. Each original file is stored under the path e.g. ::/resolutions/10000. '
+                    ' A batch computation is possible, the number of input files and output files needs to match, all input files need to be of the same format type and '
+                    ' all output files too. '
+                    'For input and output of cooler files special options are available, for all other formats they will be ignored.'
+                    'HiCPro file format needs an additional bed file as input.',
         add_help=False)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -57,10 +64,6 @@ def parse_arguments(args=None):
                                          'ginteractions', 'mcool'],
                                 required=True)
 
-    # parserRequired.add_argument("--modus", "-mo",
-    #                             choices=['resolution', 'combineSample', 'resolutionAndCombineSample', 'hic2cool'],
-    #                             default='resolution',
-    #                             help="Store different sample in one mcool file.")
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--correction_name',
@@ -86,8 +89,7 @@ def parse_arguments(args=None):
                            nargs='+',
                            help='List of resolutions that should be added.')
     parserOpt.add_argument("--help", "-h", action="help",
-                           help='A conversion is only possible from '
-                           'hic to cool, homer to [cool, h5], h5 to cool or cool to h5. '
+                           help="show this help message and exit."
                            )
 
     parserOpt.add_argument('--version', action='version',
@@ -166,7 +168,11 @@ def main(args=None):
             log.debug('Setting done')
 
             if args.outputFormat in ['cool', 'h5', 'homer', 'ginteractions']:
-
+                if args.outputFormat in ['homer', 'ginteractions']:
+                    # make it a upper triangular matrix in case it is not already
+                    _matrix = triu(_matrix)
+                    # make it a full symmetrical matrix
+                    _matrix = _matrix.maximum(A.T)
                 matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5)
 
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
@@ -178,10 +184,10 @@ def main(args=None):
                 log.debug('outformat is mcool')
                 if args.resolutions and len(args.matrices) > 1:
                     log.error(
-                        'Please define either one matrix and many resolutions which should be created.')
+                        'Please define one matrix and many resolutions which should be created or multiple matrices.')
                 if args.resolutions:
                     log.info(
-                        'Correction factors are removed. They are not valid for any new created resolution')
+                        'Correction factors are removed. They are not valid for any new created resolution.')
                     hic_matrix = HiCMatrix.hiCMatrix()
                     hic_matrix.setMatrix(_matrix, cut_intervals)
 

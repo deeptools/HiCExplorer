@@ -5,7 +5,6 @@ import numpy.testing as nt
 
 from tempfile import NamedTemporaryFile
 import os
-from os.path import basename, dirname
 
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
@@ -93,7 +92,7 @@ def test_hic_transfer_obs_exp_norm():
     outfile = NamedTemporaryFile(suffix='obs_exp_norm_.h5', delete=False)
     outfile.close()
 
-    args = "--matrix {} --outFileName {} --method norm".format(original_matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method obs_exp_norm".format(original_matrix, outfile.name).split()
     hicTransform.main(args)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_norm.h5")
@@ -107,7 +106,7 @@ def test_hic_transfer_obs_exp_norm_perChromosome():
     outfile = NamedTemporaryFile(suffix='obs_exp_norm_.h5', delete=False)
     outfile.close()
 
-    args = "--matrix {} --outFileName {} --method norm --perChromosome".format(original_matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method obs_exp_norm --perChromosome".format(original_matrix, outfile.name).split()
     hicTransform.main(args)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_norm_perChromosome.h5")

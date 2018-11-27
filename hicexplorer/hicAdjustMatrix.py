@@ -2,7 +2,6 @@ from __future__ import division
 import argparse
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString
 from hicmatrix.HiCMatrix import check_cooler
 import numpy as np
 import logging

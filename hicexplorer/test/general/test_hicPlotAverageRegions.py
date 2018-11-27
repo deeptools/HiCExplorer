@@ -1,12 +1,8 @@
 import os
 from tempfile import NamedTemporaryFile
 from hicexplorer import hicPlotAverageRegions
-import numpy.testing as nt
 from matplotlib.testing.compare import compare_images
 
-import numpy as np
-import pytest
-from scipy.sparse import load_npz
 import logging
 log = logging.getLogger(__name__)
 
