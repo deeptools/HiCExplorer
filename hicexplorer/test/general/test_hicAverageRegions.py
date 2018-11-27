@@ -1,3 +1,7 @@
+
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import os
 from tempfile import NamedTemporaryFile
 from hicexplorer import hicAverageRegions
@@ -8,10 +12,6 @@ import logging
 log = logging.getLogger(__name__)
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
-
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def test_average_regions():

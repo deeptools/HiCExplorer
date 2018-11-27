@@ -1,4 +1,7 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 from hicexplorer._version import __version__
 import logging
@@ -11,10 +14,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import rotate
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments(args=None):

@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicexplorer import hicPCA
 from hicmatrix import HiCMatrix as hm
 
@@ -7,9 +10,7 @@ import numpy.testing as nt
 import numpy as np
 import pyBigWig
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 import logging
 log = logging.getLogger(__name__)
 

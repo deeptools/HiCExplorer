@@ -1,4 +1,7 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 
 from scipy.sparse import csr_matrix, lil_matrix
@@ -12,9 +15,6 @@ from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 import logging
 log = logging.getLogger(__name__)
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments(args=None):

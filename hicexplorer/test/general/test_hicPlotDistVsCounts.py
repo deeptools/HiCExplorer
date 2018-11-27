@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicexplorer import hicPlotDistVsCounts
 from tempfile import NamedTemporaryFile
 import os
@@ -6,9 +9,7 @@ import matplotlib as mpl
 mpl.use('agg')
 import os.path
 import pytest
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 matrix = ROOT + 'small_test_matrix_50kb_res.h5'

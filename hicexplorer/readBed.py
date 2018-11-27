@@ -1,14 +1,13 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import collections
 from past.builtins import map
 from hicexplorer.utilities import toString
 
 import logging
 log = logging.getLogger(__name__)
-
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 class ReadBed(object):

@@ -5,7 +5,9 @@
     This means all tests are designed to fail if there occur any Exceptions in trivial
     calls of the code using the argparser`s arguments.
 """
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import pytest
 from tempfile import NamedTemporaryFile, mkdtemp
 import os
@@ -14,9 +16,7 @@ from psutil import virtual_memory
 
 from hicexplorer.utilities import genomicRegion
 from hicexplorer import hicBuildMatrix as hicBuildMatrix
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 mem = virtual_memory()
 memory = mem.total / 2**30
 

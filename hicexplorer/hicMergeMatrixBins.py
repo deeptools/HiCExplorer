@@ -1,4 +1,7 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 import numpy as np
 from past.builtins import zip
@@ -10,10 +13,6 @@ log = logging.getLogger(__name__)
 from hicmatrix import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
 from hicexplorer._version import __version__
-
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments(args=None):

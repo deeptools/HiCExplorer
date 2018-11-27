@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicmatrix import HiCMatrix as hm
 from hicexplorer import hicNormalize
 
@@ -5,9 +8,7 @@ from tempfile import NamedTemporaryFile
 
 import os
 import numpy.testing as nt
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/hicNormalize")
 

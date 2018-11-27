@@ -1,4 +1,7 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicexplorer import hicTransform
 from hicmatrix import HiCMatrix as hm
 import numpy.testing as nt
@@ -6,9 +9,7 @@ import numpy.testing as nt
 from tempfile import NamedTemporaryFile
 import os
 
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 original_matrix = ROOT + "small_test_matrix_50kb_res.h5"
 original_matrix_cool = ROOT + "small_test_matrix.cool"

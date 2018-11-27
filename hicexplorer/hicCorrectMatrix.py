@@ -1,4 +1,7 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 from past.builtins import zip
 from scipy.sparse import lil_matrix
@@ -15,10 +18,6 @@ debug = 0
 
 import logging
 log = logging.getLogger(__name__)
-
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments(args=None):

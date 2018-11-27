@@ -1,13 +1,13 @@
 """
     Testsuite for testing the number of collected items during pytest execution.
 """
-
-import pytest
-import re
-import os
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+import pytest
+import re
+import os
+
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data/")
 
 

@@ -1,12 +1,13 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicexplorer import hicBuildMatrix
 from hicmatrix import HiCMatrix as hm
 from tempfile import NamedTemporaryFile, mkdtemp
 import shutil
 import os
 import numpy.testing as nt
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 sam_R1 = ROOT + "small_test_R1_unsorted.bam"

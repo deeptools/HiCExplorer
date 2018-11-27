@@ -1,10 +1,11 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import os
 from tempfile import NamedTemporaryFile
 from hicexplorer import hicPlotAverageRegions
 from matplotlib.testing.compare import compare_images
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 import logging
 log = logging.getLogger(__name__)
 

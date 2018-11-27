@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from tempfile import NamedTemporaryFile
 
 import matplotlib as mpl
@@ -9,9 +12,6 @@ from psutil import virtual_memory
 mem = virtual_memory()
 memory = mem.total / 2 ** 30
 
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 import hicexplorer.hicPlotMatrix
 tolerance = 30  # default matplotlib pixed difference tolerance

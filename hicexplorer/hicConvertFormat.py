@@ -1,9 +1,9 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
-# from hicexplorer import HiCMatrix
 from hicexplorer._version import __version__
-# from hicexplorer.hicMergeMatrixBins import merge_bins
-# import numpy as np
 from scipy.sparse import triu
 import sys
 from hic2cool import hic2cool_convert
@@ -16,10 +16,6 @@ from hicexplorer import hicMergeMatrixBins
 from hicmatrix import HiCMatrix
 
 from copy import deepcopy
-
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments(args=None):

@@ -1,12 +1,13 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicexplorer import hicCorrectMatrix
 from hicmatrix import HiCMatrix as hm
 from tempfile import NamedTemporaryFile
 import os
 import numpy.testing as nt
 from matplotlib.testing.compare import compare_images
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
