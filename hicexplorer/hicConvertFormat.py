@@ -172,7 +172,7 @@ def main(args=None):
                     # make it a upper triangular matrix in case it is not already
                     _matrix = triu(_matrix)
                     # make it a full symmetrical matrix
-                    _matrix = _matrix.maximum(A.T)
+                    _matrix = _matrix.maximum(_matrix.T)
                 matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5)
 
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
