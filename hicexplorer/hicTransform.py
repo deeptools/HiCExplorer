@@ -115,14 +115,17 @@ def main(args=None):
         log.error('Accepted is .h5 or .cool')
         exit(1)
 
-    hic_ma = hm.hiCMatrix(pMatrixFile=args.matrix)
-    if args.chromosomes:
-        hic_ma.keepOnlyTheseChr(args.chromosomes)
+    if args.matrix.endswith('cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
+        hic_ma = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=args.chromosomes)
+    else:
+        hic_ma = hm.hiCMatrix(pMatrixFile=args.matrix)
+        if args.chromosomes:
+            hic_ma.keepOnlyTheseChr(args.chromosomes)
 
     trasf_matrix = lil_matrix(hic_ma.matrix.shape)
 
     if args.method == 'obs_exp_norm':
-        trasf_matrix = lil_matrix(hic_ma.matrix.shape)
+        # trasf_matrix = lil_matrix(hic_ma.matrix.shape)
         if args.perChromosome:
             for chrname in hic_ma.getChrNames():
                 chr_range = hic_ma.getChrBinRange(chrname)
@@ -168,7 +171,8 @@ def main(args=None):
             submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
             submatrix.astype(float)
             trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp_lieberman(submatrix, length_chromosome, chromosome_count))
-
+        trasf_matrix = trasf_matrix.tocsr()
+        # log.debug('type: {}'.format(type(trasf_matrix)))
     elif args.method == 'pearson':
         if args.perChromosome:
             for chrname in hic_ma.getChrNames():
