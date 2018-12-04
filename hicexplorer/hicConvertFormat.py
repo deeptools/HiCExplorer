@@ -117,10 +117,11 @@ def main(args=None):
             if args.resolutions is None:
                 hic2cool_convert(matrix, args.outFileName[i], 0)
             else:
-                out_name = args.outFileName[i].split('.')
-                out_name[-2] = out_name[-2] + '_' + str(args.resolutions)
-                out_name = '.'.join(out_name)
+                
                 for resolution in args.resolutions:
+                    out_name = args.outFileName[i].split('.')
+                    out_name[-2] = out_name[-2] + '_' + str(resolution)
+                    out_name = '.'.join(out_name)
                     hic2cool_convert(matrix, out_name, resolution)
         return
     elif args.inputFormat in ['hicpro', 'homer', 'h5', 'cool']:
