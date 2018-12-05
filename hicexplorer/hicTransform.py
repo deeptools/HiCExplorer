@@ -41,13 +41,10 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--method', '-me',
                            help='Transformation method to use for input matrix. Transformation is computed per chromosome.'
-                           'obs_exp computes the expected matrix as the sum per genomic distance j divided by maximal possible contacts: sum(diagonal(j) / number of elements in diagonal(j) '
-                           'obs_exp_lieberman computes the expected matrix as the sum per genomic distance j divided by the : sum(diagonal(j) / (length of chromosome - j))'
-                           'obs_exp_non_zero computes the expected matrix as the sum per genomic distance j divided by sum of non-zero contacts: sum(diagonal(j) / number of non-zero elements in diagonal(j)'
-                           'obs_exp_norm computes the expected matrix for exp_i,j: sum(diagonal(i-j)) * sum(row(j)) * sum(row(i)) / sum(matrix)'
+                           'obs_exp calls "convert_to_obs_exp_matrix()" from hicMatrix library'
                            'pearson computes the Pearson correlation matrix on the input matrix: Pearson_i,j = C_i,j / sqrt(C_i,i * C_j,j) and C is the covariance matrix'
                            'covariance computes the Covariance matrix on the input matrix: Cov_i,j = E[M_i, M_j] - my_i * my_j where M is the input matrix and my the mean.',
-                           choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', 'obs_exp_norm', 'pearson', 'covariance'],
+                           choices=['obs_exp', 'pearson', 'covariance'],
                            default='obs_exp')
 
     parserOpt.add_argument('--chromosomes',
@@ -66,43 +63,9 @@ def parse_arguments(args=None):
     return parser
 
 
-def _obs_exp_lieberman(pSubmatrix, pLengthChromosome, pChromosomeCount):
 
-    obs_exp_matrix_ = obs_exp_matrix_lieberman(pSubmatrix, pLengthChromosome, pChromosomeCount)
-    obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
-    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
-    return obs_exp_matrix_
-
-
-def _pearson(pSubmatrix):
-    pearson_correlation_matrix = np.corrcoef(pSubmatrix)
-    pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix))
-    pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
-    return pearson_correlation_matrix
-
-
-def _obs_exp_norm(pSubmatrix):
-
-    obs_exp_matrix_ = obs_exp_matrix_norm(pSubmatrix)
-    obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
-    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
-    return obs_exp_matrix_
-
-
-def _obs_exp(pSubmatrix):
-
-    obs_exp_matrix_ = obs_exp_matrix(pSubmatrix)
-    obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
-    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
-    return obs_exp_matrix_
-
-
-def _obs_exp_non_zero(pSubmatrix):
-
-    obs_exp_matrix_ = obs_exp_matrix_non_zero(pSubmatrix)
-    obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
-    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
-    return obs_exp_matrix_
+def _obs_exp(pSubmatrix, perchr):
+    pSubmatrix.convert_to_obs_exp_matrix(maxdepth=None, perchr=perchr)
 
 
 def main(args=None):
@@ -124,55 +87,15 @@ def main(args=None):
 
     trasf_matrix = lil_matrix(hic_ma.matrix.shape)
 
-    if args.method == 'obs_exp_norm':
-        # trasf_matrix = lil_matrix(hic_ma.matrix.shape)
+    if args.method == 'obs_exp':
+        hic_ma.maskBins(hic_ma.nan_bins)
+        hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
         if args.perChromosome:
-            for chrname in hic_ma.getChrNames():
-                chr_range = hic_ma.getChrBinRange(chrname)
-                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
-                submatrix.astype(float)
-                submatrix = _obs_exp_norm(submatrix)
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
+                _obs_exp(hic_ma, perchr=True)
         else:
-            submatrix = _obs_exp_norm(hic_ma.matrix)
-            trasf_matrix = csr_matrix(submatrix)
+                _obs_exp(hic_ma, perchr=False)
+        trasf_matrix = csr_matrix(hic_ma.matrix)
 
-    elif args.method == 'obs_exp':
-        if args.perChromosome:
-
-            for chrname in hic_ma.getChrNames():
-                chr_range = hic_ma.getChrBinRange(chrname)
-                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
-                submatrix.astype(float)
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp(submatrix))
-        else:
-            submatrix = _obs_exp(hic_ma.matrix)
-            trasf_matrix = csr_matrix(submatrix)
-
-    elif args.method == 'obs_exp_non_zero':
-        if args.perChromosome:
-
-            for chrname in hic_ma.getChrNames():
-                chr_range = hic_ma.getChrBinRange(chrname)
-                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
-                submatrix.astype(float)
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp_non_zero(submatrix))
-        else:
-            submatrix = _obs_exp(hic_ma.matrix)
-            trasf_matrix = csr_matrix(submatrix)
-    elif args.method == 'obs_exp_lieberman':
-        length_chromosome = 0
-        chromosome_count = len(hic_ma.getChrNames())
-        for chrname in hic_ma.getChrNames():
-            chr_range = hic_ma.getChrBinRange(chrname)
-            length_chromosome += chr_range[1] - chr_range[0]
-        for chrname in hic_ma.getChrNames():
-            chr_range = hic_ma.getChrBinRange(chrname)
-            submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
-            submatrix.astype(float)
-            trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp_lieberman(submatrix, length_chromosome, chromosome_count))
-        trasf_matrix = trasf_matrix.tocsr()
-        # log.debug('type: {}'.format(type(trasf_matrix)))
     elif args.method == 'pearson':
         if args.perChromosome:
             for chrname in hic_ma.getChrNames():
