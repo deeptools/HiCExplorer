@@ -442,13 +442,22 @@ In following plot we will use the listed track file. Please store it as track.in
     title = HiC mESC chrX:99974316-101359967 
     colormap = RdYlBu_r
     depth = 2000000
-    width = 7
+    height = 7
     transform = log1p
     x labels = yes
     type = interaction
     file_type = hic_matrix
-    boundaries_file =  TADs/marks_et-al_TADs_20kb-Bins_domains.bed
    
+    [tads]
+    file = TADs/marks_et-al_TADs_20kb-Bins_domains.bed
+    file_type = domains
+    border color = black
+    color = none
+    height = 5
+    line width = 1.5
+    overlay previous = share-y
+    show data range = no
+
     [x-axis]
     fontsize=16
     where=top
@@ -456,7 +465,7 @@ In following plot we will use the listed track file. Please store it as track.in
     [tad score]
     file = TADs/marks_et-al_TADs_20kb-Bins_score.bedgraph
     title = "TAD separation score"
-    width = 2
+    height = 2
     type = lines
     color = blue
     file_type = bedgraph
@@ -465,9 +474,8 @@ In following plot we will use the listed track file. Please store it as track.in
 
     [gene track]
     file = mm10_genes_sorted.bed
-    width = 10
+    height = 10
     title = "mm10 genes"
-    width = 5
     labels = off
   
 
