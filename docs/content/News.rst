@@ -1,6 +1,70 @@
 News and Developments
 =====================
 
+Release 2.2
+-----------
+**5 December 2018**
+
+This release contains:
+- replaced hicExport by hicConvertFormat and hicAdjustMatrix
+- extended functionality for hicConvertFormat:
+   - read support for homer, hicpro, cool, h5
+   - write support for h5, homer, cool
+   - convert hic to cool
+   - creation of mcool matrices
+- hicAdjustMatrix:
+  - remove, keep or mask specified regions from a file, or chromosomes
+- hicNormalize:
+  - normalize matrices to 0 - 1 range or to the read coverage of the lowest given
+- hicBuildMatrix:
+   - support for build mcool
+- restructuring the central lass HiCMatrix to object oriented model and moved to its own library: deeptools/HiCMatrix.
+  - Extended read / write support for file formats
+  - better (faster, less memory) support for cool format 
+  - remove of old, unused code
+  - restrict support to h5 and cool matrices, except hicConvertFormat 
+- hicPlotTADs: removed code and calls pyGenomeTracks
+- hicAverageRegions: Sum up in a given range around defined reference points. Useful to detect changes in TAD structures between different samples. 
+- hicPlotAverageRegions: Plots such a average region
+- hicTransform: Restructuring the source code, remove of option 'all' because it was generating confusion. Adding option 'exp_obs', exp_obs_norm and exp_obs_lieberman. These three different options use different expectation matrix computations. 
+- hicPCA: 
+   - Adding --norm option to compute the expected matrix in the way HOMER is doing it. Useful for drosophila genomes
+  - Adding option to write out the intermediate matrices 'obs_exp' and 'pearson' which are necessary in the computation of the PCA
+- hicPlotMatrix:
+  - Add option to clip bigwig values
+  - Add option to scale bigwig values
+- Removed hicLog2Ration, functionality is covered by hicCompareMatrices
+- Extending test cases to cover more source code and be hopefully more stable.
+- Many small bugfixes 
+
+
+Release 2.1.4
+-------------
+**25 May 2018**
+
+- cooler file format correction factors are applied as they should be
+- parameter '--region' of hicBuildMatrix works with Python 3
+
+Release 2.1.3
+-------------
+**7 May 2018**
+
+The third bugfix release of version 2.1 corrects an error in hicPlotViewpoint. It adds a feature requested in issue #169 which should have been included in release 2.1 but was accidentally not.
+
+From 2.1 release note:
+hicPlotViewpoint: Adds a feature to plot multiple matrices in one image
+
+Release 2.1.2
+-------------
+**26 April 2018**
+
+The second bug fix release of 2.1 includes:
+
+- documentation improvements
+- fixing broken Readthedocs documentation
+- Small bug fix concerning hicPlotMatrix and cooler: --chromosomeOrder is now possible with more than one chromosome
+- Small fixes concerning updated dependencies: Fixing version number a bit more specific and not that strict in test cases delta values.
+
 Release 2.1.1
 ------------
 **27 March 2018**
