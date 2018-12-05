@@ -43,9 +43,13 @@ tool                            description
 :ref:`hicAggregateContacts`      A tool that allows plotting of aggregated Hi-C sub-matrices of a specified list of positions.
 :ref:`hicSumMatrices`            Adds Hi-C matrices of the same size
 :ref:`hicPlotDistVsCounts`       Plots distance vs. Hi-C counts of corrected data
-:ref:`hicExport`                 Export matrix to text formats
 :ref:`hicInfo`                   Shows information about a Hi-C matrix file (no. of bins, bin length, sum, max, min, etc)
 :ref:`hicCompareMatrices`        Computes difference or ratio between two matrices
+:ref:`hicAverageRegions`         Computes the average of multiple given regions, usually TAD regions
+:ref:`hicPlotAverageRegions`     visualization of hicAverageRegions
+:ref:`hicNormalize`              Normalizes the given matrices to 0-1 range or the smallest read coverage
+:ref:`hicConvertFormat`          Converts between different Hi-C interaction matrices
+:ref:`hicAdjustMatrix`           Keeps, removes or masks regions in a Hi-C matrix
 =============================== ==========================================================================================================================================================
 
 
@@ -76,6 +80,9 @@ Please cite HiCExplorer as follows:
 
 Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening,Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke.
 **"High-resolution TADs reveal DNA sequences underlying genome organization in flies". Nature Communications**, Volume 9, Article number: 189 (2018), doi: https://doi.org/10.1038/s41467-017-02525-w
+
+Joachim Wolff, Vivek Bhardwaj, Stephan Nothjunge, Gautier Richard, Gina Renschler, Ralf Gilsbach, Thomas Manke, Rolf Backofen, Fidel Ramírez, Björn A Grüning. 
+**Galaxy HiCExplorer: a web server for reproducible Hi-C data analysis, quality control and visualization**, Nucleic Acids Research, Volume 46, Issue W1, 2 July 2018, Pages W11–W16, doi: https://doi.org/10.1093/nar/gky504
 
 .. image:: images/logo_mpi-ie.jpg
 
