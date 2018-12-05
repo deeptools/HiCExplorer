@@ -87,4 +87,5 @@ Joachim Wolff, Vivek Bhardwaj, Stephan Nothjunge, Gautier Richard, Gina Renschle
 .. image:: images/logo_mpi-ie.jpg
 
 This tool suite is developed by the `Bioinformatics Unit <http://www.ie-freiburg.mpg.de/bioinformaticsfac>`_
-at the `Max Planck Institute for Immunobiology and Epigenetics <http://www.ie-freiburg.mpg.de/>`_, Freiburg.
+at the `Max Planck Institute for Immunobiology and Epigenetics <http://www.ie-freiburg.mpg.de/>`_, Freiburg and by
+the `Bioinformatics Lab <http://bioinf.uni-freiburg.de/>`_ of the `Albert-Ludwigs-University Freiburg <http://www.uni-freiburg.de>`_, Germany.
