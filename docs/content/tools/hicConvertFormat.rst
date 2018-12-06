@@ -1,14 +1,14 @@
 .. _hicConvertFormat:
 
 hicConvertFormat
-==============
+================
 
 .. argparse::
    :ref: hicexplorer.hicConvertFormat.parse_arguments
    :prog: hicConvertFormat
 
 Background
-^^^^^^^^^^^
+^^^^^^^^^^
 
 To reproduce analysis and to compare and use different Hi-C analysis software the exchange of the interaction matrix is crucial.
 However, the most Hi-C software is supporting only their own data format which makes the exchange difficult. HiCExplorer supports a range of 
@@ -38,8 +38,8 @@ hic2cool
 """"""""
 
 HiCExplorer uses the library hic2cool_  to convert **.hic** interaction matrix files to the cool format. Usually .hic files 
-have the three correction factors **KR**, **VC** or **VC_SQRT**; however these can not be applied nativly by HiCExplorer tools because
- HiCExplorer expects the correction values to be stored in the column **weight**. 
+have the three correction factors **KR**, **VC** or **VC_SQRT**; however these can not be applied nativly by HiCExplorer tools because 
+HiCExplorer expects the correction values to be stored in the column **weight**.
 To work with corrected data the correction factors need to applied separatly, see section cool to cool.
 
 .. _hic2cool: https://github.com/4dn-dcic/hic2cool
@@ -70,6 +70,8 @@ Cool data format allows to use the following options:
 - enforce_integer: Raw interaction data is stored as integers, after the correction is applied the data is a float. Set a this parameter to enforce integer values in the new matrix.
 - load_raw_values: Set this parameter if the interaction data should not be loaded with the correction factors.
 
+Example usage
+-------------
 
 .. code:: bash
 
@@ -84,14 +86,20 @@ large matrices in Homer format needs a lot of space and can take a few ours to d
 
 .. _Homer: http://homer.ucsd.edu/homer/index.html
 
+Example usage
+-------------
+
 .. code:: bash
 
     $ hicConvertFormat -m matrix.homer --inputFormat homer --outputFormat cool -o matrix.cool
 
 Hic-Pro
-""""""
+"""""""
 
 HiC-Pro_ file format needs an additional bed file as input:
+
+Example usage
+-------------
 
 .. code:: bash
 
@@ -104,14 +112,14 @@ Create a mcool file
 
 With HiCExplorer it is possible to create a multiple cool (mcool) file. These mcool files can be used e.g. with HiGlass_.
 
-
 .. _HiGlass: http://higlass.io/
 
 To create a mcool file use as input either one matrix in one of the supported read formats and define the desired resolutions or define
- multiple input matrices. In the second case the matrices should all have different resolutions.
+multiple input matrices. In the second case the matrices should all have different resolutions.
 
-Usage
-~~~~~
+Example usage
+-------------
+
 The resolutions need to be a multiple of the input matrix i.e. matrix with 10kb than 20kb and 30kb are possible but not 35kb.
 
 .. code:: bash
@@ -127,7 +135,8 @@ The resolutions need to be a multiple of the input matrix i.e. matrix with 10kb 
 The mcool matrix contains the individual matrices as follows:
 
 
-.. code:: INI
+.. code:: 
+
     multi_matrix.mcool::/resolutions/10000
     multi_matrix.mcool::/resolutions/40000
     multi_matrix.mcool::/resolutions/70000

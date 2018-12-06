@@ -168,16 +168,17 @@ Quality control of Hi-C data and biological replicates comparison
 HiCExplorer integrates multiple tools that allow the evualuation of the quality of Hi-C libraries and matrices.
 
 - hicQC on the log files produced by hicBuildMatrix and control of the pdf file produced.
+
 Proportion of useful reads is important to assess the efficiency of the HiC protocol, which is dependant of
 proportion of dangling ends detected...
 Proportion of inter chromosomal, short range and long range contacts are important for....
 
 - hicPlotDistVsCounts to compare the distribution of corrected Hi-C counts in relation with the genomic
+
 distance between multiple samples. If some differences are observed between biological replicates,
 these can be investigated more precisely by computing log2ratio matrices.
 
-- hicCompareMatrices log2ratio of matrices of biological replicates to identify where the potential changes
-are located.
+- hicCompareMatrices log2ratio of matrices of biological replicates to identify where the potential changes are located.
 
 - hicPlotPCA bins correlation of two biological replicates.
 

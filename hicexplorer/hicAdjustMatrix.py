@@ -35,7 +35,7 @@ def parse_arguments(args=None):
                            nargs='+',
                            help='List of chromosomes to keep / remove')
     parserOpt.add_argument('--action',
-                           help='Keep / remove the list of specified chromosomes / regions ',
+                           help='Keep, remove or mask the list of specified chromosomes / regions ',
                            default='keep',
                            choices=['keep', 'remove', 'mask']
                            )

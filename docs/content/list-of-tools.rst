@@ -18,7 +18,7 @@ HiCExplorer tools
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicSumMatrices`           | preprocessing    | 2 or more hicMatrix objects       | hicMatrix object                            | Adds Hi-C matrices of the same size                                               |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-|:ref:`hicNormalize`             | preprocessing    | multiple Hi-C matrices            | multiple Hi-C matrices                      | Normalize data to 0 to 1 range or to smallest total read count                            |
+|:ref:`hicNormalize`             | preprocessing    | multiple Hi-C matrices            | multiple Hi-C matrices                      | Normalize data to 0 to 1 range or to smallest total read count                    |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicFindEnrichedContacts`  | analysis         | hicMatrix object                  | hicMatrix object                            | Identifies enriched Hi-C contacts                                                 |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
@@ -55,7 +55,7 @@ HiCExplorer tools
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicAverageRegions`        | analysis         | multiple Hi-C matrices            | one npz object                              | Averages the given locations. Visualization with hicPlotAverageRegions            |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-|:ref:`hicPlotAverageRegions`    | visualization    | one npz file                      | one image                                   | Visualization of hicAverageRegions                          .                     |
+|:ref:`hicPlotAverageRegions`    | visualization    | one npz file                      | one image                                   | Visualization of hicAverageRegions.                                               |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicMergeTADbins`          | preprocessing    | one Hi-C matrix, one BED file     | one Hi-C matrix                             | Uses a BED file of domains or TAD boundaries to merge the                         |
 |                                |                  |                                   |                                             | bin counts of a Hi-C matrix.                                                      |
@@ -100,6 +100,8 @@ Tools for Hi-C data pre-processing
 """""""""""""""""""""""""
 :ref:`hicCorrectMatrix`
 """""""""""""""""""""""
+:ref:`hicNormalize`
+"""""""""""""""""""
 
 Tools for Hi-C QC
 ^^^^^^^^^^^^^^^^^
@@ -124,6 +126,8 @@ Tools for Hi-C data analysis
 """""""""""""
 :ref:`hicTransform`
 """""""""""""""""""
+:ref:`hicAverageRegions`
+""""""""""""""""""""""""
 
 Tools for TADs processing
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -144,11 +148,14 @@ Tools for Hi-C and TADs visualization
 """""""""""""""""""""""
 :ref:`hicAggregateContacts`
 """""""""""""""""""""""""""
+:ref:`hicPlotAverageRegions`
+""""""""""""""""""""""""""""
 
 
-Miscellaneous
-^^^^^^^^^^^^^
+Hi-C contact matrix handling
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-:ref:`hicExport`
-""""""""""""""""
-
+:ref:`hicConvertFormat`
+"""""""""""""""""""""""
+:ref:`hicAdjustMatrix`
+""""""""""""""""""""""

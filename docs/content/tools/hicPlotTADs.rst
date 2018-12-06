@@ -9,9 +9,8 @@ hicPlotTADs
 Description
 ^^^^^^^^^^^
 
-.. argparse::
-   :ref: hicexplorer.hicPlotTADs.parse_arguments
-   :prog: hicPlotTADs
+For parameter options please see `_pyGenomeTracks <https://github.com/deeptools/pyGenomeTracks>`_ documentation
+
 
 Usage example
 ^^^^^^^^^^^^^

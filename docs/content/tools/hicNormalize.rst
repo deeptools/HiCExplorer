@@ -1,6 +1,6 @@
 .. _hicNormalize:
 
-_hicNormalize
+hicNormalize
 ============
 
 .. argparse::

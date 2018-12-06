@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import mock
 
 MOCK_MODULES = ['numpy', 'numpy.distutils.core', 'pandas', 'pysam', 'intervaltree',
-                'scipy', 'scipy.sparse', 'scipy.stats',
+                'scipy', 'scipy.sparse', 'scipy.stats', 'scipy.ndimage',
                 'matplotlib', 'matplotlib.pyplot', 'matplotlib.gridspec', 'matplotlib.ticker',
                 'matplotlib.textpath', 'matplotlib.patches', 'matplotlib.colors', 'matplotlib.cm',
                 'mpl_toolkits', 'mpl_toolkits.axisartist', 'mpl_toolkits.mplot3d', 'mpl_toolkits.axes_grid1',

@@ -26,6 +26,7 @@ Usage
 -----
 
 .. code:: bash
+
     $ hicTransform -m matrix.cool --method obs_exp -o obs_exp.cool
 
 For all images data from Rao 2014 was used.
@@ -35,7 +36,10 @@ Observed / Expected
 
 All values, including non-zero values, are used to compute the expected values per genomic distance. 
 
-sum(diagonal(j) / number of elements in diagonal(j)
+.. math::
+
+    \frac{ \sum_{t=0}^{N}f(t,k) }{}
+    sum(diagonal(j) / number of elements in diagonal(j)
 
 .. image:: ../../images/obs_exp.png
 
