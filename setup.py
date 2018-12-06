@@ -109,7 +109,8 @@ install_requires_py = ["numpy >= 1.15.*",
                        "unidecode >= 1.0.*",
                        "hicmatrix >= 5",
                        "pygenometracks >= 2.1",
-                       "psutil >= 5.4.8"
+                       "psutil >= 5.4.8",
+                       "hic2cool >=0.4"
                        ]
 
 if sys.version_info[0] == 2:
