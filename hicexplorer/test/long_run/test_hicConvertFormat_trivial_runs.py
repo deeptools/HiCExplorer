@@ -20,7 +20,7 @@ original_matrix_cool = ROOT + "/small_test_matrix.cool"
 
 
 @pytest.mark.parametrize("matrices", [original_matrix_h5, original_matrix_cool])  # , original_matrix_cool, original_matrix_hic])  # required
-@pytest.mark.parametrize("outputFormat", ['cool', 'h5', 'homer', 'ginteractions', 'mcool'])
+@pytest.mark.parametrize("outputFormat", ['cool', 'h5', 'ginteractions', 'mcool'])
 @pytest.mark.parametrize("resolutions", [''])  # TODO: check for possible resolutions
 def test_trivial_run(
     matrices,

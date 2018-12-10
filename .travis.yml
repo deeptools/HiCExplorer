@@ -55,6 +55,7 @@ jobs:
         - conda update -q conda
       install:
         - conda install --yes python=2.7 flake8
+        - conda install --yes pathlib
       script:
         - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504 ; fi
     
