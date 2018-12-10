@@ -29,7 +29,7 @@ Usage
 
     $ hicTransform -m matrix.cool --method obs_exp -o obs_exp.cool
 
-For all images data from Rao 2014 was used.
+For all images data from `Rao 2014 <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE63525>`_ was used.
 
 Observed / Expected
 -------------------
@@ -45,7 +45,7 @@ All values, including non-zero values, are used to compute the expected values p
 Observed / Expected norm
 ------------------------
 
-The expected matrix is computed in the same way Homer software computes it with the option '-norm' set,
+The expected matrix is computed in the same way `Homer software <http://homer.ucsd.edu/homer/interactions/HiCBackground.html>`_ computes it with the option '-norm' set,
 to conserve this reference, HiCExplorer names this expected matrix computation 'norm'. The usage of this expected
 value computation gives better results for A/B compartment computation for drosophila genomes.
 

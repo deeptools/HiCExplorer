@@ -39,8 +39,9 @@ def parse_arguments(args=None):
                                               help='Range of region up- and downstream of each region to include in bin units.',
                                               nargs=2,
                                               type=int)
-    parserRequired.add_argument('--outFileName', '-out',
-                                help='File name to save the average regions TADs matrix.')
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the average regions TADs matrix.',
+                                required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
