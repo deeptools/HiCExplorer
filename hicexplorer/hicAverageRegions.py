@@ -96,7 +96,7 @@ def main(args=None):
             _line = line.strip().split('\t')
             if len(line) == 0:
                 continue
-            if len(_line) == 2:
+            if len(_line) >= 2:
                 chrom, start = _line[0], _line[1]
 
             viewpoint = (chrom, start, start)
