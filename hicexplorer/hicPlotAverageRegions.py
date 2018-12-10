@@ -41,13 +41,13 @@ def parse_arguments(args=None):
                            action='store_true')
 
     parserOpt.add_argument('--log',
-                           help='Plot the *MINUS* log of the matrix values.',
+                           help='Plot the log of the matrix values.',
                            action='store_true')
     parserOpt.add_argument('--colorMap',
                            help='Color map to use for the heatmap. Available '
                            'values can be seen here: '
                            'http://matplotlib.org/examples/color/colormaps_reference.html',
-                           default='RdYlBu_r')
+                           default='hot_r')
     parserOpt.add_argument('--vMin',
                            help='Minimum score value.',
                            type=float,
