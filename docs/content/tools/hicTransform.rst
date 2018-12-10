@@ -38,8 +38,8 @@ All values, including non-zero values, are used to compute the expected values p
 
 .. math::
 
-    \frac{ \sum_{t=0}^{N}f(t,k) }{}
-    sum(diagonal(j) / number of elements in diagonal(j)
+    m_{i,j} = \frac{}
+    expected\ value\ distance\ j = \frac{ \sum diagonal(j) }{|diagonal(j)|}
 
 .. image:: ../../images/obs_exp.png
 
