@@ -156,27 +156,38 @@ def main(args=None):
     # PCA is computed per chromosome
     length_chromosome = 0
     chromosome_count = len(ma.getChrNames())
+    ma.matrix.data[np.isnan(ma.matrix.data)] = 0
+
     if args.pearsonMatrix:
         trasf_matrix_pearson = lil_matrix(ma.matrix.shape)
 
     if args.obsexpMatrix:
         trasf_matrix_obsexp = lil_matrix(ma.matrix.shape)
 
+
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
         length_chromosome += chr_range[1] - chr_range[0]
     for chrname in ma.getChrNames():
+        print(chrname)
         chr_range = ma.getChrBinRange(chrname)
-
+        print(chr_range)
         submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+        print(submatrix.shape)
         if args.norm:
             obs_exp_matrix_ = obs_exp_matrix_norm(submatrix)
 
-        else:
-            obs_exp_matrix_ = obs_exp_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
+        else: #TODO replace lieberman with convert_to_obs_exp_matrix
+            #obs_exp_matrix_ = obs_exp_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
+            print(ma.matrix.shape)
+            copy_matrix = ma
+            print(copy_matrix.matrix.shape)
+            obs_exp_ = copy_matrix.convert_to_obs_exp_matrix(maxdepth=None, perchr=True)
+            obs_exp_matrix_ = obs_exp_
+
         obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_)).todense()
         obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
-
+        print(obs_exp_matrix_.shape)
         if args.obsexpMatrix:
             trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
 
