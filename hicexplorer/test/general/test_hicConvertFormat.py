@@ -43,7 +43,7 @@ def test_hicConvertFormat_h5_to_cool():
     hicConvertFormat.main(args)
 
     test = hm.hiCMatrix(original_matrix_cool)
-    print(outfile.name)
+    # print(outfile.name)
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     # os.unlink(outfile.name)
@@ -59,10 +59,10 @@ def test_hicConvertFormat_h5_to_cool_enforce_integer():
     hicConvertFormat.main(args)
 
     test = hm.hiCMatrix(original_matrix_cool)
-    print(outfile.name)
+    # print(outfile.name)
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=0)
-    print('issubclass(test.matrix.data.dtype.type, np.integer) {}'.format(issubclass(test.matrix.data.dtype.type, np.integer)))
+    # print('issubclass(test.matrix.data.dtype.type, np.integer) {}'.format(issubclass(test.matrix.data.dtype.type, np.integer)))
     assert issubclass(test.matrix.data.dtype.type, np.integer)
 
 
@@ -93,6 +93,6 @@ def test_hicConvertFormat_cool_to_h5():
     hicConvertFormat.main(args)
 
     test = hm.hiCMatrix(original_matrix_h5)
-    print(outfile.name)
+    # print(outfile.name)
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
