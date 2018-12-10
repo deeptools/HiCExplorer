@@ -38,8 +38,7 @@ All values, including non-zero values, are used to compute the expected values p
 
 .. math::
 
-    m_{i,j} = \frac{}
-    expected\ value\ distance\ j = \frac{ \sum diagonal(j) }{|diagonal(j)|}
+    exp_{i,j} =  \frac{ \sum diagonal(|i-j|) }{|diagonal(|i-j|)|}
 
 .. image:: ../../images/obs_exp.png
 
@@ -47,9 +46,12 @@ Observed / Expected norm
 ------------------------
 
 The expected matrix is computed in the same way Homer software computes it with the option '-norm' set,
-to conserve this reference, HiCExplorer names this expected matrix computation 'norm'.
+to conserve this reference, HiCExplorer names this expected matrix computation 'norm'. The usage of this expected
+value computation gives better results for A/B compartment computation for drosophila genomes.
 
-sum(diagonal(i-j)) * sum(row(j)) * sum(row(i)) / sum(matrix)
+.. math::
+
+    exp_{i,j} = \frac{ \sum diagonal(|i-j|) * \sum row(j) * \sum row(i) }{ \sum matrix }
 
 .. image:: ../../images/obs_exp_norm.png
 
@@ -59,7 +61,9 @@ Observed / Expected lieberman
 The expected matrix is computed in the way Lieberman-Aiden used it in the 2009 publication, it is quite similar 
 to obs/exp matrix computation.
 
-sum(diagonal(j) / (length of chromosome - j))
+.. math::
+
+    exp_{i,j} = \frac{ \sum diagonal(|i-j|) } {(length\ of\ chromosome\ - |i-j|))}
 
 .. image:: ../../images/obs_exp_lieberman.png
 
@@ -67,16 +71,22 @@ Observed / Expected non zero
 ----------------------------
 
 Only non-zero values are used to compute the expected values per genomic distance, i.e. only non-zero values are taken into account
- for the denominator. 
+for the denominator. 
 
-sum(diagonal(j) / number of non-zero elements in diagonal(j)
+.. math::
+
+   exp_{i,j} =  \frac{ \sum diagonal(i-j) }{ number\ of\ non-zero\ elements\ in\ diagonal(|i-j|)}
 
 .. image:: ../../images/obs_exp_norm.png
 
 Pearson correlation matrix
 --------------------------
 
-Pearson_i,j = C_i,j / sqrt(C_i,i * C_j,j) and C is the covariance matrix
+.. math::
+
+    Pearson_{i,j} = \frac {C_{i,j} }{ \sqrt{C_{i,i} * C_{j,j} }}
+    
+C is the covariance matrix
 
 
 .. image:: ../../images/pearson.png
@@ -92,4 +102,8 @@ the A/B compartment computation.
 Covariance matrix
 -----------------
 
-Cov_i,j = E[M_i, M_j] - my_i * my_j where M is the input matrix and my the mean.
+.. math::
+
+    Cov_{i,j} = E[M_i, M_j] - \mu_i * \mu_j 
+
+where M is the input matrix and :math:`\mu` the mean.

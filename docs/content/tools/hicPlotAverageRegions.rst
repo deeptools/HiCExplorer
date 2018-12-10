@@ -1,6 +1,6 @@
 .. _hicPlotAverageRegions:
 
-hicAverageRegions
+hicPlotAverageRegions
 =================
 
 .. argparse::

@@ -3,7 +3,7 @@ News and Developments
 
 Release 2.2
 -----------
-**6 December 2018**
+**10 December 2018**
 
 This release contains:
 
@@ -34,6 +34,7 @@ This release contains:
    - remove of old, unused code
    - restrict support to h5 and cool matrices, except hicConvertFormat 
 
+- hicFindTADs: Option to run computation per specified chromosomes
 - hicPlotTADs: removed code and calls pyGenomeTracks
 - hicAverageRegions: Sum up in a given range around defined reference points. Useful to detect changes in TAD structures between different samples. 
 - hicPlotAverageRegions: Plots such a average region

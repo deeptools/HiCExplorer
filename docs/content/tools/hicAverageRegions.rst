@@ -7,3 +7,4 @@ hicAverageRegions
    :ref: hicexplorer.hicAverageRegions.parse_arguments
    :prog: hicAverageRegions
 
+
