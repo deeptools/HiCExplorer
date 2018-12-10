@@ -9,12 +9,12 @@ hicAverageRegions
 
 
 hicAverageRegions takes as input a BED files with genomic positions, these are the reference points to sum up and 
-average the regions up- and downstream of all these positions, good reference points are e.g. the boders of TADs. This
+average the regions up- and downstream of all these positions, good reference points are e.g. the borders of TADs. This
 can help to determine changes in the chromatin organization and TAD structure changes. 
 
-In the following example the 10kb resolution interation matrix of `Rao 2014 <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE63525>`_ is used. 
+In the following example the 10kb resolution interaction matrix of `Rao 2014 <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE63525>`_ is used. 
 
-The first steps computes the TADs for chromosome 1.
+The first step computes the TADs for chromosome 1.
 
 .. code:: bash
 
@@ -22,7 +22,7 @@ The first steps computes the TADs for chromosome 1.
         --correctForMultipleTesting fdr --minDepth 30000 --maxDepth 100000 
         --step 10000 -p 20 --chromosomes 1
 
-Next, we use the `domains.bed` file of hicFindTADs to use the border of TADs as a reference point.
+Next, we use the `domains.bed` file of hicFindTADs to use the borders of TADs as reference points.
 As a range up- and downstream of each reference point 100kb are chosen. 
 
 .. code:: bash

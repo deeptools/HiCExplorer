@@ -12,14 +12,16 @@ Background
 ^^^^^^^^^^
 
 To be able to compare different Hi-C interaction matrices the matrices need to be normalized to a equal level of read coverage or
-value ranges. This tool helps to acomplish this. 
-Each Hi-C interaction matrix has a different read coverage 
+value ranges. hicNormalize accomplish this by offering two modes: 0-1 range normalization or a read count normalization.
 
 Usage example
 ^^^^^^^^^^^^^
 
 Normalize to 0-1 range
 """"""""""""""""""""""
+
+norm_range mode of hicNormalize normalizes all reads to the 0 to 1 range i.e. the maximum value of the interaction matrix
+becomes 1 and the minimum value 0.
 
 .. code:: bash
 
