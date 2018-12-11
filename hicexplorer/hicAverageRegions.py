@@ -17,9 +17,9 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-        Sums the interactions around given reference points together and computes an average TAD.
-        This is useful to detect differences in TAD structures between samples.
-        WARNING: Please use it only for fixed bin size interaction matrices. No guarantees how and if it works on restriction site interaction matrices.
+       Sums Hi-C contacts around given reference points and computes their average. This tool is useful to detect differences at certain reference points as for example TAD boundaries between samples.
+
+WARNING: This tool can only be used with fixed bin size Hi-C matrices. No guarantees how and if it works on restriction site interaction matrices.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
