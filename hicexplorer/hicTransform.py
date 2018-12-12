@@ -68,6 +68,13 @@ def _obs_exp(pSubmatrix, perchr):
     pSubmatrix.convert_to_obs_exp_matrix(maxdepth=None, perchr=perchr)
 
 
+def _pearson(pSubmatrix):
+    pearson_correlation_matrix = np.corrcoef(pSubmatrix)
+    pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix))
+    pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
+    return pearson_correlation_matrix
+
+
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
