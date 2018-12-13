@@ -189,7 +189,7 @@ def main(args=None):
         obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
         print(obs_exp_matrix_.shape)
         if args.obsexpMatrix:
-            trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(np.log2(obs_exp_matrix_))
+            trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
 
         pearson_correlation_matrix = np.corrcoef(obs_exp_matrix_)
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
