@@ -77,7 +77,18 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--avgType',
                            help='Type of average to compute final matrix. Options are mean and median. Default is median.',
                            choices=['mean', 'median'],
-                           default='median')
+                           default='mean')
+
+    parserOpt.add_argument('--genome',
+                           help='If given, submatrices are averaged over the whole genome instead of being separated by chromosomes.',
+                           action='store_true',
+                           required=False)
+
+    parserOpt.add_argument('--regionReferencePosition',
+                           help='Defines the centering of the plot around the left, the center or the right part of the bins.',
+                           choices=['left', 'center', 'right'],
+                           default='center')
+
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
     parserOpt.add_argument('--version', action='version',
@@ -400,14 +411,24 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
                 if vmax is not None and vmax is not None:
                     ax.set_zlim(vmin, vmax)
 
-            if args.outFilePrefixMatrix:
+        if args.outFilePrefixMatrix:
+            if args.genome :
                 # save aggregate matrix values
                 if num_clusters == 1:
-                    output_matrix_name = "{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix, chrom=chrom)
+                    output_matrix_name = "{file}.tab".format(file=args.outFilePrefixMatrix, chrom=chrom)
                 else:
-                    output_matrix_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix,
-                                                                                  chrom=chrom, id=cluster_number + 1)
+                    output_matrix_name = "{file}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix, chrom=chrom, id=cluster_number + 1)
                 np.savetxt(output_matrix_name, chrom_avg[chrom][cluster_number], '%0.5f', delimiter='\t')
+            else :
+                for idx, chrom in enumerate(chrom_matrix):
+                    for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
+                        # save aggregate matrix values
+                        if num_clusters == 1:
+                            output_matrix_name = "{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix, chrom=chrom)
+                        else:
+                            output_matrix_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix,
+                                                                                          chrom=chrom, id=cluster_number + 1)
+                        np.savetxt(output_matrix_name, chrom_avg[chrom][cluster_number], '%0.5f', delimiter='\t')
 
         cbar_x = plt.subplot(gs[-1, idx])
         fig.colorbar(img, cax=cbar_x, orientation='horizontal')
@@ -545,6 +566,12 @@ def main(args=None):
     chrom_total = {}
     chrom_diagonals = OrderedDict()
     chrom_contact_position = {}
+    genome_matrix = OrderedDict()
+    genome_matrix["genome"] = []
+    genome_chrom_contact_position = {}
+    genome_chrom_contact_position["genome"] = []
+    genome_matrix_position = {}
+    genome_matrix_position["genome"] = []
     seen = {}
 
     center_values = {}
@@ -571,9 +598,14 @@ def main(args=None):
         for start, end in bed_intervals[chrom]:
             # check all other regions that may interact with the
             # current interval at the given depth range
-            if end > chrom_sizes[chrom]:
-                continue
-            bin_id = ma.getRegionBinRange(toString(chrom), start, end)
+
+
+            if args.regionReferencePosition=="left":
+                bin_id = ma.getRegionBinRange(toString(chrom), start, start+1)
+            elif args.regionReferencePosition=="right":
+                bin_id = ma.getRegionBinRange(toString(chrom), end-1, end)
+            elif args.regionReferencePosition=="center":
+                bin_id = ma.getRegionBinRange(toString(chrom), (round(start+end)/2)-1, (round(start+end)/2))
             if bin_id is None:
                 continue
             else:
@@ -584,9 +616,13 @@ def main(args=None):
                 if counter % 50000 == 0:
                     log.info("Number of contacts considered: {:,}".format(counter))
 
-                if end2 > chrom_sizes[chrom]:
-                    continue
-                bin_id2 = ma.getRegionBinRange(toString(chrom), start2, end2)
+                if args.regionReferencePosition=="left":
+                    bin_id2 = ma.getRegionBinRange(toString(chrom), start2, start2+1)
+                elif args.regionReferencePosition=="right":
+                    bin_id2 = ma.getRegionBinRange(toString(chrom), end2-1, end2)
+                elif args.regionReferencePosition=="center":
+                    bin_id2 = ma.getRegionBinRange(toString(chrom), (round(start2+end2)/2)-1, (round(start2+end2)/2))
+
                 if bin_id2 is None:
                     continue
                 else:
@@ -624,9 +660,11 @@ def main(args=None):
 
                     chrom_total[chrom] += 1
                     chrom_matrix[chrom].append(mat_to_append)
+                    genome_matrix["genome"].append(mat_to_append)
                     chrom_diagonals[chrom].append(mat_to_append.diagonal())
                     center_values[chrom].append(ma.matrix[idx1, idx2])
                     chrom_contact_position[chrom].append((start, end, start2, end2))
+                    genome_chrom_contact_position["genome"].append((start, end, start2, end2))
                     if ma.matrix[idx1, idx2] > 1.5:
                         over_1_5 += 1
 
@@ -641,37 +679,55 @@ def main(args=None):
                  format(empty_mat, float(empty_mat) / counter))
 
     if args.kmeans is not None:
+        log.info("Performing kmeans clustering.")
+        cluster_genome_ids = cluster_matrices(genome_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
         cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
         num_clusters = args.kmeans
     elif args.hclust is not None:
         log.info("Performing hierarchical clustering."
                  "Please note that it might be very slow for large datasets.\n")
+        cluster_genome_ids = cluster_matrices(genome_matrix, args.kmeans, method='hierarchical', how=args.howToCluster)
         cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical',
                                        how=args.howToCluster)
         num_clusters = args.hclust
     else:
         # make a 'fake' clustering to generalize the plotting of the submatrices
+        cluster_genome_ids = {}
+        cluster_genome_ids["genome"] = [range(len(genome_matrix["genome"]))]
         cluster_ids = {}
         num_clusters = 1
         for chrom in chrom_list:
             cluster_ids[chrom] = [range(len(chrom_matrix[chrom]))]
 
-    plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, num_clusters, M_half, args)
+    if args.genome :
+        log.info("Making plots for genome-wide average")
+        plot_aggregated_contacts(genome_matrix, genome_chrom_contact_position, cluster_genome_ids, num_clusters, M_half, args)
 
-    if args.outFileContactPairs:
-        for idx, chrom in enumerate(chrom_matrix):
-
-            for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
-                center_values_to_order = np.array(center_values[chrom])[cluster_indices]
-                center_values_order = np.argsort(center_values_to_order)[::-1]
-
-                output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs,
-                                                                       chrom=chrom, id=cluster_number + 1)
+        if args.outFileContactPairs:
+            log.info("Exporting contacts for all the genome.")
+            #output_name = "{file}.tab".format(file=args.outFileContactPairs)
+            for genome_cluster_number, genome_cluster_indices in enumerate(cluster_genome_ids["genome"]):
+                output_name = "{file}_cluster_{id}.tab".format(file=args.outFileContactPairs, id=genome_cluster_number + 1)
                 with open(output_name, 'w') as fh:
-                    for cl_idx in center_values_order:
-                        value = center_values_to_order[cl_idx]
-                        start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
-                        fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2, value))
+                    for idx, chrom in enumerate(chrom_matrix):
+                        for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
+                            for cl_idx in cluster_indices:
+                                start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
+                                fh.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2))
+
+    else :
+        log.info("Making plots for each chromosomes")
+        plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, num_clusters, M_half, args)
+        if args.outFileContactPairs:
+            log.info("Exporting contacts for each chromosomes.")
+            for idx, chrom in enumerate(chrom_matrix):
+                for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
+                    for cl_idx in cluster_indices:
+                        output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs, chrom=chrom, id=cluster_number + 1)
+                        with open(output_name, 'w') as fh:
+                            for cl_idx in cluster_indices:
+                                start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
+                                fh.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2))
 
     # plot the diagonals
     # the diagonals plot is useful to see individual cases and if they had a contact in the center
