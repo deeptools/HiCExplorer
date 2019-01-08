@@ -12,7 +12,7 @@ import pyBigWig
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.parserCommon import CustomFormatter
 from hicexplorer.utilities import toString
@@ -177,13 +177,14 @@ def main(args=None):
         if args.norm:
             obs_exp_matrix_ = obs_exp_matrix_norm(submatrix)
 
-        else: #TODO replace lieberman with convert_to_obs_exp_matrix
+        else:
             #obs_exp_matrix_ = obs_exp_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
-            print(ma.matrix.shape)
-            copy_matrix = ma
-            print(copy_matrix.matrix.shape)
-            obs_exp_ = copy_matrix.convert_to_obs_exp_matrix(maxdepth=None, perchr=True)
-            obs_exp_matrix_ = obs_exp_
+            obs_exp_matrix_ = obs_exp_matrix(submatrix)
+            # print(ma.matrix.shape)
+            # copy_matrix = ma
+            # print(copy_matrix.matrix.shape)
+            # obs_exp_ = copy_matrix.convert_to_obs_exp_matrix(maxdepth=None, perchr=True)
+            # obs_exp_matrix_ = obs_exp_
 
         obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_)).todense()
         obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
