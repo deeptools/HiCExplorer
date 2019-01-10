@@ -175,7 +175,7 @@ def parse_arguments(args=None):
     parserPlot.add_argument('--disable_bbox_tight',
                             help=argparse.SUPPRESS,
                             action='store_true')
-                            
+
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
                            'ouput is a raster graphics image (e.g png, jpg)',
@@ -628,7 +628,7 @@ def main(args=None):
                     bin_id2 = ma.getRegionBinRange(toString(chrom), end2 - 1, end2)
                 elif args.regionReferencePosition == "center":
                     bin_id2 = ma.getRegionBinRange(
-                        toString(chrom), (round(start2 + end2)/ 2) - 1, (round(start2 + end2) / 2))
+                        toString(chrom), (round(start2 + end2) / 2) - 1, (round(start2 + end2) / 2))
 
                 if bin_id2 is None:
                     continue
@@ -717,7 +717,7 @@ def main(args=None):
 
         if args.outFileContactPairs:
             log.info("Exporting contacts for all the genome.")
-            #output_name = "{file}.tab".format(file=args.outFileContactPairs)
+            # output_name = "{file}.tab".format(file=args.outFileContactPairs)
             for genome_cluster_number, genome_cluster_indices in enumerate(cluster_genome_ids["genome"]):
                 output_name = "{file}_cluster_{id}.tab".format(
                     file=args.outFileContactPairs, id=genome_cluster_number + 1)
