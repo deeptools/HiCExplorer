@@ -155,7 +155,7 @@ class kr_balancing{
 };
 
 
-PYBIND11_MODULE(hicKRBalancing, m) {
+PYBIND11_MODULE(KRBalancing, m) {
   py::class_<kr_balancing>(m, "kr_balancing")
   //.def_buffer([](kr_balancing &m));
     .def(py::init<std::vector<std::vector<double> >& >())
@@ -167,4 +167,4 @@ PYBIND11_MODULE(hicKRBalancing, m) {
     //m.def("add", &add, "A function which adds two numbers");
 }
 
-//c++ -O3 -Wall -I ../ -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) test.cpp -o test$(python3-config --extension-suffix)
+//c++ -O3 -Wall -I . -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) KRBalancing.cpp -o KRBalancing$(python3-config --extension-suffix)

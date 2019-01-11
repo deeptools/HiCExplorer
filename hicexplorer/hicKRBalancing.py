@@ -1,4 +1,4 @@
-from hicKRBalancing import *
+from KRBalancing import *
 import numpy as np
 import argparse
 
@@ -48,5 +48,5 @@ def main(args=None):
     ma.setMatrixValues(np.array(output))
     ma.save(args.outputFileName, pApplyCorrection=False)
 
-#if __name__ == "__main__":
-#    main()
+if __name__ == "__main__":
+    main()
