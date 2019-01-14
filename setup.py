@@ -12,7 +12,6 @@ from setuptools.command.install import install as _install
 VERSION_PY = """
 # This file is originally generated from Git information by running 'setup.py
 # version'. Distribution tarballs contain a pre-generated copy of this file.
-
 __version__ = '%s'
 """
 
@@ -110,7 +109,8 @@ install_requires_py = ["numpy >= 1.15.*",
                        "hicmatrix >= 5",
                        "pygenometracks >= 2.1",
                        "scikit-learn >= 0.20",
-                       "psutil >= 5.4.8"
+                       "psutil >= 5.4.8",
+                       "KRBalancing>=0.0.0"
                        ]
 
 if sys.version_info[0] == 2:
