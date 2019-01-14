@@ -82,15 +82,16 @@ def main(args=None):
                 if len(line) == 0:
                     continue
                 if len(_line) == 3:
-                    chrom, start, end = _line[0], _line[1], _line[2]
+                    chrom, start, end = _line[0], _line[1], int(_line[2]) - 1
 
                 genomic_regions.append((chrom, start, end))
 
         # log.debug('genomic_regions {}'.format(genomic_regions))
         matrix_indices_regions = []
         for region in genomic_regions:
-            start, end = hic_ma.getRegionBinRange(region[0], region[1], region[2])
-            matrix_indices_regions.extend(list(range(start, end)))
+            if hic_ma.getRegionBinRange(region[0], region[1], region[2]) is not None:
+                start, end = hic_ma.getRegionBinRange(region[0], region[1], region[2])
+                matrix_indices_regions.extend(list(range(start, end)))
 
         # log.debug('matrix_indices_regions {}'.format(matrix_indices_regions))
         if args.action == 'keep':
