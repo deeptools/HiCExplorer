@@ -224,7 +224,7 @@ class Viewpoint():
         interaction_positions.extend([view_point_start])
         interaction_positions.extend(list(range(view_point_end + 1, view_point_range[1], 1)))
         relative_position = -1
-        log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
+        # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
         # log.debug('interaction_positions {}'.format(interaction_positions))
         for j, idx in zip(range(len(pInteractionData)), interaction_positions):
             try:
@@ -300,13 +300,16 @@ class Viewpoint():
         
         return average_contacts
 
-    def computeRelativeValues(self, pData):
+    def computeRelativeValues(self, pData, pDenominator=None):
         '''
         Computes the relative values of pData by adding all data points together and divding all data points by the result.
         pData[i] = pData[i] / sum(pData)
         '''
-        sumValue = np.sum(pData)
-        pData /= sumValue
+        if pDenominator:
+            pData /= pDenominator
+        else:
+            sumValue = np.sum(pData)
+            pData /= sumValue
         return pData
 
     def calculateViewpointRange(self, pViewpoint, pRange):
@@ -317,7 +320,7 @@ class Viewpoint():
         # log.debug('pRange {}'.format(pRange))
 
         max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
-        log.debug('max_length {}'.format(max_length))
+        # log.debug('max_length {}'.format(max_length))
         bin_size = self.hicMatrix.getBinSize()
         _range = [pRange[0], pRange[1]]
         region_start = int(pViewpoint[1]) - pRange[0]

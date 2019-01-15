@@ -79,10 +79,10 @@ def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint
             # relative_positions.add(relative_position)
     for i, data in zip(range(view_point_range_start, view_point_range_end, 1), pBackground):
         relative_position = i - view_point_start
-        if relative_position in data_background:
-            log.debug('relative_position 2nd time: {}'.format(relative_position))
-            log.debug('relative_position 2nd time: daata {}'.format(data))
-            log.debug('relative_position 2nd time: data 1st time {}'.format(data_background[relative_position]))
+        # if relative_position in data_background:
+        #     log.debug('relative_position 2nd time: {}'.format(relative_position))
+        #     log.debug('relative_position 2nd time: daata {}'.format(data))
+        #     log.debug('relative_position 2nd time: data 1st time {}'.format(data_background[relative_position]))
 
         data_background[relative_position] = data
     
@@ -94,12 +94,13 @@ def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint
         if i in data_viewpoint:
             continue
         else:
-            log.debug('key unique: {}'.format(i))
+            data_viewpoint[i] = 0
+            # log.debug('key unique: {}'.format(i))
 
     # log.debug()sssss
-    log.debug('len(data_viewpoint) {}'.format(len(data_viewpoint)))
-    log.debug('len(data_background) {}'.format(len(data_background)))
-    log.debug('len(data_sem) {}'.format(len(data_sem)))
+    # log.debug('len(data_viewpoint) {}'.format(len(data_viewpoint)))
+    # log.debug('len(data_background) {}'.format(len(data_background)))
+    # log.debug('len(data_sem) {}\n\n'.format(len(data_sem)))
 
     data = np.fromiter(data_viewpoint.values(), dtype=np.float32)
     background = np.fromiter(data_background.values(), dtype=np.float32)
@@ -117,125 +118,144 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
 
     for i, referencePoint in enumerate(pReferencePoints):
         # range of viewpoint with reference point in the middle in genomic units
-        region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
+        # get fixateRange for relative interaction computation denominator
+        region_start_fixed, region_end_fixed, range_fixed = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
+
+        denominator_relative_interactions = np.sum(pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start_fixed, region_end_fixed))
+
+        # viewpoint data uses full range
+        region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
 
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
-        log.debug('len(data_list) {}'.format(len(data_list)))
 
+        # background uses fixed range, handles fixate range implicitly by same range used in background computation
         _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
-        log.debug(' after interactionBackgroundDaa len(data_list) {}'.format(len(data_list)))
+        # log.debug(' after interactionBackgroundDaa len(data_list) {}'.format(len(data_list)))
+
+
 
         if len(data_list) != len(_backgroundModelData):
+            # log.info('len(data_list) {}'.format(len(data_list)))
+            # log.info('len(_backgroundModelData) {}'.format(len(_backgroundModelData)))
+
             data_list, _backgroundModelData, _backgroundModelSEM = adjustViewpointData(pViewpointObj, data_list, _backgroundModelData, _backgroundModelSEM, referencePoint, region_start, region_end)
-        log.debug('Without smoothing: {}'.format(data_list))
+
+            # log.info('len(data_list) {}'.format(len(data_list)))
+            # log.info('len(_backgroundModelData) {}\n\n'.format(len(_backgroundModelData)))
+
+        # log.debug('Without smoothing: {}'.format(data_list))
         
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
-            log.debug(' after average len(data_list) {}'.format(len(data_list)))
-        log.debug('With smoothing: {}'.format(data_list))
+        #     log.debug(' after average len(data_list) {}'.format(len(data_list)))
+        # log.debug('With smoothing: {}'.format(data_list))
         
         data_list_raw = np.copy(data_list)
 
-        data_list = pViewpointObj.computeRelativeValues(data_list)
-        log.debug(' after relative values len(data_list) {}'.format(len(data_list)))
-        log.debug('With relative values: {}'.format(data_list))
+        data_list = pViewpointObj.computeRelativeValues(data_list, denominator_relative_interactions)
+        # log.debug(' after relative values len(data_list) {}'.format(len(data_list)))
+        # log.debug('With relative values: {}'.format(data_list))
 
         # if args.backgroundModelFile:
         # _background_model = pViewpointObj.readBackgroundDataFile(args.backgroundModelFile)
+        # if len(data_list) != len(_backgroundModelData):
+        #     log.info('len interaciton_data: {}'.format(len(interaction_data)))
+        #     log.info('len rbz_score_data {}'.format(len(rbz_score_data)))
+
         rbz_score_data = pViewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
 
         # add values if range is larger than fixate range
 
-        max_chromosome = pViewpointObj.hicMatrix.getBinPos(pViewpointObj.hicMatrix.getChrBinRange(referencePoint[0])[1] - 1)[2]
-        min_chromosome = pViewpointObj.hicMatrix.getBinPos(pViewpointObj.hicMatrix.getChrBinRange(referencePoint[0])[0] - 1)[1]
-        if region_end >= max_chromosome - 1:
-            downstream_range = pArgs.fixateRange - ((int(referencePoint[2]) + pArgs.fixateRange) - max_chromosome)
-        else:
-            downstream_range = pArgs.fixateRange
+        # max_chromosome = pViewpointObj.hicMatrix.getBinPos(pViewpointObj.hicMatrix.getChrBinRange(referencePoint[0])[1] - 1)[2]
+        # min_chromosome = pViewpointObj.hicMatrix.getBinPos(pViewpointObj.hicMatrix.getChrBinRange(referencePoint[0])[0] - 1)[1]
+        # if region_end >= max_chromosome - 1:
+        #     downstream_range = pArgs.fixateRange - ((int(referencePoint[2]) + pArgs.fixateRange) - max_chromosome)
+        # else:
+        #     downstream_range = pArgs.fixateRange
 
         # if region_start < min_chromosome:
         #     upstream_range = pArgs.fixateRange - ((int(referencePoint[1]) - pArgs.fixateRange) - min_chromosome)
         # else:
-        upstream_range = pArgs.fixateRange
+        # upstream_range = pArgs.fixateRange
 
-        log.debug('min_chromosome {}'.format(min_chromosome))
-        log.debug('max_chromosome {}'.format(max_chromosome))
-        log.debug('upstream_range {}'.format(upstream_range))
-        log.debug('downstream_range {}'.format(downstream_range))
+        # log.debug('min_chromosome {}'.format(min_chromosome))
+        # log.debug('max_chromosome {}'.format(max_chromosome))
+        # log.debug('upstream_range {}'.format(upstream_range))
+        # log.debug('downstream_range {}'.format(downstream_range))
 
-        difference_upstream = -pArgs.range[0] - (-upstream_range)
-        difference_downstream = pArgs.range[1] - downstream_range
-        difference_upstream //= pViewpointObj.hicMatrix.getBinSize()
-        difference_downstream //= pViewpointObj.hicMatrix.getBinSize()
+        # difference_upstream = -pArgs.range[0] - (-upstream_range)
+        # difference_downstream = pArgs.range[1] - downstream_range
+        # difference_upstream //= pViewpointObj.hicMatrix.getBinSize()
+        # difference_downstream //= pViewpointObj.hicMatrix.getBinSize()
 
-        log.debug('len rbz_score_data {}'.format(len(rbz_score_data)))
-        log.debug('len data_list {}'.format(len(data_list)))
-        log.debug('len data_list_raw {}'.format(len(data_list_raw)))
+        # log.debug('len rbz_score_data {}'.format(len(rbz_score_data)))
+        # log.debug('len data_list {}'.format(len(data_list)))
+        # log.debug('len data_list_raw {}'.format(len(data_list_raw)))
 
-        if difference_upstream < 0:
-            # extend with first position
-            log.debug('extending upstream')
+        # if difference_upstream < 0:
+        #     # extend with first position
+        #     log.debug('extending upstream')
 
-            rbz_score_data_extend = np.empty(np.absolute(difference_upstream))
-            data_list_extend = np.empty(np.absolute(difference_upstream))
-            data_list_raw_extend = np.empty(np.absolute(difference_upstream))
+        #     rbz_score_data_extend = np.empty(np.absolute(difference_upstream))
+        #     data_list_extend = np.empty(np.absolute(difference_upstream))
+        #     data_list_raw_extend = np.empty(np.absolute(difference_upstream))
 
-            rbz_score_data_extend[:] = rbz_score_data[0]
-            data_list_extend[:] = data_list[0]
-            data_list_raw_extend[:] = data_list_raw[0]
+        #     rbz_score_data_extend[:] = rbz_score_data[0]
+        #     data_list_extend[:] = data_list[0]
+        #     data_list_raw_extend[:] = data_list_raw[0]
 
 
-            rbz_score_data = np.concatenate([rbz_score_data_extend, rbz_score_data])
-            data_list = np.concatenate([data_list_extend, data_list])
-            data_list_raw = np.concatenate([data_list_raw_extend, data_list_raw])
+        #     rbz_score_data = np.concatenate([rbz_score_data_extend, rbz_score_data])
+        #     data_list = np.concatenate([data_list_extend, data_list])
+        #     data_list_raw = np.concatenate([data_list_raw_extend, data_list_raw])
 
-        elif difference_upstream > 0:
-            # clip data
-            log.debug('clipping upstream')
-            log.debug('difference_upstream {}'.format(difference_upstream))
+        # elif difference_upstream > 0:
+        #     # clip data
+        #     log.debug('clipping upstream')
+        #     log.debug('difference_upstream {}'.format(difference_upstream))
 
-            # log.debug('rbz_score_data {}'.format(rbz_score_data))
+        #     # log.debug('rbz_score_data {}'.format(rbz_score_data))
 
-            rbz_score_data = rbz_score_data[difference_upstream:]
-            # log.debug('rbz_score_data {}'.format(rbz_score_data))
+        #     rbz_score_data = rbz_score_data[difference_upstream:]
+        #     # log.debug('rbz_score_data {}'.format(rbz_score_data))
 
-            data_list = data_list[difference_upstream:]
-            data_list_raw = data_list_raw[difference_upstream:]
-        if difference_downstream < 0:
-            # clip
-            log.debug('clipping downstream')
-            log.debug('difference_downstream {}'.format(difference_downstream))
+        #     data_list = data_list[difference_upstream:]
+        #     data_list_raw = data_list_raw[difference_upstream:]
+        # if difference_downstream < 0:
+        #     # clip
+        #     log.debug('clipping downstream')
+        #     log.debug('difference_downstream {}'.format(difference_downstream))
 
-            rbz_score_data = rbz_score_data[:difference_downstream]
-            data_list = data_list[:difference_downstream]
-            data_list_raw = data_list_raw[:difference_downstream]
-        elif difference_downstream > 0:
-            # extendls -lah
+        #     rbz_score_data = rbz_score_data[:difference_downstream]
+        #     data_list = data_list[:difference_downstream]
+        #     data_list_raw = data_list_raw[:difference_downstream]
+        # elif difference_downstream > 0:
+        #     # extendls -lah
 
-            log.debug('extending downstream')
+        #     log.debug('extending downstream')
 
-            rbz_score_data_extend = np.empty(difference_downstream)
-            data_list_extend = np.empty(difference_downstream)
-            data_list_raw_extend = np.empty(difference_downstream)
+        #     rbz_score_data_extend = np.empty(difference_downstream)
+        #     data_list_extend = np.empty(difference_downstream)
+        #     data_list_raw_extend = np.empty(difference_downstream)
 
-            rbz_score_data_extend[:] = rbz_score_data[-1]
-            data_list_extend[:] = data_list[-1]
-            data_list_raw_extend[:] = data_list[-1]
+        #     rbz_score_data_extend[:] = rbz_score_data[-1]
+        #     data_list_extend[:] = data_list[-1]
+        #     data_list_raw_extend[:] = data_list[-1]
 
-            rbz_score_data = np.concatenate([rbz_score_data, rbz_score_data_extend])
-            data_list = np.concatenate([data_list, data_list_extend])
-            data_list_raw = np.concatenate([data_list_raw, data_list_raw_extend])
+        #     rbz_score_data = np.concatenate([rbz_score_data, rbz_score_data_extend])
+        #     data_list = np.concatenate([data_list, data_list_extend])
+        #     data_list_raw = np.concatenate([data_list_raw, data_list_raw_extend])
 
-        log.debug('len rbz_score_data {}'.format(len(rbz_score_data)))
-        log.debug('len data_list {}'.format(len(data_list)))
-        log.debug('len data_list_raw {}'.format(len(data_list_raw)))
+        # log.debug('len rbz_score_data {}'.format(len(rbz_score_data)))
+        # log.debug('len data_list {}'.format(len(data_list)))
+        # log.debug('len data_list_raw {}'.format(len(data_list_raw)))
 
 
         region_start_range, region_end_range, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.range[0], pArgs.range[1]))
 
 
-        log.debug('region_start_range {}, region_start_range {}'.format(region_start_range, region_end_range))
-        log.debug('diff range {}'.format((region_start_range - region_end_range) // pViewpointObj.hicMatrix.getBinSize()))
+        # log.debug('region_start_range {}, region_start_range {}'.format(region_start_range, region_end_range))
+        # log.debug('diff range {}'.format((region_start_range - region_end_range) // pViewpointObj.hicMatrix.getBinSize()))
         
         # if region_start_range > region_start:
 
@@ -254,7 +274,12 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         header_information += '\n# ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('.')[:-1])
         matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
-        pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
+    
+        # try:
+        #     pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
+        # except Exception:
+        #     log.info('len interaciton_data: {}'.format(len(interaction_data)))
+        #     log.info('len rbz_score_data {}'.format(len(rbz_score_data)))
 
     pQueue.put(['Done'])
     return
