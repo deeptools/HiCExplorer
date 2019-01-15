@@ -269,14 +269,15 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
 
         region_start_in_units = utilities.in_units(region_start)
         region_end_in_units = utilities.in_units(region_end)
-
-        header_information = '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(region_end_in_units), pGeneList[i]])
+        denominator_relative_interactions_str = 'Sum of interactions in fixate range: ' 
+        denominator_relative_interactions_str += str(denominator_relative_interactions)
+        header_information = '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(region_end_in_units), pGeneList[i], denominator_relative_interactions_str])
         header_information += '\n# ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('.')[:-1])
         matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
     
         # try:
-        #     pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
+        pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
         # except Exception:
         #     log.info('len interaciton_data: {}'.format(len(interaction_data)))
         #     log.info('len rbz_score_data {}'.format(len(rbz_score_data)))
