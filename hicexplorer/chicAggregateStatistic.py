@@ -22,17 +22,14 @@ log = logging.getLogger(__name__)
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-                                     description='Plots the number of interactions around a given reference point in a region.')
+                                     description='Aggregates the statistics of interaction files and prepars them for chicDifferentialTest')
 
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--interactionFile', '-if',
-                                help='path to the interaction files which should be used for plotting',
+                                help='path to the interaction files which should be used for aggregation of the statistics.',
                                 required=True,
                                 nargs='+')
-
-   
-
 
     parserRequired.add_argument('--range',
                            help='Defines the region upstream and downstream of a reference point which should be included. '
@@ -77,7 +74,6 @@ def filter_scores(pScoresDictionary, pThreshold, pRange):
 def merge_neighbors(pScoresDictionary, pMergeThreshold = 1000):
 
     key_list = list(pScoresDictionary.keys())
-    # log.debug('key_list {}'.format(key_list))
 
     # [[start, ..., end]]
     neighborhoods = []
@@ -115,9 +111,6 @@ def write (pOutFileName, pNeighborhoods, pScores, pInteractionLines, pThreshold)
 
             new_line = '\t'.join(pInteractionLines[start][:6])
             new_line += '\t' + new_end
-            # log.debug('pInteractionLines[0][8:] {}'.format(pInteractionLines[0][8:]))
-            # "\t".join(format(x, ".5f") for x in pInteractionLines[0][8:])
-            # new_line += '\t' + '\t'.join(pInteractionLines[0][8:])
             new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
 
             new_line += '\t' + format(pScores[i][0], '10.5f') + '\t' + format(pScores[i][1], '10.5f') + '\t' + format(pScores[i][2], '10.5f')
@@ -128,26 +121,17 @@ def write (pOutFileName, pNeighborhoods, pScores, pInteractionLines, pThreshold)
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-    log.debug('muh')
     viewpointObj = Viewpoint()
     background_data = None
-    # log.debug("sdfghjkoihgfghjkl;kjhfvghjkl")
     relative_interaction = False
     rbz_score = True
     # read all interaction files.
     for interactionFile in args.interactionFile:
         header, interaction_data, interaction_file_data = viewpointObj.readInteractionFileForAggregateStatistics(interactionFile)
-        # log.debug('interaction_data {}'.format(interaction_data))
         accepted_scores = filter_scores(interaction_data, args.acceptThreshold, args.range)
-        # log.debug('accepted_scores {}'.format(accepted_scores))
         merged_neighborhood = merge_neighbors(accepted_scores)
-        # log.debug('accepted_scores {}'.format(accepted_scores))
-        # log.debug('merge_neighbored {}'.format(merged_neighborhood))
         outFileName = interactionFile.split('.')[0] + '_' + args.outFileNameSuffix
         write(outFileName, merged_neighborhood[0], merged_neighborhood[1], interaction_file_data, args.acceptThreshold)
-        # log.debug('header {}'.format(header))
-        # log.debug('interaction_data {}'.format(interaction_data))
-        # log.debug('z_score {}'.format(z_score))
 
 
     

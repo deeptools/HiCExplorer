@@ -157,7 +157,7 @@ class Viewpoint():
         Relative number of interactions, z-score based on relative interactions, raw interaction data
         '''
         with open(pBedFile + '.bed', 'w') as fh:
-            fh.write('#{}\n'.format(pHeader))
+            fh.write('# {}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
                 fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
                          format(interaction[0], interaction[1], interaction[2],
