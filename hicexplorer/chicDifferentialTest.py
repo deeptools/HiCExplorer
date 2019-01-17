@@ -9,6 +9,8 @@ from .lib import Viewpoint
 
 from scipy.stats import chi2_contingency
 from scipy.stats import chi2
+from scipy import stats
+
 
 import os
 
@@ -33,11 +35,11 @@ def parse_arguments(args=None):
                            type=float,
                            default=0.05,
                            required=True)
-	parserRequired.add_argument('--outFileName', '-o',
-							help='File name to save the test results',
-							required=True)
+    parserRequired.add_argument('--outFileName', '-o',
+                            help='File name to save the test results',
+                            required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
-	parserOpt.add_argument('--useData',
+    parserOpt.add_argument('--useData',
                            help='Type of data used for testing: raw interactions, relative interactions, rbz-score',
                            choices=['raw', 'relative', 'rbz'],
                            default='raw')
@@ -48,31 +50,30 @@ def parse_arguments(args=None):
     return parser
 
 
-
 def readInteractionFile(pInteractionFile, pUseData):
 
-	line_content = []
-	data = []
-	
-	if pUseData == 'raw':
-		data_selector_viewpoint = 9
-		data_selector_target =  12
-	elif pUseData == 'relative':
-		data_selector_viewpoint = 7
-		data_selector_target =  10
-	elif pUseData == 'rbz':
-		data_selector_viewpoint = 8
-		data_selector_target =  11
-    with open(pOutFileName, 'w') as file:
-		header_significance_level = file.readline()
-		header = file.readline()
+    line_content = []
+    data = []
 
-		for line in file.readlines():
-			_line = line.strip().split('\t')			
-			line_content.append(_line)
-			data.append([float(_line[data_selector_viewpoint]), float(_line[data_selector_target])])
-			
-	return header_significance_level, header, line_content, data
+    if pUseData == 'raw':
+        data_selector_viewpoint = 9
+        data_selector_target = 12
+    elif pUseData == 'relative':
+        data_selector_viewpoint = 7
+        data_selector_target = 10
+    elif pUseData == 'rbz':
+        data_selector_viewpoint = 8
+        data_selector_target = 11
+    with open(pInteractionFile, 'r') as file:
+        header_significance_level = file.readline()
+        header = file.readline()
+
+        for line in file.readlines():
+            _line = line.strip().split('\t')			
+            line_content.append(_line)
+            data.append([float(_line[data_selector_viewpoint]), float(_line[data_selector_target])])
+            
+    return header_significance_level, header, line_content, data
     
 
 def chisquare_test(pDataFile1, pDataFile2, pAlpha):
@@ -85,20 +86,27 @@ def chisquare_test(pDataFile1, pDataFile2, pAlpha):
     for group1, group2 in zip(pDataFile1, pDataFile2):
         chi2, p_value, dof, ex = chi2_contingency([group1,group2], correction=False)
         if chi2 >= critical_value:
-			test_result.append((True, p_value))
-		else:
-			test_result.append((False, p_value))
+            test_result.append((True, p_value))
+        else:
+            test_result.append((False, p_value))
 
-	return test_result
+    return test_result
 
-def writeResult(pOutFileName, pData, pRejected, pHeaderOld, pHeaderNew):
-	
+def writeResult(pOutFileName, pData, pRejected, pHeaderOld, pHeaderNew, pViewpoint1, pViewpoint2):
+    
     with open(pOutFileName, 'w') as file:
-		file.write('# ' + pRejected + ' file for viewpoints: ' + pHeaderNew + '\n')
-		file.write(pHeaderOld + '\t' pHeaderOld + '\tp-value')
+        header = '# Differential analysis result file of HiCExplorer\'s chicDifferentialTest\n'
+        header += '# This file contains the regions accepted as differential by chi-squared contingency test (H0 was rejected) \n'
+        header += ' '.join(['# Used viewpoints regions: ' , str(pViewpoint1) , ' and ' , str(pViewpoint2) , '\n'])
+        header += '# Line 1 of a group contains data of viewpoint and target of sample 1, line 2 contains data of viewpoint and target of sample 2 \n'
+        header += '# line 3 the p-value of the chi-squared  contingency test.\n'
+        header += '#\n'
+        file.write(header)
+        file.write(pHeaderOld)
 
-		for data in pData:
-			file.write(data[0] + '\t' + data[1] + '\t' + format(data[2], '10.5f'))
+        for data in pData:
+            file.write(str(data[0]) + '\n' + str(data[1]) + '\n' + format(data[2], '10.5f'))
+            file.write('\n')
 
 
 def main(args=None):
@@ -108,25 +116,28 @@ def main(args=None):
     header_significance_level1, header1, line_content1, data1 = readInteractionFile(args.interactionFile[0], args.useData)
     header_significance_level2, header2, line_content2, data2 = readInteractionFile(args.interactionFile[1], args.useData)
 
-	test_result = chisquare_test(data1, data2, args.alpha)
+    test_result = chisquare_test(data1, data2, args.alpha)
 
-	rejected_h0 = []
-	
-	non_rejected_h0 = []
-	for i, result in enumerate(test_result):
-		if result[0]:
-			rejected_h0.append([line_content1[i], line_content2[i], result[1]])
-		else:
-			non_rejected_h0.append([line_content1[i], line_content2[i], result[1]])
+    rejected_h0 = []
+    
+    non_rejected_h0 = []
+    for i, result in enumerate(test_result):
+        if result[0]:
+            rejected_h0.append([line_content1[i], line_content2[i], result[1]])
+        else:
+            non_rejected_h0.append([line_content1[i], line_content2[i], result[1]])
 
 
-	header_new = args.interactionFile[0]
-	header_new += ' '
-	header_new += args.interactionFile[1]
+    header_new = args.interactionFile[0]
+    header_new += ' '
+    header_new += args.interactionFile[1]
 
-	rejected_h0_str = 'Rejected H0 data'
+    rejected_h0_str = 'Rejected H0 data'
 
-	non_rejected_h0_str = 'Accepted H0 data'
+    non_rejected_h0_str = 'Accepted H0 data'
 
-	writeResult('outname_h0.bed', rejected_h0, rejected_h0_str, header1, )
-	writeResult('outname_h1.bed', non_rejected_h0, non_rejected_h0_str, header2, )
+    args.interactionFile[0]
+
+    args.interactionFile[0]
+    writeResult('outname_h0.bed', rejected_h0, rejected_h0_str, header1, header2, line_content1[0][:4], line_content2[0][:4])
+    writeResult('outname_h1.bed', non_rejected_h0, non_rejected_h0_str, header1, header2, line_content1[0][:4], line_content2[0][:4])
