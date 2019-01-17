@@ -125,7 +125,7 @@ setup(
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
              'bin/hicLog2Ratio', 'bin/chicViewpointBackgroundModel', 'bin/chicPlotViewpoint', 'bin/chicViewpoint',
-             'bin/hicConvertFormat', 'bin/chicAggregateStatistic'],
+             'bin/hicConvertFormat', 'bin/chicAggregateStatistic', 'bin/chicDifferentialTest'],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
     package_data={'hicexplorer': ['qc_template.html']},
