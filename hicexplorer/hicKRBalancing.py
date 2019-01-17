@@ -3,6 +3,7 @@ import numpy as np
 import argparse
 
 from hicmatrix import HiCMatrix as hm
+from scipy import sparse
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -29,13 +30,11 @@ Computes a balanced matrix using the Knight and Ruiz balancing algorithm.
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-    ma = hm.hiCMatrix(args.matrix)
+    ma = hm.hiCMatrix(args.matrix) #TODO slow for big matrices!
     ma.maskBins(ma.nan_bins)
-    input_matrix = np.array(ma.matrix.todense())
-    #A = np.array([[0.68037,0.59688,0.329554,0.536459],[0.211234,0.823295,0.536459,0.536459],
-    #[0.566198,0.604897,0.444451,0.536459],[0.566198,0.604897,0.444451,0.536459]])
-    #A[A == 0] = 0.00000000001
-    d = kr_balancing(input_matrix.astype(float))
+    #TODO remove zero rows and columns
+    print("float sparse matrix")
+    d = kr_balancing(ma.matrix.astype(float))
     d.outter_loop()
     output = d.get_output()
     #print(np.array(output)) #TODO test sum of the rows and columns ! Plot the matrix! Assert the shape! PerChr!
