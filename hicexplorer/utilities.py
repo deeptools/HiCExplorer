@@ -144,7 +144,7 @@ def genomicRegion(string):
     if region == '':
         return None
     # remove undesired characters that may be present and
-    
+
     region = region.translate(str.maketrans('', '', ",;|!{}()")).replace("-", ":")
     if len(region) == 0:
         raise argparse.ArgumentTypeError(
@@ -261,7 +261,6 @@ def expected_interactions_non_zero(pSubmatrix):
     expected_interactions[mask] = 0
 
     return expected_interactions
-
 
 
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):

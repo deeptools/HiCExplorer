@@ -106,8 +106,7 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     if args.region:
-        
-        
+
         args.region = args.region.replace(",", "")
         args.region = args.region.replace(";", "")
         args.region = args.region.replace("!", "")
@@ -117,7 +116,7 @@ def main(args=None):
             log.error("Region format is invalid {}".format(args.region))
             exit(0)
         chrom, region_start, region_end = region[0], int(region[1]), int(region[2])
-   
+
     args.referencePoint = args.referencePoint.replace(",", "")
     args.referencePoint = args.referencePoint.replace(";", "")
     args.referencePoint = args.referencePoint.replace("!", "")

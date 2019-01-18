@@ -8,16 +8,19 @@ from unidecode import unidecode
 from hicmatrix import HiCMatrix as hm
 import warnings
 
+
 def parse_arguments():
-    parser = argparse.ArgumentParser(description = "Making the expected matrix")
-    #Required
+    parser = argparse.ArgumentParser(description="Making the expected matrix")
+    # Required
     parser.add_argument("-m",
-                        dest = "count_matrix",
-                        required = True)
+                        dest="count_matrix",
+                        required=True)
     parser.add_argument("-o",
-                        dest = "output_matrix",
-                        required = True)
+                        dest="output_matrix",
+                        required=True)
     return parser
+
+
 def expected_interactions(matrix):
     """
         Computes the expected number of interactions per distance

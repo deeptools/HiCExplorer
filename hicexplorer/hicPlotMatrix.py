@@ -276,7 +276,6 @@ def translate_region(region_string):
     are set to a 0 and 1e15
     """
 
-    
     # region_string = toBytes(region_string)
     region_string = region_string.replace(",", "")
     region_string = region_string.replace(";", "")
@@ -509,7 +508,7 @@ def main(args=None):
             invalid_chromosomes = []
             log.debug('args.chromosomeOrder: {}'.format(args.chromosomeOrder))
             log.debug("ma.chrBinBoundaries {}".format(ma.chrBinBoundaries))
-            
+
             args.chromosomeOrder = toBytes(args.chromosomeOrder)
             for chrom in toString(args.chromosomeOrder):
                 if chrom in ma.chrBinBoundaries:
