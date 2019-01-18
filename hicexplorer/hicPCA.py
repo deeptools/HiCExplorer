@@ -1,5 +1,7 @@
 from __future__ import division
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 
 from scipy.sparse import csr_matrix, lil_matrix
@@ -19,11 +21,6 @@ from hicmatrix.lib import MatrixFileHandler
 from .readBed import ReadBed
 import logging
 log = logging.getLogger(__name__)
-
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments():
@@ -73,16 +70,18 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            default=None,
                            nargs='+')
     parserOpt.add_argument('--norm',
-                           help='Different obs-exp normalization',
+                           help='Different obs-exp normalization as used by Homer software.',
                            action='store_true')
     parserOpt.add_argument('--geneTrack',
                            help='The gene track is needed to decide if the values of the eigenvector need a sign flip or not.',
                            default=None)
     parserOpt.add_argument('--pearsonMatrix', '-pm',
-                           help='Writes the obs/exp to Pearson matrix which was used to compute the PCA to a file.'
+                           help='Internally the input matrix is converted per chromosome to obs_exp matrix and consecutively to a Pearson matrix.'
+                           ' Set this parameter to write the pearson matrix to a file.'
                            )
     parserOpt.add_argument('--obsexpMatrix', '-oem',
-                           help='Writes the obs/exp which was used to compute the PCA to a file.'
+                           help='Internally the input matrix is converted per chromosome to obs_exp matrix and consecutively to a Pearson matrix.'
+                           ' Set this parameter to write the observe / expected matrix to a file.'
                            )
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 

@@ -1,5 +1,7 @@
 from __future__ import division
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import os.path
 import numpy as np
 import pandas as pd

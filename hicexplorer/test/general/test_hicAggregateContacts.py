@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images

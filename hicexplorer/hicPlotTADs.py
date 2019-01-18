@@ -1,6 +1,7 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from pygenometracks import plotTracks
-
-from hicexplorer._version import __version__
 
 
 def main(args=None):

@@ -1,7 +1,9 @@
 """
     Testsuite for testing the number of collected items during pytest execution.
 """
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import pytest
 import re
 import os

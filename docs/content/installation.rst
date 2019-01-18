@@ -8,19 +8,23 @@ Requirements
 -------------
 
 * Python 2.7 or 3.6
-* numpy >= 1.12.1
-* scipy >= 0.19.0
-* matplotlib == 2.1.1
-* pysam >= 0.11.2
-* intervaltree >= 2.1.0
-* biopython >= 1.68
-* pytables >= 3.3.0
-* pyBigWig >=0.3.4
-* future >= 0.16.0
-* cooler >= 0.7.6
-* six >= 1.10.0
-* jinja2 >= 2.9.6
-* pandas >= 0.20.2
+* numpy >= 1.15
+* scipy >= 1.1
+* matplotlib >= 2.2
+* pysam >= 0.14
+* intervaltree >= 2.1
+* biopython >= 1.72
+* pytables >= 3.4
+* pyBigWig >= 0.3
+* future >= 0.17
+* cooler >= 0.7.11
+* six >= 1.11
+* jinja2 >= 2.10
+* pandas >= 0.23
+* unidecode >= 1.0
+* hicmatrix >= 5
+* pygenometracks >= 2.1
+* psutil >= 5.4.8
 
 Command line installation using ``conda``
 -----------------------------------------

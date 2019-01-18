@@ -1,8 +1,10 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString
 from hicmatrix.HiCMatrix import check_cooler
 import numpy as np
 import logging
@@ -33,7 +35,7 @@ def parse_arguments(args=None):
                            nargs='+',
                            help='List of chromosomes to keep / remove')
     parserOpt.add_argument('--action',
-                           help='Keep / remove the list of specified chromosomes / regions ',
+                           help='Keep, remove or mask the list of specified chromosomes / regions ',
                            default='keep',
                            choices=['keep', 'remove', 'mask']
                            )
@@ -80,15 +82,17 @@ def main(args=None):
                 if len(line) == 0:
                     continue
                 if len(_line) == 3:
-                    chrom, start, end = _line[0], _line[1], _line[2]
+                    chrom, start, end = _line[0], _line[1], int(_line[2]) - 1
 
                 genomic_regions.append((chrom, start, end))
 
         # log.debug('genomic_regions {}'.format(genomic_regions))
         matrix_indices_regions = []
         for region in genomic_regions:
-            start, end = hic_ma.getRegionBinRange(region[0], region[1], region[2])
-            matrix_indices_regions.extend(list(range(start, end)))
+            _regionBinRange = hic_ma.getRegionBinRange(region[0], region[1], region[2])
+            if _regionBinRange is not None:
+                start, end = _regionBinRange
+                matrix_indices_regions.extend(list(range(start, end)))
 
         # log.debug('matrix_indices_regions {}'.format(matrix_indices_regions))
         if args.action == 'keep':

@@ -1,10 +1,11 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images
 import os.path
 import pytest
-import sys
-
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
 h5_browser_track = """
@@ -152,7 +153,7 @@ with open(ROOT + "browser_tracks_cool.ini", 'w') as fh:
 tolerance = 13  # default matplotlib pixed difference tolerance
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(platform == 'darwin' and version_info[0] == 3,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotTads():
     import hicexplorer.hicPlotTADs
@@ -168,10 +169,10 @@ def test_hicPlotTads():
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
-    # os.remove(outfile.name)
+    os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(platform == 'darwin' and version_info[0] == 3,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotTads_cool():
     import hicexplorer.hicPlotTADs
@@ -184,4 +185,4 @@ def test_hicPlotTads_cool():
     res = compare_images(ROOT + '/hicPlotTADs/pygenometracks.png', outfile.name, tol=40)
     assert res is None, res
 
-    # os.remove(outfile.name)
+    os.remove(outfile.name)

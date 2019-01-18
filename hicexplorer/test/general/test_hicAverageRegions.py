@@ -1,9 +1,12 @@
+
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import os
 from tempfile import NamedTemporaryFile
 from hicexplorer import hicAverageRegions
 import numpy.testing as nt
-import numpy as np
-import pytest
+
 from scipy.sparse import load_npz
 import logging
 log = logging.getLogger(__name__)

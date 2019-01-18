@@ -7,6 +7,8 @@ import time
 from os import unlink
 import os
 import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 # import itertools
 
 import pysam
@@ -35,9 +37,6 @@ from hicmatrix.lib import MatrixFileHandler
 from hicexplorer import hicMergeMatrixBins
 import logging
 log = logging.getLogger(__name__)
-
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 class C_Interval(Structure):

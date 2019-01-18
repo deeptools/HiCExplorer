@@ -1,5 +1,7 @@
 from __future__ import division
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import sys
 from hicmatrix import HiCMatrix
 from hicexplorer.utilities import writableFile
@@ -29,10 +31,6 @@ from collections import OrderedDict
 
 import logging
 log = logging.getLogger(__name__)
-
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments(args=None):

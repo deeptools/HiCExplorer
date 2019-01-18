@@ -1,6 +1,8 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
-from os.path import basename, dirname
 
 from scipy.sparse import csr_matrix, lil_matrix
 import numpy as np
@@ -22,7 +24,7 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         add_help=False,
-        description='Converts the (interaction) matrix to a observed/expected matrix or a pearson_correlated.')
+        description='Converts the (interaction) matrix to different types of obs/exp, pearson or covariance matrix.')
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -38,23 +40,23 @@ def parse_arguments(args=None):
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--method', '-me',
-                           help='Transformation method to use for input matrix. Transformation is computed per chromosome.',
-                           choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', 'pearson', 'covariance', 'norm'],
+                           help='Transformation method to use for input matrix. Transformation is computed per chromosome.'
+                           'obs_exp computes the expected matrix as the sum per genomic distance j divided by maximal possible contacts: sum(diagonal(j) / number of elements in diagonal(j) '
+                           'obs_exp_lieberman computes the expected matrix as the sum per genomic distance j divided by the : sum(diagonal(j) / (length of chromosome - j))'
+                           'obs_exp_non_zero computes the expected matrix as the sum per genomic distance j divided by sum of non-zero contacts: sum(diagonal(j) / number of non-zero elements in diagonal(j)'
+                           'obs_exp_norm computes the expected matrix for exp_i,j: sum(diagonal(i-j)) * sum(row(j)) * sum(row(i)) / sum(matrix)'
+                           'pearson computes the Pearson correlation matrix on the input matrix: Pearson_i,j = C_i,j / sqrt(C_i,i * C_j,j) and C is the covariance matrix'
+                           'covariance computes the Covariance matrix on the input matrix: Cov_i,j = E[M_i, M_j] - my_i * my_j where M is the input matrix and my the mean.',
+                           choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', 'obs_exp_norm', 'pearson', 'covariance'],
                            default='obs_exp')
 
     parserOpt.add_argument('--chromosomes',
-                           help='List of chromosomes to be included in the '
-                           'correlation.',
+                           help='List of chromosomes to be included in the computation.',
                            default=None,
                            nargs='+')
     parserOpt.add_argument('--perChromosome', '-pc',
                            help='Each chromosome is processed individually, inter-chromosomal interactions are ignored. Option not valid for obs_exp_lieberman.',
                            action='store_true')
-    parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads for pearson correlation.',
-                           required=False,
-                           default=4,
-                           type=int)
 
     parserOpt.add_argument("-help", "-h", action="help", help="show this help message and exit")
 
@@ -113,14 +115,17 @@ def main(args=None):
         log.error('Accepted is .h5 or .cool')
         exit(1)
 
-    hic_ma = hm.hiCMatrix(pMatrixFile=args.matrix)
-    if args.chromosomes:
-        hic_ma.keepOnlyTheseChr(args.chromosomes)
+    if args.matrix.endswith('cool') and args.chromosomes is not None and len(args.chromosomes) == 1:
+        hic_ma = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=args.chromosomes)
+    else:
+        hic_ma = hm.hiCMatrix(pMatrixFile=args.matrix)
+        if args.chromosomes:
+            hic_ma.keepOnlyTheseChr(args.chromosomes)
 
     trasf_matrix = lil_matrix(hic_ma.matrix.shape)
 
-    if args.method == 'norm':
-        trasf_matrix = lil_matrix(hic_ma.matrix.shape)
+    if args.method == 'obs_exp_norm':
+        # trasf_matrix = lil_matrix(hic_ma.matrix.shape)
         if args.perChromosome:
             for chrname in hic_ma.getChrNames():
                 chr_range = hic_ma.getChrBinRange(chrname)
@@ -166,7 +171,8 @@ def main(args=None):
             submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
             submatrix.astype(float)
             trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp_lieberman(submatrix, length_chromosome, chromosome_count))
-
+        trasf_matrix = trasf_matrix.tocsr()
+        # log.debug('type: {}'.format(type(trasf_matrix)))
     elif args.method == 'pearson':
         if args.perChromosome:
             for chrname in hic_ma.getChrNames():

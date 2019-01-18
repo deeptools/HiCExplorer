@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from tempfile import NamedTemporaryFile
 
 import matplotlib as mpl
@@ -8,6 +11,8 @@ import pytest
 from psutil import virtual_memory
 mem = virtual_memory()
 memory = mem.total / 2 ** 30
+
+
 import hicexplorer.hicPlotMatrix
 tolerance = 30  # default matplotlib pixed difference tolerance
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")

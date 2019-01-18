@@ -1,9 +1,10 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString
-from hicmatrix.HiCMatrix import check_cooler
 import logging
 log = logging.getLogger(__name__)
 import numpy as np
@@ -16,15 +17,15 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
+       Sums Hi-C contacts around given reference points and computes their average. This tool is useful to detect differences at certain reference points as for example TAD boundaries between samples.
 
+WARNING: This tool can only be used with fixed bin size Hi-C matrices. No guarantees how and if it works on restriction site interaction matrices.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrix', '-m',
-                                help='The matrix (or multiple matrices) to get information about. '
-                                'HiCExplorer supports the following file formats: h5 (native HiCExplorer format) '
-                                'and cool.',
+                                help='The matrix to use for the average of TAD regions.',
                                 required=True)
     parserRequired.add_argument('--regions', '-r',
                                 help='BED file which stores a list of regions that are summed and averaged',
@@ -38,8 +39,9 @@ def parse_arguments(args=None):
                                               help='Range of region up- and downstream of each region to include in bin units.',
                                               nargs=2,
                                               type=int)
-    parserRequired.add_argument('--outFileName', '-out',
-                                help='File name to save the adjusted matrix.')
+    parserRequired.add_argument('--outFileName', '-o',
+                                help='File name to save the average regions TADs matrix.',
+                                required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
@@ -95,7 +97,7 @@ def main(args=None):
             _line = line.strip().split('\t')
             if len(line) == 0:
                 continue
-            if len(_line) == 2:
+            if len(_line) >= 2:
                 chrom, start = _line[0], _line[1]
 
             viewpoint = (chrom, start, start)
