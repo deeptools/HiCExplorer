@@ -1,9 +1,12 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 import time
 import scipy.stats
 import scipy.sparse
-from hicexplorer import HiCMatrix
+from hicmatrix import HiCMatrix
 import hicexplorer.parserCommon
 from hicexplorer._version import __version__
 import numpy as np
@@ -25,6 +28,9 @@ def parse_arguments(args=None):
 
     parserRequired = parser.add_argument_group('Required arguments')
 
+    parserRequired.add_argument('--matrix', '-m',
+                                help='Input matrix.',
+                                required=True)
     parserRequired.add_argument('--outFileName', '-o',
                                 help='File name to save the resulting matrix.',
                                 type=hicexplorer.parserCommon.writableFile,
@@ -50,7 +56,7 @@ def parse_arguments(args=None):
         action='store_true')
 
     parserOpt.add_argument(
-        '--depth',
+        '--maxDepth',
         help='Depth (in base pairs) up to which the computations will be carried out. A depth of 10.0000 bp '
              'means that any computations involving bins that are over 10kbp apart are not considered.',
         type=int,
@@ -812,8 +818,8 @@ def main(args=None):
         hic_ma.diagflat()
 
     if args.method == 'obs/exp':
-        hic_ma.convert_to_obs_exp_matrix(maxdepth=args.depth, perchr=args.perchr)
+        hic_ma.convert_to_obs_exp_matrix(maxdepth=args.maxDepth, perchr=args.perchr)
     else:
-        hic_ma.convert_to_zscore_matrix(maxdepth=args.depth, perchr=args.perchr)
+        hic_ma.convert_to_zscore_matrix(maxdepth=args.maxDepth, perchr=args.perchr)
 
     hic_ma.save(args.outFileName)

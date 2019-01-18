@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>HiCExplorer QC report</title>
+		<style type="text/css">
+		
+			body{
+				margin:0;
+				padding:0;
+				font-family: Sans-Serif;
+				line-height: 1.5em;
+			}
+			
+			main {
+				padding-bottom: 10010px;
+				margin-bottom: -10000px;
+				float: left;
+				width: 100%;
+			}
+			
+			#nav {
+				float: left;
+				width: 230px;
+				background: #eee;
+                position: fixed;
+                height: 100%;
+			}
+			
+			#wrapper {
+				overflow: hidden;
+			}
+			
+			#content {
+				margin-left: 230px;
+			}
+			
+			.sidebar{
+				margin: 15px;
+				margin-top: 0;
+                #position: fixed;
+
+			}
+
+	        dt {
+                font-weight: bold;
+            }
+            img {
+                width: 800px;
+            }
+            table{
+                width: 100%;
+                border-collapse: collapse;
+                text-align: left;
+                overflow: hidden;
+            }
+            td, th{
+                border-top: 1px solid #ECF0F1;
+                padding: 10px;
+            }
+
+            td{
+                border-left: 1px solid #ECF0F1;
+                border-right: 1px solid #ECF0F1;
+                text-align: right
+            }
+
+            th{
+                background-color: rgb(238, 238, 238);
+            }
+            tr:nth-of-type(even) td {
+                background-color: lighten(#4ECDC4, 35%);
+            }
+
+		</style>
+        
+	
+</head>
+
+<body>
+        <nav id="nav">
+            <div class="sidebar">
+                <h3><a href="#considered">Pairs considered</a></h3>
+                <h3><a href="#unmappable">Unmappable and non-unique pairs</a></h3>
+                <h3><a href="#table_unmappable">Unmappable and non-unique table</h3>
+                <h3><a href="#discarded">Pairs discarded</a></h3>
+                <h3><a href="#table_discarded">Discarded pairs table</h3>
+                <h3><a href="#distance">Contact distance</a></h3>
+                <h3><a href="#table_distance">Contact distance table</h3>
+                <h3><a href="#readorientation">Read orientation</a></h3>
+                <h3><a href="#table_orientation">Read orientation table</h3>
+                <h3><a href="#table">Number of reads table</a></h3>
+            </div>
+        </nav>
+        <main>
+            <div id="content">
+                <div class="sidebar">
+                    <h1>HiCExplorer QC report</h1>
+                    <br/>
+
+                    <h2 id="considered">Pairs sequenced</h2>
+                    <img src="pairs_sequenced.png" alt="Pairs sequenced" />
+
+                    <h2 id="unmappable">Unmappable and non-unique pairs</h2>
+                    <img src="unmappable_and_non_unique.png" alt="Unmappable and non-unique" />
+
+                    <p>This figure contains the fraction of reads, with respect to the total number of reads,
+                    that did not map, that have a low quality score or that didn't map uniquely to the genome.
+
+                    <h2 id="table_unmappable">Unmappable and non-unique table</h2>
+                    <style  type="text/css" >
+</style>  
+<table id="T_4460ccba_73a8_11e8_9086_c85b768f5cde" > 
+<thead>    <tr> 
+        <th class="blank level0" ></th> 
+        <th class="col_heading level0 col0" >Pairs used</th> 
+        <th class="col_heading level0 col1" >Pairs used_%</th> 
+        <th class="col_heading level0 col2" >One mate low quality</th> 
+        <th class="col_heading level0 col3" >One mate low quality_%</th> 
+        <th class="col_heading level0 col4" >One mate not unique</th> 
+        <th class="col_heading level0 col5" >One mate not unique_%</th> 
+        <th class="col_heading level0 col6" >One mate unmapped</th> 
+        <th class="col_heading level0 col7" >One mate unmapped_%</th> 
+    </tr>    <tr> 
+        <th class="index_name level0" >File</th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+    </tr></thead> 
+<tbody>    <tr> 
+        <th id="T_4460ccba_73a8_11e8_9086_c85b768f5cdelevel0_row0" class="row_heading level0 row0" >R1_R2_restrictionFile.cool</th> 
+        <td id="T_4460ccba_73a8_11e8_9086_c85b768f5cderow0_col0" class="data row0 col0" >202</td> 
+        <td id="T_4460ccba_73a8_11e8_9086_c85b768f5cderow0_col1" class="data row0 col1" >20.55%</td> 
+        <td id="T_4460ccba_73a8_11e8_9086_c85b768f5cderow0_col2" class="data row0 col2" >164</td> 
+        <td id="T_4460ccba_73a8_11e8_9086_c85b768f5cderow0_col3" class="data row0 col3" >16.68%</td> 
+        <td id="T_4460ccba_73a8_11e8_9086_c85b768f5cderow0_col4" class="data row0 col4" >13</td> 
+        <td id="T_4460ccba_73a8_11e8_9086_c85b768f5cderow0_col5" class="data row0 col5" >1.32%</td> 
+        <td id="T_4460ccba_73a8_11e8_9086_c85b768f5cderow0_col6" class="data row0 col6" >506</td> 
+        <td id="T_4460ccba_73a8_11e8_9086_c85b768f5cderow0_col7" class="data row0 col7" >51.48%</td> 
+    </tr></tbody> 
+</table> 
+                    <a href="unmapable_table.txt">Download table (tab separated)</a>
+
+                    <h2 id="discarded">Pairs discarded</h2>
+                    <img src="pairs_discarded.png" alt="Pairs discarded" />
+
+                    <p>This figure contains the fraction read pairs (with respect to mappable reads) that were discarded
+                    when building the Hi-C matrix. </p>
+                    <dl>
+                      <dt>Dangling ends</dt>
+                      <dd>These are reads that start with the restriction site and constitute reads that were digested but no ligated.</dd>
+                      <dt>Same fragment</dt>
+                      <dd>These are read mates, facing inward, separated by up to 800 bp that do not have a restriction enzyme in
+                      between. These read pairs are not valid Hi-C pairs</dd>
+                      <dt>Self circle</dt>
+                      <dd>self circles are defined as pairs within 25kb with 'outward' read orientation</dd>
+                      <dt>Self ligation</dt>
+                      <dd>These are read pairs with a restriction site in between that are within 800 bp.</dd>
+                    </dl>
+
+                    <h2 id="table_discarded">Discarded pairs table</h2>
+                    <style  type="text/css" >
+</style>  
+<table id="T_4460ccbb_73a8_11e8_9086_c85b768f5cde" > 
+<thead>    <tr> 
+        <th class="blank level0" ></th> 
+        <th class="col_heading level0 col0" >One mate not close to rest site</th> 
+        <th class="col_heading level0 col1" >One mate not close to rest site %</th> 
+        <th class="col_heading level0 col2" >dangling end</th> 
+        <th class="col_heading level0 col3" >dangling end %</th> 
+        <th class="col_heading level0 col4" >duplicated pairs</th> 
+        <th class="col_heading level0 col5" >duplicated pairs %</th> 
+        <th class="col_heading level0 col6" >same fragment</th> 
+        <th class="col_heading level0 col7" >same fragment %</th> 
+        <th class="col_heading level0 col8" >self circle</th> 
+        <th class="col_heading level0 col9" >self circle %</th> 
+        <th class="col_heading level0 col10" >self ligation (removed)</th> 
+        <th class="col_heading level0 col11" >self ligation (removed) %</th> 
+    </tr>    <tr> 
+        <th class="index_name level0" >File</th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+    </tr></thead> 
+<tbody>    <tr> 
+        <th id="T_4460ccbb_73a8_11e8_9086_c85b768f5cdelevel0_row0" class="row_heading level0 row0" >R1_R2_restrictionFile.cool</th> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col0" class="data row0 col0" >7</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col1" class="data row0 col1" >2.33%</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col2" class="data row0 col2" >100.00%</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col3" class="data row0 col3" >0.33%</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col4" class="data row0 col4" >0.00%</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col5" class="data row0 col5" >0.00%</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col6" class="data row0 col6" >50</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col7" class="data row0 col7" >16.67%</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col8" class="data row0 col8" >7</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col9" class="data row0 col9" >2.33%</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col10" class="data row0 col10" >33</td> 
+        <td id="T_4460ccbb_73a8_11e8_9086_c85b768f5cderow0_col11" class="data row0 col11" >11.00%</td> 
+    </tr></tbody> 
+</table> 
+                    <a href="discarded_table.txt">Download table (tab separated)</a>
+
+                    <h2 id="distance">Contact distance </h2>
+                        <img src="distance.png" alt="Contact distance" />
+
+                    <h2 id="table_distance">Contact distance table</h2>
+                    <style  type="text/css" >
+</style>  
+<table id="T_4460ccbc_73a8_11e8_9086_c85b768f5cde" > 
+<thead>    <tr> 
+        <th class="blank level0" ></th> 
+        <th class="col_heading level0 col0" >inter chromosomal</th> 
+        <th class="col_heading level0 col1" >inter chromosomal %</th> 
+        <th class="col_heading level0 col2" >short range < 20kb</th> 
+        <th class="col_heading level0 col3" >short range < 20kb %</th> 
+        <th class="col_heading level0 col4" >long range</th> 
+        <th class="col_heading level0 col5" >long range %</th> 
+    </tr>    <tr> 
+        <th class="index_name level0" >File</th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+    </tr></thead> 
+<tbody>    <tr> 
+        <th id="T_4460ccbc_73a8_11e8_9086_c85b768f5cdelevel0_row0" class="row_heading level0 row0" >R1_R2_restrictionFile.cool</th> 
+        <td id="T_4460ccbc_73a8_11e8_9086_c85b768f5cderow0_col0" class="data row0 col0" >21</td> 
+        <td id="T_4460ccbc_73a8_11e8_9086_c85b768f5cderow0_col1" class="data row0 col1" >10.40%</td> 
+        <td id="T_4460ccbc_73a8_11e8_9086_c85b768f5cderow0_col2" class="data row0 col2" >53</td> 
+        <td id="T_4460ccbc_73a8_11e8_9086_c85b768f5cderow0_col3" class="data row0 col3" >26.24%</td> 
+        <td id="T_4460ccbc_73a8_11e8_9086_c85b768f5cderow0_col4" class="data row0 col4" >128</td> 
+        <td id="T_4460ccbc_73a8_11e8_9086_c85b768f5cderow0_col5" class="data row0 col5" >63.37%</td> 
+    </tr></tbody> 
+</table> 
+                    <a href="distance_table.txt">Download table (tab separated)</a>
+
+                    <h2 id="readorientation">Read orientation</h2>
+                        <img src="read_orientation.png" alt="Contact distance" />
+
+                    <h2 id="table_orientation">Read orientation table</h2>
+                    <style  type="text/css" >
+</style>  
+<table id="T_4460ccbd_73a8_11e8_9086_c85b768f5cde" > 
+<thead>    <tr> 
+        <th class="blank level0" ></th> 
+        <th class="col_heading level0 col0" >inward pairs</th> 
+        <th class="col_heading level0 col1" >inward pairs %</th> 
+        <th class="col_heading level0 col2" >outward pairs</th> 
+        <th class="col_heading level0 col3" >outward pairs %</th> 
+        <th class="col_heading level0 col4" >left pairs</th> 
+        <th class="col_heading level0 col5" >left pairs %</th> 
+        <th class="col_heading level0 col6" >right pairs</th> 
+        <th class="col_heading level0 col7" >right pairs %</th> 
+    </tr>    <tr> 
+        <th class="index_name level0" >File</th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+    </tr></thead> 
+<tbody>    <tr> 
+        <th id="T_4460ccbd_73a8_11e8_9086_c85b768f5cdelevel0_row0" class="row_heading level0 row0" >R1_R2_restrictionFile.cool</th> 
+        <td id="T_4460ccbd_73a8_11e8_9086_c85b768f5cderow0_col0" class="data row0 col0" >40</td> 
+        <td id="T_4460ccbd_73a8_11e8_9086_c85b768f5cderow0_col1" class="data row0 col1" >22.10%</td> 
+        <td id="T_4460ccbd_73a8_11e8_9086_c85b768f5cderow0_col2" class="data row0 col2" >58</td> 
+        <td id="T_4460ccbd_73a8_11e8_9086_c85b768f5cderow0_col3" class="data row0 col3" >32.04%</td> 
+        <td id="T_4460ccbd_73a8_11e8_9086_c85b768f5cderow0_col4" class="data row0 col4" >48</td> 
+        <td id="T_4460ccbd_73a8_11e8_9086_c85b768f5cderow0_col5" class="data row0 col5" >26.52%</td> 
+        <td id="T_4460ccbd_73a8_11e8_9086_c85b768f5cderow0_col6" class="data row0 col6" >35</td> 
+        <td id="T_4460ccbd_73a8_11e8_9086_c85b768f5cderow0_col7" class="data row0 col7" >19.34%</td> 
+    </tr></tbody> 
+</table> 
+                    <a href="read_orientation_table.txt">Download table (tab separated)</a>
+
+                    <h2 id="table">Number of reads table</h2>
+                    <style  type="text/css" >
+</style>  
+<table id="T_4460ccbe_73a8_11e8_9086_c85b768f5cde" > 
+<thead>    <tr> 
+        <th class="blank level0" ></th> 
+        <th class="col_heading level0 col0" >Pairs considered</th> 
+        <th class="col_heading level0 col1" >Pairs mappable, unique and high quality</th> 
+        <th class="col_heading level0 col2" >Pairs used</th> 
+        <th class="col_heading level0 col3" >One mate unmapped</th> 
+        <th class="col_heading level0 col4" >One mate not unique</th> 
+        <th class="col_heading level0 col5" >One mate low quality</th> 
+        <th class="col_heading level0 col6" >dangling end</th> 
+        <th class="col_heading level0 col7" >self ligation (removed)</th> 
+        <th class="col_heading level0 col8" >One mate not close to rest site</th> 
+        <th class="col_heading level0 col9" >same fragment</th> 
+        <th class="col_heading level0 col10" >self circle</th> 
+        <th class="col_heading level0 col11" >duplicated pairs</th> 
+        <th class="col_heading level0 col12" >inter chromosomal</th> 
+        <th class="col_heading level0 col13" >short range < 20kb</th> 
+        <th class="col_heading level0 col14" >long range</th> 
+        <th class="col_heading level0 col15" >inward pairs</th> 
+        <th class="col_heading level0 col16" >outward pairs</th> 
+        <th class="col_heading level0 col17" >left pairs</th> 
+        <th class="col_heading level0 col18" >right pairs</th> 
+    </tr>    <tr> 
+        <th class="index_name level0" >File</th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+        <th class="blank" ></th> 
+    </tr></thead> 
+<tbody>    <tr> 
+        <th id="T_4460ccbe_73a8_11e8_9086_c85b768f5cdelevel0_row0" class="row_heading level0 row0" >R1_R2_restrictionFile.cool</th> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col0" class="data row0 col0" >983</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col1" class="data row0 col1" >300</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col2" class="data row0 col2" >202</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col3" class="data row0 col3" >506</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col4" class="data row0 col4" >13</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col5" class="data row0 col5" >164</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col6" class="data row0 col6" >1</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col7" class="data row0 col7" >33</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col8" class="data row0 col8" >7</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col9" class="data row0 col9" >50</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col10" class="data row0 col10" >7</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col11" class="data row0 col11" >0</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col12" class="data row0 col12" >21</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col13" class="data row0 col13" >53</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col14" class="data row0 col14" >128</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col15" class="data row0 col15" >40</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col16" class="data row0 col16" >58</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col17" class="data row0 col17" >48</td> 
+        <td id="T_4460ccbe_73a8_11e8_9086_c85b768f5cderow0_col18" class="data row0 col18" >35</td> 
+    </tr></tbody> 
+</table> 
+
+                    <a href="QC_table.txt">Download table (tab separated)</a>
+                </div>
+            </div>
+        </main>
+	</body>
+</html>

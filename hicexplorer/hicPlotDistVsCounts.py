@@ -1,11 +1,13 @@
 from __future__ import division
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import os.path
 import numpy as np
 import pandas as pd
 import argparse
 
-import hicexplorer.HiCMatrix as HiCMatrix
+from hicmatrix import HiCMatrix
 from hicexplorer._version import __version__
 
 import matplotlib
@@ -139,19 +141,19 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals)
     >>> hic.convert_to_obs_exp_matrix().todense()
-    matrix([[ 1. ,  0.8,  1. ,  1. ,  0. ],
-            [ 0. ,  4. ,  1.5,  1. ,  1. ],
-            [ 0. ,  0. ,  0. ,  0.7,  2. ],
-            [ 0. ,  0. ,  0. ,  0. ,  1. ],
-            [ 0. ,  0. ,  0. ,  0. ,  0. ]])
+    matrix([[1. , 0.8, 1. , 1. , 0. ],
+            [0. , 4. , 1.5, 1. , 1. ],
+            [0. , 0. , 0. , 0.7, 2. ],
+            [0. , 0. , 0. , 0. , 1. ],
+            [0. , 0. , 0. , 0. , 0. ]])
 
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.convert_to_obs_exp_matrix(maxdepth=20).todense()
-    matrix([[ 1. ,  0.8,  1. ,  0. ,  0. ],
-            [ 0. ,  4. ,  1.5,  1. ,  0. ],
-            [ 0. ,  0. ,  0. ,  0.7,  nan],
-            [ 0. ,  0. ,  0. ,  0. ,  nan],
-            [ 0. ,  0. ,  0. ,  0. ,  0. ]])
+    matrix([[1. , 0.8, 1. , 0. , 0. ],
+            [0. , 4. , 1.5, 1. , 0. ],
+            [0. , 0. , 0. , 0.7, nan],
+            [0. , 0. , 0. , 0. , nan],
+            [0. , 0. , 0. , 0. , 0. ]])
 
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.convert_to_obs_exp_matrix(zscore=True).todense()

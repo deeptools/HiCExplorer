@@ -18,6 +18,8 @@ HiCExplorer tools
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicSumMatrices`           | preprocessing    | 2 or more hicMatrix objects       | hicMatrix object                            | Adds Hi-C matrices of the same size                                               |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicNormalize`             | preprocessing    | multiple Hi-C matrices            | multiple Hi-C matrices                      | Normalize data to 0 to 1 range or to smallest total read count                    |
++--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicFindEnrichedContacts`  | analysis         | hicMatrix object                  | hicMatrix object                            | Identifies enriched Hi-C contacts                                                 |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicCorrelate`             | analysis         | 2 or more hicMatrix objects       | a heatmap/scatterplot                       | Computes and visualises the correlation of Hi-C matrices                          |
@@ -33,7 +35,9 @@ HiCExplorer tools
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotDistVsCounts`      | visualization    | hicMatrix object                  | log log plot of Hi-C contacts per distance  | Quality control                                                                   |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-|:ref:`hicExport`                | data integration | multiple Hi-C file formats        | Hi-C matrices/outputs in several formats    | Export matrix to different formats                                                |
+|:ref:`hicConvertFormat`         | data integration | one/multiple Hi-C file formats    | Hi-C matrices/outputs in several formats    | Convert matrix to different formats                                               |
++--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicAdjustMatrix`          | data integration | one Hi-C file formats             | Hi-C matrix                                 | Removes, masks or keeps specified regions of a matrix                             |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicInfo`                  | information      | one or more hicMatrix objects     | Screen info                                 | Prints information about  matrices, like size, maximum, minimux, bin size, etc.   |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
@@ -48,6 +52,10 @@ HiCExplorer tools
 |:ref:`hicQC`                    | information      | log files from hicBuildMatrix     | A quality control report                    | Quality control of the created contact matrix.                                    |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicCompareMatrices`       | analysis         | two Hi-C matrices                 | one Hi-C matrix                             | Applies diff, ratio or log2ratio on matrices to compare them.                     |
++--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicAverageRegions`        | analysis         | multiple Hi-C matrices            | one npz object                              | Averages the given locations. Visualization with hicPlotAverageRegions            |
++--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicPlotAverageRegions`    | visualization    | one npz file                      | one image                                   | Visualization of hicAverageRegions.                                               |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicMergeTADbins`          | preprocessing    | one Hi-C matrix, one BED file     | one Hi-C matrix                             | Uses a BED file of domains or TAD boundaries to merge the                         |
 |                                |                  |                                   |                                             | bin counts of a Hi-C matrix.                                                      |
@@ -92,6 +100,8 @@ Tools for Hi-C data pre-processing
 """""""""""""""""""""""""
 :ref:`hicCorrectMatrix`
 """""""""""""""""""""""
+:ref:`hicNormalize`
+"""""""""""""""""""
 
 Tools for Hi-C QC
 ^^^^^^^^^^^^^^^^^
@@ -116,6 +126,8 @@ Tools for Hi-C data analysis
 """""""""""""
 :ref:`hicTransform`
 """""""""""""""""""
+:ref:`hicAverageRegions`
+""""""""""""""""""""""""
 
 Tools for TADs processing
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -136,11 +148,14 @@ Tools for Hi-C and TADs visualization
 """""""""""""""""""""""
 :ref:`hicAggregateContacts`
 """""""""""""""""""""""""""
+:ref:`hicPlotAverageRegions`
+""""""""""""""""""""""""""""
 
 
-Miscellaneous
-^^^^^^^^^^^^^
+Hi-C contact matrix handling
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-:ref:`hicExport`
-""""""""""""""""
-
+:ref:`hicConvertFormat`
+"""""""""""""""""""""""
+:ref:`hicAdjustMatrix`
+""""""""""""""""""""""

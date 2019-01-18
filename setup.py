@@ -5,7 +5,7 @@ import sys
 import subprocess
 import re
 
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.command.sdist import sdist as _sdist
 from setuptools.command.install import install as _install
 
@@ -93,20 +93,24 @@ class install(_install):
             sys.stderr.write("Error: {}".format(e))
 
 
-install_requires_py = ["numpy == 1.13.*",
-                       "scipy == 1.0.*",
-                       "matplotlib == 2.1.*",
-                       "pysam == 0.11.*",
+install_requires_py = ["numpy >= 1.15.*",
+                       "scipy >= 1.1.*",
+                       "matplotlib >= 3.0.*",
+                       "pysam >= 0.14",
                        "intervaltree == 2.1.*",
-                       "biopython >= 1.68",
-                       "tables == 3.3.*",
-                       "pandas == 0.20.*",
-                       "pyBigWig == 0.3.*",
-                       "six == 1.10.*",
-                       "future == 0.16.*",
-                       "cooler == 0.7.*",
-                       "jinja2 == 2.9.*",
-                       "unidecode == 0.4.*"
+                       "biopython >= 1.72",
+                       "tables >= 3.4.*",
+                       "pandas >= 0.23.*",
+                       "pyBigWig >= 0.3.*",
+                       "six >= 1.11.*",
+                       "future >= 0.17.*",
+                       "cooler >= 0.7.11*",
+                       "jinja2 >= 2.10.*",
+                       "unidecode >= 1.0.*",
+                       "hicmatrix >= 5",
+                       "pygenometracks >= 2.1",
+                       "psutil >= 5.4.8",
+                       "hic2cool >= 0.4"
                        ]
 
 if sys.version_info[0] == 2:
@@ -117,13 +121,15 @@ setup(
     version=get_version(),
     author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff',
     author_email='deeptools@googlegroups.com',
-    packages=['hicexplorer'],
+    packages=find_packages(),
     scripts=['bin/findRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindEnrichedContacts', 'bin/hicFindTADs',
              'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicExport', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
-             'bin/hicLog2Ratio'],
+             'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
+             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions'
+             ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
     package_data={'hicexplorer': ['qc_template.html']},

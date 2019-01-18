@@ -7,14 +7,14 @@ Exporting HiCExplorer output to Bioconductor
 It's possible to export Hi-C Matrices produced by HiCExplorer to
 `bioconductor <http://bioconductor.org/>`__ in R, which allows us to use
 existing bioconductor infrastructure for differential Hi-C analysis. The
-tool **hicExport** allows us to write Hi-C matrices in a format that can
-eaisily be imported in bioconductor as **GInteractions** object. Below
+tool **hicConvertFormat** allows us to write Hi-C matrices in a format that can
+easily be imported in bioconductor as **GInteractions** object. Below
 is an example.
 
 .. code:: bash
 
     ## Assuming HiCExplorer is installed in ~/programs
-    hicExport --inFile ~/programs/HiCExplorer/test/test_data/Li_et_al_2015.h5 \
+    hicConvertFormat --matrix ~/programs/HiCExplorer/test/test_data/Li_et_al_2015.h5 \ --inputFormat h5
     -o GInteration_example --outputFormat GInteractions
 
 The output file is in tsv format. It looks like this :

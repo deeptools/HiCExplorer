@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import division
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import sys
 import argparse
-from hicexplorer import HiCMatrix as Hm
+from hicmatrix import HiCMatrix as hm
 from past.builtins import zip
 from builtins import range
 import numpy as np
 from hicexplorer.utilities import toString
+from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
@@ -37,7 +40,8 @@ its total contacts of all other TADs.""")
     parser.add_argument('--outFile', '-o',
                         help='Name for the resulting matrix file.',
                         required=True)
-
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
     return parser
 
 
@@ -134,7 +138,7 @@ def get_boundary_bin_id(hic, bed_fh):
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-    hic_ma = Hm.hiCMatrix(args.matrix)
+    hic_ma = hm.hiCMatrix(args.matrix)
     hic_ma.restoreMaskedBins()
 
     # the bin id of boundary positions

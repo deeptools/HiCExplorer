@@ -1,5 +1,7 @@
 from __future__ import division
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 import numpy as np
 
@@ -10,10 +12,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
-import hicexplorer.HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 import hicexplorer.utilities
 from .utilities import toString
 from .utilities import check_chrom_str_bytes
+from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
@@ -77,7 +80,8 @@ def parse_arguments(args=None):
                            default='median')
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
-
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
     parserOut = parser.add_argument_group('Output options')
 
     parserOut.add_argument('--outFilePrefixMatrix',
@@ -161,6 +165,11 @@ def parse_arguments(args=None):
     parserPlot.add_argument('--disable_bbox_tight',
                             help=argparse.SUPPRESS,
                             action='store_true')
+    parserOpt.add_argument('--dpi',
+                           help='Optional parameter: Resolution for the image in case the'
+                           'ouput is a raster graphics image (e.g png, jpg)',
+                           type=int,
+                           default=300)
     return parser
 
 
@@ -245,9 +254,9 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', how='full'):
                 # take from each matrix the diagonal
                 submat_vectors.append(submatrix.diagonal())
             elif how == 'center':
-                # take a smaller submatrix of 3 x 3 centered on the submatrix
+                # take the mean of a  smaller submatrix of 3 x 3 centered on the submatrix
                 submat_vectors.append(
-                    submatrix[center_bin - 2:center_bin + 1, center_bin - 2:center_bin + 1].reshape((1, 9)))
+                    submatrix[center_bin - 2:center_bin + 1, center_bin - 2:center_bin + 1].reshape((1, 9)).mean())
             else:
                 # Transform list of submatrices in an array of shape:
                 # shape = (num_submatrices, submatrix.shape[0] * submatrix.shape[1]
@@ -258,12 +267,12 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', how='full'):
         if how == 'diagonal':
             assert matrix.shape == (len(submatrices_dict[chrom]), shape[0])
         elif how == 'center':
-            assert matrix.shape == (len(submatrices_dict[chrom]), 9)
+            assert matrix.shape == (len(submatrices_dict[chrom]), 1)
         else:
             assert matrix.shape == (len(submatrices_dict[chrom]), shape[0] * shape[1])
 
         # remove outliers
-        out_ind = get_outlier_indices(matrix, max_deviation=10)
+        out_ind = get_outlier_indices(matrix, max_deviation=2)
         if out_ind is not None and len(np.flatnonzero(out_ind)) > 0:
             log.info("Outliers detected in chrom: {}. Number of outliers: {}".
                      format(chrom, len(np.flatnonzero(out_ind))))
@@ -400,21 +409,13 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
                                                                                   chrom=chrom, id=cluster_number + 1)
                 np.savetxt(output_matrix_name, chrom_avg[chrom][cluster_number], '%0.5f', delimiter='\t')
 
-            if args.outFileContactPairs:
-                output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs,
-                                                                       chrom=chrom, id=cluster_number + 1)
-                with open(output_name, 'w') as fh:
-                    for cl_idx in cluster_indices:
-                        start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
-                        fh.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2))
-
         cbar_x = plt.subplot(gs[-1, idx])
         fig.colorbar(img, cax=cbar_x, orientation='horizontal')
 
     if args.disable_bbox_tight:
-        plt.savefig(args.outFileName.name, dpi=100)
+        plt.savefig(args.outFileName.name, dpi=args.dpi)
     else:
-        plt.savefig(args.outFileName.name, dpi=100, bbox_inches='tight')
+        plt.savefig(args.outFileName.name, dpi=args.dpi, bbox_inches='tight')
 
     plt.close()
 
@@ -429,6 +430,8 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
     vmin_heat = args.vMin
     if vmin_heat is not None:
         vmin_heat *= 5
+    else:
+        vmin_heat = 0
 
     num_plots = len(chrom_diagonals)
     fig = plt.figure(figsize=(num_plots * 4, 20))
@@ -489,7 +492,8 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
 
     file_name = args.diagnosticHeatmapFile.name
     log.info('Heatmap file saved under: {}'.format(file_name))
-    plt.savefig(file_name, dpi=200, bbox_inches='tight')
+    plt.savefig(file_name, dpi=args.dpi, bbox_inches='tight')
+    plt.close()
 
 
 def main(args=None):
@@ -508,7 +512,8 @@ def main(args=None):
 
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
-    chrom_list = list(ma.chrBinBoundaries)
+    chrom_sizes = ma.get_chromosome_sizes()
+    chrom_list = chrom_sizes.keys()
     log.info("checking range {}-{}".format(min_dist, max_dist))
     min_dist = int(min_dist)
     max_dist = int(max_dist)
@@ -542,7 +547,7 @@ def main(args=None):
     chrom_contact_position = {}
     seen = {}
 
-    center_values = []
+    center_values = {}
 
     chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
 
@@ -554,6 +559,7 @@ def main(args=None):
         chrom_total[chrom] = 1
         chrom_diagonals[chrom] = []
         chrom_contact_position[chrom] = []
+        center_values[chrom] = []
         seen[chrom] = set()
         over_1_5 = 0
         empty_mat = 0
@@ -565,7 +571,8 @@ def main(args=None):
         for start, end in bed_intervals[chrom]:
             # check all other regions that may interact with the
             # current interval at the given depth range
-
+            if end > chrom_sizes[chrom]:
+                continue
             bin_id = ma.getRegionBinRange(toString(chrom), start, end)
             if bin_id is None:
                 continue
@@ -577,12 +584,16 @@ def main(args=None):
                 if counter % 50000 == 0:
                     log.info("Number of contacts considered: {:,}".format(counter))
 
+                if end2 > chrom_sizes[chrom]:
+                    continue
                 bin_id2 = ma.getRegionBinRange(toString(chrom), start2, end2)
                 if bin_id2 is None:
                     continue
                 else:
                     bin_id2 = bin_id2[0]
                 if bin_id2 in seen[chrom]:
+                    continue
+                if bin_id == bin_id2:
                     continue
                 if min_dist_in_bins <= abs(bin_id2 - bin_id) <= max_dist_in_bins:
                     idx1, idx2 = sorted([bin_id, bin_id2])
@@ -614,7 +625,7 @@ def main(args=None):
                     chrom_total[chrom] += 1
                     chrom_matrix[chrom].append(mat_to_append)
                     chrom_diagonals[chrom].append(mat_to_append.diagonal())
-                    center_values.append(ma.matrix[idx1, idx2])
+                    center_values[chrom].append(ma.matrix[idx1, idx2])
                     chrom_contact_position[chrom].append((start, end, start2, end2))
                     if ma.matrix[idx1, idx2] > 1.5:
                         over_1_5 += 1
@@ -646,6 +657,21 @@ def main(args=None):
             cluster_ids[chrom] = [range(len(chrom_matrix[chrom]))]
 
     plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, num_clusters, M_half, args)
+
+    if args.outFileContactPairs:
+        for idx, chrom in enumerate(chrom_matrix):
+
+            for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
+                center_values_to_order = np.array(center_values[chrom])[cluster_indices]
+                center_values_order = np.argsort(center_values_to_order)[::-1]
+
+                output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs,
+                                                                       chrom=chrom, id=cluster_number + 1)
+                with open(output_name, 'w') as fh:
+                    for cl_idx in center_values_order:
+                        value = center_values_to_order[cl_idx]
+                        start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
+                        fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2, value))
 
     # plot the diagonals
     # the diagonals plot is useful to see individual cases and if they had a contact in the center

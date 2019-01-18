@@ -1,4 +1,8 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=UserWarning)
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 import argparse
 import os
@@ -8,7 +12,7 @@ from past.builtins import map
 from scipy.sparse import triu
 from scipy.stats import pearsonr, spearmanr
 
-import hicexplorer.HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import check_cooler
 # for plotting
@@ -21,9 +25,6 @@ from matplotlib.ticker import FixedLocator
 
 import logging
 log = logging.getLogger(__name__)
-
-import warnings
-warnings.simplefilter(action="ignore", category=UserWarning)
 
 
 def parse_arguments(args=None):
@@ -269,7 +270,7 @@ def main(args=None):
         log.info("loading hic matrix {}\n".format(matrix))
 
         if (check_cooler(args.matrices[i])) and args.chromosomes is not None and len(args.chromosomes) == 1:
-            _mat = hm.hiCMatrix(matrix, chrnameList=args.chromosomes)
+            _mat = hm.hiCMatrix(matrix, pChrnameList=args.chromosomes)
         else:
             _mat = hm.hiCMatrix(matrix)
             if args.chromosomes:

@@ -1,4 +1,7 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 import numpy as np
 from past.builtins import zip
@@ -7,7 +10,7 @@ from builtins import range
 import logging
 log = logging.getLogger(__name__)
 
-from hicexplorer import HiCMatrix as hm
+from hicmatrix import HiCMatrix as hm
 from hicexplorer.reduceMatrix import reduce_matrix
 from hicexplorer._version import __version__
 
@@ -63,7 +66,7 @@ def parse_arguments(args=None):
 
 
 def remove_nans_if_needed(hic):
-    if len(hic.nan_bins):
+    if hic.nan_bins is not None and len(hic.nan_bins):
         # Usually, only corrected matrices contain NaN bins.
         # this need to be removed before merging the bins.
         hic.maskBins(hic.nan_bins)
@@ -225,7 +228,7 @@ def merge_bins(hic, num_bins):
     run merge_matrix
     >>> merge_matrix = merge_bins(hic, 2)
     >>> merge_matrix.cut_intervals
-    [('a', 0, 20, 0.75), ('a', 20, 40, 0.55000000000000004), ('b', 40, 50, 1.0)]
+    [('a', 0, 20, 0.75), ('a', 20, 40, 0.55), ('b', 40, 50, 1.0)]
     >>> merge_matrix.matrix.todense()
     matrix([[120,  28,   1],
             [ 28, 177,   4],

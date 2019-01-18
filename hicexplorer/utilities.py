@@ -1,4 +1,8 @@
 from __future__ import division
+
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import sys
 import numpy as np
 import argparse
@@ -58,6 +62,20 @@ def convertInfsToZeros(ma):
     if len(inf_elements) > 0:
         ma.data[inf_elements] = 0
     return ma
+
+
+def convertInfsToZeros_ArrayFloat(pArray):
+    inf_elements = np.flatnonzero(np.isinf(pArray))
+    if len(inf_elements) > 0:
+        pArray[inf_elements] = 0.0
+    return pArray
+
+
+def convertNansToOnes(pArray):
+    nan_elements = np.flatnonzero(np.isnan(pArray))
+    if len(nan_elements) > 0:
+        pArray[nan_elements] = 1.0
+    return pArray
 
 
 def myAverage(valuesArray, avgType='mean'):
@@ -206,38 +224,164 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
     expected_interactions = np.zeros(pSubmatrix.shape[0])
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
+
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
 
-    for i in range(len(expected_interactions)):
-        expected_interactions[i] /= pLength_chromosome - (pChromosome_count * i)
+    count_times_i = np.arange(float(len(expected_interactions)))
+    pChromosome_count = np.int(pChromosome_count)
+    pLength_chromosome = np.int(pLength_chromosome)
+    count_times_i *= pChromosome_count
+    count_times_i -= pLength_chromosome
+    count_times_i *= np.int(-1)
+
+    expected_interactions /= count_times_i
+    # log.debug('exp_obs_matrix_lieberman {}'.format(expected_interactions))
 
     return expected_interactions
 
 
-def exp_obs_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
+def expected_interactions_non_zero(pSubmatrix):
+    """
+        Computes the expected number of interactions per distance
+    """
+
+    expected_interactions = np.zeros(pSubmatrix.shape[0])
+    row, col = pSubmatrix.nonzero()
+    distance = np.absolute(row - col)
+
+    occurences = np.zeros(pSubmatrix.shape[0])
+    for i, distance_ in enumerate(distance):
+        expected_interactions[distance_] += pSubmatrix.data[i]
+        occurences[distance_] += 1
+    expected_interactions /= occurences
+
+    mask = np.isnan(expected_interactions)
+    expected_interactions[mask] = 0
+    mask = np.isinf(expected_interactions)
+    expected_interactions[mask] = 0
+
+    return expected_interactions
+
+
+def expected_interactions(pSubmatrix):
+    """
+        Computes the expected number of interactions per distance
+    """
+
+    expected_interactions = np.zeros(pSubmatrix.shape[0])
+    row, col = pSubmatrix.nonzero()
+    distance = np.absolute(row - col)
+    occurrences = np.arange(pSubmatrix.shape[0] + 1, 1, -1)
+    # occurences = np.zeros(pSubmatrix.shape[0])
+    for i, distance_ in enumerate(distance):
+        expected_interactions[distance_] += pSubmatrix.data[i]
+        # occurences[distance_] += 1
+    expected_interactions /= occurrences
+
+    mask = np.isnan(expected_interactions)
+    expected_interactions[mask] = 0
+    mask = np.isinf(expected_interactions)
+    expected_interactions[mask] = 0
+
+    return expected_interactions
+
+
+def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
         expected contacts for loci at
-        that genomic distance
+        that genomic distance. Method: Lieberman-Aiden 2009
     """
 
     expected_interactions_in_distance_ = expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSubmatrix)
     row, col = pSubmatrix.nonzero()
     distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
-    for i in range(len(pSubmatrix.data)):
-        try:
-            if expected_interactions_in_distance_[distance[i]] == 0:
-                pSubmatrix.data[i] = 0.0
-            else:
-                pSubmatrix.data[i] = pSubmatrix.data[i] / expected_interactions_in_distance_[distance[i]]
-        except Exception:
-            log.debug("pSubmatrix.data[i]: {}".format(pSubmatrix.data[i]))
-            log.debug("distance[i]: {}".format(distance[i]))
-            log.debug("expected_interactions_in_distance_[distance[i]]: {} ".format(expected_interactions_in_distance_[distance[i]]))
-            exit(1)
 
+    if len(pSubmatrix.data) > 0:
+        data_type = type(pSubmatrix.data[0])
+
+        expected = expected_interactions_in_distance_[distance]
+        pSubmatrix.data = pSubmatrix.data.astype(np.float32)
+        pSubmatrix.data /= expected
+        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+    return pSubmatrix
+
+
+def obs_exp_matrix_norm(pSubmatrix):
+    """
+        Creates normalized contact matrix M* by
+        dividing each entry by the gnome-wide
+        expected contacts for loci at
+        that genomic distance. Expected values contain a genomic distance based factor.
+        Method from: Homer Software
+
+        exp_i,j = expected_interactions_distance(abs(i-j)) * sum(row(i)) * sum(row(j)) / sum(matrix)
+        m_i,j = interaction_i,j / exp_i,j
+    """
+
+    expected_interactions_in_distance = expected_interactions_non_zero(pSubmatrix)
+
+    row_sums = np.array(pSubmatrix.sum(axis=1).T).flatten()
+    total_interactions = pSubmatrix.sum()
+
+    row, col = pSubmatrix.nonzero()
+    # data = pSubmatrix.data.tolist()
+    for i in range(len(row)):
+        expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
+        expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
+        pSubmatrix.data[i] /= expected
+    return pSubmatrix
+
+
+def obs_exp_matrix_non_zero(pSubmatrix):
+    """
+        Creates normalized contact matrix M* by
+        dividing each entry by the gnome-wide
+        expected contacts for loci at
+        that genomic distance.
+
+        exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
+
+    """
+
+    expected_interactions_in_distance_ = expected_interactions_non_zero(pSubmatrix)
+    row, col = pSubmatrix.nonzero()
+    distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
+
+    if len(pSubmatrix.data) > 0:
+        data_type = type(pSubmatrix.data[0])
+
+        expected = expected_interactions_in_distance_[distance]
+        pSubmatrix.data = pSubmatrix.data.astype(np.float32)
+        pSubmatrix.data /= expected
+        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+    return pSubmatrix
+
+
+def obs_exp_matrix(pSubmatrix):
+    """
+        Creates normalized contact matrix M* by
+        dividing each entry by the gnome-wide
+        expected contacts for loci at
+        that genomic distance.
+
+        exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
+
+    """
+
+    expected_interactions_in_distance_ = expected_interactions(pSubmatrix)
+    row, col = pSubmatrix.nonzero()
+    distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
+
+    if len(pSubmatrix.data) > 0:
+        data_type = type(pSubmatrix.data[0])
+
+        expected = expected_interactions_in_distance_[distance]
+        pSubmatrix.data = pSubmatrix.data.astype(np.float32)
+        pSubmatrix.data /= expected
+        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
     return pSubmatrix
 
 
@@ -310,6 +454,32 @@ def change_chrom_names(chrom):
     return chrom
 
 
+def opener(filename):
+    """
+    Determines if a file is compressed or not
+    """
+    import gzip
+    f = open(filename, 'rb')
+    # print("gzip or not?", f.read(2))
+
+    if f.read(2) == b'\x1f\x8b':
+        f.seek(0)
+        return gzip.GzipFile(fileobj=f)
+    else:
+        f.seek(0)
+        return f
+
+
+# def check_chrom_str_bytes(pChrom, pInstanceToCompare):
+#     """
+#     Checks and changes pChroms to str or bytes depending on datatype
+#     of pInstanceToCompare
+#     """
+#     if type(next(iter(pInstanceToCompare))) is str:
+#         pChrom = toString(pChrom)
+#     elif type(next(iter(pInstanceToCompare))) in [bytes, np.bytes_]:
+#         pChrom = toBytes(pChrom)
+#     return pChrom
 def remove_non_ascii(pText):
     """
     This function converts all non-ascii characters to a most alike representation.

@@ -1,4 +1,7 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from scipy.sparse import coo_matrix, dia_matrix, triu
 import numpy as np
 import time
@@ -129,17 +132,17 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
     >>> dia = dia_matrix(([A.diagonal()], [0]), shape=A.shape)
     >>> A= csr_matrix(A + A.T - dia)
     >>> print(A.todense())
-    [[ 0.1  0.1  0.2  0.2  nan]
-     [ 0.1  0.1  0.2  0.2  1.1]
-     [ 0.2  0.2  0.2  0.2  0. ]
-     [ 0.2  0.2  0.2  0.1  0. ]
-     [ nan  1.1  0.   0.   0. ]]
+    [[0.1 0.1 0.2 0.2 nan]
+     [0.1 0.1 0.2 0.2 1.1]
+     [0.2 0.2 0.2 0.2 0. ]
+     [0.2 0.2 0.2 0.1 0. ]
+     [nan 1.1 0.  0.  0. ]]
 
     >>> ll = [(0,1), (2,3), (4,)]
     >>> print(reduce_matrix(A, ll, diagonal=True, use_triu=False).todense())
-    [[ 0.4  0.8  nan]
-     [ 0.8  0.7  0. ]
-     [ nan  0.   0. ]]
+    [[0.4 0.8 nan]
+     [0.8 0.7 0. ]
+     [nan 0.  0. ]]
     """
 
     if use_triu:
