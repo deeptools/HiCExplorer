@@ -116,7 +116,7 @@ def main(args=None):
         if len(data) <= 1 or len(z_score) <= 1:
             log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile, args.range))
             continue
-        matrix_name, viewpoint, upstream_range, downstream_range, gene = header.strip().split('\t')
+        matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
         matrix_name = matrix_name[1:].split('.')[0]
         if data_plot_label:
             data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name)
