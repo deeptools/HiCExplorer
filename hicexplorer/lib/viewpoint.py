@@ -338,7 +338,7 @@ class Viewpoint():
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
         header, interaction_data, z_score_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
-        matrix_name, viewpoint, upstream_range, downstream_range, gene = header.split('\t')
+        matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
 
         data = []
         z_score = []
