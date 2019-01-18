@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import division
+# from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -20,8 +20,8 @@ from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
 
 # python 2 / 3 compatibility
 from past.builtins import zip
-from six import iteritems
-from builtins import range
+# from six import iteritems
+# from builtins import range
 from past.builtins import map
 
 log = logging.getLogger(__name__)
@@ -843,7 +843,7 @@ class HicFindTads(object):
             return
 
         count = 0
-        for chrom, values in iteritems(Z):
+        for chrom, values in Z.items():
             for id_a, id_b, distance, num_clusters, pos_a, pos_b in values:
                 count += 1
                 file_h.write('{}\t{}\t{}\tclust_{}'
@@ -916,7 +916,7 @@ class HicFindTads(object):
         :param file_prefix: file prefix to save the resulting bed files
         :return: list of file names created
         """
-        for cutoff, intervals in iteritems(clusters):
+        for cutoff, intervals in clusters.items():
             fileh = open("{}_{}.bed".format(file_prefix, cutoff), 'w')
             for chrom, start, end in intervals:
                 fileh.write("{}\t{}\t{}\t.\t0\t.\n".format(chrom, start, end))

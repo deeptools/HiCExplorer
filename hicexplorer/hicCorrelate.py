@@ -1,4 +1,4 @@
-from __future__ import division
+# from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=UserWarning)
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
@@ -7,7 +7,7 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 import os
 import numpy as np
-from builtins import range
+# from builtins import range
 from past.builtins import map
 from scipy.sparse import triu
 from scipy.stats import pearsonr, spearmanr

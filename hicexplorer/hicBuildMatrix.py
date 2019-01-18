@@ -1,4 +1,4 @@
-from __future__ import division
+# from __future__ import division
 
 import argparse
 import numpy as np
@@ -15,7 +15,7 @@ import pysam
 from collections import OrderedDict
 
 from six.moves import xrange
-from future.utils import listitems
+# from future.utils import listitems
 from copy import deepcopy
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
