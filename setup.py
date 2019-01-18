@@ -113,8 +113,6 @@ install_requires_py = ["numpy >= 1.15.*",
                        "hic2cool >= 0.4"
                        ]
 
-if sys.version_info[0] == 2:
-    install_requires_py.append("configparser == 3.5.*")
 
 setup(
     name='HiCExplorer',

@@ -106,25 +106,22 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     if args.region:
-        if sys.version_info[0] == 2:
-            args.region = args.region.translate(None, ",.;|!{}()").replace("-", ":")
-        if sys.version_info[0] == 3:
-            args.region = args.region.replace(",", "")
-            args.region = args.region.replace(";", "")
-            args.region = args.region.replace("!", "")
-            args.region = args.region.replace("-", ":")
+        
+        
+        args.region = args.region.replace(",", "")
+        args.region = args.region.replace(";", "")
+        args.region = args.region.replace("!", "")
+        args.region = args.region.replace("-", ":")
         region = args.region.split(":")
         if len(region) != 3:
             log.error("Region format is invalid {}".format(args.region))
             exit(0)
         chrom, region_start, region_end = region[0], int(region[1]), int(region[2])
-    if sys.version_info[0] == 2:
-        args.referencePoint = args.referencePoint.translate(None, ",.;|!{}()").replace("-", ":")
-    if sys.version_info[0] == 3:
-        args.referencePoint = args.referencePoint.replace(",", "")
-        args.referencePoint = args.referencePoint.replace(";", "")
-        args.referencePoint = args.referencePoint.replace("!", "")
-        args.referencePoint = args.referencePoint.replace("-", ":")
+   
+    args.referencePoint = args.referencePoint.replace(",", "")
+    args.referencePoint = args.referencePoint.replace(";", "")
+    args.referencePoint = args.referencePoint.replace("!", "")
+    args.referencePoint = args.referencePoint.replace("-", ":")
     referencePoint = args.referencePoint.split(":")
 
     data_list = []

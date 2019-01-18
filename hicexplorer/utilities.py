@@ -144,11 +144,8 @@ def genomicRegion(string):
     if region == '':
         return None
     # remove undesired characters that may be present and
-    # replace - by :
-    if sys.version_info[0] == 2:
-        region = region.translate(None, ",;|!{}()").replace("-", ":")
-    if sys.version_info[0] == 3:
-        region = region.translate(str.maketrans('', '', ",;|!{}()")).replace("-", ":")
+    
+    region = region.translate(str.maketrans('', '', ",;|!{}()")).replace("-", ":")
     if len(region) == 0:
         raise argparse.ArgumentTypeError(
             "{} is not a valid region".format(string))
@@ -370,8 +367,6 @@ def toString(s):
     if isinstance(s, str):
         return s
     if isinstance(s, bytes):  # or isinstance(s, np.bytes_):
-        if sys.version_info[0] == 2:
-            return str(s)
         return s.decode('ascii')
     if isinstance(s, list):
         return [toString(x) for x in s]
@@ -384,8 +379,6 @@ def toBytes(s):
     """
     Like toString, but for functions requiring bytes in python3
     """
-    if sys.version_info[0] == 2:
-        return s
     if isinstance(s, bytes):
         return s
     # if isinstance(s, np.bytes_):

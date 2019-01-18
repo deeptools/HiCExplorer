@@ -418,8 +418,8 @@ class HicFindTads(object):
             invalid_chromosomes = []
             log.debug('args.chromosomeOrder: {}'.format(pChromosomes))
             log.debug("ma.chrBinBoundaries {}".format(self.hic_ma.chrBinBoundaries))
-            if sys.version_info[0] == 3:
-                pChromosomes = toBytes(pChromosomes)
+            
+            pChromosomes = toBytes(pChromosomes)
             for chrom in toString(pChromosomes):
                 if chrom in self.hic_ma.chrBinBoundaries:
                     valid_chromosomes.append(chrom)
