@@ -1,4 +1,3 @@
-# from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -15,9 +14,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from collections import OrderedDict
-# from builtins import range
 from past.builtins import zip
-# from six import iteritems
 
 from scipy.sparse import triu
 

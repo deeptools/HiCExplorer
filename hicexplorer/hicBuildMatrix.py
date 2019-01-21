@@ -1,5 +1,3 @@
-# from __future__ import division
-
 import argparse
 import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix
@@ -9,13 +7,10 @@ import os
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-# import itertools
 
 import pysam
 from collections import OrderedDict
 
-from six.moves import xrange
-# from future.utils import listitems
 from copy import deepcopy
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
@@ -336,7 +331,7 @@ def get_bins(bin_size, chrom_size, region=None):
             getUserRegion(chrom_size, region)
 
     for chrom, size in chrom_size:
-        for interval in xrange(start, size, bin_size):
+        for interval in range(start, size, bin_size):
             bin_intvals.append((chrom, interval,
                                 min(size, interval + bin_size)))
     return bin_intvals
@@ -471,7 +466,7 @@ def get_chrom_sizes(bam_handle):
     # then to list.
     list_chrom_sizes = OrderedDict(zip(bam_handle.references,
                                        bam_handle.lengths))
-    return listitems(list_chrom_sizes)
+    return list(list_chrom_sizes.items())
 
 
 def check_dangling_end(read, dangling_sequences):
@@ -624,7 +619,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     # enlarge remaining bins
     chr_start = True
     chrom_sizes_dict = dict(chrom_sizes)
-    for idx in xrange(len(bin_intervals) - 1):
+    for idx in range(len(bin_intervals) - 1):
         chrom, start, end = bin_intervals[idx]
         chrom_next, start_next, end_next = bin_intervals[idx + 1]
         if chr_start is True:
@@ -1018,7 +1013,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                                                len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
-            for i in xrange(coverage_index, coverage_end, 1):
+            for i in range(coverage_index, coverage_end, 1):
                 pCoverage[i] += 1
 
         pRow[pair_added] = mate_bins[0]
@@ -1153,7 +1148,7 @@ def main(args=None):
     row = [None] * args.threads
     col = [None] * args.threads
     data = [None] * args.threads
-    for i in xrange(args.threads):
+    for i in range(args.threads):
         row[i] = RawArray(c_uint, args.inputBufferSize)
         col[i] = RawArray(c_uint, args.inputBufferSize)
         data[i] = RawArray(c_ushort, args.inputBufferSize)
@@ -1202,7 +1197,7 @@ def main(args=None):
 
     while not all_data_processed or not all_threads_done:
 
-        for i in xrange(args.threads):
+        for i in range(args.threads):
             if queue[i] is None and not all_data_processed:
                 count_call_of_read_input += 1
 
@@ -1360,7 +1355,7 @@ def main(args=None):
 
     for cover in pos_coverage:
         max_element = 0
-        for i in xrange(cover.begin, cover.end, 1):
+        for i in range(cover.begin, cover.end, 1):
             if coverage[i] > max_element:
                 max_element = coverage[i]
         if max_element == 0:

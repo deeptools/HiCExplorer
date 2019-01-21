@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -18,10 +16,7 @@ import multiprocessing
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
 
-# python 2 / 3 compatibility
 from past.builtins import zip
-# from six import iteritems
-# from builtins import range
 from past.builtins import map
 
 log = logging.getLogger(__name__)
