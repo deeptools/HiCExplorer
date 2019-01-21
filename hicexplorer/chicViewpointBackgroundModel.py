@@ -213,6 +213,7 @@ def main():
                 i += 1
                 count += condition[relative_position]
         # mean_percentage is given by number of relative interactions at a relative position divided by the number of conditions
+        log.debug('relative pos: {} count: {}'.format(relative_position, count))
         mean_percentage[relative_position] = count / i
         sem[relative_position] = (count / i) / math.sqrt(i)
     # lower_limit_range = args.range[0] * (-1) / bin_size
