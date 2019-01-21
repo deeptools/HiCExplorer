@@ -161,7 +161,8 @@ def getUserRegion(chromSizes, regionString, max_chunk_size=1e6):
     #Known chromosomes are: ['chr2']
     >>> getUserRegion({'chr2': 1000}, "chr2:10:1001")
     ([('chr2', 1000)], 10, 1000, 990)
-    Test chunk and regions size reduction to match tile size
+    
+    #Test chunk and regions size reduction to match tile size
     >>> getUserRegion({'chr2': 200000}, "chr2:10:123344:3")
     ([('chr2', 123344)], 9, 123345, 123336)
     """
