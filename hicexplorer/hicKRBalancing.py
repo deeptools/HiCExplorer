@@ -5,6 +5,9 @@ import argparse
 from hicmatrix import HiCMatrix as hm
 from scipy import sparse
 
+import logging
+log = logging.getLogger(__name__)
+
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="""
@@ -30,14 +33,20 @@ Computes a balanced matrix using the Knight and Ruiz balancing algorithm.
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    log.info('Reading matrix')
+
     ma = hm.hiCMatrix(args.matrix) #TODO slow for big matrices!
+    log.debug('Reading matrix... Done')
+
     ma.maskBins(ma.nan_bins)
+    log.debug('masking matrix... Done')
+
     #TODO remove zero rows and columns
-    print("Load a float sparse matrix for balancing")
+    log.debug("Load a float sparse matrix for balancing")
     d = kr_balancing(ma.matrix.astype(float))
     d.outter_loop()
     ma.matrix = d.get_output()
-    print("save matrix")
+    log.debug("save matrix")
     #print(np.array(output)) #TODO test sum of the rows and columns ! Plot the matrix! Assert the shape! PerChr!
     #print(np.sum(np.array(output), axis = 0))
     #print(np.sum(np.array(output), axis = 1))
