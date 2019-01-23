@@ -957,10 +957,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + \
-                        len(pRestrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos +
-                                   mate2.qlen) - len(pRestrictionSequence)
+                    frag_start = min(mate1.pos, mate2.pos) + len(pRestrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
                     has_rf = sorted(
                         pRfPositions[mate_ref][frag_start: frag_end])
@@ -1009,8 +1007,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             # fill in coverage vector
             vec_start = int(max(0, mate.pos - mate_bin.begin) / pBinsize)
             length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
-            vec_end = min(length_coverage, int(vec_start +
-                                               len(mate.seq) / pBinsize))
+            vec_end = min(length_coverage, int(vec_start + len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
             for i in range(coverage_index, coverage_end, 1):

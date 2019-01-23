@@ -166,8 +166,7 @@ def running_window_merge(hic_matrix, num_bins):
     # remove illegal matrix id
     # that are less than zero
     # or bigger than matrix size
-    keep = ((new_row > -1) & (new_col > -1) &
-            (new_row < M) & (new_col < M))
+    keep = ((new_row > -1) & (new_col > -1) & (new_row < M) & (new_col < M))
     new_data = new_data[keep]
     new_row = new_row[keep]
     new_col = new_col[keep]
