@@ -13,7 +13,7 @@ class Viewpoint():
     def __init__(self, pHiCMatrix=None):
         self.hicMatrix = pHiCMatrix
 
-    def readReferencePointFile(self, pBedFile):
+    def readReferencePointFile(self, pBedFile, pGene=True):
         '''
         This function reads a text file which contains reference points. Reference points are 
 
@@ -41,15 +41,19 @@ class Viewpoint():
                 if len(_line) == 3:
                     chrom, start, end = _line[0], _line[1], _line[1]
                     # log.debug('_line: {}'.format(_line))
-                    gene_list.append(_line[2])
+                    if pGene:
+                        gene_list.append(_line[2])
 
                 else:
                     chrom, start, end = _line[:3]
-                    gene_list.append(_line[3])
+                    if pGene:
+                        gene_list.append(_line[3])
 
                 viewpoints.append((chrom, start, end))
-
-        return viewpoints, gene_list
+        if pGene:
+            return viewpoints, gene_list
+        else:
+            return viewpoints
 
     def readInteractionFile(self, pBedFile):
         '''

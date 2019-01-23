@@ -122,21 +122,23 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         region_start_fixed, region_end_fixed, range_fixed = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
         # log.debug(' {} {} {} {}'.format(referencePoint, referencePoint[0], region_start_(fixed, region_end_fixed))
-        print('fixated range viewpoint: ' + str(pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start_fixed, region_end_fixed)[:10]))
+        intermediate_viewpoint = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start_fixed, region_end_fixed)
+        # log.debug('intermediate, on fixate range {}'.format(intermediate_viewpoint[:15]))
+        # print('fixated range viewpoint: ' + str())
         denominator_relative_interactions = np.sum(pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start_fixed, region_end_fixed))
 
         # viewpoint data uses full range
         region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
 
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
-
-        print('range viewpoint: '+ str(data_list[:10]))
+        # log.debug('on full data: {}'.format(data_list[:15]))
+        # print('range viewpoint: '+ str(data_list[:10]))
 
         # background uses fixed range, handles fixate range implicitly by same range used in background computation
         _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
         # log.debug(' after interactionBackgroundDaa len(data_list) {}'.format(len(data_list)))
 
-
+        # log.debug('data_list {}'.format(data_list[:15]))
 
         if len(data_list) != len(_backgroundModelData):
 

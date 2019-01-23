@@ -67,16 +67,18 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     background_model_data = {}
     relative_positions = set()
-    fixateRangeAt = pArgs.fixateRange// pViewpointObj.hicMatrix.getBinSize()
+    fixateRangeAt = pArgs.fixateRange // pViewpointObj.hicMatrix.getBinSize()
     for i, referencePoint in enumerate(pReferencePoints):
 
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
-        log.debug('region_start {}, region_end {}'.format(region_start, region_end))
+        # log.debug('region_start {}, region_end {}'.format(region_start, region_end))
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
 
+        # log.debug('data_list: {}'.format(data_list[:15]))
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
+        # log.debug('data_list smooth: {}'.format(data_list[:15]))
 
         # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
         view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
@@ -103,7 +105,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
                 background_model_data[relative_position] = data
                 relative_positions.add(relative_position)
         # log.debug('min {}, max{}'.format(min(background_model_data), max(background_model_data)))
-        # log.debug('relative_positions {}'.format(relative_positions))
+        # log.debug('background_model_data {}'.format(list(background_model_data.items())))
     pQueue.put([background_model_data, relative_positions])
     return
 
@@ -213,7 +215,7 @@ def main():
                 i += 1
                 count += condition[relative_position]
         # mean_percentage is given by number of relative interactions at a relative position divided by the number of conditions
-        log.debug('relative pos: {} count: {}'.format(relative_position, count))
+        # log.debug('relative pos: {} count: {}'.format(relative_position, count))
         mean_percentage[relative_position] = count / i
         sem[relative_position] = (count / i) / math.sqrt(i)
     # lower_limit_range = args.range[0] * (-1) / bin_size

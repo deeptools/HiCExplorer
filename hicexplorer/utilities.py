@@ -11,6 +11,18 @@ import logging
 log = logging.getLogger(__name__)
 
 
+def readBed(pBedFile):
+    viewpoints = []
+    with open(pBedFile, 'r') as file:
+        for line in file.readlines():
+            _line = line.strip().split('\t')
+            if len(line) == 0:
+                continue
+            chrom, start, end = _line[:3]
+            viewpoints.append((chrom, start, end))
+    
+    return viewpoints
+
 def writableFile(string):
     try:
         open(string, 'w').close()

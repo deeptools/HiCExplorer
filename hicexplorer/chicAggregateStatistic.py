@@ -6,7 +6,6 @@ from hicexplorer import utilities
 
 from hicexplorer._version import __version__
 from .lib import Viewpoint
-
 import matplotlib
 matplotlib.use('Agg')
 
@@ -22,7 +21,7 @@ log = logging.getLogger(__name__)
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-                                     description='Aggregates the statistics of interaction files and prepars them for chicDifferentialTest')
+                                     description='Aggregates the statistics of interaction files and prepares them for chicDifferentialTest')
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -31,23 +30,17 @@ def parse_arguments(args=None):
                                 required=True,
                                 nargs='+')
 
-    parserRequired.add_argument('--range',
-                           help='Defines the region upstream and downstream of a reference point which should be included. '
-                           'Format is --region upstream downstream',
-                           required=True,
-                           type=int,
-                           nargs=2)
-    parserRequired.add_argument('--acceptThreshold', '-at',
-                           help='Detect all bins with threshold above this value as significant',
-                           type=float,
-                           default=1.96,
-                           required=True)
+    parserRequired.add_argument('--targetFile', '-tf',
+                                help='path to the target files which contains the target regions to prepare data for differential analysis.',
+                                required=True,
+                                nargs='+')
+   
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outFileNameSuffix', '-o',
                             help='File name suffix to save the result.',
                             required=False,
-                            default='z_score_merged.bed')
+                            default='_aggregate_target.bed')
     
     
     parserOpt.add_argument("--mergeBins", "-mb", action='store_true', help="Merge neighboring significant interactions to one. The value is averaged.")
@@ -60,14 +53,17 @@ def parse_arguments(args=None):
     return parser
 
 
-def filter_scores(pScoresDictionary, pThreshold, pRange):
+def filter_scores(pScoresDictionary, pTargetRegions):
 
     accepted_scores = {}
-    for key in pScoresDictionary:
-        if key < -pRange[0] or key > pRange[1]:
-            continue
-        if pScoresDictionary[key][1] >= pThreshold:
-            accepted_scores[key] = pScoresDictionary[key]
+    for target in pTargetRegions:
+        start = int(target[1])
+        end = int(target[2])
+
+        for key in pScoresDictionary:
+            if int(pScoresDictionary[key][5]) >= start and int(pScoresDictionary[key][6]) <= end:
+                accepted_scores[key] = pScoresDictionary[key]
+                break
     return accepted_scores
 
 
@@ -126,9 +122,20 @@ def main(args=None):
     relative_interaction = False
     rbz_score = True
     # read all interaction files.
-    for interactionFile in args.interactionFile:
+    for interactionFile, targetFile in zip(args.interactionFile, args.targetFile):
         header, interaction_data, interaction_file_data = viewpointObj.readInteractionFileForAggregateStatistics(interactionFile)
-        accepted_scores = filter_scores(interaction_data, args.acceptThreshold, args.range)
+        log.debug('header {}'.format(header))
+        # log.debug('interaction_data {}'.format(interaction_data))
+        log.debug('interaction_file_data {}'.format(list(interaction_file_data.items())[1990:2010]))
+
+        target_regions = utilities.readBed(targetFile)
+        log.debug('target_regions {}'.format(target_regions))
+        accepted_scores = filter_scores(interaction_file_data, target_regions)
+
+        if len(accepted_scores) == 0:
+            log.error('No target regions found')
+            sys.exit(0)
+        log.debug('accepted_scores {}'.format(accepted_scores))
         merged_neighborhood = merge_neighbors(accepted_scores)
         outFileName = interactionFile.split('.')[0] + '_' + args.outFileNameSuffix
         write(outFileName, merged_neighborhood[0], merged_neighborhood[1], interaction_file_data, args.acceptThreshold)
