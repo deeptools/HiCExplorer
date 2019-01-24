@@ -1,55 +1,118 @@
 from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicexplorer import hicTransform
 from hicmatrix import HiCMatrix as hm
 import numpy.testing as nt
 
 from tempfile import NamedTemporaryFile
 import os
-from os.path import basename, dirname
 
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 original_matrix = ROOT + "small_test_matrix_50kb_res.h5"
-DELTA_DECIMAL = 2
+original_matrix_cool = ROOT + "small_test_matrix.cool"
 
-
-def test_hic_transfer_all():
-    outfile = NamedTemporaryFile(suffix='all.h5', delete=False)
-    outfile.close()
-
-    args = "--matrix {} --outFileName {} --method all".format(original_matrix, outfile.name).split()
-    hicTransform.main(args)
-
-    dirname_new = dirname(outfile.name)
-    basename_new = basename(outfile.name)
-    # obs_exp
-    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_small_50kb.h5")
-    new = hm.hiCMatrix(dirname_new + "/obs_exp_" + basename_new)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
-    os.unlink(dirname_new + "/obs_exp_" + basename_new)
-
-    # pearson
-    test = hm.hiCMatrix(ROOT + "hicTransform/pearson_small_50kb.h5")
-    new = hm.hiCMatrix(dirname_new + "/pearson_" + basename_new)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
-    os.unlink(dirname_new + "/pearson_" + basename_new)
-
-    # covariance
-    test = hm.hiCMatrix(ROOT + "hicTransform/covariance_small_50kb.h5")
-    new = hm.hiCMatrix(dirname_new + "/covariance_" + basename_new)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
-    os.unlink(dirname_new + "/covariance_" + basename_new)
-    os.unlink(outfile.name)
+DELTA_DECIMAL = 0
 
 
 def test_hic_transfer_obs_exp():
-    outfile = NamedTemporaryFile(suffix='obs_exp_.h5', delete=False)
+
+    outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
     outfile.close()
 
-    args = "--matrix {} --outFileName {} --method obs_exp".format(original_matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method obs_exp".format(original_matrix_cool, outfile.name).split()
     hicTransform.main(args)
 
-    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_small_50kb.h5")
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp.cool")
+
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    os.unlink(outfile.name)
+
+
+def test_hic_transfer_obs_exp_perChromosome():
+
+    outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
+    outfile.close()
+
+    args = "--matrix {} --outFileName {} --method obs_exp --perChromosome".format(original_matrix_cool, outfile.name).split()
+    hicTransform.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_per_chromosome.cool")
+
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    os.unlink(outfile.name)
+
+
+def test_hic_transfer_obs_exp_non_zero():
+
+    outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
+    outfile.close()
+
+    args = "--matrix {} --outFileName {} --method obs_exp_non_zero".format(original_matrix_cool, outfile.name).split()
+    hicTransform.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_non_zero.cool")
+
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    os.unlink(outfile.name)
+
+
+def test_hic_transfer_obs_exp_non_zero_perChromosome():
+
+    outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
+    outfile.close()
+
+    args = "--matrix {} --outFileName {} --method obs_exp_non_zero --perChromosome".format(original_matrix_cool, outfile.name).split()
+    hicTransform.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_non_zero_per_chromosome.cool")
+
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    os.unlink(outfile.name)
+
+
+def test_hic_transfer_obs_exp_lieberman():
+    outfile = NamedTemporaryFile(suffix='obs_exp_lieberman_.h5', delete=False)
+    outfile.close()
+
+    args = "--matrix {} --outFileName {} --method obs_exp_lieberman".format(original_matrix, outfile.name).split()
+    hicTransform.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_lieberman.h5")
+
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    os.unlink(outfile.name)
+
+
+def test_hic_transfer_obs_exp_norm():
+    outfile = NamedTemporaryFile(suffix='obs_exp_norm_.h5', delete=False)
+    outfile.close()
+
+    args = "--matrix {} --outFileName {} --method obs_exp_norm".format(original_matrix, outfile.name).split()
+    hicTransform.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_norm.h5")
+
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    os.unlink(outfile.name)
+
+
+def test_hic_transfer_obs_exp_norm_perChromosome():
+    outfile = NamedTemporaryFile(suffix='obs_exp_norm_.h5', delete=False)
+    outfile.close()
+
+    args = "--matrix {} --outFileName {} --method obs_exp_norm --perChromosome".format(original_matrix, outfile.name).split()
+    hicTransform.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_norm_perChromosome.h5")
 
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
@@ -60,11 +123,24 @@ def test_hic_transfer_pearson():
     outfile = NamedTemporaryFile(suffix='pearson_.h5', delete=False)
     outfile.close()
 
-    matrix = ROOT + "/hicTransform/obs_exp_small_50kb.h5"
-    args = "--matrix {} --outFileName {} --method pearson".format(matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method pearson".format(original_matrix, outfile.name).split()
     hicTransform.main(args)
 
-    test = hm.hiCMatrix(ROOT + "hicTransform/pearson_small_50kb.h5")
+    test = hm.hiCMatrix(ROOT + "hicTransform/pearson.h5")
+
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    os.unlink(outfile.name)
+
+
+def test_hic_transfer_pearson_perChromosome():
+    outfile = NamedTemporaryFile(suffix='pearson_.h5', delete=False)
+    outfile.close()
+
+    args = "--matrix {} --outFileName {} --method pearson --perChromosome".format(original_matrix, outfile.name).split()
+    hicTransform.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicTransform/pearson_perChromosome.h5")
 
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
@@ -74,11 +150,23 @@ def test_hic_transfer_pearson():
 def test_hic_transfer_covariance():
     outfile = NamedTemporaryFile(suffix='covariance_.h5', delete=False)
     outfile.close()
-    matrix = ROOT + "/hicTransform/pearson_small_50kb.h5"
 
-    args = "--matrix {} --outFileName {} --method covariance".format(matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method covariance".format(original_matrix, outfile.name).split()
     hicTransform.main(args)
-    test = hm.hiCMatrix(ROOT + "hicTransform/covariance_small_50kb.h5")
+    test = hm.hiCMatrix(ROOT + "hicTransform/covariance.h5")
+
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    os.unlink(outfile.name)
+
+
+def test_hic_transfer_covariance_perChromosome():
+    outfile = NamedTemporaryFile(suffix='covariance_.h5', delete=False)
+    outfile.close()
+
+    args = "--matrix {} --outFileName {} --method covariance --perChromosome".format(original_matrix, outfile.name).split()
+    hicTransform.main(args)
+    test = hm.hiCMatrix(ROOT + "hicTransform/covariance_perChromosome.h5")
 
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)

@@ -1,5 +1,3 @@
-from __future__ import division
-
 import argparse
 import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix
@@ -7,14 +5,13 @@ import time
 from os import unlink
 import os
 import warnings
-# import itertools
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 import pysam
 from collections import OrderedDict
 
-from six.moves import xrange
-from future.utils import listitems
-
+from copy import deepcopy
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
 from multiprocessing.sharedctypes import Array, RawArray
@@ -30,7 +27,7 @@ from hicexplorer.utilities import getUserRegion, genomicRegion
 from hicexplorer._version import __version__
 import hicexplorer.hicPrepareQCreport as QC
 
-from .lib import MatrixFileHandler
+from hicmatrix.lib import MatrixFileHandler
 
 from hicexplorer import hicMergeMatrixBins
 import logging
@@ -334,7 +331,7 @@ def get_bins(bin_size, chrom_size, region=None):
             getUserRegion(chrom_size, region)
 
     for chrom, size in chrom_size:
-        for interval in xrange(start, size, bin_size):
+        for interval in range(start, size, bin_size):
             bin_intvals.append((chrom, interval,
                                 min(size, interval + bin_size)))
     return bin_intvals
@@ -469,7 +466,7 @@ def get_chrom_sizes(bam_handle):
     # then to list.
     list_chrom_sizes = OrderedDict(zip(bam_handle.references,
                                        bam_handle.lengths))
-    return listitems(list_chrom_sizes)
+    return list(list_chrom_sizes.items())
 
 
 def check_dangling_end(read, dangling_sequences):
@@ -622,7 +619,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     # enlarge remaining bins
     chr_start = True
     chrom_sizes_dict = dict(chrom_sizes)
-    for idx in xrange(len(bin_intervals) - 1):
+    for idx in range(len(bin_intervals) - 1):
         chrom, start, end = bin_intervals[idx]
         chrom_next, start_next, end_next = bin_intervals[idx + 1]
         if chr_start is True:
@@ -960,10 +957,8 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + \
-                        len(pRestrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos +
-                                   mate2.qlen) - len(pRestrictionSequence)
+                    frag_start = min(mate1.pos, mate2.pos) + len(pRestrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
                     has_rf = sorted(
                         pRfPositions[mate_ref][frag_start: frag_end])
@@ -1012,11 +1007,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             # fill in coverage vector
             vec_start = int(max(0, mate.pos - mate_bin.begin) / pBinsize)
             length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
-            vec_end = min(length_coverage, int(vec_start +
-                                               len(mate.seq) / pBinsize))
+            vec_end = min(length_coverage, int(vec_start + len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
-            for i in xrange(coverage_index, coverage_end, 1):
+            for i in range(coverage_index, coverage_end, 1):
                 pCoverage[i] += 1
 
         pRow[pair_added] = mate_bins[0]
@@ -1151,7 +1145,7 @@ def main(args=None):
     row = [None] * args.threads
     col = [None] * args.threads
     data = [None] * args.threads
-    for i in xrange(args.threads):
+    for i in range(args.threads):
         row[i] = RawArray(c_uint, args.inputBufferSize)
         col[i] = RawArray(c_uint, args.inputBufferSize)
         data[i] = RawArray(c_ushort, args.inputBufferSize)
@@ -1200,7 +1194,7 @@ def main(args=None):
 
     while not all_data_processed or not all_threads_done:
 
-        for i in xrange(args.threads):
+        for i in range(args.threads):
             if queue[i] is None and not all_data_processed:
                 count_call_of_read_input += 1
 
@@ -1358,7 +1352,7 @@ def main(args=None):
 
     for cover in pos_coverage:
         max_element = 0
-        for i in xrange(cover.begin, cover.end, 1):
+        for i in range(cover.begin, cover.end, 1):
             if coverage[i] > max_element:
                 max_element = coverage[i]
         if max_element == 0:
@@ -1376,12 +1370,21 @@ def main(args=None):
     # will say that the file already exists.
     unlink(args.outFileName.name)
 
-    if args.outFileName.name.endswith('.mcool') and args.binSize is not None and len(args.binSize) > 2:
+    if args.outFileName.name.endswith('.cool') and args.binSize is not None and len(args.binSize) > 2:
+
+        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
+        matrixFileHandlerOutput.set_matrix_variables(hic_ma.matrix,
+                                                     hic_ma.cut_intervals,
+                                                     hic_ma.nan_bins,
+                                                     hic_ma.correction_factors,
+                                                     hic_ma.distance_counts)
+        matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(args.binSize[0]), pSymmetric=True, pApplyCorrection=False)
 
         for resolution in args.binSize[1:]:
+            hic_matrix_to_merge = deepcopy(hic_ma)
             _mergeFactor = int(resolution) // args.binSize[0]
-            merged_matrix = hicMergeMatrixBins.merge_bins(hic_ma, _mergeFactor)
-            matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
+            merged_matrix = hicMergeMatrixBins.merge_bins(hic_matrix_to_merge, _mergeFactor)
+            matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pAppend=True)
             matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
                                                          merged_matrix.cut_intervals,
                                                          merged_matrix.nan_bins,

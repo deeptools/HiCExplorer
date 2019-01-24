@@ -1,10 +1,11 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images
 import os.path
 import pytest
-import sys
-
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
 h5_browser_track = """
@@ -18,8 +19,8 @@ colormap = RdYlBu_r
 depth = 200000
 transform = log1p
 x labels = yes
-boundaries_file = domains.bed
 file_type = hic_matrix
+height = 5
 """
 
 cool_browser_track = """
@@ -32,17 +33,27 @@ colormap = RdYlBu_r
 depth = 200000
 transform = log1p
 x labels = yes
-boundaries_file = domains.bed
 file_type = hic_matrix
+height = 5
 """
 
 browser_tracks = """
+[tads]
+file = domains.bed
+file_type = domains
+border color = black
+color = none
+height = 5
+line width = 1.5
+overlay previous = share-y
+show data range = no
 
 [spacer]
 height = 0.05
 
-[tad state]
+[bed]
 file = tad_classification.bed
+file_type = bed
 height = 0.5
 title = TAD state
 display = collapsed
@@ -50,7 +61,7 @@ labels = off
 
 [tad-separation score]
 file = tad_score.gz
-height = 10
+height = 5
 type = lines
 plot horizontal lines=False
 title= TAD separation score (Ramirez et al.)
@@ -63,33 +74,33 @@ height = 1
 [test bedgraph]
 file = bedgraph_chrx_2e6_5e6.bg
 color = blue
-height = 4
+height = 2
 title = bedgraph
 
 [test bigwig]
 file = bigwig_chrx_2e6_5e6.bw
 color = blue
-height = 4
+height = 2
 title = rep 1 test fill
 
 [test bigwig lines]
 file = bigwig_chrx_2e6_5e6.bw
 color = red
-height = 4
+height = 2
 type = line
 title = rep 1 test line
 
 [test bigwig lines]
 file = bigwig_chrx_2e6_5e6.bw
 color = red
-height = 4
+height = 2
 type = line:0.2
 title = rep 1 test lw=0.1
 
 [test bigwig points]
 file = bigwig_chrx_2e6_5e6.bw
 color = black
-height = 4
+height = 2
 type = points:0.5
 title = rep 1 test point:0.5
 
@@ -98,7 +109,7 @@ height = 0.5
 
 [genes 2]
 file = dm3_genes.bed.gz
-height = 5
+height = 3
 title = genes
 fontsize = 10
 
@@ -107,7 +118,7 @@ height = 1
 
 [test gene rows]
 file = dm3_genes.bed.gz
-height = 3
+height = 1.5
 title = max num rows 3
 fontsize = 8
 gene rows = 3
@@ -117,7 +128,7 @@ height = 1
 
 [test bed6]
 file = dm3_genes.bed6.gz
-height = 20
+height = 10
 title = bed6 global max row
 fontsize = 10
 file_type = bed
@@ -142,31 +153,26 @@ with open(ROOT + "browser_tracks_cool.ini", 'w') as fh:
 tolerance = 13  # default matplotlib pixed difference tolerance
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(platform == 'darwin' and version_info[0] == 3,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotTads():
     import hicexplorer.hicPlotTADs
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
 
-    if platform == "darwin" and version_info[0] == 3:
-        args = "--tracks {0}/browser_tracks.ini --region chrX:300000-350000  " \
-            "--outFileName  {1}".format(ROOT, outfile.name).split()
-        test_image_path = ROOT + '/plot_matrix_python3_osx/tads_plot.png'
-    else:
-        args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000  " \
-            "--outFileName  {1}".format(ROOT, outfile.name).split()
-        test_image_path = ROOT + '/master_TADs_plot.png'
+    args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000  " \
+        "--outFileName  {1}".format(ROOT, outfile.name).split()
+    test_image_path = ROOT + '/hicPlotTADs/pygenometracks.png'
 
     hicexplorer.hicPlotTADs.main(args)
 
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
-    # os.remove(outfile.name)
+    os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(platform == 'darwin' and version_info[0] == 3,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotTads_cool():
     import hicexplorer.hicPlotTADs
@@ -176,7 +182,7 @@ def test_hicPlotTads_cool():
            "--outFileName  {1}".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotTADs.main(args)
 
-    res = compare_images(ROOT + '/master_TADs_plot_cool_partial_load.png', outfile.name, tol=40)
+    res = compare_images(ROOT + '/hicPlotTADs/pygenometracks.png', outfile.name, tol=40)
     assert res is None, res
 
-    # os.remove(outfile.name)
+    os.remove(outfile.name)

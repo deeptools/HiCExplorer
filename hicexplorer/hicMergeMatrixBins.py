@@ -1,8 +1,9 @@
-from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 import numpy as np
 from past.builtins import zip
-from builtins import range
 
 import logging
 log = logging.getLogger(__name__)
@@ -165,8 +166,7 @@ def running_window_merge(hic_matrix, num_bins):
     # remove illegal matrix id
     # that are less than zero
     # or bigger than matrix size
-    keep = ((new_row > -1) & (new_col > -1) &
-            (new_row < M) & (new_col < M))
+    keep = ((new_row > -1) & (new_col > -1) & (new_row < M) & (new_col < M))
     new_data = new_data[keep]
     new_row = new_row[keep]
     new_col = new_col[keep]

@@ -1,4 +1,8 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicexplorer import hicPCA
+from hicmatrix import HiCMatrix as hm
 
 from tempfile import NamedTemporaryFile
 import os
@@ -9,6 +13,8 @@ ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 
 import logging
 log = logging.getLogger(__name__)
+
+DELTA_DECIMAL = 0
 
 
 def are_files_equal(file1, file2):
@@ -26,8 +32,6 @@ def are_files_equal(file1, file2):
                     if 0 <= abs(abs(float(split_x[3].strip())) - abs(float(split_y[3].strip()))) <= 0.01:
                         continue
                     else:
-                        log.debug('wtf: {}'.format(abs(abs(float(split_x[3].strip())) - abs(float(split_y[3].strip())))))
-
                         log.debug('split_x {} split_y {}'.format(split_x, split_y))
                 equal = False
                 break
@@ -56,7 +60,7 @@ def are_files_equal_bigwig(pFile1, pFile2, pChromosomeList):
             bins_list_file1[:][2] *= -1
         if bins_list_file1 is None and bins_list_file2 is None:
             return True
-        nt.assert_array_almost_equal(np.absolute(bins_list_file1), np.absolute(bins_list_file2), decimal=2)
+        nt.assert_array_almost_equal(np.absolute(bins_list_file1), np.absolute(bins_list_file2), decimal=DELTA_DECIMAL)
     return True
 
 
@@ -133,3 +137,87 @@ def test_pca_bigwig_gene_density():
 
     os.unlink(pca1.name)
     os.unlink(pca2.name)
+
+
+def test_pca_bigwig_gene_density_intermediate_matrices():
+    pca1 = NamedTemporaryFile(suffix='.bw', delete=False)
+    pca2 = NamedTemporaryFile(suffix='.bw', delete=False)
+    pearson_matrix = NamedTemporaryFile(suffix='.h5', delete=False)
+    obs_exp_matrix = NamedTemporaryFile(suffix='.h5', delete=False)
+    pca1.close()
+    pca2.close()
+    pearson_matrix.close()
+    obs_exp_matrix.close()
+    matrix = ROOT + "small_test_matrix.h5"
+    gene_track = ROOT + 'dm3_genes.bed.gz'
+    chromosomes = 'chrX chrXHet'
+    args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --geneTrack {} --chromosomes {} --pearsonMatrix {} --obsexpMatrix {}"\
+        .format(matrix, pca1.name, pca2.name, gene_track, chromosomes, pearson_matrix.name, obs_exp_matrix.name).split()
+    hicPCA.main(args)
+
+    chrom_list = ['chrX', 'chrXHet']
+    assert are_files_equal_bigwig(ROOT + "hicPCA/pca1_gene_track.bw", pca1.name, chrom_list)
+    assert are_files_equal_bigwig(ROOT + "hicPCA/pca2_gene_track.bw", pca2.name, chrom_list)
+
+    test_pearson = hm.hiCMatrix(ROOT + "hicPCA/pearson_intermediate.h5")
+
+    new_pearson = hm.hiCMatrix(pearson_matrix.name)
+
+    test_obs_exp = hm.hiCMatrix(ROOT + "hicPCA/obs_exp_intermediate.h5")
+
+    new_obs_exp = hm.hiCMatrix(obs_exp_matrix.name)
+    nt.assert_array_almost_equal(test_pearson.matrix.data, new_pearson.matrix.data, decimal=DELTA_DECIMAL)
+    nt.assert_array_almost_equal(test_obs_exp.matrix.data, new_obs_exp.matrix.data, decimal=DELTA_DECIMAL)
+
+    # assert are_files_equal_bigwig(ROOT + "hicPCA/pearson_intermediate.h5", pearson_matrix.name, chrom_list)
+    # assert are_files_equal_bigwig(ROOT + "hicPCA/obs_exp_intermediate.h5", obs_exp_matrix.name, chrom_list)
+
+    os.unlink(pca1.name)
+    os.unlink(pca2.name)
+    os.unlink(obs_exp_matrix.name)
+    os.unlink(pearson_matrix.name)
+
+
+def test_pca_bigwig_gene_density_intermediate_matrices_norm():
+    pca1 = NamedTemporaryFile(suffix='.bw', delete=False)
+    pca2 = NamedTemporaryFile(suffix='.bw', delete=False)
+    pearson_matrix = NamedTemporaryFile(suffix='.cool', delete=False)
+    obs_exp_matrix = NamedTemporaryFile(suffix='.cool', delete=False)
+    pca1.close()
+    pca2.close()
+    pearson_matrix.close()
+    obs_exp_matrix.close()
+    matrix = ROOT + "small_test_matrix.h5"
+    gene_track = ROOT + 'dm3_genes.bed.gz'
+    chromosomes = 'chrX chrXHet'
+    args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --geneTrack {} --chromosomes {} --pearsonMatrix {} --obsexpMatrix {} --norm"\
+        .format(matrix, pca1.name, pca2.name, gene_track, chromosomes, pearson_matrix.name, obs_exp_matrix.name).split()
+    hicPCA.main(args)
+
+    chrom_list = ['chrX', 'chrXHet']
+    assert are_files_equal_bigwig(ROOT + "hicPCA/pca1_gene_track.bw", pca1.name, chrom_list)
+    assert are_files_equal_bigwig(ROOT + "hicPCA/pca2_gene_track.bw", pca2.name, chrom_list)
+
+    test_pearson = hm.hiCMatrix(ROOT + "hicPCA/pearson_norm.cool")
+
+    new_pearson = hm.hiCMatrix(pearson_matrix.name)
+
+    test_obs_exp = hm.hiCMatrix(ROOT + "hicPCA/obsexp_norm.cool")
+
+    new_obs_exp = hm.hiCMatrix(obs_exp_matrix.name)
+
+    # load h5 matrices to compare if they are store the same data
+    test_obs_exp_h5 = hm.hiCMatrix(ROOT + "hicPCA/obsexp_norm.h5")
+
+    test_pearson_h5 = hm.hiCMatrix(ROOT + "hicPCA/pearson_norm.h5")
+
+    nt.assert_array_almost_equal(test_pearson.matrix.data, new_pearson.matrix.data, decimal=DELTA_DECIMAL)
+    nt.assert_array_almost_equal(test_obs_exp.matrix.data, new_obs_exp.matrix.data, decimal=DELTA_DECIMAL)
+
+    nt.assert_array_almost_equal(test_pearson_h5.matrix.data, new_pearson.matrix.data, decimal=DELTA_DECIMAL)
+    nt.assert_array_almost_equal(test_obs_exp_h5.matrix.data, new_obs_exp.matrix.data, decimal=DELTA_DECIMAL)
+
+    os.unlink(pca1.name)
+    os.unlink(pca2.name)
+    os.unlink(obs_exp_matrix.name)
+    os.unlink(pearson_matrix.name)

@@ -1,4 +1,7 @@
 """ Testsuite for hicFindEnrichedContacts """
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicexplorer import hicFindEnrichedContacts as hicfec
 from hicmatrix import HiCMatrix as hm
 import os

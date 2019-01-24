@@ -1,8 +1,9 @@
-from __future__ import division
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, lil_matrix
 from scipy import linalg
 from scipy.stats import pearsonr
 import numpy as np
@@ -10,18 +11,15 @@ import pyBigWig
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import exp_obs_matrix_lieberman
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.parserCommon import CustomFormatter
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import opener
-
+from hicmatrix.lib import MatrixFileHandler
 from .readBed import ReadBed
 import logging
 log = logging.getLogger(__name__)
-
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
 
 
 def parse_arguments():
@@ -70,9 +68,20 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            'correlation.',
                            default=None,
                            nargs='+')
+    parserOpt.add_argument('--norm',
+                           help='Different obs-exp normalization as used by Homer software.',
+                           action='store_true')
     parserOpt.add_argument('--geneTrack',
                            help='The gene track is needed to decide if the values of the eigenvector need a sign flip or not.',
                            default=None)
+    parserOpt.add_argument('--pearsonMatrix', '-pm',
+                           help='Internally the input matrix is converted per chromosome to obs_exp matrix and consecutively to a Pearson matrix.'
+                           ' Set this parameter to write the pearson matrix to a file.'
+                           )
+    parserOpt.add_argument('--obsexpMatrix', '-oem',
+                           help='Internally the input matrix is converted per chromosome to obs_exp matrix and consecutively to a Pearson matrix.'
+                           ' Set this parameter to write the observe / expected matrix to a file.'
+                           )
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -146,6 +155,12 @@ def main(args=None):
     # PCA is computed per chromosome
     length_chromosome = 0
     chromosome_count = len(ma.getChrNames())
+    if args.pearsonMatrix:
+        trasf_matrix_pearson = lil_matrix(ma.matrix.shape)
+
+    if args.obsexpMatrix:
+        trasf_matrix_obsexp = lil_matrix(ma.matrix.shape)
+
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
         length_chromosome += chr_range[1] - chr_range[0]
@@ -153,14 +168,24 @@ def main(args=None):
         chr_range = ma.getChrBinRange(chrname)
 
         submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+        if args.norm:
+            obs_exp_matrix_ = obs_exp_matrix_norm(submatrix)
 
-        exp_obs_matrix_ = exp_obs_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
-        exp_obs_matrix_ = convertNansToZeros(csr_matrix(exp_obs_matrix_)).todense()
-        exp_obs_matrix_ = convertInfsToZeros(csr_matrix(exp_obs_matrix_)).todense()
+        else:
+            obs_exp_matrix_ = obs_exp_matrix_lieberman(submatrix, length_chromosome, chromosome_count)
+        obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_)).todense()
+        obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
 
-        pearson_correlation_matrix = np.corrcoef(exp_obs_matrix_)
+        if args.obsexpMatrix:
+            trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
+
+        pearson_correlation_matrix = np.corrcoef(obs_exp_matrix_)
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
         pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
+
+        if args.pearsonMatrix:
+            trasf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(pearson_correlation_matrix)
+
         corrmatrix = np.cov(pearson_correlation_matrix)
         corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
         corrmatrix = convertInfsToZeros(csr_matrix(corrmatrix)).todense()
@@ -173,6 +198,30 @@ def main(args=None):
         chrom_list += chrom
         start_list += start
         end_list += end
+
+    if args.pearsonMatrix:
+        file_type = 'cool'
+        if args.pearsonMatrix.endswith('.h5'):
+            file_type = 'h5'
+        matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
+        matrixFileHandlerOutput.set_matrix_variables(trasf_matrix_pearson.tocsr(),
+                                                     ma.cut_intervals,
+                                                     ma.nan_bins,
+                                                     ma.correction_factors,
+                                                     ma.distance_counts)
+        matrixFileHandlerOutput.save(args.pearsonMatrix, pSymmetric=True, pApplyCorrection=False)
+
+    if args.obsexpMatrix:
+        file_type = 'cool'
+        if args.obsexpMatrix.endswith('.h5'):
+            file_type = 'h5'
+        matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
+        matrixFileHandlerOutput.set_matrix_variables(trasf_matrix_obsexp.tocsr(),
+                                                     ma.cut_intervals,
+                                                     ma.nan_bins,
+                                                     ma.correction_factors,
+                                                     ma.distance_counts)
+        matrixFileHandlerOutput.save(args.obsexpMatrix, pSymmetric=True, pApplyCorrection=False)
 
     if args.geneTrack:
         vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.geneTrack)

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import os.path
+import sys
 import logging
 import argparse
 import json
@@ -12,12 +14,9 @@ from scipy import sparse
 import numpy as np
 import multiprocessing
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString, check_chrom_str_bytes
+from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
 
-# python 2 / 3 compatibility
 from past.builtins import zip
-from six import iteritems
-from builtins import range
 from past.builtins import map
 
 log = logging.getLogger(__name__)
@@ -153,6 +152,12 @@ of information at certain bins, and depending on the parameters used with this t
                            help='Minimum distance between boundaries (in bp). This parameter can be '
                            'used to reduce spurious boundaries caused by noise.',
                            type=int)
+
+    parserOpt.add_argument('--chromosomes',
+                           help='Chromosomes and order in which the '
+                           'chromosomes should be plotted. This option '
+                           'overrides --region and --region2.',
+                           nargs='+')
 
     parserOpt.add_argument('--numberOfProcessors', '-p',
                            help='Number of processors to use ',
@@ -356,7 +361,8 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
 class HicFindTads(object):
 
     def __init__(self, matrix, num_processors=1, max_depth=None, min_depth=None, step=None, delta=0.01,
-                 min_boundary_distance=None, use_zscore=True, p_correct_for_multiple_testing="fdr", p_threshold_comparisons=0.01):
+                 min_boundary_distance=None, use_zscore=True, p_correct_for_multiple_testing="fdr", p_threshold_comparisons=0.01,
+                 pChromosomes=None):
         """
 
         Parameters
@@ -372,14 +378,12 @@ class HicFindTads(object):
         use_zscore boolean. By default is true. Set to other option
         pCorrectForMultipleTesting Multiple comparisons method: FDR, Bonferroni or None
         pThresholdComparisons The threshold for the Multiple comparisons. It is used as p-value for Bonferroni or as q-value for FDR.
+        pChromosomes The chromomes that should be included for the analysis.
         """
 
         # if matrix is string, loaded, else, assume is a HiCMatrix object
-        if isinstance(matrix, str):
-            self.hic_ma = hm.hiCMatrix(matrix)
-        else:
-            self.hic_ma = matrix
 
+        self.set_matrix(matrix, pChromosomes)
         if max_depth is not None and min_depth is not None and max_depth <= min_depth:
             log.error("Please check that maxDepth is larger than minDepth.")
             exit()
@@ -397,6 +401,31 @@ class HicFindTads(object):
         self.set_variables()
         self.correct_for_multiple_testing = p_correct_for_multiple_testing
         self.threshold_comparisons = p_threshold_comparisons
+
+    def set_matrix(self, pMatrix, pChromosomes):
+        if isinstance(pMatrix, str):
+            self.hic_ma = hm.hiCMatrix(pMatrix)
+        else:
+            self.hic_ma = pMatrix
+
+        if pChromosomes is not None:
+            valid_chromosomes = []
+            invalid_chromosomes = []
+            log.debug('args.chromosomeOrder: {}'.format(pChromosomes))
+            log.debug("ma.chrBinBoundaries {}".format(self.hic_ma.chrBinBoundaries))
+
+            pChromosomes = toBytes(pChromosomes)
+            for chrom in toString(pChromosomes):
+                if chrom in self.hic_ma.chrBinBoundaries:
+                    valid_chromosomes.append(chrom)
+                else:
+                    invalid_chromosomes.append(chrom)
+
+            if len(invalid_chromosomes) > 0:
+                log.warning("WARNING: The following chromosome/scaffold names were not found. Please check"
+                            "the correct spelling of the chromosome names. \n")
+                log.warning("\n".join(invalid_chromosomes))
+            self.hic_ma.reorderChromosomes(valid_chromosomes)
 
     def set_variables(self):
         """
@@ -809,7 +838,7 @@ class HicFindTads(object):
             return
 
         count = 0
-        for chrom, values in iteritems(Z):
+        for chrom, values in Z.items():
             for id_a, id_b, distance, num_clusters, pos_a, pos_b in values:
                 count += 1
                 file_h.write('{}\t{}\t{}\tclust_{}'
@@ -882,7 +911,7 @@ class HicFindTads(object):
         :param file_prefix: file prefix to save the resulting bed files
         :return: list of file names created
         """
-        for cutoff, intervals in iteritems(clusters):
+        for cutoff, intervals in clusters.items():
             fileh = open("{}_{}.bed".format(file_prefix, cutoff), 'w')
             for chrom, start, end in intervals:
                 fileh.write("{}\t{}\t{}\t.\t0\t.\n".format(chrom, start, end))
@@ -1132,7 +1161,7 @@ class HicFindTads(object):
                                 'chr_end': np.array(chr_end).astype(int),
                                 'matrix': matrix}
 
-    def load_bedgraph_matrix(self, filename):
+    def load_bedgraph_matrix(self, filename, pChromosomes=None):
         # load spectrum matrix:
         matrix = []
         chrom_list = []
@@ -1147,11 +1176,17 @@ class HicFindTads(object):
                     continue
                 fields = line.strip().split('\t')
                 chrom, start, end = fields[0:3]
-                chrom_list.append(chrom)
-                start_list.append(int(float(start)))
-                end_list.append(int(float(end)))
-                matrix.append(map(float, fields[3:]))
-
+                if pChromosomes is not None:
+                    if chrom in pChromosomes:
+                        chrom_list.append(chrom)
+                        start_list.append(int(float(start)))
+                        end_list.append(int(float(end)))
+                        matrix.append(map(float, fields[3:]))
+                else:
+                    chrom_list.append(chrom)
+                    start_list.append(int(float(start)))
+                    end_list.append(int(float(end)))
+                    matrix.append(map(float, fields[3:]))
         self.min_depth = parameters['minDepth']
         self.max_depth = parameters['maxDepth']
         self.step = parameters['step']
@@ -1316,7 +1351,8 @@ def main(args=None):
     ft = HicFindTads(args.matrix, num_processors=args.numberOfProcessors, max_depth=args.maxDepth,
                      min_depth=args.minDepth, step=args.step, delta=args.delta,
                      min_boundary_distance=args.minBoundaryDistance, use_zscore=True,
-                     p_correct_for_multiple_testing=args.correctForMultipleTesting, p_threshold_comparisons=args.thresholdComparisons)
+                     p_correct_for_multiple_testing=args.correctForMultipleTesting, p_threshold_comparisons=args.thresholdComparisons,
+                     pChromosomes=args.chromosomes)
 
     tad_score_file = args.outPrefix + "_tad_score.bm"
     zscore_matrix_file = args.outPrefix + "_zscore_matrix.h5"
@@ -1334,8 +1370,8 @@ def main(args=None):
                       "Could not find file {}".format(zscore_matrix_file))
             exit(1)
         log.info("\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
-        ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
-        ft.load_bedgraph_matrix(tad_score_file)
+        ft.set_matrix(zscore_matrix_file, args.chromosomes)
+        ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
 
     elif not os.path.isfile(tad_score_file):
         ft.compute_spectra_matrix()
@@ -1345,8 +1381,9 @@ def main(args=None):
     else:
         log.info("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
         log.info("This file will be used\n")
-        ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
-        ft.load_bedgraph_matrix(tad_score_file)
+        ft.set_matrix(zscore_matrix_file, args.chromosomes)
+        # ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
+        ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
 
     ft.find_boundaries()
     ft.save_domains_and_boundaries(args.outPrefix)

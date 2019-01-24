@@ -1,5 +1,6 @@
-from __future__ import division
-
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import sys
 from hicmatrix import HiCMatrix
 from hicexplorer.utilities import writableFile
@@ -29,9 +30,6 @@ from collections import OrderedDict
 
 import logging
 log = logging.getLogger(__name__)
-
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
 
 
 def parse_arguments(args=None):
@@ -124,6 +122,15 @@ def parse_arguments(args=None):
                            'example be used to visualize A/B compartments or '
                            'ChIP-seq data.',
                            type=str,
+                           default=None)
+    parserOpt.add_argument('--vMinBigwig',
+                           help='Minimum score value for bigwig.',
+                           type=float,
+                           default=None)
+
+    parserOpt.add_argument('--vMaxBigwig',
+                           help='Maximum score value for bigwig',
+                           type=float,
                            default=None)
     parserOpt.add_argument('--flipBigwigSign',
                            help='The sign of the bigwig values are flipped. Useful if hicPCA gives inverted values.',
@@ -243,17 +250,20 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     if xlabel is not None:
         xlabel = toString(xlabel)
         axHeat2.set_xlabel(xlabel)
-
+    log.debug('foo')
     if pBigwig:
         axHeat2.xaxis.set_label_position("top")
         axHeat2.xaxis.tick_top()
         if args.region:
+            log.debug('region')
             plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pChromosomeSizes=chrBinBoundaries,
                        pRegion=pBigwig['args'].region, pXticks=xticks, pFlipBigwigSign=args.flipBigwigSign,
-                       pScaleFactorBigwig=args.scaleFactorBigwig)
+                       pScaleFactorBigwig=args.scaleFactorBigwig, pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
         else:
+            log.debug('else region')
             plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=chrBinBoundaries,
-                       pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig)
+                       pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig,
+                       pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
 
 
 def translate_region(region_string):
@@ -265,14 +275,11 @@ def translate_region(region_string):
     are set to a 0 and 1e15
     """
 
-    if sys.version_info[0] == 2:
-        region_string = region_string.translate(None, ",;!").replace("-", ":")
-    if sys.version_info[0] == 3:
-        # region_string = toBytes(region_string)
-        region_string = region_string.replace(",", "")
-        region_string = region_string.replace(";", "")
-        region_string = region_string.replace("!", "")
-        region_string = region_string.replace("-", ":")
+    # region_string = toBytes(region_string)
+    region_string = region_string.replace(",", "")
+    region_string = region_string.replace(";", "")
+    region_string = region_string.replace("!", "")
+    region_string = region_string.replace("-", ":")
 
     fields = region_string.split(":")
     chrom = fields[0]
@@ -500,8 +507,8 @@ def main(args=None):
             invalid_chromosomes = []
             log.debug('args.chromosomeOrder: {}'.format(args.chromosomeOrder))
             log.debug("ma.chrBinBoundaries {}".format(ma.chrBinBoundaries))
-            if sys.version_info[0] == 3:
-                args.chromosomeOrder = toBytes(args.chromosomeOrder)
+
+            args.chromosomeOrder = toBytes(args.chromosomeOrder)
             for chrom in toString(args.chromosomeOrder):
                 if chrom in ma.chrBinBoundaries:
                     valid_chromosomes.append(chrom)
@@ -548,8 +555,11 @@ def main(args=None):
 
         if args.log or args.log1p:
             mask = matrix == 0
-            matrix[mask] = np.nanmin(matrix[mask == False])
-
+            try:
+                matrix[mask] = np.nanmin(matrix[mask == False])
+            except ValueError:
+                log.info('Matrix contains only 0. Set all values to {}'.format(np.finfo(float).tiny))
+                matrix[mask] = np.finfo(float).tiny
             if np.isnan(matrix).any() or np.isinf(matrix).any():
                 log.debug("any nan {}".format(np.isnan(matrix).any()))
                 log.debug("any inf {}".format(np.isinf(matrix).any()))
@@ -631,7 +641,8 @@ def make_start_pos_array(ma):
     return start_pos
 
 
-def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None):
+def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None,
+               pValueMin=None, pValueMax=None):
     log.debug('plotting eigenvector')
     pAxis.set_frame_on(False)
     pAxis.xaxis.set_visible(False)
@@ -714,15 +725,15 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 pAxis.set_xlim(0, chrom_length_sum)
 
             log.debug("Number of data points: {}".format(len(bigwig_scores)))
-
+            bigwig_scores = np.array(bigwig_scores)
             if pFlipBigwigSign:
                 log.info("Flipping sign of bigwig values.")
-                bigwig_scores = np.array(bigwig_scores)
                 bigwig_scores *= -1
             if pScaleFactorBigwig is not None and pScaleFactorBigwig != 1.0:
                 log.info("Scaling bigwig values.")
-                bigwig_scores = np.array(bigwig_scores)
                 bigwig_scores *= pScaleFactorBigwig
+            if pValueMin is not None or pValueMax is not None:
+                bigwig_scores = bigwig_scores.clip(pValueMin, pValueMax)
 
     # else:
     #     for i, bigwigFile in enumerate(pNameOfBigwigList):
