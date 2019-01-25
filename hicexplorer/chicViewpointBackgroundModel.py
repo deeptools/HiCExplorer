@@ -20,7 +20,7 @@ def parse_arguments(args=None):
         description="""
                     Build a background model for viewpoints, the viewpoints over all samples (matrices) are used to build the background model.
                     An example usage is:
-                    $ chicViewpointBackgroundModel -m matrix1.h5 matrix2.h5 matrix3.h5 -rp referencePointsFile.bed --range 20000 40000 
+                    $ chicViewpointBackgroundModel -m matrix1.h5 matrix2.h5 matrix3.h5 -rp referencePointsFile.bed --range 20000 40000
                     """
     )
 
@@ -35,7 +35,7 @@ def parse_arguments(args=None):
                                 help='Bed file contains all reference points which should be used to build the background model.',
                                 type=str,
                                 required=True)
-    
+
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--averageContactBin',
                            help='Average the contacts of n bins, written to last column.',
@@ -63,39 +63,24 @@ def parse_arguments(args=None):
 
     return parser
 
+
 def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     background_model_data = {}
     relative_positions = set()
-    fixateRangeAt = pArgs.fixateRange // pViewpointObj.hicMatrix.getBinSize()
     for i, referencePoint in enumerate(pReferencePoints):
 
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
-        # log.debug('region_start {}, region_end {}'.format(region_start, region_end))
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
 
-        # log.debug('data_list: {}'.format(data_list[:15]))
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
-        # log.debug('data_list smooth: {}'.format(data_list[:15]))
 
         # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
         view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
         view_point_range_start, view_point_range_end = \
             pViewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
-        
-
-        # for j, data in enumerate(data_list):
-        #     relative_position = j - view_point_start
-            
-        #     # if np.absolute(relative_position) > fixateRangeAt:
-        #     #     continue 
-        #     if relative_position in background_model_data:
-        #         background_model_data[relative_position] += data
-        #     else:
-        #         background_model_data[relative_position] = data
-        #         relative_positions.add(relative_position)
 
         for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
             relative_position = i - view_point_start
@@ -104,10 +89,9 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
             else:
                 background_model_data[relative_position] = data
                 relative_positions.add(relative_position)
-        # log.debug('min {}, max{}'.format(min(background_model_data), max(background_model_data)))
-        # log.debug('background_model_data {}'.format(list(background_model_data.items())))
     pQueue.put([background_model_data, relative_positions])
     return
+
 
 def main():
     args = parse_arguments().parse_args()
@@ -140,23 +124,23 @@ def main():
         thread_done = [False] * args.threads
         log.debug('matrix read, starting processing')
         for i in range(args.threads):
-            
+
             if i < args.threads - 1:
-                referencePointsThread = referencePoints[i*referencePointsPerThread:(i+1)*referencePointsPerThread]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
             else:
-                referencePointsThread = referencePoints[i*referencePointsPerThread:]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:]
 
             queue[i] = Queue()
             process[i] = Process(target=compute_background, kwargs=dict(
-                pReferencePoints = referencePointsThread,
-                pViewpointObj = viewpointObj,
-                pArgs= args,
-                pQueue = queue[i] 
-                )
+                pReferencePoints=referencePointsThread,
+                pViewpointObj=viewpointObj,
+                pArgs=args,
+                pQueue=queue[i]
+            )
             )
 
             process[i].start()
-        
+
         while not all_data_collected:
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
@@ -193,7 +177,7 @@ def main():
         # for the current condition compute the relative interactions per relative distance
         for key in relative_counts:
             relative_counts[key] /= total_count
-        
+
         relative_counts_conditions.append(relative_counts)
 
     # log.debug('background_model_data {}'.format(background_model_data))
@@ -227,4 +211,4 @@ def main():
             # if lower_limit_range <= relative_position and relative_position <= upper_limit_range:
             relative_position_in_genomic_scale = relative_position * bin_size
             file.write("{}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, mean_percentage[relative_position],
-                                                    sem[relative_position]))
+                                                       sem[relative_position]))

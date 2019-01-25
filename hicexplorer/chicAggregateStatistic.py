@@ -82,7 +82,6 @@ def merge_neighbors(pScoresDictionary, pMergeThreshold=1000):
             neighborhoods.append([key, key])
             scores.append(np.array(list(map(float, pScoresDictionary[key][-3:]))))
 
-
     for i in range(len(neighborhoods)):
         scores[i] /= len(neighborhoods[i])
 
@@ -118,9 +117,7 @@ def write(pOutFileName, pNeighborhoods, pInteractionLines, pScores=None):
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
-    background_data = None
-    relative_interaction = False
-    rbz_score = True
+
     # read all interaction files.
     for interactionFile, targetFile in zip(args.interactionFile, args.targetFile):
         header, interaction_data, interaction_file_data = viewpointObj.readInteractionFileForAggregateStatistics(interactionFile)
@@ -132,7 +129,7 @@ def main(args=None):
             log.error('No target regions found')
             sys.exit(0)
         outFileName = interactionFile.split('.')[0] + '_' + args.outFileNameSuffix
-        
+
         if args.mergeBins:
             merged_neighborhood = merge_neighbors(accepted_scores)
             write(outFileName, merged_neighborhood[0], interaction_file_data, merged_neighborhood[1])

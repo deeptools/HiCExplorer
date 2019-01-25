@@ -22,8 +22,9 @@ def readBed(pBedFile):
                 continue
             chrom, start, end = _line[:3]
             viewpoints.append((chrom, start, end))
-    
+
     return viewpoints
+
 
 def writableFile(string):
     try:

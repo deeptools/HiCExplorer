@@ -7,10 +7,7 @@ from hicexplorer import utilities
 from hicexplorer._version import __version__
 from .lib import Viewpoint
 
-from scipy.stats import chi2_contingency
-from scipy.stats import chi2
 from scipy import stats
-
 
 import os
 
@@ -84,7 +81,7 @@ def chisquare_test(pDataFile1, pDataFile2, pAlpha):
     # Find the critical value for alpha confidence level
     critical_value = stats.chi2.ppf(q=1 - pAlpha, df=1)
     for group1, group2 in zip(pDataFile1, pDataFile2):
-        chi2, p_value, dof, ex = chi2_contingency([group1, group2], correction=False)
+        chi2, p_value, dof, ex = stats.chi2_contingency([group1, group2], correction=False)
         if chi2 >= critical_value:
             test_result.append((True, p_value))
         else:
@@ -132,10 +129,8 @@ def writeResult(pOutFileName, pData, pRejected, pHeaderOld, pHeaderNew, pViewpoi
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-    # log.debug('muh')
 
     header_significance_level1, header1, line_content1, data1 = readInteractionFile(args.interactionFile[0], args.useData)
-    # log.debug('{}'.format(header_significance_level1))
     header_significance_level2, header2, line_content2, data2 = readInteractionFile(args.interactionFile[1], args.useData)
 
     test_result = chisquare_test(data1, data2, args.alpha)

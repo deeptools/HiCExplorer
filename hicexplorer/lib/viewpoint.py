@@ -15,20 +15,20 @@ class Viewpoint():
 
     def readReferencePointFile(self, pBedFile, pGene=True):
         '''
-        This function reads a text file which contains reference points. Reference points are 
+        This function reads a text file which contains reference points. Reference points are
 
         Reference points need to be tab seperated
         and contain the chromosome, the reference start point and/or the reference end point, and the gene:
 
         chr start gene
 
-        or 
+        or
 
         chr start end gene
 
         Per line one reference point.
 
-        Returns a list of tuples with (chr, start, end), if only a start index is given, end = start and a list of genes. 
+        Returns a list of tuples with (chr, start, end), if only a start index is given, end = start and a list of genes.
 
         '''
         viewpoints = []
@@ -58,14 +58,14 @@ class Viewpoint():
     def readInteractionFile(self, pBedFile):
         '''
         Reads an interaction file produced by chicViewpoint. Contains header information, these lines
-        start with '#'. 
+        start with '#'.
         Interactions files contain:
         Chromosome Viewpoint, Start, End, Gene, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
         Relative number of interactions, z-score based on relative interactions.
 
         This function returns:
         - header as  a string
-        - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}  
+        - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}
         - rbz-score in relation to relative position as a dict (same format as interaction data)
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
@@ -90,14 +90,14 @@ class Viewpoint():
     def readInteractionFileForAggregateStatistics(self, pBedFile):
         '''
         Reads an interaction file produced by chicViewpoint. Contains header information, these lines
-        start with '#'. 
+        start with '#'.
         Interactions files contain:
         Chromosome Viewpoint, Start, End, Gene, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
         Relative number of interactions, z-score based on relative interactions.
 
         This function returns:
         - header as  a string
-        - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}  
+        - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}
         - rbz-score in relation to relative position as a dict (same format as interaction data)
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
@@ -142,7 +142,7 @@ class Viewpoint():
                 i += inc
                 # log.debug('i {}'.format(i))
                 distance[i] = distance[max_key]
-        
+
         # log.debug('min_key {} pRange[0] {}'.format(min_key , pRange[0]))
         if min_key > -pRange[0]:
             i = min_key
@@ -171,8 +171,8 @@ class Viewpoint():
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
         '''
-        This function computes a viewpoint for a given sample and a given pReferencePoint within the  
-        range of pRegion_start and pRegion_end. 
+        This function computes a viewpoint for a given sample and a given pReferencePoint within the
+        range of pRegion_start and pRegion_end.
 
         All interactions with the reference point of one relative distance to it are summed up,
         if the reference point is larger than one bin of the Hi-C matrix, it is considered as one bin and the values are summed together.
@@ -228,8 +228,6 @@ class Viewpoint():
         interaction_positions.extend([view_point_start])
         interaction_positions.extend(list(range(view_point_end + 1, view_point_range[1], 1)))
         relative_position = -1
-        # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
-        # log.debug('interaction_positions {}'.format(interaction_positions))
         for j, idx in zip(range(len(pInteractionData)), interaction_positions):
             try:
 
@@ -240,11 +238,12 @@ class Viewpoint():
                     relative_position = int(end_second) - int(end)
 
                 interactions_list.append((chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
-            except:
+            except Exception:
                 log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
                 log.debug('len(itneraction_position) {}'.format(len(interaction_positions)))
 
                 log.debug('chrom {}, start {}, end {}, pGene {}, chrom_second {}, start_second {}, end_second {}, relative_position {}'.format(chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position))
+                log.error('Failed to get bin position of index {}'.format(idx))
                 exit(1)
         return interactions_list
 
@@ -272,7 +271,7 @@ class Viewpoint():
 
     def smoothInteractionValues(self, pData, pWindowSize):
         '''
-        Adds -pWindowsSize/2 and +pWindowsSize/2 around pData[i] and averages pData[i] by pWindowSize to 
+        Adds -pWindowsSize/2 and +pWindowsSize/2 around pData[i] and averages pData[i] by pWindowSize to
         smooth the interaction values.
         '''
         window_size = np.int(np.floor(pWindowSize / 2))
@@ -301,7 +300,7 @@ class Viewpoint():
             average_contacts[i] = np.mean(pData[start:end])
             average_contacts[-(i + 1)] = np.mean(pData[-end:])
         log.debug('smooth IV len(average_contacts) {}'.format(len(average_contacts)))
-        
+
         return average_contacts
 
     def computeRelativeValues(self, pData, pDenominator=None):
@@ -410,7 +409,6 @@ class Viewpoint():
 
     def plotZscore(self, pAxis, pAxisLabel, pZscoreData, pLabelText, pCmap, pFigure):
 
-        
         _z_score = np.empty([2, len(pZscoreData)])
         _z_score[:, :] = pZscoreData
         pAxis.xaxis.set_visible(False)

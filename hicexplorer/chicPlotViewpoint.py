@@ -82,7 +82,6 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
     background_data = None
-    # background_data_sorted = None
 
     if args.backgroundModelFile:
         background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range)
@@ -104,8 +103,6 @@ def main(args=None):
         ax1 = plt.subplot(gs[0, 0])
         ax1.margins(x=0)
     else:
-        # gs = gridspec.GridSpec(1 + len(args.interactionFile), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.85, 0.15])
-        # gs.update(hspace=0.5, wspace=0.05)
         ax1 = plt.subplot()
     colors = ['g', 'b', 'c', 'm', 'y', 'k']
     background_plot = True
@@ -129,7 +126,7 @@ def main(args=None):
             background_plot = False
         if args.minZscore is not None or args.maxZscore is not None:
             z_score = np.array(z_score, dtype=np.float32)
-            z_score.clip(args.minZscore , args.maxZscore, z_score)
+            z_score.clip(args.minZscore, args.maxZscore, z_score)
         if args.rbzScore == 'heatmap':
             viewpointObj.plotZscore(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
                                     pLabelText=gene + ': ' + matrix_name, pCmap=args.colorMapZscore,
