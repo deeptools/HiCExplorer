@@ -36,10 +36,11 @@ def parse_arguments(args=None):
                                 help='File name to save the test results',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--useData',
-                           help='Type of data used for testing: raw interactions, relative interactions, rbz-score',
-                           choices=['raw', 'relative', 'rbz'],
-                           default='raw')
+
+    parserOpt.add_argument('--statisticTest',
+                           help='Type of test used for testing: fisher\'s exact test or chi2 contingency',
+                           choices=['fisher', 'chi2'],
+                           default='fisher')
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
@@ -47,30 +48,32 @@ def parse_arguments(args=None):
     return parser
 
 
-def readInteractionFile(pInteractionFile, pUseData):
+def readInteractionFile(pInteractionFile):
 
     line_content = []
     data = []
 
-    if pUseData == 'raw':
-        data_selector_viewpoint = 9
-        data_selector_target = 12
-    elif pUseData == 'relative':
-        data_selector_viewpoint = 7
-        data_selector_target = 10
-    elif pUseData == 'rbz':
-        data_selector_viewpoint = 8
-        data_selector_target = 11
+    # if pUseData == 'raw':
+    data_selector_viewpoint = 9
+    data_selector_target = 12
+    # elif pUseData == 'relative':
+    #     data_selector_viewpoint = 7
+    #     data_selector_target = 10
+    # elif pUseData == 'rbz':
+    #     data_selector_viewpoint = 8
+    #     data_selector_target = 11
     with open(pInteractionFile, 'r') as file:
-        header_significance_level = file.readline()
+        # header_significance_level = file.readline()
         header = file.readline()
 
         for line in file.readlines():
             _line = line.strip().split('\t')
+            if len(_line) == 0:
+                continue
             line_content.append(_line)
             data.append([float(_line[data_selector_viewpoint]), float(_line[data_selector_target])])
 
-    return header_significance_level, header, line_content, data
+    return header, line_content, data
 
 
 def chisquare_test(pDataFile1, pDataFile2, pAlpha):
@@ -80,17 +83,39 @@ def chisquare_test(pDataFile1, pDataFile2, pAlpha):
     test_result = []
     # Find the critical value for alpha confidence level
     critical_value = stats.chi2.ppf(q=1 - pAlpha, df=1)
+    zero_values_counter = 0
     for group1, group2 in zip(pDataFile1, pDataFile2):
-        chi2, p_value, dof, ex = stats.chi2_contingency([group1, group2], correction=False)
-        if chi2 >= critical_value:
-            test_result.append((True, p_value))
-        else:
-            test_result.append((False, p_value))
-
+        try:
+            chi2, p_value, dof, ex = stats.chi2_contingency([group1, group2], correction=False)
+            if chi2 >= critical_value:
+                test_result.append((True, p_value))
+            else:
+                test_result.append((False, p_value))
+        except ValueError:
+            zero_values_counter += 1
+    if zero_values_counter > 0:
+        log.info('{} samples were not tested because at least one condition contained no data in both groups.'.format(zero_values_counter))
     return test_result
 
 
-def writeResult(pOutFileName, pData, pRejected, pHeaderOld, pHeaderNew, pViewpoint1, pViewpoint2, pAlpha, pDof, pUsedData, pRbzSignificanceLevel):
+def fisher_exact_test(pDataFile1, pDataFile2, pAlpha):
+
+    test_result = []
+    for group1, group2 in zip(pDataFile1, pDataFile2):
+        try:
+            odds, p_value = stats.fisher_exact(np.ceil([group1, group2]))
+            if p_value <= pAlpha:
+                test_result.append((True, p_value))
+            else:
+                test_result.append((False, p_value))
+        except ValueError:
+            pass
+            # log.debug('group1: {}'.format(group1))
+            # log.debug('group2: {}'.format(group2))
+    return test_result
+
+
+def writeResult(pOutFileName, pData, pRejected, pHeaderOld, pHeaderNew, pViewpoint1, pViewpoint2, pAlpha, pDof):
 
     with open(pOutFileName, 'w') as file:
         header = '# Differential analysis result file of HiCExplorer\'s chicDifferentialTest version '
@@ -113,10 +138,10 @@ def writeResult(pOutFileName, pData, pRejected, pHeaderOld, pHeaderNew, pViewpoi
         header += ' '.join(['# Degrees of freedom', str(pDof)])
         header += '\n'
 
-        header += ''.join(['# Used data: ', str(pUsedData)])
+        # header += ''.join(['# Used data: ', str(pUsedData)])
         header += '\n'
 
-        header += str(pRbzSignificanceLevel)
+        # header += str(pRbzSignificanceLevel)
         header += '\n\n'
 
         file.write(header)
@@ -130,10 +155,13 @@ def writeResult(pOutFileName, pData, pRejected, pHeaderOld, pHeaderNew, pViewpoi
 def main(args=None):
     args = parse_arguments().parse_args(args)
 
-    header_significance_level1, header1, line_content1, data1 = readInteractionFile(args.interactionFile[0], args.useData)
-    header_significance_level2, header2, line_content2, data2 = readInteractionFile(args.interactionFile[1], args.useData)
+    header1, line_content1, data1 = readInteractionFile(args.interactionFile[0])
+    header2, line_content2, data2 = readInteractionFile(args.interactionFile[1])
 
-    test_result = chisquare_test(data1, data2, args.alpha)
+    if args.statisticTest == 'chi2':
+        test_result = chisquare_test(data1, data2, args.alpha)
+    elif args.statisticTest == 'fisher':
+        test_result = fisher_exact_test(data1, data2, args.alpha)
 
     rejected_h0 = []
 
@@ -141,8 +169,12 @@ def main(args=None):
     for i, result in enumerate(test_result):
         if result[0]:
             rejected_h0.append([line_content1[i], line_content2[i], result[1]])
+
         else:
             non_rejected_h0.append([line_content1[i], line_content2[i], result[1]])
+
+    # log.debug('len(rejected_h0) {}'.format(len(rejected_h0)))
+    # log.debug('len(non_rejected_h0) {}'.format(len(non_rejected_h0)))
 
     header_new = args.interactionFile[0]
     header_new += ' '
@@ -153,5 +185,6 @@ def main(args=None):
     outRejectedH0 = outFileName[0] + '_rejected_H0.bed'
     outAcceptedH0 = outFileName[0] + '_accepted_H0.bed'
 
-    writeResult(outRejectedH0, rejected_h0, True, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, '1', args.useData, header_significance_level1)
-    writeResult(outAcceptedH0, non_rejected_h0, False, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, '1', args.useData, header_significance_level1)
+    # log.debug('header1{}, \n\nheader2{}'.format(header1, header2))
+    writeResult(outRejectedH0, rejected_h0, True, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, '1')
+    writeResult(outAcceptedH0, non_rejected_h0, False, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, '1')
