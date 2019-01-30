@@ -98,7 +98,9 @@ def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint
 
 
 def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel):
-
+    # import json
+    # with open('backgroundmodel_after_load.txt', 'w') as file:
+    #     file.write(json.dumps(pBackgroundModel))
     for i, referencePoint in enumerate(pReferencePoints):
         # range of viewpoint with reference point in the middle in genomic units
         # get fixateRange for relative interaction computation denominator

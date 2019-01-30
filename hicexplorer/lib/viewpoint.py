@@ -160,6 +160,7 @@ class Viewpoint():
         Chromosome Viewpoint, Start, End, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
         Relative number of interactions, z-score based on relative interactions, raw interaction data
         '''
+
         with open(pBedFile + '.bed', 'w') as fh:
             fh.write('# {}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
@@ -279,16 +280,13 @@ class Viewpoint():
         if pWindowSize % 2 == 0:
             window_size_upstream -= 1
 
-        log.debug('smooth I len(data) {}'.format(len(pData)))
         average_contacts = np.zeros(len(pData))
-        log.debug('smooth II len(average_contacts) {}'.format(len(average_contacts)))
 
         # add upstream and downstream, handle regular case
         for i in range(window_size_upstream, len(pData) - window_size):
             start = i - window_size_upstream
             end = i + window_size + 1
             average_contacts[i] = np.mean(pData[start:end])
-        log.debug('smooth III len(average_contacts) {}'.format(len(average_contacts)))
 
         # handle border conditions
         for i in range(window_size):
@@ -299,7 +297,6 @@ class Viewpoint():
 
             average_contacts[i] = np.mean(pData[start:end])
             average_contacts[-(i + 1)] = np.mean(pData[-end:])
-        log.debug('smooth IV len(average_contacts) {}'.format(len(average_contacts)))
 
         return average_contacts
 
@@ -450,8 +447,8 @@ class Viewpoint():
 
         background_model = []
         background_model_sem = []
-        # log.debug('pRange {}'.format(pRange))
-        for key in pBackground:
+        background_data_keys_sorted = sorted(pBackground)
+        for key in background_data_keys_sorted:
             if key >= -pRange[0] and key <= pRange[1]:
                 background_model.append(pBackground[key][0])
                 background_model_sem.append(pBackground[key][1])
