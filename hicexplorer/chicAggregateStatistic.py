@@ -42,7 +42,11 @@ def parse_arguments(args=None):
                            required=False,
                            default='_aggregate_target.bed')
 
-    parserOpt.add_argument("--mergeBins", "-mb", action='store_true', help="Merge neighboring interactions to one. The value is averaged.")
+    parserOpt.add_argument("--mergeBins", "-mb", 
+                                type=int,
+                                default=1000,
+                                help="Merge neighboring interactions to one. The value of this parameter defines the maximum distance" 
+                                      " a neighbor can have. The values are averaged.")
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
@@ -61,7 +65,6 @@ def filter_scores(pScoresDictionary, pTargetRegions):
         for key in pScoresDictionary:
             if int(pScoresDictionary[key][5]) >= start and int(pScoresDictionary[key][6]) <= end:
                 accepted_scores[key] = pScoresDictionary[key]
-                break
     return accepted_scores
 
 
@@ -130,8 +133,8 @@ def main(args=None):
             sys.exit(0)
         outFileName = interactionFile.split('.')[0] + '_' + args.outFileNameSuffix
 
-        if args.mergeBins:
-            merged_neighborhood = merge_neighbors(accepted_scores)
+        if args.mergeBins > 0:
+            merged_neighborhood = merge_neighbors(accepted_scores, args.mergeBins)
             write(outFileName, merged_neighborhood[0], interaction_file_data, merged_neighborhood[1])
         else:
             write(outFileName, accepted_scores, interaction_file_data)
