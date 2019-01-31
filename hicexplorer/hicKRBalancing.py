@@ -32,21 +32,16 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
     ma = hm.hiCMatrix(args.matrix) #TODO slow for big matrices!
     ma.maskBins(ma.nan_bins)
-    #TODO remove zero rows and columns
+
     print("Load a float sparse matrix for balancing")
     d = kr_balancing(ma.matrix.astype(float))
-    d.outter_loop()
-    ma.matrix = d.get_output()
-    print("save matrix")
-    #print(np.array(output)) #TODO test sum of the rows and columns ! Plot the matrix! Assert the shape! PerChr!
-    #print(np.sum(np.array(output), axis = 0))
-    #print(np.sum(np.array(output), axis = 1))
-    # assert all(i >= 0.9 for i in np.sum(np.array(output), axis = 0))
-    # assert all(i <= 1.1 for i in np.sum(np.array(output), axis = 0))
-    # assert all(i >= 0.9 for i in np.sum(np.array(output), axis = 1))
-    # assert all(i <= 1.1 for i in np.sum(np.array(output), axis = 1))
+    d.outer_loop()
 
-    ma.save(args.outputFileName, pApplyCorrection=False)
+    print("get out put")
+    ma.matrix = d.get_output()
+
+
+    ma.save(args.outputFileName, pSymmetric=False, pApplyCorrection=False)
 
 #if __name__ == "__main__":
 #    main()
