@@ -50,7 +50,7 @@ def main(args=None):
     ma.matrix = d.get_output()
     log.debug("save matrix")
 
-    ma.save(args.outputFileName, pApplyCorrection=False)
+    ma.save(args.outputFileName, pSymmetric=False, pApplyCorrection=False)
 
 #if __name__ == "__main__":
 #    main()
