@@ -1,10 +1,11 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images
 import os.path
 import pytest
-import sys
-
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
 h5_browser_track = """
@@ -152,31 +153,26 @@ with open(ROOT + "browser_tracks_cool.ini", 'w') as fh:
 tolerance = 13  # default matplotlib pixed difference tolerance
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(platform == 'darwin' and version_info[0] == 3,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotTads():
     import hicexplorer.hicPlotTADs
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
 
-    if platform == "darwin" and version_info[0] == 3:
-        args = "--tracks {0}/browser_tracks.ini --region chrX:300000-350000  " \
-            "--outFileName  {1}".format(ROOT, outfile.name).split()
-        test_image_path = ROOT + '/plot_matrix_python3_osx/tads_plot.png'
-    else:
-        args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000  " \
-            "--outFileName  {1}".format(ROOT, outfile.name).split()
-        test_image_path = ROOT + '/master_TADs_plot.png'
+    args = "--tracks {0}/browser_tracks.ini --region chrX:3000000-3500000  " \
+        "--outFileName  {1}".format(ROOT, outfile.name).split()
+    test_image_path = ROOT + '/hicPlotTADs/pygenometracks.png'
 
     hicexplorer.hicPlotTADs.main(args)
 
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
-    # os.remove(outfile.name)
+    os.remove(outfile.name)
 
 
-@pytest.mark.skipif(sys.platform == 'darwin' and sys.version_info[0] == 3,
+@pytest.mark.skipif(platform == 'darwin' and version_info[0] == 3,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotTads_cool():
     import hicexplorer.hicPlotTADs
@@ -186,7 +182,7 @@ def test_hicPlotTads_cool():
            "--outFileName  {1}".format(ROOT, outfile.name).split()
     hicexplorer.hicPlotTADs.main(args)
 
-    res = compare_images(ROOT + '/master_TADs_plot_cool_partial_load.png', outfile.name, tol=40)
+    res = compare_images(ROOT + '/hicPlotTADs/pygenometracks.png', outfile.name, tol=40)
     assert res is None, res
 
-    # os.remove(outfile.name)
+    os.remove(outfile.name)

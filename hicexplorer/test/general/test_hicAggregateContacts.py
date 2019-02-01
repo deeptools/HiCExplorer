@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.testing.compare import compare_images
@@ -90,7 +93,6 @@ def test_hicAggregateContacts_clustering():
     os.remove(outfile_heatmaps.name)
 
 
-
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicAggregateContacts_clustering_cool():
@@ -138,7 +140,6 @@ def test_hicAggregateContacts_3d():
     assert res is None, res
 
     os.remove(outfile_aggregate_3d.name)
-
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,

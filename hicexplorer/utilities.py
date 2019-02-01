@@ -1,4 +1,6 @@
-from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import sys
 import numpy as np
 import argparse
@@ -28,7 +30,6 @@ def remove_outliers(data, max_deviation=3.5):
     "Volume 16: How to Detect and Handle Outliers",
     The ASQC Basic References in Quality Control:
     Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
-
     returns the list, without the outliers
     """
     median = np.median(data)
@@ -98,7 +99,6 @@ def enlarge_bins(bin_intervals):
     and joins them such that the
     end and start of consecutive bins
     is the same.
-
     >>> bin_intervals = [('chr1', 10, 50, 1), ('chr1', 50, 80, 2),
     ... ('chr2', 10, 60, 3), ('chr2', 70, 90, 4)]
     >>> enlarge_bins(bin_intervals)
@@ -133,10 +133,8 @@ def genomicRegion(string):
     region in the form ideally of chromosome:start-end
     but other forms are also possible like start
     and end containing comas.
-
     This code is intended to be used to validate and
     format a argparse parameter.
-
     :return: string in the form chrom:start:end
     """
     # remove whitespaces using split,join trick
@@ -160,7 +158,6 @@ def getUserRegion(chromSizes, regionString, max_chunk_size=1e6):
     Verifies if a given region argument, given by the user
     is valid. The format of the regionString is chrom:start:end:tileSize
     where start, end and tileSize are optional.
-
     # this should work in doctest but it does not. So I
     # commented it.
     #>>> data = getUserRegion({'chr2': 1000}, "chr1:10:10")
@@ -168,11 +165,10 @@ def getUserRegion(chromSizes, regionString, max_chunk_size=1e6):
     #    ...
     #NameError: Unknown chromosome: chr1
     #Known chromosomes are: ['chr2']
-
     >>> getUserRegion({'chr2': 1000}, "chr2:10:1001")
     ([('chr2', 1000)], 10, 1000, 990)
 
-    Test chunk and regions size reduction to match tile size
+    #Test chunk and regions size reduction to match tile size
     >>> getUserRegion({'chr2': 200000}, "chr2:10:123344:3")
     ([('chr2', 123344)], 9, 123345, 123336)
     """
@@ -243,12 +239,11 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
     return expected_interactions
 
 
-
-def expected_interactions(pSubmatrix):
+def expected_interactions_non_zero(pSubmatrix):
     """
         Computes the expected number of interactions per distance
     """
-    
+
     expected_interactions = np.zeros(pSubmatrix.shape[0])
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
@@ -259,12 +254,34 @@ def expected_interactions(pSubmatrix):
         expected_interactions[distance_] += pSubmatrix.data[i]
         occurences[distance_] += 1
     expected_interactions /= occurences
-    log.debug('occurences {}'.format(occurences))
-    log.debug('expected_interactions {}'.format(expected_interactions))
 
-    # expected_interactions = convertNansToZeros(expected_interactions)
-    expected_interactions = convertInfsToZeros_ArrayFloat(expected_interactions).astype(data_type)
-    log.debug('expected_interactions {}'.format(expected_interactions))
+    mask = np.isnan(expected_interactions)
+    expected_interactions[mask] = 0
+    mask = np.isinf(expected_interactions)
+    expected_interactions[mask] = 0
+
+    return expected_interactions
+
+
+def expected_interactions(pSubmatrix):
+    """
+        Computes the expected number of interactions per distance
+    """
+
+    expected_interactions = np.zeros(pSubmatrix.shape[0])
+    row, col = pSubmatrix.nonzero()
+    distance = np.absolute(row - col)
+    occurrences = np.arange(pSubmatrix.shape[0] + 1, 1, -1)
+    # occurences = np.zeros(pSubmatrix.shape[0])
+    for i, distance_ in enumerate(distance):
+        expected_interactions[distance_] += pSubmatrix.data[i]
+        # occurences[distance_] += 1
+    expected_interactions /= occurrences
+
+    mask = np.isnan(expected_interactions)
+    expected_interactions[mask] = 0
+    mask = np.isinf(expected_interactions)
+    expected_interactions[mask] = 0
 
     return expected_interactions
 
@@ -311,12 +328,11 @@ def obs_exp_matrix_norm(pSubmatrix):
         expected contacts for loci at
         that genomic distance. Expected values contain a genomic distance based factor.
         Method from: Homer Software
-
         exp_i,j = expected_interactions_distance(abs(i-j)) * sum(row(i)) * sum(row(j)) / sum(matrix)
         m_i,j = interaction_i,j / exp_i,j
     """
 
-    expected_interactions_in_distance = expected_interactions(pSubmatrix)
+    expected_interactions_in_distance = expected_interactions_non_zero(pSubmatrix)
 
     row_sums = np.array(pSubmatrix.sum(axis=1).T).flatten()
     total_interactions = pSubmatrix.sum()
@@ -337,15 +353,36 @@ def obs_exp_matrix_norm(pSubmatrix):
     return pSubmatrix
 
 
+def obs_exp_matrix_non_zero(pSubmatrix):
+    """
+        Creates normalized contact matrix M* by
+        dividing each entry by the gnome-wide
+        expected contacts for loci at
+        that genomic distance.
+        exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
+    """
+
+    expected_interactions_in_distance_ = expected_interactions_non_zero(pSubmatrix)
+    row, col = pSubmatrix.nonzero()
+    distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
+
+    if len(pSubmatrix.data) > 0:
+        data_type = type(pSubmatrix.data[0])
+
+        expected = expected_interactions_in_distance_[distance]
+        pSubmatrix.data = pSubmatrix.data.astype(np.float32)
+        pSubmatrix.data /= expected
+        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+    return pSubmatrix
+
+
 def obs_exp_matrix(pSubmatrix):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
         expected contacts for loci at
         that genomic distance.
-
         exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
-
     """
 
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix)
@@ -360,6 +397,7 @@ def obs_exp_matrix(pSubmatrix):
         pSubmatrix.data /= expected
         pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
     return pSubmatrix
+
 
 def toString(s):
     """

@@ -1,8 +1,11 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicmatrix import HiCMatrix as hm
 from hicexplorer import hicNormalize
 
-from tempfile import NamedTemporaryFile, mkdtemp
-import shutil
+from tempfile import NamedTemporaryFile
+
 import os
 import numpy.testing as nt
 

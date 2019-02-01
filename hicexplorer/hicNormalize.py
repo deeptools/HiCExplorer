@@ -1,9 +1,9 @@
-from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString
-from hicmatrix.HiCMatrix import check_cooler
 import logging
 log = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-Normalizes given matrices either to the smallest given read number of all matrices or to 0 - 1 range.
+Normalizes given matrices either to the smallest given read number of all matrices or to 0 - 1 range. However, it does NOT compute the contact probability.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')

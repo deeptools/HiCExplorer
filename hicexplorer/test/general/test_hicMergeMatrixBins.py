@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicexplorer import hicMergeMatrixBins
 from hicmatrix import HiCMatrix as hm
 from tempfile import NamedTemporaryFile

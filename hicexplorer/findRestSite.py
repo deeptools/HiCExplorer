@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 import re
 from tempfile import NamedTemporaryFile
@@ -6,6 +9,7 @@ import subprocess
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
+from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
@@ -42,7 +46,8 @@ def parse_arguments(args=None):
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
-
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
     return parser
 
 

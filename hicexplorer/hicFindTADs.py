@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-from __future__ import division
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import os.path
 import sys
 import logging
@@ -15,10 +16,7 @@ import multiprocessing
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
 
-# python 2 / 3 compatibility
 from past.builtins import zip
-from six import iteritems
-from builtins import range
 from past.builtins import map
 
 log = logging.getLogger(__name__)
@@ -415,8 +413,8 @@ class HicFindTads(object):
             invalid_chromosomes = []
             log.debug('args.chromosomeOrder: {}'.format(pChromosomes))
             log.debug("ma.chrBinBoundaries {}".format(self.hic_ma.chrBinBoundaries))
-            if sys.version_info[0] == 3:
-                pChromosomes = toBytes(pChromosomes)
+
+            pChromosomes = toBytes(pChromosomes)
             for chrom in toString(pChromosomes):
                 if chrom in self.hic_ma.chrBinBoundaries:
                     valid_chromosomes.append(chrom)
@@ -840,7 +838,7 @@ class HicFindTads(object):
             return
 
         count = 0
-        for chrom, values in iteritems(Z):
+        for chrom, values in Z.items():
             for id_a, id_b, distance, num_clusters, pos_a, pos_b in values:
                 count += 1
                 file_h.write('{}\t{}\t{}\tclust_{}'
@@ -913,7 +911,7 @@ class HicFindTads(object):
         :param file_prefix: file prefix to save the resulting bed files
         :return: list of file names created
         """
-        for cutoff, intervals in iteritems(clusters):
+        for cutoff, intervals in clusters.items():
             fileh = open("{}_{}.bed".format(file_prefix, cutoff), 'w')
             for chrom, start, end in intervals:
                 fileh.write("{}\t{}\t{}\t.\t0\t.\n".format(chrom, start, end))

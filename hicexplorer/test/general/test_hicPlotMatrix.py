@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from tempfile import NamedTemporaryFile
 
 import matplotlib as mpl
@@ -8,6 +11,8 @@ import pytest
 from psutil import virtual_memory
 mem = virtual_memory()
 memory = mem.total / 2 ** 30
+
+
 import hicexplorer.hicPlotMatrix
 tolerance = 30  # default matplotlib pixed difference tolerance
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
@@ -310,21 +315,6 @@ def test_hicPlotMatrix_perChr():
         os.remove(outfile.name)
 
 
-# @pytest.mark.skipif(LOW_MEMORY > memory,
-#                     reason="Travis has too less memory to run it.")
-# def test_hicPlotMatrix_perChr_without_h5_suffix():
-
-#     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
-
-#     args = "--matrix {0}/small_test_matrix_50kb_res --perChr --disable_tight_layout " \
-#            "--outFileName  {1} ".format(ROOT, outfile.name).split()
-#     hicexplorer.hicPlotMatrix.main(args)
-#     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_matrix_50kb_res_perChr.png', outfile.name, tol=tolerance)
-#     assert res is None, res
-#     if REMOVE_OUTPUT:
-#         os.remove(outfile.name)
-
-
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_cool_perChr_log1p():
@@ -383,51 +373,6 @@ def test_hicPlotMatrix_perChr_pca1_bigwig():
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
-
-
-# @pytest.mark.skipif(LOW_MEMORY > memory,
-#                     reason="Travis has too less memory to run it.")
-# def test_hicPlotMatrix_perChr_pca2_bedgraph():
-#
-#     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
-#
-#     args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --perChr " \
-#            "--outFileName  {1}  --pca {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca2.bedgraph").split()
-#     hicexplorer.hicPlotMatrix.main(args)
-#     res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca2_plot.png', outfile.name, tol=tolerance)
-#     assert res is None, res
-#     if REMOVE_OUTPUT:
-#         os.remove(outfile.name)
-
-#
-# @pytest.mark.skipif(LOW_MEMORY > memory,
-#                     reason="Travis has too less memory to run it.")
-# def test_hicPlotMatrix_region_pca1_colormap_bedgraph():
-#
-#     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
-#
-#     args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --region chr2L " \
-#            "--outFileName  {1} --bigwig {2} --colorMap hot".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bedgraph").split()
-#     hicexplorer.hicPlotMatrix.main(args)
-#     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L.png', outfile.name, tol=tolerance)
-#     assert res is None, res
-#     if REMOVE_OUTPUT:
-#         os.remove(outfile.name)
-#
-#
-# @pytest.mark.skipif(LOW_MEMORY > memory,
-#                     reason="Travis has too less memory to run it.")
-# def test_hicPlotMatrix_region_start_end_pca1_colormap_bedgraph():
-#
-#     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
-#
-#     args = "--matrix {0}/hicTransform/pearson_small_50kb.h5 --region chr2L:15000000-20000000 " \
-#            "--outFileName  {1} --pca {2} --colorMap hot".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bedgraph").split()
-#     hicexplorer.hicPlotMatrix.main(args)
-#     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_15mb-20mb.png', outfile.name, tol=tolerance)
-#     assert res is None, res
-#     if REMOVE_OUTPUT:
-#         os.remove(outfile.name)
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,

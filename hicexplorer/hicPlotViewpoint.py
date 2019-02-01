@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 import sys
 import numpy as np
@@ -8,6 +11,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
+from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
@@ -50,7 +54,8 @@ def parse_arguments(args=None):
                            'ouput is a raster graphics image (e.g png, jpg)',
                            type=int,
                            default=300)
-
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     return parser
@@ -101,25 +106,21 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     if args.region:
-        if sys.version_info[0] == 2:
-            args.region = args.region.translate(None, ",.;|!{}()").replace("-", ":")
-        if sys.version_info[0] == 3:
-            args.region = args.region.replace(",", "")
-            args.region = args.region.replace(";", "")
-            args.region = args.region.replace("!", "")
-            args.region = args.region.replace("-", ":")
+
+        args.region = args.region.replace(",", "")
+        args.region = args.region.replace(";", "")
+        args.region = args.region.replace("!", "")
+        args.region = args.region.replace("-", ":")
         region = args.region.split(":")
         if len(region) != 3:
             log.error("Region format is invalid {}".format(args.region))
             exit(0)
         chrom, region_start, region_end = region[0], int(region[1]), int(region[2])
-    if sys.version_info[0] == 2:
-        args.referencePoint = args.referencePoint.translate(None, ",.;|!{}()").replace("-", ":")
-    if sys.version_info[0] == 3:
-        args.referencePoint = args.referencePoint.replace(",", "")
-        args.referencePoint = args.referencePoint.replace(";", "")
-        args.referencePoint = args.referencePoint.replace("!", "")
-        args.referencePoint = args.referencePoint.replace("-", ":")
+
+    args.referencePoint = args.referencePoint.replace(",", "")
+    args.referencePoint = args.referencePoint.replace(";", "")
+    args.referencePoint = args.referencePoint.replace("!", "")
+    args.referencePoint = args.referencePoint.replace("-", ":")
     referencePoint = args.referencePoint.split(":")
 
     data_list = []
