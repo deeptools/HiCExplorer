@@ -57,7 +57,7 @@ def readInteractionFile(pInteractionFile):
     # data_selector_target = 12
     with open(pInteractionFile, 'r') as file:
         header = file.readline()
-        sum_of_all_interactions = float(header.split('\t')[-1].split(' ')[-1])
+        sum_of_all_interactions = float(header.strip().split('\t')[-1].split(' ')[-1])
         header += file.readline()
         log.debug('sum_of_all_interactions {}'.format(sum_of_all_interactions))
         for line in file.readlines():

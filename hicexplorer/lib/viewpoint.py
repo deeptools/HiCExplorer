@@ -108,6 +108,8 @@ class Viewpoint():
         interaction_file_data = {}
         with open(pBedFile) as fh:
             header = fh.readline()
+            fh.readline()
+
             for line in fh.readlines():
                 # Addition header information for end users
                 if line.strip().startswith('#'):

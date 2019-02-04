@@ -42,11 +42,11 @@ def parse_arguments(args=None):
                            required=False,
                            default='_aggregate_target.bed')
 
-    parserOpt.add_argument("--mergeBins", "-mb", 
-                                type=int,
-                                default=1000,
-                                help="Merge neighboring interactions to one. The value of this parameter defines the maximum distance" 
-                                      " a neighbor can have. The values are averaged.")
+    parserOpt.add_argument("--mergeBins", "-mb",
+                           type=int,
+                           default=0,
+                           help="Merge neighboring interactions to one. The value of this parameter defines the maximum distance"
+                           " a neighbor can have. The values are averaged.")
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
@@ -61,60 +61,110 @@ def filter_scores(pScoresDictionary, pTargetRegions):
     for target in pTargetRegions:
         start = int(target[1])
         end = int(target[2])
-
+        _accepted_scores = {}
         for key in pScoresDictionary:
             if int(pScoresDictionary[key][5]) >= start and int(pScoresDictionary[key][6]) <= end:
-                accepted_scores[key] = pScoresDictionary[key]
+                _accepted_scores[key] = pScoresDictionary[key]
+
+        if len(_accepted_scores) > 0:
+            # log.debug('_acepted_scores {}'.format(_accepted_scores))
+
+            values = np.array([0.0, 0.0, 0.0])
+            for key in _accepted_scores:
+                values += np.array(list(map(float, _accepted_scores[key][-3:])))
+            # values /= len(values)
+            keys_sorted = sorted(_accepted_scores.keys())
+            _accepted_scores[keys_sorted[0]][-5] = _accepted_scores[keys_sorted[-1]][-5]
+            _accepted_scores[keys_sorted[0]][-3] = values[0]
+            _accepted_scores[keys_sorted[0]][-2] = values[1]
+            _accepted_scores[keys_sorted[0]][-1] = values[2]
+
+            # -5
+            accepted_scores[keys_sorted[0]] = _accepted_scores[keys_sorted[0]]
     return accepted_scores
 
 
 def merge_neighbors(pScoresDictionary, pMergeThreshold=1000):
 
     key_list = list(pScoresDictionary.keys())
+    # log.debug('pScoresDictionary {}'.format(key_list))
 
-    # [[start, ..., end]]
-    neighborhoods = []
-    neighborhoods.append([key_list[0], key_list[0]])
-    scores = [np.array(list(map(float, pScoresDictionary[key_list[0]][-3:])))]
-    for key in key_list[1:]:
+    # # [[start, ..., end]]
+    # neighborhoods = []
+    # neighborhoods.append([key_list[0], key_list[0]])
+    # scores = [np.array(list(map(float, pScoresDictionary[key_list[0]][-3:])))]
 
-        if np.absolute(key - neighborhoods[-1][0]) <= pMergeThreshold or np.absolute(key - neighborhoods[-1][1]) <= pMergeThreshold:
-            neighborhoods[-1][-1] = key
-            scores[-1] += np.array(list(map(float, pScoresDictionary[key][-3:])))
+    # if abs(pre[6] - suc[5]) < pMergeThreshold:
+    merge_ids = []
+    non_merge = []
+    for i, (key_pre, key_suc) in enumerate(zip(key_list[:-1], key_list[1:])):
+        # log.debug('key_pre {}, key_suc {}'.format(key_pre, key_suc))
+
+        if np.absolute(int(pScoresDictionary[key_pre][6]) - int(pScoresDictionary[key_suc][5])) < pMergeThreshold:
+            # log.debug('Merging neighbors!')
+            if len(merge_ids) > 0 and merge_ids[-1][-1] == key_pre:
+                merge_ids[-1].append(key_suc)
+            else:
+                merge_ids.append([key_pre, key_suc])
         else:
-            neighborhoods.append([key, key])
-            scores.append(np.array(list(map(float, pScoresDictionary[key][-3:]))))
+            if i == len(key_list) - 1:
+                non_merge.append(key_suc)
+            non_merge.append(key_pre)
+    scores_dict = {}
+    for element in merge_ids:
+        base_element = pScoresDictionary[element[0]]
+        values = np.array(list(map(float, base_element[-3:])))
+        for key in element[1:]:
+            # log.debug('base_element {}'.format(base_element))
+            base_element[-5] = pScoresDictionary[key][-5]
+            values += np.array(list(map(float, pScoresDictionary[key][-3:])))
 
-    for i in range(len(neighborhoods)):
-        scores[i] /= len(neighborhoods[i])
+        base_element[-3] = values[0]
+        base_element[-2] = values[1]
+        base_element[-1] = values[2]
+        scores_dict[element[0]] = base_element
+    for key in non_merge:
+        scores_dict[key] = pScoresDictionary[key]
 
-    return neighborhoods, scores
+    # log.debug('merge_ids {}'.format(merge_ids))
+    # for i in range(len(neighborhoods)):
+    #     scores[i] /= len(neighborhoods[i])
+
+    return scores_dict
 
 
-def write(pOutFileName, pNeighborhoods, pInteractionLines, pScores=None):
+def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines, pScores=None):
 
     with open(pOutFileName, 'w') as file:
+        file.write(pHeader)
         file.write('#ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRel Inter viewpoint\trbz-score viewpoint\tRaw viewpoint\tRel Inter target\trbz-score target\tRaw target')
         file.write('\n')
-        if pScores:
-            # write data with merged bins
-            for i in range(len(pNeighborhoods)):
-                start = pNeighborhoods[i][0]
-                end = pNeighborhoods[i][1]
-                new_end = pInteractionLines[end][6]
+        # if pScores:
+        #     # write data with merged bins
+        #     for i in range(len(pNeighborhoods)):
+        #         start = pNeighborhoods[i][0]
+        #         end = pNeighborhoods[i][1]
+        #         new_end = pInteractionLines[end][6]
 
-                new_line = '\t'.join(pInteractionLines[start][:6])
-                new_line += '\t' + new_end
-                new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
-                new_line += '\t' + format(pScores[i][0], '10.5f') + '\t' + format(pScores[i][1], '10.5f') + '\t' + format(pScores[i][2], '10.5f')
-                new_line += '\n'
-                file.write(new_line)
-        else:
-            # write data without merged bins
-            for data in pNeighborhoods:
-                new_line = '\t'.join(pNeighborhoods[data])
-                new_line += '\n'
-                file.write(new_line)
+        #         new_line = '\t'.join(pInteractionLines[start][:6])
+        #         new_line += '\t' + new_end
+        #         new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
+        #         new_line += '\t' + format(pScores[i][0], '10.5f') + '\t' + format(pScores[i][1], '10.5f') + '\t' + format(pScores[i][2], '10.5f')
+        #         new_line += '\n'
+        #         file.write(new_line)
+        # else:
+        # write data without merged bins
+
+        for data in pNeighborhoods:
+            # new_end = pInteractionLines[end][6]
+
+            new_line = '\t'.join(pInteractionLines[data][:7])
+            # new_line += '\t' + new_end
+            new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
+            new_line += '\t' + format(pNeighborhoods[data][-3], '10.5f') + '\t' + format(pNeighborhoods[data][-2], '10.5f') + '\t' + format(pNeighborhoods[data][-1], '10.5f')
+            # new_line = '\t'.join(pNeighborhoods[data])
+            new_line += '\n'
+            file.write(new_line)
 
 
 def main(args=None):
@@ -135,6 +185,6 @@ def main(args=None):
 
         if args.mergeBins > 0:
             merged_neighborhood = merge_neighbors(accepted_scores, args.mergeBins)
-            write(outFileName, merged_neighborhood[0], interaction_file_data, merged_neighborhood[1])
+            write(outFileName, header, merged_neighborhood, interaction_file_data)
         else:
-            write(outFileName, accepted_scores, interaction_file_data)
+            write(outFileName, header, accepted_scores, interaction_file_data)
