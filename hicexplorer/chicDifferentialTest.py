@@ -53,16 +53,19 @@ def readInteractionFile(pInteractionFile):
     line_content = []
     data = []
 
-    data_selector_viewpoint = 9
-    data_selector_target = 12
+    # data_selector_viewpoint = 9
+    # data_selector_target = 12
     with open(pInteractionFile, 'r') as file:
         header = file.readline()
+        sum_of_all_interactions = float(header.split('\t')[-1].split(' ')[-1])
+        header += file.readline()
+        log.debug('sum_of_all_interactions {}'.format(sum_of_all_interactions))
         for line in file.readlines():
             _line = line.strip().split('\t')
             if len(_line) <= 1:
                 continue
             line_content.append(_line)
-            data.append([float(_line[data_selector_viewpoint]), float(_line[data_selector_target])])
+            data.append([sum_of_all_interactions, float(_line[-1])])
 
     return header, line_content, data
 
@@ -79,13 +82,13 @@ def chisquare_test(pDataFile1, pDataFile2, pAlpha):
         try:
             chi2, p_value, dof, ex = stats.chi2_contingency([group1, group2], correction=False)
             if chi2 >= critical_value:
-                test_result.append((True, p_value))
+                test_result.append(p_value)
             else:
-                test_result.append((False, p_value))
+                test_result.append(p_value)
 
         except ValueError:
             zero_values_counter += 1
-            test_result.append((None, None))
+            test_result.append(np.nan)
 
     if zero_values_counter > 0:
         log.info('{} samples were not tested because at least one condition contained no data in both groups.'.format(zero_values_counter))
@@ -99,27 +102,27 @@ def fisher_exact_test(pDataFile1, pDataFile2, pAlpha):
         try:
             odds, p_value = stats.fisher_exact(np.ceil([group1, group2]))
             if p_value <= pAlpha:
-                test_result.append((True, p_value))
+                test_result.append(p_value)
             else:
-                test_result.append((False, p_value))
+                test_result.append(p_value)
         except ValueError:
-            test_result.append((None, None))
+            test_result.append(np.nan)
     return test_result
 
 
-def writeResult(pOutFileName, pData, pRejected, pHeaderOld, pHeaderNew, pViewpoint1, pViewpoint2, pAlpha, pTest):
+def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pViewpoint1, pViewpoint2, pAlpha, pTest):
 
     with open(pOutFileName, 'w') as file:
         header = '# Differential analysis result file of HiCExplorer\'s chicDifferentialTest version '
         header += str(__version__)
         header += '\n'
 
-        if pRejected == True:
-            header += '# This file contains the regions accepted as differential by {} test (H0 was rejected) \n'.format(pTest)
-        elif pRejected == False:
-            header += '# This file contains the regions rejected as differential by {} test (H0 was accepted) \n'.format(pTest)
-        else:
-            header += '# This file contains the regions which were not tested because of violation of {} test input conditions\n'.format(pTest)
+        # if pRejected == True:
+        header += '# This file contains the p-values computed by {} test\n'.format(pTest)
+        # elif pRejected == False:
+        # header += '# This file contains the regions rejected as differential by {} test (H0 was accepted) \n'.format(pTest)
+        # else:
+        # header += '# This file contains the regions which were not tested because of violation of {} test input conditions\n'.format(pTest)
 
         header += ' '.join(['# Used viewpoints regions: ', ' '.join(pViewpoint1), ' and ', ' '.join(pViewpoint2), '\n'])
         header += '#\n'
@@ -137,15 +140,18 @@ def writeResult(pOutFileName, pData, pRejected, pHeaderOld, pHeaderNew, pViewpoi
         header += '\n\n'
 
         file.write(header)
-        file.write(pHeaderOld)
+        file.write('p-values:\n')
+        data = '\t'.join(format(x, '.5f') for x in pData)
+        file.write(data)
+        # file.write(pHeaderOld)
 
-        for data in pData:
-            if data[2] is not None:
-                file.write('\t'.join(data[0]) + '\n' + '\t'.join(data[1]) + '\n' + format(data[2], '.5f') + '\n')
-            else:
-                file.write('\t'.join(data[0]) + '\n' + '\t'.join(data[1]) + '\n')
+        # for data in pData:
+        #     if data[2] is not None:
+        #         file.write('\t'.join(data[0]) + '\n' + '\t'.join(data[1]) + '\n' + format(data[2], '.5f') + '\n')
+        #     else:
+        #         file.write('\t'.join(data[0]) + '\n' + '\t'.join(data[1]) + '\n')
 
-            file.write('\n')
+        # file.write('\n')
 
 
 def main(args=None):
@@ -159,17 +165,17 @@ def main(args=None):
     elif args.statisticTest == 'fisher':
         test_result = fisher_exact_test(data1, data2, args.alpha)
 
-    rejected_h0 = []
+    # rejected_h0 = []
 
-    non_rejected_h0 = []
-    not_tested = []
-    for i, result in enumerate(test_result):
-        if result[0] == True:
-            rejected_h0.append([line_content1[i], line_content2[i], result[1]])
-        elif result[0] == False:
-            non_rejected_h0.append([line_content1[i], line_content2[i], result[1]])
-        elif result[0] is None:
-            not_tested.append([line_content1[i], line_content2[i], None])
+    # non_rejected_h0 = []
+    # not_tested = []
+    # for i, result in enumerate(test_result):
+    #     if result[0] == True:
+    #         rejected_h0.append([line_content1[i], line_content2[i], result[1]])
+    #     elif result[0] == False:
+    #         non_rejected_h0.append([line_content1[i], line_content2[i], result[1]])
+    #     elif result[0] is None:
+    #         not_tested.append([line_content1[i], line_content2[i], None])
 
     header_new = args.interactionFile[0]
     header_new += ' '
@@ -177,11 +183,9 @@ def main(args=None):
 
     outFileName = args.outFileName.split('.')
 
-    outRejectedH0 = outFileName[0] + '_rejected_H0.bed'
-    outAcceptedH0 = outFileName[0] + '_accepted_H0.bed'
-    outNoTest = outFileName[0] + '_no_test.bed'
+    resultsNameFile = outFileName[0] + '_results.bed'
 
     # log.debug('header1{}, \n\nheader2{}'.format(header1, header2))
-    writeResult(outRejectedH0, rejected_h0, True, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
-    writeResult(outAcceptedH0, non_rejected_h0, False, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
-    writeResult(outNoTest, not_tested, None, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+    writeResult(resultsNameFile, test_result, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+    # writeResult(outAcceptedH0, non_rejected_h0, False, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+    # writeResult(outNoTest, not_tested, None, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
