@@ -127,9 +127,9 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pViewpoint1, pViewp
         header += ' '.join(['# Used viewpoints regions: ', ' '.join(pViewpoint1), ' and ', ' '.join(pViewpoint2), '\n'])
         header += '#\n'
 
-        header += '# Line 1 of a group contains data of viewpoint and target of sample 1, line 2 contains data of viewpoint and target of sample 2 \n'
-        header += '# line 3 the p-value of the chi-squared contingency test.\n'
-        header += '#\n'
+        # header += '# Line 1 of a group contains data of viewpoint and target of sample 1, line 2 contains data of viewpoint and target of sample 2 \n'
+        # header += '# line 3 the p-value of the chi-squared contingency test.\n'
+        # header += '#\n'
         header += ' '.join(['# Alpha level', str(pAlpha)])
         header += '\n'
         header += ' '.join(['# Degrees of freedom', '1'])
