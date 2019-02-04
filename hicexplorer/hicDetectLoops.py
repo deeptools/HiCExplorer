@@ -4,7 +4,7 @@ from sklearn.cluster import dbscan
 from sklearn.metrics.pairwise import euclidean_distances
 from scipy.sparse import csr_matrix, triu
 # from scipy import stats
-from scipy.stats import normaltest, f_oneway, mannwhitneyu, zscore, kstest, norm, expon, maxwell
+from scipy.stats import normaltest, f_oneway, mannwhitneyu, zscore, kstest, norm, expon, maxwell, chisquare
 from hicmatrix import HiCMatrix as hm
 from hicmatrix.lib import MatrixFileHandler
 from hicexplorer._version import __version__
@@ -21,6 +21,7 @@ import time
 from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix, obs_exp_matrix_non_zero
 
 from scipy.ndimage.filters import gaussian_filter 
+from scipy.stats import poisson
 
 def parse_arguments(args=None):
 
@@ -312,16 +313,31 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDif
 
         neighborhood = pHiCMatrix[start_x:end_x,
                                          start_y:end_y].toarray()
+        log.debug('non-flatted non-smoothed neighborhood {}'.format(neighborhood))
         
         for i in range(len(neighborhood)):
             neighborhood[i, :] = smoothInteractionValues(neighborhood[i, :], 5)
       
+        log.debug('non-flatted neighborhood {}'.format(neighborhood))
         neighborhood = neighborhood.flatten()
-        variance = np.var(neighborhood)
 
-        if variance > pMeanDifferenceNeighborhoodPeak:
+        mean = np.mean(neighborhood)
+        random_poisson = poisson.rvs(mu=mean, size=len(neighborhood))
+        result = chisquare(neighborhood, f_exp=random_poisson)
+        if result[1] <= 0.05:
+            log.debug('result {}'.format(result) )
             mask.append(True)
-            continue
+            # continue
+        log.debug('size: {}'.format(len(neighborhood)))
+        log.debug('neighborhood {}'.format(neighborhood))
+        log.debug('random_poisson {}'.format(random_poisson))
+
+        exit()
+        # variance = np.var(neighborhood)
+
+        # if variance > pMeanDifferenceNeighborhoodPeak:
+        #     mask.append(True)
+        #     continue
         # mean = np.mean(neighborhood)
         # mask_data = neighborhood >= mean
 
@@ -449,18 +465,19 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         pHiCMatrix.matrix.eliminate_zeros()
 
     # pHiCMatrix.matrix = csr_matrix(gaussian_filter(, 1))
-    dense_data = pHiCMatrix.matrix.toarray()
+    # dense_data = pHiCMatrix.matrix.toarray()
     # log.debug('len(dense_data) {}'.format(len(dense_data)))
     # log.debug('len(dense_data[0]) {}'.format(len(dense_data[0])))
     # log.debug('max_loop_distance {}'.format(max_loop_distance))
-    for i in range(len(dense_data)):
-        # log.debug('i {}'.format(i))
-        start = i - max_loop_distance
-        end = i
-        if i < 0:
-            start = 0
-        dense_data[i, start:end] = smoothInteractionValues(dense_data[i, start:end], 6)
-    pHiCMatrix.matrix = csr_matrix(dense_data)
+    # for i in range(len(dense_data)):
+    #     # log.debug('i {}'.format(i))
+    #     start = i - max_loop_distance
+    #     end = i
+    #     if i <= 0:
+    #         start = 0
+    #     log.debug('start {} end {} i {}'.format(start, end , i))
+    #     dense_data[i, start:end] = smoothInteractionValues(dense_data[i, start:end], 6)
+    # pHiCMatrix.matrix = csr_matrix(dense_data)
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
     # shape_of_matrix = pHiCMatrix.matrix.shape
     instances, features = deepcopy(pHiCMatrix.matrix.nonzero())
@@ -494,18 +511,21 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     # # obs_exp_norm_matrix = exp_obs_matrix(deepcopy(pHiCMatrix.matrix))
 
 
-    # mask = obs_exp_norm_matrix.data != 0
-    # instances = instances[mask]
-    # features = features[mask]
-    # data_hic = data_hic[mask]
+    mask = obs_exp_norm_matrix.data != 0
+    instances = instances[mask]
+    features = features[mask]
+    data_hic = data_hic[mask]
 
-    # obs_exp_norm_matrix.eliminate_zeros()
-    # instances_obs_exp, features_obs_exp = obs_exp_norm_matrix.nonzero()
-    # data_obs_exp = obs_exp_norm_matrix.data
+    obs_exp_norm_matrix.eliminate_zeros()
+    instances_obs_exp, features_obs_exp = obs_exp_norm_matrix.nonzero()
+    data_obs_exp = obs_exp_norm_matrix.data
     
     z_score_data = compute_zscore_matrix(instances_obs_exp, features_obs_exp, data_obs_exp, pHiCMatrix.matrix.shape[0])
+    log.debug('len(z_score_data) {}'.format(len(z_score_data)))
+    log.debug('len(instances) {}'.format(len(instances)))
+    log.debug('len(features) {}'.format(len(features)))
 
-    z_score_matrix = csr_matrix((z_score_data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
+    z_score_matrix = csr_matrix((z_score_data, (instances_obs_exp, features_obs_exp)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
     if pArgs.zScoreMatrixName:
         matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
         
