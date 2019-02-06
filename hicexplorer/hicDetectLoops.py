@@ -21,7 +21,7 @@ import time
 from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix, obs_exp_matrix_non_zero
 
 from scipy.ndimage.filters import gaussian_filter 
-from scipy.stats import poisson
+from scipy.stats import poisson, multivariate_normal
 
 def parse_arguments(args=None):
 
@@ -319,20 +319,22 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDif
             neighborhood[i, :] = smoothInteractionValues(neighborhood[i, :], 5)
       
         log.debug('non-flatted neighborhood {}'.format(neighborhood))
-        neighborhood = neighborhood.flatten()
 
-        mean = np.mean(neighborhood)
-        random_poisson = poisson.rvs(mu=mean, size=len(neighborhood))
-        result = chisquare(neighborhood, f_exp=random_poisson)
-        if result[1] <= 0.05:
-            log.debug('result {}'.format(result) )
-            mask.append(True)
-            # continue
-        log.debug('size: {}'.format(len(neighborhood)))
-        log.debug('neighborhood {}'.format(neighborhood))
-        log.debug('random_poisson {}'.format(random_poisson))
+        # multivariate_normal()
+        # neighborhood = neighborhood.flatten()
 
-        exit()
+        # mean = np.mean(neighborhood)
+        # random_poisson = poisson.rvs(mu=mean, size=len(neighborhood))
+        # result = chisquare(neighborhood, f_exp=random_poisson)
+        # if result[1] <= 0.05:
+        #     log.debug('result {}'.format(result) )
+        #     mask.append(True)
+        #     # continue
+        # log.debug('size: {}'.format(len(neighborhood)))
+        # log.debug('neighborhood {}'.format(neighborhood))
+        # log.debug('random_poisson {}'.format(random_poisson))
+
+        # exit()
         # variance = np.var(neighborhood)
 
         # if variance > pMeanDifferenceNeighborhoodPeak:
