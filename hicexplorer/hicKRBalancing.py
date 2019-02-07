@@ -41,7 +41,7 @@ def main(args=None):
     ma.maskBins(ma.nan_bins)
     log.debug('masking matrix... Done')
 
-    #TODO remove zero rows and columns
+    #TODO remove zero rows and columns?
     log.debug("Load a float sparse matrix for balancing")
     d = kr_balancing(ma.matrix.astype(float))
     d.computeKR()
@@ -49,7 +49,8 @@ def main(args=None):
     ma.matrix = d.get_normalised_matrix(True) #True: does rescaling
     log.debug("save matrix")
 
-    ma.save(args.outputFileName, pSymmetric=False, pApplyCorrection=False)
+    ma.save(args.outputFileName, pApplyCorrection=False)
+
 
 #if __name__ == "__main__":
 #    main()
