@@ -107,7 +107,7 @@ install_requires_py = ["numpy >= 1.15.*",
                        "cooler >= 0.7.11*",
                        "jinja2 >= 2.10.*",
                        "unidecode >= 1.0.*",
-                       "hicmatrix >= 5",
+                       "hicmatrix == 5",
                        "pygenometracks >= 2.1",
                        "psutil >= 5.4.8",
                        "hic2cool >= 0.4"

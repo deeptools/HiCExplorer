@@ -13,5 +13,5 @@ future >= 0.17.*
 unidecode >= 1.0.*
 hic2cool >= 0.4.*
 psutil >= 5.4.8
-hicmatrix >= 5
+hicmatrix = 5
 pygenometracks >= 2.1

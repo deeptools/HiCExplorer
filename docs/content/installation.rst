@@ -17,14 +17,15 @@ Requirements
 * pytables >= 3.4
 * pyBigWig >= 0.3
 * future >= 0.17
-* cooler >= 0.7.11
 * six >= 1.11
 * jinja2 >= 2.10
 * pandas >= 0.23
 * unidecode >= 1.0
-* hicmatrix >= 5
+* hicmatrix = 5
 * pygenometracks >= 2.1
 * psutil >= 5.4.8
+* hic2cool >= 0.4
+
 
 Command line installation using ``conda``
 -----------------------------------------
