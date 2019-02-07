@@ -1,4 +1,4 @@
-from KRBalancing import *
+from krbalancing import *
 import numpy as np
 import argparse
 
@@ -44,10 +44,9 @@ def main(args=None):
     #TODO remove zero rows and columns
     log.debug("Load a float sparse matrix for balancing")
     d = kr_balancing(ma.matrix.astype(float))
-    d.outer_loop()
-
-    print("get out put")
-    ma.matrix = d.get_output()
+    d.computeKR()
+    log.debug("get out put")
+    ma.matrix = d.get_normalised_matrix(True) #True: does rescaling
     log.debug("save matrix")
 
     ma.save(args.outputFileName, pSymmetric=False, pApplyCorrection=False)
