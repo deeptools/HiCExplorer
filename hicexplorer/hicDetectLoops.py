@@ -342,32 +342,45 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDif
 
         neighborhood = pHiCMatrix[start_x:end_x,
                                          start_y:end_y].toarray()
-        log.debug('non-flatted non-smoothed neighborhood {}'.format(neighborhood))
+        # log.debug('non-flatted non-smoothed neighborhood {}'.format(neighborhood))
         
-        neighborhood_old = neighborhood
-        for i in range(len(neighborhood)):
-            neighborhood[i, :] = smoothInteractionValues(neihgborhood_unsmoothed[i, :], 5)
-        for i in range(len(neighborhood_old)):
-            neighborhood_old[:, i] = smoothInteractionValues(neighborhood[:, i], 5)
-        neighborhood = (neighborhood + neighborhood_old)/2
-      
+        try:
+            # variance = np.var(neighborhood)
 
-        peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
-        range_factor = split_background_peak(normalize(neighborhood), peak_region)
-        peak = neighborhood[peak_region[0]-range_factor:peak_region[0]+range_factor, peak_region[1]-range_factor:peak_region[1]+range_factor].flatten()
-        background = []
-        background.extend(list(neighborhood[:peak_region[0]-range_factor, :].flatten()))
-        background.extend(list(neighborhood[peak_region[0]+range_factor:, :].flatten()))
-        background.extend(list(neighborhood[:, :peak_region[1]-range_factor].flatten()))
-        background.extend(list(neighborhood[:, peak_region[1]+range_factor:].flatten()))
-        background = np.array(background)
-        statistic, pvalue = ttest_ind(peak, background, equal_var = False)
+            # if variance <= pMeanDifferenceNeighborhoodPeak:
+            #     mask.append(False)
+            #     continue
+            neighborhood_old = neighborhood
+            for i in range(len(neighborhood)):
+                neighborhood[i, :] = smoothInteractionValues(neighborhood[i, :], 5)
+            for i in range(len(neighborhood_old)):
+                neighborhood_old[:, i] = smoothInteractionValues(neighborhood[:, i], 5)
+            neighborhood = (neighborhood + neighborhood_old)/2
 
-        if pvalue < 0.05:
-            mask.append(True)
+            variance = np.var(neighborhood)
+
+            if variance <= pMeanDifferenceNeighborhoodPeak:
+                mask.append(False)
+                continue
+
+            peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
+            range_factor = split_background_peak(normalize(neighborhood), peak_region)
+            peak = neighborhood[peak_region[0]-range_factor:peak_region[0]+range_factor, peak_region[1]-range_factor:peak_region[1]+range_factor].flatten()
+            background = []
+            background.extend(list(neighborhood[:peak_region[0]-range_factor, :].flatten()))
+            background.extend(list(neighborhood[peak_region[0]+range_factor:, :].flatten()))
+            background.extend(list(neighborhood[:, :peak_region[1]-range_factor].flatten()))
+            background.extend(list(neighborhood[:, peak_region[1]+range_factor:].flatten()))
+            background = np.array(background)
+            statistic, pvalue = ttest_ind(peak, background, equal_var = False)
+
+            if pvalue < 0.05:
+                mask.append(True)
+                continue
+        except:
+            mask.append(False)
             continue
-
-        log.debug('non-flatted neighborhood {}'.format(neighborhood))
+        # log.debug('non-flatted neighborhood {}'.format(neighborhood))
 
         # multivariate_normal()
         # neighborhood = neighborhood.flatten()
