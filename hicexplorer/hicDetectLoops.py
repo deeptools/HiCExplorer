@@ -21,7 +21,7 @@ import time
 from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix, obs_exp_matrix_non_zero
 
 from scipy.ndimage.filters import gaussian_filter 
-from scipy.stats import poisson, multivariate_normal
+from scipy.stats import poisson, multivariate_normal, ttest_ind
 
 def parse_arguments(args=None):
 
@@ -272,6 +272,35 @@ def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
     pCandidates = pCandidates[mask]
     return pCandidates, mask
 
+
+def split_background_peak(pNeighborhood, pPeakLocation, pEps=0.01):
+    # max mean of peak, min background mean
+    background = pNeighborhood
+    i = 1
+    lower = 0
+    upper = len(pNeighborhood)
+    means = []
+#     var = []
+    var = 0.0001
+    while var < pEps:
+        peak = pNeighborhood[pPeakLocation[0]-i:pPeakLocation[0]+i, pPeakLocation[1]-i:pPeakLocation[1]+i]
+        means.append(np.median(peak))
+        var = np.var(peak)
+        i += 1
+    # print(i)
+    return i
+
+def normalize(pNeighborhood):
+    min_value = np.min(pNeighborhood)
+    max_value = np.max(pNeighborhood)
+    min_max_difference = np.float64(max_value - min_value)
+
+    pNeighborhood -= min_value
+    pNeighborhood /= min_max_difference
+    return pNeighborhood
+
+
+
 def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDifference, 
                             pMeanDifferenceNeighborhoodPeak, pMaxAllowedInteractionsSmallerOne):
     # this function test if the values in the neighborhood of a
@@ -315,9 +344,29 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDif
                                          start_y:end_y].toarray()
         log.debug('non-flatted non-smoothed neighborhood {}'.format(neighborhood))
         
+        neighborhood_old = neighborhood
         for i in range(len(neighborhood)):
-            neighborhood[i, :] = smoothInteractionValues(neighborhood[i, :], 5)
+            neighborhood[i, :] = smoothInteractionValues(neihgborhood_unsmoothed[i, :], 5)
+        for i in range(len(neighborhood_old)):
+            neighborhood_old[:, i] = smoothInteractionValues(neighborhood[:, i], 5)
+        neighborhood = (neighborhood + neighborhood_old)/2
       
+
+        peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
+        range_factor = split_background_peak(normalize(neighborhood), peak_region)
+        peak = neighborhood[peak_region[0]-range_factor:peak_region[0]+range_factor, peak_region[1]-range_factor:peak_region[1]+range_factor].flatten()
+        background = []
+        background.extend(list(neighborhood[:peak_region[0]-range_factor, :].flatten()))
+        background.extend(list(neighborhood[peak_region[0]+range_factor:, :].flatten()))
+        background.extend(list(neighborhood[:, :peak_region[1]-range_factor].flatten()))
+        background.extend(list(neighborhood[:, peak_region[1]+range_factor:].flatten()))
+        background = np.array(background)
+        statistic, pvalue = ttest_ind(peak, background, equal_var = False)
+
+        if pvalue < 0.05:
+            mask.append(True)
+            continue
+
         log.debug('non-flatted neighborhood {}'.format(neighborhood))
 
         # multivariate_normal()
