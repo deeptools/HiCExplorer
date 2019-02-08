@@ -46,7 +46,9 @@ def main(args=None):
     d = kr_balancing(ma.matrix.astype(float))
     d.computeKR()
     log.debug("get out put")
-    ma.matrix = d.get_normalised_matrix(True) #True: does rescaling
+    ma.correction_factors = d.get_normalisation_vector(True).data #True: does rescaling
+    print(ma.matrix.shape)
+    print(len(ma.correction_factors))
     log.debug("save matrix")
 
     ma.save(args.outputFileName, pApplyCorrection=False)
