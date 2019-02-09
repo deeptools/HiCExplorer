@@ -823,7 +823,7 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
                 chrom_X, start_X, end_X = fields[0:3]
                 chrom_Y, start_Y, end_Y = fields[3:6]
                 if chrom_X != pRegion[0] or chrom_Y != pRegion[0]:
-                    log.debug('wrong region')
+                    # log.debug('wrong region')
                     continue
                 x = int(start_X)
                 y = int(start_Y)
@@ -838,10 +838,10 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
                 y_list.append(y)
             except:
                 pass
-        log.debug('region 1 {} region2 {}'.format(pRegion[1], pRegion[2]))
+        # log.debug('region 1 {} region2 {}'.format(pRegion[1], pRegion[2]))
         pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
         pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
-        log.debug('Size of x_list {}'.format(len(x_list)))
-        log.debug('Size of y_list {}'.format(len(y_list)))
+        # log.debug('Size of x_list {}'.format(len(x_list)))
+        # log.debug('Size of y_list {}'.format(len(y_list)))
 
         pAxis.plot(x_list, y_list, 'ro', lw=2)
