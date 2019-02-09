@@ -44,7 +44,7 @@ Computes long range contacts within the given contact matrix
     parserOpt.add_argument('--zScoreThreshold', '-zt',
                            type=float,
                            default=5.0,
-                           help='z-score threshold to detect long range interactions')
+                           help='z-score threshold to detect long range interactions. Please consider dynamicZscoreThreshold parameter too.')
     parserOpt.add_argument('--zScoreMatrixName', '-zs',
                            help='Saves the computed z-score matrix')
     parserOpt.add_argument('--windowSize', '-w',
@@ -52,41 +52,41 @@ Computes long range contacts within the given contact matrix
                            default=10,
                            help='Window size')
 
+    
+    
+    parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
+                           type=int,
+                           default=10,
+                           help='The minimum number of interactions a detected peaks needs to have to be considered.')
+    parserOpt.add_argument('--pValue', '-p',
+                           type=float,
+                           default=0.05,
+                           help='Accepance level for t-test for H1.')
+
+    parserOpt.add_argument('--qValue', '-q',
+                           type=float,
+                           default=0.1,
+                           help='False discovery rate control level.')
+
+    parserOpt.add_argument('--standardDeviation', '-sd',
+                           type=float,
+                           default=5.0,
+                           help='Accept only candidates if the standard deviation of their neighborhood is higher or equal.')
+                        
+    
+    parserOpt.add_argument('--maxLoopDistance', '-mld',
+                           type=int,
+                           default=1500000,
+                           help='maximum distance of a loop, usually loops are within a distance of ~2MB.')
+    parserOpt.add_argument('--obsExpMinThreshold', '-oet',
+                           type=float,
+                           default=1.0,
+                           help='Remove values of the computed obs / exp matrix lower than this threshold.')
     parserOpt.add_argument('--dynamicZScoreThreshold', '-d',
                            type=float,
                            default=0.15,
                            help='Only candidates with z-scores greater mean(z-scores) * dynamicZScoreThreshold are accepted. With '
                                 'the dynamic z-score threshold it is possible to decrease or increase this filter criteria. ')
-    
-    parserOpt.add_argument('--obsExpMinThreshold', '-oet',
-                           type=float,
-                           default=1.0,
-                           help='Remove values of the computed obs / exp matrix lower than this threshold.')
-    parserOpt.add_argument('--meanMaxValueDifference', '-mmvd',
-                           type=float,
-                           default=5.0,
-                           help='Accept only candidates if the mean value of the candidate neighborhood differs at least this threshold '
-                                'from the maximum value of the candidate neighborhood.')
-
-    parserOpt.add_argument('--meanDifferenceNeighborhoodPeak', '-mdnp',
-                           type=float,
-                           default=5.0,
-                           help='Accept only candidates if the mean value of the candidate neighborhood differs at least this threshold'
-                                ' from the mean of the peak region. ')
-    parserOpt.add_argument('--maxAllowedInteractionsSmallerOne', '-maiso',
-                           type=float,
-                           default=0.1,
-                           help='Refuse candidates if the percentage of values smaller one in the candidate neighborhood is more than'
-                           ' the given threshold.')
-    parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
-                           type=int,
-                           default=10,
-                           help='The minimum number of interactions a detected peaks needs to have to be considered.')
-    parserOpt.add_argument('--maxLoopDistance', '-mld',
-                           type=int,
-                           default=3000000,
-                           help='maximum distance of a loop, usually loops are within a distance of ~2MB.')
-
     parserOpt.add_argument('--chromosomes',
                            help='Chromosomes and order in which the chromosomes should be saved. If not all chromosomes '
                            'are given, the missing chromosomes are left out. For example, --chromosomeOrder chrX will '
@@ -99,7 +99,7 @@ Computes long range contacts within the given contact matrix
     parserOpt.add_argument('--region',
                            help='The format is chr:start-end.',
                            required=False)
-    parserOpt.add_argument('--threads',
+    parserOpt.add_argument('--threads', '-t',
                            help='The chromosomes are processed independent of each other. If the number of to be '
                            'processed chromosomes is greater than one, each chromosome will be computed with on its own core.',
                            required=False,
@@ -155,8 +155,8 @@ def compute_zscore_matrix(pInstances, pFeatures, pData, pMaxDistance):
 
 
 def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, pZscoreThreshold, pWindowSize, \
-                                    pPeakInteractionsThreshold, pZscoreMeanFactor, pMeanMaxValueDifference, 
-                            pMeanDifferenceNeighborhoodPeak, pMaxAllowedInteractionsSmallerOne):
+                                    pPeakInteractionsThreshold, pZscoreMeanFactor, pPValue, 
+                            pStandardDeviation, pQValue):
 
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
@@ -210,12 +210,12 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
         if len(candidates) == 0:
             return None, None
 
-    candidates = candidate_region_test(
-        pHiCMatrix.matrix, candidates, pWindowSize, pMeanMaxValueDifference, 
-                            pMeanDifferenceNeighborhoodPeak, pMaxAllowedInteractionsSmallerOne)
+    candidates, p_value_list = candidate_region_test(
+        pHiCMatrix.matrix, candidates, pWindowSize, pPValue, 
+                            pStandardDeviation, pQValue, pPeakInteractionsThreshold)
     # if candidates is not None:
     #     log.debug('Candidates: {}'.format(candidates[:20]))
-    return candidates, [1] * len(candidates)
+    return candidates, p_value_list
 
 
 def filter_duplicates(pCandidates):
@@ -301,8 +301,8 @@ def normalize(pNeighborhood):
 
 
 
-def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDifference, 
-                            pMeanDifferenceNeighborhoodPeak, pMaxAllowedInteractionsSmallerOne):
+def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, 
+                            pStandardDeviation, pQValue, pPeakInteractionsThreshold):
     # this function test if the values in the neighborhood of a
     # function follow a normal distribution, given the significance level pValue.
     # if they do, the candidate is rejected, otherwise accepted
@@ -347,7 +347,7 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDif
         try:
             # variance = np.var(neighborhood)
 
-            # if variance <= pMeanDifferenceNeighborhoodPeak:
+            # if variance <= pStandardDeviation:
             #     mask.append(False)
             #     continue
             neighborhood_old = neighborhood
@@ -357,10 +357,17 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDif
                 neighborhood_old[:, i] = smoothInteractionValues(neighborhood[:, i], 5)
             neighborhood = (neighborhood + neighborhood_old)/2
 
-            variance = np.var(neighborhood)
+            peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
 
-            if variance <= pMeanDifferenceNeighborhoodPeak:
+            if neighborhood[peak_region[0], peak_region[1]] < pPeakInteractionsThreshold:
                 mask.append(False)
+                # pvalues.append(1.0)
+                continue
+            variance = np.std(neighborhood)
+
+            if variance <= pStandardDeviation:
+                mask.append(False)
+                # pvalues.append(1.0)
                 continue
 
             peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
@@ -374,62 +381,40 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pMeanMaxValueDif
             background = np.array(background)
             statistic, pvalue = ttest_ind(peak, background, equal_var = False)
 
-            if pvalue < 0.05:
+            if pvalue < pPValue:
                 mask.append(True)
+                pvalues.append(pvalue)
                 continue
         except:
             mask.append(False)
+            # pvalues.append(1.0)
             continue
-        # log.debug('non-flatted neighborhood {}'.format(neighborhood))
-
-        # multivariate_normal()
-        # neighborhood = neighborhood.flatten()
-
-        # mean = np.mean(neighborhood)
-        # random_poisson = poisson.rvs(mu=mean, size=len(neighborhood))
-        # result = chisquare(neighborhood, f_exp=random_poisson)
-        # if result[1] <= 0.05:
-        #     log.debug('result {}'.format(result) )
-        #     mask.append(True)
-        #     # continue
-        # log.debug('size: {}'.format(len(neighborhood)))
-        # log.debug('neighborhood {}'.format(neighborhood))
-        # log.debug('random_poisson {}'.format(random_poisson))
-
-        # exit()
-        # variance = np.var(neighborhood)
-
-        # if variance > pMeanDifferenceNeighborhoodPeak:
-        #     mask.append(True)
-        #     continue
-        # mean = np.mean(neighborhood)
-        # mask_data = neighborhood >= mean
-
-        # peak_region = neighborhood[mask_data]
-        # if np.absolute(mean - np.max(neighborhood)) < pMeanMaxValueDifference:
-        #     mask.append(False)
-        #     continue
-        # if np.absolute(mean - np.mean(peak_region)) < pMeanDifferenceNeighborhoodPeak:
-        #     mask.append(False)
-        #     continue
-        # if len(peak_region) == 0:
-        #     mask.append(False)
-        #     continue
-        # sorted_neighborhood = np.sort(neighborhood)
-        # index_pos = int(len(neighborhood) * pMaxAllowedInteractionsSmallerOne)
-        # if index_pos >= len(neighborhood):
-        #     index_pos = len(neighborhood) - 1
-        # if sorted_neighborhood[index_pos] < 1:
-        #     mask.append(False)
-        #     continue
+        
         mask.append(False)
         
     
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
     log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
+    pvalues = np.array(pvalues)
+    pvalues_ = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
+    pvalues_ = np.sort(pvalues_)
+    largest_p_i = -np.inf
+    for i, p in enumerate(pvalues_):
+        if p <= (pQValue * (i + 1) / len(pvalues_)):
+            if p >= largest_p_i:
+                largest_p_i = p
+    # pvalues_accepted = []
 
-    return pCandidates
+    mask = pvalues <= largest_p_i
+    pvalues = pvalues[mask]
+    pCandidates = pCandidates[mask]
+
+    log.debug('pCandidates after fdr: {}'.format(len(pCandidates)))
+    if len(pCandidates) == 0:
+        return None, None
+
+    return pCandidates, pvalues
     
 def smoothInteractionValues(pData, pWindowSize):
         '''
@@ -603,9 +588,9 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
                                                          pArgs.windowSize, 
                                                          pArgs.peakInteractionsThreshold,
                                                          pArgs.dynamicZScoreThreshold,
-                                                         pArgs.meanMaxValueDifference,
-                                                         pArgs.meanDifferenceNeighborhoodPeak,
-                                                         pArgs.maxAllowedInteractionsSmallerOne)
+                                                         pArgs.pValue,
+                                                         pArgs.standardDeviation,
+                                                         pArgs.qValue)
     
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
