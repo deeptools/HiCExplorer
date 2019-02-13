@@ -20,13 +20,14 @@ from multiprocessing import Process, Queue
 import time
 from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix, obs_exp_matrix_non_zero
 
-from scipy.ndimage.filters import gaussian_filter 
+from scipy.ndimage.filters import gaussian_filter
 from scipy.stats import poisson, multivariate_normal, ttest_ind
+
 
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter, 
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
 Computes long range contacts within the given contact matrix
@@ -52,8 +53,6 @@ Computes long range contacts within the given contact matrix
                            default=10,
                            help='Window size')
 
-    
-    
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
                            default=10,
@@ -72,8 +71,7 @@ Computes long range contacts within the given contact matrix
                            type=float,
                            default=5.0,
                            help='Accept only candidates if the standard deviation of their neighborhood is higher or equal.')
-                        
-    
+
     parserOpt.add_argument('--maxLoopDistance', '-mld',
                            type=int,
                            default=1500000,
@@ -125,9 +123,8 @@ def _sum_per_distance(pSum_per_distance, pData, pDistances):
 
 def compute_zscore_matrix(pInstances, pFeatures, pData, pMaxDistance):
 
-
     pData = pData.astype(float)
-   
+
     data = deepcopy(pData)
     distances = np.absolute(pInstances - pFeatures)
     sigma_2 = np.zeros(pMaxDistance)
@@ -154,9 +151,9 @@ def compute_zscore_matrix(pInstances, pFeatures, pData, pMaxDistance):
     return data_mean
 
 
-def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, pZscoreThreshold, pWindowSize, \
-                                    pPeakInteractionsThreshold, pZscoreMeanFactor, pPValue, 
-                            pStandardDeviation, pQValue):
+def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, pZscoreThreshold, pWindowSize,
+                                pPeakInteractionsThreshold, pZscoreMeanFactor, pPValue,
+                                pStandardDeviation, pQValue):
 
     # keep only z-score values if they are higher than pThreshold
     # keep: z-score value, (x, y) coordinate
@@ -164,8 +161,7 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
     # keep only z-score values (peaks) if they have more interactions than pPeakInteractionsThreshold
 
     instances, features = pAdjustedHiCMatrix.nonzero()
-    log.debug('Number of candidates 147: {}'.format(len(instances)))
-        
+
     # filter by distance
     mask_distance = np.absolute(instances - features) >= 4
 
@@ -176,19 +172,11 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
 
     zscore_mean = np.mean(pZscoreMatrix.data[mask])
     mask = pZscoreMatrix.data >= (zscore_mean * pZscoreMeanFactor)
-    log.debug('Used zscore-Mean {}'.format(zscore_mean))
 
-    log.debug('pPeakInteractionsThreshold {}'.format(pPeakInteractionsThreshold))
     mask_interactions = pAdjustedHiCMatrix.data > pPeakInteractionsThreshold
-    log.debug('len(mask_interactions) {}'.format(len(mask_interactions)))
-    log.debug('len(mask) {}'.format(len(mask)))
-
 
     mask = np.logical_and(mask, mask_interactions)
     mask = np.logical_and(mask, mask_distance)
-
-
-
 
     instances = instances[mask]
     features = features[mask]
@@ -204,22 +192,21 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
         number_of_candidates = len(candidates)
 
         candidates, mask = window_zscore_cluster(candidates, pWindowSize, pZscoreMatrix)
-        i +=1 
+        i += 1
 
-        log.debug('iterations: {}'.format(i))
         if len(candidates) == 0:
             return None, None
 
     candidates, p_value_list = candidate_region_test(
-        pHiCMatrix.matrix, candidates, pWindowSize, pPValue, 
-                            pStandardDeviation, pQValue, pPeakInteractionsThreshold)
+        pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
+        pStandardDeviation, pQValue, pPeakInteractionsThreshold)
     # if candidates is not None:
     #     log.debug('Candidates: {}'.format(candidates[:20]))
     return candidates, p_value_list
 
 
 def filter_duplicates(pCandidates):
-    
+
     mask = []
     seen_values = {}
     for i, candidate in enumerate(pCandidates):
@@ -232,8 +219,9 @@ def filter_duplicates(pCandidates):
         else:
             seen_values[candidate[0]] = [candidate[1]]
             mask.append(True)
-    
+
     return mask
+
 
 def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
     x_max = pZScoreMatrix.shape[0]
@@ -257,9 +245,9 @@ def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
         argmax = np.argmax(neighborhood)
         x = argmax // (pWindowSize * 2)
         y = argmax % (pWindowSize * 2)
-       
+
         candidate_x = (candidate[0] - pWindowSize) + x if (candidate[0] - pWindowSize + x) < x_max else x_max - 1
-        candidate_y = (candidate[1] - pWindowSize) + y if  (candidate[1] - pWindowSize + y) < y_max else y_max - 1 
+        candidate_y = (candidate[1] - pWindowSize) + y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
         if candidate_x < 0 or candidate_y < 0:
             continue
         if np.absolute(candidate_x - candidate_y) < 4:
@@ -280,15 +268,16 @@ def split_background_peak(pNeighborhood, pPeakLocation, pEps=0.01):
     lower = 0
     upper = len(pNeighborhood)
     means = []
-#     var = []
+    #     var = []
     var = 0.0001
     while var < pEps:
-        peak = pNeighborhood[pPeakLocation[0]-i:pPeakLocation[0]+i, pPeakLocation[1]-i:pPeakLocation[1]+i]
+        peak = pNeighborhood[pPeakLocation[0] - i:pPeakLocation[0] + i, pPeakLocation[1] - i:pPeakLocation[1] + i]
         means.append(np.median(peak))
         var = np.var(peak)
         i += 1
     # print(i)
     return i
+
 
 def normalize(pNeighborhood):
     min_value = np.min(pNeighborhood)
@@ -300,9 +289,8 @@ def normalize(pNeighborhood):
     return pNeighborhood
 
 
-
-def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, 
-                            pStandardDeviation, pQValue, pPeakInteractionsThreshold):
+def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
+                          pStandardDeviation, pQValue, pPeakInteractionsThreshold):
     # this function test if the values in the neighborhood of a
     # function follow a normal distribution, given the significance level pValue.
     # if they do, the candidate is rejected, otherwise accepted
@@ -317,17 +305,16 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
     maximal_value = 0
     log.debug('candidate_region_test initial: {}'.format(len(pCandidates)))
 
-
     if len(pCandidates) == 0:
         return None, None
-   
+
     pCandidates = np.array(pCandidates)
-  
+
     mask = []
-  
+
     # normalized_average_neighborhood = np.zeros((pWindowSize * 2 ) **2)
     neighborhood_list = []
-       
+
     mask = []
     for i, candidate in enumerate(pCandidates):
 
@@ -341,45 +328,37 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             pWindowSize < y_max else y_max
 
         neighborhood = pHiCMatrix[start_x:end_x,
-                                         start_y:end_y].toarray()
-        # log.debug('non-flatted non-smoothed neighborhood {}'.format(neighborhood))
-        
-        try:
-            # variance = np.var(neighborhood)
+                                  start_y:end_y].toarray()
 
-            # if variance <= pStandardDeviation:
-            #     mask.append(False)
-            #     continue
+        try:
             neighborhood_old = neighborhood
             for i in range(len(neighborhood)):
                 neighborhood[i, :] = smoothInteractionValues(neighborhood[i, :], 5)
             for i in range(len(neighborhood_old)):
                 neighborhood_old[:, i] = smoothInteractionValues(neighborhood[:, i], 5)
-            neighborhood = (neighborhood + neighborhood_old)/2
+            neighborhood = (neighborhood + neighborhood_old) / 2
 
             peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
 
             if neighborhood[peak_region[0], peak_region[1]] < pPeakInteractionsThreshold:
                 mask.append(False)
-                # pvalues.append(1.0)
                 continue
             variance = np.std(neighborhood)
 
             if variance <= pStandardDeviation:
                 mask.append(False)
-                # pvalues.append(1.0)
                 continue
 
             peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
             range_factor = split_background_peak(normalize(neighborhood), peak_region)
-            peak = neighborhood[peak_region[0]-range_factor:peak_region[0]+range_factor, peak_region[1]-range_factor:peak_region[1]+range_factor].flatten()
+            peak = neighborhood[peak_region[0] - range_factor:peak_region[0] + range_factor, peak_region[1] - range_factor:peak_region[1] + range_factor].flatten()
             background = []
-            background.extend(list(neighborhood[:peak_region[0]-range_factor, :].flatten()))
-            background.extend(list(neighborhood[peak_region[0]+range_factor:, :].flatten()))
-            background.extend(list(neighborhood[:, :peak_region[1]-range_factor].flatten()))
-            background.extend(list(neighborhood[:, peak_region[1]+range_factor:].flatten()))
+            background.extend(list(neighborhood[:peak_region[0] - range_factor, :].flatten()))
+            background.extend(list(neighborhood[peak_region[0] + range_factor:, :].flatten()))
+            background.extend(list(neighborhood[:, :peak_region[1] - range_factor].flatten()))
+            background.extend(list(neighborhood[:, peak_region[1] + range_factor:].flatten()))
             background = np.array(background)
-            statistic, pvalue = ttest_ind(peak, background, equal_var = False)
+            statistic, pvalue = ttest_ind(peak, background, equal_var=False)
 
             if pvalue < pPValue:
                 mask.append(True)
@@ -387,12 +366,10 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                 continue
         except:
             mask.append(False)
-            # pvalues.append(1.0)
             continue
-        
+
         mask.append(False)
-        
-    
+
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
     log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
@@ -415,40 +392,38 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         return None, None
 
     return pCandidates, pvalues
-    
+
+
 def smoothInteractionValues(pData, pWindowSize):
-        '''
-        Adds -pWindowsSize/2 and +pWindowsSize/2 around pData[i] and averages pData[i] by pWindowSize to 
-        smooth the interaction values.
-        '''
-        window_size = np.int(np.floor(pWindowSize / 2))
-        window_size_upstream = window_size
-        if pWindowSize % 2 == 0:
-            window_size_upstream -= 1
+    '''
+    Adds -pWindowsSize/2 and +pWindowsSize/2 around pData[i] and averages pData[i] by pWindowSize to 
+    smooth the interaction values.
+    '''
+    window_size = np.int(np.floor(pWindowSize / 2))
+    window_size_upstream = window_size
+    if pWindowSize % 2 == 0:
+        window_size_upstream -= 1
 
-        # log.debug('smooth I len(data) {}'.format(len(pData)))
-        average_contacts = np.zeros(len(pData))
-        # log.debug('smooth II len(average_contacts) {}'.format(len(average_contacts)))
+    average_contacts = np.zeros(len(pData))
 
-        # add upstream and downstream, handle regular case
-        for i in range(window_size_upstream, len(pData) - window_size):
-            start = i - window_size_upstream
-            end = i + window_size + 1
-            average_contacts[i] = np.mean(pData[start:end])
-        # log.debug('smooth III len(average_contacts) {}'.format(len(average_contacts)))
+    # add upstream and downstream, handle regular case
+    for i in range(window_size_upstream, len(pData) - window_size):
+        start = i - window_size_upstream
+        end = i + window_size + 1
+        average_contacts[i] = np.mean(pData[start:end])
 
-        # handle border conditions
-        for i in range(window_size):
-            start = i - window_size_upstream
-            if start < 0:
-                start = 0
-            end = i + window_size + 1
+    # handle border conditions
+    for i in range(window_size):
+        start = i - window_size_upstream
+        if start < 0:
+            start = 0
+        end = i + window_size + 1
 
-            average_contacts[i] = np.mean(pData[start:end])
-            average_contacts[-(i + 1)] = np.mean(pData[-end:])
-        # log.debug('smooth IV len(average_contacts) {}'.format(len(average_contacts)))
-        
-        return average_contacts
+        average_contacts[i] = np.mean(pData[start:end])
+        average_contacts[-(i + 1)] = np.mean(pData[-end:])
+
+    return average_contacts
+
 
 def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList, pMaxLoopDistance):
     # mapping: chr_X, start, end, chr_Y, start, end, cluster_id
@@ -487,7 +462,6 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
                 fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(loop_item[0], loop_item[1], loop_item[4], 1, loop_item[6],
                                                                        ".", loop_item[1], loop_item[4], "x,x,x"))
 
-# def smooth_matrix():
 
 def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
 
@@ -513,22 +487,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         pHiCMatrix.matrix.data[mask] = 0
         pHiCMatrix.matrix.eliminate_zeros()
 
-    # pHiCMatrix.matrix = csr_matrix(gaussian_filter(, 1))
-    # dense_data = pHiCMatrix.matrix.toarray()
-    # log.debug('len(dense_data) {}'.format(len(dense_data)))
-    # log.debug('len(dense_data[0]) {}'.format(len(dense_data[0])))
-    # log.debug('max_loop_distance {}'.format(max_loop_distance))
-    # for i in range(len(dense_data)):
-    #     # log.debug('i {}'.format(i))
-    #     start = i - max_loop_distance
-    #     end = i
-    #     if i <= 0:
-    #         start = 0
-    #     log.debug('start {} end {} i {}'.format(start, end , i))
-    #     dense_data[i, start:end] = smoothInteractionValues(dense_data[i, start:end], 6)
-    # pHiCMatrix.matrix = csr_matrix(dense_data)
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
-    # shape_of_matrix = pHiCMatrix.matrix.shape
     instances, features = deepcopy(pHiCMatrix.matrix.nonzero())
     data_hic = deepcopy(pHiCMatrix.matrix.data)
     if len(pHiCMatrix.matrix.data) == 0:
@@ -544,21 +503,8 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     elif pArgs.method == 'norm':
         obs_exp_norm_matrix = obs_exp_matrix_norm(pHiCMatrix.matrix)
 
-    # obs_exp_norm_matrix = obs_exp_matrix_non_zero(pHiCMatrix.matrix)
-    # obs_exp_norm_matrix = pHiCMatrix.matrix
-
     mask = obs_exp_norm_matrix.data < pArgs.obsExpMinThreshold
     obs_exp_norm_matrix.data[mask] = 0
-    # obs_exp_norm_matrix.eliminate_zeros()
-    # obs_exp_norm_matrix = exp_obs_matrix(deepcopy(pHiCMatrix.matrix))
-
-    # # obs_exp_norm_matrix = obs_exp_matrix(pHiCMatrix.matrix)
-    # obs_exp_norm_matrix = obs_exp_matrix_lieberman(deepcopy(pHiCMatrix.matrix), pHiCMatrix.matrix.shape[0], 2)
-    # mask = obs_exp_norm_matrix.data < pArgs.obsExpMinThreshold
-    # obs_exp_norm_matrix.data[mask] = 0
-    # # obs_exp_norm_matrix.eliminate_zeros()
-    # # obs_exp_norm_matrix = exp_obs_matrix(deepcopy(pHiCMatrix.matrix))
-
 
     mask = obs_exp_norm_matrix.data != 0
     instances = instances[mask]
@@ -568,16 +514,13 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     obs_exp_norm_matrix.eliminate_zeros()
     instances_obs_exp, features_obs_exp = obs_exp_norm_matrix.nonzero()
     data_obs_exp = obs_exp_norm_matrix.data
-    
+
     z_score_data = compute_zscore_matrix(instances_obs_exp, features_obs_exp, data_obs_exp, pHiCMatrix.matrix.shape[0])
-    log.debug('len(z_score_data) {}'.format(len(z_score_data)))
-    log.debug('len(instances) {}'.format(len(instances)))
-    log.debug('len(features) {}'.format(len(features)))
 
     z_score_matrix = csr_matrix((z_score_data, (instances_obs_exp, features_obs_exp)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
     if pArgs.zScoreMatrixName:
         matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
-        
+
         matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, pHiCMatrix.cut_intervals, pHiCMatrix.nan_bins,
                                                      None, pHiCMatrix.distance_counts)
         matrixFileHandlerOutput.save(
@@ -585,13 +528,13 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     # exit()
     adjusted_hic_matrix = csr_matrix((data_hic, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_matrix, adjusted_hic_matrix, pArgs.zScoreThreshold,
-                                                         pArgs.windowSize, 
+                                                         pArgs.windowSize,
                                                          pArgs.peakInteractionsThreshold,
                                                          pArgs.dynamicZScoreThreshold,
                                                          pArgs.pValue,
                                                          pArgs.standardDeviation,
                                                          pArgs.qValue)
-    
+
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
 
@@ -610,46 +553,43 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         pQueue.put([mapped_loops])
     return
 
+
 def smoothInteractionValues(pData, pWindowSize):
-        '''
-        Adds -pWindowsSize/2 and +pWindowsSize/2 around pData[i] and averages pData[i] by pWindowSize to 
-        smooth the interaction values.
-        '''
+    '''
+    Adds -pWindowsSize/2 and +pWindowsSize/2 around pData[i] and averages pData[i] by pWindowSize to 
+    smooth the interaction values.
+    '''
 
-        if len(pData) < 2:
-            return pData
-        window_size = np.int(np.floor(pWindowSize / 2))
-        window_size_upstream = window_size
-        if pWindowSize % 2 == 0:
-            window_size_upstream -= 1
+    if len(pData) < 2:
+        return pData
+    window_size = np.int(np.floor(pWindowSize / 2))
+    window_size_upstream = window_size
+    if pWindowSize % 2 == 0:
+        window_size_upstream -= 1
 
-        # log.debug('smooth I len(data) {}'.format(len(pData)))
-        average_contacts = np.zeros(len(pData))
-        # log.debug('smooth II len(average_contacts) {}'.format(len(average_contacts)))
+    average_contacts = np.zeros(len(pData))
 
-        # add upstream and downstream, handle regular case
-        for i in range(window_size_upstream, len(pData) - window_size):
-            start = i - window_size_upstream
-            end = i + window_size + 1
-            average_contacts[i] = np.mean(pData[start:end])
-        # log.debug('smooth III len(average_contacts) {}'.format(len(average_contacts)))
+    # add upstream and downstream, handle regular case
+    for i in range(window_size_upstream, len(pData) - window_size):
+        start = i - window_size_upstream
+        end = i + window_size + 1
+        average_contacts[i] = np.mean(pData[start:end])
 
-        # handle border conditions
-        for i in range(window_size):
-            start = i - window_size_upstream
-            if start < 0:
-                start = 0
-            end = i + window_size + 1
+    # handle border conditions
+    for i in range(window_size):
+        start = i - window_size_upstream
+        if start < 0:
+            start = 0
+        end = i + window_size + 1
 
-            average_contacts[i] = np.mean(pData[start:end])
-            average_contacts[-(i + 1)] = np.mean(pData[-end:])
-        # log.debug('smooth IV len(average_contacts) {}'.format(len(average_contacts)))
-        
-        return average_contacts
+        average_contacts[i] = np.mean(pData[start:end])
+        average_contacts[-(i + 1)] = np.mean(pData[-end:])
 
-def main():
+    return average_contacts
 
-    args = parse_arguments().parse_args()
+
+def main(args=None):
+    args = parse_arguments().parse_args(args)
 
     if args.region is not None and args.chromosomes is not None:
         log.error('Please choose either --region or --chromosomes.')
