@@ -255,7 +255,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         # cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
         cbar.ax.set_ylabel(args.scoreName, size=8)
 
-
     if ylabel is not None:
         ylabel = toString(ylabel)
         axHeat2.set_ylabel(ylabel)
@@ -270,7 +269,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         # pLongRangeContacts=None, pHiCMatrix=None
         # plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix)
     axHeat2.invert_yaxis()
-    
+
     if pBigwig:
         axHeat2.xaxis.set_label_position("top")
         axHeat2.xaxis.tick_top()
@@ -285,16 +284,16 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         else:
             axis_bigwig.append(pBigwig['axis'])
             vertical_flip = [None, None]
-        for i, _axis in enumerate(axis_bigwig): 
+        for i, _axis in enumerate(axis_bigwig):
             if args.region:
                 plotBigwig(_axis, pBigwig['args'].bigwig, pChromosomeSizes=chrBinBoundaries,
-                        pRegion=pBigwig['args'].region, pXticks=xticks, pFlipBigwigSign=args.flipBigwigSign,
-                        pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=vertical_flip[i],
-                        pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
+                           pRegion=pBigwig['args'].region, pXticks=xticks, pFlipBigwigSign=args.flipBigwigSign,
+                           pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=vertical_flip[i],
+                           pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
             else:
                 plotBigwig(_axis, pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=chrBinBoundaries,
-                        pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=vertical_flip[i],
-                        pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
+                           pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=vertical_flip[i],
+                           pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
 
 
 def translate_region(region_string):
@@ -647,7 +646,7 @@ def main(args=None):
                 ax1 = plt.subplot(gs[0, 0])
                 ax2_list = []
                 for i in range(len(args.bigwig)):
-                    ax2_list.append(plt.subplot(gs[1+i, 0]))
+                    ax2_list.append(plt.subplot(gs[1 + i, 0]))
                 # ax2 = plt.subplot(gs[1, 0])
                 ax3 = plt.subplot(gs[0, 1])
                 bigwig_info['axis'] = ax2_list
@@ -698,9 +697,8 @@ def make_start_pos_array(ma):
 
 
 def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None, pVertical=False,
-                    pValueMin=None, pValueMax=None):
+               pValueMin=None, pValueMax=None):
     log.debug('plotting eigenvector')
-    
 
     # pNameOfBigwigList is not a list, but to make room for future options
     # requiring more than one bigwig file I set this to a list intentionally.
@@ -716,7 +714,6 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
     #         log.error("Eigenvector input files have different formats.")
     #         exit()
 
-    
     if file_format == "bigwig" or file_format == 'bw':
         for i, bigwigFile in enumerate(pNameOfBigwigList):
             x_values = []
@@ -808,7 +805,6 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                     pAxis.fill_between(np.flip(bigwig_scores, 0), x_values, edgecolor='none')
                 else:
                     pAxis[i].fill_between(x_values, 0, bigwig_scores, edgecolor='none')
-      
 
 
 def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion):
@@ -823,25 +819,15 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
                 chrom_X, start_X, end_X = fields[0:3]
                 chrom_Y, start_Y, end_Y = fields[3:6]
                 if chrom_X != pRegion[0] or chrom_Y != pRegion[0]:
-                    # log.debug('wrong region')
                     continue
                 x = int(start_X)
                 y = int(start_Y)
-
-
-                # if int(pRegion[1]) > x or int(pRegion[1]) > x:
-                #     continue
-                # if int(pRegion[2]) > y or int(pRegion[2]) > x:
-                #     continue
 
                 x_list.append(x)
                 y_list.append(y)
             except:
                 pass
-        # log.debug('region 1 {} region2 {}'.format(pRegion[1], pRegion[2]))
         pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
         pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
-        # log.debug('Size of x_list {}'.format(len(x_list)))
-        # log.debug('Size of y_list {}'.format(len(y_list)))
 
-        pAxis.plot(x_list, y_list, 'ro', lw=2)
+        pAxis.plot(x_list, y_list, 's', lw=2, markerfacecolor='none', markeredgecolor='red')
