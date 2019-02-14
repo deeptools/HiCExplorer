@@ -25,6 +25,9 @@ Requirements
 * pygenometracks >= 2.1
 * psutil >= 5.4.8
 * hic2cool >= 0.4
+* cooler = 0.8.2
+
+**Deprecation warning:** We will drop the support for Python 2.7 soon; version 2.2 is the last version supporting Python 2.7. We strongly recommended to switch to Python 3.6!
 
 
 Command line installation using ``conda``
@@ -39,6 +42,8 @@ follow the directions for its installation. All of the requirements for HiCExplo
 .. code:: bash
 
     $ conda install hicexplorer -c bioconda -c conda-forge
+
+We strongly recommended to use conda to install HiCExplorer. 
 
 Command line installation using ``pip``
 -----------------------------------------
@@ -55,6 +60,10 @@ If you need to specify a specific path for the installation of the tools, make u
 .. code:: bash
 
     $ pip install --install-option="--prefix=/MyPath/Tools/hicexplorer" git+https://github.com/deeptools/HiCExplorer.git
+
+**Warning:** It can be that you have to install additional packages via your system package manager to successfully install HiCExplorer via pip.
+
+**Deprecation warning:** We will drop the support for pip this year, 2019. We strongly recommended to switch to conda package manager!
 
 
 Command line installation without ``pip``

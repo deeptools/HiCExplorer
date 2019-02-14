@@ -14,5 +14,5 @@ unidecode >= 1.0.*
 hic2cool >= 0.4.*
 psutil >= 5.4.8
 hicmatrix >= 7
-cooler >= 0.8.2
+cooler == 0.8.2
 pygenometracks >= 2.1

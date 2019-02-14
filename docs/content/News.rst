@@ -7,7 +7,7 @@ Release 2.2.1
 **7 February 2019**
 
 - Muting log output of matplotlib and cooler
-- Set version number of hicmatrix to 5, reason is version 5 depends on cooler version 0.7.11 and hicmatrix version 6 on 0.8.2. This cooler version has a significant performance drop for writing matrices.
+- Set version number of hicmatrix to 7
 - Optional parameter for hicInfo to write the result to a file instead to the bash
 
 Release 2.2
