@@ -69,7 +69,7 @@ Computes long range contacts within the given contact matrix
 
     parserOpt.add_argument('--standardDeviation', '-sd',
                            type=float,
-                           default=5.0,
+                           default=1.0,
                            help='Accept only candidates if the standard deviation of their neighborhood is higher or equal.')
 
     parserOpt.add_argument('--maxLoopDistance', '-mld',
@@ -373,21 +373,35 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
     log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
-    pvalues = np.array(pvalues)
-    pvalues_ = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
-    pvalues_ = np.sort(pvalues_)
-    largest_p_i = -np.inf
-    for i, p in enumerate(pvalues_):
-        if p <= (pQValue * (i + 1) / len(pvalues_)):
-            if p >= largest_p_i:
-                largest_p_i = p
-    # pvalues_accepted = []
 
-    mask = pvalues <= largest_p_i
+    pvalues = np.array(pvalues)
+
+    ###Bonferroni
+
+    adjusted_pvalue = pPValue / len(pvalues)
+
+    mask = pvalues <= adjusted_pvalue
     pvalues = pvalues[mask]
     pCandidates = pCandidates[mask]
 
-    log.debug('pCandidates after fdr: {}'.format(len(pCandidates)))
+
+    ###FDR
+    # pvalues = np.array(pvalues)
+
+    # pvalues_ = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
+    # pvalues_ = np.sort(pvalues_)
+    # largest_p_i = -np.inf
+    # for i, p in enumerate(pvalues_):
+    #     if p <= (pQValue * (i + 1) / len(pvalues_)):
+    #         if p >= largest_p_i:
+    #             largest_p_i = p
+    # # pvalues_accepted = []
+
+    # mask = pvalues <= largest_p_i
+    # pvalues = pvalues[mask]
+    # pCandidates = pCandidates[mask]
+
+    log.debug('pCandidates after Bonfrroni: {}'.format(len(pCandidates)))
     if len(pCandidates) == 0:
         return None, None
 
