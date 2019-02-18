@@ -23,7 +23,8 @@ from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm,
 from scipy.ndimage.filters import gaussian_filter
 from scipy.stats import poisson, multivariate_normal, ttest_ind, mannwhitneyu, anderson_ksamp
 
-
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
@@ -257,7 +258,7 @@ def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
     return pCandidates, mask
 
 
-def split_background_peak(pNeighborhood, pPeakLocation, pEps=0.01):
+def split_background_peak(pNeighborhood, pPeakLocation, pEps=0.05):
     # max mean of peak, min background mean
     # background = deepcopy(pNeighborhood)
     i = 0
@@ -328,26 +329,43 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
     mask = []
     for i, candidate in enumerate(pCandidates):
+        # log.debug('candidate {}'.format(candidate))
 
-        start_x = candidate[0] - \
-            pWindowSize if candidate[0] - pWindowSize > 0 else 0
+        if candidate[0] - pWindowSize > 0:
+            start_x = candidate[0] - pWindowSize
+            peak_x = pWindowSize
+        else:
+            start_x = 0
+            peak_x = pWindowSize - candidate[0]
+        
+        if candidate[1] - pWindowSize:
+            start_y = candidate[1] - pWindowSize
+            peak_y = pWindowSize
+        else:
+            start_y = 0
+            peak_y = pWindowSize - candidate[1]
+        # start_x = candidate[0] - \
+        #     pWindowSize if candidate[0] - pWindowSize > 0 else 0
         end_x = candidate[0] + pWindowSize if candidate[0] + \
             pWindowSize < x_max else x_max
-        start_y = candidate[1] - \
-            pWindowSize if candidate[1] - pWindowSize > 0 else 0
+        # start_y = candidate[1] - \
+        #     pWindowSize if candidate[1] - pWindowSize > 0 else 0
         end_y = candidate[1] + pWindowSize if candidate[1] + \
             pWindowSize < y_max else y_max
+        # log.debug('start_x:end_x {}:{} start_y:end_y {}:{}'.format(start_x,end_x,start_y,end_y))
+
 
         neighborhood = pHiCMatrix[start_x:end_x,
                                   start_y:end_y].toarray()
 
         # try:
         neighborhood_old = neighborhood
-        for i in range(len(neighborhood)):
-            neighborhood[i, :] = smoothInteractionValues(neighborhood[i, :], 5)
-        for i in range(len(neighborhood_old[0])):
-            neighborhood_old[:, i] = smoothInteractionValues(neighborhood[:, i], 5)
+        for j in range(len(neighborhood)):
+            neighborhood[j, :] = smoothInteractionValues(neighborhood[j, :], 5)
+        for j in range(len(neighborhood_old[0])):
+            neighborhood_old[:, j] = smoothInteractionValues(neighborhood[:, j], 5)
         neighborhood = (neighborhood + neighborhood_old) / 2
+
 
         # neighborhood_ = deepcopy(neighborhood)
         # neighborhood_ = neighborhood_.flatten()
@@ -365,7 +383,7 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         
         # if pvalue <= 0.8:
 
-        peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
+        peak_region = [peak_x, peak_y]
 
         if neighborhood[peak_region[0], peak_region[1]] < pPeakInteractionsThreshold:
             mask.append(False)
@@ -376,36 +394,72 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         #     mask.append(False)
         #     continue
 
-        peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
-        i, j, k, l = split_background_peak(normalize(deepcopy(np.log2(neighborhood))), peak_region)
+        # peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
+        # m, n, k, l = split_background_peak(normalize(deepcopy(np.log2(neighborhood))), peak_region)
+        m = 3
+        n = 3
+        k = 3
+        l = 3 
         # neighborhood = np.square(neighborhood)
         # log.debug('i {}, j {}, k {}, l {}'.format(i,j,k,l))
-        peak = neighborhood[peak_region[0] - i:peak_region[0] + j, peak_region[1] - k:peak_region[1] + l].flatten()
+        # peak = neighborhood[peak_region[0] - m:peak_region[0] + n, peak_region[1] - k:peak_region[1] + l].flatten()
+        peak = neighborhood[peak_region[0] - m:peak_region[0] + n, peak_region[1] - k:peak_region[1] + l].flatten()
+
 
         # log.debug('peak: {}'.format(peak))
         background = []
-        background.extend(list(neighborhood[:peak_region[0] - i, :].flatten()))
-        background.extend(list(neighborhood[peak_region[0] + j:, :].flatten()))
+        background.extend(list(neighborhood[:peak_region[0] - m, :].flatten()))
+        background.extend(list(neighborhood[peak_region[0] + n:, :].flatten()))
         background.extend(list(neighborhood[:, :peak_region[1] - k].flatten()))
         background.extend(list(neighborhood[:, peak_region[1] + l:].flatten()))
         background = np.array(background)
 
+        # np.savetxt('candidates/candidates {} neighbor'.format(i), np.sort(background))
+        # np.savetxt('candidates/candidates {} peak'.format(i), np.sort(peak))
+        # # fig, ax = plt.subplots()
+
+        # fig, axis = plt.subplots()
+        # heatmap = axis.pcolor(neighborhood, cmap='hot') 
+        # plt.colorbar(heatmap)
+        # # plt.imshow(neighborhood, cmap='hot', interpolation='nearest')
+        # axis.plot([peak_region[0]], [peak_region[1]], 's', lw=2, markerfacecolor='none', markeredgecolor='red')
+        # # axis.plot([m:n], [k:l], 's', lw=2, markerfacecolor='none', markeredgecolor='green')
+        # rect = patches.Rectangle((peak_region[0] - m, peak_region[1] - k),6,6,linewidth=1,edgecolor='g',facecolor='none')
+
+        # axis.add_patch(rect)
+        # plt.savefig('candidates/candidates {}.png'.format(i))
+
+        # plt.close()
         if len(background) < pWindowSize:
             mask.append(False)
             continue
         if len(peak) < pWindowSize:
             mask.append(False)
             continue
+        if np.mean(peak) < np.mean(background):
+            mask.append(False)
+            continue
+        if np.max(peak) < np.max(background):
+            mask.append(False)
+            continue
+        # mean_neighborhood = np.mean(background)
+        # min_peak = np.min(peak)
+        # if mean_neighborhood  > min_peak:
+        #     mask.append(False)
+        #     continue
         # statistic, pvalue = ttest_ind(peak, background, equal_var=False)
         # mannwhitneyu
         statistic, pvalue = mannwhitneyu(peak, background)
+        
 
         # statistic, _, pvalue = anderson_ksamp([peak, background])
 
         if pvalue <= pPValue:
             mask.append(True)
             pvalues.append(pvalue)
+            
             continue
+
         # except:
         #     mask.append(False)
         #     continue
@@ -416,7 +470,7 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
     log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
-
+    # log.debug('mask {}'.format(mask))
     pvalues = np.array(pvalues)
 
     ###Bonferroni
