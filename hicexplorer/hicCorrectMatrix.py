@@ -1,5 +1,5 @@
-from __future__ import division
 import warnings
+import sys
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
@@ -12,6 +12,15 @@ from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.utilities import check_cooler
+
+#Knight-Ruiz algorithm:
+from krbalancing import *
+
+#packages needed for plotting:
+from matplotlib import use
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 import numpy as np
 debug = 0
@@ -115,10 +124,10 @@ Statistical Techniques, Edward F. Mykytka, Ph.D., Editor).
         'correct',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[correct_subparser()],
-        help="""Run the iterative correction.""",
+        help="""Run Knight-Ruiz matrix balancing algorithm (KR) or the iterative matrix correction (ICE) .""",
         usage='%(prog)s '
               '--matrix hic_matrix.h5 '
-              '--filterThreshold -1.2 5 '
+              '--filterThreshold -1.2 5 (Only if ICE)'
               '-out corrected_matrix.h5 \n')
 
     return parser
@@ -139,7 +148,17 @@ def correct_subparser():
                                 'output is a .h5 file.',
                                 required=True)
 
-    parserRequired.add_argument('--filterThreshold', '-t',
+
+    parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument('--correctionMethod',
+                           help='Method to be used for matrix correction. It can be set to KR or ICE.'
+                           '(Default is KR)',
+                           type=str,
+                           metavar='STR',
+                           default='KR')
+
+    parserOpt.add_argument('--filterThreshold', '-t',
                                 help='Removes bins of low or large coverage. '
                                 'Usually these bins do not contain valid Hi-C data or represent '
                                 'regions that accumulate reads and thus must be discarded. '
@@ -149,9 +168,7 @@ def correct_subparser():
                                 '-1.5 5',
                                 type=float,
                                 nargs=2,
-                                required=True)
-
-    parserOpt = parser.add_argument_group('Optional arguments')
+                                default=None)
 
     parserOpt.add_argument('--iterNum', '-n',
                            help='Number of iterations to compute.',
@@ -386,11 +403,8 @@ def plot_total_contact_dist(hic_ma, args):
     :param hic_ma: sparse matrix
     :return:
     """
-    from matplotlib import use
     use('Agg')
-    import matplotlib.pyplot as plt
-    import matplotlib.gridspec as gridspec
-    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+
     majorlocator = MultipleLocator(1)
     majorformatter = FormatStrFormatter('%d')
     minorlocator = MultipleLocator(0.2)
@@ -557,10 +571,11 @@ def main(args=None):
             ma.reorderChromosomes(toString(args.chromosomes))
 
     # mask all zero value bins
-    row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
-    log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
-    ma.maskBins(np.flatnonzero(row_sum == 0))
-    matrix_shape = ma.matrix.shape
+    if (args.correctionMethod == 'ICE') or ('plotName' in args):
+        row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
+        log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
+        ma.maskBins(np.flatnonzero(row_sum == 0))
+        matrix_shape = ma.matrix.shape
     ma.matrix = convertNansToZeros(ma.matrix)
     ma.matrix = convertInfsToZeros(ma.matrix)
 
@@ -576,62 +591,86 @@ def main(args=None):
     if args.skipDiagonal:
         ma.diagflat(value=0)
 
-    outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1], perchr=args.perchr)
-    # compute and print some statistics
-    pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
-    ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%) "
+    total_filtered_out = set()
+    if args.correctionMethod == 'ICE':
+        if not args.filterThreshold:
+            log.error('min and max filtering thresholds should be set')
+            sys.exit(1)
+        outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1], perchr=args.perchr)
+        # compute and print some statistics
+        pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
+        ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%) "
                                                "out of".format(pct_outlier, ma.matrix.shape[0]),
                         restore_masked_bins=False)
 
-    assert matrix_shape == ma.matrix.shape
-    # mask filtered regions
-    ma.maskBins(outlier_regions)
-    total_filtered_out = set(outlier_regions)
+        assert matrix_shape == ma.matrix.shape
+        # mask filtered regions
+        ma.maskBins(outlier_regions)
+        total_filtered_out = set(outlier_regions)
 
-    if args.sequencedCountCutoff and 0 < args.sequencedCountCutoff < 1:
-        chrom, _, _, coverage = zip(*ma.cut_intervals)
+        if args.sequencedCountCutoff and 0 < args.sequencedCountCutoff < 1:
+            chrom, _, _, coverage = zip(*ma.cut_intervals)
 
-        assert type(coverage[0]) == np.float64
+            assert type(coverage[0]) == np.float64
 
-        failed_bins = np.flatnonzero(
-            np.array(coverage) < args.sequencedCountCutoff)
+            failed_bins = np.flatnonzero(
+                np.array(coverage) < args.sequencedCountCutoff)
 
-        ma.printchrtoremove(failed_bins, label="Bins with low coverage", restore_masked_bins=False)
-        ma.maskBins(failed_bins)
-        total_filtered_out = set(failed_bins)
-        """
-        ma.matrix, to_remove = fill_gaps(ma, failed_bins)
-        log.warning("From {} failed bins, {} could "
+            ma.printchrtoremove(failed_bins, label="Bins with low coverage", restore_masked_bins=False)
+            ma.maskBins(failed_bins)
+            total_filtered_out = set(failed_bins)
+            """
+            ma.matrix, to_remove = fill_gaps(ma, failed_bins)
+            log.warning("From {} failed bins, {} could "
                          "not be filled\n".format(len(failed_bins),
                                                   len(to_remove)))
-        ma.maskBins(to_remove)
-        """
+            ma.maskBins(to_remove)
+            """
 
-    if args.transCutoff and 0 < args.transCutoff < 100:
-        cutoff = float(args.transCutoff) / 100
-        # a usual cutoff is 0.05
-        ma.truncTrans(high=cutoff)
+        if args.transCutoff and 0 < args.transCutoff < 100:
+            cutoff = float(args.transCutoff) / 100
+            # a usual cutoff is 0.05
+            ma.truncTrans(high=cutoff)
 
-    pre_row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
+            pre_row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
     correction_factors = []
+    corrected_matrix = lil_matrix(ma.matrix.shape)
     if args.perchr:
-        corrected_matrix = lil_matrix(ma.matrix.shape)
         # normalize each chromosome independently
         for chrname in list(ma.interval_trees):
             chr_range = ma.getChrBinRange(chrname)
             chr_submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
-            _matrix, _corr_factors = iterative_correction(chr_submatrix, args)
-            corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = _matrix
-            correction_factors.append(_corr_factors)
+            if args.correctionMethod == 'ICE':
+                _matrix, _corr_factors = iterative_correction(chr_submatrix, args)
+                corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = _matrix
+                correction_factors.append(_corr_factors)
+            else:
+                #set the kr matrix along with its correction factors vector
+                assert(args.correctionMethod == 'KR')
+                log.debug("Loading a float sparse matrix for KR balancing")
+                kr = kr_balancing(chr_submatrix.astype(float))
+                kr.computeKR()
+                corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(True)
+                correction_factors.append(kr.get_normalisation_vector(False).todense())
+
         correction_factors = np.concatenate(correction_factors)
 
     else:
-        corrected_matrix, correction_factors = iterative_correction(ma.matrix, args)
+        if args.correctionMethod == 'ICE':
+            corrected_matrix, correction_factors = iterative_correction(ma.matrix, args)
+        else:
+            assert(args.correctionMethod == 'KR')
+            log.debug("Loading a float sparse matrix for KR balancing")
+            kr = kr_balancing(ma.matrix.astype(float))
+            kr.computeKR()
+            corrected_matrix = kr.get_normalised_matrix(True)
+            correction_factors = kr.get_normalisation_vector(False).todense() #set to False since the vector is already normalised with the previous True
+
 
     ma.setMatrixValues(corrected_matrix)
     ma.setCorrectionFactors(correction_factors)
     log.info("Correction factors {}".format(correction_factors[:10]))
-    if args.inflationCutoff and args.inflationCutoff > 0:
+    if args.inflationCutoff and args.inflationCutoff > 0 and args.correctionMethod == 'ICE':
         after_row_sum = np.asarray(corrected_matrix.sum(axis=1)).flatten()
         # identify rows that were expanded more than args.inflationCutoff times
         to_remove = np.flatnonzero(after_row_sum / pre_row_sum >= args.inflationCutoff)
@@ -639,9 +678,7 @@ def main(args=None):
                             label="inflated >={} "
                             "regions".format(args.inflationCutoff), restore_masked_bins=False)
         total_filtered_out = total_filtered_out.union(to_remove)
-
         ma.maskBins(to_remove)
-
     ma.printchrtoremove(sorted(list(total_filtered_out)),
                         label="Total regions to be removed", restore_masked_bins=False)
 
