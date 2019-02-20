@@ -255,49 +255,6 @@ def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
     return pCandidates, mask
 
 
-def split_background_peak(pNeighborhood, pPeakLocation, pEps=0.05):
-    # max mean of peak, min background mean
-    # background = deepcopy(pNeighborhood)
-    i = 0
-    j = 0
-    k = 0
-    l = 0
-    lower = 0
-    iterations = 0
-    upper = len(pNeighborhood)
-    means = []
-    #     var = []
-    var = 0.0001
-    x_size = len(pNeighborhood)
-    y_size = len(pNeighborhood[0])
-    max_iterations = max(x_size, y_size)
-    while var < pEps and iterations < max_iterations:
-        if pPeakLocation[0] - i > 0:
-            i += 1
-        if pPeakLocation[0] + j < x_size:
-            j += 1
-        if pPeakLocation[1] - k > 0:
-            k += 1
-        if pPeakLocation[1] + l < y_size:
-            l += 1
-        peak = pNeighborhood[pPeakLocation[0] - i:pPeakLocation[0] + j, pPeakLocation[1] - k:pPeakLocation[1] + l]
-        means.append(np.median(peak))
-        var = np.var(peak)
-        iterations += 1
-    # print(i)
-    return i, j, k, l
-
-
-def normalize(pNeighborhood):
-    min_value = np.min(pNeighborhood)
-    max_value = np.max(pNeighborhood)
-    min_max_difference = np.float64(max_value - min_value)
-
-    pNeighborhood -= min_value
-    pNeighborhood /= min_max_difference
-    return pNeighborhood
-
-
 def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                           pPeakInteractionsThreshold, pPeakWindowSize):
     # this function test if the values in the neighborhood of a
@@ -321,12 +278,10 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
     mask = []
 
-    # normalized_average_neighborhood = np.zeros((pWindowSize * 2 ) **2)
     neighborhood_list = []
 
     mask = []
     for i, candidate in enumerate(pCandidates):
-        # log.debug('candidate {}'.format(candidate))
 
         if candidate[0] - pWindowSize > 0:
             start_x = candidate[0] - pWindowSize
@@ -341,21 +296,16 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         else:
             start_y = 0
             peak_y = pWindowSize - candidate[1]
-        # start_x = candidate[0] - \
-        #     pWindowSize if candidate[0] - pWindowSize > 0 else 0
+
         end_x = candidate[0] + pWindowSize if candidate[0] + \
             pWindowSize < x_max else x_max
-        # start_y = candidate[1] - \
-        #     pWindowSize if candidate[1] - pWindowSize > 0 else 0
+
         end_y = candidate[1] + pWindowSize if candidate[1] + \
             pWindowSize < y_max else y_max
-        # log.debug('start_x:end_x {}:{} start_y:end_y {}:{}'.format(start_x,end_x,start_y,end_y))
-
 
         neighborhood = pHiCMatrix[start_x:end_x,
                                   start_y:end_y].toarray()
 
-        # try:
         neighborhood_old = neighborhood
         for j in range(len(neighborhood)):
             neighborhood[j, :] = smoothInteractionValues(neighborhood[j, :], 5)
@@ -363,47 +313,18 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             neighborhood_old[:, j] = smoothInteractionValues(neighborhood[:, j], 5)
         neighborhood = (neighborhood + neighborhood_old) / 2
 
-
-        # neighborhood_ = deepcopy(neighborhood)
-        # neighborhood_ = neighborhood_.flatten()
-        # expected_neighborhood = np.random.uniform(low=np.min(
-        #     neighborhood_), high=np.max(neighborhood_), size=len(neighborhood_))
-
-        # # neighborhood = np.nan_to_num(neighborhood)
-        # # expected_neighborhood = np.nan_to_num(expected_neighborhood)
-
-        # # try:
-        # statistic, pvalue = mannwhitneyu(neighborhood_, expected_neighborhood)
-        # # except Exception:
-        # #     mask.append(False)
-        # #     continue
-        
-        # if pvalue <= 0.8:
-
         peak_region = [peak_x, peak_y]
 
         if neighborhood[peak_region[0], peak_region[1]] < pPeakInteractionsThreshold:
             mask.append(False)
             continue
-        # variance = np.std(neighborhood)
-
-        # if variance <= pStandardDeviation:
-        #     mask.append(False)
-        #     continue
-
-        # peak_region = np.unravel_index(neighborhood.argmax(), neighborhood.shape)
-        # m, n, k, l = split_background_peak(normalize(deepcopy(np.log2(neighborhood))), peak_region)
         
         if pPeakWindowSize > pWindowSize:
             log.warning('Neighborhood window size ({}) needs to be larger than peak width({}).'.format(pWindowSize, pPeakWindowSize))
             return None, None
-        # neighborhood = np.square(neighborhood)
-        # log.debug('i {}, j {}, k {}, l {}'.format(i,j,k,l))
-        # peak = neighborhood[peak_region[0] - m:peak_region[0] + n, peak_region[1] - k:peak_region[1] + l].flatten()
+      
         peak = neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize, peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize].flatten()
 
-
-        # log.debug('peak: {}'.format(peak))
         background = []
         background.extend(list(neighborhood[:peak_region[0] - pPeakWindowSize, :].flatten()))
         background.extend(list(neighborhood[peak_region[0] + pPeakWindowSize:, :].flatten()))
@@ -439,17 +360,8 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         if np.max(peak) < np.max(background):
             mask.append(False)
             continue
-        # mean_neighborhood = np.mean(background)
-        # min_peak = np.min(peak)
-        # if mean_neighborhood  > min_peak:
-        #     mask.append(False)
-        #     continue
-        # statistic, pvalue = ttest_ind(peak, background, equal_var=False)
-        # mannwhitneyu
+   
         statistic, pvalue = mannwhitneyu(peak, background)
-        
-
-        # statistic, _, pvalue = anderson_ksamp([peak, background])
 
         if pvalue <= pPValue:
             mask.append(True)
@@ -457,17 +369,11 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             
             continue
 
-        # except:
-        #     mask.append(False)
-        #     continue
-
         mask.append(False)
-        # pvalues.append(1.0)
 
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
     log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
-    # log.debug('mask {}'.format(mask))
     pvalues = np.array(pvalues)
 
     ###Bonferroni
@@ -496,7 +402,7 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
     # pvalues = pvalues[mask]
     # pCandidates = pCandidates[mask]
 
-    log.debug('pCandidates after Bonfrroni: {}'.format(len(pCandidates)))
+    log.debug('pCandidates after Bonferroni: {}'.format(len(pCandidates)))
     if len(pCandidates) == 0:
         return None, None
 
