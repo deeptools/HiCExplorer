@@ -53,7 +53,8 @@ Computes PCA eigenvectors for a Hi-C matrix.
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--numberOfEigenvectors', '-noe',
-                           help='The number of eigenvectors that the PCA should compute.',
+                           help='The number of eigenvectors that the PCA should'
+                           'compute.',
                            default=2,
                            type=int,
                            required=False)
@@ -70,20 +71,37 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            default=None,
                            nargs='+')
     parserOpt.add_argument('--norm',
-                           help='Different obs-exp normalization as used by Homer software.',
+                           help='Different obs-exp normalization as used by '
+                           'Homer software.',
                            action='store_true')
-    parserOpt.add_argument('--geneTrack',
-                           help='The gene track is needed to decide if the values of the eigenvector need a sign flip or not.',
+    parserOpt.add_argument('--extraTrack',
+                           help='Either a gene track or a histon mark coverage '
+                           'file (preferably a broad mark) is needed to decide '
+                           'if the values of the eigenvector need a sign flip '
+                           'or not.',
                            default=None)
+    parserOpt.add_argument('--histonMarkType',
+                            help = 'set it to active or inactive. This is only '
+                            'necessary if a histon mark coverage file is given '
+                            'as an extraTrack.',
+                            default='active'
+                            )
     parserOpt.add_argument('--pearsonMatrix', '-pm',
-                           help='Internally the input matrix is converted per chromosome to obs_exp matrix and consecutively to a Pearson matrix.'
-                           ' Set this parameter to write the pearson matrix to a file.'
+                           help='Internally the input matrix is converted per '
+                           'chromosome to obs_exp matrix and consecutively to a'
+                           'Pearson matrix.'
+                           ' Set this parameter to write the pearson matrix to '
+                           'a file.'
                            )
     parserOpt.add_argument('--obsexpMatrix', '-oem',
-                           help='Internally the input matrix is converted per chromosome to obs_exp matrix and consecutively to a Pearson matrix.'
-                           ' Set this parameter to write the observe / expected matrix to a file.'
+                           help='Internally the input matrix is converted per '
+                           'chromosome to obs_exp matrix and consecutively to a'
+                           'Pearson matrix.'
+                           ' Set this parameter to write the observe / expected'
+                           'matrix to a file.'
                            )
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+    parserOpt.add_argument('--help', '-h', action='help', help='show the help '
+                           'message and exit')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -93,8 +111,9 @@ Computes PCA eigenvectors for a Hi-C matrix.
 
 def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
     '''
-    This function correlates the eigenvectors per chromosome with the gene density.
-    If the correlation is negative, the eigenvector values are multiplied with -1.
+    This function correlates the eigenvectors per chromosome with the gene
+    density. If the correlation is negative, the eigenvector values are
+    multiplied with -1.
     '''
 
     file_h = opener(pGeneTrack)
@@ -110,7 +129,8 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
         if chromosome_name not in chromosome_list:
             continue
         # in which bin of the Hi-C matrix is the given gene?
-        bin_id = pMatrix.getRegionBinRange(interval.chromosome, interval.start, interval.end)
+        bin_id = pMatrix.getRegionBinRange(interval.chromosome, interval.start,
+                                            interval.end)
 
         # add +1 for one gene occurrence in this bin
         gene_occurrence[bin_id[1]] += 1
@@ -129,11 +149,37 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
     for chromosome in chromosome_list:
         bin_id = pMatrix.getChrBinRange(chromosome)
         for i, eigenvector in enumerate(pEigenvector):
-            _correlation = pearsonr(eigenvector[bin_id[0]:bin_id[1]].real, gene_occurrence_per_chr[chromosome])
+            _correlation = pearsonr(eigenvector[bin_id[0]:bin_id[1]].real,
+                                    gene_occurrence_per_chr[chromosome])
             if _correlation[0] < 0:
                 eigenvector[bin_id[0]:bin_id[1]] = np.negative(eigenvector[bin_id[0]:bin_id[1]])
+
     return np.array(pEigenvector).transpose()
 
+
+def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome, start, end, pHistonMarkTrack, pHistonMarkType):
+    for index, vector in enumerate(pEigenvector):
+
+        pos_indices = np.where(vector<0)[0]
+        neg_indices = np.where(vector>0)[0]
+        pos_sum = 0
+        neg_sum = 0
+        for ind in pos_indices:
+            pos_sum = np.mean(bwTrack.values(chromosome,start[ind],end[ind]))
+        for ind in neg_indices:
+            neg_sum = np.mean(bwTrack.values(chromosome,start[ind],end[ind]))
+        if pHistonMarkType == 'active':
+            if pos_sum < neg_sum:
+                #flip the sign
+                vector[pos_indices] = -1 * vector[pos_indices]
+                vector[neg_indices] = -1 * vector[neg_indices]
+        else:
+            assert(pHistonMarkType == 'inactive')
+            if pos_sum > neg_sum:
+                #flip the sign
+                vector[pos_indices] = -1 * vector[pos_indices]
+                vector[neg_indices] = -1 * vector[neg_indices]
+        pEigenvector[index] = vector
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -165,6 +211,8 @@ def main(args=None):
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
         length_chromosome += chr_range[1] - chr_range[0]
+    if args.extraTrack and (args.extraTrack.endswith('.bw') or args.extraTrack.endswith('.bigwig')):
+        bwTrack = pyBigWig.open(args.extraTrack, 'r')
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
 
@@ -199,6 +247,13 @@ def main(args=None):
         chrom_list += chrom
         start_list += start
         end_list += end
+        if args.extraTrack and (args.extraTrack.endswith('.bw') or args.extraTrack.endswith('.bigwig')):
+            if args.histonMarkType == 'active':
+                assert(len(end) == len(start))
+                correlateEigenvectorWithHistonMarkTrack(eigs[:, :k].transpose(), bwTrack, chrname, start, end, args.extraTrack, args.histonMarkType)
+            else:
+                assert(args.histonMarkType == 'inactive')
+                correlateEigenvectorWithHistonMarkTrack(eigs[:, :k].transpose(), bwTrack, chrname, start, end, args.extraTrack, args.histonMarkType)
 
     if args.pearsonMatrix:
         file_type = 'cool'
@@ -224,8 +279,11 @@ def main(args=None):
                                                      ma.distance_counts)
         matrixFileHandlerOutput.save(args.obsexpMatrix, pSymmetric=True, pApplyCorrection=False)
 
-    if args.geneTrack:
-        vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.geneTrack)
+    if args.extraTrack:
+        if args.extraTrack.endswith('.bed'):
+            vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.extraTrack)
+        else:
+            assert(args.extraTrack.endswith('.bw') or args.extraTrack.endswith('.bigwig'))
 
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):
