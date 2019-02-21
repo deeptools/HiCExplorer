@@ -22,25 +22,8 @@ original_matrix_cool = ROOT + "/small_test_matrix.cool"
 original_matrix_cool_chr4 = ROOT + "/small_test_matrix_chr4.cool"
 
 
-# test cases for:
-#   - h5 to cool
-#   - h5 to homer
-#   - h5 to ginteractions
-#   - h5's to mcool
-#   - cool to h5
-#   - hic to cool
-#   - cool to h5:
-#       - correction name
-#       - correction division
-#       - store_applied correction
-#       - chromosome
-#       - enforce integer
-#   - resolutions
-
-
 def test_hicConvertFormat_h5_to_cool():
 
-    # original_matrix = ''
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
 
@@ -48,15 +31,12 @@ def test_hicConvertFormat_h5_to_cool():
     hicConvertFormat.main(args)
 
     test = hm.hiCMatrix(original_matrix_cool)
-    # print(outfile.name)
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
-    # os.unlink(outfile.name)
 
 
 def test_hicConvertFormat_h5_to_cool_enforce_integer():
 
-    # original_matrix = ''
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
 
@@ -64,10 +44,8 @@ def test_hicConvertFormat_h5_to_cool_enforce_integer():
     hicConvertFormat.main(args)
 
     test = hm.hiCMatrix(original_matrix_cool)
-    # print(outfile.name)
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=0)
-    # print('issubclass(test.matrix.data.dtype.type, np.integer) {}'.format(issubclass(test.matrix.data.dtype.type, np.integer)))
     assert issubclass(test.matrix.data.dtype.type, np.integer)
 
 

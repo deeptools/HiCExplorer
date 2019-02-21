@@ -32,7 +32,9 @@ $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
                                 required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
-
+    parserOpt.add_argument('--outFileName', '-o',
+                           help='File name to save information of the matrix instead of writing it to the bash.'
+                           )
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -57,14 +59,29 @@ def main():
 
         chromosomes = list(hic_ma.chrBinBoundaries)
 
-        print("File:\t{}".format(matrix))
-        print("Size:\t{:,}".format(size))
-        print("Sum:\t{:,}".format(sum_elements))
-        print("Bin_length:\t{}".format(bin_length))
-        print("Chromosomes:\t{}".format(", ".join(toString(chromosomes))))
-        print("Non-zero elements:\t{:,}".format(num_non_zero))
-        print("Minimum (non zero):\t{}".format(min_non_zero))
-        print("Maximum:\t{}".format(max_non_zero))
-        print("NaN bins:\t{}".format(num_nan_bins))
-        if check_cooler(matrix):
-            hic_ma.getInformationCoolerBinNames()
+        if args.outFileName:
+            with open(args.outFileName, 'w') as file:
+                file.write("# Matrix information file. Created with HiCExplorer's hicInfo version {}\n".format(__version__))
+                file.write("File:\t{}\n".format(matrix))
+                file.write("Size:\t{:,}\n".format(size))
+                file.write("Sum:\t{:,}\n".format(sum_elements))
+                file.write("Bin_length:\t{}\n".format(bin_length))
+                file.write("Chromosomes:\t{}\n".format(", ".join(toString(chromosomes))))
+                file.write("Non-zero elements:\t{:,}\n".format(num_non_zero))
+                file.write("Minimum (non zero):\t{}\n".format(min_non_zero))
+                file.write("Maximum:\t{}\n".format(max_non_zero))
+                file.write("NaN bins:\t{}\n".format(num_nan_bins))
+                if check_cooler(matrix):
+                    file.write('The following columns are available: {}'.format(hic_ma.getInformationCoolerBinNames()))
+        else:
+            print("File:\t{}".format(matrix))
+            print("Size:\t{:,}".format(size))
+            print("Sum:\t{:,}".format(sum_elements))
+            print("Bin_length:\t{}".format(bin_length))
+            print("Chromosomes:\t{}".format(", ".join(toString(chromosomes))))
+            print("Non-zero elements:\t{:,}".format(num_non_zero))
+            print("Minimum (non zero):\t{}".format(min_non_zero))
+            print("Maximum:\t{}".format(max_non_zero))
+            print("NaN bins:\t{}".format(num_nan_bins))
+            if check_cooler(matrix):
+                print('The following columns are available: {}'.format(hic_ma.getInformationCoolerBinNames()))

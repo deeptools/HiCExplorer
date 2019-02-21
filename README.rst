@@ -45,6 +45,7 @@ A **Galaxy HiCExplorer version** is directly available to users at http://hicexp
 while a Galaxy Tour is available `here <https://hicexplorer.usegalaxy.eu/tours/hixexplorer>`_ for users not familiar with this platform. Galaxy HiCExplorer is also available as a Docker image at the `Docker Galaxy HiCExplorer GitHub repository <https://github.com/deeptools/docker-galaxy-hicexplorer>`_. Finally, this Galaxy version is available on the `Galaxy Tool Shed <https://toolshed.g2.bx.psu.edu/>`_ and on the corresponding `GitHub repository <https://github.com/galaxyproject/tools-iuc>`_.
 
 
+
 Installation
 ^^^^^^^^^^^^
 
@@ -55,6 +56,11 @@ With version 2.0, HiCExplorer is available for Python 2 and Python 3 and can be 
 
 There are many easy ways to install HiCExplorer. Details can be found
 `here <https://hicexplorer.readthedocs.io/en/latest/content/installation.html>`_.
+
+**Deprecation warning:** HiCExplorer version 2.2 is the last version supporting Python 2.7. Please update to Python 3.6.
+
+**We strongly recommended to use conda to install HiCExplorer.**
+
 
 Command line version
 ++++++++++++++++++++
