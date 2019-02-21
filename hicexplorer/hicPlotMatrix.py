@@ -1,4 +1,3 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -276,14 +275,11 @@ def translate_region(region_string):
     are set to a 0 and 1e15
     """
 
-    if sys.version_info[0] == 2:
-        region_string = region_string.translate(None, ",;!").replace("-", ":")
-    if sys.version_info[0] == 3:
-        # region_string = toBytes(region_string)
-        region_string = region_string.replace(",", "")
-        region_string = region_string.replace(";", "")
-        region_string = region_string.replace("!", "")
-        region_string = region_string.replace("-", ":")
+    # region_string = toBytes(region_string)
+    region_string = region_string.replace(",", "")
+    region_string = region_string.replace(";", "")
+    region_string = region_string.replace("!", "")
+    region_string = region_string.replace("-", ":")
 
     fields = region_string.split(":")
     chrom = fields[0]
@@ -511,8 +507,8 @@ def main(args=None):
             invalid_chromosomes = []
             log.debug('args.chromosomeOrder: {}'.format(args.chromosomeOrder))
             log.debug("ma.chrBinBoundaries {}".format(ma.chrBinBoundaries))
-            if sys.version_info[0] == 3:
-                args.chromosomeOrder = toBytes(args.chromosomeOrder)
+
+            args.chromosomeOrder = toBytes(args.chromosomeOrder)
             for chrom in toString(args.chromosomeOrder):
                 if chrom in ma.chrBinBoundaries:
                     valid_chromosomes.append(chrom)
