@@ -98,7 +98,7 @@ def _sum_per_distance(pSum_per_distance, pData, pDistances):
     """
         This internal function computes the sum per genomic distance of matrix.
 
-        Input: 
+        Input:
         pSum_per_distance: numpy 1D array. Index value is equal to distance d.
         pData: numpy 1D array. Contains the count data.
         pDistances: numpy 1D array. Distances are associated with pData.
@@ -162,20 +162,20 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
     """
         This function computes the loops by:
             - decreasing the search space by removing zScore values < 0
-            - decreasing the search space with the zScoreMeanFactor 
+            - decreasing the search space with the zScoreMeanFactor
             - decreasing the search space by excluding candidates with too less counts
             - merging candidates which share a neighborhood to one candidate
             - calling candidate_region_test to test the neighborhood of a candidate against its peak to detect significant peaks
 
         Input:
             - pHiCMatrix: original interaction matrix for neighborhood and peak region subset selection
-            - pZscoreMatrix: z-score matrix 
+            - pZscoreMatrix: z-score matrix
             - pAdjustedHiCMatrix: interation matrix adjusted to dimensions and sparsity of z-score matrix
-            - pWindowSize: integer, the size of (2*pWindowSize)^2 around a candidate defines its neighborhood. It is used for 
+            - pWindowSize: integer, the size of (2*pWindowSize)^2 around a candidate defines its neighborhood. It is used for
                     a) merging candidates and their neighborhoods to one candidate per neighborhood which appear in this region.
                     b) same neighborhood is used to test the peak region against the neighborhood for significant difference (candidate_region_test)
             - pPeakInteractionsThreshold: integer, remove candidates with less interactions
-            - pZscoreMeanFactor: float, per genomic distance prune all z-scores with: z-score < mean(z-scores) * pZscoreMeanFactor 
+            - pZscoreMeanFactor: float, per genomic distance prune all z-scores with: z-score < mean(z-scores) * pZscoreMeanFactor
             - pPValue: float, test rejection level for H0 and Bonferroni correction
             - pPeakWindowSize: integer, size of the peak region: (2*pPeakWindowSize)^2. Needs to be smaller than pWindowSize
 
@@ -254,7 +254,7 @@ def filter_duplicates(pCandidates):
 
 def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
     """
-        Clusters candidates together to one candidate if they share / overlap their neighborhood. 
+        Clusters candidates together to one candidate if they share / overlap their neighborhood.
         Implemented in an iterative way, the candidate with the highest z-score is accepted as candidate for the neighborhood.
 
         Input:
@@ -317,7 +317,7 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             - Apply multi-test Bonferonni based on pPValue
 
         Input:
-            - pHiCMatrix: csr_matrix, interaction matrix to extract candidate neighborhood 
+            - pHiCMatrix: csr_matrix, interaction matrix to extract candidate neighborhood
             - pCandidates: list of candidates to test for enrichment
             - pWindowSize: integer, size of neighborhood (2*pWindowSize)^2
             - pPValue: float, significance level for Mann-Whitney rank test
@@ -329,24 +329,16 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             - List of associated p-values
     """
 
-    accepted_index = []
     mask = []
     pvalues = []
-    deleted_index = []
-    high_impact_values = []
     x_max = pHiCMatrix.shape[0]
     y_max = pHiCMatrix.shape[1]
-    maximal_value = 0
     log.debug('candidate_region_test initial: {}'.format(len(pCandidates)))
 
     if len(pCandidates) == 0:
         return None, None
 
     pCandidates = np.array(pCandidates)
-
-    mask = []
-
-    neighborhood_list = []
 
     mask = []
     for i, candidate in enumerate(pCandidates):
@@ -486,7 +478,7 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
 
 def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     """
-        Master function to compute the loops for one chromosome. 
+        Master function to compute the loops for one chromosome.
             - Removes all regions smaller minLoopSize, greater maxLoopSize
             - Computes z-score for this chromosome per genomic distance
             - Calls compute_long_range_contacts
@@ -496,7 +488,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             - pHiCMatrix: Hi-C interaction matrix object
             - pRegion: Chromosome name
             - pArgs: Argparser object
-            - pQueue: Queue object for multiprocessing communication with parent process            
+            - pQueue: Queue object for multiprocessing communication with parent process
     """
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
     pHiCMatrix.matrix.eliminate_zeros()
@@ -589,7 +581,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
 def smoothInteractionValues(pData, pWindowSize):
     '''
         Smoothes pData with a sliding window of pWindowSize
-        Adds -pWindowsSize/2 and +pWindowsSize/2 around pData[i] and averages pData[i] by pWindowSize to 
+        Adds -pWindowsSize/2 and +pWindowsSize/2 around pData[i] and averages pData[i] by pWindowSize to
         smooth the interaction values.
     '''
 
