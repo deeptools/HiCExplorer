@@ -283,19 +283,19 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
     mask = []
     for i, candidate in enumerate(pCandidates):
 
-        if candidate[0] - pWindowSize > 0:
+        if (candidate[0] - pWindowSize) > 0:
             start_x = candidate[0] - pWindowSize
-            peak_x = pWindowSize
+            peak_x = pWindowSize - 1
         else:
             start_x = 0
-            peak_x = pWindowSize - candidate[0]
+            peak_x = pWindowSize - candidate[0] -1 
         
-        if candidate[1] - pWindowSize:
+        if (candidate[1] - pWindowSize) > 0:
             start_y = candidate[1] - pWindowSize
-            peak_y = pWindowSize
+            peak_y = pWindowSize - 1
         else:
             start_y = 0
-            peak_y = pWindowSize - candidate[1]
+            peak_y = pWindowSize - candidate[1] - 1
 
         end_x = candidate[0] + pWindowSize if candidate[0] + \
             pWindowSize < x_max else x_max
