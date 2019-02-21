@@ -1,9 +1,18 @@
 News and Developments
 =====================
 
+
+Release 2.2.1
+-------------
+**7 February 2019**
+
+- Muting log output of matplotlib and cooler
+- Set version number of hicmatrix to 7
+- Optional parameter for hicInfo to write the result to a file instead to the bash
+
 Release 2.2
 -----------
-**10 December 2018**
+**18 January 2019**
 
 This release contains:
 
