@@ -638,7 +638,7 @@ def main(args=None):
 
         if not is_cooler:
             hic_matrix = hm.hiCMatrix(args.matrix)
-            hic_matrix.keepOnlyTheseChr([chromosome])
+            # hic_matrix.keepOnlyTheseChr([chromosome])
             matrix = deepcopy(hic_matrix.matrix)
             cut_intervals = deepcopy(hic_matrix.cut_intervals)
 

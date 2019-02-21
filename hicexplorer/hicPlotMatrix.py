@@ -824,7 +824,7 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
 
                 x_list.append(x)
                 y_list.append(y)
-            except:
+            except Exception:
                 pass
         pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
         pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))

@@ -1,6 +1,6 @@
 import os.path
 from tempfile import NamedTemporaryFile
-from hicexplorer import hicDetectLongRangeContacts
+from hicexplorer import hicDetectLoops
 import pytest
 from psutil import virtual_memory
 import numpy.testing as nt
@@ -34,26 +34,29 @@ def test_compute_zscore_matrix():
     data = np.array([0, 2, 3, 4, 5, 6, 7, 8, 9])
 
     matrix = csr_matrix((data, (instances, features)))
-    distances = np.absolute(instances-features)
+    distances = np.absolute(instances - features)
     sum_per_distance_test = np.zeros(8)
-    sum_per_distance_test = hicDetectLongRangeContacts._sum_per_distance(sum_per_distance_test, data, distances, 9)
+    sum_per_distance_test = hicDetectLoops._sum_per_distance(sum_per_distance_test, data, distances, 9)
     # sum per distance
-    sum_per_distance_expected = np.array([8, 17, 4 ,0, 8, 7, 0, 0])
-    
-    nt.assert_equal(sum_per_distance_test, sum_per_distance_expected)    
+    sum_per_distance_expected = np.array([8, 17, 4, 0, 8, 7, 0, 0])
 
-    z_score = hicDetectLongRangeContacts.compute_zscore_matrix(matrix)
+    nt.assert_equal(sum_per_distance_test, sum_per_distance_expected)
+
+    z_score = hicDetectLoops.compute_zscore_matrix(matrix)
     print('foo:', z_score)
+
 
 def test_compute_long_range_contacts():
     pass
 
+
 def test_cluster_to_genome_position_mapping():
     pass
+
 
 def test_write_bedgraph():
     pass
 
+
 def test_main():
     pass
-    

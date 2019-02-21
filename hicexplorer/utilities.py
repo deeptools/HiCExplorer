@@ -49,7 +49,7 @@ def remove_outliers(data, max_deviation=3.5):
 
 def convertNansToZeros(ma):
     nan_elements = np.flatnonzero(np.isnan(ma.data))
-    data_type = type(ma.data[0])
+    # data_type = type(ma.data[0])
     if len(nan_elements) > 0:
         # if data_type == np.float
         ma.data[nan_elements] = 0.0
@@ -249,7 +249,7 @@ def expected_interactions_non_zero(pSubmatrix):
     distance = np.absolute(row - col)
 
     occurences = np.zeros(pSubmatrix.shape[0])
-    data_type = type(pSubmatrix.data[0])
+    # data_type = type(pSubmatrix.data[0])
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
         occurences[distance_] += 1

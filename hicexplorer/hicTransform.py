@@ -204,7 +204,7 @@ def main(args=None):
     if args.perChromosome:
         hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
     else:
-        
+
         hic_ma.setMatrix(trasf_matrix, cut_intervals=hic_ma.cut_intervals)
 
     hic_ma.save(args.outFileName, pSymmetric=True, pApplyCorrection=False)

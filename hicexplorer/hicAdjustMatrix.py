@@ -32,18 +32,18 @@ def parse_arguments(args=None):
     parserOpt = parser.add_argument_group('Optional arguments')
     parserMutuallyExclusive = parser.add_mutually_exclusive_group()
     parserMutuallyExclusive.add_argument('--chromosomes', '-c',
-                           nargs='+',
-                           help='List of chromosomes to keep / remove')
+                                         nargs='+',
+                                         help='List of chromosomes to keep / remove')
     parserMutuallyExclusive.add_argument('--regions', '-r',
-                           help='BED file which stores a list of regions to keep / remove')
+                                         help='BED file which stores a list of regions to keep / remove')
     parserMutuallyExclusive.add_argument('--maskBadRegions', '-mbr',
-                           help='Bad regions are identified and masked.')
+                                         help='Bad regions are identified and masked.')
     parserOpt.add_argument('--action',
                            help='Keep, remove or mask the list of specified chromosomes / regions ',
                            default='keep',
                            choices=['keep', 'remove', 'mask']
                            )
-    
+
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -118,7 +118,6 @@ def main(args=None):
         else:
             hic_ma = hm.hiCMatrix(args.matrix)
 
-        
     else:
         log.info('No data to adjust given. Please specify either --chromosomes or --region parameter.')
 
