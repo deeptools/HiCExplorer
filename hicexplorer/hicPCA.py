@@ -171,15 +171,16 @@ def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome, s
         if chromosome in bwTrack.chroms().keys():
             for ind in pos_indices:
                 if bwTrack.stats(chromosome, start[ind], end[ind])[0]:
-                    pos_sum += bwTrack.stats(chromosome, start[ind], end[ind])[0]
+                    pos_sum += bwTrack.stats(chromosome, start[ind],
+                                             end[ind])[0]
             if pos_sum != 0:
-                pos_mean = pos_sum/len(pos_indices)
+                pos_mean = pos_sum / len(pos_indices)
             for ind in neg_indices:
                 if bwTrack.stats(chromosome, start[ind], end[ind])[0]:
                     neg_sum += bwTrack.stats(chromosome, start[ind],
                                              end[ind])[0]
             if neg_sum != 0:
-                neg_mean = neg_sum/len(neg_indices)
+                neg_mean = neg_sum / len(neg_indices)
             if pHistonMarkType == 'active':
                 if (pos_mean < neg_mean) and (neg_mean != 0) and (pos_mean != 0):
                     # flip the sign
@@ -224,13 +225,14 @@ def main(args=None):
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
         length_chromosome += chr_range[1] - chr_range[0]
-    if args.extraTrack and (args.extraTrack.endswith('.bw')
-    or args.extraTrack.endswith('.bigwig')):
+    if args.extraTrack and (args.extraTrack.endswith('.bw') or
+                            args.extraTrack.endswith('.bigwig')):
         bwTrack = pyBigWig.open(args.extraTrack, 'r')
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
 
-        submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+        submatrix = ma.matrix[chr_range[0]:chr_range[1],
+                              chr_range[0]:chr_range[1]]
         if args.norm:
             obs_exp_matrix_ = obs_exp_matrix_norm(submatrix)
 
@@ -271,7 +273,6 @@ def main(args=None):
                                                     args.histonMarkType)
 
         vecs_list += eigs[:, :k].tolist()
-
 
     if args.pearsonMatrix:
         file_type = 'cool'
