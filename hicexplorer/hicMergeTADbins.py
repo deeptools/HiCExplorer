@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -8,7 +7,6 @@ import sys
 import argparse
 from hicmatrix import HiCMatrix as hm
 from past.builtins import zip
-from builtins import range
 import numpy as np
 from hicexplorer.utilities import toString
 from hicexplorer._version import __version__
