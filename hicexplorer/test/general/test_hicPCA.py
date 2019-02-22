@@ -109,7 +109,7 @@ def test_pca_bedgraph_gene_density():
     matrix = ROOT + "small_test_matrix.h5"
     gene_track = ROOT + 'dm3_genes.bed.gz'
     chromosomes = 'chrX chrXHet'
-    args = "--matrix {} --outputFileName {} {} -f bedgraph -noe 2 --geneTrack {} --chromosomes {}".format(matrix, pca1.name, pca2.name, gene_track, chromosomes).split()
+    args = "--matrix {} --outputFileName {} {} -f bedgraph -noe 2 --extraTrack {} --chromosomes {}".format(matrix, pca1.name, pca2.name, gene_track, chromosomes).split()
     hicPCA.main(args)
 
     assert are_files_equal(ROOT + "hicPCA/pca1_gene_track.bedgraph", pca1.name)
@@ -128,7 +128,7 @@ def test_pca_bigwig_gene_density():
     matrix = ROOT + "small_test_matrix.h5"
     gene_track = ROOT + 'dm3_genes.bed.gz'
     chromosomes = 'chrX chrXHet'
-    args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --geneTrack {} --chromosomes {}".format(matrix, pca1.name, pca2.name, gene_track, chromosomes).split()
+    args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --extraTrack {} --chromosomes {}".format(matrix, pca1.name, pca2.name, gene_track, chromosomes).split()
     hicPCA.main(args)
 
     chrom_list = ['chrX', 'chrXHet']
@@ -151,7 +151,7 @@ def test_pca_bigwig_gene_density_intermediate_matrices():
     matrix = ROOT + "small_test_matrix.h5"
     gene_track = ROOT + 'dm3_genes.bed.gz'
     chromosomes = 'chrX chrXHet'
-    args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --geneTrack {} --chromosomes {} --pearsonMatrix {} --obsexpMatrix {}"\
+    args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --extraTrack {} --chromosomes {} --pearsonMatrix {} --obsexpMatrix {}"\
         .format(matrix, pca1.name, pca2.name, gene_track, chromosomes, pearson_matrix.name, obs_exp_matrix.name).split()
     hicPCA.main(args)
 
@@ -190,7 +190,7 @@ def test_pca_bigwig_gene_density_intermediate_matrices_norm():
     matrix = ROOT + "small_test_matrix.h5"
     gene_track = ROOT + 'dm3_genes.bed.gz'
     chromosomes = 'chrX chrXHet'
-    args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --geneTrack {} --chromosomes {} --pearsonMatrix {} --obsexpMatrix {} --norm"\
+    args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --extraTrack {} --chromosomes {} --pearsonMatrix {} --obsexpMatrix {} --norm"\
         .format(matrix, pca1.name, pca2.name, gene_track, chromosomes, pearson_matrix.name, obs_exp_matrix.name).split()
     hicPCA.main(args)
 
@@ -221,3 +221,40 @@ def test_pca_bigwig_gene_density_intermediate_matrices_norm():
     os.unlink(pca2.name)
     os.unlink(obs_exp_matrix.name)
     os.unlink(pearson_matrix.name)
+
+def test_pca_bigwig_histoneMark_track():
+    pca1 = NamedTemporaryFile(suffix='.bw', delete=False)
+    pca2 = NamedTemporaryFile(suffix='.bw', delete=False)
+
+    pca1.close()
+    pca2.close()
+    matrix = ROOT + "small_test_matrix.h5"
+    extra_track = ROOT + 'bigwig_chrx_2e6_5e6.bw'
+    chromosomes = 'chrX '
+    args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --extraTrack {} --chromosomes {}".format(matrix, pca1.name, pca2.name, extra_track, chromosome).split()
+    hicPCA.main(args)
+
+    assert are_files_equal_bigwig(ROOT + "hicPCA/pca1_chip_track.bw", pca1.name, chrom_list)
+    assert are_files_equal_bigwig(ROOT + "hicPCA/pca2_chip_track.bw", pca2.name, chrom_list)
+
+    os.unlink(pca1.name)
+    os.unlink(pca2.name)
+
+
+def test_pca_bedgraph_histoneMark_track():
+    pca1 = NamedTemporaryFile(suffix='.bedgraph', delete=False)
+    pca2 = NamedTemporaryFile(suffix='.bedgraph', delete=False)
+
+    pca1.close()
+    pca2.close()
+    matrix = ROOT + "small_test_matrix.h5"
+    extra_track = ROOT + 'bigwig_chrx_2e6_5e6.bw'
+    chromosomes = 'chrX '
+    args = "--matrix {} --outputFileName {} {} -f bedgraph -noe 2 --extraTrack {} --chromosomes {}".format(matrix, pca1.name, pca2.name, extra_track, chromosome).split()
+    hicPCA.main(args)
+
+    assert are_files_equal(ROOT + "hicPCA/pca1_chip_track.bedgraph", pca1.name)
+    assert are_files_equal(ROOT + "hicPCA/pca2_chip_track.bedgraph", pca2.name)
+
+    os.unlink(pca1.name)
+    os.unlink(pca2.name)

@@ -158,28 +158,41 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
 
 
 def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome, start, end, pHistonMarkTrack, pHistonMarkType):
+    """
+        This function flip the signs only if both compartments exist for the given `chromosome`, otherwise it doesn't change the signs and
+        the investigation should be done manually.
+    """
     for index, vector in enumerate(pEigenvector):
-
-        pos_indices = np.where(vector<0)[0]
-        neg_indices = np.where(vector>0)[0]
+        pos_indices = np.where(vector>0)[0]
+        neg_indices = np.where(vector<0)[0]
         pos_sum = 0
         neg_sum = 0
-        for ind in pos_indices:
-            pos_sum = np.mean(bwTrack.values(chromosome,start[ind],end[ind]))
-        for ind in neg_indices:
-            neg_sum = np.mean(bwTrack.values(chromosome,start[ind],end[ind]))
-        if pHistonMarkType == 'active':
-            if pos_sum < neg_sum:
-                #flip the sign
-                vector[pos_indices] = -1 * vector[pos_indices]
-                vector[neg_indices] = -1 * vector[neg_indices]
-        else:
-            assert(pHistonMarkType == 'inactive')
-            if pos_sum > neg_sum:
-                #flip the sign
-                vector[pos_indices] = -1 * vector[pos_indices]
-                vector[neg_indices] = -1 * vector[neg_indices]
+        pos_mean = 0
+        neg_mean = 0
+        if chromosome in bwTrack.chroms().keys():
+            for ind in pos_indices:
+                if bwTrack.stats(chromosome,start[ind],end[ind])[0]:
+                    pos_sum += bwTrack.stats(chromosome,start[ind],end[ind])[0]
+            if pos_sum != 0:
+                pos_mean = pos_sum/len(pos_indices)
+            for ind in neg_indices:
+                if bwTrack.stats(chromosome,start[ind],end[ind])[0]:
+                    neg_sum += bwTrack.stats(chromosome,start[ind],end[ind])[0]
+            if neg_sum != 0:
+                neg_mean = neg_sum/len(neg_indices)
+            if pHistonMarkType == 'active':
+                if (pos_mean < neg_mean) and (neg_mean != 0) and (pos_mean != 0):
+                    #flip the sign
+                    vector[pos_indices] = np.negative(vector[pos_indices])
+                    vector[neg_indices] = np.negative(vector[neg_indices])
+            else:
+                assert(pHistonMarkType == 'inactive')
+                if (pos_mean > neg_mean) and (neg_mean != 0) and (pos_mean != 0):
+                    #flip the sign
+                    vector[pos_indices] = -1 * vector[pos_indices]
+                    vector[neg_indices] = -1 * vector[neg_indices]
         pEigenvector[index] = vector
+
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -242,7 +255,6 @@ def main(args=None):
         k = args.numberOfEigenvectors
 
         chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:chr_range[1]])
-        vecs_list += eigs[:, :k].tolist()
 
         chrom_list += chrom
         start_list += start
@@ -251,9 +263,13 @@ def main(args=None):
             if args.histonMarkType == 'active':
                 assert(len(end) == len(start))
                 correlateEigenvectorWithHistonMarkTrack(eigs[:, :k].transpose(), bwTrack, chrname, start, end, args.extraTrack, args.histonMarkType)
+
             else:
                 assert(args.histonMarkType == 'inactive')
                 correlateEigenvectorWithHistonMarkTrack(eigs[:, :k].transpose(), bwTrack, chrname, start, end, args.extraTrack, args.histonMarkType)
+
+        vecs_list += eigs[:, :k].tolist()
+
 
     if args.pearsonMatrix:
         file_type = 'cool'
