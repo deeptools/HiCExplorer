@@ -1,22 +1,20 @@
 import argparse
 import sys
-import numpy as np
-import hicmatrix.HiCMatrix as hm
-from hicexplorer import utilities
-
-from hicexplorer._version import __version__
-from .lib import Viewpoint
-import matplotlib
-matplotlib.use('Agg')
-
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-
 import os
-
 import math
 import logging
 log = logging.getLogger(__name__)
+
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
+import hicmatrix.HiCMatrix as hm
+from hicexplorer import utilities
+from hicexplorer._version import __version__
+from .lib import Viewpoint
 
 
 def parse_arguments(args=None):
@@ -30,17 +28,12 @@ def parse_arguments(args=None):
                                 required=True,
                                 nargs='+')
 
-    # parserRequired.add_argument('--targetFile', '-tf',
-    #                             help='path to the target files which contains the target regions to prepare data for differential analysis.',
-    #                             required=True,
-    #                             nargs='+')
-
     parserMutuallyExclusiveGroup = parser.add_mutually_exclusive_group(required=True)
     parserMutuallyExclusiveGroup.add_argument('--targetFile', '-tf',
                                               help='path to the target files which contains the target regions to prepare data for differential analysis.',
                                               nargs='+')
     parserMutuallyExclusiveGroup.add_argument('--rbzScore', '-rbz',
-                                              help='Range of region up- and downstream of each region to include in bin units.',
+                                              help='rbzScore threshold value to filter target regins to include them for differential analysis.',
                                               type=float)
 
     parserOpt = parser.add_argument_group('Optional arguments')

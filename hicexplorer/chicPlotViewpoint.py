@@ -1,28 +1,25 @@
 import argparse
 import sys
-import numpy as np
-import hicmatrix.HiCMatrix as hm
-from hicexplorer import utilities
-
-from hicexplorer._version import __version__
-from .lib import Viewpoint
-
-import matplotlib
-matplotlib.use('Agg')
-
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-
 import os
-
 import math
 import logging
 log = logging.getLogger(__name__)
 
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
+import hicmatrix.HiCMatrix as hm
+from hicexplorer import utilities
+from hicexplorer._version import __version__
+from .lib import Viewpoint
+
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-                                     description='Plots the number of interactions around a given reference point in a region.')
+                                     description='Plots a viewpoint computed by chicViewpoint.')
 
     parserRequired = parser.add_argument_group('Required arguments')
 

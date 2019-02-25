@@ -1,15 +1,15 @@
-from __future__ import division
 import argparse
-from hicmatrix import HiCMatrix as hm
-from hicexplorer._version import __version__
 import math
 from multiprocessing import Process, Queue
 import time
 import logging
 log = logging.getLogger(__name__)
 
-from .lib import Viewpoint
 import numpy as np
+
+from hicmatrix import HiCMatrix as hm
+from hicexplorer._version import __version__
+from .lib import Viewpoint
 
 
 def parse_arguments(args=None):

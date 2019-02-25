@@ -1,14 +1,5 @@
 import argparse
 import sys
-import numpy as np
-import hicmatrix.HiCMatrix as hm
-from hicexplorer import utilities
-from .lib import Viewpoint
-from hicexplorer._version import __version__
-from scipy.stats import zscore
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import os
 from multiprocessing import Process, Queue
 import time
@@ -16,10 +7,21 @@ import math
 import logging
 log = logging.getLogger(__name__)
 
+from scipy.stats import zscore
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+
+import hicmatrix.HiCMatrix as hm
+from hicexplorer import utilities
+from .lib import Viewpoint
+from hicexplorer._version import __version__
+
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-                                     description='Plots the number of interactions around a given reference point in a region.')
+                                     description='Computes per input matrix all viewpoints given the reference points.')
 
     parserRequired = parser.add_argument_group('Required arguments')
 
