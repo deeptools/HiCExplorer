@@ -292,7 +292,6 @@ def test_pca_bedgraph_histoneMark_track():
     --extraTrack {} --chromosomes {}"\
     .format(matrix, pca1.name, pca2.name, extra_track, chromosomes).split()
     hicPCA.main(args)
-    chrom_list = ['chrX']
     assert are_files_equal(ROOT + "hicPCA/pca1_chip_track.bedgraph",
                            pca1.name)
     assert are_files_equal(ROOT + "hicPCA/pca2_chip_track.bedgraph",
