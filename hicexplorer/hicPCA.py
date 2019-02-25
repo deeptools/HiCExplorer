@@ -318,7 +318,7 @@ def main(args=None):
                     if len(value) == args.numberOfEigenvectors:
                         if isinstance(value[idx], np.complex):
                             value[idx] = value[idx].real
-                        fh.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_list[i]), start_list[i],end_list[i], value[idx]))
+                        fh.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_list[i]), start_list[i], end_list[i], value[idx]))
 
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
