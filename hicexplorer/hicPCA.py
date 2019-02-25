@@ -252,10 +252,8 @@ def main(args=None):
             trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
 
         pearson_correlation_matrix = np.corrcoef(obs_exp_matrix_)
-        pearson_correlation_matrix = convertNansToZeros(
-                    csr_matrix(pearson_correlation_matrix)).todense()
-        pearson_correlation_matrix = convertInfsToZeros(
-                    csr_matrix(pearson_correlation_matrix)).todense()
+        pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
+        pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
 
         if args.pearsonMatrix:
             trasf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(pearson_correlation_matrix)
@@ -320,9 +318,7 @@ def main(args=None):
                     if len(value) == args.numberOfEigenvectors:
                         if isinstance(value[idx], np.complex):
                             value[idx] = value[idx].real
-                        fh.write("{}\t{}\t{}\t{:.12f}\n".format(
-                                toString(chrom_list[i]), start_list[i],
-                                end_list[i], value[idx]))
+                        fh.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_list[i]), start_list[i],end_list[i], value[idx]))
 
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
