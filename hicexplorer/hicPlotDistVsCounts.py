@@ -290,7 +290,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
 
         if maxdepth is None:
             maxdepth = np.inf
-        mean_dict[chrname] = OrderedDict([((k - 1) * binsize, v) for k, v in iteritems(mu) if k > 0 and
+        mean_dict[chrname] = OrderedDict([((k - 1) * binsize, v) for k, v in iteritems(mu) if k > 0 and  # noqa: W504
                                           (k - 1) * binsize <= maxdepth])
         # mean_dict[chrname]['intra_chr'] = mu[0]
 

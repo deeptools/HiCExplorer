@@ -271,12 +271,12 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
             # the new row value is the mean between the upper
             # and lower rows
             fill_ma[missing_bin, 1:mat_size - 1] = \
-                (hic_ma.matrix[missing_bin - 1, :mat_size - 2] +
+                (hic_ma.matrix[missing_bin - 1, :mat_size - 2] +  # noqa: W504
                  hic_ma.matrix[missing_bin + 1, 2:]) / 2
 
             # same for cols
             fill_ma[1:mat_size - 1, missing_bin] = \
-                (hic_ma.matrix[:mat_size - 2, missing_bin - 1] +
+                (hic_ma.matrix[:mat_size - 2, missing_bin - 1] +  # noqa: W504
                  hic_ma.matrix[2:, missing_bin + 1]) / 2
 
     # identify the intersection points of the failed regions because they
@@ -428,7 +428,7 @@ def plot_total_contact_dist(hic_ma, args):
         ax2.set_xlim(mad_values.value_to_mad(np.array(ax1.get_xlim())))
 
         # get first local mininum value
-        local_min = [x for x, y in enumerate(dist) if 1 <= x < len(dist) - 1 and
+        local_min = [x for x, y in enumerate(dist) if 1 <= x < len(dist) - 1 and  # noqa: W504
                      dist[x - 1] > y < dist[x + 1]]
 
         if len(local_min) > 0:
