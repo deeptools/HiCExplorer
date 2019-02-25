@@ -136,7 +136,8 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
     for chromosome in chromosome_list:
         # where is the start and the end bin of a chromosome?
         bin_id = pMatrix.getChrBinRange(chromosome)
-        gene_occurrence_per_chr[chromosome] = gene_occurrence[bin_id[0]:bin_id[1]]
+        gene_occurrence_per_chr[chromosome] = \
+            gene_occurrence[bin_id[0]:bin_id[1]]
 
     # change from [[1,2], [3,4], [5,6]] to [[1,3,5],[2,4,6]]
     pEigenvector = np.array(pEigenvector).real.transpose()
@@ -150,12 +151,15 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
             _correlation = pearsonr(eigenvector[bin_id[0]:bin_id[1]].real,
                                     gene_occurrence_per_chr[chromosome])
             if _correlation[0] < 0:
-                eigenvector[bin_id[0]:bin_id[1]] = np.negative(eigenvector[bin_id[0]:bin_id[1]])
+                eigenvector[bin_id[0]:bin_id[1]] = np.negative(
+                                eigenvector[bin_id[0]:bin_id[1]])
 
     return np.array(pEigenvector).transpose()
 
 
-def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome, start, end, pHistonMarkTrack, pHistonMarkType):
+def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome,
+                                            start, end, pHistonMarkTrack,
+                                            pHistonMarkType):
     """
         This function flip the signs only if both compartments exist for the
         given `chromosome`, otherwise it doesn't change the signs and
@@ -182,13 +186,15 @@ def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome, s
             if neg_sum != 0:
                 neg_mean = neg_sum / len(neg_indices)
             if pHistonMarkType == 'active':
-                if (pos_mean < neg_mean) and (neg_mean != 0) and (pos_mean != 0):
+                if (pos_mean < neg_mean) and (neg_mean != 0) and (
+                                                                pos_mean != 0):
                     # flip the sign
                     vector[pos_indices] = np.negative(vector[pos_indices])
                     vector[neg_indices] = np.negative(vector[neg_indices])
             else:
                 assert(pHistonMarkType == 'inactive')
-                if (pos_mean > neg_mean) and (neg_mean != 0) and (pos_mean != 0):
+                if (pos_mean > neg_mean) and (neg_mean != 0) and (
+                                                                pos_mean != 0):
                     # flip the sign
                     vector[pos_indices] = -1 * vector[pos_indices]
                     vector[neg_indices] = -1 * vector[neg_indices]
@@ -198,9 +204,11 @@ def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome, s
 def main(args=None):
     args = parse_arguments().parse_args(args)
     if int(args.numberOfEigenvectors) != len(args.outputFileName):
-        log.error("Number of output file names and number of eigenvectors does not match. Please"
-                  "provide the name of each file.\nFiles: {}\nNumber of eigenvectors: {}".format(args.outputFileName,
-                                                                                                 args.numberOfEigenvectors))
+        log.error("Number of output file names and number of eigenvectors"
+                  " does not match. Please"
+                  "provide the name of each file.\nFiles: {}\nNumber of "
+                  "eigenvectors: {}".format(args.outputFileName,
+                                            args.numberOfEigenvectors))
         exit(1)
 
     ma = hm.hiCMatrix(args.matrix)
@@ -240,18 +248,26 @@ def main(args=None):
             obs_exp_matrix_ = obs_exp_matrix_lieberman(submatrix,
                                                        length_chromosome,
                                                        chromosome_count)
-        obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_)).todense()
-        obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
+        obs_exp_matrix_ = convertNansToZeros(
+                csr_matrix(obs_exp_matrix_)).todense()
+        obs_exp_matrix_ = convertInfsToZeros(
+                csr_matrix(obs_exp_matrix_)).todense()
 
         if args.obsexpMatrix:
-            trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
+            trasf_matrix_obsexp[chr_range[0]:chr_range[1],
+                                chr_range[0]:chr_range[1]] =\
+                                lil_matrix(obs_exp_matrix_)
 
         pearson_correlation_matrix = np.corrcoef(obs_exp_matrix_)
-        pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
-        pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
+        pearson_correlation_matrix = convertNansToZeros(
+                    csr_matrix(pearson_correlation_matrix)).todense()
+        pearson_correlation_matrix = convertInfsToZeros(
+                    csr_matrix(pearson_correlation_matrix)).todense()
 
         if args.pearsonMatrix:
-            trasf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(pearson_correlation_matrix)
+            trasf_matrix_pearson[chr_range[0]:chr_range[1],
+                                 chr_range[0]:chr_range[1]] =\
+                                 lil_matrix(pearson_correlation_matrix)
 
         corrmatrix = np.cov(pearson_correlation_matrix)
         corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
@@ -259,7 +275,8 @@ def main(args=None):
         evals, eigs = linalg.eig(corrmatrix)
         k = args.numberOfEigenvectors
 
-        chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:chr_range[1]])
+        chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:
+                                                     chr_range[1]])
 
         chrom_list += chrom
         start_list += start
@@ -279,30 +296,33 @@ def main(args=None):
         if args.pearsonMatrix.endswith('.h5'):
             file_type = 'h5'
         matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
-        matrixFileHandlerOutput.set_matrix_variables(trasf_matrix_pearson.tocsr(),
-                                                     ma.cut_intervals,
-                                                     ma.nan_bins,
-                                                     ma.correction_factors,
-                                                     ma.distance_counts)
-        matrixFileHandlerOutput.save(args.pearsonMatrix, pSymmetric=True, pApplyCorrection=False)
+        matrixFileHandlerOutput.set_matrix_variables(
+                                                trasf_matrix_pearson.tocsr(),
+                                                ma.cut_intervals,
+                                                ma.nan_bins,
+                                                ma.correction_factors,
+                                                ma.distance_counts)
+        matrixFileHandlerOutput.save(args.pearsonMatrix, pSymmetric=True,
+                                     pApplyCorrection=False)
 
     if args.obsexpMatrix:
         file_type = 'cool'
         if args.obsexpMatrix.endswith('.h5'):
             file_type = 'h5'
         matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
-        matrixFileHandlerOutput.set_matrix_variables(trasf_matrix_obsexp.tocsr(),
-                                                     ma.cut_intervals,
-                                                     ma.nan_bins,
-                                                     ma.correction_factors,
-                                                     ma.distance_counts)
-        matrixFileHandlerOutput.save(args.obsexpMatrix, pSymmetric=True, pApplyCorrection=False)
+        matrixFileHandlerOutput.set_matrix_variables(
+                                                trasf_matrix_obsexp.tocsr(),
+                                                ma.cut_intervals,
+                                                ma.nan_bins,
+                                                ma.correction_factors,
+                                                ma.distance_counts)
+        matrixFileHandlerOutput.save(args.obsexpMatrix, pSymmetric=True,
+                                     pApplyCorrection=False)
 
-    if args.extraTrack:
-        if args.extraTrack.endswith('.bed'):
-            vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.extraTrack)
-        else:
-            assert(args.extraTrack.endswith('.bw') or args.extraTrack.endswith('.bigwig'))
+    if args.extraTrack and not args.extraTrack.endswith('.bw') \
+            and not args.extraTrack.endswith('.bigwig'):
+            vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list,
+                                                          args.extraTrack)
 
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):
@@ -313,11 +333,14 @@ def main(args=None):
                     if len(value) == args.numberOfEigenvectors:
                         if isinstance(value[idx], np.complex):
                             value[idx] = value[idx].real
-                        fh.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_list[i]), start_list[i], end_list[i], value[idx]))
+                        fh.write("{}\t{}\t{}\t{:.12f}\n".format(
+                                toString(chrom_list[i]), start_list[i],
+                                end_list[i], value[idx]))
 
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
-            log.error("ERROR: Your version of pyBigWig is not supporting numpy: {}".format(pyBigWig.__file__))
+            log.error("ERROR: Your version of pyBigWig is not supporting "
+                      "numpy: {}".format(pyBigWig.__file__))
             exit(1)
         old_chrom = chrom_list[0]
         header = []
@@ -352,7 +375,8 @@ def main(args=None):
                     _end_list.append(end_list[i])
 
             # write entries
-            bw.addEntries(_chrom_list, _start_list, ends=_end_list, values=values)
+            bw.addEntries(_chrom_list, _start_list, ends=_end_list,
+                          values=values)
             bw.close()
     else:
         log.error("Output format not known: {}".format(args.format))
