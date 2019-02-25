@@ -151,8 +151,7 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
             _correlation = pearsonr(eigenvector[bin_id[0]:bin_id[1]].real,
                                     gene_occurrence_per_chr[chromosome])
             if _correlation[0] < 0:
-                eigenvector[bin_id[0]:bin_id[1]] = np.negative(
-                                eigenvector[bin_id[0]:bin_id[1]])
+                eigenvector[bin_id[0]:bin_id[1]] = np.negative(eigenvector[bin_id[0]:bin_id[1]])
 
     return np.array(pEigenvector).transpose()
 
@@ -186,15 +185,13 @@ def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome,
             if neg_sum != 0:
                 neg_mean = neg_sum / len(neg_indices)
             if pHistonMarkType == 'active':
-                if (pos_mean < neg_mean) and (neg_mean != 0) and (
-                                                                pos_mean != 0):
+                if (pos_mean < neg_mean) and (neg_mean != 0) and (pos_mean != 0):
                     # flip the sign
                     vector[pos_indices] = np.negative(vector[pos_indices])
                     vector[neg_indices] = np.negative(vector[neg_indices])
             else:
                 assert(pHistonMarkType == 'inactive')
-                if (pos_mean > neg_mean) and (neg_mean != 0) and (
-                                                                pos_mean != 0):
+                if (pos_mean > neg_mean) and (neg_mean != 0) and (pos_mean != 0):
                     # flip the sign
                     vector[pos_indices] = -1 * vector[pos_indices]
                     vector[neg_indices] = -1 * vector[neg_indices]
@@ -248,15 +245,11 @@ def main(args=None):
             obs_exp_matrix_ = obs_exp_matrix_lieberman(submatrix,
                                                        length_chromosome,
                                                        chromosome_count)
-        obs_exp_matrix_ = convertNansToZeros(
-                csr_matrix(obs_exp_matrix_)).todense()
-        obs_exp_matrix_ = convertInfsToZeros(
-                csr_matrix(obs_exp_matrix_)).todense()
+        obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_)).todense()
+        obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
 
         if args.obsexpMatrix:
-            trasf_matrix_obsexp[chr_range[0]:chr_range[1],
-                                chr_range[0]:chr_range[1]] =\
-                                lil_matrix(obs_exp_matrix_)
+            trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
 
         pearson_correlation_matrix = np.corrcoef(obs_exp_matrix_)
         pearson_correlation_matrix = convertNansToZeros(
@@ -265,9 +258,7 @@ def main(args=None):
                     csr_matrix(pearson_correlation_matrix)).todense()
 
         if args.pearsonMatrix:
-            trasf_matrix_pearson[chr_range[0]:chr_range[1],
-                                 chr_range[0]:chr_range[1]] =\
-                                 lil_matrix(pearson_correlation_matrix)
+            trasf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(pearson_correlation_matrix)
 
         corrmatrix = np.cov(pearson_correlation_matrix)
         corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
@@ -275,8 +266,7 @@ def main(args=None):
         evals, eigs = linalg.eig(corrmatrix)
         k = args.numberOfEigenvectors
 
-        chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:
-                                                     chr_range[1]])
+        chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:chr_range[1]])
 
         chrom_list += chrom
         start_list += start
@@ -296,12 +286,11 @@ def main(args=None):
         if args.pearsonMatrix.endswith('.h5'):
             file_type = 'h5'
         matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
-        matrixFileHandlerOutput.set_matrix_variables(
-                                                trasf_matrix_pearson.tocsr(),
-                                                ma.cut_intervals,
-                                                ma.nan_bins,
-                                                ma.correction_factors,
-                                                ma.distance_counts)
+        matrixFileHandlerOutput.set_matrix_variables(trasf_matrix_pearson.tocsr(),
+                                                     ma.cut_intervals,
+                                                     ma.nan_bins,
+                                                     ma.correction_factors,
+                                                     ma.distance_counts)
         matrixFileHandlerOutput.save(args.pearsonMatrix, pSymmetric=True,
                                      pApplyCorrection=False)
 
@@ -310,17 +299,15 @@ def main(args=None):
         if args.obsexpMatrix.endswith('.h5'):
             file_type = 'h5'
         matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
-        matrixFileHandlerOutput.set_matrix_variables(
-                                                trasf_matrix_obsexp.tocsr(),
-                                                ma.cut_intervals,
-                                                ma.nan_bins,
-                                                ma.correction_factors,
-                                                ma.distance_counts)
+        matrixFileHandlerOutput.set_matrix_variables(trasf_matrix_obsexp.tocsr(),
+                                                     ma.cut_intervals,
+                                                     ma.nan_bins,
+                                                     ma.correction_factors,
+                                                     ma.distance_counts)
         matrixFileHandlerOutput.save(args.obsexpMatrix, pSymmetric=True,
                                      pApplyCorrection=False)
 
-    if args.extraTrack and not args.extraTrack.endswith('.bw') \
-            and not args.extraTrack.endswith('.bigwig'):
+    if args.extraTrack and not args.extraTrack.endswith('.bw') and not args.extraTrack.endswith('.bigwig'):
             vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list,
                                                           args.extraTrack)
 
