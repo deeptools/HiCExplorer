@@ -294,9 +294,9 @@ def test_pca_bedgraph_histoneMark_track():
     hicPCA.main(args)
     chrom_list = ['chrX']
     assert are_files_equal(ROOT + "hicPCA/pca1_chip_track.bedgraph",
-                           pca1.name, chrom_list)
+                           pca1.name)
     assert are_files_equal(ROOT + "hicPCA/pca2_chip_track.bedgraph",
-                           pca2.name, chrom_list)
+                           pca2.name)
 
     os.unlink(pca1.name)
     os.unlink(pca2.name)
