@@ -205,7 +205,7 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
                     if dist_list[idx] == -1:
                         continue
                     elif (orig_ma[triu_ma.row[idx],
-                                  triu_ma.col[idx]] <=
+                                  triu_ma.col[idx]] <=  # noqa: W504
                           noise_level[chrom_list[idx]]):
                         under_noise += 1
                         continue
@@ -274,8 +274,7 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
 
             if idx > 0 and (idx == 10000 or idx % 500000 == 0):
                 endtime = time.time()
-                estimated = (float(len(transf_ma) - idx) *
-                             (endtime - start_time)) / idx
+                estimated = (float(len(transf_ma) - idx) * (endtime - start_time)) / idx
                 mmin, sec = divmod(estimated, 60)
                 hour, mmin = divmod(mmin, 60)
                 log.debug("iteration: {} Estimated remaining time "
@@ -489,7 +488,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
         else:
             good += 1
 
-        if (plot_distribution and
+        if (plot_distribution and  # noqa: W504
                 dist in [50000] + range(0, max(list(countsByDistance)), 1000000)):
             # actual and fitted distributions are plotted
             # next to each other
@@ -678,7 +677,7 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
                                                          pval[distnc],
                                                          pval_nb))
 
-        if (plot_distribution and
+        if (plot_distribution and  # noqa: W504
                 distnc in range(50000, max(countsByDistance.keys()), 500000)):
 
             import matplotlib.pyplot as plt
@@ -796,7 +795,7 @@ def fit_nbinom(k):
     from scipy.special import psi
     from scipy.optimize import brentq
     N = len(k)
-    n = brentq(lambda r: sum(psi(k + r)) - N * psi(r) +
+    n = brentq(lambda r: sum(psi(k + r)) - N * psi(r) +  # noqa: W504
                N * np.log(r / (r + sum(k / N))),
                np.finfo(np.float128).eps,
                np.max(k))
