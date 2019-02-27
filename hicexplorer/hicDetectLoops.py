@@ -9,12 +9,15 @@ import cooler
 import numpy as np
 from scipy.sparse import csr_matrix, triu
 from scipy.stats import mannwhitneyu
+from scipy.stats import nbinom
 
 from hicmatrix import HiCMatrix as hm
 from hicmatrix.lib import MatrixFileHandler
 from hicexplorer._version import __version__
 from hicexplorer.utilities import check_cooler
 from hicexplorer.hicPlotMatrix import translate_region
+# import fit_nbinom
+from hicexplorer.fit_nbinom import fit_nbinom
 
 
 def parse_arguments(args=None):
@@ -157,7 +160,28 @@ def compute_zscore_matrix(pInstances, pFeatures, pData, pMaxDistance):
     return data_mean
 
 
-def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, pWindowSize,
+def create_distance_distribution(pData, pDistances):
+    pGenomicDistanceDistribution = {}
+    pGenomicDistanceDistributionPosition = {}
+
+    # distinct_distances = set()
+
+    for i, distance in enumerate(pDistances):
+
+        # try:
+        if distance in pGenomicDistanceDistribution:
+            pGenomicDistanceDistribution[distance].append(pData[i])
+            pGenomicDistanceDistributionPosition[distance].append(i)
+        else:
+            pGenomicDistanceDistribution[distance] = [pData[i]]
+            pGenomicDistanceDistributionPosition[distance] = [i]
+        # except:
+        #     pass
+        # distinct_distances.add(int(distance))
+    return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition
+
+
+def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                                 pPeakInteractionsThreshold, pZscoreMeanFactor, pPValue, pPeakWindowSize):
     """
         This function computes the loops by:
@@ -184,19 +208,45 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
             - An associated list of p-values
     """
 
-    instances, features = pAdjustedHiCMatrix.nonzero()
+    # instances, features = pAdjustedHiCMatrix.nonzero()
 
-    # filter by distance
+    # # filter by distance
+    # distance = np.absolute(instances - features)
+
+    # # filter by threshold
+    # mask = pZscoreMatrix.data >= 0
+
+    # zscore_mean = np.mean(pZscoreMatrix.data[mask])
+    # mask = pZscoreMatrix.data >= (zscore_mean * pZscoreMeanFactor)
+
+    # peak_interaction_threshold_array = pPeakInteractionsThreshold / np.log(distance)
+    # mask_interactions = pAdjustedHiCMatrix.data > peak_interaction_threshold_array
+    instances, features = pHiCMatrix.matrix.nonzero()
     distance = np.absolute(instances - features)
+    mask = [False] * len(distance)
+    genomic_distance_distributions, pGenomicDistanceDistributionPosition = create_distance_distribution(pHiCMatrix.matrix.data, distance)
+    nbinom_parameters = {}
+    for i, key in enumerate(genomic_distance_distributions):
+        nbinom_parameters = fit_nbinom(np.array(genomic_distance_distributions[key]))
+        nbinom_distance = nbinom(nbinom_parameters['size'], nbinom_parameters['prob'])
 
-    # filter by threshold
-    mask = pZscoreMatrix.data >= 0
+        less_than = np.array(genomic_distance_distributions[key]).astype(int) - 1
+        max_element = np.max(less_than)
+        sum_of_densities = np.zeros(max_element)
+        for j in range(max_element):
+            if j >= 1:
+                sum_of_densities[j] += sum_of_densities[j - 1]
+            sum_of_densities[j] += nbinom_distance.pmf(j)
 
-    zscore_mean = np.mean(pZscoreMatrix.data[mask])
-    mask = pZscoreMatrix.data >= (zscore_mean * pZscoreMeanFactor)
+        p_value = 1 - sum_of_densities[less_than - 1]
+        mask_distance = p_value < pPValue
+
+        for j, value in enumerate(mask_distance):
+            if value:
+                mask[pGenomicDistanceDistributionPosition[key][j]] = True
 
     peak_interaction_threshold_array = pPeakInteractionsThreshold / np.log(distance)
-    mask_interactions = pAdjustedHiCMatrix.data > peak_interaction_threshold_array
+    mask_interactions = pHiCMatrix.matrix.data > peak_interaction_threshold_array
 
     mask = np.logical_and(mask, mask_interactions)
 
@@ -214,7 +264,7 @@ def compute_long_range_contacts(pHiCMatrix, pZscoreMatrix, pAdjustedHiCMatrix, p
     while number_of_candidates != len(candidates):
         number_of_candidates = len(candidates)
 
-        candidates, mask = window_zscore_cluster(candidates, pWindowSize, pZscoreMatrix)
+        candidates, mask = window_zscore_cluster(candidates, pWindowSize, pHiCMatrix.matrix)
         i += 1
 
         if len(candidates) == 0:
@@ -528,31 +578,31 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         pHiCMatrix.matrix.data[mask] = 0
         pHiCMatrix.matrix.eliminate_zeros()
 
-    pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
-    instances, features = deepcopy(pHiCMatrix.matrix.nonzero())
-    data_hic = deepcopy(pHiCMatrix.matrix.data)
-    if len(pHiCMatrix.matrix.data) == 0:
-        log.info('Computed loops for {}: 0'.format(pRegion))
+    # pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
+    # instances, features = deepcopy(pHiCMatrix.matrix.nonzero())
+    # data_hic = deepcopy(pHiCMatrix.matrix.data)
+    # if len(pHiCMatrix.matrix.data) == 0:
+    #     log.info('Computed loops for {}: 0'.format(pRegion))
 
-        if pQueue is None:
-            return None
-        else:
-            pQueue.put([None])
-            return
+    #     if pQueue is None:
+    #         return None
+    #     else:
+    #         pQueue.put([None])
+    #         return
 
-    z_score_data = compute_zscore_matrix(instances, features, data_hic, pHiCMatrix.matrix.shape[0])
-    z_score_matrix = csr_matrix((z_score_data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
+    # z_score_data = compute_zscore_matrix(instances, features, data_hic, pHiCMatrix.matrix.shape[0])
+    # z_score_matrix = csr_matrix((z_score_data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
 
-    if pArgs.zScoreMatrixName:
-        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
+    # if pArgs.zScoreMatrixName:
+    #     matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
 
-        matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, pHiCMatrix.cut_intervals, pHiCMatrix.nan_bins,
-                                                     None, pHiCMatrix.distance_counts)
-        matrixFileHandlerOutput.save(
-            pRegion + '_' + pArgs.zScoreMatrixName, pSymmetric=True, pApplyCorrection=False)
+    #     matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, pHiCMatrix.cut_intervals, pHiCMatrix.nan_bins,
+    #                                                  None, pHiCMatrix.distance_counts)
+    #     matrixFileHandlerOutput.save(
+    #         pRegion + '_' + pArgs.zScoreMatrixName, pSymmetric=True, pApplyCorrection=False)
 
-    adjusted_hic_matrix = csr_matrix((data_hic, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
-    candidates, pValueList = compute_long_range_contacts(pHiCMatrix, z_score_matrix, adjusted_hic_matrix,
+    # adjusted_hic_matrix = csr_matrix((data_hic, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
+    candidates, pValueList = compute_long_range_contacts(pHiCMatrix,
                                                          pArgs.windowSize,
                                                          pArgs.peakInteractionsThreshold,
                                                          pArgs.dynamicZScoreThreshold,
