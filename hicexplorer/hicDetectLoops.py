@@ -42,20 +42,17 @@ Computes long range contacts within the given contact matrix.
                            type=int,
                            default=6,
                            help='The width of the peak region in bins. The square around the peak will include (2 * peakWidth)^2 bins.')
-    parserOpt.add_argument('--zScoreMatrixName', '-zs',
-                           help='Option to saves the computed intermediate z-score matrices in cooler file format.')
+    
     parserOpt.add_argument('--windowSize', '-w',
                            type=int,
                            default=10,
                            help='The window size for the neighborhood region the peak is located in. All values from this region (exclude the values from the peak '
                            ' region) are tested against the peak region for significant difference. The square will have the size of (2 * windowSize)^2 bins')
-    parserOpt.add_argument('--dynamicZScoreThreshold', '-d',
+    parserOpt.add_argument('--pValuePreselection', '-pp',
                            type=float,
-                           default=1.75,
-                           help='Only candidates with z-scores greater mean(z-scores) * dynamicZScoreThreshold are accepted. With '
-                                'the dynamic z-score threshold it is possible to decrease or increase this filter criteria.'
-                                ' Decrease the default value to increase the number of real loops, but it will decrease the accuracy (i.e. more '
-                                ' false discoveries and increased computation time. Increase the default value for opposite effects.')
+                           default=0.05
+                           help='Only candidates with p-values less the given threshold will be considered as candidates after the fitting the negative binomial distributions. ' 
+                                'This does NOT influence the p-value for the neighborhood testing.')
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
                            default=20,
