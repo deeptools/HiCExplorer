@@ -10,14 +10,14 @@ import numpy as np
 from scipy.sparse import csr_matrix, triu
 from scipy.stats import mannwhitneyu
 from scipy.stats import nbinom
+import fit_nbinom
 
 from hicmatrix import HiCMatrix as hm
 from hicmatrix.lib import MatrixFileHandler
 from hicexplorer._version import __version__
 from hicexplorer.utilities import check_cooler
 from hicexplorer.hicPlotMatrix import translate_region
-# import fit_nbinom
-from hicexplorer.fit_nbinom import fit_nbinom
+
 
 
 def parse_arguments(args=None):
@@ -227,7 +227,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
     genomic_distance_distributions, pGenomicDistanceDistributionPosition = create_distance_distribution(pHiCMatrix.matrix.data, distance)
     nbinom_parameters = {}
     for i, key in enumerate(genomic_distance_distributions):
-        nbinom_parameters = fit_nbinom(np.array(genomic_distance_distributions[key]))
+        nbinom_parameters = fit_nbinom.fit(np.array(genomic_distance_distributions[key]))
         nbinom_distance = nbinom(nbinom_parameters['size'], nbinom_parameters['prob'])
 
         less_than = np.array(genomic_distance_distributions[key]).astype(int) - 1

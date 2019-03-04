@@ -110,7 +110,8 @@ install_requires_py = ["numpy >= 1.15.*",
                        "hicmatrix >= 7",
                        "pygenometracks >= 2.1",
                        "psutil >= 5.4.8",
-                       "hic2cool >= 0.4"
+                       "hic2cool >= 0.4",
+                       "fit_nbinom >= 1.0"
                        ]
 
 
