@@ -1,7 +1,7 @@
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-from hicexplorer import hicBuildMatrix
+from hicexplorer import hicBuildMatrix, hicInfo
 from hicmatrix import HiCMatrix as hm
 from tempfile import NamedTemporaryFile, mkdtemp
 import shutil
@@ -15,15 +15,23 @@ sam_R2 = ROOT + "small_test_R2_unsorted.bam"
 dpnii_file = ROOT + "DpnII.bed"
 
 
-def are_files_equal(file1, file2):
+def are_files_equal(file1, file2, delta=None):
     equal = True
+    if delta:
+        mismatches = 0
     with open(file1) as textfile1, open(file2) as textfile2:
         for x, y in zip(textfile1, textfile2):
             if x.startswith('File'):
                 continue
             if x != y:
-                equal = False
-                break
+                if delta:
+                    mismatches += 1
+                    if mismatches > delta:
+                        equal = False
+                        break
+                else:
+                    equal = False
+                    break
     return equal
 
 
@@ -79,6 +87,43 @@ def test_build_matrix_cooler():
     # print(set(os.listdir(ROOT + "QC/")))
     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
+
+    os.unlink(outfile.name)
+    shutil.rmtree(qc_folder)
+
+
+def test_build_matrix_cooler_metadata():
+    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
+    outfile.close()
+    qc_folder = mkdtemp(prefix="testQC_")
+    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4 --genomeAssembly dm3".format(sam_R1, sam_R2,
+                                                                                                                       outfile.name,
+                                                                                                                       qc_folder).split()
+    hicBuildMatrix.main(args)
+
+    test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
+    new = hm.hiCMatrix(outfile.name)
+
+    nt.assert_equal(test.matrix.data, new.matrix.data)
+    # nt.assert_equal(test.cut_intervals, new.cut_intervals)
+    nt.assert_equal(len(new.cut_intervals), len(test.cut_intervals))
+    cut_interval_new_ = []
+    cut_interval_test_ = []
+    for x in new.cut_intervals:
+        cut_interval_new_.append(x[:3])
+    for x in test.cut_intervals:
+        cut_interval_test_.append(x[:3])
+
+    nt.assert_equal(cut_interval_new_, cut_interval_test_)
+    # print(set(os.listdir(ROOT + "QC/")))
+    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+    assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
+
+    outfile_metadata = NamedTemporaryFile(suffix='.txt', delete=False)
+    outfile_metadata.close()
+    args = "-m {} -o {}".format(outfile.name, outfile_metadata.name).split()
+    hicInfo.main(args)
+    assert are_files_equal(ROOT + "hicBuildMatrix/metadata.txt", outfile_metadata.name, delta=2)
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
