@@ -80,42 +80,43 @@ def main(args=None):
             cooler_file = cooler.Cooler(matrix)
             # log.debug('cooler_file.info {}'.format(cooler_file.info))
 
-            if cooler_file.info['metadata'] is not None:
-                if 'bin-size' in cooler_file.info['metadata']:
-                    bin_length = cooler_file.info['metadata']['bin-size']
-                if 'nbins' in cooler_file.info['metadata']:
-                    size = cooler_file.info['metadata']['nbins']
-                if 'nchroms' in cooler_file.info['metadata']:
-                    nchroms = cooler_file.info['metadata']['nchroms']
-                if 'chromosomes' in cooler_file.info['metadata']:
-                    chromosomes = cooler_file.info['metadata']['chromosomes']
-                if 'nnz' in cooler_file.info['metadata']:
-                    num_non_zero = cooler_file.info['metadata']['nnz']
-                if 'min-value' in cooler_file.info['metadata']:
-                    min_non_zero = cooler_file.info['metadata']['min-value']
-                if 'max-value' in cooler_file.info['metadata']:
-                    max_non_zero = cooler_file.info['metadata']['max-value']
-                if 'generated-by' in cooler_file.info['metadata']:
-                    generated_by = cooler_file.info['metadata']['generated-by']
-                if 'genome-assembly' in cooler_file.info['metadata']:
-                    # log.debug('genome_assembly {}'.format(cooler_file.info['metadata']['genome-assembly']))
+            if cooler_file.info is not None:
+                if 'bin-size' in cooler_file.info:
+                    bin_length = cooler_file.info['bin-size']
+                if 'nbins' in cooler_file.info:
+                    size = cooler_file.info['nbins']
+                if 'nchroms' in cooler_file.info:
+                    nchroms = cooler_file.info['nchroms']
+                if 'chromosomes' in cooler_file.info:
+                    chromosomes = cooler_file.info['chromosomes']
+                if 'nnz' in cooler_file.info:
+                    num_non_zero = cooler_file.info['nnz']
+                if 'min-value' in cooler_file.info:
+                    min_non_zero = cooler_file.info['min-value']
+                if 'max-value' in cooler_file.info:
+                    max_non_zero = cooler_file.info['max-value']
+                if 'generated-by' in cooler_file.info:
+                    generated_by = cooler_file.info['generated-by']
+                if 'genome-assembly' in cooler_file.info:
+                    # log.debug('genome_assembly {}'.format(cooler_file.info['genome-assembly']))
 
-                    genome_assembly = cooler_file.info['metadata']['genome-assembly']
-                if 'statistics' in cooler_file.info['metadata']:
-                    # log.debug('statistics {}'.format(cooler_file.info['metadata'] ['statistics']))
-                    statistics = cooler_file.info['metadata']['statistics']
-                if 'generated-by-cooler-lib' in cooler_file.info['metadata']:
-                    generated_by_cooler_lib = cooler_file.info['metadata']['generated-by-cooler-lib']
-                if 'tool-url' in cooler_file.info['metadata']:
-                    tool_url = cooler_file.info['metadata']['tool-url']
-                if 'matrix-generated-by' in cooler_file.info['metadata']:
-                    matrix_generated_by = cooler_file.info['metadata']['matrix-generated-by']
-                if 'matrix-generated-by-url' in cooler_file.info['metadata']:
-                    matrix_generated_by_url = cooler_file.info['metadata']['matrix-generated-by-url']
-                if 'creation-date' in cooler_file.info['metadata']:
-                    creation_date = cooler_file.info['metadata']['creation-date']
-                if 'sum-elements' in cooler_file.info['metadata']:
-                    sum_elements = cooler_file.info['metadata']['sum-elements']
+                    genome_assembly = cooler_file.info['genome-assembly']
+                if cooler_file.info['metadata'] is not None:
+                    if 'statistics' in cooler_file.info['metadata']:
+                        # log.debug('statistics {}'.format(cooler_file.info ['statistics']))
+                        statistics = cooler_file.info['metadata']['statistics']
+                if 'generated-by-cooler-lib' in cooler_file.info:
+                    generated_by_cooler_lib = cooler_file.info['generated-by-cooler-lib']
+                if 'tool-url' in cooler_file.info:
+                    tool_url = cooler_file.info['tool-url']
+                if 'matrix-generated-by' in cooler_file.info:
+                    matrix_generated_by = cooler_file.info['matrix-generated-by']
+                if 'matrix-generated-by-url' in cooler_file.info:
+                    matrix_generated_by_url = cooler_file.info['matrix-generated-by-url']
+                if 'creation-date' in cooler_file.info:
+                    creation_date = cooler_file.info['creation-date']
+                if 'sum-elements' in cooler_file.info:
+                    sum_elements = cooler_file.info['sum-elements']
 
         else:
             hic_ma = hm.hiCMatrix(matrix)

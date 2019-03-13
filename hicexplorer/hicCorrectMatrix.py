@@ -626,7 +626,7 @@ def main(args=None):
 
     ma.setMatrixValues(corrected_matrix)
     ma.setCorrectionFactors(correction_factors)
-    log.info("Correction factors {}".format(correction_factors[:10]))
+    # log.info("Correction factors {}".format(correction_factors[:10]))
     if args.inflationCutoff and args.inflationCutoff > 0:
         after_row_sum = np.asarray(corrected_matrix.sum(axis=1)).flatten()
         # identify rows that were expanded more than args.inflationCutoff times
