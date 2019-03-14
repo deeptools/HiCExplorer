@@ -1472,10 +1472,10 @@ Max library insert size\t{}\t\t
 
     hic_metadata = {}
     hic_metadata['statistics'] = intermediate_qc_log.getvalue()
-    hic_metadata['matrix-generated-by'] = 'HiCExplorer-' + __version__
-    hic_metadata['matrix-generated-by-url'] = 'https://github.com/deeptools/HiCExplorer'
+    hic_metadata['matrix-generated-by'] = np.string_('HiCExplorer-' + __version__)
+    hic_metadata['matrix-generated-by-url'] = np.string_('https://github.com/deeptools/HiCExplorer')
     if args.genomeAssembly:
-        hic_metadata['genome-assembly'] = args.genomeAssembly
+        hic_metadata['genome-assembly'] = np.string_(args.genomeAssembly)
 
     intermediate_qc_log.close()
     if args.outFileName.name.endswith('.cool') and args.binSize is not None and len(args.binSize) > 2:

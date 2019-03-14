@@ -73,12 +73,8 @@ def main(args=None):
         sum_elements = None
         num_nan_bins = None
 
-        # log.debug('check_cooler(matrix) {}'.format(check_cooler(matrix)))
-        # log.debug('args.no_metadata {}'.format(args.no_metadata))
-
         if check_cooler(matrix) and args.no_metadata:
             cooler_file = cooler.Cooler(matrix)
-            # log.debug('cooler_file.info {}'.format(cooler_file.info))
 
             if cooler_file.info is not None:
                 if 'bin-size' in cooler_file.info:
@@ -96,23 +92,20 @@ def main(args=None):
                 if 'max-value' in cooler_file.info:
                     max_non_zero = cooler_file.info['max-value']
                 if 'generated-by' in cooler_file.info:
-                    generated_by = cooler_file.info['generated-by']
+                    generated_by = cooler_file.info['generated-by'].decode("utf-8")
                 if 'genome-assembly' in cooler_file.info:
-                    # log.debug('genome_assembly {}'.format(cooler_file.info['genome-assembly']))
-
-                    genome_assembly = cooler_file.info['genome-assembly']
+                    genome_assembly = cooler_file.info['genome-assembly'].decode("utf-8")
                 if cooler_file.info['metadata'] is not None:
                     if 'statistics' in cooler_file.info['metadata']:
-                        # log.debug('statistics {}'.format(cooler_file.info ['statistics']))
                         statistics = cooler_file.info['metadata']['statistics']
                 if 'generated-by-cooler-lib' in cooler_file.info:
-                    generated_by_cooler_lib = cooler_file.info['generated-by-cooler-lib']
+                    generated_by_cooler_lib = cooler_file.info['generated-by-cooler-lib'].decode("utf-8")
                 if 'tool-url' in cooler_file.info:
-                    tool_url = cooler_file.info['tool-url']
+                    tool_url = cooler_file.info['tool-url'].decode("utf-8")
                 if 'matrix-generated-by' in cooler_file.info:
-                    matrix_generated_by = cooler_file.info['matrix-generated-by']
+                    matrix_generated_by = cooler_file.info['matrix-generated-by'].decode("utf-8")
                 if 'matrix-generated-by-url' in cooler_file.info:
-                    matrix_generated_by_url = cooler_file.info['matrix-generated-by-url']
+                    matrix_generated_by_url = cooler_file.info['matrix-generated-by-url'].decode("utf-8")
                 if 'creation-date' in cooler_file.info:
                     creation_date = cooler_file.info['creation-date']
                 if 'sum-elements' in cooler_file.info:

@@ -123,7 +123,7 @@ def test_build_matrix_cooler_metadata():
     outfile_metadata.close()
     args = "-m {} -o {}".format(outfile.name, outfile_metadata.name).split()
     hicInfo.main(args)
-    assert are_files_equal(ROOT + "hicBuildMatrix/metadata.txt", outfile_metadata.name, delta=2)
+    assert are_files_equal(ROOT + "hicBuildMatrix/metadata.txt", outfile_metadata.name, delta=4)
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
