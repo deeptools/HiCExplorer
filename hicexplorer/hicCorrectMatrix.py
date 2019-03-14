@@ -664,7 +664,11 @@ def main(args=None):
             kr = kr_balancing(ma.matrix.astype(float))
             kr.computeKR()
             corrected_matrix = kr.get_normalised_matrix(True)
-            correction_factors = kr.get_normalisation_vector(False).todense() #set to False since the vector is already normalised with the previous True
+            # set it to False since the vector is already normalised
+            # with the previous True
+            correction_factors = np.true_divide(1,
+                                                kr.get_normalisation_vector(
+                                                            False).todense())
 
 
     ma.setMatrixValues(corrected_matrix)
