@@ -58,8 +58,10 @@ Then, after revising the plot and deciding the threshold values:
     $ hicCorrectMatrix correct --matrix hic_matrix.h5 \r
     --filterThreshold <lower threshold> <upper threshold> -o corrected_matrix
 
-For a more in-depth review of how to determine the threshold values, please visit:
-http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html#correction-of-hi-c-matrix
+For a more in-depth review of how to determine the threshold values,
+please visit:
+http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html\
+#correction-of-hi-c-matrix
 """
     )
 
@@ -78,8 +80,8 @@ http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html#correctio
     plot_mode = subparsers.add_parser(
         'diagnostic_plot',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        help="""Plots a histogram of the coverage per bin together with the modified
-z-score based on the median absolute deviation method
+        help="""Plots a histogram of the coverage per bin together with the
+        modified z-score based on the median absolute deviation method
 (see Boris Iglewicz and David Hoaglin 1993, Volume 16: How to Detect
 and Handle Outliers The ASQC Basic References in Quality Control:
 Statistical Techniques, Edward F. Mykytka, Ph.D., Editor).
@@ -616,7 +618,8 @@ def main(args=None):
             failed_bins = np.flatnonzero(
                 np.array(coverage) < args.sequencedCountCutoff)
 
-            ma.printchrtoremove(failed_bins, label="Bins with low coverage", restore_masked_bins=False)
+            ma.printchrtoremove(failed_bins, label="Bins with low coverage",
+                                restore_masked_bins=False)
             ma.maskBins(failed_bins)
             total_filtered_out = set(failed_bins)
             """
@@ -651,7 +654,9 @@ def main(args=None):
                 kr = kr_balancing(chr_submatrix.astype(float))
                 kr.computeKR()
                 corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(True)
-                correction_factors.append(kr.get_normalisation_vector(False).todense())
+                correction_factors.append(np.true_divide(1,
+                                          kr.get_normalisation_vector(
+                                                            False).todense()))
 
         correction_factors = np.concatenate(correction_factors)
 
