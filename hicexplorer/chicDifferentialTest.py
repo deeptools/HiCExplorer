@@ -23,7 +23,7 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--interactionFile', '-if',
                                 help='path to the interaction files which should be used for differential test.',
                                 required=True,
-                                nargs=2)
+                                nargs='+')
 
     parserRequired.add_argument('--alpha', '-a',
                                 help='Accept all samples to significance level alpha',
@@ -39,6 +39,10 @@ def parse_arguments(args=None):
                            help='Type of test used for testing: fisher\'s exact test or chi2 contingency',
                            choices=['fisher', 'chi2'],
                            default='fisher')
+    parserOpt.add_argument('--batchMode', '-bm',
+                           help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
@@ -149,24 +153,42 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pViewpoint1, pViewp
 def main(args=None):
     args = parse_arguments().parse_args(args)
 
-    header1, line_content1, data1 = readInteractionFile(args.interactionFile[0])
-    header2, line_content2, data2 = readInteractionFile(args.interactionFile[1])
+    interactionFileList = []
+    if args.batchMode:
+        with open(args.interactionFile, 'r') as interactionFile:
+                file_ = interactionFile.readline().strip()
+                file2_ = interactionFile.readline().strip()
 
-    if args.statisticTest == 'chi2':
-        test_result = chisquare_test(data1, data2, args.alpha)
-    elif args.statisticTest == 'fisher':
-        test_result = fisher_exact_test(data1, data2, args.alpha)
+                if file_ != '' and file2_ != '':
+                    interactionFileList.append((file_, file2_))
+    else:
+        if len(args.interactionFile) % 2 == 0:
+            
+            i = 0
+            while i < len(args.interactionFile):
+                interactionFileList.append((args.interactionFile[i], args.interactionFile[i + 1]))
+                i += 2
 
-    write_out_lines = []
-    for i, result in enumerate(test_result):
-        write_out_lines.append([line_content1[i], line_content2[i], result, data1[i], data2[i]])
+    for interactionFile in interactionFileList:
 
-    header_new = args.interactionFile[0]
-    header_new += ' '
-    header_new += args.interactionFile[1]
+        header1, line_content1, data1 = readInteractionFile(interactionFile[0])
+        header2, line_content2, data2 = readInteractionFile(interactionFile[1])
 
-    outFileName = args.outFileName.split('.')
+        if args.statisticTest == 'chi2':
+            test_result = chisquare_test(data1, data2, args.alpha)
+        elif args.statisticTest == 'fisher':
+            test_result = fisher_exact_test(data1, data2, args.alpha)
 
-    resultsNameFile = outFileName[0] + '_results.bed'
+        write_out_lines = []
+        for i, result in enumerate(test_result):
+            write_out_lines.append([line_content1[i], line_content2[i], result, data1[i], data2[i]])
 
-    writeResult(resultsNameFile, write_out_lines, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+        header_new = interactionFile[0]
+        header_new += ' '
+        header_new += interactionFile[1]
+
+        outFileName = args.outFileName.split('.')
+
+        resultsNameFile = outFileName[0] + '_results.bed'
+
+        writeResult(resultsNameFile, write_out_lines, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)

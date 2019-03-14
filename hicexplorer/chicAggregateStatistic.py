@@ -42,7 +42,10 @@ def parse_arguments(args=None):
                            help='File name suffix to save the result.',
                            required=False,
                            default='_aggregate_target.bed')
-
+    parserOpt.add_argument('--batchMode', '-bm',
+                           help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument("--mergeBins", "-mb",
                            type=int,
                            default=0,
@@ -163,10 +166,24 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines, pScores=None
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
-
+    outfile_names = []
     if args.targetFile:
         # read all interaction files.
-        for interactionFile, targetFile in zip(args.interactionFile, args.targetFile):
+        if args.batchMode:
+            interactionFileList = []
+            targetFileList = []
+            with open(args.interactionFile, 'r') as interactionFile:
+                file_ = interactionFile.readline().strip()
+                if file_ != '':
+                    interactionFileList.append(file_)
+            with open(args.targetFile, 'r') as targetFile:
+                file_ = targetFile.readline().strip()
+                if file_ != '':
+                    targetFileList.append(file_)
+        else:
+            interactionFileList = args.interactionFile
+            targetFileList = args.targetFile
+        for interactionFile, targetFile in zip(interactionFileList, targetFileList):
             header, interaction_data, interaction_file_data = viewpointObj.readInteractionFileForAggregateStatistics(interactionFile)
 
             target_regions = utilities.readBed(targetFile)
@@ -176,7 +193,8 @@ def main(args=None):
                 log.error('No target regions found')
                 sys.exit(0)
             outFileName = interactionFile.split('.')[0] + '_' + args.outFileNameSuffix
-
+            if args.batchMode:
+                outfile_names.append(outFileName)
             if args.mergeBins > 0:
                 merged_neighborhood = merge_neighbors(accepted_scores, args.mergeBins)
                 write(outFileName, header, merged_neighborhood, interaction_file_data)
@@ -184,13 +202,24 @@ def main(args=None):
                 write(outFileName, header, accepted_scores, interaction_file_data)
 
     elif args.rbzScore:
+        interactionFileList = []
 
-        if len(args.interactionFile) % 2 == 0:
-            interactionFileList = []
+        if args.batchMode:
+            with open(args.interactionFile, 'r') as interactionFile:
+                file_ = interactionFile.readline().strip()
+                file2_ = interactionFile.readline().strip()
+
+                if file_ != '' and file2_ != '':
+                    interactionFileList.append((file_, file2_))
+        else:
             i = 0
             while i < len(args.interactionFile):
                 interactionFileList.append((args.interactionFile[i], args.interactionFile[i + 1]))
                 i += 2
+
+
+        if len(interactionFileList) % 2 == 0:
+            
 
             for interactionFile in interactionFileList:
 
@@ -207,7 +236,8 @@ def main(args=None):
                         log.error('No target regions found')
                         sys.exit(0)
                     outFileName = interactionFile[j].split('.')[0] + '_' + args.outFileNameSuffix
-
+                    if args.batchMode:
+                        outfile_names.append(outFileName)
                     if args.mergeBins > 0:
                         merged_neighborhood = merge_neighbors(accepted_scores, args.mergeBins)
                         write(outFileName, data[j][0], merged_neighborhood, data[j][2])
@@ -216,3 +246,7 @@ def main(args=None):
         else:
             log.error('Number of interaction files needs to be even.')
             exit(1)
+
+    if args.batchMode:
+        with open('namelist.txt', 'w') as nameListFile:
+            nameListFile.write('\n'.join(outfile_names))

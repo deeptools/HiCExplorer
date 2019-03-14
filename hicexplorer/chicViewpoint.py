@@ -54,6 +54,10 @@ def parse_arguments(args=None):
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
                            default=5)
+    parserOpt.add_argument('--writeFileNamesToFile', '-w',
+                           help='',
+                           type=int,
+                           default=5)
     parserOpt.add_argument('--fixateRange', '-fs',
                            help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
                            required=False,
@@ -103,6 +107,8 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
     # import json
     # with open('backgroundmodel_after_load.txt', 'w') as file:
     #     file.write(json.dumps(pBackgroundModel))
+    file_list = []
+
     for i, referencePoint in enumerate(pReferencePoints):
         # range of viewpoint with reference point in the middle in genomic units
         # get fixateRange for relative interaction computation denominator
@@ -150,10 +156,10 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         header_information += '\n# ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('.')[:-1])
         matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
-
+        file_list.append(matrix_name)
         pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
 
-    pQueue.put(['Done'])
+    pQueue.put(file_list)
     return
 
 
@@ -166,6 +172,7 @@ def main(args=None):
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
+    file_list = []
     background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range)
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
@@ -199,7 +206,8 @@ def main(args=None):
         while not all_data_collected:
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
-                    queue[i].get()
+                    file_list_ = queue[i].get()
+                    file_list.extend(file_list_)
                     process[i].join()
                     process[i].terminate()
                     process[i] = None
@@ -210,3 +218,7 @@ def main(args=None):
                 if process[i] is not None:
                     all_data_collected = False
             time.sleep(1)
+    
+    if args.writeFileNamesToFile:
+        with open(args.writeFileNamesToFile, 'w') as file:
+            file.write('\n'.join(file_list))
