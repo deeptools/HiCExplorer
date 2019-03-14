@@ -89,9 +89,11 @@ def main(args=None):
     interactionFileList = []
     if args.batchMode:
         with open(args.interactionFile, 'r') as interactionFile:
+            file_ = True
+            while file_:
+            # for line in fh.readlines():
                 file_ = interactionFile.readline().strip()
                 file2_ = interactionFile.readline().strip()
-
                 if file_ != '' and file2_ != '':
                     interactionFileList.append((file_, file2_))
     else:

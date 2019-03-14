@@ -55,9 +55,7 @@ def parse_arguments(args=None):
                            type=int,
                            default=5)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
-                           help='',
-                           type=int,
-                           default=5)
+                           help='')
     parserOpt.add_argument('--fixateRange', '-fs',
                            help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
                            required=False,
@@ -156,7 +154,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         header_information += '\n# ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('.')[:-1])
         matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
-        file_list.append(matrix_name)
+        file_list.append(matrix_name + '.bed')
         pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
 
     pQueue.put(file_list)
