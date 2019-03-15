@@ -100,8 +100,7 @@ def main(args=None):
         print("\n Sampling {}% of data \n".format(i))
         # subsample
         ma = copy.deepcopy(hic_matrix)
-        ma.matrix.data = ((hic_matrix.matrix.data) *
-                          (float(i) / 100)).astype(int)
+        ma.matrix.data = ((hic_matrix.matrix.data) * (float(i) / 100)).astype(int)
         ma.matrix.eliminate_zeros()
 
         # remove outliers

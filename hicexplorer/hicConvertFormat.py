@@ -1,4 +1,3 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -117,6 +116,7 @@ def main(args=None):
             if args.resolutions is None:
                 hic2cool_convert(matrix, args.outFileName[i], 0)
             else:
+
                 for resolution in args.resolutions:
                     out_name = args.outFileName[i].split('.')
                     out_name[-2] = out_name[-2] + '_' + str(resolution)

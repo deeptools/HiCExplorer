@@ -1,4 +1,3 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -15,9 +14,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from collections import OrderedDict
-from builtins import range
 from past.builtins import zip
-from six import iteritems
 
 from scipy.sparse import triu
 
@@ -200,12 +197,12 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
     else:
         chr_submatrix['all'] = hicmat.matrix.tocoo()
         cut_intervals['all'] = hicmat.cut_intervals
-        chrom_sizes['all'] = np.array([v[1] - v[0] for k, v in iteritems(hicmat.chrBinBoundaries)])
+        chrom_sizes['all'] = np.array([v[1] - v[0] for k, v in hicmat.chrBinBoundaries.items()])
         chrom_range['all'] = (0, hicmat.matrix.shape[0])
 
     mean_dict = {}
 
-    for chrname, submatrix in iteritems(chr_submatrix):
+    for chrname, submatrix in chr_submatrix.items():
         log.info("processing chromosome {}\n".format(chrname))
 
         dist_list, chrom_list = hicmat.getDistList(submatrix.row, submatrix.col,
@@ -290,7 +287,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
 
         if maxdepth is None:
             maxdepth = np.inf
-        mean_dict[chrname] = OrderedDict([((k - 1) * binsize, v) for k, v in iteritems(mu) if k > 0 and
+        mean_dict[chrname] = OrderedDict([((k - 1) * binsize, v) for k, v in mu.items() if k > 0 and
                                           (k - 1) * binsize <= maxdepth])
         # mean_dict[chrname]['intra_chr'] = mu[0]
 
@@ -327,7 +324,7 @@ def main(args=None):
 
     # compute scale factors such that values are comparable
     min_sum = min(matrix_sum.values())
-    scale_factor = dict([(matrix_file, float(min_sum) / mat_sum) for matrix_file, mat_sum in iteritems(matrix_sum)])
+    scale_factor = dict([(matrix_file, float(min_sum) / mat_sum) for matrix_file, mat_sum in matrix_sum.items()])
     log.info("The scale factors used are: {}".format(scale_factor))
     if len(args.matrices) > 1 and args.perchr:
         # in this case, for each chromosome a plot is made that combines the data from the
@@ -349,11 +346,11 @@ def main(args=None):
     axs = np.empty((num_rows, num_cols), dtype='object')
     for matrix_file in args.matrices:
         idx = 0
-        for chrom, mean_values in iteritems(mean_dict[matrix_file]):
+        for chrom, mean_values in mean_dict[matrix_file].items():
             if len(mean_values) <= 1:
                 log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
-            x, y = zip(*[(k, v) for k, v in iteritems(mean_values) if v > 0])
+            x, y = zip(*[(k, v) for k, v in mean_values.items() if v > 0])
             if len(x) <= 1:
                 log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue

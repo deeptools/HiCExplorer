@@ -1,4 +1,3 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -61,7 +60,7 @@ def main(args=None):
              "the same parameters. Check the matrix values using the tool `hicInfo`.")
 
     if hic1.chrBinBoundaries != hic2.chrBinBoundaries:
-        exit("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
+        exit("The two matrices have different chromosome order. Use the tool `hicAdjustMatrix` to change the order.\n"
              "{}: {}\n"
              "{}: {}".format(args.matrices[0], hic1.chrBinBoundaries.keys(),
                              args.matrices[1], hic2.chrBinBoundaries.keys()))

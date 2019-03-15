@@ -1,4 +1,3 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -204,9 +203,7 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
                 if per_chr:
                     if dist_list[idx] == -1:
                         continue
-                    elif (orig_ma[triu_ma.row[idx],
-                                  triu_ma.col[idx]] <=
-                          noise_level[chrom_list[idx]]):
+                    elif (orig_ma[triu_ma.row[idx], triu_ma.col[idx]] <= noise_level[chrom_list[idx]]):
                         under_noise += 1
                         continue
                 elif orig_ma[triu_ma.row[idx],
@@ -274,8 +271,7 @@ def transformMatrix(hicma, method, per_chr=False, original_matrix=None, depth_in
 
             if idx > 0 and (idx == 10000 or idx % 500000 == 0):
                 endtime = time.time()
-                estimated = (float(len(transf_ma) - idx) *
-                             (endtime - start_time)) / idx
+                estimated = (float(len(transf_ma) - idx) * (endtime - start_time)) / idx
                 mmin, sec = divmod(estimated, 60)
                 hour, mmin = divmod(mmin, 60)
                 log.debug("iteration: {} Estimated remaining time "
@@ -489,8 +485,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
         else:
             good += 1
 
-        if (plot_distribution and
-                dist in [50000] + range(0, max(list(countsByDistance)), 1000000)):
+        if (plot_distribution and dist in [50000] + range(0, max(list(countsByDistance)), 1000000)):
             # actual and fitted distributions are plotted
             # next to each other
 
@@ -503,8 +498,7 @@ def fitNegBinom_Rserve(countsByDistance, plot_distribution=False,
                 nbins = diff / 2
             else:
                 nbins = (counts.max() - counts.min())
-            freq, bins = np.histogram(counts.astype(int), nbins,
-                                      normed=True)
+            freq, bins = np.histogram(counts.astype(int), nbins, normed=True)
             plt.hist(counts, bins, linewidth=0.1, alpha=0.8, normed=True)
             # plt.hist(fitted_dist, bins, histtype='step', linestyle='solid',
             #          linewidth=1.5, color='black', normed=True)
@@ -678,12 +672,10 @@ def fitDistribution(countsByDistance, distribution, plot_distribution=False):
                                                          pval[distnc],
                                                          pval_nb))
 
-        if (plot_distribution and
-                distnc in range(50000, max(countsByDistance.keys()), 500000)):
+        if (plot_distribution and distnc in range(50000, max(countsByDistance.keys()), 500000)):
 
             import matplotlib.pyplot as plt
-            freq, bins = np.histogram(counts, 30,
-                                      normed=True)
+            freq, bins = np.histogram(counts, 30, normed=True)
             plt.close()  # to avoid overlaps
             plt.hist(counts, bins, linewidth=0.1, alpha=0.8, normed=True)
 #            plt.hist(fitted_dist, bins, histtype='step', linestyle='solid',
@@ -796,8 +788,7 @@ def fit_nbinom(k):
     from scipy.special import psi
     from scipy.optimize import brentq
     N = len(k)
-    n = brentq(lambda r: sum(psi(k + r)) - N * psi(r) +
-               N * np.log(r / (r + sum(k / N))),
+    n = brentq(lambda r: sum(psi(k + r)) - N * psi(r) + N * np.log(r / (r + sum(k / N))),
                np.finfo(np.float128).eps,
                np.max(k))
     p = n / (n + sum(k / N))  # Note: this `p` = 1 - `p` from Wikipedia

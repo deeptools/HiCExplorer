@@ -1,4 +1,3 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -51,7 +50,7 @@ def main(args=None):
     for matrix in args.matrices[1:]:
         hic_to_append = hm.hiCMatrix(matrix)
         if hic.chrBinBoundaries != hic_to_append.chrBinBoundaries:
-            log.error("The two matrices have different chromosome order. Use the tool `hicExport` to change the order.\n"
+            log.error("The two matrices have different chromosome order. Use the tool `hicConvertFormat` to change the order.\n"
                       "{}: {}\n"
                       "{}: {}".format(args.matrices[0], list(hic.chrBinBoundaries),
                                       matrix, list(hic_to_append.chrBinBoundaries)))

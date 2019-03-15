@@ -1,8 +1,6 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import sys
 from hicmatrix import HiCMatrix
 from hicexplorer.utilities import writableFile
 from hicexplorer.utilities import toString, toBytes
@@ -276,14 +274,11 @@ def translate_region(region_string):
     are set to a 0 and 1e15
     """
 
-    if sys.version_info[0] == 2:
-        region_string = region_string.translate(None, ",;!").replace("-", ":")
-    if sys.version_info[0] == 3:
-        # region_string = toBytes(region_string)
-        region_string = region_string.replace(",", "")
-        region_string = region_string.replace(";", "")
-        region_string = region_string.replace("!", "")
-        region_string = region_string.replace("-", ":")
+    # region_string = toBytes(region_string)
+    region_string = region_string.replace(",", "")
+    region_string = region_string.replace(";", "")
+    region_string = region_string.replace("!", "")
+    region_string = region_string.replace("-", ":")
 
     fields = region_string.split(":")
     chrom = fields[0]
@@ -403,12 +398,12 @@ def getRegion(args, ma):
     args.region = [chrom, region_start, region_end]
     is_cooler = check_cooler(args.matrix)
     if is_cooler:
-        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
-                                 ((x[1] >= region_start and x[2] < region_end) or
-                                  (x[1] < region_end and x[2] < region_end and x[2] > region_start) or
+        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
+                                 ((x[1] >= region_start and x[2] < region_end) or                            # noqa: W504
+                                  (x[1] < region_end and x[2] < region_end and x[2] > region_start) or       # noqa: W504
                                   (x[1] > region_start and x[1] < region_end))])
     else:
-        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and
+        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
                                  x[1] >= region_start and x[2] < region_end])
     if args.region2:
         chrom2, region_start2, region_end2 = translate_region(args.region2)
@@ -425,12 +420,12 @@ def getRegion(args, ma):
             if chrom2 not in list(ma.interval_trees):
                 exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
         if is_cooler:
-            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
-                                     ((x[1] >= region_start2 and x[2] < region_end2) or
-                                      (x[1] < region_end2 and x[2] < region_end2 and x[2] > region_start2) or
+            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and  # noqa: W504
+                                     ((x[1] >= region_start2 and x[2] < region_end2) or                           # noqa: W504
+                                      (x[1] < region_end2 and x[2] < region_end2 and x[2] > region_start2) or     # noqa: W504
                                       (x[1] > region_start2 and x[1] < region_end2))])
         else:
-            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and
+            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and  # noqa: W504
                                      x[1] >= region_start2 and x[2] < region_end2])
     else:
         idx2 = idx1
@@ -511,8 +506,8 @@ def main(args=None):
             invalid_chromosomes = []
             log.debug('args.chromosomeOrder: {}'.format(args.chromosomeOrder))
             log.debug("ma.chrBinBoundaries {}".format(ma.chrBinBoundaries))
-            if sys.version_info[0] == 3:
-                args.chromosomeOrder = toBytes(args.chromosomeOrder)
+
+            args.chromosomeOrder = toBytes(args.chromosomeOrder)
             for chrom in toString(args.chromosomeOrder):
                 if chrom in ma.chrBinBoundaries:
                     valid_chromosomes.append(chrom)

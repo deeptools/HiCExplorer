@@ -14,7 +14,6 @@ import os
 import shutil
 from psutil import virtual_memory
 
-from hicexplorer.utilities import genomicRegion
 from hicexplorer import hicBuildMatrix as hicBuildMatrix
 
 mem = virtual_memory()
