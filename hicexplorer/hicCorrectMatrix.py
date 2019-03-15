@@ -13,10 +13,10 @@ from hicexplorer.utilities import toString
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.utilities import check_cooler
 
-#Knight-Ruiz algorithm:
+# Knight-Ruiz algorithm:
 from krbalancing import *
 
-#packages needed for plotting:
+# packages needed for plotting:
 from matplotlib import use
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -155,7 +155,6 @@ def correct_subparser():
                                 help='File name to save the resulting matrix. '
                                 'The output is a .h5 file.',
                                 required=True)
-
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
@@ -619,8 +618,8 @@ def main(args=None):
         # compute and print some statistics
         pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
         ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%) "
-                                               "out of".format(pct_outlier, ma.matrix.shape[0]),
-                        restore_masked_bins=False)
+                            "out of".format(pct_outlier, ma.matrix.shape[0]),
+                            restore_masked_bins=False)
 
         assert matrix_shape == ma.matrix.shape
         # mask filtered regions
@@ -665,15 +664,14 @@ def main(args=None):
                 corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = _matrix
                 correction_factors.append(_corr_factors)
             else:
-                #set the kr matrix along with its correction factors vector
+                # Set the kr matrix along with its correction factors vector
                 assert(args.correctionMethod == 'KR')
                 log.debug("Loading a float sparse matrix for KR balancing")
                 kr = kr_balancing(chr_submatrix.astype(float))
                 kr.computeKR()
                 corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(True)
                 correction_factors.append(np.true_divide(1,
-                                          kr.get_normalisation_vector(
-                                                            False).todense()))
+                                          kr.get_normalisation_vector(False).todense()))
 
         correction_factors = np.concatenate(correction_factors)
 
@@ -689,9 +687,7 @@ def main(args=None):
             # set it to False since the vector is already normalised
             # with the previous True
             correction_factors = np.true_divide(1,
-                                                kr.get_normalisation_vector(
-                                                            False).todense())
-
+                                                kr.get_normalisation_vector(False).todense())
 
     ma.setMatrixValues(corrected_matrix)
     ma.setCorrectionFactors(correction_factors)

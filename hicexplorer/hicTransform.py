@@ -63,7 +63,6 @@ def parse_arguments(args=None):
     return parser
 
 
-
 def _obs_exp(pSubmatrix, perchr):
     pSubmatrix.convert_to_obs_exp_matrix(maxdepth=None, perchr=perchr)
 
@@ -98,9 +97,9 @@ def main(args=None):
         hic_ma.maskBins(hic_ma.nan_bins)
         hic_ma.matrix.data[np.isnan(hic_ma.matrix.data)] = 0
         if args.perChromosome:
-                _obs_exp(hic_ma, perchr=True)
+            _obs_exp(hic_ma, perchr=True)
         else:
-                _obs_exp(hic_ma, perchr=False)
+            _obs_exp(hic_ma, perchr=False)
         trasf_matrix = csr_matrix(hic_ma.matrix)
 
     elif args.method == 'pearson':
