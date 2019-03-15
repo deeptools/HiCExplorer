@@ -229,7 +229,6 @@ def main(args=None):
     if args.obsexpMatrix:
         trasf_matrix_obsexp = lil_matrix(ma.matrix.shape)
 
-
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
         length_chromosome += chr_range[1] - chr_range[0]
@@ -313,8 +312,7 @@ def main(args=None):
                                      pApplyCorrection=False)
 
     if args.extraTrack and not args.extraTrack.endswith('.bw') and not args.extraTrack.endswith('.bigwig'):
-            vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list,
-                                                          args.extraTrack)
+            vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.extraTrack)
 
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):

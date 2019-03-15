@@ -204,4 +204,4 @@ def main(args=None):
     else:
         hic_ma.setMatrix(trasf_matrix, cut_intervals=hic_ma.cut_intervals)
 
-hic_ma.save(args.outFileName, pSymmetric=True, pApplyCorrection=False)
+    hic_ma.save(args.outFileName, pSymmetric=True, pApplyCorrection=False)
