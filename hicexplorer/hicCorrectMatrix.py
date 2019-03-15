@@ -35,7 +35,13 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawTextHelpFormatter,
         conflict_handler='resolve',
         description="""
-Iterative correction for a Hi-C matrix (see Imakaev et al. 2012
+This function provides 2 balancing methods which can be applied on a raw
+matrix.
+
+I. KR: It blanaces a matrix using a fast balancing algorithm introduced by
+Knight and Ruiz(2012).
+
+II. ICE: Iterative correction for a Hi-C matrix (see Imakaev et al. 2012
 Nature Methods for details). For the method to work correctly, bins with
 zero reads assigned to them should be removed as they can not be corrected.
 Also, bins with low number of reads should be removed,
@@ -55,7 +61,7 @@ It is recommended to run hicCorrectMatrix as follows:
 
 Then, after revising the plot and deciding the threshold values:
 
-    $ hicCorrectMatrix correct --matrix hic_matrix.h5 \r
+    $ hicCorrectMatrix correct --correctionMethod ICE --matrix hic_matrix.h5 \r
     --filterThreshold <lower threshold> <upper threshold> -o corrected_matrix
 
 For a more in-depth review of how to determine the threshold values,
@@ -146,73 +152,82 @@ def correct_subparser():
                                 required=True)
 
     parserRequired.add_argument('--outFileName', '-o',
-                                help='File name to save the resulting matrix. The '
-                                'output is a .h5 file.',
+                                help='File name to save the resulting matrix. '
+                                'The output is a .h5 file.',
                                 required=True)
 
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--correctionMethod',
-                           help='Method to be used for matrix correction. It can be set to KR or ICE.'
-                           '(Default is KR)',
+                           help='Method to be used for matrix correction. It'
+                           ' can be set to KR or ICE.',
                            type=str,
                            metavar='STR',
                            default='KR')
 
     parserOpt.add_argument('--filterThreshold', '-t',
-                                help='Removes bins of low or large coverage. '
-                                'Usually these bins do not contain valid Hi-C data or represent '
-                                'regions that accumulate reads and thus must be discarded. '
-                                'Use hicCorrectMatrix diagnostic_plot '
-                                'to identify the modified z-value thresholds. A lower and upper '
-                                'threshold are required separated by space, e.g. --filterThreshold '
-                                '-1.5 5',
-                                type=float,
-                                nargs=2,
-                                default=None)
+                           help='Removes bins of low or large coverage. '
+                                'Usually these bins do not contain valid '
+                                'Hi-C data or represent regions that '
+                                'accumulate reads and thus must be '
+                                'discarded. Use hicCorrectMatrix '
+                                'diagnostic_plot to identify the modified '
+                                'z-value thresholds. A lower and upper '
+                                'threshold are required separated by '
+                                'space, e.g. --filterThreshold -1.5 5. Applied'
+                                ' only for ICE!',
+                           type=float,
+                           nargs=2,
+                           default=None)
 
     parserOpt.add_argument('--iterNum', '-n',
-                           help='Number of iterations to compute.',
+                           help='Number of iterations to compute.'
+                           'only for ICE!',
                            type=int,
                            metavar='INT',
                            default=500)
 
     parserOpt.add_argument('--inflationCutoff',
-                           help='Value corresponding to the maximum number of times a bin '
-                           'can be scaled up during the iterative correction. For example, '
-                           'an inflation cutoff of 3 will filter out all bins that were '
-                           'expanded 3 times or more during the iterative correction.',
+                           help='Value corresponding to the maximum number of '
+                           'times a bin can be scaled up during the iterative '
+                           'correction. For example, an inflation cutoff of 3 '
+                           'will filter out all bins that were expanded 3 '
+                           'times or more during the iterative correctionself.'
+                           'Only for ICE!',
                            type=float)
 
     parserOpt.add_argument('--transCutoff', '-transcut',
                            help='Clip high counts in the top -transcut trans '
                            'regions (i.e. between chromosomes). A usual value '
-                           'is 0.05 ',
+                           'is 0.05. Only for ICE! ',
                            type=float)
 
     parserOpt.add_argument('--sequencedCountCutoff',
                            help='Each bin receives a value indicating the '
                            'fraction that is covered by reads. A cutoff of '
                            '0.5 will discard all those bins that have less '
-                           'than half of the bin covered.',
+                           'than half of the bin covered. Only for ICE!',
                            default=None,
                            type=float)
 
     parserOpt.add_argument('--chromosomes',
-                           help='List of chromosomes to be included in the iterative '
-                           'correction. The order of the given chromosomes will be then '
-                           'kept for the resulting corrected matrix',
+                           help='List of chromosomes to be included in the '
+                           'iterative correction. The order of the given '
+                           'chromosomes will be then kept for the resulting '
+                           'corrected matrix',
                            default=None,
                            nargs='+')
 
     parserOpt.add_argument('--skipDiagonal', '-s',
-                           help='If set, diagonal counts are not included',
+                           help='If set, diagonal counts are not included.'
+                           ' Only for ICE!',
                            action='store_true')
 
     parserOpt.add_argument('--perchr',
-                           help='Normalize each chromosome separately. This is useful for '
-                           'samples from cells with uneven number of chromosomes and/or translocations.',
+                           help='Normalize each chromosome separately. This is'
+                           ' useful for samples from cells with uneven number '
+                           'of chromosomes and/or translocations.',
                            action='store_true')
 
     parserOpt.add_argument('--verbose',
@@ -334,9 +349,10 @@ class MAD(object):
 
         :returns: A numobservations-length boolean array.
 
-        :references: Boris Iglewicz and David Hoaglin (1993), "Volume 16: How to Detect and
-            Handle Outliers", The ASQC Basic References in Quality Control:
-            Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
+        :references: Boris Iglewicz and David Hoaglin (1993), "Volume 16:
+         How to Detect and Handle Outliers", The ASQC Basic References in
+         Quality Control:
+         Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
         """
 
         self.mad_b_value = 0.6745
@@ -438,7 +454,8 @@ def plot_total_contact_dist(hic_ma, args):
 
         # workaround for 'Axis limits cannot be NaN or Inf' bug in version 2.1.1
         log.debug("ax1.get_xlim(): {}".format(ax1.get_xlim()))
-        log.debug("np.array(ax1.get_xlim()): {}".format(np.array(ax1.get_xlim())))
+        log.debug("np.array(ax1.get_xlim()): {}".format(np.array(
+                                                        ax1.get_xlim())))
         log.debug("mad_values.value_to_mad(np.array(ax1.get_xlim())): {}".format(mad_values.value_to_mad(np.array(ax1.get_xlim()))))
 
         ax2.set_xlim(mad_values.value_to_mad(np.array(ax1.get_xlim())))
@@ -469,9 +486,9 @@ def plot_total_contact_dist(hic_ma, args):
     if args.perchr:
         chroms = hic_ma.getChrNames()
         if len(chroms) > 30:
-            log.warning("The matrix contains {} chromosomes. It is not practical to plot "
-                        "each. Try using --chromosomes to select some chromosomes or "
-                        "plot a single histogram.")
+            log.warning("The matrix contains {} chromosomes. It is not "
+                        "practical to plot each. Try using --chromosomes to "
+                        "select some chromosomes or plot a single histogram.")
         num_rows = int(np.ceil(float(len(chroms)) / 5))
         num_cols = min(len(chroms), 5)
         grids = gridspec.GridSpec(num_rows, num_cols)
