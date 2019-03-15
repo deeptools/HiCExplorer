@@ -40,7 +40,7 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--averageContactBin',
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
-                           default=0)
+                           default=5)
     parserOpt.add_argument('--outFileName', '-o',
                            help='The name of the background model file',
                            default='background_model.bed')

@@ -28,27 +28,37 @@ def parse_arguments(args=None):
                                 required=True,
                                 nargs='+')
 
-    parserRequired.add_argument('--outFileName', '-o',
-                                help='File name to save the image.',
-                                required=True)
-
+    # parserRequired.add_argument('--outFileName', '-o',
+    #                             help='File name to save the image. Is not used in batch mode.')
+    parserRequired.add_argument('--range',
+                           help='Defines the region upstream and downstream of a reference point which should be included. '
+                           'Format is --region upstream downstream',
+                           required=True,
+                           type=int,
+                           nargs=2)
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
                            help='path to the background file which should be used for plotting',
                            required=False)
-
+    parserOpt.add_argument('--interactionFileFolder', '-iff',
+                           help='Folder where the interaction files are stored in. Applies only for batch mode.',
+                           required=False,
+                           default='.')
+    parserOpt.add_argument('--outputFolder', '-of',
+                           help='Output folder of the files.',
+                           required=False,
+                           default='plots')
+    parserOpt.add_argument('--outputFormat', '-format',
+                           help='Output format of the plot. Ignored if outFileName is given.',
+                           required=False,
+                           default='png')
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
                            'output is a raster graphics image (e.g png, jpg)',
                            type=int,
                            default=300)
-    parserOpt.add_argument('--range',
-                           help='Defines the region upstream and downstream of a reference point which should be included. '
-                           'Format is --region upstream downstream',
-                           required=False,
-                           type=int,
-                           nargs=2)
+    
     parserOpt.add_argument('--colorMapZscore',
                            help='Color map to use for the z-score. Available '
                            'values can be seen here: '
@@ -67,6 +77,8 @@ def parse_arguments(args=None):
                            choices=['integrated', 'heatmap', ''],
                            default=''
                            )
+    parserOpt.add_argument('--outFileName', '-o',
+                            help='File name to save the image. Is not used in batch mode.')
     parserOpt.add_argument('--batchMode', '-bm',
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
@@ -83,19 +95,27 @@ def main(args=None):
     viewpointObj = Viewpoint()
     background_data = None
 
+    if not os.path.exists(args.outputFolder):
+        try:
+            os.makedirs(args.outputFolder)
+        except OSError as exc: # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
+
     if args.backgroundModelFile:
         background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range)
 
     interactionFileList = []
     if args.batchMode:
-        with open(args.interactionFile, 'r') as interactionFile:
-            file_ = True
-            while file_:
-            # for line in fh.readlines():
-                file_ = interactionFile.readline().strip()
-                file2_ = interactionFile.readline().strip()
-                if file_ != '' and file2_ != '':
-                    interactionFileList.append((file_, file2_))
+         with open(args.interactionFile[0], 'r') as interactionFile:
+
+                file_ = True
+                while file_:
+                # for line in fh.readlines():
+                    file_ = interactionFile.readline().strip()
+                    file2_ = interactionFile.readline().strip()
+                    if file_ != '' and file2_ != '':
+                        interactionFileList.append((file_, file2_))
     else:
         interactionFileList = [args.interactionFile]
 
@@ -121,11 +141,11 @@ def main(args=None):
         colors = ['g', 'b', 'c', 'm', 'y', 'k']
         background_plot = True
         data_plot_label = None
-        for i, interactionFile in enumerate(interactionFile):
+        for i, interactionFile_ in enumerate(interactionFile):
 
-            header, data, background_data_plot, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index = viewpointObj.getDataForPlotting(interactionFile, args.range, background_data)
+            header, data, background_data_plot, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index = viewpointObj.getDataForPlotting(args.interactionFileFolder + '/' + interactionFile_, args.range, background_data)
             if len(data) <= 1 or len(z_score) <= 1:
-                log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile, args.range))
+                log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, args.range))
                 continue
             matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
             matrix_name = matrix_name[1:].split('.')[0]
@@ -148,7 +168,7 @@ def main(args=None):
             elif args.rbzScore == 'integrated':
                 data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=z_score, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' rbz-score')
 
-            viewpointObj.writePlotData(interaction_file_data_raw, matrix_name + '_' + gene + '_raw_plot', args.backgroundModelFile)
+            # viewpointObj.writePlotData(interaction_file_data_raw, matrix_name + '_' + gene + '_raw_plot', args.backgroundModelFile)
 
         if data_plot_label is not None:
             ax1.set_ylabel('Number of interactions')
@@ -162,5 +182,15 @@ def main(args=None):
             # multiple legends in one figure
             data_legend = [label.get_label() for label in data_plot_label]
             ax1.legend(data_plot_label, data_legend, loc=0)
-            plt.savefig(args.outFileName, dpi=args.dpi)
+
+            
+
+            if args.outFileName:
+                outFileName = args.outFileName
+            else:
+                sample_prefix = interactionFile[0].split('_')[0] + '_' + interactionFile[1].split('_')[0]
+                region_prefix = '_'.join(interactionFile[0].split('_')[1:6])
+                outFileName = sample_prefix + '_' + region_prefix 
+                outFileName = args.outputFolder + '/' + outFileName + '.' + args.outputFormat
+            plt.savefig(outFileName, dpi=args.dpi)
         plt.close(fig)
