@@ -63,7 +63,7 @@ def test_hic_transfer_obs_exp_non_zero():
 
 
 def test_hic_transfer_obs_exp_non_zero_perChromosome():
-    
+
     outfile = NamedTemporaryFile(suffix='obs_exp_.cool', delete=False)
     outfile.close()
 
