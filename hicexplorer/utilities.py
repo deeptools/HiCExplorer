@@ -161,7 +161,6 @@ def getUserRegion(chromSizes, regionString, max_chunk_size=1e6):
     #Known chromosomes are: ['chr2']
     >>> getUserRegion({'chr2': 1000}, "chr2:10:1001")
     ([('chr2', 1000)], 10, 1000, 990)
-
     #Test chunk and regions size reduction to match tile size
     >>> getUserRegion({'chr2': 200000}, "chr2:10:123344:3")
     ([('chr2', 123344)], 9, 123345, 123336)
@@ -312,16 +311,16 @@ def obs_exp_matrix_norm(pSubmatrix):
         m_i,j = interaction_i,j / exp_i,j
     """
 
-    # expected_interactions_in_distance = expected_interactions_non_zero(pSubmatrix)
-    expected_interactions_in_distance = expected_interactions(pSubmatrix)
+    expected_interactions_in_distance = expected_interactions_non_zero(pSubmatrix)
+
     row_sums = np.array(pSubmatrix.sum(axis=1).T).flatten()
     total_interactions = pSubmatrix.sum()
+
     row, col = pSubmatrix.nonzero()
     # data = pSubmatrix.data.tolist()
     for i in range(len(row)):
         expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
         expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
-
         pSubmatrix.data[i] /= expected
     return pSubmatrix
 
@@ -479,4 +478,4 @@ def remove_non_ascii(pText):
 def check_cooler(pFileName):
     if pFileName.endswith('.cool') or cooler.fileops.is_cooler(pFileName) or'.mcool' in pFileName:
         return True
-    return False
+return False

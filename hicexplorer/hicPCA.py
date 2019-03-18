@@ -218,7 +218,7 @@ def main(args=None):
     chrom_list = []
     start_list = []
     end_list = []
-# PCA is computed per chromosome
+    # PCA is computed per chromosome
     length_chromosome = 0
     chromosome_count = len(ma.getChrNames())
     if args.pearsonMatrix:
@@ -319,7 +319,7 @@ def main(args=None):
                         if isinstance(value[idx], np.complex):
                             value[idx] = value[idx].real
                         fh.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_list[i]), start_list[i], end_list[i], value[idx]))
-                        
+
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
             log.error("ERROR: Your version of pyBigWig is not supporting "
