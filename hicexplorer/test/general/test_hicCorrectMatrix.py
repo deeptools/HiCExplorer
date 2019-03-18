@@ -22,7 +22,7 @@ def test_correct_matrix_ICE():
                                                outfile.name).split()
     hicCorrectMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "hicCorrectMatrix/small_test_matrix_corrected_chrUextra_chr3LHet.h5")
+    test = hm.hiCMatrix(ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5")
     new = hm.hiCMatrix(outfile.name)
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
@@ -40,7 +40,7 @@ def test_correct_matrix_KR():
                                                          outfile.name).split()
     hicCorrectMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "hicCorrectMatrix/small_test_matrix_corrected_chrUextra_chr3LHet.h5")
+    test = hm.hiCMatrix(ROOT + "hicCorrectMatrix/small_test_matrix_KRcorrected_chrUextra_chr3LHet.h5")
     new = hm.hiCMatrix(outfile.name)
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
