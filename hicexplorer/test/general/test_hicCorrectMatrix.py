@@ -13,7 +13,7 @@ ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 
 
 def test_correct_matrix_ICE():
-    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+    outfile = NamedTemporaryFile(suffix='.ICE.h5', delete=False)
     outfile.close()
 
     args = "correct --matrix {} --correctionMethod ICE --chromosomes "\
@@ -31,7 +31,7 @@ def test_correct_matrix_ICE():
 
 
 def test_correct_matrix_KR():
-    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+    outfile = NamedTemporaryFile(suffix='.KR.h5', delete=False)
     outfile.close()
 
     args = "correct --matrix {} --correctionMethod KR --chromosomes "\
