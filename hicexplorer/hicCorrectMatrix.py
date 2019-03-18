@@ -592,12 +592,12 @@ def main(args=None):
             log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
             ma.maskBins(np.flatnonzero(row_sum == 0))
             matrix_shape = ma.matrix.shape
-    if args.plotName::
+    if args.plotName:
         row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
         log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
         ma.maskBins(np.flatnonzero(row_sum == 0))
         matrix_shape = ma.matrix.shape
-        
+
     ma.matrix = convertNansToZeros(ma.matrix)
     ma.matrix = convertInfsToZeros(ma.matrix)
 
