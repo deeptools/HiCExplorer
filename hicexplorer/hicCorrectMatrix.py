@@ -587,7 +587,7 @@ def main(args=None):
 
     # mask all zero value bins
     if args.correctionMethod:
-        if args.correctionMethod  == 'ICE':
+        if args.correctionMethod == 'ICE':
             row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
             log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
             ma.maskBins(np.flatnonzero(row_sum == 0))
