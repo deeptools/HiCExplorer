@@ -11,7 +11,7 @@ import pyBigWig
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.parserCommon import CustomFormatter
 from hicexplorer.utilities import toString
@@ -218,11 +218,9 @@ def main(args=None):
     chrom_list = []
     start_list = []
     end_list = []
-    # PCA is computed per chromosome
+# PCA is computed per chromosome
     length_chromosome = 0
     chromosome_count = len(ma.getChrNames())
-    ma.matrix.data[np.isnan(ma.matrix.data)] = 0
-
     if args.pearsonMatrix:
         trasf_matrix_pearson = lil_matrix(ma.matrix.shape)
 
@@ -236,24 +234,20 @@ def main(args=None):
                             args.extraTrack.endswith('.bigwig')):
         bwTrack = pyBigWig.open(args.extraTrack, 'r')
     for chrname in ma.getChrNames():
-        print(chrname)
         chr_range = ma.getChrBinRange(chrname)
 
         submatrix = ma.matrix[chr_range[0]:chr_range[1],
                               chr_range[0]:chr_range[1]]
-
         if args.norm:
             obs_exp_matrix_ = obs_exp_matrix_norm(submatrix)
 
         else:
-
             obs_exp_matrix_ = obs_exp_matrix_lieberman(submatrix,
                                                        length_chromosome,
                                                        chromosome_count)
-
         obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_)).todense()
         obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
-        print(obs_exp_matrix_.shape)
+
         if args.obsexpMatrix:
             trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
 
@@ -312,7 +306,8 @@ def main(args=None):
                                      pApplyCorrection=False)
 
     if args.extraTrack and not args.extraTrack.endswith('.bw') and not args.extraTrack.endswith('.bigwig'):
-        vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.extraTrack)
+            vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list,
+                                                          args.extraTrack)
 
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):
@@ -324,7 +319,7 @@ def main(args=None):
                         if isinstance(value[idx], np.complex):
                             value[idx] = value[idx].real
                         fh.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_list[i]), start_list[i], end_list[i], value[idx]))
-
+                        
     elif args.format == 'bigwig':
         if not pyBigWig.numpy == 1:
             log.error("ERROR: Your version of pyBigWig is not supporting "
