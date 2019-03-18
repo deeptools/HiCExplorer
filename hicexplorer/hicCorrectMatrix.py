@@ -586,14 +586,18 @@ def main(args=None):
             ma.reorderChromosomes(toString(args.chromosomes))
 
     # mask all zero value bins
-    if args.correctionMethod or args.plotName:
-        if args.correctionMethod == 'KR':
-            continue
-        else:
+    if args.correctionMethod:
+        if args.correctionMethod  == 'ICE':
             row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
             log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
             ma.maskBins(np.flatnonzero(row_sum == 0))
             matrix_shape = ma.matrix.shape
+    if args.plotName::
+        row_sum = np.asarray(ma.matrix.sum(axis=1)).flatten()
+        log.info("Removing {} zero value bins".format(sum(row_sum == 0)))
+        ma.maskBins(np.flatnonzero(row_sum == 0))
+        matrix_shape = ma.matrix.shape
+        
     ma.matrix = convertNansToZeros(ma.matrix)
     ma.matrix = convertInfsToZeros(ma.matrix)
 
