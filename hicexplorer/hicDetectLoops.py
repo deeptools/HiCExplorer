@@ -8,7 +8,7 @@ import time
 import cooler
 import numpy as np
 from scipy.sparse import csr_matrix, triu
-from scipy.stats import mannwhitneyu
+from scipy.stats import anderson_ksamp
 from scipy.stats import nbinom
 import fit_nbinom
 
@@ -50,7 +50,7 @@ Computes long range contacts within the given contact matrix.
                            ' region) are tested against the peak region for significant difference. The square will have the size of (2 * windowSize)^2 bins')
     parserOpt.add_argument('--pValuePreselection', '-pp',
                            type=float,
-                           default=0.05
+                           default=0.05,
                            help='Only candidates with p-values less the given threshold will be considered as candidates after the fitting the negative binomial distributions. ' 
                                 'This does NOT influence the p-value for the neighborhood testing.')
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
@@ -60,7 +60,7 @@ Computes long range contacts within the given contact matrix.
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
                            default=0.001,
-                           help='Rejection level for Mann-Whitney rank test for H0 and p-value level for Bonferroni correction.')
+                           help='Rejection level for Anderson-Darling test for H0.')
 
     parserOpt.add_argument('--maxLoopDistance',
                            type=int,
@@ -179,7 +179,7 @@ def create_distance_distribution(pData, pDistances):
 
 
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
-                                pPeakInteractionsThreshold, pZscoreMeanFactor, pPValue, pPeakWindowSize):
+                                pPeakInteractionsThreshold, pPValue, pPeakWindowSize):
     """
         This function computes the loops by:
             - decreasing the search space by removing zScore values < 0
@@ -452,11 +452,11 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             mask.append(False)
             continue
 
-        statistic, pvalue = mannwhitneyu(peak, background)
+        statistic, critical_values, significance_level = anderson_ksamp([peak, background])
 
-        if pvalue <= pPValue:
+        if significance_level <= pPValue:
             mask.append(True)
-            pvalues.append(pvalue)
+            pvalues.append(significance_level)
 
             continue
 
@@ -467,14 +467,14 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
     log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
     pvalues = np.array(pvalues)
 
-    # Bonferroni
+    # # Bonferroni
 
-    if len(pvalues) > 0:
-        adjusted_pvalue = pPValue / len(pvalues)
+    # if len(pvalues) > 0:
+    #     adjusted_pvalue = pPValue / len(pvalues)
 
-        mask = pvalues <= adjusted_pvalue
-        pvalues = pvalues[mask]
-        pCandidates = pCandidates[mask]
+    #     mask = pvalues <= adjusted_pvalue
+    #     pvalues = pvalues[mask]
+    #     pCandidates = pCandidates[mask]
 
     log.debug('pCandidates after Bonferroni: {}'.format(len(pCandidates)))
     if len(pCandidates) == 0:
@@ -602,7 +602,6 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix,
                                                          pArgs.windowSize,
                                                          pArgs.peakInteractionsThreshold,
-                                                         pArgs.dynamicZScoreThreshold,
                                                          pArgs.pValue,
                                                          pArgs.peakWidth)
 
