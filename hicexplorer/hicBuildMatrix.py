@@ -147,7 +147,7 @@ def parse_arguments(args=None):
                             ' Example: --binSize 10000 20000 50000 will create a mcool file formate containing the three defined resolutions.',
                        type=int,
                        nargs='+',
-                       default=10000)
+                       default=[10000])
 
     group.add_argument('--restrictionCutFile', '-rs',
                        help=('BED file with all restriction cut places '
@@ -177,7 +177,7 @@ def parse_arguments(args=None):
                            help='The maximum library insert size defines different cut offs based on the maximum expected '
                            'library size. *This is not the average fragment size* but the higher end of the '
                            'the fragment size distribution (obtained using for example a Fragment Analyzer or a Bioanalyzer) '
-                           'which usually is between 800 to 1500 bp. If this value if not known use the default of '
+                           'which usually is between 800 to 1500 bp. If this value is not known use the default of '
                            '1000. The insert value is used to decide if two mates belong to the same fragment (by '
                            'checking if they are within this max insert size) and to decide if a mate is too far '
                            'away from the nearest restriction site.',
