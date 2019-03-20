@@ -31,8 +31,13 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--data', '-d',
                                 help='The loop or TAD domains file',
                                 required=True)
+    parserRequired.add_argument('--protein', '-p',
+                                help='The protein peak file',
+                                required=True)
     parserRequired.add_argument('--method', '-m', # loop or domain
                                 help='The loop or TAD domains file',
+                                choices=['loops', 'tads'],
+                                default='smallest',
                                 required=True)
     parserRequired.add_argument('--resolution', '-r', # loop or domain
                                 help='The used resolution of the Hi-C interaction matrix.',
@@ -43,7 +48,8 @@ def parse_arguments(args=None):
                            help=''
                            )
     parserOpt.add_argument('--removeLocations', '-rl',
-                           help='Remove locations with no protein overlap.'
+                           help='Remove locations with no protein overlap.',
+                           action='store_true'
                            )
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
@@ -54,6 +60,9 @@ def parse_arguments(args=None):
 
 def readProtein(pFile):
     return pd.read_csv(pFile, sep='\t', header=(-1))[[0, 1, 2]]
+
+def readTAD_domain(pFile):
+    return pd.read_csv(pFile, sep='\t', header=(-1))
 
 def readLoopFile(pInputFile, pAddChr):
     full_loop= pd.read_csv(pInputFile, sep='\t', header=(-1))
@@ -74,6 +83,10 @@ def overlapLoop(pDataFrameLoop, pDataFrameProtein):
     mask_y = y['name'] >= 1
     
     selection  = (mask_x) & (mask_y)
+    
+    # return pDataFrameLoop[selection]
+    
+    # selection  = (mask_x) & (mask_y)
     
     return selection
 
@@ -102,7 +115,8 @@ def applyBinning(pDataFrame, pBinSize):
     bedtools_data = bedtools_data.sort()
     return bedtools_data.to_dataframe()
 
-
+def writeLoopFile(pOutFileName, pLoopDataFrame):
+    pLoopDataFrame.to_csv(pOutFileName, sep='\t', header=False, index=False)
 
 def main(args=None):
 
@@ -110,12 +124,22 @@ def main(args=None):
 
     if args.method == 'loops':
         loop_df = readLoopFile(args.data, True)
-        protein_df = applyBinning(ctcf_df, args.resolution)
+        protein_df = readProtein(args.protein)
+        protein_df_resolution = applyBinning(protein_df, args.resolution)
 
-        overlap_mask_df = overlapLoop(loop_df, protein_df)
+        overlap_mask_df = overlapLoop(loop_df, protein_df_resolution)
 
         if args.removeLocations:
-            loop_df = loop_df[overlap_mask_df]
+            loop_df_ = loop_df[overlap_mask_df]
+            writeLoopFile(args.outFileName, loop_df_)
+        else:
+            loop_df_ = loop_df[overlap_mask_df]
+            print('Protein peaks: {}'.format(len(protein_df_resolution)))
+            print('Matched Loops: {}'.format(len(loop_df_)))
+
+            print('Loops match protein: {}'.format(len(loop_df_) / len(loop_df)))
+            print('{}'.format(loop_df[:10]))
+
 
     elif args.method == 'tads':
         tad_df = readLoopFile(args.data, True)
