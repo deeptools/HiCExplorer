@@ -19,7 +19,6 @@ from hicexplorer.utilities import check_cooler
 from hicexplorer.hicPlotMatrix import translate_region
 
 
-
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(
@@ -42,7 +41,7 @@ Computes long range contacts within the given contact matrix.
                            type=int,
                            default=6,
                            help='The width of the peak region in bins. The square around the peak will include (2 * peakWidth)^2 bins.')
-    
+
     parserOpt.add_argument('--windowSize', '-w',
                            type=int,
                            default=10,
@@ -50,8 +49,8 @@ Computes long range contacts within the given contact matrix.
                            ' region) are tested against the peak region for significant difference. The square will have the size of (2 * windowSize)^2 bins')
     parserOpt.add_argument('--pValuePreselection', '-pp',
                            type=float,
-                           default=0.05,
-                           help='Only candidates with p-values less the given threshold will be considered as candidates after the fitting the negative binomial distributions. ' 
+                           default=0.025,
+                           help='Only candidates with p-values less the given threshold will be considered as candidates after the fitting the negative binomial distributions. '
                                 'This does NOT influence the p-value for the neighborhood testing.')
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
@@ -59,12 +58,12 @@ Computes long range contacts within the given contact matrix.
                            help='The minimum number of interactions a detected peaks needs to have to be considered.')
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
-                           default=0.001,
+                           default=0.01,
                            help='Rejection level for Anderson-Darling test for H0.')
 
     parserOpt.add_argument('--maxLoopDistance',
                            type=int,
-                           default=1500000,
+                           default=2000000,
                            help='Maximum distance of a loop, usually loops are within a distance of ~2MB.')
     parserOpt.add_argument('--minLoopDistance',
                            type=int,
@@ -249,11 +248,13 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     instances = instances[mask]
     features = features[mask]
+    # log.debug('candidates region {} {}'.format(pRegion, len(pHiCMatrix.matrix.data)))
+
     if len(features) == 0:
         return None, None
     candidates = np.array([*zip(instances, features)])
 
-    log.debug('Number of candidates after z-score and height pruning: {}'.format(len(candidates)))
+    log.debug('Number of candidates after nbinom and height pruning: {}'.format(len(candidates)))
 
     # Clean neighborhood, results in one candidate per neighborhood
     number_of_candidates = 0
@@ -539,7 +540,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     """
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
     pHiCMatrix.matrix.eliminate_zeros()
-
+    log.debug('candidates region {} {}'.format(pRegion, len(pHiCMatrix.matrix.data)))
     # s
     max_loop_distance = None
     if pArgs.maxLoopDistance:
@@ -574,6 +575,8 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         mask = distances < min_loop_distance
         pHiCMatrix.matrix.data[mask] = 0
         pHiCMatrix.matrix.eliminate_zeros()
+
+    log.debug('candidates region {} min max boundary {}'.format(pRegion, len(pHiCMatrix.matrix.data)))
 
     # pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
     # instances, features = deepcopy(pHiCMatrix.matrix.nonzero())
