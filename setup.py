@@ -110,7 +110,7 @@ install_requires_py = ["numpy >= 1.15.*",
                        "pygenometracks >= 2.1",
                        "psutil >= 5.4.8",
                        "hic2cool >= 0.4",
-                       "krbalancing >= 0.0.3"
+                       "krbalancing >= 0.0.4"
                        ]
 
 
