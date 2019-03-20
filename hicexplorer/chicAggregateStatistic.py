@@ -185,7 +185,7 @@ def main(args=None):
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
-        except OSError as exc: # Guard against race condition
+        except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
     if args.targetFile:
@@ -193,14 +193,17 @@ def main(args=None):
         if args.batchMode:
             interactionFileList = []
             with open(args.interactionFile[0], 'r') as interactionFile:
-                file_ = interactionFile.readline().strip()
-                if file_ != '':
-                    interactionFileList.append(file_)
-            
+                file_ = True
+                while file_:
+                    # for line in fh.readlines():
+                    file_ = interactionFile.readline().strip()
+                    # file2_ = interactionFile.readline().strip()
+                    if file_ != '':
+                        interactionFileList.append(file_)
+
         else:
             interactionFileList = args.interactionFile
 
-        
         for interactionFile in interactionFileList:
             header, interaction_data, interaction_file_data = viewpointObj.readInteractionFileForAggregateStatistics(args.interactionFileFolder + '/' + interactionFile)
 
@@ -214,7 +217,7 @@ def main(args=None):
             if args.batchMode:
                 outfile_names.append(outFileName)
             outFileName = args.outputFolder + '/' + outFileName
-            
+
             if args.mergeBins > 0:
                 merged_neighborhood = merge_neighbors(accepted_scores, args.mergeBins)
                 write(outFileName, header, merged_neighborhood, interaction_file_data)
@@ -230,7 +233,7 @@ def main(args=None):
 
                 file_ = True
                 while file_:
-                # for line in fh.readlines():
+                    # for line in fh.readlines():
                     file_ = interactionFile.readline().strip()
                     file2_ = interactionFile.readline().strip()
                     if file_ != '' and file2_ != '':
@@ -242,9 +245,7 @@ def main(args=None):
                 interactionFileList.append((args.interactionFile[i], args.interactionFile[i + 1]))
                 i += 2
 
-
         if len(interactionFileList) % 2 == 0 or args.batchMode:
-            
 
             for interactionFile in interactionFileList:
 
@@ -265,13 +266,12 @@ def main(args=None):
                         else:
                             log.error('No target regions found')
                             sys.exit(0)
-                    outFileName = '.'.join(interactionFile[j].split('.')[:-1]) + '_' + sample_prefix + args.outFileNameSuffix 
-                    
+                    outFileName = '.'.join(interactionFile[j].split('.')[:-1]) + '_' + sample_prefix + args.outFileNameSuffix
+
                     if args.batchMode:
                         outfile_names.append(outFileName)
                     outFileName = args.outputFolder + '/' + outFileName
 
-                    
                     if args.mergeBins > 0:
                         merged_neighborhood = merge_neighbors(accepted_scores, args.mergeBins)
                         write(outFileName, data[j][0], merged_neighborhood, data[j][2])
