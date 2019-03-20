@@ -42,7 +42,7 @@ def test_correct_matrix_KR():
 
     test = hm.hiCMatrix(ROOT + "hicCorrectMatrix/small_test_matrix_KRcorrected_chrUextra_chr3LHet.h5")
     new = hm.hiCMatrix(outfile.name)
-    nt.assert_almost_equal(test.matrix.data, new.matrix.data, decimal = 10)
+    nt.assert_almost_equal(test.matrix.data, new.matrix.data, decimal=10)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
     os.unlink(outfile.name)
