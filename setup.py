@@ -126,7 +126,7 @@ setup(
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
-             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicKRBalancing'
+             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
