@@ -16,3 +16,4 @@ psutil >= 5.4.8
 hicmatrix >= 7
 cooler == 0.8.2
 pygenometracks >= 2.1
+krbalancing >= 0.0.4
