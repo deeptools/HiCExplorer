@@ -31,7 +31,13 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--outFileName', '-o',
                                 help='File name to save the image.',
                                 required=True)
-
+    parserRequired.add_argument('--range',
+                                help='Defines the region upstream and downstream of a reference point which should be included. '
+                                'Format is --region upstream downstream',
+                                required=True,
+                                type=int,
+                                default=[500000, 500000],
+                                nargs=2)
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
@@ -43,12 +49,7 @@ def parse_arguments(args=None):
                            'output is a raster graphics image (e.g png, jpg)',
                            type=int,
                            default=300)
-    parserOpt.add_argument('--range',
-                           help='Defines the region upstream and downstream of a reference point which should be included. '
-                           'Format is --region upstream downstream',
-                           required=False,
-                           type=int,
-                           nargs=2)
+
     parserOpt.add_argument('--colorMapZscore',
                            help='Color map to use for the z-score. Available '
                            'values can be seen here: '
@@ -89,11 +90,11 @@ def main(args=None):
     interactionFileList = []
     if args.batchMode:
         with open(args.interactionFile, 'r') as interactionFile:
-                file_ = interactionFile.readline().strip()
-                file2_ = interactionFile.readline().strip()
+            file_ = interactionFile.readline().strip()
+            file2_ = interactionFile.readline().strip()
 
-                if file_ != '' and file2_ != '':
-                    interactionFileList.append((file_, file2_))
+            if file_ != '' and file2_ != '':
+                interactionFileList.append((file_, file2_))
     else:
         interactionFileList = [args.interactionFile]
 
@@ -119,6 +120,8 @@ def main(args=None):
         colors = ['g', 'b', 'c', 'm', 'y', 'k']
         background_plot = True
         data_plot_label = None
+
+        number_of_data_points = 0
         for i, interactionFile in enumerate(interactionFile):
 
             header, data, background_data_plot, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index = viewpointObj.getDataForPlotting(interactionFile, args.range, background_data)
@@ -127,6 +130,8 @@ def main(args=None):
                 continue
             matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
             matrix_name = matrix_name[1:].split('.')[0]
+            if number_of_data_points < len(data):
+                number_of_data_points = len(data)
             if data_plot_label:
                 data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name)
             else:
@@ -149,13 +154,24 @@ def main(args=None):
             viewpointObj.writePlotData(interaction_file_data_raw, matrix_name + '_' + gene + '_raw_plot', args.backgroundModelFile)
 
         if data_plot_label is not None:
-            ax1.set_ylabel('Number of interactions')
-            ax1.set_xticks([0, viewpoint_index, len(data) - 1])
 
-            if args.range:
-                ax1.set_xticklabels([str(-args.range[0]), 'Viewpoint', str(args.range[1])])
-            else:
-                ax1.set_xticklabels([upstream_range, 'Viewpoint', downstream_range])
+            step_size = number_of_data_points // 10
+            ticks = range(0, number_of_data_points, step_size)
+
+            value_range = (args.range[0]) // (5)
+            x_labels = [str(-j // 1000) + 'kb' for j in range(args.range[0], 0, -value_range)]
+            x_labels.append('viewpoint')
+            x_labels_ = [str(j // 1000) + 'kb' for j in range(value_range, args.range[1] + 1, value_range)]
+            x_labels.extend(x_labels_)
+            # ax.set
+            ax1.set_ylabel('Number of interactions')
+            ax1.set_xticks(ticks)
+            ax1.set_xticklabels(x_labels)
+
+            # if args.range:
+            #     ax1.set_xticklabels([str(-args.range[0]), 'Viewpoint', str(args.range[1])])
+            # else:
+            #     ax1.set_xticklabels([upstream_range, 'Viewpoint', downstream_range])
 
             # multiple legends in one figure
             data_legend = [label.get_label() for label in data_plot_label]
