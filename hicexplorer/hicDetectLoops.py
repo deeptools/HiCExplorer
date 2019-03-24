@@ -93,87 +93,19 @@ Computes long range contacts within the given contact matrix.
     return parser
 
 
-def _sum_per_distance(pSum_per_distance, pData, pDistances):
-    """
-        This internal function computes the sum per genomic distance of matrix.
-
-        Input:
-        pSum_per_distance: numpy 1D array. Index value is equal to distance d.
-        pData: numpy 1D array. Contains the count data.
-        pDistances: numpy 1D array. Distances are associated with pData.
-
-        Returns:
-        numpy 1D array: sum of counts for this distance, index is equal to distance.
-        numpy 1D array: count of non-zero elements per distance, index is equal to distance.
-
-    """
-    distance_count = np.zeros(len(pSum_per_distance))
-    for i, distance in enumerate(pDistances):
-        pSum_per_distance[distance] += pData[i]
-        distance_count[distance] += 1
-    return pSum_per_distance, distance_count
-
-
-def compute_zscore_matrix(pInstances, pFeatures, pData, pMaxDistance):
-    """
-        Computes the z-score matrix given the csr_matrix represented by pInstances, pFeatures, pData.
-
-        Input:
-        pInstances: numpy 1D array: Instance index values for csr matrix.
-        pFeatures: numpy 1D array: Features index values for csr matrix.
-        pData: numpy 1D array: Data values for csr matrix.
-        pMaxDistance: integer, maximal distance to consider.
-
-        Returns:
-        numpy 1D array: Same length as pData, contains the z-score for same index of pData.
-
-    """
-    pData = pData.astype(float)
-
-    data = deepcopy(pData)
-    distances = np.absolute(pInstances - pFeatures)
-    sigma_2 = np.zeros(pMaxDistance)
-
-    # shifts all values by one, but 0 / mean is prevented
-    sum_per_distance = np.ones(pMaxDistance)
-    np.nan_to_num(data, copy=False)
-
-    sum_per_distance, distance_count = _sum_per_distance(sum_per_distance, data, distances)
-    # compute mean
-    mean_adjusted = sum_per_distance / distance_count
-    # compute sigma squared
-    data_mean = pData - mean_adjusted[distances]
-    data = np.square(data_mean)
-
-    for i in range(len(pInstances)):
-        sigma_2[distances[i]] += data[i]
-
-    sigma_2 /= distance_count
-    sigma = np.sqrt(sigma_2)
-    sigma /= np.sqrt(distance_count)
-    data_mean /= sigma[distances]
-
-    return data_mean
-
-
 def create_distance_distribution(pData, pDistances):
     pGenomicDistanceDistribution = {}
     pGenomicDistanceDistributionPosition = {}
 
-    # distinct_distances = set()
-
     for i, distance in enumerate(pDistances):
 
-        # try:
         if distance in pGenomicDistanceDistribution:
             pGenomicDistanceDistribution[distance].append(pData[i])
             pGenomicDistanceDistributionPosition[distance].append(i)
         else:
             pGenomicDistanceDistribution[distance] = [pData[i]]
             pGenomicDistanceDistributionPosition[distance] = [i]
-        # except:
-        #     pass
-        # distinct_distances.add(int(distance))
+
     return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition
 
 
@@ -204,29 +136,20 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             - An associated list of p-values
     """
 
-    # instances, features = pAdjustedHiCMatrix.nonzero()
-
-    # # filter by distance
-    # distance = np.absolute(instances - features)
-
-    # # filter by threshold
-    # mask = pZscoreMatrix.data >= 0
-
-    # zscore_mean = np.mean(pZscoreMatrix.data[mask])
-    # mask = pZscoreMatrix.data >= (zscore_mean * pZscoreMeanFactor)
-
-    # peak_interaction_threshold_array = pPeakInteractionsThreshold / np.log(distance)
-    # mask_interactions = pAdjustedHiCMatrix.data > peak_interaction_threshold_array
     instances, features = pHiCMatrix.matrix.nonzero()
     distance = np.absolute(instances - features)
     mask = [False] * len(distance)
-    genomic_distance_distributions, pGenomicDistanceDistributionPosition = create_distance_distribution(pHiCMatrix.matrix.data, distance)
+    genomic_distance_distributions, pGenomicDistanceDistributionPosition = create_distance_distribution(
+        pHiCMatrix.matrix.data, distance)
     nbinom_parameters = {}
     for i, key in enumerate(genomic_distance_distributions):
-        nbinom_parameters = fit_nbinom.fit(np.array(genomic_distance_distributions[key]))
-        nbinom_distance = nbinom(nbinom_parameters['size'], nbinom_parameters['prob'])
+        nbinom_parameters = fit_nbinom.fit(
+            np.array(genomic_distance_distributions[key]))
+        nbinom_distance = nbinom(
+            nbinom_parameters['size'], nbinom_parameters['prob'])
 
-        less_than = np.array(genomic_distance_distributions[key]).astype(int) - 1
+        less_than = np.array(
+            genomic_distance_distributions[key]).astype(int) - 1
         max_element = np.max(less_than)
         sum_of_densities = np.zeros(max_element)
         for j in range(max_element):
@@ -241,20 +164,21 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             if value:
                 mask[pGenomicDistanceDistributionPosition[key][j]] = True
 
-    peak_interaction_threshold_array = pPeakInteractionsThreshold / np.log(distance)
+    peak_interaction_threshold_array = pPeakInteractionsThreshold / \
+        np.log(distance)
     mask_interactions = pHiCMatrix.matrix.data > peak_interaction_threshold_array
 
     mask = np.logical_and(mask, mask_interactions)
 
     instances = instances[mask]
     features = features[mask]
-    # log.debug('candidates region {} {}'.format(pRegion, len(pHiCMatrix.matrix.data)))
 
     if len(features) == 0:
         return None, None
     candidates = np.array([*zip(instances, features)])
 
-    log.debug('Number of candidates after nbinom and height pruning: {}'.format(len(candidates)))
+    log.debug('Number of candidates after nbinom and height pruning: {}'.format(
+        len(candidates)))
 
     # Clean neighborhood, results in one candidate per neighborhood
     number_of_candidates = 0
@@ -262,7 +186,8 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
     while number_of_candidates != len(candidates):
         number_of_candidates = len(candidates)
 
-        candidates, mask = window_zscore_cluster(candidates, pWindowSize, pHiCMatrix.matrix)
+        candidates, mask = neighborhood_merge(
+            candidates, pWindowSize, pHiCMatrix.matrix)
         i += 1
 
         if len(candidates) == 0:
@@ -300,26 +225,26 @@ def filter_duplicates(pCandidates):
     return mask
 
 
-def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
+def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix):
     """
         Clusters candidates together to one candidate if they share / overlap their neighborhood.
-        Implemented in an iterative way, the candidate with the highest z-score is accepted as candidate for the neighborhood.
+        Implemented in an iterative way, the candidate with the highest interaction count is accepted as candidate for the neighborhood.
 
         Input:
             - pCandidates: List of candidates
             - pWindowSize: integer, neighborhood size (2*pWindowSize)^2
-            - pZScoreMatrix: csr_matrix: The z-score matrix
+            - pInteractionCountMatrix: csr_matrix: The interaction count matrix
 
         Returns:
             - Reduced list of candidates with no more overlapping neighborhoods
     """
-    x_max = pZScoreMatrix.shape[0]
-    y_max = pZScoreMatrix.shape[1]
+    x_max = pInteractionCountMatrix.shape[0]
+    y_max = pInteractionCountMatrix.shape[1]
     new_candidate_list = []
 
     for candidate in pCandidates:
 
-        # get neighborhood out of z-score matrix
+        # get neighborhood out of pInteractionCountMatrix matrix
         start_x = candidate[0] - \
             pWindowSize if candidate[0] - pWindowSize > 0 else 0
         end_x = candidate[0] + pWindowSize if candidate[0] + \
@@ -329,15 +254,18 @@ def window_zscore_cluster(pCandidates, pWindowSize, pZScoreMatrix):
         end_y = candidate[1] + pWindowSize if candidate[1] + \
             pWindowSize < y_max else y_max
 
-        neighborhood = pZScoreMatrix[start_x:end_x, start_y:end_y].toarray().flatten()
+        neighborhood = pInteractionCountMatrix[start_x:end_x,
+                                               start_y:end_y].toarray().flatten()
         if len(neighborhood) == 0:
             continue
         argmax = np.argmax(neighborhood)
         x = argmax // (pWindowSize * 2)
         y = argmax % (pWindowSize * 2)
 
-        candidate_x = (candidate[0] - pWindowSize) + x if (candidate[0] - pWindowSize + x) < x_max else x_max - 1
-        candidate_y = (candidate[1] - pWindowSize) + y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
+        candidate_x = (candidate[0] - pWindowSize) + \
+            x if (candidate[0] - pWindowSize + x) < x_max else x_max - 1
+        candidate_y = (candidate[1] - pWindowSize) + \
+            y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
         if candidate_x < 0 or candidate_y < 0:
             continue
         if np.absolute(candidate_x - candidate_y) < 4:
@@ -418,7 +346,8 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         for j in range(len(neighborhood)):
             neighborhood[j, :] = smoothInteractionValues(neighborhood[j, :], 5)
         for j in range(len(neighborhood_old[0])):
-            neighborhood_old[:, j] = smoothInteractionValues(neighborhood[:, j], 5)
+            neighborhood_old[:, j] = smoothInteractionValues(
+                neighborhood[:, j], 5)
         neighborhood = (neighborhood + neighborhood_old) / 2
 
         peak_region = [peak_x, peak_y]
@@ -428,16 +357,22 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             continue
 
         if pPeakWindowSize > pWindowSize:
-            log.warning('Neighborhood window size ({}) needs to be larger than peak width({}).'.format(pWindowSize, pPeakWindowSize))
+            log.warning('Neighborhood window size ({}) needs to be larger than peak width({}).'.format(
+                pWindowSize, pPeakWindowSize))
             return None, None
 
-        peak = neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize, peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize].flatten()
+        peak = neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize,
+                            peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize].flatten()
 
         background = []
-        background.extend(list(neighborhood[:peak_region[0] - pPeakWindowSize, :].flatten()))
-        background.extend(list(neighborhood[peak_region[0] + pPeakWindowSize:, :].flatten()))
-        background.extend(list(neighborhood[:, :peak_region[1] - pPeakWindowSize].flatten()))
-        background.extend(list(neighborhood[:, peak_region[1] + pPeakWindowSize:].flatten()))
+        background.extend(
+            list(neighborhood[:peak_region[0] - pPeakWindowSize, :].flatten()))
+        background.extend(
+            list(neighborhood[peak_region[0] + pPeakWindowSize:, :].flatten()))
+        background.extend(
+            list(neighborhood[:, :peak_region[1] - pPeakWindowSize].flatten()))
+        background.extend(
+            list(neighborhood[:, peak_region[1] + pPeakWindowSize:].flatten()))
         background = np.array(background)
 
         if len(background) < pWindowSize:
@@ -453,7 +388,8 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             mask.append(False)
             continue
 
-        statistic, critical_values, significance_level = anderson_ksamp([peak, background])
+        statistic, critical_values, significance_level = anderson_ksamp([
+                                                                        peak, background])
 
         if significance_level <= pPValue:
             mask.append(True)
@@ -468,16 +404,6 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
     log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
     pvalues = np.array(pvalues)
 
-    # # Bonferroni
-
-    # if len(pvalues) > 0:
-    #     adjusted_pvalue = pPValue / len(pvalues)
-
-    #     mask = pvalues <= adjusted_pvalue
-    #     pvalues = pvalues[mask]
-    #     pCandidates = pCandidates[mask]
-
-    log.debug('pCandidates after Bonferroni: {}'.format(len(pCandidates)))
     if len(pCandidates) == 0:
         return None, None
 
@@ -496,7 +422,6 @@ def cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList, pMa
         Returns:
             List of detect loops in genomic coordinate format
     """
-    # mapping: chr_X, start, end, chr_Y, start, end, cluster_id
     mapped_cluster = []
     for i, candidate in enumerate(pCandidates):
         chr_x, start_x, end_x, _ = pHicMatrix.getBinPos(candidate[0])
@@ -540,7 +465,8 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     """
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
     pHiCMatrix.matrix.eliminate_zeros()
-    log.debug('candidates region {} {}'.format(pRegion, len(pHiCMatrix.matrix.data)))
+    log.debug('candidates region {} {}'.format(
+        pRegion, len(pHiCMatrix.matrix.data)))
     # s
     max_loop_distance = None
     if pArgs.maxLoopDistance:
@@ -576,32 +502,9 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         pHiCMatrix.matrix.data[mask] = 0
         pHiCMatrix.matrix.eliminate_zeros()
 
-    log.debug('candidates region {} min max boundary {}'.format(pRegion, len(pHiCMatrix.matrix.data)))
+    log.debug('candidates region {} min max boundary {}'.format(
+        pRegion, len(pHiCMatrix.matrix.data)))
 
-    # pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
-    # instances, features = deepcopy(pHiCMatrix.matrix.nonzero())
-    # data_hic = deepcopy(pHiCMatrix.matrix.data)
-    # if len(pHiCMatrix.matrix.data) == 0:
-    #     log.info('Computed loops for {}: 0'.format(pRegion))
-
-    #     if pQueue is None:
-    #         return None
-    #     else:
-    #         pQueue.put([None])
-    #         return
-
-    # z_score_data = compute_zscore_matrix(instances, features, data_hic, pHiCMatrix.matrix.shape[0])
-    # z_score_matrix = csr_matrix((z_score_data, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
-
-    # if pArgs.zScoreMatrixName:
-    #     matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
-
-    #     matrixFileHandlerOutput.set_matrix_variables(z_score_matrix, pHiCMatrix.cut_intervals, pHiCMatrix.nan_bins,
-    #                                                  None, pHiCMatrix.distance_counts)
-    #     matrixFileHandlerOutput.save(
-    #         pRegion + '_' + pArgs.zScoreMatrixName, pSymmetric=True, pApplyCorrection=False)
-
-    # adjusted_hic_matrix = csr_matrix((data_hic, (instances, features)), shape=(pHiCMatrix.matrix.shape[0], pHiCMatrix.matrix.shape[1]))
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix,
                                                          pArgs.windowSize,
                                                          pArgs.peakInteractionsThreshold,
@@ -680,7 +583,8 @@ def main(args=None):
             hic_matrix = hm.hiCMatrix(args.matrix)
             hic_matrix.keepOnlyTheseChr([chrom])
         mapped_loops = compute_loops(hic_matrix, args.region, args)
-        write_bedgraph(mapped_loops, args.outFileName, region_start, region_end)
+        write_bedgraph(mapped_loops, args.outFileName,
+                       region_start, region_end)
 
     else:
         mapped_loops = []
@@ -708,9 +612,11 @@ def main(args=None):
         if single_core:
             for chromosome in chromosomes_list:
                 if is_cooler:
-                    hic_matrix = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=[chromosome])
+                    hic_matrix = hm.hiCMatrix(
+                        pMatrixFile=args.matrix, pChrnameList=[chromosome])
                 else:
-                    hic_matrix.setMatrix(deepcopy(matrix), deepcopy(cut_intervals))
+                    hic_matrix.setMatrix(
+                        deepcopy(matrix), deepcopy(cut_intervals))
                     hic_matrix.keepOnlyTheseChr([chromosome])
                 hic_matrix.maskBins(hic_matrix.nan_bins)
                 loops = compute_loops(hic_matrix, chromosome, args)
@@ -732,10 +638,13 @@ def main(args=None):
                         queue[i] = Queue()
                         thread_done[i] = False
                         if is_cooler:
-                            hic_matrix = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=[chromosomes_list[count_call_of_read_input]])
+                            hic_matrix = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=[
+                                                      chromosomes_list[count_call_of_read_input]])
                         else:
-                            hic_matrix.setMatrix(deepcopy(matrix), deepcopy(cut_intervals))
-                            hic_matrix.keepOnlyTheseChr([chromosomes_list[count_call_of_read_input]])
+                            hic_matrix.setMatrix(
+                                deepcopy(matrix), deepcopy(cut_intervals))
+                            hic_matrix.keepOnlyTheseChr(
+                                [chromosomes_list[count_call_of_read_input]])
 
                         process[i] = Process(target=compute_loops, kwargs=dict(
                             pHiCMatrix=hic_matrix,
@@ -772,4 +681,5 @@ def main(args=None):
         if len(mapped_loops) > 0:
             write_bedgraph(mapped_loops, args.outFileName)
 
-    log.info("Number of detected loops for all regions: {}".format(len(mapped_loops)))
+    log.info("Number of detected loops for all regions: {}".format(
+        len(mapped_loops)))
