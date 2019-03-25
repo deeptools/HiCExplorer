@@ -55,15 +55,17 @@ def parse_arguments(args=None):
                            type=int,
                            default=5)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
-                           help='',
-                           type=int,
-                           default=5)
+                           help='')
     parserOpt.add_argument('--fixateRange', '-fs',
                            help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
                            required=False,
                            default=500000,
                            type=int
                            )
+    parserOpt.add_argument('--outputFolder', '-o',
+                           help='File name suffix to save the result.',
+                           required=False,
+                           default='interactionFiles')
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
@@ -103,7 +105,7 @@ def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint
     return data, background, sem
 
 
-def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel):
+def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pOutputFolder):
     # import json
     # with open('backgroundmodel_after_load.txt', 'w') as file:
     #     file.write(json.dumps(pBackgroundModel))
@@ -156,7 +158,10 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         header_information += '\n# ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('.')[:-1])
         matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
-        file_list.append(matrix_name)
+        file_list.append(matrix_name + '.bed')
+
+        matrix_name = pOutputFolder + '/' + matrix_name
+        # file_list.append(matrix_name + '.bed')
         pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
 
     pQueue.put(file_list)
@@ -174,10 +179,16 @@ def main(args=None):
     process = [None] * args.threads
     file_list = []
     background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range)
+    if not os.path.exists(args.outputFolder):
+        try:
+            os.makedirs(args.outputFolder)
+        except OSError as exc: # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
-
+        file_list_sample = [None] * args.threads
         all_data_collected = False
 
         for i in range(args.threads):
@@ -197,7 +208,8 @@ def main(args=None):
                 pReferencePoints=referencePointsThread,
                 pGeneList=geneListThread,
                 pMatrix=matrix,
-                pBackgroundModel=background_model
+                pBackgroundModel=background_model,
+                pOutputFolder=args.outputFolder
             )
             )
 
@@ -207,7 +219,7 @@ def main(args=None):
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
                     file_list_ = queue[i].get()
-                    file_list.extend(file_list_)
+                    file_list_sample[i] = file_list_
                     process[i].join()
                     process[i].terminate()
                     process[i] = None
@@ -218,7 +230,17 @@ def main(args=None):
                 if process[i] is not None:
                     all_data_collected = False
             time.sleep(1)
+        file_list_sample = [item for sublist in file_list_sample for item in sublist]
+        file_list.append(file_list_sample)
     
     if args.writeFileNamesToFile:
         with open(args.writeFileNamesToFile, 'w') as file:
-            file.write('\n'.join(file_list))
+            for i, sample in enumerate(file_list):
+                
+                for sample2 in file_list[i+1:]:
+                    # log.debug('sample {}'.format(sample))
+
+                    for viewpoint, viewpoint2 in zip(sample, sample2):
+                        # log.debug('viewpoint {}'.format(viewpoint))
+                        file.write(viewpoint + '\n')
+                        file.write(viewpoint2 + '\n')

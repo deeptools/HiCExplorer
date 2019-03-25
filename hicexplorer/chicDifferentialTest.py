@@ -30,11 +30,17 @@ def parse_arguments(args=None):
                                 type=float,
                                 default=0.05,
                                 required=True)
-    parserRequired.add_argument('--outFileName', '-o',
-                                help='File name to save the test results',
-                                required=True)
+    
     parserOpt = parser.add_argument_group('Optional arguments')
 
+    parserOpt.add_argument('--interactionFileFolder', '-iff',
+                           help='Folder where the interaction files are stored in. Applies only for batch mode.',
+                           required=False,
+                           default='.')
+    parserOpt.add_argument('--outputFolder', '-o',
+                           help='Output folder of the files.',
+                           required=False,
+                           default='differentialResults')
     parserOpt.add_argument('--statisticTest',
                            help='Type of test used for testing: fisher\'s exact test or chi2 contingency',
                            choices=['fisher', 'chi2'],
@@ -152,15 +158,23 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pViewpoint1, pViewp
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-
+    if not os.path.exists(args.outputFolder):
+        try:
+            os.makedirs(args.outputFolder)
+        except OSError as exc: # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
     interactionFileList = []
     if args.batchMode:
-        with open(args.interactionFile, 'r') as interactionFile:
+        with open(args.interactionFile[0], 'r') as interactionFile:
+            file_ = True
+            while file_:
+            # for line in fh.readlines():
                 file_ = interactionFile.readline().strip()
                 file2_ = interactionFile.readline().strip()
-
                 if file_ != '' and file2_ != '':
                     interactionFileList.append((file_, file2_))
+            log.debug('interactionFileList {}'.format(interactionFileList))
     else:
         if len(args.interactionFile) % 2 == 0:
             
@@ -171,8 +185,8 @@ def main(args=None):
 
     for interactionFile in interactionFileList:
 
-        header1, line_content1, data1 = readInteractionFile(interactionFile[0])
-        header2, line_content2, data2 = readInteractionFile(interactionFile[1])
+        header1, line_content1, data1 = readInteractionFile(args.interactionFileFolder + '/' + interactionFile[0])
+        header2, line_content2, data2 = readInteractionFile(args.interactionFileFolder + '/' + interactionFile[1])
 
         if args.statisticTest == 'chi2':
             test_result = chisquare_test(data1, data2, args.alpha)
@@ -187,8 +201,12 @@ def main(args=None):
         header_new += ' '
         header_new += interactionFile[1]
 
-        outFileName = args.outFileName.split('.')
+        sample_prefix = interactionFile[0].split('_')[0] + '_' + interactionFile[1].split('_')[0]
+        region_prefix = '_'.join(interactionFile[0].split('_')[1:6])
+        outFileName = sample_prefix + '_' + region_prefix 
+        outFileName = args.outputFolder + '/' + outFileName + '_results.bed'
+        # outFileName = args.outFileName.split('.')
 
-        resultsNameFile = outFileName[0] + '_results.bed'
+        # resultsNameFile = outFileName[0] + '_results.bed'
 
-        writeResult(resultsNameFile, write_out_lines, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+        writeResult(outFileName, write_out_lines, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
