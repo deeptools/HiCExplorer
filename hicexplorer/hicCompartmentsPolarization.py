@@ -113,7 +113,7 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     pc1_bedgraph = pd.read_table(args.pca, header=None, sep="\t")
-    #pc1_bedgraph = pd.read_table(args.pca, sep="\t", usecols=[0,1,2,3])
+#    pc1_bedgraph = pd.read_table(args.pca, sep="\t", usecols=[0,1,2,3])
     pc1 = pd.DataFrame(pc1_bedgraph.values, columns=["chr", "start", "end",
                                                      "pc1"])
     if args.outliers != 0:
@@ -136,5 +136,5 @@ def main(args=None):
     plot_polarization_ratio(polarization_ratio, args.outputFileName, args.quantile)
 
 
-if __name__ == '__main__':
-        main()
+#if __name__ == '__main__':
+#        main()
