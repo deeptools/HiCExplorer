@@ -49,7 +49,8 @@ def parse_arguments():
                            default=0)
 
     parserOpt.add_argument('--outputMatrix',
-                           help='save the output matrix.',
+                           help='output .npz file includs all the generated '
+                           'matrices',
                            default=None)
 
     return parser
@@ -75,14 +76,18 @@ def count_interactions(obs_exp, pc1, quantiles_number):
 
             for qj in range(0, quantiles_number):
                 col_indices = pc1_chr.loc[pc1_chr["quantile"] == qj].index
-                data = chr_submatrix[row_indices,:][:,col_indices]
+                data = chr_submatrix[row_indices, :][:, col_indices]
+
                 if data.shape[0] * data.shape[1] != 0:
-                    normalised_sum_per_quantile[qi, qj] += np.sum(data) / (data.shape[0] * data.shape[1])
+                    normalised_sum_per_quantile[qi, qj] += (np.sum(data) / (data.shape[0] * data.shape[1]))
 
     return normalised_sum_per_quantile
 
 
 def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number):
+    """
+
+    """
     within_to_between = []
     for q in range(1, quantiles_number):
         within_comps = normalised_sum_per_quantile[0:q, 0:q].sum() + \
@@ -98,6 +103,9 @@ def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number
 
 
 def plot_polarization_ratio(polarization_ratio, plotName, number_of_quantiles):
+    """
+
+    """
     for r in polarization_ratio:
         plt.plot(r, marker="o")
     plt.axhline(1, c='grey', ls='--', lw=1)
@@ -110,6 +118,9 @@ def plot_polarization_ratio(polarization_ratio, plotName, number_of_quantiles):
 
 
 def main(args=None):
+    """
+
+    """
     args = parse_arguments().parse_args(args)
 
     pc1_bedgraph = pd.read_table(args.pca, header=None, sep="\t")
@@ -125,14 +136,20 @@ def main(args=None):
         q_bins = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
 
     pc1["quantile"] = np.searchsorted(q_bins, pc1['pc1'].values.astype(float))
-    polarization_ratio =[]
+    polarization_ratio = []
+    output_matrices = [ ]
     for matrix in args.obsexp_matrices:
         obs_exp = hm.hiCMatrix(matrix)
 
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
                                                          args.quantile)
+        if args.outputMatrix:
+            output_matrices.append(normalised_sum_per_quantile)
+
         polarization_ratio.append(within_vs_between_compartments(normalised_sum_per_quantile,
                                                                  args.quantile))
+    if args.outputMatrix:
+        np.savez(args.outputMatrix, [matrix for matrix in output_matrices])
     plot_polarization_ratio(polarization_ratio, args.outputFileName, args.quantile)
 
 
