@@ -1,6 +1,8 @@
 import numpy as np
 import argparse
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from scipy.sparse import  dia_matrix
@@ -137,7 +139,7 @@ def main(args=None):
 
     pc1["quantile"] = np.searchsorted(q_bins, pc1['pc1'].values.astype(float))
     polarization_ratio = []
-    output_matrices = [ ]
+    output_matrices = []
     for matrix in args.obsexp_matrices:
         obs_exp = hm.hiCMatrix(matrix)
 
