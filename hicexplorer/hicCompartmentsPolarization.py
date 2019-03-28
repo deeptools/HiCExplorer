@@ -93,14 +93,12 @@ def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number
     within_to_between = []
     for q in range(1, quantiles_number):
         within_comps = normalised_sum_per_quantile[0:q, 0:q].sum() + \
-                      normalised_sum_per_quantile[quantiles_number-q:quantiles_number
-                                                  , quantiles_number-q:quantiles_number].sum()
+                       normalised_sum_per_quantile[quantiles_number-q:quantiles_number,
+                                                   quantiles_number-q:quantiles_number].sum()
 
-        between_comps = normalised_sum_per_quantile[0:q,
-                                                    quantiles_number-q:quantiles_number].sum() + normalised_sum_per_quantile[quantiles_number-q:quantiles_number, 0:q].sum()
+        between_comps = normalised_sum_per_quantile[0:q, quantiles_number-q:quantiles_number].sum() + normalised_sum_per_quantile[quantiles_number-q:quantiles_number, 0:q].sum()
 
-        within_to_between.append(within_comps/between_comps)
-
+        within_to_between.append(within_comps / between_comps)
     return within_to_between
 
 
@@ -112,7 +110,7 @@ def plot_polarization_ratio(polarization_ratio, plotName, labels,
     for i, r in enumerate(polarization_ratio):
         plt.plot(r, marker="o", label=labels[i])
     plt.axhline(1, c='grey', ls='--', lw=1)
-    plt.axvline(number_of_quantiles/2, c='grey', ls='--', lw=1)
+    plt.axvline(number_of_quantiles / 2, c='grey', ls='--', lw=1)
     plt.legend(loc='upper right')
     plt.xlabel('Quantiles')
     plt.ylabel('signal within comp. / signla between comp.')
@@ -131,7 +129,7 @@ def main(args=None):
     pc1 = pd.DataFrame(pc1_bedgraph.values, columns=["chr", "start", "end",
                                                      "pc1"])
     if args.outliers != 0:
-        quantile = [args.outliers/100, (100-args.outliers)/100]
+        quantile = [args.outliers/100, (100 - args.outliers)/100]
         q0, qn = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
         q_bins = np.linspace(q0, qn, args.quantile)
     else:
@@ -158,6 +156,5 @@ def main(args=None):
         np.savez(args.outputMatrix, [matrix for matrix in output_matrices])
     plot_polarization_ratio(polarization_ratio, args.outputFileName, labels, args.quantile)
 
-
-#if __name__ == '__main__':
+# if __name__ == '__main__':
 #        main()
