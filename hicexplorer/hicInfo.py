@@ -92,20 +92,21 @@ def main(args=None):
                 if 'max-value' in cooler_file.info:
                     max_non_zero = cooler_file.info['max-value']
                 if 'generated-by' in cooler_file.info:
-                    generated_by = cooler_file.info['generated-by'].decode("utf-8")
+                    generated_by = toString(cooler_file.info['generated-by'])
                 if 'genome-assembly' in cooler_file.info:
-                    genome_assembly = cooler_file.info['genome-assembly'].decode("utf-8")
-                if cooler_file.info['metadata'] is not None:
-                    if 'statistics' in cooler_file.info['metadata']:
-                        statistics = cooler_file.info['metadata']['statistics']
+                    genome_assembly = toString(cooler_file.info['genome-assembly'])
+                if metadata in cooler_file.info:
+                    if cooler_file.info['metadata'] is not None:
+                        if 'statistics' in cooler_file.info['metadata']:
+                            statistics = cooler_file.info['metadata']['statistics']
                 if 'generated-by-cooler-lib' in cooler_file.info:
-                    generated_by_cooler_lib = cooler_file.info['generated-by-cooler-lib'].decode("utf-8")
+                    generated_by_cooler_lib = toString(cooler_file.info['generated-by-cooler-lib'])
                 if 'tool-url' in cooler_file.info:
-                    tool_url = cooler_file.info['tool-url'].decode("utf-8")
+                    tool_url = toString(cooler_file.info['tool-url'])
                 if 'matrix-generated-by' in cooler_file.info:
-                    matrix_generated_by = cooler_file.info['matrix-generated-by'].decode("utf-8")
+                    matrix_generated_by = toString(cooler_file.info['matrix-generated-by'])
                 if 'matrix-generated-by-url' in cooler_file.info:
-                    matrix_generated_by_url = cooler_file.info['matrix-generated-by-url'].decode("utf-8")
+                    matrix_generated_by_url = toString(cooler_file.info['matrix-generated-by-url'])
                 if 'creation-date' in cooler_file.info:
                     creation_date = cooler_file.info['creation-date']
                 if 'sum-elements' in cooler_file.info:
