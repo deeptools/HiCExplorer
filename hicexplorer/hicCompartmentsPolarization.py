@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from scipy.sparse import  dia_matrix
+from scipy.sparse import dia_matrix
 from hicmatrix import HiCMatrix as hm
 
 
@@ -15,7 +15,7 @@ def parse_arguments():
         Rearrenge the average interaction frequencies using the first PC values
         to represent the global compartmentalisation signal
 
-        $ hicGlobalInteraction --obsexp_matrices obsExpMatrix.h5 --pc pc1.bedgraph\
+        $ hicGlobalInteraction --obsexp_matrices obsExpMatrix.h5 --pca pc1.bedgraph\
         -o global_signal.png
         """
     )
@@ -104,15 +104,16 @@ def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number
     return within_to_between
 
 
-def plot_polarization_ratio(polarization_ratio, plotName, number_of_quantiles):
+def plot_polarization_ratio(polarization_ratio, plotName, labels,
+                            number_of_quantiles):
     """
 
     """
-    for r in polarization_ratio:
-        plt.plot(r, marker="o")
+    for i, r in enumerate(polarization_ratio):
+        plt.plot(r, marker="o", label=labels[i])
     plt.axhline(1, c='grey', ls='--', lw=1)
     plt.axvline(number_of_quantiles/2, c='grey', ls='--', lw=1)
-    #plt.legend() # TODO based on the name of input matrices or set by user!
+    plt.legend(loc='upper right')
     plt.xlabel('Quantiles')
     plt.ylabel('signal within comp. / signla between comp.')
     plt.title('compartment polarization ratio')
@@ -140,8 +141,11 @@ def main(args=None):
     pc1["quantile"] = np.searchsorted(q_bins, pc1['pc1'].values.astype(float))
     polarization_ratio = []
     output_matrices = []
+    labels = []
     for matrix in args.obsexp_matrices:
         obs_exp = hm.hiCMatrix(matrix)
+        name = ".".join(matrix.split("/")[-1].split(".")[0:-1])
+        labels.append(name)
 
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
                                                          args.quantile)
@@ -152,7 +156,7 @@ def main(args=None):
                                                                  args.quantile))
     if args.outputMatrix:
         np.savez(args.outputMatrix, [matrix for matrix in output_matrices])
-    plot_polarization_ratio(polarization_ratio, args.outputFileName, args.quantile)
+    plot_polarization_ratio(polarization_ratio, args.outputFileName, labels, args.quantile)
 
 
 #if __name__ == '__main__':
