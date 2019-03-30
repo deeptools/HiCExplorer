@@ -1,21 +1,17 @@
-from __future__ import division
-
 import argparse
 import numpy as np
 from scipy.sparse import coo_matrix, dia_matrix
 import time
 from os import unlink
 import os
+from io import StringIO
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-# import itertools
 
 import pysam
 from collections import OrderedDict
 
-from six.moves import xrange
-from future.utils import listitems
 from copy import deepcopy
 from ctypes import Structure, c_uint, c_ushort
 from multiprocessing import Process, Queue
@@ -188,6 +184,9 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--restrictionSequence', '-seq',
                            help='Sequence of the restriction site.')
 
+    parserOpt.add_argument('--genomeAssembly', '-ga',
+                           help='The genome the reads were mapped to. Used for metadata of cool file.')
+
     parserOpt.add_argument('--danglingSequence',
                            help='Sequence left by the restriction enzyme after cutting. Each restriction enzyme '
                                 'recognizes a different DNA sequence and, after cutting, they leave behind a specific '
@@ -336,7 +335,7 @@ def get_bins(bin_size, chrom_size, region=None):
             getUserRegion(chrom_size, region)
 
     for chrom, size in chrom_size:
-        for interval in xrange(start, size, bin_size):
+        for interval in range(start, size, bin_size):
             bin_intvals.append((chrom, interval,
                                 min(size, interval + bin_size)))
     return bin_intvals
@@ -471,7 +470,7 @@ def get_chrom_sizes(bam_handle):
     # then to list.
     list_chrom_sizes = OrderedDict(zip(bam_handle.references,
                                        bam_handle.lengths))
-    return listitems(list_chrom_sizes)
+    return list(list_chrom_sizes.items())
 
 
 def check_dangling_end(read, dangling_sequences):
@@ -624,7 +623,7 @@ def enlarge_bins(bin_intervals, chrom_sizes):
     # enlarge remaining bins
     chr_start = True
     chrom_sizes_dict = dict(chrom_sizes)
-    for idx in xrange(len(bin_intervals) - 1):
+    for idx in range(len(bin_intervals) - 1):
         chrom, start, end = bin_intervals[idx]
         chrom_next, start_next, end_next = bin_intervals[idx + 1]
         if chr_start is True:
@@ -962,8 +961,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + \
-                        len(pRestrictionSequence)
+                    frag_start = min(mate1.pos, mate2.pos) + len(pRestrictionSequence)
                     frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
                     has_rf = sorted(
@@ -1016,7 +1014,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             vec_end = min(length_coverage, int(vec_start + len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
-            for i in xrange(coverage_index, coverage_end, 1):
+            for i in range(coverage_index, coverage_end, 1):
                 pCoverage[i] += 1
 
         pRow[pair_added] = mate_bins[0]
@@ -1151,7 +1149,7 @@ def main(args=None):
     row = [None] * args.threads
     col = [None] * args.threads
     data = [None] * args.threads
-    for i in xrange(args.threads):
+    for i in range(args.threads):
         row[i] = RawArray(c_uint, args.inputBufferSize)
         col[i] = RawArray(c_uint, args.inputBufferSize)
         data[i] = RawArray(c_ushort, args.inputBufferSize)
@@ -1200,7 +1198,7 @@ def main(args=None):
 
     while not all_data_processed or not all_threads_done:
 
-        for i in xrange(args.threads):
+        for i in range(args.threads):
             if queue[i] is None and not all_data_processed:
                 count_call_of_read_input += 1
 
@@ -1358,7 +1356,7 @@ def main(args=None):
 
     for cover in pos_coverage:
         max_element = 0
-        for i in xrange(cover.begin, cover.end, 1):
+        for i in range(cover.begin, cover.end, 1):
             if coverage[i] > max_element:
                 max_element = coverage[i]
         if max_element == 0:
@@ -1370,36 +1368,6 @@ def main(args=None):
     bin_intervals = list(zip(chr_name_list, start_list, end_list, bin_max))
     hic_ma = hm.hiCMatrix()
     hic_ma.setMatrix(hic_matrix, cut_intervals=bin_intervals)
-
-    args.outFileName.close()
-    # removing the empty file. Otherwise the save method
-    # will say that the file already exists.
-    unlink(args.outFileName.name)
-
-    if args.outFileName.name.endswith('.cool') and args.binSize is not None and len(args.binSize) > 2:
-
-        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool')
-        matrixFileHandlerOutput.set_matrix_variables(hic_ma.matrix,
-                                                     hic_ma.cut_intervals,
-                                                     hic_ma.nan_bins,
-                                                     hic_ma.correction_factors,
-                                                     hic_ma.distance_counts)
-        matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(args.binSize[0]), pSymmetric=True, pApplyCorrection=False)
-
-        for resolution in args.binSize[1:]:
-            hic_matrix_to_merge = deepcopy(hic_ma)
-            _mergeFactor = int(resolution) // args.binSize[0]
-            merged_matrix = hicMergeMatrixBins.merge_bins(hic_matrix_to_merge, _mergeFactor)
-            matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pAppend=True)
-            matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
-                                                         merged_matrix.cut_intervals,
-                                                         merged_matrix.nan_bins,
-                                                         merged_matrix.correction_factors,
-                                                         merged_matrix.distance_counts)
-            matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(resolution), pSymmetric=True, pApplyCorrection=False)
-
-    else:
-        hic_ma.save(args.outFileName.name)
 
     """
     if args.restrictionCutFile:
@@ -1420,9 +1388,9 @@ def main(args=None):
 
     mappable_unique_high_quality_pairs = iter_num - (one_mate_unmapped + one_mate_low_quality + one_mate_not_unique)
 
-    log_file_name = os.path.join(args.QCfolder, "QC.log")
-    log_file = open(log_file_name, 'w')
-    log_file.write("""
+    intermediate_qc_log = StringIO()
+
+    intermediate_qc_log.write("""
 File\t{}\t\t
 Pairs considered\t{}\t\t
 Min rest. site distance\t{}\t\t
@@ -1430,69 +1398,110 @@ Max library insert size\t{}\t\t
 
 """.format(args.outFileName.name, iter_num, args.minDistance, args.maxLibraryInsertSize))
 
-    log_file.write("#\tcount\t(percentage w.r.t. total sequenced reads)\n")
+    intermediate_qc_log.write("#\tcount\t(percentage w.r.t. total sequenced reads)\n")
 
-    log_file.write("Pairs mappable, unique and high quality\t{}\t({:.2f})\n".
-                   format(mappable_unique_high_quality_pairs,
-                          100 * float(mappable_unique_high_quality_pairs) / iter_num))
+    intermediate_qc_log.write("Pairs mappable, unique and high quality\t{}\t({:.2f})\n".
+                              format(mappable_unique_high_quality_pairs,
+                                     100 * float(mappable_unique_high_quality_pairs) / iter_num))
 
-    log_file.write("Pairs used\t{}\t({:.2f})\n".
-                   format(pair_added, 100 * float(pair_added) / iter_num))
+    intermediate_qc_log.write("Pairs used\t{}\t({:.2f})\n".
+                              format(pair_added, 100 * float(pair_added) / iter_num))
 
-    log_file.write("One mate unmapped\t{}\t({:.2f})\n".
-                   format(one_mate_unmapped, 100 * float(one_mate_unmapped) / iter_num))
+    intermediate_qc_log.write("One mate unmapped\t{}\t({:.2f})\n".
+                              format(one_mate_unmapped, 100 * float(one_mate_unmapped) / iter_num))
 
-    log_file.write("One mate not unique\t{}\t({:.2f})\n".
-                   format(one_mate_not_unique, 100 * float(one_mate_not_unique) / iter_num))
+    intermediate_qc_log.write("One mate not unique\t{}\t({:.2f})\n".
+                              format(one_mate_not_unique, 100 * float(one_mate_not_unique) / iter_num))
 
-    log_file.write("One mate low quality\t{}\t({:.2f})\n".
-                   format(one_mate_low_quality, 100 * float(one_mate_low_quality) / iter_num))
+    intermediate_qc_log.write("One mate low quality\t{}\t({:.2f})\n".
+                              format(one_mate_low_quality, 100 * float(one_mate_low_quality) / iter_num))
 
-    log_file.write("\n#\tcount\t(percentage w.r.t. mappable, unique and high quality pairs)\n")
+    intermediate_qc_log.write("\n#\tcount\t(percentage w.r.t. mappable, unique and high quality pairs)\n")
 
-    log_file.write("dangling end\t{}\t({:.2f})\n".
-                   format(dangling_end, 100 * float(dangling_end) / mappable_unique_high_quality_pairs))
+    intermediate_qc_log.write("dangling end\t{}\t({:.2f})\n".
+                              format(dangling_end, 100 * float(dangling_end) / mappable_unique_high_quality_pairs))
 
-    log_file.write("self ligation{}\t{}\t({:.2f})\n".
-                   format(msg, self_ligation, 100 * float(self_ligation) / mappable_unique_high_quality_pairs))
+    intermediate_qc_log.write("self ligation{}\t{}\t({:.2f})\n".
+                              format(msg, self_ligation, 100 * float(self_ligation) / mappable_unique_high_quality_pairs))
 
-    log_file.write("One mate not close to rest site\t{}\t({:.2f})\n".
-                   format(mate_not_close_to_rf, 100 * float(mate_not_close_to_rf) / mappable_unique_high_quality_pairs))
+    intermediate_qc_log.write("One mate not close to rest site\t{}\t({:.2f})\n".
+                              format(mate_not_close_to_rf, 100 * float(mate_not_close_to_rf) / mappable_unique_high_quality_pairs))
 
-    log_file.write("same fragment\t{}\t({:.2f})\n".
-                   format(same_fragment, 100 * float(same_fragment) / mappable_unique_high_quality_pairs))
+    intermediate_qc_log.write("same fragment\t{}\t({:.2f})\n".
+                              format(same_fragment, 100 * float(same_fragment) / mappable_unique_high_quality_pairs))
 
-    log_file.write("self circle\t{}\t({:.2f})\n".
-                   format(self_circle, 100 * float(self_circle) / mappable_unique_high_quality_pairs))
+    intermediate_qc_log.write("self circle\t{}\t({:.2f})\n".
+                              format(self_circle, 100 * float(self_circle) / mappable_unique_high_quality_pairs))
 
-    log_file.write("duplicated pairs\t{}\t({:.2f})\n".
-                   format(duplicated_pairs, 100 * float(duplicated_pairs) / mappable_unique_high_quality_pairs))
+    intermediate_qc_log.write("duplicated pairs\t{}\t({:.2f})\n".
+                              format(duplicated_pairs, 100 * float(duplicated_pairs) / mappable_unique_high_quality_pairs))
 
     if pair_added > 0:
-        log_file.write("\n#\tcount\t(percentage w.r.t. total valid pairs used)\n")
-        log_file.write("inter chromosomal\t{}\t({:.2f})\n".
-                       format(inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
+        intermediate_qc_log.write("\n#\tcount\t(percentage w.r.t. total valid pairs used)\n")
+        intermediate_qc_log.write("inter chromosomal\t{}\t({:.2f})\n".
+                                  format(inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
 
-        log_file.write("short range < 20kb\t{}\t({:.2f})\n".
-                       format(short_range, 100 * float(short_range) / pair_added))
+        intermediate_qc_log.write("short range < 20kb\t{}\t({:.2f})\n".
+                                  format(short_range, 100 * float(short_range) / pair_added))
 
-        log_file.write("long range\t{}\t({:.2f})\n".
-                       format(long_range, 100 * float(long_range) / pair_added))
+        intermediate_qc_log.write("long range\t{}\t({:.2f})\n".
+                                  format(long_range, 100 * float(long_range) / pair_added))
 
-        log_file.write("inward pairs\t{}\t({:.2f})\n".
-                       format(count_inward, 100 * float(count_inward) / pair_added))
+        intermediate_qc_log.write("inward pairs\t{}\t({:.2f})\n".
+                                  format(count_inward, 100 * float(count_inward) / pair_added))
 
-        log_file.write("outward pairs\t{}\t({:.2f})\n".
-                       format(count_outward, 100 * float(count_outward) / pair_added))
+        intermediate_qc_log.write("outward pairs\t{}\t({:.2f})\n".
+                                  format(count_outward, 100 * float(count_outward) / pair_added))
 
-        log_file.write("left pairs\t{}\t({:.2f})\n".
-                       format(count_left, 100 * float(count_left) / pair_added))
+        intermediate_qc_log.write("left pairs\t{}\t({:.2f})\n".
+                                  format(count_left, 100 * float(count_left) / pair_added))
 
-        log_file.write("right pairs\t{}\t({:.2f})\n".
-                       format(count_right, 100 * float(count_right) / pair_added))
+        intermediate_qc_log.write("right pairs\t{}\t({:.2f})\n".
+                                  format(count_right, 100 * float(count_right) / pair_added))
 
+    log_file_name = os.path.join(args.QCfolder, "QC.log")
+    log_file = open(log_file_name, 'w')
+    log_file.write(intermediate_qc_log.getvalue())
     log_file.close()
     QC.main("-l {} -o {}".format(log_file_name, args.QCfolder).split())
+
+    args.outFileName.close()
+    # removing the empty file. Otherwise the save method
+    # will say that the file already exists.
+    unlink(args.outFileName.name)
+
+    hic_metadata = {}
+    hic_metadata['statistics'] = intermediate_qc_log.getvalue()
+    hic_metadata['matrix-generated-by'] = np.string_('HiCExplorer-' + __version__)
+    hic_metadata['matrix-generated-by-url'] = np.string_('https://github.com/deeptools/HiCExplorer')
+    if args.genomeAssembly:
+        hic_metadata['genome-assembly'] = np.string_(args.genomeAssembly)
+
+    intermediate_qc_log.close()
+    if args.outFileName.name.endswith('.cool') and args.binSize is not None and len(args.binSize) > 2:
+
+        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pHiCInfo=hic_metadata)
+        matrixFileHandlerOutput.set_matrix_variables(hic_ma.matrix,
+                                                     hic_ma.cut_intervals,
+                                                     hic_ma.nan_bins,
+                                                     hic_ma.correction_factors,
+                                                     hic_ma.distance_counts)
+        matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(args.binSize[0]), pSymmetric=True, pApplyCorrection=False)
+
+        for resolution in args.binSize[1:]:
+            hic_matrix_to_merge = deepcopy(hic_ma)
+            _mergeFactor = int(resolution) // args.binSize[0]
+            merged_matrix = hicMergeMatrixBins.merge_bins(hic_matrix_to_merge, _mergeFactor)
+            matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pAppend=True, pHiCInfo=hic_metadata)
+            matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
+                                                         merged_matrix.cut_intervals,
+                                                         merged_matrix.nan_bins,
+                                                         merged_matrix.correction_factors,
+                                                         merged_matrix.distance_counts)
+            matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(resolution), pSymmetric=True, pApplyCorrection=False)
+
+    else:
+        hic_ma.save(args.outFileName.name, pHiCInfo=hic_metadata)
 
 
 class Tester(object):

@@ -12,7 +12,6 @@ from setuptools.command.install import install as _install
 VERSION_PY = """
 # This file is originally generated from Git information by running 'setup.py
 # version'. Distribution tarballs contain a pre-generated copy of this file.
-
 __version__ = '%s'
 """
 
@@ -95,7 +94,7 @@ class install(_install):
 
 install_requires_py = ["numpy >= 1.15.*",
                        "scipy >= 1.1.*",
-                       "matplotlib > 2.2.*",
+                       "matplotlib >= 3.0.*",
                        "pysam >= 0.14",
                        "intervaltree == 2.1.*",
                        "biopython >= 1.72",
@@ -110,11 +109,10 @@ install_requires_py = ["numpy >= 1.15.*",
                        "hicmatrix >= 9",
                        "pygenometracks >= 2.1",
                        "psutil >= 5.4.8",
-                       "hic2cool >= 0.4"
+                       "hic2cool >= 0.5",
+                       "krbalancing >= 0.0.4"
                        ]
 
-if sys.version_info[0] == 2:
-    install_requires_py.append("configparser == 3.5.*")
 
 setup(
     name='HiCExplorer',
