@@ -18,6 +18,13 @@ from hicexplorer._version import __version__
 from hicexplorer.utilities import check_cooler
 from hicexplorer.hicPlotMatrix import translate_region
 
+from inspect import currentframe
+
+
+def get_linenumber():
+    cf = currentframe()
+    return cf.f_back.f_lineno
+
 
 def parse_arguments(args=None):
 
@@ -135,7 +142,6 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             - A list of detected loops [(x,y)] and x, y are matrix index values
             - An associated list of p-values
     """
-
     instances, features = pHiCMatrix.matrix.nonzero()
     distance = np.absolute(instances - features)
     mask = [False] * len(distance)
@@ -147,18 +153,26 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             np.array(genomic_distance_distributions[key]))
         nbinom_distance = nbinom(
             nbinom_parameters['size'], nbinom_parameters['prob'])
-
-        less_than = np.array(
-            genomic_distance_distributions[key]).astype(int) - 1
+        less_than = np.array(genomic_distance_distributions[key]).astype(int) - 1
+        mask_less_than = less_than < 0
+        less_than[mask_less_than] = 1
+        if len(less_than) <= 0:
+            continue
+        max_element = np.max(less_than)
+        if max_element <= 0:
+            continue
         max_element = np.max(less_than)
         sum_of_densities = np.zeros(max_element)
+
         for j in range(max_element):
             if j >= 1:
                 sum_of_densities[j] += sum_of_densities[j - 1]
             sum_of_densities[j] += nbinom_distance.pmf(j)
-
+        
+        # if len(sum_of_densities) > less_than - 1:
         p_value = 1 - sum_of_densities[less_than - 1]
         mask_distance = p_value < pPValue
+        # else:
 
         for j, value in enumerate(mask_distance):
             if value:
@@ -172,13 +186,9 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     instances = instances[mask]
     features = features[mask]
-
     if len(features) == 0:
         return None, None
     candidates = np.array([*zip(instances, features)])
-
-    log.debug('Number of candidates after nbinom and height pruning: {}'.format(
-        len(candidates)))
 
     # Clean neighborhood, results in one candidate per neighborhood
     number_of_candidates = 0
