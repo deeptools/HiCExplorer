@@ -7,7 +7,6 @@ from hicexplorer import hicConvertFormat
 import pytest
 from hicmatrix import HiCMatrix as hm
 import numpy.testing as nt
-import numpy as np
 
 REMOVE_OUTPUT = True
 # DIFF = 60
