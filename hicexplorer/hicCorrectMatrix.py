@@ -695,8 +695,10 @@ def main(args=None):
 
     ma.setMatrixValues(corrected_matrix)
     ma.setCorrectionFactors(correction_factors)
-    log.info("Correction factors {}".format(correction_factors[:10]))
+
+    log.debug("Correction factors {}".format(correction_factors[:10]))
     if args.inflationCutoff and args.inflationCutoff > 0 and args.correctionMethod == 'ICE':
+
         after_row_sum = np.asarray(corrected_matrix.sum(axis=1)).flatten()
         # identify rows that were expanded more than args.inflationCutoff times
         to_remove = np.flatnonzero(after_row_sum / pre_row_sum >= args.inflationCutoff)
