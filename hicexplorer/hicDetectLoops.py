@@ -154,11 +154,13 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
         nbinom_distance = nbinom(
             nbinom_parameters['size'], nbinom_parameters['prob'])
         less_than = np.array(genomic_distance_distributions[key]).astype(int) - 1
+        mask_less_than = less_than < 0
+        less_than[mask_less_than] = 1
         if len(less_than) <= 0:
-            return None, None
+            continue
         max_element = np.max(less_than)
         if max_element <= 0:
-            return None, None
+            continue
         max_element = np.max(less_than)
         sum_of_densities = np.zeros(max_element)
 
@@ -166,9 +168,11 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             if j >= 1:
                 sum_of_densities[j] += sum_of_densities[j - 1]
             sum_of_densities[j] += nbinom_distance.pmf(j)
-
+        
+        # if len(sum_of_densities) > less_than - 1:
         p_value = 1 - sum_of_densities[less_than - 1]
         mask_distance = p_value < pPValue
+        # else:
 
         for j, value in enumerate(mask_distance):
             if value:
