@@ -21,7 +21,7 @@ Requirements
 * jinja2 >= 2.10
 * pandas >= 0.23
 * unidecode >= 1.0
-* hicmatrix = 5
+* hicmatrix = 9
 * pygenometracks >= 2.1
 * psutil >= 5.4.8
 * hic2cool >= 0.4
