@@ -25,7 +25,7 @@ Requirements
 * pygenometracks >= 2.1
 * psutil >= 5.4.8
 * hic2cool >= 0.4
-* cooler = 0.8.2
+* cooler = 0.8.3
 * krbalancing >= 0.0.3
 
 **Deprecation warning:** We will drop the support for Python 2.7 soon; version 2.2 is the last version supporting Python 2.7. We strongly recommended to switch to Python 3.6!

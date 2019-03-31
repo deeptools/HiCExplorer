@@ -77,6 +77,7 @@ def main(args=None):
             cooler_file = cooler.Cooler(matrix)
 
             if cooler_file.info is not None:
+                # log.debug('cooler_file.info {}'.format(cooler_file.info))
                 if 'bin-size' in cooler_file.info:
                     bin_length = cooler_file.info['bin-size']
                 if 'nbins' in cooler_file.info:
@@ -95,7 +96,7 @@ def main(args=None):
                     generated_by = toString(cooler_file.info['generated-by'])
                 if 'genome-assembly' in cooler_file.info:
                     genome_assembly = toString(cooler_file.info['genome-assembly'])
-                if metadata in cooler_file.info:
+                if 'metadata' in cooler_file.info:
                     if cooler_file.info['metadata'] is not None:
                         if 'statistics' in cooler_file.info['metadata']:
                             statistics = cooler_file.info['metadata']['statistics']
