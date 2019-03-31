@@ -77,6 +77,7 @@ def main(args=None):
             cooler_file = cooler.Cooler(matrix)
 
             if cooler_file.info is not None:
+                # log.debug('cooler_file.info {}'.format(cooler_file.info))
                 if 'bin-size' in cooler_file.info:
                     bin_length = cooler_file.info['bin-size']
                 if 'nbins' in cooler_file.info:
