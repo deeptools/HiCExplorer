@@ -32,7 +32,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-Computes long range contacts within the given contact matrix.
+Computes enriched regions (peaks) or long range contacts on the given contact matrix.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -153,7 +153,8 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             np.array(genomic_distance_distributions[key]))
         nbinom_distance = nbinom(
             nbinom_parameters['size'], nbinom_parameters['prob'])
-        less_than = np.array(genomic_distance_distributions[key]).astype(int) - 1
+        less_than = np.array(
+            genomic_distance_distributions[key]).astype(int) - 1
         mask_less_than = less_than < 0
         less_than[mask_less_than] = 1
         if len(less_than) <= 0:
@@ -168,7 +169,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             if j >= 1:
                 sum_of_densities[j] += sum_of_densities[j - 1]
             sum_of_densities[j] += nbinom_distance.pmf(j)
-        
+
         # if len(sum_of_densities) > less_than - 1:
         p_value = 1 - sum_of_densities[less_than - 1]
         mask_distance = p_value < pPValue
@@ -192,13 +193,11 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     # Clean neighborhood, results in one candidate per neighborhood
     number_of_candidates = 0
-    i = 0
     while number_of_candidates != len(candidates):
         number_of_candidates = len(candidates)
 
         candidates, mask = neighborhood_merge(
             candidates, pWindowSize, pHiCMatrix.matrix)
-        i += 1
 
         if len(candidates) == 0:
             return None, None
@@ -283,8 +282,15 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix):
         new_candidate_list.append([candidate_x, candidate_y])
     mask = filter_duplicates(new_candidate_list)
 
+    if mask is not None and len(mask) == 0:
+        return [], []
+    if mask is None:
+        return [], []
     mask = np.array(mask)
     pCandidates = np.array(new_candidate_list)
+    # log.debug('type of mask: {}'.format(type(mask)))
+    # log.debug('mask: {}'.format(mask))
+
     pCandidates = pCandidates[mask]
     return pCandidates, mask
 
@@ -409,6 +415,8 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
         mask.append(False)
 
+    if mask is not None and len(mask) == 0:
+        return None, None
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
     log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
