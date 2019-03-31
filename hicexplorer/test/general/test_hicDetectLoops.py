@@ -48,12 +48,11 @@ def test_main_h5():
     hicDetectLoops.main(args)
 
 
-
 def test_main_cool_chromosomes():
     outfile_loop_cool = NamedTemporaryFile(suffix='.bedgraph', delete=True)
 
-    args = "--matrix {} -o {} --maxLoopDistance 30000000 -w 5 -pw 2 -p 0.5 -pp 0.55 --chromosomes 1 2".format(
+    args = "--matrix {} -o {} --maxLoopDistance 3000000 -w 5 -pw 2 -p 0.5 -pp 0.55 --chromosomes 1 2".format(
         ROOT + "hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool", outfile_loop_cool.name).split()
     hicDetectLoops.main(args)
     assert are_files_equal(
-        ROOT + "hicDetectLoops/loops.bedgraph", outfile_loop_cool.name, delta=2)
+        ROOT + "hicDetectLoops/loops.bedgraph", outfile_loop_cool.name, delta=0)
