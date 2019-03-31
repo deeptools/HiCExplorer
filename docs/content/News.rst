@@ -1,6 +1,22 @@
 News and Developments
 =====================
 
+Release 3.0
+-----------
+**31 March 2019**
+
+- Python 3 only. Python 2.X is no longer supported
+- Additional Hi-C interaction matrix correction algorithm 'Knight-Ruiz' as a C++ module for a faster runtime and less memory usage.
+- Enriched regions detection tool: 'hicDetectLoops' based on strict candidate selection
+- Metadata for cooler files is supported: hicBuildMatrix and hicInfo are using it 
+- New options for hicPlotMatrix: --loops to visualize computed loops from hicDetectLoops and --bigwigAdditionalVerticalAxis to display a bigwig track on the vertical axis too.
+
+
+Release 2.2.2 - 2.2.4
+---------------------
+**February - March 2019**
+
+- Bug fix releases, see github release entries for details.
 
 Release 2.2.1
 -------------

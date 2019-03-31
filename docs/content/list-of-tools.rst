@@ -12,7 +12,7 @@ HiCExplorer tools
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicBuildMatrix`           | preprocessing    | 2 BAM/SAM files                   | hicMatrix object                            | Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads    |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-|:ref:`hicCorrectMatrix`         | preprocessing    | hicMatrix object                  | normalized hicMatrix object                 | Uses iterative correction to remove biases from a Hi-C matrix                     |
+|:ref:`hicCorrectMatrix`         | preprocessing    | hicMatrix object                  | normalized hicMatrix object                 | Uses iterative correction or Knight-Ruiz to remove biases from a Hi-C matrix      |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicMergeMatrixBins`       | preprocessing    | hicMatrix object                  | hicMatrix object                            | Merges consecutives bins on a Hi-C matrix to reduce resolution                    |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
@@ -54,6 +54,8 @@ HiCExplorer tools
 |:ref:`hicCompareMatrices`       | analysis         | two Hi-C matrices                 | one Hi-C matrix                             | Applies diff, ratio or log2ratio on matrices to compare them.                     |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicAverageRegions`        | analysis         | multiple Hi-C matrices            | one npz object                              | Averages the given locations. Visualization with hicPlotAverageRegions            |
++--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicDetectLoops`           | analysis         | one Hi-C matrices                 | bedgraph file with loop locations           | Detects enriched regions. Visualization with hicPlotmatrix and --loop parameter.  |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotAverageRegions`    | visualization    | one npz file                      | one image                                   | Visualization of hicAverageRegions.                                               |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
@@ -127,6 +129,8 @@ Tools for Hi-C data analysis
 :ref:`hicTransform`
 """""""""""""""""""
 :ref:`hicAverageRegions`
+""""""""""""""""""""""""
+:ref:`hicDetectLoops`
 """"""""""""""""""""""""
 
 Tools for TADs processing
