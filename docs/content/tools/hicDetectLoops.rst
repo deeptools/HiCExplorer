@@ -1,11 +1,12 @@
 .. _hicDetectLoops:
 
-_hicDetectLoops
+hicDetectLoops
 ===============
 
 .. argparse::
-   :ref: hicexplorer._hicDetectLoops.parse_arguments
-   :prog: _hicDetectLoops
+   :ref: hicexplorer.hicDetectLoops.parse_arguments
+   :prog: hicDetectLoops
+
 
 hicDetectLoops can detect enriched interaction regions (peaks / loops) based on a strict candidate selection, negative binomial distributions 
 and Anderson-Darling tests. 

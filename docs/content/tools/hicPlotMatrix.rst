@@ -7,6 +7,7 @@ hicPlotMatrix
    :ref: hicexplorer.hicPlotMatrix.parse_arguments
    :prog: hicPlotMatrix
 
+
 Details
 ^^^^^^^
 hicplotMatrix takes a Hi-C matrix and plots the interactions of all or
