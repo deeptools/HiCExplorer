@@ -20,8 +20,6 @@ HiCExplorer tools
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicNormalize`             | preprocessing    | multiple Hi-C matrices            | multiple Hi-C matrices                      | Normalize data to 0 to 1 range or to smallest total read count                    |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-|:ref:`hicFindEnrichedContacts`  | analysis         | hicMatrix object                  | hicMatrix object                            | Identifies enriched Hi-C contacts                                                 |
-+--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicCorrelate`             | analysis         | 2 or more hicMatrix objects       | a heatmap/scatterplot                       | Computes and visualises the correlation of Hi-C matrices                          |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicFindTADs`              | analysis         | hicMatrix object                  | bedGraph file (TAD score), a boundaries.bed | Identifies Topologically Associating Domains (TADs)                               |
@@ -122,8 +120,6 @@ Tools for Hi-C data analysis
 
 :ref:`hicCompareMatrices`
 """""""""""""""""""""""""
-:ref:`hicFindEnrichedContacts`
-""""""""""""""""""""""""""""""
 :ref:`hicPCA`
 """""""""""""
 :ref:`hicTransform`
