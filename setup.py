@@ -109,6 +109,7 @@ install_requires_py = ["numpy >= 1.15.*",
                        "hicmatrix >= 9",
                        "pygenometracks >= 2.1",
                        "psutil >= 5.4.8",
+                       "fit_nbinom >= 1.0",
                        "hic2cool >= 0.5",
                        "krbalancing >= 0.0.4"
                        ]
@@ -126,7 +127,7 @@ setup(
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
-             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions'
+             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
