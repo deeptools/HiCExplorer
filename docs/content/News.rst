@@ -3,7 +3,7 @@ News and Developments
 
 Release 3.0
 -----------
-**2 April 2019**
+**3 April 2019**
 
 - Python 3 only. Python 2.X is no longer supported
 - Additional Hi-C interaction matrix correction algorithm 'Knight-Ruiz' as a C++ module for a faster runtime and less memory usage.
