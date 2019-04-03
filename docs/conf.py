@@ -26,7 +26,7 @@ MOCK_MODULES = ['numpy', 'numpy.core', 'numpy.core.multiarray', 'numpy.distutils
                 'matplotlib', 'matplotlib.pyplot', 'matplotlib.gridspec', 'matplotlib.ticker',
                 'matplotlib.textpath', 'matplotlib.patches', 'matplotlib.colors', 'matplotlib.cm',
                 'mpl_toolkits', 'mpl_toolkits.axisartist', 'mpl_toolkits.mplot3d', 'mpl_toolkits.axes_grid1',
-                'Bio', 'Bio.Seq', 'Bio.Alphabet', 'set'
+                'Bio', 'Bio.Seq', 'Bio.Alphabet', 'set',
                 'pyBigWig', 'tables', 'pytables', 'future', 'past', 'builtins', 'past.builtins',
                 'future.utils', 'cooler', 'logging', 'unidecode', 'hic2cool', 'hicmatrix', 'hicmatrix.HiCMatrix',
                 'hicmatrix.lib', 'krbalancing', 'fit_nbinom']
