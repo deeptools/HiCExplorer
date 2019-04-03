@@ -1,2 +1,2 @@
 sphinx >=2.0
-sphinx-argparse
+sphinx-argparse >=0.2.5

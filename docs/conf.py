@@ -28,13 +28,27 @@ MOCK_MODULES = ['numpy', 'numpy.core', 'numpy.core.multiarray', 'numpy.distutils
                 'mpl_toolkits', 'mpl_toolkits.axisartist', 'mpl_toolkits.mplot3d', 'mpl_toolkits.axes_grid1',
                 'Bio', 'Bio.Seq', 'Bio.Alphabet', 'set'
                 'pyBigWig', 'tables', 'pytables', 'future', 'past', 'builtins', 'past.builtins',
-                'future.utils', 'cooler', '__future__', 'logging', 'unidecode', 'hic2cool', 'hicmatrix', 'hicmatrix.HiCMatrix',
+                'future.utils', 'cooler', 'logging', 'unidecode', 'hic2cool', 'hicmatrix', 'hicmatrix.HiCMatrix',
                 'hicmatrix.lib', 'krbalancing', 'fit_nbinom']
 
-# for mod_name in MOCK_MODULES:
-#     sys.modules[mod_name] = mock.MagicMock()
+from unittest.mock import Mock
 
-autodoc_mock_imports = MOCK_MODULES
+
+
+# class Mock_New(Mock):
+#     @classmethod
+#     def __init__(self):
+#         self.__dict__ = {}
+#     def __iter__(self):
+#         return iter(self.__dict__.items())
+
+
+for mod_name in MOCK_MODULES:
+    sys.modules[mod_name] = Mock()
+# MOCK_MODULES = ['argparse', 'numpy', 'mpi4py' , 'scipy',  'petsc4py', 'PETSc']
+# sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+
+# autodoc_mock_imports = MOCK_MODULES
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
