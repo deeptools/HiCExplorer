@@ -1,4 +1,3 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -152,7 +151,6 @@ def main(args=None):
                 chromosomes_to_load = None
                 if args.chromosome:
                     chromosomes_to_load = [args.chromosome]
-
                 applyCorrectionCoolerLoad = True
                 if args.load_raw_values:
                     applyCorrectionCoolerLoad = False
@@ -174,7 +172,10 @@ def main(args=None):
                     _matrix = triu(_matrix)
                     # make it a full symmetrical matrix
                     _matrix = _matrix.maximum(_matrix.T)
-                matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5)
+                hic2CoolVersion = None
+                if args.inputFormat == 'cool':
+                    hic2CoolVersion = matrixFileHandlerInput.matrixFile.hic2cool_version
+                matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5, pHic2CoolVersion=hic2CoolVersion)
 
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                              correction_factors, distance_counts)

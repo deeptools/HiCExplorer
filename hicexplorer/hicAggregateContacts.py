@@ -1,11 +1,8 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 import numpy as np
-
-from future.utils import iteritems
 
 import matplotlib
 matplotlib.use('Agg')
@@ -440,7 +437,7 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
                             wspace=0.1, hspace=0.1)
 
     gs_list = []
-    for idx, (chrom_name, values) in enumerate(iteritems(chrom_diagonals)):
+    for idx, (chrom_name, values) in enumerate(chrom_diagonals.items()):
         try:
             heatmap = np.asarray(np.vstack(values))
         except ValueError:

@@ -1,5 +1,3 @@
-from __future__ import division
-
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -32,7 +30,6 @@ def remove_outliers(data, max_deviation=3.5):
     "Volume 16: How to Detect and Handle Outliers",
     The ASQC Basic References in Quality Control:
     Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
-
     returns the list, without the outliers
     """
     median = np.median(data)
@@ -52,8 +49,10 @@ def remove_outliers(data, max_deviation=3.5):
 
 def convertNansToZeros(ma):
     nan_elements = np.flatnonzero(np.isnan(ma.data))
+    # data_type = type(ma.data[0])
     if len(nan_elements) > 0:
-        ma.data[nan_elements] = 0
+        # if data_type == np.float
+        ma.data[nan_elements] = 0.0
     return ma
 
 
@@ -65,6 +64,10 @@ def convertInfsToZeros(ma):
 
 
 def convertInfsToZeros_ArrayFloat(pArray):
+    nan_elements = np.flatnonzero(np.isnan(pArray))
+    if len(nan_elements) > 0:
+        pArray[nan_elements] = 0.0
+
     inf_elements = np.flatnonzero(np.isinf(pArray))
     if len(inf_elements) > 0:
         pArray[inf_elements] = 0.0
@@ -96,7 +99,6 @@ def enlarge_bins(bin_intervals):
     and joins them such that the
     end and start of consecutive bins
     is the same.
-
     >>> bin_intervals = [('chr1', 10, 50, 1), ('chr1', 50, 80, 2),
     ... ('chr2', 10, 60, 3), ('chr2', 70, 90, 4)]
     >>> enlarge_bins(bin_intervals)
@@ -131,10 +133,8 @@ def genomicRegion(string):
     region in the form ideally of chromosome:start-end
     but other forms are also possible like start
     and end containing comas.
-
     This code is intended to be used to validate and
     format a argparse parameter.
-
     :return: string in the form chrom:start:end
     """
     # remove whitespaces using split,join trick
@@ -158,7 +158,6 @@ def getUserRegion(chromSizes, regionString, max_chunk_size=1e6):
     Verifies if a given region argument, given by the user
     is valid. The format of the regionString is chrom:start:end:tileSize
     where start, end and tileSize are optional.
-
     # this should work in doctest but it does not. So I
     # commented it.
     #>>> data = getUserRegion({'chr2': 1000}, "chr1:10:10")
@@ -166,11 +165,10 @@ def getUserRegion(chromSizes, regionString, max_chunk_size=1e6):
     #    ...
     #NameError: Unknown chromosome: chr1
     #Known chromosomes are: ['chr2']
-
     >>> getUserRegion({'chr2': 1000}, "chr2:10:1001")
     ([('chr2', 1000)], 10, 1000, 990)
 
-    Test chunk and regions size reduction to match tile size
+    #Test chunk and regions size reduction to match tile size
     >>> getUserRegion({'chr2': 200000}, "chr2:10:123344:3")
     ([('chr2', 123344)], 9, 123345, 123336)
     """
@@ -251,6 +249,7 @@ def expected_interactions_non_zero(pSubmatrix):
     distance = np.absolute(row - col)
 
     occurences = np.zeros(pSubmatrix.shape[0])
+    # data_type = type(pSubmatrix.data[0])
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
         occurences[distance_] += 1
@@ -286,6 +285,19 @@ def expected_interactions(pSubmatrix):
 
     return expected_interactions
 
+# def expected_interactions(pSubmatrix):
+
+#     instances, features = pSubmatrix.nonzero()
+#     distances = np.absolute(instances - features)
+#     sum_per_distance = np.ones(pSubmatrix.shape[0])
+#     binary_interactions_per_distance = np.ones(pSubmatrix.shape[0])
+
+#     for i, distance in enumerate(distances):
+#         sum_per_distance[distance] += pSubmatrix.data[i]
+#         binary_interactions_per_distance[distance] += 1
+
+#     return sum_per_distance / binary_interactions_per_distance
+
 
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
@@ -316,7 +328,6 @@ def obs_exp_matrix_norm(pSubmatrix):
         expected contacts for loci at
         that genomic distance. Expected values contain a genomic distance based factor.
         Method from: Homer Software
-
         exp_i,j = expected_interactions_distance(abs(i-j)) * sum(row(i)) * sum(row(j)) / sum(matrix)
         m_i,j = interaction_i,j / exp_i,j
     """
@@ -328,10 +339,17 @@ def obs_exp_matrix_norm(pSubmatrix):
 
     row, col = pSubmatrix.nonzero()
     # data = pSubmatrix.data.tolist()
+    pSubmatrix.data = pSubmatrix.data.astype(np.float32)
     for i in range(len(row)):
         expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
         expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
+
         pSubmatrix.data[i] /= expected
+    mask = np.isnan(pSubmatrix.data)
+    pSubmatrix.data[mask] = 0
+    mask = np.isinf(pSubmatrix.data)
+    pSubmatrix.data[mask] = 0
+    pSubmatrix.eliminate_zeros()
     return pSubmatrix
 
 
@@ -341,9 +359,7 @@ def obs_exp_matrix_non_zero(pSubmatrix):
         dividing each entry by the gnome-wide
         expected contacts for loci at
         that genomic distance.
-
         exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
-
     """
 
     expected_interactions_in_distance_ = expected_interactions_non_zero(pSubmatrix)
@@ -366,9 +382,7 @@ def obs_exp_matrix(pSubmatrix):
         dividing each entry by the gnome-wide
         expected contacts for loci at
         that genomic distance.
-
         exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
-
     """
 
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix)

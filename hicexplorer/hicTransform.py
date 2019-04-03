@@ -1,4 +1,3 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -200,9 +199,12 @@ def main(args=None):
             corrmatrix = np.cov(hic_ma.matrix.todense())
             trasf_matrix = csr_matrix(corrmatrix)
 
+    # log.debug('trasf_matrix {}'.format(trasf_matrix))
+
     if args.perChromosome:
         hic_ma.setMatrix(trasf_matrix.tocsr(), cut_intervals=hic_ma.cut_intervals)
     else:
+
         hic_ma.setMatrix(trasf_matrix, cut_intervals=hic_ma.cut_intervals)
 
     hic_ma.save(args.outFileName, pSymmetric=True, pApplyCorrection=False)
