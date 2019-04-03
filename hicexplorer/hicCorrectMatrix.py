@@ -38,7 +38,7 @@ def parse_arguments(args=None):
 This function provides 2 balancing methods which can be applied on a raw
 matrix.
 
-I. KR: It blanaces a matrix using a fast balancing algorithm introduced by
+I. KR: It balances a matrix using a fast balancing algorithm introduced by
 Knight and Ruiz(2012).
 
 II. ICE: Iterative correction for a Hi-C matrix (see Imakaev et al. 2012

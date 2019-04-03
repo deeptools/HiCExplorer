@@ -14,6 +14,8 @@
 
 import sys
 import os
+from unittest.mock import Mock
+
 import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -26,26 +28,12 @@ MOCK_MODULES = ['numpy', 'numpy.core', 'numpy.core.multiarray', 'numpy.distutils
                 'matplotlib', 'matplotlib.pyplot', 'matplotlib.gridspec', 'matplotlib.ticker',
                 'matplotlib.textpath', 'matplotlib.patches', 'matplotlib.colors', 'matplotlib.cm',
                 'mpl_toolkits', 'mpl_toolkits.axisartist', 'mpl_toolkits.mplot3d', 'mpl_toolkits.axes_grid1',
-                'Bio', 'Bio.Seq', 'Bio.Alphabet',
-                'pyBigWig', 'tables', 'pytables', 'future', 'past', 'past.builtins',
+                'Bio', 'Bio.Seq', 'Bio.Alphabet', 'pyBigWig', 'tables', 'pytables', 'future', 'past', 'past.builtins',
                 'future.utils', 'cooler', 'logging', 'unidecode', 'hic2cool', 'hicmatrix', 'hicmatrix.HiCMatrix',
                 'hicmatrix.lib', 'krbalancing', 'fit_nbinom']
 
-from unittest.mock import Mock
-
-
-# class Mock_New(Mock):
-#     @classmethod
-#     def __init__(self):
-#         self.__dict__ = {}
-#     def __iter__(self):
-#         return iter(self.__dict__.items())
-
-
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = Mock()
-# MOCK_MODULES = ['argparse', 'numpy', 'mpi4py' , 'scipy',  'petsc4py', 'PETSc']
-# sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 autodoc_mock_imports = MOCK_MODULES
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -83,8 +71,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'HiCExplorer'
-copyright = u'2018, Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff'
-author = u'Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff'
+copyright = u'2019, Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff, Leily Rabbani'
+author = u'Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff, Leily Rabbani'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

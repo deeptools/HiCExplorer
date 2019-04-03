@@ -24,7 +24,7 @@ Requirements
 * hicmatrix = 9
 * pygenometracks >= 2.1
 * psutil >= 5.4.8
-* hic2cool >= 0.4
+* hic2cool >= 0.5
 * cooler >= 0.8.3
 * krbalancing >= 0.0.3 (Needs the library eigen; openmp is recommended for linux users. No openmp support on macOS.)
 * fit_nbinom >= 1.0

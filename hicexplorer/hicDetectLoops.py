@@ -57,25 +57,27 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
     parserOpt.add_argument('--pValuePreselection', '-pp',
                            type=float,
                            default=0.025,
-                           help='Only candidates with p-values less the given threshold will be considered as candidates after the fitting the negative binomial distributions. '
+                           help='Only candidates with p-values less the given threshold will be considered as candidates. '
+                                'For each genomic distance a negative binomial distribution is fitted and for each pixel a p-value given by the cumulative density function is given. '
                                 'This does NOT influence the p-value for the neighborhood testing.')
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
                            default=20,
-                           help='The minimum number of interactions a detected peaks needs to have to be considered.')
+                           help='The minimum number of interactions a detected peaks needs to have to be considered. The number of interactions decreases with increasing genomic distances: '
+                                ' peakInteractionsThreshold/log(genomic distance)')
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
                            default=0.01,
-                           help='Rejection level for Anderson-Darling test for H0.')
+                           help='Rejection level for Anderson-Darling test for H0. H0 is peak region and background have the same distribution.')
 
     parserOpt.add_argument('--maxLoopDistance',
                            type=int,
                            default=2000000,
-                           help='Maximum distance of a loop, usually loops are within a distance of ~2MB.')
+                           help='Maximum genomic distance of a loop, usually loops are within a distance of ~2MB.')
     parserOpt.add_argument('--minLoopDistance',
                            type=int,
                            default=100000,
-                           help='Minimum distance of a loop to be considered.')
+                           help='Minimum genomic distance of a loop to be considered.')
 
     parserOpt.add_argument('--chromosomes',
                            help='Chromosomes to include in the analysis. If not set, all chromosomes are included.',
@@ -85,8 +87,7 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            help='The format is chr:start-end.',
                            required=False)
     parserOpt.add_argument('--threads', '-t',
-                           help='The chromosomes are processed independent of each other. If the number of to be '
-                           'processed chromosomes is greater than one, each chromosome will be computed with on its own core.',
+                           help='Number of threads to use, the parallelization is implemented per chromosome.',
                            required=False,
                            default=4,
                            type=int

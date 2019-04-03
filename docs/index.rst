@@ -56,10 +56,8 @@ tool                            description
 Getting Help
 ------------
 
-* For general questions, please use Biostars with Tag `hicexplorer` : `Biostars <https://www.biostars.org/t/hicexplorer/>`_
-* For specific questions and feature requests, use the `deepTools mailing list <https://groups.google.com/forum/#!forum/deeptools>`_
-* For suggesting changes/enhancements and to report bugs, please create an issue on `our GitHub repository <https://github.com/deeptools/HiCExplorer>`_
-
+* For all kind of questions, suggesting changes/enhancements and to report bugs, please create an issue on `our GitHub repository <https://github.com/deeptools/HiCExplorer>`_
+* In the past we offered to post on Biostars with Tag `hicexplorer` : `Biostars <https://www.biostars.org/t/hicexplorer/>`_ or on the `deepTools mailing list <https://groups.google.com/forum/#!forum/deeptools>`_. We still check these resources from time to time but the preferred way to communicate are GitHub issues.
 
 Contents:
 ---------
