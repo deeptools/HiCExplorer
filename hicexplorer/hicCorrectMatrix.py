@@ -674,8 +674,7 @@ def main(args=None):
                 kr = kr_balancing(chr_submatrix.astype(float))
                 kr.computeKR()
                 corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(True)
-                correction_factors.append(np.true_divide(1,
-                                          kr.get_normalisation_vector(False).todense()))
+                correction_factors.append(kr.get_normalisation_vector(False).todense())
 
         correction_factors = np.concatenate(correction_factors)
 
