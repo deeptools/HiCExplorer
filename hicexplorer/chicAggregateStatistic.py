@@ -90,7 +90,8 @@ def create_target_regions(pInteraction_file_data, pInteraction_file_data_1, pRbz
 
     target_list = []
     for key in accepted_scores_file_1:
-        target_list.append(pInteraction_file_data[key][4:7])
+        # pInteraction_file_data
+        target_list.append(pInteraction_file_data[key][0:3])
 
     # log.debug('target_list {}'.format(target_list))
     return target_list
@@ -104,7 +105,7 @@ def filter_scores_target_list(pScoresDictionary, pTargetRegions):
         end = int(target[2])
         _accepted_scores = {}
         for key in pScoresDictionary:
-            if int(pScoresDictionary[key][5]) >= start and int(pScoresDictionary[key][6]) <= end:
+            if int(pScoresDictionary[key][1]) >= start and int(pScoresDictionary[key][2]) <= end:
                 _accepted_scores[key] = pScoresDictionary[key]
 
         if len(_accepted_scores) > 0:
@@ -160,23 +161,23 @@ def merge_neighbors(pScoresDictionary, pMergeThreshold=1000):
 
 def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines, pScores=None):
 
+    sum_of_interactions = float(pHeader.split('\t')[-1].split(' ')[-1])
+    log.debug('sum_of_interactions {}'.format(sum_of_interactions))
     with open(pOutFileName, 'w') as file:
         file.write(pHeader)
-        file.write('#ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRel Inter viewpoint\trbz-score viewpoint\tRaw viewpoint\tRel Inter target\trbz-score target\tRaw target')
+        file.write('#ChrInteraction\tStart\tEnd\tRelative distance\tSum of interactions\tRel Inter target\trbz-score target\tRaw target')
         file.write('\n')
 
         for data in pNeighborhoods:
+            # log.debug('pInteractionLines[data] {}'.format(pInteractionLines[data]))
+            new_line = '\t'.join(pInteractionLines[data][:4])
+            new_line += '\t' + format(float(sum_of_interactions), "10.5f")
 
-            new_line = '\t'.join(pInteractionLines[data][:7])
-            new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
+            # new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
             new_line += '\t' + format(pNeighborhoods[data][-3], '10.5f') + '\t' + format(pNeighborhoods[data][-2], '10.5f') + '\t' + format(pNeighborhoods[data][-1], '10.5f')
             new_line += '\n'
             file.write(new_line)
 
-
-# def computeTargetFileParallel():
-
-# def computeRBZParallel():
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -240,46 +241,51 @@ def main(args=None):
                         interactionFileList.append((file_, file2_))
             log.debug('interactionFileList {}'.format(interactionFileList))
         else:
-            i = 0
-            while i < len(args.interactionFile):
-                interactionFileList.append((args.interactionFile[i], args.interactionFile[i + 1]))
-                i += 2
+            if len(args.interactionFile) % 2 == 0:
+                i = 0
+                while i < len(args.interactionFile):
+                    interactionFileList.append((args.interactionFile[i], args.interactionFile[i + 1]))
+                    i += 2
+            else:
+                log.error('Number of interaction files needs to be even: {}'.format(len(args.interactionFile)))
+                exit(1)
 
-        if len(interactionFileList) % 2 == 0 or args.batchMode:
+        # if len(interactionFileList) % 2 == 0 or args.batchMode:
 
-            for interactionFile in interactionFileList:
+        for interactionFile in interactionFileList:
 
-                # header, interaction_data, interaction_file_data
-                data = [viewpointObj.readInteractionFileForAggregateStatistics(args.interactionFileFolder + '/' + interactionFile[0])]
-                data.append(viewpointObj.readInteractionFileForAggregateStatistics(args.interactionFileFolder + '/' + interactionFile[1]))
+            # header, interaction_data, interaction_file_data
+            data = [viewpointObj.readInteractionFileForAggregateStatistics(args.interactionFileFolder + '/' + interactionFile[0])]
+            data.append(viewpointObj.readInteractionFileForAggregateStatistics(args.interactionFileFolder + '/' + interactionFile[1]))
 
-                target_regions = create_target_regions(data[0][2], data[1][2], args.rbzScore)
-                sample_prefix = interactionFile[0].split('_')[0] + '_' + interactionFile[1].split('_')[0]
-                for j in range(2):
-                    accepted_scores = filter_scores_target_list(data[j][2], target_regions)
+            target_regions = create_target_regions(data[0][2], data[1][2], args.rbzScore)
+            sample_prefix = interactionFile[0].split('/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
+            log.debug('sample_prefix {}'.format(sample_prefix))
+            for j in range(2):
+                accepted_scores = filter_scores_target_list(data[j][2], target_regions)
 
-                    if len(accepted_scores) == 0:
-                        if args.batchMode:
-                            with open('errorLog.txt', 'a+') as errorlog:
-                                errorlog.write('Failed for: {} and {}.\n'.format(interactionFile[0], interactionFile[1]))
-                                break
-                        else:
-                            log.error('No target regions found')
-                            sys.exit(0)
-                    outFileName = '.'.join(interactionFile[j].split('.')[:-1]) + '_' + sample_prefix + args.outFileNameSuffix
-
+                if len(accepted_scores) == 0:
                     if args.batchMode:
-                        outfile_names.append(outFileName)
-                    outFileName = args.outputFolder + '/' + outFileName
-
-                    if args.mergeBins > 0:
-                        merged_neighborhood = merge_neighbors(accepted_scores, args.mergeBins)
-                        write(outFileName, data[j][0], merged_neighborhood, data[j][2])
+                        with open('errorLog.txt', 'a+') as errorlog:
+                            errorlog.write('Failed for: {} and {}.\n'.format(interactionFile[0], interactionFile[1]))
+                            break
                     else:
-                        write(outFileName, data[j][0], accepted_scores, data[j][2])
-        else:
-            log.error('Number of interaction files needs to be even: {}'.format(len(interactionFileList)))
-            exit(1)
+                        log.error('No target regions found')
+                        sys.exit(0)
+                outFileName = '.'.join(interactionFile[j].split('/')[-1].split('.')[:-1]) + '_' + sample_prefix + args.outFileNameSuffix
+
+                if args.batchMode:
+                    outfile_names.append(outFileName)
+                outFileName = args.outputFolder + '/' + outFileName
+
+                if args.mergeBins > 0:
+                    merged_neighborhood = merge_neighbors(accepted_scores, args.mergeBins)
+                    write(outFileName, data[j][0], merged_neighborhood, data[j][2])
+                else:
+                    write(outFileName, data[j][0], accepted_scores, data[j][2])
+        # else:
+        #     log.error('Number of interaction files needs to be even: {}'.format(len(interactionFileList)))
+        #     exit(1)
 
     if args.batchMode:
         with open(args.writeFileNamesToFile, 'w') as nameListFile:

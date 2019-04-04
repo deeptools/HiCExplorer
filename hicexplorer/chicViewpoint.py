@@ -45,17 +45,20 @@ def parse_arguments(args=None):
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--threads',
-                           help='Number of threads. Using the python multiprocessing module. ',
+                           help='Number of threads. Using the python multiprocessing module.',
                            required=False,
                            default=4,
-                           type=int
-                           )
+                           type=int)
     parserOpt.add_argument('--averageContactBin',
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
                            default=5)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
                            help='')
+    parserOpt.add_argument('--useRawBackground', '-raw',
+                           help='Use the raw background instead of a smoothed one.',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument('--fixateRange', '-fs',
                            help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
                            required=False,
@@ -178,7 +181,7 @@ def main(args=None):
     queue = [None] * args.threads
     process = [None] * args.threads
     file_list = []
-    background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range)
+    background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, args.useRawBackground)
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)

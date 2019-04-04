@@ -80,16 +80,20 @@ def chisquare_test(pDataFile1, pDataFile2, pAlpha):
     # True is rejection of H0
     # False acceptance of H0
     test_result = []
+    accepted = []
+    rejected = []
     # Find the critical value for alpha confidence level
     critical_value = stats.chi2.ppf(q=1 - pAlpha, df=1)
     zero_values_counter = 0
-    for group1, group2 in zip(pDataFile1, pDataFile2):
+    for i, (group1, group2) in enumerate(zip(pDataFile1, pDataFile2)):
         try:
             chi2, p_value, dof, ex = stats.chi2_contingency([group1, group2], correction=False)
             if chi2 >= critical_value:
                 test_result.append(p_value)
+                rejected.append([i, p_value])
             else:
                 test_result.append(p_value)
+                accepted.append([i, p_value])
 
         except ValueError:
             zero_values_counter += 1
@@ -97,22 +101,26 @@ def chisquare_test(pDataFile1, pDataFile2, pAlpha):
 
     if zero_values_counter > 0:
         log.info('{} samples were not tested because at least one condition contained no data in both groups.'.format(zero_values_counter))
-    return test_result
+    return test_result, accepted, rejected
 
 
 def fisher_exact_test(pDataFile1, pDataFile2, pAlpha):
 
     test_result = []
-    for group1, group2 in zip(pDataFile1, pDataFile2):
+    accepted = []
+    rejected = []
+    for i, (group1, group2) in enumerate(zip(pDataFile1, pDataFile2)):
         try:
             odds, p_value = stats.fisher_exact(np.ceil([group1, group2]))
             if p_value <= pAlpha:
                 test_result.append(p_value)
+                rejected.append([i, p_value])
             else:
                 test_result.append(p_value)
+                accepted.append([i, p_value])
         except ValueError:
             test_result.append(np.nan)
-    return test_result
+    return test_result, accepted, rejected
 
 
 def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pViewpoint1, pViewpoint2, pAlpha, pTest):
@@ -133,15 +141,19 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pViewpoint1, pViewp
 
         file.write(header)
 
-        file.write('#Viewpoint\t\t\ttarget\t\t\tgene\tcondition1\t\tcondition2\t\tp-value\n')
-        file.write('#chr\tstart\tend\tchr\tstart\tend\t\tsum of interactions\ttarget raw\tsum of interactions\ttarget raw\n')
+        # file.write('#Viewpoint\t\t\ttarget\t\t\tgene\tcondition1\t\tcondition2\t\tp-value\n')
+        file.write(pHeaderOld.split('\n')[0] + '\n')
+        file.write(pHeaderNew.split('\n')[0] + '\n')
+
+        # pHeaderNew.split('\n')[0]
+
+        # log.debug('pHeaderOld {}'.format(pHeaderOld))
+        # log.debug('pHeaderNew {}'.format(pHeaderNew))
+
+        file.write('#chr\tstart\tend\trelative distance\tsum of interactions 1\ttarget_1 raw\tsum of interactions 2\ttarget_2 raw\tp-value\n')
 
         for data in pData:
-            log.debug('data {}'.format(data))
             line = '\t'.join(data[0][:3])
-            line += '\t'
-
-            line += '\t'.join(data[0][4:7])
             line += '\t'
 
             line += '{}'.format(data[0][3])
@@ -189,24 +201,39 @@ def main(args=None):
         header2, line_content2, data2 = readInteractionFile(args.interactionFileFolder + '/' + interactionFile[1])
 
         if args.statisticTest == 'chi2':
-            test_result = chisquare_test(data1, data2, args.alpha)
+            test_result, accepted, rejected = chisquare_test(data1, data2, args.alpha)
         elif args.statisticTest == 'fisher':
-            test_result = fisher_exact_test(data1, data2, args.alpha)
+            test_result, accepted, rejected = fisher_exact_test(data1, data2, args.alpha)
 
         write_out_lines = []
         for i, result in enumerate(test_result):
             write_out_lines.append([line_content1[i], line_content2[i], result, data1[i], data2[i]])
 
+        write_out_lines_accepted = []
+        for result in accepted:
+            write_out_lines_accepted.append([line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]] )
+
+        write_out_lines_rejected = []
+        for result in rejected:
+            log.debug('result[1] {}'.format(result[1]))
+            write_out_lines_rejected.append([line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]] )
+
+
         header_new = interactionFile[0]
         header_new += ' '
         header_new += interactionFile[1]
 
-        sample_prefix = interactionFile[0].split('_')[0] + '_' + interactionFile[1].split('_')[0]
-        region_prefix = '_'.join(interactionFile[0].split('_')[1:6])
+        sample_prefix = interactionFile[0].split('/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
+        region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:6])
         outFileName = sample_prefix + '_' + region_prefix 
+        outFileName_accepted = args.outputFolder + '/' + outFileName + '_H0_accepted.bed'
+        outFileName_rejected = args.outputFolder + '/' + outFileName + '_H0_rejected.bed'
         outFileName = args.outputFolder + '/' + outFileName + '_results.bed'
+
         # outFileName = args.outFileName.split('.')
 
         # resultsNameFile = outFileName[0] + '_results.bed'
 
         writeResult(outFileName, write_out_lines, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+        writeResult(outFileName_accepted, write_out_lines_accepted, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+        writeResult(outFileName_rejected, write_out_lines_rejected, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)

@@ -122,7 +122,7 @@ class Viewpoint():
                 interaction_file_data[int(_line[-4])] = _line
         return header, interaction_data, interaction_file_data
 
-    def readBackgroundDataFile(self, pBedFile, pRange):
+    def readBackgroundDataFile(self, pBedFile, pRange, pRaw=False):
         '''
         Reads a background data file, containing per line a tab delimited content:
         Relative position to viewpoint, relative interaction count to total number of interactions of all viewpoints over all samples, SEM value of this data point.
@@ -130,9 +130,13 @@ class Viewpoint():
         distance = {}
 
         with open(pBedFile) as fh:
+            header = fh.readline()
             for line in fh.readlines():
                 _line = line.split('\t')
-                distance[int(_line[0])] = [float(_line[1]), float(_line[2])]
+                if pRaw:
+                    distance[int(_line[0])] = [float(_line[3]), float(_line[4])]
+                else:
+                    distance[int(_line[0])] = [float(_line[1]), float(_line[2])]
 
         max_key = max(distance)
         min_key = min(distance)
@@ -159,16 +163,15 @@ class Viewpoint():
         '''
         Writes an interaction file for one viewpoint and one sample as a tab delimited file with one interaction per line.
         Header contains information about the interaction:
-        Chromosome Viewpoint, Start, End, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
+        Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
         Relative number of interactions, z-score based on relative interactions, raw interaction data
         '''
 
         with open((pBedFile + '.bed').strip(), 'w') as fh:
             fh.write('# {}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
-                         format(interaction[0], interaction[1], interaction[2],
-                                interaction[3], interaction[4], interaction[5],
+                fh.write("{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
+                         format(interaction[4], interaction[5],
                                 interaction[6], interaction[7], interaction[8], pZscoreData[j], interaction[9]))
         return
 
@@ -394,9 +397,11 @@ class Viewpoint():
         # log.debug('rbz-score {}'.format(z_score))
         return header, data, data_background, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index
 
-    def plotViewpoint(self, pAxis, pData, pColor, pLabelName):
+    def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None):
         data_plot_label = pAxis.plot(range(len(pData)), pData, '--' + pColor, alpha=0.9, label=pLabelName)
-
+        if pHighlightRegion:
+            for region in pHighlightRegion:
+                pAxis.plt.axvspan(region[0], region[1], color='red', alpha=0.5)
         return data_plot_label
 
     def plotBackgroundModel(self, pAxis, pBackgroundData, pBackgroundDataMean):
@@ -474,3 +479,25 @@ class Viewpoint():
         mask = np.isinf(_rbz_score)
         _rbz_score[mask] = -1
         return _rbz_score
+
+    def readRejectedFile(pDifferentialHighlightFiles, pViewpointIndex, pResolution):
+        # list of start and end point of regions to highlight
+        # [[start, end], [start, end]]
+        highlight_areas_list = []
+        for bed_file in pDifferentialHighlightFiles:
+            with open(bed_file) as fh:
+                # skip header
+                for line in fh.readlines():
+                    if line.startswith('#'):
+                        continue
+                    _line = line.split('\t')
+
+                    start = int(_line[1])
+                    end = int(_line[2])
+
+                    width = (end - start) / pResolution
+
+                    relative_position = pViewpointIndex + (int(_line[3]) / pResolution)
+                    highlight_areas_list.append([relative_position, relative_position + width])
+
+        return highlight_areas_list

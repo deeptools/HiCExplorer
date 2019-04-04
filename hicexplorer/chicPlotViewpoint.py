@@ -45,6 +45,10 @@ def parse_arguments(args=None):
                            help='Folder where the interaction files are stored in. Applies only for batch mode.',
                            required=False,
                            default='.')
+    parserOpt.add_argument('--differentialTestResult', '-dif',
+                            help='Path to the files which with the H0 rejected files to highlight the regions in the plot.',
+                            required=False,
+                            nargs='+')
     parserOpt.add_argument('--outputFolder', '-of',
                            help='Output folder of the files.',
                            required=False,
@@ -57,7 +61,13 @@ def parse_arguments(args=None):
                            help='Optional parameter: Resolution for the image in case the'
                            'output is a raster graphics image (e.g png, jpg)',
                            type=int,
-                           default=300)
+                           default=300,
+                           required=False)
+    parserOpt.add_argument('--binResolution', '-r',
+                           help='Resolution of the bin in genomic units. Values are usually e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.',
+                           type=int,
+                           default=1000,
+                           required=False)
     
     parserOpt.add_argument('--colorMapZscore',
                            help='Color map to use for the z-score. Available '
@@ -77,6 +87,10 @@ def parse_arguments(args=None):
                            choices=['integrated', 'heatmap', ''],
                            default=''
                            )
+    parserOpt.add_argument('--useRawBackground', '-raw',
+                           help='Use the raw background instead of a smoothed one.',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument('--outFileName', '-o',
                             help='File name to save the image. Is not used in batch mode.')
     parserOpt.add_argument('--batchMode', '-bm',
@@ -103,21 +117,34 @@ def main(args=None):
                 raise
 
     if args.backgroundModelFile:
-        background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range)
-
+        background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, args.useRawBackground)
+   
     interactionFileList = []
+    highlightDifferentialRegionsFileList = []
     if args.batchMode:
-         with open(args.interactionFile[0], 'r') as interactionFile:
+        with open(args.interactionFile[0], 'r') as interactionFile:
+
+            file_ = True
+            while file_:
+            # for line in fh.readlines():
+                file_ = interactionFile.readline().strip()
+                file2_ = interactionFile.readline().strip()
+                if file_ != '' and file2_ != '':
+                    interactionFileList.append((file_, file2_))
+        if args.differentialTestResult:
+            with open(args.differentialTestResult[0], 'r') as differentialTestFile:
 
                 file_ = True
                 while file_:
                 # for line in fh.readlines():
-                    file_ = interactionFile.readline().strip()
-                    file2_ = interactionFile.readline().strip()
+                    file_ = differentialTestFile.readline().strip()
+                    file2_ = differentialTestFile.readline().strip()
                     if file_ != '' and file2_ != '':
-                        interactionFileList.append((file_, file2_))
+                        highlightDifferentialRegionsFileList.append((file_, file2_))
+        
     else:
-        interactionFileList = [args.interactionFile]
+        interactionFileList = args.interactionFile
+        highlightDifferentialRegionsFileList = args.differentialTestResult
 
     for interactionFile in interactionFileList:
         number_of_rows_plot = len(interactionFile)
@@ -128,7 +155,7 @@ def main(args=None):
         viewpoint_height_ratio = 0.95 - (0.07 * number_of_rows_plot)
         if viewpoint_height_ratio < 0.4:
             viewpoint_height_ratio = 0.4
-            _ratio = 0.6 / len(number_of_rows_plot)
+            _ratio = 0.6 / number_of_rows_plot
             z_score_heights = [_ratio] * number_of_rows_plot
 
         if args.rbzScore == 'heatmap':
@@ -149,15 +176,20 @@ def main(args=None):
                 continue
             matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
             matrix_name = matrix_name[1:].split('.')[0]
+            highlight_differential_regions = None
+            
+            if args.differentialTestResult:
+                highlight_differential_regions = viewpointObj.readRejectedFile(highlightDifferentialRegionsFileList[i], viewpoint_index, pResolution=args.binResolution)
             if data_plot_label:
-                data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name)
+                data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
             else:
-                data_plot_label = viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name)
+                data_plot_label = viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
 
             if background_plot:
                 data_plot_label += viewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
                                                                     pBackgroundDataMean=data_background_mean)
                 background_plot = False
+            
             if args.minZscore is not None or args.maxZscore is not None:
                 z_score = np.array(z_score, dtype=np.float32)
                 z_score.clip(args.minZscore, args.maxZscore, z_score)
