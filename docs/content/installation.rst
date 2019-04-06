@@ -7,10 +7,10 @@ Installation
 Requirements
 -------------
 
-* Python 2.7 or 3.6
+* Python 3.6
 * numpy >= 1.15
 * scipy >= 1.1
-* matplotlib >= 2.2
+* matplotlib >= 3.0
 * pysam >= 0.14
 * intervaltree >= 2.1
 * biopython >= 1.72
@@ -21,11 +21,17 @@ Requirements
 * jinja2 >= 2.10
 * pandas >= 0.23
 * unidecode >= 1.0
-* hicmatrix = 5
+* hicmatrix = 9
 * pygenometracks >= 2.1
 * psutil >= 5.4.8
-* hic2cool >= 0.4
+* hic2cool >= 0.5
+* cooler >= 0.8.3
+* krbalancing >= 0.0.3 (Needs the library eigen; openmp is recommended for linux users. No openmp support on macOS.)
+* fit_nbinom >= 1.0
 
+
+**Warning:** Python 2.7 support is discontinued. Moreover, the support for pip is discontinued too. 
+**Warning:** We strongly recommend to use the conda package manager and will no longer give support on all issues raising with pip.
 
 Command line installation using ``conda``
 -----------------------------------------
@@ -40,9 +46,15 @@ follow the directions for its installation. All of the requirements for HiCExplo
 
     $ conda install hicexplorer -c bioconda -c conda-forge
 
+We strongly recommended to use conda to install HiCExplorer. 
+
 Command line installation using ``pip``
 -----------------------------------------
 
+The installation via pip is discontinued with version 3.0. The reason for this is that we want to provide a 'one-click' installation. However,
+with version 3.0 we added the C++ library eigen as dependency and pip does not support non-Python packages. 
+
+For older versions you can still use pip: 
 Install HiCExplorer using the following command:
 ::
 
@@ -55,6 +67,9 @@ If you need to specify a specific path for the installation of the tools, make u
 .. code:: bash
 
     $ pip install --install-option="--prefix=/MyPath/Tools/hicexplorer" git+https://github.com/deeptools/HiCExplorer.git
+
+**Warning:** It can be that you have to install additional packages via your system package manager to successfully install HiCExplorer via pip.
+**Warning:** We strongly recommend to use the conda package manager and will no longer give support on all issues raising with pip.
 
 
 Command line installation without ``pip``

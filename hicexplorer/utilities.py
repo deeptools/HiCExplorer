@@ -62,8 +62,10 @@ def remove_outliers(data, max_deviation=3.5):
 
 def convertNansToZeros(ma):
     nan_elements = np.flatnonzero(np.isnan(ma.data))
+    # data_type = type(ma.data[0])
     if len(nan_elements) > 0:
-        ma.data[nan_elements] = 0
+        # if data_type == np.float
+        ma.data[nan_elements] = 0.0
     return ma
 
 
@@ -75,6 +77,10 @@ def convertInfsToZeros(ma):
 
 
 def convertInfsToZeros_ArrayFloat(pArray):
+    nan_elements = np.flatnonzero(np.isnan(pArray))
+    if len(nan_elements) > 0:
+        pArray[nan_elements] = 0.0
+
     inf_elements = np.flatnonzero(np.isinf(pArray))
     if len(inf_elements) > 0:
         pArray[inf_elements] = 0.0
@@ -256,6 +262,7 @@ def expected_interactions_non_zero(pSubmatrix):
     distance = np.absolute(row - col)
 
     occurences = np.zeros(pSubmatrix.shape[0])
+    # data_type = type(pSubmatrix.data[0])
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
         occurences[distance_] += 1
@@ -290,6 +297,19 @@ def expected_interactions(pSubmatrix):
     expected_interactions[mask] = 0
 
     return expected_interactions
+
+# def expected_interactions(pSubmatrix):
+
+#     instances, features = pSubmatrix.nonzero()
+#     distances = np.absolute(instances - features)
+#     sum_per_distance = np.ones(pSubmatrix.shape[0])
+#     binary_interactions_per_distance = np.ones(pSubmatrix.shape[0])
+
+#     for i, distance in enumerate(distances):
+#         sum_per_distance[distance] += pSubmatrix.data[i]
+#         binary_interactions_per_distance[distance] += 1
+
+#     return sum_per_distance / binary_interactions_per_distance
 
 
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
@@ -332,10 +352,17 @@ def obs_exp_matrix_norm(pSubmatrix):
 
     row, col = pSubmatrix.nonzero()
     # data = pSubmatrix.data.tolist()
+    pSubmatrix.data = pSubmatrix.data.astype(np.float32)
     for i in range(len(row)):
         expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
         expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
+
         pSubmatrix.data[i] /= expected
+    mask = np.isnan(pSubmatrix.data)
+    pSubmatrix.data[mask] = 0
+    mask = np.isinf(pSubmatrix.data)
+    pSubmatrix.data[mask] = 0
+    pSubmatrix.eliminate_zeros()
     return pSubmatrix
 
 

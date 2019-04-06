@@ -1,4 +1,3 @@
-from __future__ import division
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -101,7 +100,8 @@ def test_hic_transfer_obs_exp_norm():
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_norm.h5")
 
     new = hm.hiCMatrix(outfile.name)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
+    nt.assert_array_almost_equal(test.matrix.data,
+                                 new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
 
 

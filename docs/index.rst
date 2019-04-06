@@ -29,7 +29,7 @@ tool                            description
 :ref:`hicBuildMatrix`            Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
 :ref:`hicQC`                     Plots QC measures from the output of hicBuildMatrix
 :ref:`hicCorrectMatrix`          Uses iterative correction to remove biases from a Hi-C matrix
-:ref:`hicFindEnrichedContacts`   Identifies enriched Hi-C contacts
+:ref:`hicDetectLoops`            Identifies enriched Hi-C contacts
 :ref:`hicCorrelate`              Computes and visualises the correlation of Hi-C matrices
 :ref:`hicFindTADs`               Identifies Topologically Associating Domains (TADs)
 :ref:`hicPCA`                    Computes for A / B compartments the eigenvectors
@@ -56,10 +56,8 @@ tool                            description
 Getting Help
 ------------
 
-* For general questions, please use Biostars with Tag `hicexplorer` : `Biostars <https://www.biostars.org/t/hicexplorer/>`_
-* For specific questions and feature requests, use the `deepTools mailing list <https://groups.google.com/forum/#!forum/deeptools>`_
-* For suggesting changes/enhancements and to report bugs, please create an issue on `our GitHub repository <https://github.com/deeptools/HiCExplorer>`_
-
+* For all kind of questions, suggesting changes/enhancements and to report bugs, please create an issue on `our GitHub repository <https://github.com/deeptools/HiCExplorer>`_
+* In the past we offered to post on Biostars with Tag `hicexplorer` : `Biostars <https://www.biostars.org/t/hicexplorer/>`_ or on the `deepTools mailing list <https://groups.google.com/forum/#!forum/deeptools>`_. We still check these resources from time to time but the preferred way to communicate are GitHub issues.
 
 Contents:
 ---------

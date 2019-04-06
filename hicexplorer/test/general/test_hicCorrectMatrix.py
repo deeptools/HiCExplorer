@@ -12,18 +12,37 @@ from matplotlib.testing.compare import compare_images
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
 
-def test_correct_matrix():
-    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+def test_correct_matrix_ICE():
+    outfile = NamedTemporaryFile(suffix='.ICE.h5', delete=False)
     outfile.close()
 
-    args = "correct --matrix {} --chromosomes chrUextra chr3LHet --iterNum 500 " \
-        " --outFileName {} --filterThreshold -1.5 5.0".format(ROOT + "small_test_matrix.h5",
-                                                              outfile.name).split()
+    args = "correct --matrix {} --correctionMethod ICE --chromosomes "\
+           "chrUextra chr3LHet --iterNum 500  --outFileName {} "\
+           "--filterThreshold -1.5 5.0".format(ROOT + "small_test_matrix.h5",
+                                               outfile.name).split()
     hicCorrectMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "hicCorrectMatrix/small_test_matrix_corrected_chrUextra_chr3LHet.h5")
+    test = hm.hiCMatrix(ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5")
     new = hm.hiCMatrix(outfile.name)
     nt.assert_equal(test.matrix.data, new.matrix.data)
+    nt.assert_equal(test.cut_intervals, new.cut_intervals)
+
+    os.unlink(outfile.name)
+
+
+def test_correct_matrix_KR():
+    outfile = NamedTemporaryFile(suffix='.KR.h5', delete=False)
+    outfile.close()
+
+    args = "correct --matrix {} --correctionMethod KR --chromosomes "\
+           "chrUextra chr3LHet --outFileName {} ".format(ROOT + "small_"
+                                                         "test_matrix.h5",
+                                                         outfile.name).split()
+    hicCorrectMatrix.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicCorrectMatrix/small_test_matrix_KRcorrected_chrUextra_chr3LHet.h5")
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_almost_equal(test.matrix.data, new.matrix.data, decimal=10)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
     os.unlink(outfile.name)

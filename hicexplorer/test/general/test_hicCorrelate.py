@@ -16,8 +16,8 @@ def test_correlate():
 
     args = "--matrices {} {} --labels 'first' 'second' " \
         " --method spearman --log1p --colorMap jet "\
-        "--outFileNameHeatmap {} --outFileNameScatter {}".format(ROOT + "hicCorrectMatrix/small_test_matrix_corrected_chrUextra_chr3LHet.h5",
-                                                                 ROOT + "hicCorrectMatrix/small_test_matrix_corrected_chrUextra_chr3LHet.h5",
+        "--outFileNameHeatmap {} --outFileNameScatter {}".format(ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
+                                                                 ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
                                                                  outfile_heatmap.name, outfile_scatter.name).split()
     hicCorrelate.main(args)
 
@@ -37,8 +37,8 @@ def test_correlate_chromosomes():
     args = "--matrices {} {} --labels 'first' 'second' " \
         " --method spearman --log1p --colorMap jet "\
         "--outFileNameHeatmap {} --outFileNameScatter {} " \
-        "--chromosomes chrUextra chr3LHet".format(ROOT + "hicCorrectMatrix/small_test_matrix_corrected_chrUextra_chr3LHet.h5",
-                                                  ROOT + "hicCorrectMatrix/small_test_matrix_corrected_chrUextra_chr3LHet.h5",
+        "--chromosomes chrUextra chr3LHet".format(ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
+                                                  ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
                                                   outfile_heatmap.name, outfile_scatter.name).split()
     hicCorrelate.main(args)
 
