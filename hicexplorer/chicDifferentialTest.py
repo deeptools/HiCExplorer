@@ -30,7 +30,7 @@ def parse_arguments(args=None):
                                 type=float,
                                 default=0.05,
                                 required=True)
-    
+
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--interactionFileFolder', '-iff',
@@ -49,7 +49,8 @@ def parse_arguments(args=None):
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
                            action='store_true')
-    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h", action="help",
+                           help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -63,7 +64,8 @@ def readInteractionFile(pInteractionFile):
 
     with open(pInteractionFile, 'r') as file:
         header = file.readline()
-        sum_of_all_interactions = float(header.strip().split('\t')[-1].split(' ')[-1])
+        sum_of_all_interactions = float(
+            header.strip().split('\t')[-1].split(' ')[-1])
         header += file.readline()
         for line in file.readlines():
             _line = line.strip().split('\t')
@@ -87,7 +89,8 @@ def chisquare_test(pDataFile1, pDataFile2, pAlpha):
     zero_values_counter = 0
     for i, (group1, group2) in enumerate(zip(pDataFile1, pDataFile2)):
         try:
-            chi2, p_value, dof, ex = stats.chi2_contingency([group1, group2], correction=False)
+            chi2, p_value, dof, ex = stats.chi2_contingency(
+                [group1, group2], correction=False)
             if chi2 >= critical_value:
                 test_result.append(p_value)
                 rejected.append([i, p_value])
@@ -100,7 +103,8 @@ def chisquare_test(pDataFile1, pDataFile2, pAlpha):
             test_result.append(np.nan)
 
     if zero_values_counter > 0:
-        log.info('{} samples were not tested because at least one condition contained no data in both groups.'.format(zero_values_counter))
+        log.info('{} samples were not tested because at least one condition contained no data in both groups.'.format(
+            zero_values_counter))
     return test_result, accepted, rejected
 
 
@@ -130,7 +134,8 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pViewpoint1, pViewp
         header += str(__version__)
         header += '\n'
 
-        header += '# This file contains the p-values computed by {} test\n'.format(pTest)
+        header += '# This file contains the p-values computed by {} test\n'.format(
+            pTest)
         header += '# To test the smoothed (float) values they were rounded up to the next integer\n'
         header += '#\n'
 
@@ -173,7 +178,7 @@ def main(args=None):
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
-        except OSError as exc: # Guard against race condition
+        except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
     interactionFileList = []
@@ -181,7 +186,7 @@ def main(args=None):
         with open(args.interactionFile[0], 'r') as interactionFile:
             file_ = True
             while file_:
-            # for line in fh.readlines():
+                # for line in fh.readlines():
                 file_ = interactionFile.readline().strip()
                 file2_ = interactionFile.readline().strip()
                 if file_ != '' and file2_ != '':
@@ -189,51 +194,65 @@ def main(args=None):
             log.debug('interactionFileList {}'.format(interactionFileList))
     else:
         if len(args.interactionFile) % 2 == 0:
-            
+
             i = 0
             while i < len(args.interactionFile):
-                interactionFileList.append((args.interactionFile[i], args.interactionFile[i + 1]))
+                interactionFileList.append(
+                    (args.interactionFile[i], args.interactionFile[i + 1]))
                 i += 2
 
     for interactionFile in interactionFileList:
 
-        header1, line_content1, data1 = readInteractionFile(args.interactionFileFolder + '/' + interactionFile[0])
-        header2, line_content2, data2 = readInteractionFile(args.interactionFileFolder + '/' + interactionFile[1])
+        header1, line_content1, data1 = readInteractionFile(
+            args.interactionFileFolder + '/' + interactionFile[0])
+        header2, line_content2, data2 = readInteractionFile(
+            args.interactionFileFolder + '/' + interactionFile[1])
 
         if args.statisticTest == 'chi2':
-            test_result, accepted, rejected = chisquare_test(data1, data2, args.alpha)
+            test_result, accepted, rejected = chisquare_test(
+                data1, data2, args.alpha)
         elif args.statisticTest == 'fisher':
-            test_result, accepted, rejected = fisher_exact_test(data1, data2, args.alpha)
+            test_result, accepted, rejected = fisher_exact_test(
+                data1, data2, args.alpha)
 
         write_out_lines = []
         for i, result in enumerate(test_result):
-            write_out_lines.append([line_content1[i], line_content2[i], result, data1[i], data2[i]])
+            write_out_lines.append(
+                [line_content1[i], line_content2[i], result, data1[i], data2[i]])
 
         write_out_lines_accepted = []
         for result in accepted:
-            write_out_lines_accepted.append([line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]] )
+            write_out_lines_accepted.append(
+                [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
 
         write_out_lines_rejected = []
         for result in rejected:
             log.debug('result[1] {}'.format(result[1]))
-            write_out_lines_rejected.append([line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]] )
-
+            write_out_lines_rejected.append(
+                [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
 
         header_new = interactionFile[0]
         header_new += ' '
         header_new += interactionFile[1]
 
-        sample_prefix = interactionFile[0].split('/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
-        region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:6])
-        outFileName = sample_prefix + '_' + region_prefix 
-        outFileName_accepted = args.outputFolder + '/' + outFileName + '_H0_accepted.bed'
-        outFileName_rejected = args.outputFolder + '/' + outFileName + '_H0_rejected.bed'
+        sample_prefix = interactionFile[0].split(
+            '/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
+        region_prefix = '_'.join(
+            interactionFile[0].split('/')[-1].split('_')[1:6])
+        outFileName = sample_prefix + '_' + region_prefix
+        outFileName_accepted = args.outputFolder + \
+            '/' + outFileName + '_H0_accepted.bed'
+        outFileName_rejected = args.outputFolder + \
+            '/' + outFileName + '_H0_rejected.bed'
         outFileName = args.outputFolder + '/' + outFileName + '_results.bed'
 
         # outFileName = args.outFileName.split('.')
 
         # resultsNameFile = outFileName[0] + '_results.bed'
 
-        writeResult(outFileName, write_out_lines, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
-        writeResult(outFileName_accepted, write_out_lines_accepted, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
-        writeResult(outFileName_rejected, write_out_lines_rejected, header1, header2, line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+        writeResult(outFileName, write_out_lines, header1, header2,
+                    line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+        writeResult(outFileName_accepted, write_out_lines_accepted, header1, header2,
+                    line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+        writeResult(outFileName_rejected, write_out_lines_rejected, header1, header2,
+                    line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
