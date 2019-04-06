@@ -69,7 +69,8 @@ def parse_arguments(args=None):
                            help='File name suffix to save the result.',
                            required=False,
                            default='interactionFiles')
-    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h", action="help",
+                           help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -80,9 +81,11 @@ def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint
     data_viewpoint = {}
     data_background = {}
     data_sem = {}
-    view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(pReferencePoint)
+    view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(
+        pReferencePoint)
     view_point_range_start, view_point_range_end = \
-        pViewpointObj.getViewpointRangeAsMatrixIndices(pReferencePoint[0], pRegionStart, pRegionEnd)
+        pViewpointObj.getViewpointRangeAsMatrixIndices(
+            pReferencePoint[0], pRegionStart, pRegionEnd)
 
     for i, data in zip(range(view_point_range_start, view_point_range_end, 1), pData):
         relative_position = i - view_point_start
@@ -117,55 +120,69 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
     for i, referencePoint in enumerate(pReferencePoints):
         # range of viewpoint with reference point in the middle in genomic units
         # get fixateRange for relative interaction computation denominator
-        region_start_fixed, region_end_fixed, range_fixed = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
+        region_start_fixed, region_end_fixed, range_fixed = pViewpointObj.calculateViewpointRange(
+            referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
-        intermediate_viewpoint = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start_fixed, region_end_fixed)
+        intermediate_viewpoint = pViewpointObj.computeViewpoint(
+            referencePoint, referencePoint[0], region_start_fixed, region_end_fixed)
         denominator_relative_interactions = np.sum(intermediate_viewpoint)
 
         # viewpoint data uses full range
-        region_start, region_end, _range = pViewpointObj.calculateViewpointRange(referencePoint, pArgs.range)
+        region_start, region_end, _range = pViewpointObj.calculateViewpointRange(
+            referencePoint, pArgs.range)
 
-        data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
+        data_list = pViewpointObj.computeViewpoint(
+            referencePoint, referencePoint[0], region_start, region_end)
 
         # background uses fixed range, handles fixate range implicitly by same range used in background computation
-        _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
+        _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(
+            pBackgroundModel, _range)
 
         if len(data_list) != len(_backgroundModelData):
 
-            data_list, _backgroundModelData, _backgroundModelSEM = adjustViewpointData(pViewpointObj, data_list, _backgroundModelData, _backgroundModelSEM, referencePoint, region_start, region_end)
+            data_list, _backgroundModelData, _backgroundModelSEM = adjustViewpointData(
+                pViewpointObj, data_list, _backgroundModelData, _backgroundModelSEM, referencePoint, region_start, region_end)
 
         if pArgs.averageContactBin > 0:
-            data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
+            data_list = pViewpointObj.smoothInteractionValues(
+                data_list, pArgs.averageContactBin)
 
         data_list_raw = np.copy(data_list)
 
-        data_list = pViewpointObj.computeRelativeValues(data_list, denominator_relative_interactions)
+        data_list = pViewpointObj.computeRelativeValues(
+            data_list, denominator_relative_interactions)
 
-        rbz_score_data = pViewpointObj.rbz_score(data_list, _backgroundModelData, _backgroundModelSEM)
+        rbz_score_data = pViewpointObj.rbz_score(
+            data_list, _backgroundModelData, _backgroundModelSEM)
 
         # add values if range is larger than fixate range
 
-        region_start_range, region_end_range, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.range[0], pArgs.range[1]))
+        region_start_range, region_end_range, _ = pViewpointObj.calculateViewpointRange(
+            referencePoint, (pArgs.range[0], pArgs.range[1]))
 
         interaction_data = pViewpointObj.createInteractionFileData(referencePoint, referencePoint[0],
                                                                    region_start_range, region_end_range, data_list, data_list_raw,
-                                                                   pGeneList[i])
+                                                                   pGeneList[i], denominator_relative_interactions)
 
         referencePointString = '_'.join(str(j) for j in referencePoint)
 
         region_start_in_units = utilities.in_units(region_start)
         region_end_in_units = utilities.in_units(region_end)
         denominator_relative_interactions_str = 'Sum of interactions in fixate range: '
-        denominator_relative_interactions_str += str(denominator_relative_interactions)
-        header_information = '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(region_end_in_units), pGeneList[i], denominator_relative_interactions_str])
-        header_information += '\n# ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
+        denominator_relative_interactions_str += str(
+            denominator_relative_interactions)
+        header_information = '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(
+            region_end_in_units), pGeneList[i], denominator_relative_interactions_str])
+        header_information += '\n#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('.')[:-1])
-        matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
+        matrix_name = '_'.join(
+            [matrix_name, referencePointString, pGeneList[i]])
         file_list.append(matrix_name + '.bed')
 
         matrix_name = pOutputFolder + '/' + matrix_name
         # file_list.append(matrix_name + '.bed')
-        pViewpointObj.writeInteractionFile(matrix_name, interaction_data, header_information, rbz_score_data)
+        pViewpointObj.writeInteractionFile(
+            matrix_name, interaction_data, header_information, rbz_score_data)
 
     pQueue.put(file_list)
     return
@@ -176,16 +193,18 @@ def main(args=None):
 
     viewpointObj = Viewpoint()
 
-    referencePoints, gene_list = viewpointObj.readReferencePointFile(args.referencePoints)
+    referencePoints, gene_list = viewpointObj.readReferencePointFile(
+        args.referencePoints)
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
     file_list = []
-    background_model = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, args.useRawBackground)
+    background_model = viewpointObj.readBackgroundDataFile(
+        args.backgroundModelFile, args.range, args.useRawBackground)
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
-        except OSError as exc: # Guard against race condition
+        except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
     for matrix in args.matrices:
@@ -197,10 +216,13 @@ def main(args=None):
         for i in range(args.threads):
 
             if i < args.threads - 1:
-                referencePointsThread = referencePoints[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
-                geneListThread = gene_list[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:(
+                    i + 1) * referencePointsPerThread]
+                geneListThread = gene_list[i * referencePointsPerThread:(
+                    i + 1) * referencePointsPerThread]
             else:
-                referencePointsThread = referencePoints[i * referencePointsPerThread:]
+                referencePointsThread = referencePoints[i *
+                                                        referencePointsPerThread:]
                 geneListThread = gene_list[i * referencePointsPerThread:]
 
             queue[i] = Queue()
@@ -233,13 +255,14 @@ def main(args=None):
                 if process[i] is not None:
                     all_data_collected = False
             time.sleep(1)
-        file_list_sample = [item for sublist in file_list_sample for item in sublist]
+        file_list_sample = [
+            item for sublist in file_list_sample for item in sublist]
         file_list.append(file_list_sample)
-    
+
     if args.writeFileNamesToFile:
         with open(args.writeFileNamesToFile, 'w') as file:
             for i, sample in enumerate(file_list):
-                
+
                 for sample2 in file_list[i+1:]:
                     # log.debug('sample {}'.format(sample))
 

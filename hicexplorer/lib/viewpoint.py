@@ -170,9 +170,9 @@ class Viewpoint():
         with open((pBedFile + '.bed').strip(), 'w') as fh:
             fh.write('# {}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
-                         format(interaction[4], interaction[5],
-                                interaction[6], interaction[7], interaction[8], pZscoreData[j], interaction[9]))
+                fh.write("{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
+                         format(interaction[0], interaction[1],
+                                interaction[2], interaction[3], interaction[4], interaction[5], pZscoreData[j], interaction[6], interaction[7]))
         return
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
@@ -215,7 +215,7 @@ class Viewpoint():
         data_list_new[index_before_viewpoint + 1:] = data_list[index_before_viewpoint + view_point_end - view_point_start + 1:]
         return data_list_new
 
-    def createInteractionFileData(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionData, pInteractionDataRaw, pGene):
+    def createInteractionFileData(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionData, pInteractionDataRaw, pGene, pSumOfInteractions):
         '''
         Creates out of internal information a list of tuples which can be written to an interaction file.
         Tuple contains:
@@ -243,12 +243,12 @@ class Viewpoint():
                 else:
                     relative_position = int(end_second) - int(end)
 
-                interactions_list.append((chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
+                interactions_list.append((chrom_second, start_second, end_second, pGene, str(pSumOfInteractions), relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
             except Exception:
-                log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
-                log.debug('len(itneraction_position) {}'.format(len(interaction_positions)))
+                # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
+                # log.debug('len(itneraction_position) {}'.format(len(interaction_positions)))
 
-                log.debug('chrom {}, start {}, end {}, pGene {}, chrom_second {}, start_second {}, end_second {}, relative_position {}'.format(chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position))
+                # log.debug('chrom {}, start {}, end {}, pGene {}, chrom_second {}, start_second {}, end_second {}, relative_position {}'.format(chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position))
                 log.error('Failed to get bin position of index {}'.format(idx))
                 exit(1)
         return interactions_list
