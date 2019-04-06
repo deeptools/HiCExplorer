@@ -2,6 +2,8 @@ import argparse
 import sys
 import os
 import math
+from multiprocessing import Process, Queue
+import time
 import logging
 log = logging.getLogger(__name__)
 
@@ -51,11 +53,18 @@ def parse_arguments(args=None):
                            action='store_true')
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
-
+    parserOpt.add_argument('--threads', '-t',
+                           help='Number of threads. Using the python multiprocessing module. ',
+                           required=False,
+                           default=4,
+                           type=int
+                           )
+    parserOpt.add_argument('--rejectedFileNamesToFile', '-r',
+                           help='',
+                           default='rejected_H0.txt')
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
     return parser
-
 
 def readInteractionFile(pInteractionFile):
 
@@ -146,14 +155,8 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pViewpoint1, pViewp
 
         file.write(header)
 
-        # file.write('#Viewpoint\t\t\ttarget\t\t\tgene\tcondition1\t\tcondition2\t\tp-value\n')
         file.write(pHeaderOld.split('\n')[0] + '\n')
         file.write(pHeaderNew.split('\n')[0] + '\n')
-
-        # pHeaderNew.split('\n')[0]
-
-        # log.debug('pHeaderOld {}'.format(pHeaderOld))
-        # log.debug('pHeaderNew {}'.format(pHeaderNew))
 
         file.write('#Chromosome\tStart\tEnd\tGene\tRelative distance\tsum of interactions 1\ttarget_1 raw\tsum of interactions 2\ttarget_2 raw\tp-value\n')
 
@@ -171,6 +174,66 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pViewpoint1, pViewp
 
             line += '\t{}\n'.format(format(data[2], '.5f'))
             file.write(line)
+
+
+def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
+    rejected_names = []
+    for interactionFile in pInteractionFilesList:
+
+        header1, line_content1, data1 = readInteractionFile(
+            pArgs.interactionFileFolder + '/' + interactionFile[0])
+        header2, line_content2, data2 = readInteractionFile(
+            pArgs.interactionFileFolder + '/' + interactionFile[1])
+
+        if pArgs.statisticTest == 'chi2':
+            test_result, accepted, rejected = chisquare_test(
+                data1, data2, pArgs.alpha)
+        elif pArgs.statisticTest == 'fisher':
+            test_result, accepted, rejected = fisher_exact_test(
+                data1, data2, pArgs.alpha)
+
+        write_out_lines = []
+        for i, result in enumerate(test_result):
+            write_out_lines.append(
+                [line_content1[i], line_content2[i], result, data1[i], data2[i]])
+
+        write_out_lines_accepted = []
+        for result in accepted:
+            write_out_lines_accepted.append(
+                [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
+
+        write_out_lines_rejected = []
+        for result in rejected:
+            # log.debug('result[1] {}'.format(result[1]))
+            write_out_lines_rejected.append(
+                [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
+
+        header_new = interactionFile[0]
+        header_new += ' '
+        header_new += interactionFile[1]
+
+        sample_prefix = interactionFile[0].split(
+            '/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
+        region_prefix = '_'.join(
+            interactionFile[0].split('/')[-1].split('_')[1:6])
+        outFileName = sample_prefix + '_' + region_prefix
+        outFileName_accepted = pArgs.outputFolder + \
+            '/' + outFileName + '_H0_accepted.bed'
+        outFileName_rejected = pArgs.outputFolder + \
+            '/' + outFileName + '_H0_rejected.bed'
+        outFileName = pArgs.outputFolder + '/' + outFileName + '_results.bed'
+
+        writeResult(outFileName, write_out_lines, header1, header2,
+                    line_content1[0][:4], line_content2[0][:4], pArgs.alpha, pArgs.statisticTest)
+        writeResult(outFileName_accepted, write_out_lines_accepted, header1, header2,
+                    line_content1[0][:4], line_content2[0][:4], pArgs.alpha, pArgs.statisticTest)
+        writeResult(outFileName_rejected, write_out_lines_rejected, header1, header2,
+                    line_content1[0][:4], line_content2[0][:4], pArgs.alpha, pArgs.statisticTest)
+        rejected_names.append(outFileName_rejected)
+    if pQueue is None:
+        return
+    pQueue.put(rejected_names)
+    return
 
 
 def main(args=None):
@@ -201,58 +264,51 @@ def main(args=None):
                     (args.interactionFile[i], args.interactionFile[i + 1]))
                 i += 2
 
-    for interactionFile in interactionFileList:
+    if args.batchMode:
+        rejected_file_names = []
+        interactionFilesPerThread = len(interactionFileList) // args.threads
+        all_data_collected = False
+        queue = [None] * args.threads
+        process = [None] * args.threads
+        thread_done = [False] * args.threads
+        # log.debug('matrix read, starting processing')
+        for i in range(args.threads):
 
-        header1, line_content1, data1 = readInteractionFile(
-            args.interactionFileFolder + '/' + interactionFile[0])
-        header2, line_content2, data2 = readInteractionFile(
-            args.interactionFileFolder + '/' + interactionFile[1])
+            if i < args.threads - 1:
+                interactionFileListThread = interactionFileList[i * interactionFilesPerThread:(
+                    i + 1) * interactionFilesPerThread]
+            else:
+                interactionFileListThread = interactionFileList[i *
+                                                                interactionFilesPerThread:]
 
-        if args.statisticTest == 'chi2':
-            test_result, accepted, rejected = chisquare_test(
-                data1, data2, args.alpha)
-        elif args.statisticTest == 'fisher':
-            test_result, accepted, rejected = fisher_exact_test(
-                data1, data2, args.alpha)
+            queue[i] = Queue()
+            process[i] = Process(target=run_statistical_tests, kwargs=dict(
+                pInteractionFilesList=interactionFileListThread,
+                pArgs=args,
+                pQueue=queue[i]
+            )
+            )
 
-        write_out_lines = []
-        for i, result in enumerate(test_result):
-            write_out_lines.append(
-                [line_content1[i], line_content2[i], result, data1[i], data2[i]])
+            process[i].start()
 
-        write_out_lines_accepted = []
-        for result in accepted:
-            write_out_lines_accepted.append(
-                [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
+        while not all_data_collected:
+            for i in range(args.threads):
+                if queue[i] is not None and not queue[i].empty():
+                    background_data_thread = queue[i].get()
+                    rejected_file_names.extend(background_data_thread)
+                    queue[i] = None
+                    process[i].join()
+                    process[i].terminate()
+                    process[i] = None
+                    thread_done[i] = True
+            all_data_collected = True
+            for thread in thread_done:
+                if not thread:
+                    all_data_collected = False
+            time.sleep(1)
+    else:
+        run_statistical_tests(interactionFileList, args)
 
-        write_out_lines_rejected = []
-        for result in rejected:
-            log.debug('result[1] {}'.format(result[1]))
-            write_out_lines_rejected.append(
-                [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
-
-        header_new = interactionFile[0]
-        header_new += ' '
-        header_new += interactionFile[1]
-
-        sample_prefix = interactionFile[0].split(
-            '/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
-        region_prefix = '_'.join(
-            interactionFile[0].split('/')[-1].split('_')[1:6])
-        outFileName = sample_prefix + '_' + region_prefix
-        outFileName_accepted = args.outputFolder + \
-            '/' + outFileName + '_H0_accepted.bed'
-        outFileName_rejected = args.outputFolder + \
-            '/' + outFileName + '_H0_rejected.bed'
-        outFileName = args.outputFolder + '/' + outFileName + '_results.bed'
-
-        # outFileName = args.outFileName.split('.')
-
-        # resultsNameFile = outFileName[0] + '_results.bed'
-
-        writeResult(outFileName, write_out_lines, header1, header2,
-                    line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
-        writeResult(outFileName_accepted, write_out_lines_accepted, header1, header2,
-                    line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
-        writeResult(outFileName_rejected, write_out_lines_rejected, header1, header2,
-                    line_content1[0][:4], line_content2[0][:4], args.alpha, args.statisticTest)
+    if args.batchMode:
+        with open(args.rejectedFileNamesToFile, 'w') as nameListFile:
+            nameListFile.write('\n'.join(rejected_file_names))

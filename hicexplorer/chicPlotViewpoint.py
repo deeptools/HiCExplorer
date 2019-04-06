@@ -2,6 +2,8 @@ import argparse
 import sys
 import os
 import math
+from multiprocessing import Process, Queue
+import time
 import logging
 log = logging.getLogger(__name__)
 
@@ -97,12 +99,105 @@ def parse_arguments(args=None):
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
                            action='store_true')
+    parserOpt.add_argument('--threads', '-t',
+                           help='Number of threads. Using the python multiprocessing module. ',
+                           required=False,
+                           default=4,
+                           type=int
+                           )
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
     return parser
 
+def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBackgroundData, pArgs, pViewpointObj, pQueue=None):
+    for j, interactionFile in enumerate(pInteractionFileList):
+        number_of_rows_plot = len(interactionFile)
+        matplotlib.rcParams.update({'font.size': 9})
+        fig = plt.figure(figsize=(9.4, 4.8))
+
+        z_score_heights = [0.07] * number_of_rows_plot
+        viewpoint_height_ratio = 0.95 - (0.07 * number_of_rows_plot)
+        if viewpoint_height_ratio < 0.4:
+            viewpoint_height_ratio = 0.4
+            _ratio = 0.6 / number_of_rows_plot
+            z_score_heights = [_ratio] * number_of_rows_plot
+
+        if pArgs.rbzScore == 'heatmap':
+            gs = gridspec.GridSpec(1 + len(interactionFile), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
+            gs.update(hspace=0.5, wspace=0.05)
+            ax1 = plt.subplot(gs[0, 0])
+            ax1.margins(x=0)
+        else:
+            ax1 = plt.subplot()
+        colors = ['g', 'b', 'c', 'm', 'y', 'k']
+        background_plot = True
+        data_plot_label = None
+        for i, interactionFile_ in enumerate(interactionFile):
+            # log.debug('interactionFile_ {}'.format(interactionFile_))
+            header, data, background_data_plot, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index = pViewpointObj.getDataForPlotting(pArgs.interactionFileFolder + '/' + interactionFile_, pArgs.range, pBackgroundData)
+            if len(data) <= 1 or len(z_score) <= 1:
+                log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
+                continue
+            matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
+            matrix_name = matrix_name[1:].split('.')[0]
+            highlight_differential_regions = None
+            
+            if pArgs.differentialTestResult:
+                log.debug('pArgs.binResolution {}'.format(pArgs.binResolution))
+                highlight_differential_regions = pViewpointObj.readRejectedFile(pHighlightDifferentialRegionsFileList[j], viewpoint_index, pArgs.binResolution, pArgs.range)
+            if data_plot_label:
+                data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
+            else:
+                data_plot_label = pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
+
+            if background_plot:
+                data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
+                                                                    pBackgroundDataMean=data_background_mean)
+                background_plot = False
+            
+            if pArgs.minZscore is not None or pArgs.maxZscore is not None:
+                z_score = np.array(z_score, dtype=np.float32)
+                z_score.clip(pArgs.minZscore, pArgs.maxZscore, z_score)
+            if pArgs.rbzScore == 'heatmap':
+                pViewpointObj.plotZscore(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
+                                        pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapZscore,
+                                        pFigure=fig,)
+            elif pArgs.rbzScore == 'integrated':
+                data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=z_score, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' rbz-score')
+
+            # pViewpointObj.writePlotData(interaction_file_data_raw, matrix_name + '_' + gene + '_raw_plot', pArgs.backgroundModelFile)
+
+        if data_plot_label is not None:
+            ax1.set_ylabel('Number of interactions')
+            ax1.set_xticks([0, viewpoint_index, len(data) - 1])
+
+            if pArgs.range:
+                ax1.set_xticklabels([str(-pArgs.range[0]), 'Viewpoint', str(pArgs.range[1])])
+            else:
+                ax1.set_xticklabels([upstream_range, 'Viewpoint', downstream_range])
+
+            # multiple legends in one figure
+            data_legend = [label.get_label() for label in data_plot_label]
+            ax1.legend(data_plot_label, data_legend, loc=0)
+
+            
+
+            if pArgs.outFileName:
+                outFileName = pArgs.outFileName
+            else:
+                sample_prefix = interactionFile[0].split('_')[0] + '_' + interactionFile[1].split('_')[0]
+                region_prefix = '_'.join(interactionFile[0].split('_')[1:6])
+                outFileName = sample_prefix + '_' + region_prefix 
+                outFileName = pArgs.outputFolder + '/' + outFileName + '.' + pArgs.outputFormat
+            plt.savefig(outFileName, dpi=pArgs.dpi)
+        plt.close(fig)
+    
+    if pQueue is None:
+        return
+    pQueue.put('done')
+    return
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -141,96 +236,52 @@ def main(args=None):
                     # file2_ = differentialTestFile.readline().strip()
                     if file_ != '':
                         highlightDifferentialRegionsFileList.append(file_)
-        
+
+        interactionFilesPerThread = len(interactionFileList) // args.threads
+        all_data_collected = False
+        queue = [None] * args.threads
+        process = [None] * args.threads
+        thread_done = [False] * args.threads
+        # log.debug('matrix read, starting processing')
+        for i in range(args.threads):
+
+            if i < args.threads - 1:
+                interactionFileListThread = interactionFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
+                highlightDifferentialRegionsFileListThread = highlightDifferentialRegionsFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
+
+            else:
+                interactionFileListThread = interactionFileList[i * interactionFilesPerThread:]
+                highlightDifferentialRegionsFileListThread = highlightDifferentialRegionsFileList[i * interactionFilesPerThread:]
+
+            queue[i] = Queue()
+            process[i] = Process(target=plot_images, kwargs=dict(
+                pInteractionFileList=interactionFileListThread,
+                pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileListThread,
+                pBackgroundData=background_data,
+                pArgs=args,
+                pViewpointObj=viewpointObj,
+                pQueue=queue[i]
+            )
+            )
+
+            process[i].start()
+
+        while not all_data_collected:
+            for i in range(args.threads):
+                if queue[i] is not None and not queue[i].empty():
+                    background_data_thread = queue[i].get()
+                    queue[i] = None
+                    process[i].join()
+                    process[i].terminate()
+                    process[i] = None
+                    thread_done[i] = True
+            all_data_collected = True
+            for thread in thread_done:
+                if not thread:
+                    all_data_collected = False
+            time.sleep(1)
     else:
         interactionFileList = [args.interactionFile]
-        # if args.differentialTestResult is not None:
-        log.debug('args.differentialTestResult {}'.format(args.differentialTestResult))
         highlightDifferentialRegionsFileList = args.differentialTestResult
-        # else:
-        #     highlightDifferentialRegionsFileList = None
-        log.debug("interactionFileList {}".format(interactionFileList))
-        log.debug("highlightDifferentialRegionsFileList {}".format(highlightDifferentialRegionsFileList))
-
-
-    for j, interactionFile in enumerate(interactionFileList):
-        number_of_rows_plot = len(interactionFile)
-        matplotlib.rcParams.update({'font.size': 9})
-        fig = plt.figure(figsize=(9.4, 4.8))
-
-        z_score_heights = [0.07] * number_of_rows_plot
-        viewpoint_height_ratio = 0.95 - (0.07 * number_of_rows_plot)
-        if viewpoint_height_ratio < 0.4:
-            viewpoint_height_ratio = 0.4
-            _ratio = 0.6 / number_of_rows_plot
-            z_score_heights = [_ratio] * number_of_rows_plot
-
-        if args.rbzScore == 'heatmap':
-            gs = gridspec.GridSpec(1 + len(interactionFile), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
-            gs.update(hspace=0.5, wspace=0.05)
-            ax1 = plt.subplot(gs[0, 0])
-            ax1.margins(x=0)
-        else:
-            ax1 = plt.subplot()
-        colors = ['g', 'b', 'c', 'm', 'y', 'k']
-        background_plot = True
-        data_plot_label = None
-        for i, interactionFile_ in enumerate(interactionFile):
-            log.debug('interactionFile_ {}'.format(interactionFile_))
-            header, data, background_data_plot, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index = viewpointObj.getDataForPlotting(args.interactionFileFolder + '/' + interactionFile_, args.range, background_data)
-            if len(data) <= 1 or len(z_score) <= 1:
-                log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, args.range))
-                continue
-            matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
-            matrix_name = matrix_name[1:].split('.')[0]
-            highlight_differential_regions = None
-            
-            if args.differentialTestResult:
-                log.debug('args.binResolution {}'.format(args.binResolution))
-                highlight_differential_regions = viewpointObj.readRejectedFile(highlightDifferentialRegionsFileList[j], viewpoint_index, args.binResolution, args.range)
-            if data_plot_label:
-                data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
-            else:
-                data_plot_label = viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
-
-            if background_plot:
-                data_plot_label += viewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
-                                                                    pBackgroundDataMean=data_background_mean)
-                background_plot = False
-            
-            if args.minZscore is not None or args.maxZscore is not None:
-                z_score = np.array(z_score, dtype=np.float32)
-                z_score.clip(args.minZscore, args.maxZscore, z_score)
-            if args.rbzScore == 'heatmap':
-                viewpointObj.plotZscore(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
-                                        pLabelText=gene + ': ' + matrix_name, pCmap=args.colorMapZscore,
-                                        pFigure=fig,)
-            elif args.rbzScore == 'integrated':
-                data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=z_score, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' rbz-score')
-
-            # viewpointObj.writePlotData(interaction_file_data_raw, matrix_name + '_' + gene + '_raw_plot', args.backgroundModelFile)
-
-        if data_plot_label is not None:
-            ax1.set_ylabel('Number of interactions')
-            ax1.set_xticks([0, viewpoint_index, len(data) - 1])
-
-            if args.range:
-                ax1.set_xticklabels([str(-args.range[0]), 'Viewpoint', str(args.range[1])])
-            else:
-                ax1.set_xticklabels([upstream_range, 'Viewpoint', downstream_range])
-
-            # multiple legends in one figure
-            data_legend = [label.get_label() for label in data_plot_label]
-            ax1.legend(data_plot_label, data_legend, loc=0)
-
-            
-
-            if args.outFileName:
-                outFileName = args.outFileName
-            else:
-                sample_prefix = interactionFile[0].split('_')[0] + '_' + interactionFile[1].split('_')[0]
-                region_prefix = '_'.join(interactionFile[0].split('_')[1:6])
-                outFileName = sample_prefix + '_' + region_prefix 
-                outFileName = args.outputFolder + '/' + outFileName + '.' + args.outputFormat
-            plt.savefig(outFileName, dpi=args.dpi)
-        plt.close(fig)
+        plot_images(interactionFileList, highlightDifferentialRegionsFileList, args)
+    

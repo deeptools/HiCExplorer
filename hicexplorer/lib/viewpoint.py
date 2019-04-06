@@ -532,5 +532,6 @@ class Viewpoint():
                         (int(_line[4]) / pResolution)
                     highlight_areas_list.append(
                         [relative_position, relative_position + width])
-
+        if len(highlight_areas_list) == 0:
+            return None
         return highlight_areas_list
