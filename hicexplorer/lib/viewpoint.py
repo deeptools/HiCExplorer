@@ -117,7 +117,8 @@ class Viewpoint():
 
                 _line = line.strip().split('\t')
                 # relative postion and relative interactions
-                interaction_data[int(_line[-4])] = np.array([float(_line[-3]), float(_line[-2]), float(_line[-1])])
+                interaction_data[int(
+                    _line[-4])] = np.array([float(_line[-3]), float(_line[-2]), float(_line[-1])])
                 # z_score[int(_line[-4])] = float(_line[-2])
                 interaction_file_data[int(_line[-4])] = _line
         return header, interaction_data, interaction_file_data
@@ -134,9 +135,11 @@ class Viewpoint():
             for line in fh.readlines():
                 _line = line.split('\t')
                 if pRaw:
-                    distance[int(_line[0])] = [float(_line[3]), float(_line[4])]
+                    distance[int(_line[0])] = [
+                        float(_line[3]), float(_line[4])]
                 else:
-                    distance[int(_line[0])] = [float(_line[1]), float(_line[2])]
+                    distance[int(_line[0])] = [
+                        float(_line[1]), float(_line[2])]
 
         max_key = max(distance)
         min_key = min(distance)
@@ -183,9 +186,11 @@ class Viewpoint():
         All interactions with the reference point of one relative distance to it are summed up,
         if the reference point is larger than one bin of the Hi-C matrix, it is considered as one bin and the values are summed together.
         '''
-        view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(pReferencePoint)
+        view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(
+            pReferencePoint)
 
-        view_point_range = self.getViewpointRangeAsMatrixIndices(pChromViewpoint, pRegion_start, pRegion_end)
+        view_point_range = self.getViewpointRangeAsMatrixIndices(
+            pChromViewpoint, pRegion_start, pRegion_end)
         view_point_range = list(view_point_range)
         view_point_range[1] += 1
 
@@ -200,7 +205,8 @@ class Viewpoint():
 
             _view_point_start += 1
 
-        elements_of_viewpoint = elements_of_viewpoint - (view_point_end - view_point_start)
+        elements_of_viewpoint = elements_of_viewpoint - \
+            (view_point_end - view_point_start)
         data_list_new = np.zeros(elements_of_viewpoint)
 
         index_before_viewpoint = view_point_start - view_point_range[0]
@@ -209,10 +215,12 @@ class Viewpoint():
         data_list_new[0:index_before_viewpoint] = data_list[0:index_before_viewpoint]
 
         # summation because the viewpoint can not be only one bin but can contain multiple
-        data_list_new[index_before_viewpoint] = np.sum(data_list[index_before_viewpoint: index_before_viewpoint + view_point_end - view_point_start + 1])
+        data_list_new[index_before_viewpoint] = np.sum(
+            data_list[index_before_viewpoint: index_before_viewpoint + view_point_end - view_point_start + 1])
 
         # elements after the viewpoint
-        data_list_new[index_before_viewpoint + 1:] = data_list[index_before_viewpoint + view_point_end - view_point_start + 1:]
+        data_list_new[index_before_viewpoint + 1:] = data_list[index_before_viewpoint +
+                                                               view_point_end - view_point_start + 1:]
         return data_list_new
 
     def createInteractionFileData(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionData, pInteractionDataRaw, pGene, pSumOfInteractions):
@@ -221,29 +229,36 @@ class Viewpoint():
         Tuple contains:
         Chromosome viewpoint, start, end, chromosome interaction, start, end, relative_position, interaction data
         '''
-        view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(pReferencePoint)
-        view_point_range = self.getViewpointRangeAsMatrixIndices(pChromViewpoint, pRegion_start, pRegion_end)
+        view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(
+            pReferencePoint)
+        view_point_range = self.getViewpointRangeAsMatrixIndices(
+            pChromViewpoint, pRegion_start, pRegion_end)
         view_point_range = list(view_point_range)
         view_point_range[1] += 1
-        elements_of_viewpoint = view_point_range[1] - view_point_range[0] - (view_point_end - view_point_start) + 1
+        elements_of_viewpoint = view_point_range[1] - view_point_range[0] - (
+            view_point_end - view_point_start) + 1
 
         interactions_list = []
         chrom, start, _, _ = self.hicMatrix.getBinPos(view_point_start)
         _, _, end, _ = self.hicMatrix.getBinPos(view_point_end)
-        interaction_positions = list(range(view_point_range[0], view_point_start, 1))
+        interaction_positions = list(
+            range(view_point_range[0], view_point_start, 1))
         interaction_positions.extend([view_point_start])
-        interaction_positions.extend(list(range(view_point_end + 1, view_point_range[1], 1)))
+        interaction_positions.extend(
+            list(range(view_point_end + 1, view_point_range[1], 1)))
         relative_position = -1
         for j, idx in zip(range(len(pInteractionData)), interaction_positions):
             try:
 
-                chrom_second, start_second, end_second, _ = self.hicMatrix.getBinPos(idx)
+                chrom_second, start_second, end_second, _ = self.hicMatrix.getBinPos(
+                    idx)
                 if relative_position < 0:
                     relative_position = int(start_second) - int(start)
                 else:
                     relative_position = int(end_second) - int(end)
 
-                interactions_list.append((chrom_second, start_second, end_second, pGene, str(pSumOfInteractions), relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
+                interactions_list.append((chrom_second, start_second, end_second, pGene, str(
+                    pSumOfInteractions), relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
             except Exception:
                 # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
                 # log.debug('len(itneraction_position) {}'.format(len(interaction_positions)))
@@ -258,7 +273,8 @@ class Viewpoint():
         Returns the matrix indices of a chromosome and a specific position.
         '''
 
-        _range = self.hicMatrix.getRegionBinRange(pChromViewpoint, pRegion_start, pRegion_end)
+        _range = self.hicMatrix.getRegionBinRange(
+            pChromViewpoint, pRegion_start, pRegion_end)
 
         return _range
 
@@ -267,11 +283,14 @@ class Viewpoint():
         Returns the correct matrix indices of a given reference point.
         '''
         if len(pReferencePoint) == 2:
-            view_point_start, view_point_end = self.hicMatrix.getRegionBinRange(pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[1]))
+            view_point_start, view_point_end = self.hicMatrix.getRegionBinRange(
+                pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[1]))
         elif len(pReferencePoint) == 3:
-            view_point_start, view_point_end = self.hicMatrix.getRegionBinRange(pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[2]))
+            view_point_start, view_point_end = self.hicMatrix.getRegionBinRange(
+                pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[2]))
         else:
-            log.error("No valid reference point given. {}".format(pReferencePoint))
+            log.error("No valid reference point given. {}".format(
+                pReferencePoint))
             exit(1)
         return view_point_start, view_point_end
 
@@ -324,7 +343,8 @@ class Viewpoint():
         # log.debug('pViewpoint {}'.format(pViewpoint))
         # log.debug('pRange {}'.format(pRange))
 
-        max_length = self.hicMatrix.getBinPos(self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
+        max_length = self.hicMatrix.getBinPos(
+            self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
         # log.debug('max_length {}'.format(max_length))
         bin_size = self.hicMatrix.getBinSize()
         _range = [pRange[0], pRange[1]]
@@ -342,15 +362,18 @@ class Viewpoint():
         return region_start, region_end, _range
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
-        header, interaction_data, z_score_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
-        matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
+        header, interaction_data, z_score_data, _interaction_file_data_raw = self.readInteractionFile(
+            pInteractionFile)
+        matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split(
+            '\t')
 
         data = []
         z_score = []
         interaction_file_data_raw = {}
         if pRange:
 
-            interaction_data_keys = copy.deepcopy(list(interaction_data.keys()))
+            interaction_data_keys = copy.deepcopy(
+                list(interaction_data.keys()))
             for key in interaction_data_keys:
                 if key >= -pRange[0] and key <= pRange[1]:
                     continue
@@ -398,17 +421,20 @@ class Viewpoint():
         return header, data, data_background, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None):
-        data_plot_label = pAxis.plot(range(len(pData)), pData, '--' + pColor, alpha=0.9, label=pLabelName)
+        data_plot_label = pAxis.plot(
+            range(len(pData)), pData, '--' + pColor, alpha=0.9, label=pLabelName)
         if pHighlightRegion:
             for region in pHighlightRegion:
-                pAxis.plt.axvspan(region[0], region[1], color='red', alpha=0.5)
+                pAxis.axvspan(region[0], region[1], color='red', alpha=0.5)
         return data_plot_label
 
     def plotBackgroundModel(self, pAxis, pBackgroundData, pBackgroundDataMean):
         pBackgroundData = np.array(pBackgroundData)
         pBackgroundDataMean = np.array(pBackgroundDataMean)
-        data_plot_label = pAxis.plot(range(len(pBackgroundData)), pBackgroundData, '--r', alpha=0.5, label='background model')
-        pAxis.fill_between(range(len(pBackgroundData)), pBackgroundData + pBackgroundDataMean, pBackgroundData - pBackgroundDataMean, facecolor='red', alpha=0.3)
+        data_plot_label = pAxis.plot(range(len(
+            pBackgroundData)), pBackgroundData, '--r', alpha=0.5, label='background model')
+        pAxis.fill_between(range(len(pBackgroundData)), pBackgroundData + pBackgroundDataMean,
+                           pBackgroundData - pBackgroundDataMean, facecolor='red', alpha=0.3)
         return data_plot_label
 
     def plotZscore(self, pAxis, pAxisLabel, pZscoreData, pLabelText, pCmap, pFigure):
@@ -420,7 +446,8 @@ class Viewpoint():
         img = pAxis.contourf(_z_score, cmap=pCmap)
         divider = make_axes_locatable(pAxisLabel)
         cax = divider.append_axes("left", size="20%", pad=0.09)
-        colorbar = pFigure.colorbar(img, cax=cax, ticks=[min(pZscoreData), max(pZscoreData)])
+        colorbar = pFigure.colorbar(
+            img, cax=cax, ticks=[min(pZscoreData), max(pZscoreData)])
 
         colorbar.ax.set_ylabel('rbz-score', size=6)
 
@@ -432,7 +459,8 @@ class Viewpoint():
     def writePlotData(self, pInteractionFileDataRaw, pFileName, pBackgroundModel):
         interaction_file_data_raw_sorted = sorted(pInteractionFileDataRaw)
         with open(pFileName + '.bed', 'w') as output_file:
-            output_file.write('#ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw')
+            output_file.write(
+                '#ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw')
 
             if pBackgroundModel:
                 output_file.write('\tbackground model\tbackground model SEM\n')
@@ -446,7 +474,8 @@ class Viewpoint():
                                                                                       _array[3], _array[4], _array[5],
                                                                                       _array[6], _array[7], _array[8], _array[9], _array[10]))
                 if pBackgroundModel:
-                    output_file.write('\t{}\t{}\n'.format(_array[11], _array[12]))
+                    output_file.write(
+                        '\t{}\t{}\n'.format(_array[11], _array[12]))
                 else:
                     output_file.write('\n')
 
@@ -480,24 +509,28 @@ class Viewpoint():
         _rbz_score[mask] = -1
         return _rbz_score
 
-    def readRejectedFile(pDifferentialHighlightFiles, pViewpointIndex, pResolution):
+    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndex, pResolution, pRange):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
         highlight_areas_list = []
-        for bed_file in pDifferentialHighlightFiles:
-            with open(bed_file) as fh:
-                # skip header
-                for line in fh.readlines():
-                    if line.startswith('#'):
-                        continue
-                    _line = line.split('\t')
+        # for bed_file in pDifferentialHighlightFiles:
+        with open(pDifferentialHighlightFiles) as fh:
+            # skip header
+            for line in fh.readlines():
+                if line.startswith('#'):
+                    continue
+                _line = line.split('\t')
 
-                    start = int(_line[1])
-                    end = int(_line[2])
+                start = int(_line[1])
+                end = int(_line[2])
+
+                if int(_line[4]) >= -pRange[0] and int(_line[4]) <= pRange[1]:
 
                     width = (end - start) / pResolution
 
-                    relative_position = pViewpointIndex + (int(_line[3]) / pResolution)
-                    highlight_areas_list.append([relative_position, relative_position + width])
+                    relative_position = pViewpointIndex + \
+                        (int(_line[4]) / pResolution)
+                    highlight_areas_list.append(
+                        [relative_position, relative_position + width])
 
         return highlight_areas_list

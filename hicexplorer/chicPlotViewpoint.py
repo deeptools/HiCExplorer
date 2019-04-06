@@ -138,15 +138,22 @@ def main(args=None):
                 while file_:
                 # for line in fh.readlines():
                     file_ = differentialTestFile.readline().strip()
-                    file2_ = differentialTestFile.readline().strip()
-                    if file_ != '' and file2_ != '':
-                        highlightDifferentialRegionsFileList.append((file_, file2_))
+                    # file2_ = differentialTestFile.readline().strip()
+                    if file_ != '':
+                        highlightDifferentialRegionsFileList.append(file_)
         
     else:
-        interactionFileList = args.interactionFile
+        interactionFileList = [args.interactionFile]
+        # if args.differentialTestResult is not None:
+        log.debug('args.differentialTestResult {}'.format(args.differentialTestResult))
         highlightDifferentialRegionsFileList = args.differentialTestResult
+        # else:
+        #     highlightDifferentialRegionsFileList = None
+        log.debug("interactionFileList {}".format(interactionFileList))
+        log.debug("highlightDifferentialRegionsFileList {}".format(highlightDifferentialRegionsFileList))
 
-    for interactionFile in interactionFileList:
+
+    for j, interactionFile in enumerate(interactionFileList):
         number_of_rows_plot = len(interactionFile)
         matplotlib.rcParams.update({'font.size': 9})
         fig = plt.figure(figsize=(9.4, 4.8))
@@ -169,7 +176,7 @@ def main(args=None):
         background_plot = True
         data_plot_label = None
         for i, interactionFile_ in enumerate(interactionFile):
-
+            log.debug('interactionFile_ {}'.format(interactionFile_))
             header, data, background_data_plot, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index = viewpointObj.getDataForPlotting(args.interactionFileFolder + '/' + interactionFile_, args.range, background_data)
             if len(data) <= 1 or len(z_score) <= 1:
                 log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, args.range))
@@ -179,7 +186,8 @@ def main(args=None):
             highlight_differential_regions = None
             
             if args.differentialTestResult:
-                highlight_differential_regions = viewpointObj.readRejectedFile(highlightDifferentialRegionsFileList[i], viewpoint_index, pResolution=args.binResolution)
+                log.debug('args.binResolution {}'.format(args.binResolution))
+                highlight_differential_regions = viewpointObj.readRejectedFile(highlightDifferentialRegionsFileList[j], viewpoint_index, args.binResolution, args.range)
             if data_plot_label:
                 data_plot_label += viewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
             else:
