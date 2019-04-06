@@ -170,7 +170,7 @@ class Viewpoint():
         with open((pBedFile + '.bed').strip(), 'w') as fh:
             fh.write('# {}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
                          format(interaction[0], interaction[1],
                                 interaction[2], interaction[3], interaction[4], interaction[5], pZscoreData[j], interaction[6], interaction[7]))
         return
