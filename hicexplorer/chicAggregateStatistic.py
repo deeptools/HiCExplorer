@@ -161,17 +161,17 @@ def merge_neighbors(pScoresDictionary, pMergeThreshold=1000):
 
 def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines, pScores=None):
 
-    sum_of_interactions = float(pHeader.split('\t')[-1].split(' ')[-1])
-    log.debug('sum_of_interactions {}'.format(sum_of_interactions))
+    # sum_of_interactions = float(pHeader.split('\t')[-1].split(' ')[-1])
+    # log.debug('sum_of_interactions {}'.format(sum_of_interactions))
     with open(pOutFileName, 'w') as file:
         file.write(pHeader)
-        file.write('#ChrInteraction\tStart\tEnd\tRelative distance\tSum of interactions\tRel Inter target\tRaw target')
+        file.write('#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRel Inter target\tRaw target')
         file.write('\n')
 
         for data in pNeighborhoods:
             # log.debug('pInteractionLines[data] {}'.format(pInteractionLines[data]))
-            new_line = '\t'.join(pInteractionLines[data][:4])
-            new_line += '\t' + format(float(sum_of_interactions), "10.5f")
+            new_line = '\t'.join(pInteractionLines[data][:6])
+            # new_line += '\t' + format(float(sum_of_interactions), "10.5f")
 
             # new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
             new_line += '\t' + format(pNeighborhoods[data][-3], '10.5f') + '\t' + format(pNeighborhoods[data][-1], '10.5f')

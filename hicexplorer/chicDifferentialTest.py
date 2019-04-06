@@ -150,13 +150,13 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pViewpoint1, pViewp
         # log.debug('pHeaderOld {}'.format(pHeaderOld))
         # log.debug('pHeaderNew {}'.format(pHeaderNew))
 
-        file.write('#chr\tstart\tend\trelative distance\tsum of interactions 1\ttarget_1 raw\tsum of interactions 2\ttarget_2 raw\tp-value\n')
+        file.write('#Chromosome\tStart\tEnd\tGene\tRelative distance\tsum of interactions 1\ttarget_1 raw\tsum of interactions 2\ttarget_2 raw\tp-value\n')
 
         for data in pData:
-            line = '\t'.join(data[0][:3])
+            line = '\t'.join(data[0][:4])
             line += '\t'
 
-            line += '{}'.format(data[0][3])
+            line += '{}'.format(data[0][5])
             line += '\t'
             line += '\t'.join(format(x, '.5f') for x in data[3])
             line += '\t'
