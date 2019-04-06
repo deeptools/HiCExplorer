@@ -204,14 +204,14 @@ def run_target_list_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQu
             interaction_file_data, target_regions)
 
         if len(accepted_scores) == 0:
-             if pArgs.batchMode:
+            if pArgs.batchMode:
                 with open('errorLog.txt', 'a+') as errorlog:
                     errorlog.write('Failed for: {} and {}.\n'.format(
                         interactionFile[0], interactionFile[1]))
                     break
-                else:
-                    log.info('No target regions found')
-                    break
+            else:
+                log.info('No target regions found')
+                break
         outFileName = '.'.join(interactionFile.split(
             '.')[:-1]) + '_' + pArgs.outFileNameSuffix
         if pArgs.batchMode:
