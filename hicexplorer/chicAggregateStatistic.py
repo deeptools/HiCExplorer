@@ -93,7 +93,7 @@ def create_target_regions(pInteraction_file_data, pInteraction_file_data_1, pRbz
         # pInteraction_file_data
         target_list.append(pInteraction_file_data[key][0:3])
 
-    # log.debug('target_list {}'.format(target_list))
+    log.debug('target_list {}'.format(target_list))
     return target_list
 
 
@@ -107,7 +107,7 @@ def filter_scores_target_list(pScoresDictionary, pTargetRegions):
         for key in pScoresDictionary:
             if int(pScoresDictionary[key][1]) >= start and int(pScoresDictionary[key][2]) <= end:
                 _accepted_scores[key] = pScoresDictionary[key]
-
+        # log.debug('_accepted_scores {}'.format(_accepted_scores))
         if len(_accepted_scores) > 0:
 
             values = np.array([0.0, 0.0, 0.0])
@@ -120,7 +120,7 @@ def filter_scores_target_list(pScoresDictionary, pTargetRegions):
             _accepted_scores[keys_sorted[0]][-1] = values[2]
 
             accepted_scores[keys_sorted[0]] = _accepted_scores[keys_sorted[0]]
-
+    log.debug('accepted_scores {}'.format(len(accepted_scores)))
     return accepted_scores
 
 
@@ -165,7 +165,7 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines, pScores=None
     log.debug('sum_of_interactions {}'.format(sum_of_interactions))
     with open(pOutFileName, 'w') as file:
         file.write(pHeader)
-        file.write('#ChrInteraction\tStart\tEnd\tRelative distance\tSum of interactions\tRel Inter target\trbz-score target\tRaw target')
+        file.write('#ChrInteraction\tStart\tEnd\tRelative distance\tSum of interactions\tRel Inter target\tRaw target')
         file.write('\n')
 
         for data in pNeighborhoods:
@@ -174,7 +174,7 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines, pScores=None
             new_line += '\t' + format(float(sum_of_interactions), "10.5f")
 
             # new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
-            new_line += '\t' + format(pNeighborhoods[data][-3], '10.5f') + '\t' + format(pNeighborhoods[data][-2], '10.5f') + '\t' + format(pNeighborhoods[data][-1], '10.5f')
+            new_line += '\t' + format(pNeighborhoods[data][-3], '10.5f') + '\t' + format(pNeighborhoods[data][-1], '10.5f')
             new_line += '\n'
             file.write(new_line)
 
@@ -227,7 +227,7 @@ def main(args=None):
 
     elif args.rbzScore:
         interactionFileList = []
-
+        log.debug('rbz')
         if args.batchMode:
             log.debug('args.interactionFile {}'.format(args.interactionFile))
             with open(args.interactionFile[0], 'r') as interactionFile:
@@ -241,6 +241,7 @@ def main(args=None):
                         interactionFileList.append((file_, file2_))
             log.debug('interactionFileList {}'.format(interactionFileList))
         else:
+            log.debug('Rbz, no batch.')
             if len(args.interactionFile) % 2 == 0:
                 i = 0
                 while i < len(args.interactionFile):
@@ -259,9 +260,11 @@ def main(args=None):
             data.append(viewpointObj.readInteractionFileForAggregateStatistics(args.interactionFileFolder + '/' + interactionFile[1]))
 
             target_regions = create_target_regions(data[0][2], data[1][2], args.rbzScore)
+            # log.debug('target_regions {}'.format(target_regions))
             sample_prefix = interactionFile[0].split('/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
-            log.debug('sample_prefix {}'.format(sample_prefix))
             for j in range(2):
+                # log.debug('data[j][2] {}'.format(data[j][2]))
+
                 accepted_scores = filter_scores_target_list(data[j][2], target_regions)
 
                 if len(accepted_scores) == 0:
@@ -270,7 +273,7 @@ def main(args=None):
                             errorlog.write('Failed for: {} and {}.\n'.format(interactionFile[0], interactionFile[1]))
                             break
                     else:
-                        log.error('No target regions found')
+                        log.info('No target regions found')
                         sys.exit(0)
                 outFileName = '.'.join(interactionFile[j].split('/')[-1].split('.')[:-1]) + '_' + sample_prefix + args.outFileNameSuffix
 
