@@ -172,7 +172,7 @@ class Viewpoint():
             for j, interaction in enumerate(pData):
                 fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
                          format(interaction[0], interaction[1],
-                                interaction[2], interaction[3], interaction[4], interaction[5], pZscoreData[j], interaction[6], interaction[7]))
+                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pZscoreData[j], interaction[7]))
         return
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
