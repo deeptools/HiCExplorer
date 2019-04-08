@@ -42,12 +42,12 @@ def parse_arguments(args=None):
                                 nargs=2)
     # parserRequired.add_argument('--outFileName', '-o',
     #                             help='File name to save the image. Is not used in batch mode.')
-    parserRequired.add_argument('--range',
-                           help='Defines the region upstream and downstream of a reference point which should be included. '
-                           'Format is --region upstream downstream',
-                           required=True,
-                           type=int,
-                           nargs=2)
+    # parserRequired.add_argument('--range',
+    #                        help='Defines the region upstream and downstream of a reference point which should be included. '
+    #                        'Format is --region upstream downstream',
+    #                        required=True,
+    #                        type=int,
+    #                        nargs=2)
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
@@ -152,8 +152,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 continue
             matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
             matrix_name = matrix_name[1:].split('.')[0]
-            if number_of_data_points < len(data):
-                number_of_data_points = len(data)
+            # if number_of_data_points < len(data):
+            number_of_data_points = len(data)
             highlight_differential_regions = None
             
             if pArgs.differentialTestResult:
@@ -186,24 +186,15 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             step_size = number_of_data_points // 10
             ticks = range(0, number_of_data_points, step_size)
 
-            value_range = (args.range[0]) // (5)
-            x_labels = [str(-j // 1000) + 'kb' for j in range(args.range[0], 0, -value_range)]
+            value_range = (pArgs.range[0]) // (5)
+            x_labels = [str(-j // 1000) + 'kb' for j in range(pArgs.range[0], 0, -value_range)]
             x_labels.append('viewpoint')
-            x_labels_ = [str(j // 1000) + 'kb' for j in range(value_range, args.range[1] + 1, value_range)]
+            x_labels_ = [str(j // 1000) + 'kb' for j in range(value_range, pArgs.range[1] + 1, value_range)]
             x_labels.extend(x_labels_)
             # ax.set
             ax1.set_ylabel('Number of interactions')
             ax1.set_xticks(ticks)
             ax1.set_xticklabels(x_labels)
-
-            # if args.range:
-            #     ax1.set_xticklabels([str(-args.range[0]), 'Viewpoint', str(args.range[1])])
-            # else:
-            #     ax1.set_xticklabels([upstream_range, 'Viewpoint', downstream_range])
-            if pArgs.range:
-                ax1.set_xticklabels([str(-pArgs.range[0]), 'Viewpoint', str(pArgs.range[1])])
-            else:
-                ax1.set_xticklabels([upstream_range, 'Viewpoint', downstream_range])
 
             # multiple legends in one figure
             data_legend = [label.get_label() for label in data_plot_label]
