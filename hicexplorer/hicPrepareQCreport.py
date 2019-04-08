@@ -265,8 +265,7 @@ def main(args=None):
 
     if 'Pairs mappable, unique and high quality' not in table.columns:
         table['Pairs mappable, unique and high quality'] = \
-            table['Pairs considered'] - (table['One mate unmapped'] + table['One mate not unique'] +
-                                         table['One mate low quality'])
+            table['Pairs considered'] - (table['One mate unmapped'] + table['One mate not unique'] + table['One mate low quality'])
 
     if 'same fragment (800 bp)' in table.columns:
         # older versions of the QC used the label 'same fragment (800 bp)'

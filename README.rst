@@ -45,16 +45,21 @@ A **Galaxy HiCExplorer version** is directly available to users at http://hicexp
 while a Galaxy Tour is available `here <https://hicexplorer.usegalaxy.eu/tours/hixexplorer>`_ for users not familiar with this platform. Galaxy HiCExplorer is also available as a Docker image at the `Docker Galaxy HiCExplorer GitHub repository <https://github.com/deeptools/docker-galaxy-hicexplorer>`_. Finally, this Galaxy version is available on the `Galaxy Tool Shed <https://toolshed.g2.bx.psu.edu/>`_ and on the corresponding `GitHub repository <https://github.com/galaxyproject/tools-iuc>`_.
 
 
+
 Installation
 ^^^^^^^^^^^^
 
-With version 2.0, HiCExplorer is available for Python 2 and Python 3 and can be installed via:
+With version 3.0, HiCExplorer is available for Python 3 only, the Python 2 support is discontinued. HiCExplorer can be installed with conda.
 
--  Pip, Anaconda and GitHub for command line usage.
+-  Anaconda and GitHub for command line usage.
 -  Toolshed and Docker image for its integration on Galaxy servers.
 
 There are many easy ways to install HiCExplorer. Details can be found
 `here <https://hicexplorer.readthedocs.io/en/latest/content/installation.html>`_.
+
+
+**We strongly recommended to use conda to install HiCExplorer.**
+
 
 Command line version
 ++++++++++++++++++++
@@ -67,11 +72,6 @@ The easiest way to install HiCExplorer is using `BioConda <http://bioconda.githu
 
    $ conda install hicexplorer -c bioconda -c conda-forge
 
-Install with pip
-________________
-::
-
-   $ pip install HiCExplorer
 
 Install by cloning this repository
 __________________________________
@@ -90,6 +90,8 @@ If you don't have root permission, you can set a specific folder using the ``--p
 ::
 
 	$ python setup.py install --prefix /User/Tools/hicexplorer
+
+If you don't use conda, please take care of all dependencies on your own.
 
 Galaxy version
 ++++++++++++++
