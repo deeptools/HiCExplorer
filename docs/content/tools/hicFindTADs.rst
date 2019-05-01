@@ -52,7 +52,7 @@ The ``zscore_matrix.h5`` file contain a z-score matrix that is useful to quickly
 
     $ hicFindTADs -m myHiCmatrix.h5 \ 
     --outPrefix myHiCmatrix_min10000_max40000_step1500_thres0.01_delta0.01_fdr \
-    --TAD_sep_score_prefix myHiCmatrix_min10000_max40000_step1500_thres0.001_delta0.01_fdr_zscore_matrix.h5
+    --TAD_sep_score_prefix myHiCmatrix_min10000_max40000_step1500_thres0.001_delta0.01_fdr
     --thresholdComparisons 0.01 \
     --delta 0.01 \
     --correctForMultipleTesting fdr \
