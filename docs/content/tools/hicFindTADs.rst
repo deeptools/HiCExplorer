@@ -180,14 +180,14 @@ The process to identify boundaries is as follows:
  * everything between 2 consecutive boundaries is a TAD
 
 For the computation of the p-values, the distribution of the z-scores at the 'diamond' above the local minimum is compared
-with the distribution of z-scores that are `min_depth` downstream using the Wilcoxon rank-sum test. Simarlty, the
-distribution of z-scores is computed with the z-scores `min_dep` upstream of the local mininum. The smallest of the
+with the distribution of z-scores that are `min_depth` downstream using the Wilcoxon rank-sum test. Similarly, the
+distribution of z-scores is computed with the z-scores `min_depth` upstream of the local minimum. The smallest of the
 two p-values is assigned to the local minimum.
 
 If `min_depth` is not given, this is computed as bin size * 30
 (if the bins are smaller than 1000), as bin size * 10 if the bins are between
 1000 and 20.000 and as bin size * 5 if the bin size is bigger than 20.000.
 
-If `min_depth` is not given, this is computed as bin size * 60
+If `max_depth` is not given, this is computed as bin size * 60
 (if the bins are smaller than 1000), as bin size * 40 if the bins are between
 1000 and 20.000 and as bin size * 10 if the bin size is bigger than 20.000.
