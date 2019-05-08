@@ -12,6 +12,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import nbinom
 
 import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
@@ -77,7 +78,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint, pRegionStart, pRegionEnd):
+def adjustViewpointData(pViewpointObj, pData, pBackground,  pReferencePoint, pRegionStart, pRegionEnd):
     data_viewpoint = {}
     data_background = {}
     data_sem = {}
@@ -94,9 +95,7 @@ def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint
         relative_position = i - view_point_start
         data_background[relative_position] = data
 
-    for i, data in zip(range(view_point_range_start, view_point_range_end, 1), pSEM):
-        relative_position = i - view_point_start
-        data_sem[relative_position] = data
+   
 
     for i in data_background:
         if i in data_viewpoint:
@@ -105,13 +104,12 @@ def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint
             data_viewpoint[i] = 0
 
     data = np.fromiter(data_viewpoint.values(), dtype=np.float32)
-    background = np.fromiter(data_background.values(), dtype=np.float32)
-    sem = np.fromiter(data_sem.values(), dtype=np.float32)
+    background = list(data_background.values())
 
-    return data, background, sem
+    return data, background
 
 
-def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pOutputFolder):
+def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pOutputFolder, pSumOfDensities):
     # import json
     # with open('backgroundmodel_after_load.txt', 'w') as file:
     #     file.write(json.dumps(pBackgroundModel))
@@ -135,13 +133,16 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             referencePoint, referencePoint[0], region_start, region_end)
 
         # background uses fixed range, handles fixate range implicitly by same range used in background computation
-        _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(
-            pBackgroundModel, _range)
+        _backgroundModelNBinom = pViewpointObj.interactionBackgroundData(
+            pSumOfDensities, _range)
+        
+        log.debug('_backgroundModelData {}'.format(_backgroundModelData))
+
 
         if len(data_list) != len(_backgroundModelData):
 
-            data_list, _backgroundModelData, _backgroundModelSEM = adjustViewpointData(
-                pViewpointObj, data_list, _backgroundModelData, _backgroundModelSEM, referencePoint, region_start, region_end)
+            data_list, _backgroundModelData, = adjustViewpointData(
+                pViewpointObj, data_list, _backgroundModelData, referencePoint, region_start, region_end)
 
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(
@@ -152,8 +153,9 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         data_list = pViewpointObj.computeRelativeValues(
             data_list, denominator_relative_interactions)
 
-        rbz_score_data = pViewpointObj.rbz_score(
-            data_list, _backgroundModelData, _backgroundModelSEM)
+        p_values = pViewpointObj.pvalues(pSumOfDensities, data_list, pRange)
+        # rbz_score_data = pViewpointObj.rbz_score(
+        #     data_list, _backgroundModelData, _backgroundModelSEM)
 
         # add values if range is larger than fixate range
 
@@ -200,7 +202,21 @@ def main(args=None):
     process = [None] * args.threads
     file_list = []
     background_model = viewpointObj.readBackgroundDataFile(
-        args.backgroundModelFile, args.range, args.useRawBackground)
+        args.backgroundModelFile, args.range)
+    background_nbinom = {}
+    background_sum_of_densities_dict = {}
+    for distance in background_model:
+        background_nbinom[distance] = nbinom(background_model[distance][0], background_model[distance][1])
+        sum_of_densities = np.zeros(int(background_model[distance][2]))
+        for j in range(int(background_model[distance][2])):
+            if j >= 1:
+                sum_of_densities[j] += sum_of_densities[j - 1]
+            sum_of_densities[j] += background_nbinom[distance].pmf(j)
+
+        # if len(sum_of_densities) > less_than - 1:
+        background_pvalues[distance] = sum_of_densities
+
+    log.debug('background_model {}'.format(background_model))
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
@@ -233,8 +249,9 @@ def main(args=None):
                 pReferencePoints=referencePointsThread,
                 pGeneList=geneListThread,
                 pMatrix=matrix,
-                pBackgroundModel=background_model,
-                pOutputFolder=args.outputFolder
+                pBackgroundModel=background_nbinom,
+                pOutputFolder=args.outputFolder,
+                pSumOfDensities=background_sum_of_densities_dict
             )
             )
 

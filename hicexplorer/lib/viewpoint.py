@@ -134,12 +134,12 @@ class Viewpoint():
             header = fh.readline()
             for line in fh.readlines():
                 _line = line.split('\t')
-                if pRaw:
-                    distance[int(_line[0])] = [
-                        float(_line[3]), float(_line[4])]
-                else:
-                    distance[int(_line[0])] = [
-                        float(_line[1]), float(_line[2])]
+                # if pRaw:
+                #     distance[int(_line[0])] = [
+                #         float(_line[3]), float(_line[4])]
+            
+                distance[int(_line[0])] = [
+                    float(_line[1]), float(_line[2]), float(_line[3])]
 
         max_key = max(distance)
         min_key = min(distance)
@@ -482,15 +482,13 @@ class Viewpoint():
     def interactionBackgroundData(self, pBackground, pRange):
 
         background_model = []
-        background_model_sem = []
         background_data_keys_sorted = sorted(pBackground)
         for key in background_data_keys_sorted:
             if key >= -pRange[0] and key <= pRange[1]:
-                background_model.append(pBackground[key][0])
-                background_model_sem.append(pBackground[key][1])
+                background_model.append(pBackground[key])
 
                 # log.debug('key background {}'.format(key))
-        return np.array(background_model), np.array(background_model_sem)
+        return np.array(background_model)
 
     def rbz_score(self, pRelativeInteractions, pBackgroundModel, pBackgroundModelSEM):
         _rbz_score = np.empty(len(pRelativeInteractions))
