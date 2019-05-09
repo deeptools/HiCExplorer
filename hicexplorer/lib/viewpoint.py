@@ -533,3 +533,13 @@ class Viewpoint():
         if len(highlight_areas_list) == 0:
             return None
         return highlight_areas_list
+
+    def pvalues(self, pBackgroundModelNBinomPValues, pDataList):
+        p_value_list = []
+        for pvalue_list, pDataList in zip(pBackgroundModelNBinomPValues, pDataList):
+            if int(pDataList) - 1 < 0:
+                pvalue = 1.0
+            else:
+                pvalue = 1 - pvalue_list[int(pDataList) - 1]
+            p_value_list.append(pvalue)
+        return p_value_list

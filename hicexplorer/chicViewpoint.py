@@ -109,7 +109,7 @@ def adjustViewpointData(pViewpointObj, pData, pBackground,  pReferencePoint, pRe
     return data, background
 
 
-def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pOutputFolder, pSumOfDensities):
+def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pOutputFolder):
     # import json
     # with open('backgroundmodel_after_load.txt', 'w') as file:
     #     file.write(json.dumps(pBackgroundModel))
@@ -134,15 +134,15 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
 
         # background uses fixed range, handles fixate range implicitly by same range used in background computation
         _backgroundModelNBinom = pViewpointObj.interactionBackgroundData(
-            pSumOfDensities, _range)
+            pBackgroundModel, _range)
         
-        log.debug('_backgroundModelData {}'.format(_backgroundModelData))
+        # log.debug('_backgroundModelNBinom {}'.format(_backgroundModelNBinom))
 
 
-        if len(data_list) != len(_backgroundModelData):
+        if len(data_list) != len(_backgroundModelNBinom):
 
-            data_list, _backgroundModelData, = adjustViewpointData(
-                pViewpointObj, data_list, _backgroundModelData, referencePoint, region_start, region_end)
+            data_list, _backgroundModelNBinom, = adjustViewpointData(
+                pViewpointObj, data_list, _backgroundModelNBinom, referencePoint, region_start, region_end)
 
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(
@@ -153,7 +153,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         data_list = pViewpointObj.computeRelativeValues(
             data_list, denominator_relative_interactions)
 
-        p_values = pViewpointObj.pvalues(pSumOfDensities, data_list, pRange)
+        p_value_list = pViewpointObj.pvalues(_backgroundModelNBinom, data_list_raw)
         # rbz_score_data = pViewpointObj.rbz_score(
         #     data_list, _backgroundModelData, _backgroundModelSEM)
 
@@ -175,8 +175,8 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             denominator_relative_interactions)
         header_information = '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(
             region_end_in_units), pGeneList[i], denominator_relative_interactions_str])
-        header_information += '\n#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
-        matrix_name = '.'.join(pMatrix.split('.')[:-1])
+        header_information += '\n#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tRaw\n#'
+        matrix_name = '.'.join(pMatrix.split('/')[-1].split('.')[:-1])
         matrix_name = '_'.join(
             [matrix_name, referencePointString, pGeneList[i]])
         file_list.append(matrix_name + '.bed')
@@ -184,7 +184,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         matrix_name = pOutputFolder + '/' + matrix_name
         # file_list.append(matrix_name + '.bed')
         pViewpointObj.writeInteractionFile(
-            matrix_name, interaction_data, header_information, rbz_score_data)
+            matrix_name, interaction_data, header_information, p_value_list)
 
     pQueue.put(file_list)
     return
@@ -214,9 +214,11 @@ def main(args=None):
             sum_of_densities[j] += background_nbinom[distance].pmf(j)
 
         # if len(sum_of_densities) > less_than - 1:
-        background_pvalues[distance] = sum_of_densities
+        background_sum_of_densities_dict[distance] = sum_of_densities
+    
 
-    log.debug('background_model {}'.format(background_model))
+
+    log.debug('background_sum_of_densities_dict {}'.format(background_sum_of_densities_dict))
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
@@ -249,9 +251,9 @@ def main(args=None):
                 pReferencePoints=referencePointsThread,
                 pGeneList=geneListThread,
                 pMatrix=matrix,
-                pBackgroundModel=background_nbinom,
-                pOutputFolder=args.outputFolder,
-                pSumOfDensities=background_sum_of_densities_dict
+                pBackgroundModel=background_sum_of_densities_dict,
+                pOutputFolder=args.outputFolder
+                # pSumOfDensities=
             )
             )
 
