@@ -165,8 +165,9 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 data_plot_label = pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
 
             if background_plot:
-                data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
-                                                                    pBackgroundDataMean=data_background_mean)
+                if background_data_plot is not None and data_background_mean is not None:
+                    data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
+                                                                        pBackgroundDataMean=data_background_mean)
                 background_plot = False
             
             if pArgs.minZscore is not None or pArgs.maxZscore is not None:
@@ -205,8 +206,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             if pArgs.outFileName:
                 outFileName = pArgs.outFileName
             else:
-                sample_prefix = interactionFile[0].split('_')[0] + '_' + interactionFile[1].split('_')[0]
-                region_prefix = '_'.join(interactionFile[0].split('_')[1:6])
+                sample_prefix = interactionFile[0].split('/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
+                region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:6])
                 outFileName = sample_prefix + '_' + region_prefix 
                 outFileName = pArgs.outputFolder + '/' + outFileName + '.' + pArgs.outputFormat
             plt.savefig(outFileName, dpi=pArgs.dpi)
@@ -301,5 +302,10 @@ def main(args=None):
     else:
         interactionFileList = [args.interactionFile]
         highlightDifferentialRegionsFileList = args.differentialTestResult
-        plot_images(interactionFileList, highlightDifferentialRegionsFileList, args)
+        # plot_images(interactionFileList, highlightDifferentialRegionsFileList, args)
     
+        plot_images(pInteractionFileList=interactionFileList,
+                pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileList,
+                pBackgroundData=background_data,
+                pArgs=args,
+                pViewpointObj=viewpointObj)

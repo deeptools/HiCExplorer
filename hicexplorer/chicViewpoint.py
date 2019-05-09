@@ -154,6 +154,10 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             data_list, denominator_relative_interactions)
 
         p_value_list = pViewpointObj.pvalues(_backgroundModelNBinom, data_list_raw)
+        log.debug('p_value_list {}'.format(p_value_list))
+        log.debug('len(p_value_list) {}'.format(len(p_value_list)))
+        log.debug('len(data_list) {}'.format(len(data_list)))
+
         # rbz_score_data = pViewpointObj.rbz_score(
         #     data_list, _backgroundModelData, _backgroundModelSEM)
 
@@ -205,10 +209,32 @@ def main(args=None):
         args.backgroundModelFile, args.range)
     background_nbinom = {}
     background_sum_of_densities_dict = {}
+    max_value_fix_range_forward = None
+    max_value_fix_range_reverse = None
+    fixateRange = int(args.fixateRange)
     for distance in background_model:
-        background_nbinom[distance] = nbinom(background_model[distance][0], background_model[distance][1])
-        sum_of_densities = np.zeros(int(background_model[distance][2]))
-        for j in range(int(background_model[distance][2])):
+        if distance <= -fixateRange:
+            distance_ = -fixateRange
+            if max_value_fix_range_reverse and max_value_fix_range_reverse < int(background_model[distance][2]):
+                max_value_fix_range_reverse = int(background_model[distance][2])
+            else:
+                max_value_fix_range_reverse = int(background_model[distance][2])
+            continue
+        elif distance >= fixateRange:
+            distance_ = fixateRange
+            if max_value_fix_range_forward and max_value_fix_range_forward < int(background_model[distance][2]):
+                max_value_fix_range_forward = int(background_model[distance][2])
+            else:
+                max_value_fix_range_reverse = int(background_model[distance][2])
+            continue
+        else:
+            distance_ = distance
+        # if distance_ = distance:
+        #     continue
+        background_nbinom[distance_] = nbinom(background_model[distance_][0], background_model[distance_][1])
+        
+        sum_of_densities = np.zeros(int(background_model[distance][2]+10))
+        for j in range(int(background_model[distance][2]) + 10):
             if j >= 1:
                 sum_of_densities[j] += sum_of_densities[j - 1]
             sum_of_densities[j] += background_nbinom[distance].pmf(j)
@@ -216,7 +242,28 @@ def main(args=None):
         # if len(sum_of_densities) > less_than - 1:
         background_sum_of_densities_dict[distance] = sum_of_densities
     
+    if max_value_fix_range_forward:
+        background_nbinom[fixateRange] = nbinom(background_model[fixateRange][0], background_model[fixateRange][1])
+        
+        sum_of_densities = np.zeros(max_value_fix_range_forward)
+        for j in range(max_value_fix_range_forward):
+            if j >= 1:
+                sum_of_densities[j] += sum_of_densities[j - 1]
+            sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
 
+        # if len(sum_of_densities) > less_than - 1:
+        background_sum_of_densities_dict[fixateRange] = sum_of_densities
+    if max_value_fix_range_reverse:
+        background_nbinom[-fixateRange] = nbinom(background_model[-fixateRange][0], background_model[-fixateRange][1])
+        
+        sum_of_densities = np.zeros(max_value_fix_range_reverse)
+        for j in range(max_value_fix_range_reverse):
+            if j >= 1:
+                sum_of_densities[j] += sum_of_densities[j - 1]
+            sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
+
+        # if len(sum_of_densities) > less_than - 1:
+        background_sum_of_densities_dict[-fixateRange] = sum_of_densities
 
     log.debug('background_sum_of_densities_dict {}'.format(background_sum_of_densities_dict))
     if not os.path.exists(args.outputFolder):

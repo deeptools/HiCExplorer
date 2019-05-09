@@ -35,8 +35,8 @@ def parse_arguments(args=None):
     parserMutuallyExclusiveGroup.add_argument('--targetFile', '-tf',
                                               help='path to the target files which contains the target regions to prepare data for differential analysis.'
                                               )
-    parserMutuallyExclusiveGroup.add_argument('--rbzScore', '-rbz',
-                                              help='rbzScore threshold value to filter target regins to include them for differential analysis.',
+    parserMutuallyExclusiveGroup.add_argument('--pValue', '-p',
+                                              help='p-value threshold value to filter target regions to include them for differential analysis.',
                                               type=float)
 
     parserOpt = parser.add_argument_group('Optional arguments')
@@ -79,18 +79,18 @@ def parse_arguments(args=None):
     return parser
 
 
-def create_target_regions(pInteraction_file_data, pInteraction_file_data_1, pRbzScore):
+def create_target_regions(pInteraction_file_data, pInteraction_file_data_1, pPValue):
     # log.debug(pInteraction_file_data)
     accepted_scores_file_1 = []
     accepted_scores_file_2 = []
 
     # get significant regions
     for key in pInteraction_file_data:
-        if float(pInteraction_file_data[key][-2]) >= pRbzScore:
+        if float(pInteraction_file_data[key][-2]) <= pPValue:
             accepted_scores_file_1.append(key)
 
     for key in pInteraction_file_data_1:
-        if float(pInteraction_file_data_1[key][-2]) >= pRbzScore:
+        if float(pInteraction_file_data_1[key][-2]) <= pPValue:
             accepted_scores_file_2.append(key)
 
     # merge keys
@@ -232,7 +232,7 @@ def run_target_list_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQu
     return
 
 
-def run_rbz_score_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=None):
+def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=None):
     outfile_names = []
     for interactionFile in pInteractionFilesList:
 
@@ -243,7 +243,7 @@ def run_rbz_score_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueu
             pArgs.interactionFileFolder + '/' + interactionFile[1]))
 
         target_regions = create_target_regions(
-            data[0][2], data[1][2], pArgs.rbzScore)
+            data[0][2], data[1][2], pArgs.pValue)
         sample_prefix = interactionFile[0].split(
             '/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
         for j in range(2):
@@ -347,11 +347,11 @@ def main(args=None):
             outfile_names = call_multi_core(interactionFileList, run_target_list_compilation, args, viewpointObj)
         else:
             interactionFileList = args.interactionFile
-            run_target_list_compilation(interactionFileList, args)
+            run_target_list_compilation(interactionFileList, args, viewpointObj)
 
-    elif args.rbzScore:
+    elif args.pValue:
         interactionFileList = []
-        log.debug('rbz')
+        # log.debug('rbz')
         if args.batchMode:
             # log.debug('args.interactionFile {}'.format(args.interactionFile))
             with open(args.interactionFile[0], 'r') as interactionFile:
@@ -364,7 +364,7 @@ def main(args=None):
                     if file_ != '' and file2_ != '':
                         interactionFileList.append((file_, file2_))
             
-            outfile_names = call_multi_core(interactionFileList, run_rbz_score_compilation, args, viewpointObj)
+            outfile_names = call_multi_core(interactionFileList, run_pvalue_compilation, args, viewpointObj)
             
         else:
             if len(args.interactionFile) % 2 == 0:
@@ -377,7 +377,7 @@ def main(args=None):
                 log.error('Number of interaction files needs to be even: {}'.format(
                     len(args.interactionFile)))
                 exit(1)
-            outfile_names = run_rbz_score_compilation(interactionFileList, args)
+            outfile_names = run_pvalue_compilation(interactionFileList, args, viewpointObj)
 
     if args.batchMode:
         with open(args.writeFileNamesToFile, 'w') as nameListFile:

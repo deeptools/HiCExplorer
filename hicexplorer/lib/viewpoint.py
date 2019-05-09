@@ -93,12 +93,12 @@ class Viewpoint():
         start with '#'.
         Interactions files contain:
         Chromosome Viewpoint, Start, End, Gene, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
-        Relative number of interactions, z-score based on relative interactions.
+        Relative number of interactions, p-value based on negative binomial distribution for the relative position.
 
         This function returns:
         - header as  a string
         - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}
-        - rbz-score in relation to relative position as a dict (same format as interaction data)
+        - p-value in relation to relative position as a dict (same format as interaction data)
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
         # use header info to store reference point, and based matrix
@@ -366,9 +366,12 @@ class Viewpoint():
             pInteractionFile)
         matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split(
             '\t')
-
+        
+        # log.debug('z_score_data {}'.format(z_score_data))
         data = []
         z_score = []
+        data_background = None
+        data_background_mean = None
         interaction_file_data_raw = {}
         if pRange:
 
@@ -412,12 +415,15 @@ class Viewpoint():
 
         else:
             data = []
+            # log.debug('interaction_data {}'.format(interaction_data))
             interaction_key = sorted(interaction_data)
             for key in interaction_key:
                 data.append(interaction_data[key])
+                if key in z_score_data:
+                    z_score.append(z_score_data[key])
             viewpoint_index = interaction_key.index(0)
 
-        # log.debug('rbz-score {}'.format(z_score))
+        # log.debug('data {}'.format(data))
         return header, data, data_background, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None):
@@ -538,7 +544,7 @@ class Viewpoint():
         p_value_list = []
         for pvalue_list, pDataList in zip(pBackgroundModelNBinomPValues, pDataList):
             if int(pDataList) - 1 < 0:
-                pvalue = 1.0
+                pvalue = pvalue_list[0]
             else:
                 pvalue = 1 - pvalue_list[int(pDataList) - 1]
             p_value_list.append(pvalue)
