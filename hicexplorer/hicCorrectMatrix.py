@@ -682,18 +682,23 @@ def main(args=None):
     else:
         if args.correctionMethod == 'ICE':
             corrected_matrix, correction_factors = iterative_correction(ma.matrix, args)
+            ma.setMatrixValues(corrected_matrix)
         else:
             assert(args.correctionMethod == 'KR')
             log.debug("Loading a float sparse matrix for KR balancing")
-            kr = kr_balancing(ma.matrix.astype(float))
+            kr = kr_balancing(ma.matrix.shape[0],ma.matrix.shape[1],ma.matrix.count_nonzero(),ma.matrix.indptr, ma.matrix.indices, ma.matrix.data)
+            log.debug('passed pointers')
+            # kr = kr_balancing(ma.matrix.astype(float))
             kr.computeKR()
-            corrected_matrix = kr.get_normalised_matrix(True)
+            log.debug('computation done')
+            # corrected_matrix = kr.get_normalised_matrix(True)
+            # log.debug('')
+
             # set it to False since the vector is already normalised
             # with the previous True
-            correction_factors = np.true_divide(1,
-                                                kr.get_normalisation_vector(False).todense())
+            correction_factors = np.true_divide(1, kr.get_normalisation_vector(False).todense())
 
-    ma.setMatrixValues(corrected_matrix)
+    
     ma.setCorrectionFactors(correction_factors)
 
     log.debug("Correction factors {}".format(correction_factors[:10]))
