@@ -81,22 +81,22 @@ def parse_arguments(args=None):
                            default=1000,
                            required=False)
     
-    parserOpt.add_argument('--colorMapZscore',
-                           help='Color map to use for the z-score. Available '
+    parserOpt.add_argument('--colorMapPvalue',
+                           help='Color map to use for the p-value. Available '
                            'values can be seen here: '
                            'http://matplotlib.org/examples/color/colormaps_reference.html',
                            default='viridis')
-    parserOpt.add_argument('--maxZscore', '-maz',
-                           help='Maximal value for z-score. Values above are set to this value.',
+    parserOpt.add_argument('--maxPValue', '-map',
+                           help='Maximal value for p-value. Values above are set to this value.',
                            type=float,
                            default=None)
-    parserOpt.add_argument('--minZscore', '-mz',
-                           help='Minimal value for z-score. Values below are set to this value.',
+    parserOpt.add_argument('--minPValue', '-mp',
+                           help='Minimal value for p-value. Values below are set to this value.',
                            type=float,
                            default=None)
-    parserOpt.add_argument('--rbzScore', '-rbz',
-                           help='Plot rbz-score as a colorbar',
-                           choices=['integrated', 'heatmap', ''],
+    parserOpt.add_argument('--pValue', '-p',
+                           help='Plot p-values as a colorbar',
+                           choices=['heatmap', ''],
                            default=''
                            )
     parserOpt.add_argument('--useRawBackground', '-raw',
@@ -134,7 +134,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             _ratio = 0.6 / number_of_rows_plot
             z_score_heights = [_ratio] * number_of_rows_plot
 
-        if pArgs.rbzScore == 'heatmap':
+        if pArgs.pValue == 'heatmap':
             gs = gridspec.GridSpec(1 + len(interactionFile), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
             gs.update(hspace=0.5, wspace=0.05)
             ax1 = plt.subplot(gs[0, 0])
@@ -146,7 +146,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
         data_plot_label = None
         for i, interactionFile_ in enumerate(interactionFile):
             # log.debug('interactionFile_ {}'.format(interactionFile_))
-            header, data, background_data_plot, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index = pViewpointObj.getDataForPlotting(pArgs.interactionFileFolder + '/' + interactionFile_, pArgs.range, pBackgroundData)
+            header, data, background_data_plot, data_background_mean, p_values, interaction_file_data_raw, viewpoint_index = pViewpointObj.getDataForPlotting(pArgs.interactionFileFolder + '/' + interactionFile_, pArgs.range, pBackgroundData)
             if len(data) <= 1 or len(z_score) <= 1:
                 log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
                 continue
@@ -170,15 +170,15 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                                                                         pBackgroundDataMean=data_background_mean)
                 background_plot = False
             
-            if pArgs.minZscore is not None or pArgs.maxZscore is not None:
-                z_score = np.array(z_score, dtype=np.float32)
-                z_score.clip(pArgs.minZscore, pArgs.maxZscore, z_score)
-            if pArgs.rbzScore == 'heatmap':
-                pViewpointObj.plotZscore(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
-                                        pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapZscore,
+            if pArgs.minPValue is not None or pArgs.maxPValue is not None:
+                p_values = np.array(p_values, dtype=np.float32)
+                p_values.clip(pArgs.minPValue, pArgs.maxPValue, p_values)
+            if pArgs.pValue == 'heatmap':
+                pViewpointObj.plotPValueData(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
+                                        pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
                                         pFigure=fig,)
-            elif pArgs.rbzScore == 'integrated':
-                data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=z_score, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' rbz-score')
+            elif pArgs.pValue == 'integrated':
+                data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=z_score, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' p-value')
 
             # pViewpointObj.writePlotData(interaction_file_data_raw, matrix_name + '_' + gene + '_raw_plot', pArgs.backgroundModelFile)
 

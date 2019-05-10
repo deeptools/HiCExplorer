@@ -162,12 +162,12 @@ class Viewpoint():
                 distance[i] = distance[min_key]
         return distance
 
-    def writeInteractionFile(self, pBedFile, pData, pHeader, pZscoreData):
+    def writeInteractionFile(self, pBedFile, pData, pHeader, pPValueData):
         '''
         Writes an interaction file for one viewpoint and one sample as a tab delimited file with one interaction per line.
         Header contains information about the interaction:
         Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
-        Relative number of interactions, z-score based on relative interactions, raw interaction data
+        Relative number of interactions, p-values based on negative binomial distribution per relative distance, raw interaction data
         '''
 
         with open((pBedFile + '.bed').strip(), 'w') as fh:
@@ -175,7 +175,7 @@ class Viewpoint():
             for j, interaction in enumerate(pData):
                 fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
                          format(interaction[0], interaction[1],
-                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pZscoreData[j], interaction[7]))
+                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], interaction[7]))
         return
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
@@ -362,14 +362,12 @@ class Viewpoint():
         return region_start, region_end, _range
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
-        header, interaction_data, z_score_data, _interaction_file_data_raw = self.readInteractionFile(
-            pInteractionFile)
-        matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split(
-            '\t')
+        header, interaction_data, p_value_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
+        matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
         
         # log.debug('z_score_data {}'.format(z_score_data))
         data = []
-        z_score = []
+        p_value = []
         data_background = None
         data_background_mean = None
         interaction_file_data_raw = {}
@@ -400,8 +398,8 @@ class Viewpoint():
                 if key in interaction_data:
                     data.append(interaction_data[key])
 
-                    if key in z_score_data:
-                        z_score.append(z_score_data[key])
+                    if key in p_value_data:
+                        p_value.append(p_value_data[key])
 
                     data_background.append(pBackgroundModel[key][0])
                     data_background_mean.append(pBackgroundModel[key][1])
@@ -419,12 +417,12 @@ class Viewpoint():
             interaction_key = sorted(interaction_data)
             for key in interaction_key:
                 data.append(interaction_data[key])
-                if key in z_score_data:
-                    z_score.append(z_score_data[key])
+                if key in p_value_data:
+                    p_value.append(p_value_data[key])
             viewpoint_index = interaction_key.index(0)
 
         # log.debug('data {}'.format(data))
-        return header, data, data_background, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index
+        return header, data, data_background, data_background_mean, p_value, interaction_file_data_raw, viewpoint_index
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None):
         data_plot_label = pAxis.plot(
@@ -443,17 +441,17 @@ class Viewpoint():
                            pBackgroundData - pBackgroundDataMean, facecolor='red', alpha=0.3)
         return data_plot_label
 
-    def plotZscore(self, pAxis, pAxisLabel, pZscoreData, pLabelText, pCmap, pFigure):
+    def plotPValue(self, pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure):
 
-        _z_score = np.empty([2, len(pZscoreData)])
-        _z_score[:, :] = pZscoreData
+        _z_score = np.empty([2, len(pPValueData)])
+        _z_score[:, :] = pPValueData
         pAxis.xaxis.set_visible(False)
         pAxis.yaxis.set_visible(False)
         img = pAxis.contourf(_z_score, cmap=pCmap)
         divider = make_axes_locatable(pAxisLabel)
         cax = divider.append_axes("left", size="20%", pad=0.09)
         colorbar = pFigure.colorbar(
-            img, cax=cax, ticks=[min(pZscoreData), max(pZscoreData)])
+            img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
 
         colorbar.ax.set_ylabel('rbz-score', size=6)
 
@@ -492,7 +490,8 @@ class Viewpoint():
         for key in background_data_keys_sorted:
             if key >= -pRange[0] and key <= pRange[1]:
                 background_model.append(pBackground[key])
-
+            # elif:
+                
                 # log.debug('key background {}'.format(key))
         return np.array(background_model)
 
@@ -542,10 +541,14 @@ class Viewpoint():
 
     def pvalues(self, pBackgroundModelNBinomPValues, pDataList):
         p_value_list = []
-        for pvalue_list, pDataList in zip(pBackgroundModelNBinomPValues, pDataList):
+        for i, (pvalue_list, pDataList) in enumerate(zip(pBackgroundModelNBinomPValues, pDataList)):
             if int(pDataList) - 1 < 0:
                 pvalue = pvalue_list[0]
             else:
-                pvalue = 1 - pvalue_list[int(pDataList) - 1]
+                try:
+                    pvalue = 1 - pvalue_list[int(pDataList) - 1]
+                except:
+                    log.debug('access to densities for element {} failed; value {}, len {}'.format(i, int(pDataList) - 1, len(pvalue_list)))
+                    pvalue = 1
             p_value_list.append(pvalue)
         return p_value_list
