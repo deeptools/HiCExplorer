@@ -453,7 +453,7 @@ class Viewpoint():
         colorbar = pFigure.colorbar(
             img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
 
-        colorbar.ax.set_ylabel('rbz-score', size=6)
+        colorbar.ax.set_ylabel('p-value', size=6)
 
         pAxisLabel.text(0.45, 0, pLabelText, size=7)
         pAxisLabel.xaxis.set_visible(False)

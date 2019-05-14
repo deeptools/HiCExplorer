@@ -85,7 +85,7 @@ def parse_arguments(args=None):
                            help='Color map to use for the p-value. Available '
                            'values can be seen here: '
                            'http://matplotlib.org/examples/color/colormaps_reference.html',
-                           default='viridis')
+                           default='RdYlBu')
     parserOpt.add_argument('--maxPValue', '-map',
                            help='Maximal value for p-value. Values above are set to this value.',
                            type=float,
@@ -147,7 +147,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
         for i, interactionFile_ in enumerate(interactionFile):
             # log.debug('interactionFile_ {}'.format(interactionFile_))
             header, data, background_data_plot, data_background_mean, p_values, interaction_file_data_raw, viewpoint_index = pViewpointObj.getDataForPlotting(pArgs.interactionFileFolder + '/' + interactionFile_, pArgs.range, pBackgroundData)
-            if len(data) <= 1 or len(z_score) <= 1:
+            if len(data) <= 1 or len(p_values) <= 1:
                 log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
                 continue
             matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
@@ -164,21 +164,21 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             else:
                 data_plot_label = pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
 
-            if background_plot:
-                if background_data_plot is not None and data_background_mean is not None:
-                    data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
-                                                                        pBackgroundDataMean=data_background_mean)
-                background_plot = False
+            # if background_plot:
+            #     if background_data_plot is not None and data_background_mean is not None:
+            #         data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
+            #                                                             pBackgroundDataMean=data_background_mean)
+            #     background_plot = False
             
             if pArgs.minPValue is not None or pArgs.maxPValue is not None:
                 p_values = np.array(p_values, dtype=np.float32)
                 p_values.clip(pArgs.minPValue, pArgs.maxPValue, p_values)
             if pArgs.pValue == 'heatmap':
-                pViewpointObj.plotPValueData(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pZscoreData=z_score,
+                pViewpointObj.plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
                                         pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
                                         pFigure=fig,)
             elif pArgs.pValue == 'integrated':
-                data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=z_score, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' p-value')
+                data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=p_values, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' p-value')
 
             # pViewpointObj.writePlotData(interaction_file_data_raw, matrix_name + '_' + gene + '_raw_plot', pArgs.backgroundModelFile)
 
