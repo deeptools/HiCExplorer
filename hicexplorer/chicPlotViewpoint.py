@@ -230,8 +230,8 @@ def main(args=None):
             if exc.errno != errno.EEXIST:
                 raise
 
-    if args.backgroundModelFile:
-        background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, args.useRawBackground)
+    # if args.backgroundModelFile:
+    #     background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, args.useRawBackground)
    
     interactionFileList = []
     highlightDifferentialRegionsFileList = []
@@ -262,6 +262,10 @@ def main(args=None):
         process = [None] * args.threads
         thread_done = [False] * args.threads
         # log.debug('matrix read, starting processing')
+        log.debug('len(interactionFileList) {}'.format(len(interactionFileList)))
+        log.debug('len(highlightDifferentialRegionsFileList) {}'.format(len(highlightDifferentialRegionsFileList)))
+        # exit()
+
         for i in range(args.threads):
 
             if i < args.threads - 1:

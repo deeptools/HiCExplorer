@@ -137,6 +137,8 @@ def filter_scores_target_list(pScoresDictionary, pTargetRegions):
 
 def merge_neighbors(pScoresDictionary, pMergeThreshold=1000):
 
+    if pScoresDictionary is None or len(pScoresDictionary):
+        return None
     key_list = list(pScoresDictionary.keys())
 
     merge_ids = []
@@ -256,10 +258,10 @@ def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=N
                     with open('errorLog.txt', 'a+') as errorlog:
                         errorlog.write('Failed for: {} and {}.\n'.format(
                             interactionFile[0], interactionFile[1]))
-                        break
+                        # break
                 else:
                     log.info('No target regions found')
-                    break
+                    # break
             outFileName = '.'.join(interactionFile[j].split(
                 '/')[-1].split('.')[:-1]) + '_' + sample_prefix + pArgs.outFileNameSuffix
 
@@ -280,7 +282,7 @@ def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=N
     return
 
 def call_multi_core(pInteractionFilesList, pFunctionName, pArgs, pViewpointObj):
-    outfile_names = []
+    outfile_names = [None] * pArgs.threads
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
     all_data_collected = False
     queue = [None] * pArgs.threads
@@ -309,7 +311,7 @@ def call_multi_core(pInteractionFilesList, pFunctionName, pArgs, pViewpointObj):
         for i in range(pArgs.threads):
             if queue[i] is not None and not queue[i].empty():
                 background_data_thread = queue[i].get()
-                outfile_names.extend(background_data_thread)
+                outfile_names[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -321,6 +323,7 @@ def call_multi_core(pInteractionFilesList, pFunctionName, pArgs, pViewpointObj):
                 all_data_collected = False
         time.sleep(1)
 
+    outfile_names = [item for sublist in outfile_names for item in sublist]
     return outfile_names
 
 def main(args=None):

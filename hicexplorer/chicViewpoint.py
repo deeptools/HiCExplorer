@@ -56,10 +56,10 @@ def parse_arguments(args=None):
                            default=5)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
                            help='')
-    parserOpt.add_argument('--useRawBackground', '-raw',
-                           help='Use the raw background instead of a smoothed one.',
-                           required=False,
-                           action='store_true')
+    # parserOpt.add_argument('--useRawBackground', '-raw',
+    #                        help='Use the raw background instead of a smoothed one.',
+    #                        required=False,
+    #                        action='store_true')
     parserOpt.add_argument('--fixateRange', '-fs',
                            help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
                            required=False,
@@ -202,15 +202,14 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
 def computeSumOfDensities(pBackgroundModel, pArgs):
     background_nbinom = {}
     background_sum_of_densities_dict = {}
-    max_value = None
+    max_value = 0
     
     fixateRange = int(pArgs.fixateRange)
     for distance in pBackgroundModel:
-        if max_value:
-            if max_value < int(pBackgroundModel[distance][2]):
-                max_value = int(pBackgroundModel[distance][2])
-        else:
+        
+        if max_value < int(pBackgroundModel[distance][2]):
             max_value = int(pBackgroundModel[distance][2])
+       
 
         # if distance <= -fixateRange:
         #     distance_ = -fixateRange
@@ -230,22 +229,24 @@ def computeSumOfDensities(pBackgroundModel, pArgs):
         #     distance_ = distance
         # if distance_ = distance:
         #     continue
-        background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
-        
-        sum_of_densities = np.zeros(int(pBackgroundModel[distance][2])+100)
-        for j in range(int(pBackgroundModel[distance][2])+100):
-            if j >= 1:
-                sum_of_densities[j] += sum_of_densities[j - 1]
-            sum_of_densities[j] += background_nbinom[distance].pmf(j)
+        if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
+            background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
+            
+            sum_of_densities = np.zeros(int(pBackgroundModel[distance][2]))
+            for j in range(int(pBackgroundModel[distance][2])):
+                if j >= 1:
+                    sum_of_densities[j] += sum_of_densities[j - 1]
+                sum_of_densities[j] += background_nbinom[distance].pmf(j)
 
-        # if len(sum_of_densities) > less_than - 1:
-        background_sum_of_densities_dict[distance] = sum_of_densities
+            # if len(sum_of_densities) > less_than - 1:
+            background_sum_of_densities_dict[distance] = sum_of_densities
     
     
     background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
     
-    sum_of_densities = np.zeros(max_value+100)
-    for j in range(max_value+100):
+    log.debug('max_value {}'.format(max_value))
+    sum_of_densities = np.zeros(max_value)
+    for j in range(max_value):
         if j >= 1:
             sum_of_densities[j] += sum_of_densities[j - 1]
         sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
@@ -274,6 +275,8 @@ def computeSumOfDensities(pBackgroundModel, pArgs):
             background_sum_of_densities_dict[key] = background_sum_of_densities_dict[min_key]
         elif key > max_key:
             background_sum_of_densities_dict[key] = background_sum_of_densities_dict[max_key]
+    
+
     return background_sum_of_densities_dict
 
 def main(args=None):
@@ -289,9 +292,13 @@ def main(args=None):
     file_list = []
     background_model = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range)
-    # log.debug('len(background_model) {}'.format(background_model))
+    # log.debug('background_model {}'.format(background_model))
+    # log.debug('compute sum of densities')
     background_sum_of_densities_dict = computeSumOfDensities(background_model, args)
-    
+    # for key in background_sum_of_densities_dict:
+    #     log.debug('key {} length {}'.format(key, len(background_sum_of_densities_dict[key])))
+    # log.debug('compute sum of densities...DONE')
+    # exit()
     # log.debug('background_sum_of_densities_dict {}'.format(background_sum_of_densities_dict))
     if not os.path.exists(args.outputFolder):
         try:

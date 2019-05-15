@@ -119,10 +119,11 @@ def main():
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
+    background_model_data = None
+
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
-        background_model_data = None
 
         bin_size = hic_ma.getBinSize()
         all_data_collected = False
