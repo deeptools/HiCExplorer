@@ -183,15 +183,23 @@ def main():
     relative_positions = sorted(relative_positions)
     nbinom_parameters = {}
     max_value = {}
+    mean_value = {}
+    sum_all_values = 0
     for relative_position in relative_positions:
         nbinom_parameters[relative_position] = fit_nbinom.fit(np.array(background_model_data[relative_position]))
         max_value[relative_position] = np.max(background_model_data[relative_position])
+        average_value = np.average(background_model_data[relative_position])
+        mean_value[relative_position] = average_value
+        sum_all_values += average_value
+
+    for relative_position in relative_positions:
+        mean_value[relative_position] /= sum_all_values
     # write result to file
     with open(args.outFileName, 'w') as file:
-        file.write('Relative position\tsize nbinom\tprob nbinom\tmax value\n')
+        file.write('Relative position\tsize nbinom\tprob nbinom\tmax value\tmean value\n')
         
         for relative_position in relative_positions:
             # if lower_limit_range <= relative_position and relative_position <= upper_limit_range:
             relative_position_in_genomic_scale = relative_position * bin_size
-            file.write("{}\t{:.12f}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, nbinom_parameters[relative_position]['size'],
-                                                       nbinom_parameters[relative_position]['prob'], max_value[relative_position]))
+            file.write("{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, nbinom_parameters[relative_position]['size'],
+                                                       nbinom_parameters[relative_position]['prob'], max_value[relative_position], mean_value[relative_position]))

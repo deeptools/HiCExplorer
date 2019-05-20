@@ -208,14 +208,12 @@ def run_target_list_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQu
         if len(accepted_scores) == 0:
             if pArgs.batchMode:
                 with open('errorLog.txt', 'a+') as errorlog:
-                    errorlog.write('Failed for: {} and {}.\n'.format(
-                        interactionFile[0], interactionFile[1]))
-                    break
+                    errorlog.write('Failed for: {} and {}.\n'.format(interactionFile[0], interactionFile[1]))
+                    # break
             else:
                 log.info('No target regions found')
-                break
-        outFileName = '.'.join(interactionFile.split(
-            '.')[:-1]) + '_' + pArgs.outFileNameSuffix
+                # break
+        outFileName = '.'.join(interactionFile.split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
         if pArgs.batchMode:
             outfile_names.append(outFileName)
         outFileName = pArgs.outputFolder + '/' + outFileName
@@ -244,10 +242,8 @@ def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=N
         data.append(pViewpointObj.readInteractionFileForAggregateStatistics(
             pArgs.interactionFileFolder + '/' + interactionFile[1]))
 
-        target_regions = create_target_regions(
-            data[0][2], data[1][2], pArgs.pValue)
-        sample_prefix = interactionFile[0].split(
-            '/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
+        target_regions = create_target_regions(data[0][2], data[1][2], pArgs.pValue)
+        sample_prefix = interactionFile[0].split('/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
         for j in range(2):
 
             accepted_scores = filter_scores_target_list(
@@ -262,8 +258,7 @@ def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=N
                 else:
                     log.info('No target regions found')
                     # break
-            outFileName = '.'.join(interactionFile[j].split(
-                '/')[-1].split('.')[:-1]) + '_' + sample_prefix + pArgs.outFileNameSuffix
+            outFileName = '.'.join(interactionFile[j].split('/')[-1].split('.')[:-1]) + '_' + sample_prefix + pArgs.outFileNameSuffix
 
             if pArgs.batchMode:
                 outfile_names.append(outFileName)

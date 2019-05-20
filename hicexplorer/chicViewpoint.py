@@ -187,8 +187,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             region_end_in_units), pGeneList[i], denominator_relative_interactions_str])
         header_information += '\n#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('/')[-1].split('.')[:-1])
-        matrix_name = '_'.join(
-            [matrix_name, referencePointString, pGeneList[i]])
+        matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
         file_list.append(matrix_name + '.bed')
 
         matrix_name = pOutputFolder + '/' + matrix_name
@@ -355,8 +354,7 @@ def main(args=None):
                 if process[i] is not None:
                     all_data_collected = False
             time.sleep(1)
-        file_list_sample = [
-            item for sublist in file_list_sample for item in sublist]
+        file_list_sample = [item for sublist in file_list_sample for item in sublist]
         file_list.append(file_list_sample)
 
     if args.writeFileNamesToFile:

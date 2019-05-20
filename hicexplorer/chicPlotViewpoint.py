@@ -146,7 +146,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
         data_plot_label = None
         for i, interactionFile_ in enumerate(interactionFile):
             # log.debug('interactionFile_ {}'.format(interactionFile_))
-            header, data, background_data_plot, data_background_mean, p_values, interaction_file_data_raw, viewpoint_index = pViewpointObj.getDataForPlotting(pArgs.interactionFileFolder + '/' + interactionFile_, pArgs.range, pBackgroundData)
+            header, data, background_data_plot, p_values, viewpoint_index = pViewpointObj.getDataForPlotting(pArgs.interactionFileFolder + '/' + interactionFile_, pArgs.range, pBackgroundData)
             if len(data) <= 1 or len(p_values) <= 1:
                 log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
                 continue
@@ -164,11 +164,10 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             else:
                 data_plot_label = pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
 
-            # if background_plot:
-            #     if background_data_plot is not None and data_background_mean is not None:
-            #         data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
-            #                                                             pBackgroundDataMean=data_background_mean)
-            #     background_plot = False
+            if background_plot:
+                if background_data_plot is not None:
+                    data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot)
+                background_plot = False
             
             if pArgs.minPValue is not None or pArgs.maxPValue is not None:
                 p_values = np.array(p_values, dtype=np.float32)
@@ -230,8 +229,8 @@ def main(args=None):
             if exc.errno != errno.EEXIST:
                 raise
 
-    # if args.backgroundModelFile:
-    #     background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, args.useRawBackground)
+    if args.backgroundModelFile:
+        background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, pMean=True)
    
     interactionFileList = []
     highlightDifferentialRegionsFileList = []

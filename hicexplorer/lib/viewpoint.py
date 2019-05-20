@@ -123,7 +123,7 @@ class Viewpoint():
                 interaction_file_data[int(_line[-4])] = _line
         return header, interaction_data, interaction_file_data
 
-    def readBackgroundDataFile(self, pBedFile, pRange, pRaw=False):
+    def readBackgroundDataFile(self, pBedFile, pRange, pMean=False):
         '''
         Reads a background data file, containing per line a tab delimited content:
         Relative position to viewpoint, relative interaction count to total number of interactions of all viewpoints over all samples, SEM value of this data point.
@@ -134,12 +134,17 @@ class Viewpoint():
             header = fh.readline()
             for line in fh.readlines():
                 _line = line.split('\t')
+                if not pMean:
+                    distance[int(_line[0])] = [float(_line[1]), float(_line[2]), float(_line[3])]
+                else:
+                    distance[int(_line[0])] = [float(_line[-1])]
+
                 # if pRaw:
                 #     distance[int(_line[0])] = [
                 #         float(_line[3]), float(_line[4])]
             
-                distance[int(_line[0])] = [
-                    float(_line[1]), float(_line[2]), float(_line[3])]
+                # distance[int(_line[0])] = [
+                #     float(_line[1]), float(_line[2]), float(_line[3])]
 
         max_key = max(distance)
         min_key = min(distance)
@@ -392,7 +397,7 @@ class Viewpoint():
             viewpoint_index = background_data_keys_sorted.index(0)
 
             data_background = []
-            data_background_mean = []
+            # data_background_mean = []
 
             for key in background_data_keys_sorted:
                 if key in interaction_data:
@@ -402,14 +407,14 @@ class Viewpoint():
                         p_value.append(p_value_data[key])
 
                     data_background.append(pBackgroundModel[key][0])
-                    data_background_mean.append(pBackgroundModel[key][1])
+                    # data_background_mean.append(pBackgroundModel[key][1])
 
-                    if key in _interaction_file_data_raw:
-                        line_data_raw = _interaction_file_data_raw[key]
-                        line_data_raw.append(pBackgroundModel[key][0])
-                        line_data_raw.append(pBackgroundModel[key][1])
+                    # if key in _interaction_file_data_raw:
+                    #     line_data_raw = _interaction_file_data_raw[key]
+                    #     line_data_raw.append(pBackgroundModel[key][0])
+                    #     line_data_raw.append(pBackgroundModel[key][1])
 
-                        interaction_file_data_raw[key] = line_data_raw
+                    #     interaction_file_data_raw[key] = line_data_raw
 
         else:
             data = []
@@ -422,7 +427,7 @@ class Viewpoint():
             viewpoint_index = interaction_key.index(0)
 
         # log.debug('data {}'.format(data))
-        return header, data, data_background, data_background_mean, p_value, interaction_file_data_raw, viewpoint_index
+        return header, data, data_background, p_value, viewpoint_index
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None):
         data_plot_label = pAxis.plot(
@@ -432,13 +437,12 @@ class Viewpoint():
                 pAxis.axvspan(region[0], region[1], color='red', alpha=0.5)
         return data_plot_label
 
-    def plotBackgroundModel(self, pAxis, pBackgroundData, pBackgroundDataMean):
+    def plotBackgroundModel(self, pAxis, pBackgroundData):
         pBackgroundData = np.array(pBackgroundData)
-        pBackgroundDataMean = np.array(pBackgroundDataMean)
-        data_plot_label = pAxis.plot(range(len(
-            pBackgroundData)), pBackgroundData, '--r', alpha=0.5, label='background model')
-        pAxis.fill_between(range(len(pBackgroundData)), pBackgroundData + pBackgroundDataMean,
-                           pBackgroundData - pBackgroundDataMean, facecolor='red', alpha=0.3)
+        # pBackgroundDataMean = np.array(pBackgroundDataMean)
+        data_plot_label = pAxis.plot(range(len(pBackgroundData)), pBackgroundData, '--r', alpha=0.5, label='background model')
+        # pAxis.fill_between(range(len(pBackgroundData)), pBackgroundData + pBackgroundDataMean,
+        #                    pBackgroundData - pBackgroundDataMean, facecolor='red', alpha=0.3)
         return data_plot_label
 
     def plotPValue(self, pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure):
