@@ -137,7 +137,8 @@ def filter_scores_target_list(pScoresDictionary, pTargetRegions):
 
 def merge_neighbors(pScoresDictionary, pMergeThreshold=1000):
 
-    if pScoresDictionary is None or len(pScoresDictionary):
+    if pScoresDictionary is None or len(pScoresDictionary) == 0:
+        log.debug('dict is None or empty')
         return None
     key_list = list(pScoresDictionary.keys())
 
@@ -181,18 +182,19 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines, pScores=None
         file.write(
             '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRel Inter target\tRaw target')
         file.write('\n')
+        
+        if pNeighborhoods is not None:
+            for data in pNeighborhoods:
+                # log.debug('pInteractionLines[data] {}'.format(pInteractionLines[data]))
+                new_line = '\t'.join(pInteractionLines[data][:6])
+                # new_line += '\t' + format(float(sum_of_interactions), "10.5f")
 
-        for data in pNeighborhoods:
-            # log.debug('pInteractionLines[data] {}'.format(pInteractionLines[data]))
-            new_line = '\t'.join(pInteractionLines[data][:6])
-            # new_line += '\t' + format(float(sum_of_interactions), "10.5f")
-
-            # new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
-            new_line += '\t' + \
-                format(pNeighborhoods[data][-3], '10.5f') + \
-                '\t' + format(pNeighborhoods[data][-1], '10.5f')
-            new_line += '\n'
-            file.write(new_line)
+                # new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
+                new_line += '\t' + \
+                    format(pNeighborhoods[data][-3], '10.5f') + \
+                    '\t' + format(pNeighborhoods[data][-1], '10.5f')
+                new_line += '\n'
+                file.write(new_line)
 
 
 def run_target_list_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=None):
@@ -248,7 +250,7 @@ def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=N
 
             accepted_scores = filter_scores_target_list(
                 data[j][2], target_regions)
-
+            # log.debug('length of accepted_scores {}'.format(len(accepted_scores)))
             if len(accepted_scores) == 0:
                 if pArgs.batchMode:
                     with open('errorLog.txt', 'a+') as errorlog:
