@@ -157,7 +157,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             highlight_differential_regions = None
             
             if pArgs.differentialTestResult:
-                log.debug('pArgs.binResolution {}'.format(pArgs.binResolution))
+                # log.debug('pArgs.binResolution {}'.format(pArgs.binResolution))
                 highlight_differential_regions = pViewpointObj.readRejectedFile(pHighlightDifferentialRegionsFileList[j], viewpoint_index, pArgs.binResolution, pArgs.range)
             if data_plot_label:
                 data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)

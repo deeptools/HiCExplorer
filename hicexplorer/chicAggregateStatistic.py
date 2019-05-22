@@ -145,8 +145,8 @@ def merge_neighbors(pScoresDictionary, pMergeThreshold=1000):
     merge_ids = []
     non_merge = []
     for i, (key_pre, key_suc) in enumerate(zip(key_list[:-1], key_list[1:])):
-
-        if np.absolute(int(pScoresDictionary[key_pre][6]) - int(pScoresDictionary[key_suc][5])) < pMergeThreshold:
+        
+        if np.absolute(int(pScoresDictionary[key_pre][5]) - int(pScoresDictionary[key_suc][5])) <= pMergeThreshold:
             if len(merge_ids) > 0 and merge_ids[-1][-1] == key_pre:
                 merge_ids[-1].append(key_suc)
             else:
@@ -266,6 +266,9 @@ def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=N
                 outfile_names.append(outFileName)
             outFileName = pArgs.outputFolder + '/' + outFileName
 
+            # for key in accepted_scores:
+            #     log.debug(accepted_scores[key])
+            #     exit()
             if pArgs.mergeBins > 0:
                 merged_neighborhood = merge_neighbors(
                     accepted_scores, pArgs.mergeBins)
@@ -273,6 +276,7 @@ def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=N
                       merged_neighborhood, data[j][2])
             else:
                 write(outFileName, data[j][0], accepted_scores, data[j][2])
+        # exit(0)
     if pQueue is None:
         return
     pQueue.put(outfile_names)

@@ -114,7 +114,8 @@ class Viewpoint():
                 # Addition header information for end users
                 if line.strip().startswith('#'):
                     continue
-
+                if not line:
+                    continue
                 _line = line.strip().split('\t')
                 # relative postion and relative interactions
                 interaction_data[int(
