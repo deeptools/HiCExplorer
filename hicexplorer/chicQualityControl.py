@@ -9,6 +9,9 @@ import numpy as np
 import fit_nbinom
 from scipy.stats import nbinom, kstest
 from statsmodels.stats.gof import gof_chisquare_discrete
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
@@ -38,12 +41,18 @@ def parse_arguments(args=None):
                                 help='Bed file contains all reference points which should be used to build the background model.',
                                 type=str,
                                 required=True)
+    parserRequired.add_argument('--sparsity', '-s',
+                                help='Viewpoints with a sparsity less than given are considered of bad quality.',
+                                type=float,
+                                required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
+    
     parserOpt.add_argument('--averageContactBin',
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
                            default=5)
+            
     parserOpt.add_argument('--outFileName', '-o',
                            help='The name of the outputfile',
                            default='new_referencepoints.bed')
@@ -59,6 +68,7 @@ def parse_arguments(args=None):
                            default=500000,
                            type=int
                            )
+
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -73,7 +83,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
     # relative_positions = set()
     test_result = []
     average_count = []
-    undecided = []
+    # undecided = []
     for i, referencePoint in enumerate(pReferencePoints):
 
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
@@ -81,16 +91,16 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
         
         # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
-        view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
-        view_point_range_start, view_point_range_end = \
-            pViewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
+        # view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
+        # view_point_range_start, view_point_range_end = \
+        #     pViewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
 
-        for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
-            relative_position = i - view_point_start
-        zero_share = 1 - (np.count_nonzero(data_list) / len(data_list))
+        # for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
+        #     relative_position = i - view_point_start
+        sparsity = (np.count_nonzero(data_list) / len(data_list))
 
-        if pArgs.averageContactBin > 0:
-            data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
+        # if pArgs.averageContactBin > 0:
+        #     data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
 
         # fit_nb_parameters = fit_nbinom.fit(np.array(data_list))
         # fit_nb_parameters_array = [fit_nb_parameters['size'], fit_nb_parameters['prob']]
@@ -100,17 +110,19 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
         # test_result.append(gof_chisquare_discrete(nbinom, arg=fit_nb_parameters_array, rvs=data_list, alpha=0.1, msg=referencePoint))
         # # log.debug('test_result {}'.format(test_result))
         # exit()
-        test_result.append(zero_share)
-        average_count.append(np.average(data_list))
-    with open('zero_share.txt', 'w') as file:
-        for i, referencePoint in enumerate(pReferencePoints):
-            file.write('{} zero share: {} {} {} {} {} \n'.format(referencePoint, test_result[i], test_result[i] > 0.95 , average_count[i], average_count[i] < 0.1, test_result[i] > 0.95 and average_count[i] < 0.1))
-            if test_result[i] > 0.95 != average_count[i] < 0.1:
-                undecided.append('{} {} {}\n'.format(referencePoint, test_result[i], average_count[i]))
-    with open('undecided.txt', 'w') as file:
-        for undecided_ in undecided:
-            file.write(undecided_)
-    pQueue.put([None, None])
+
+
+        test_result.append(sparsity)
+        # average_count.append(np.average(data_list))
+    # with open('zero_share.txt', 'w') as file:
+    #     for i, referencePoint in enumerate(pReferencePoints):
+    #         file.write('{} zero share: {} {} {} {} {} \n'.format(referencePoint, test_result[i], test_result[i] > 0.95 , average_count[i], average_count[i] < 0.1, test_result[i] > 0.95 and average_count[i] < 0.1))
+    #         if test_result[i] > 0.95:
+    #             undecided.append('{} {} {}\n'.format(referencePoint, test_result[i]))
+    # with open('undecided.txt', 'w') as file:
+    #     for undecided_ in undecided:
+    #         file.write(undecided_)
+    pQueue.put(test_result)
     return
 
 
@@ -120,26 +132,24 @@ def main():
     viewpointObj = Viewpoint()
     referencePoints, _ = viewpointObj.readReferencePointFile(args.referencePoints)
 
-    relative_counts_conditions = []
-
     relative_positions = set()
     bin_size = 0
 
-    # - compute for each condition (matrix):
-    # - all viewpoints and smooth them: sliding window approach
-    # - after smoothing, sum all viewpoints up to one
-    # - compute the percentage of each position with respect to the total interaction count
-    # for models of all conditions:
-    # - compute nbinom parameters
+    # compute for each viewpoint the sparsity and consider these as bad with a sparsity less than given.
 
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
     background_model_data = None
+    sparsity =  []
+    
+        
 
-    for matrix in args.matrices:
+    for j, matrix in enumerate(args.matrices):
+        sparsity_local = [None] * args.threads
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
+        
 
         bin_size = hic_ma.getBinSize()
         all_data_collected = False
@@ -166,18 +176,9 @@ def main():
         while not all_data_collected:
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
-                    background_data_thread = queue[i].get()
-                    background_model_data_thread, relative_positions_thread = background_data_thread
-                    if background_model_data is None:
-                        background_model_data = background_model_data_thread
-                    else:
-                        for relativePosition in background_model_data_thread:
-                            if relativePosition in background_model_data:
-                                background_model_data[relativePosition].extend(background_model_data_thread[relativePosition])
-                            else:
-                                background_model_data[relativePosition] = background_model_data_thread[relativePosition]
-
-                    relative_positions = relative_positions.union(relative_positions_thread)
+                    sparsity_ = queue[i].get()
+                    sparsity_local[i] = sparsity_
+                    # relative_positions = relative_positions.union(relative_positions_thread)
                     queue[i] = None
                     process[i].join()
                     process[i].terminate()
@@ -192,30 +193,59 @@ def main():
         del hic_ma
         del viewpointObj.hicMatrix
 
-    # for models of all conditions:
-    # - fit negative binomial for each relative distance
-    # mean_percentage = {}
-    # sem = {}
-    # relative_positions = sorted(relative_positions)
-    # nbinom_parameters = {}
-    # max_value = {}
-    # mean_value = {}
-    # sum_all_values = 0
-    # for relative_position in relative_positions:
-    #     nbinom_parameters[relative_position] = fit_nbinom.fit(np.array(background_model_data[relative_position]))
-    #     max_value[relative_position] = np.max(background_model_data[relative_position])
-    #     average_value = np.average(background_model_data[relative_position])
-    #     mean_value[relative_position] = average_value
-    #     sum_all_values += average_value
+        # merge sparsity data per matrix from each thread to one list
+        # for i in range(len(sparsity)):
+        # log.debug('sparsity_local {}'.format(sparsity_local))
 
-    # for relative_position in relative_positions:
-    #     mean_value[relative_position] /= sum_all_values
-    # write result to file
-    # with open(args.outFileName, 'w') as file:
-    #     file.write('Relative position\tsize nbinom\tprob nbinom\tmax value\tmean value\n')
-        
-    #     for relative_position in relative_positions:
-    #         # if lower_limit_range <= relative_position and relative_position <= upper_limit_range:
-    #         relative_position_in_genomic_scale = relative_position * bin_size
-    #         file.write("{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, nbinom_parameters[relative_position]['size'],
-    #                                                    nbinom_parameters[relative_position]['prob'], max_value[relative_position], mean_value[relative_position]))
+        sparsity_local = [item for sublist in sparsity_local for item in sublist]
+        # log.debug('sparsity_local {}'.format(sparsity_local))
+
+        sparsity.append(sparsity_local)
+    # log.debug('sparsity {}'.format(sparsity))
+
+    # change sparsity to sparsity values per viewpoint per matrix: viewpoint = [matrix1, ..., matrix_n] 
+    sparsity = np.array(sparsity).T
+
+    # log.debug('sparsity {}'.format(sparsity))
+    with open(args.referencePoints, 'r') as reference_file_input:
+        with open(args.outFileName + '_raw_filter', 'w') as output_file_raw:
+            with open(args.outFileName, 'w') as output_file:
+                for i, line in enumerate(reference_file_input.readlines()):
+                    sparsity_str = '\t'.join(str(x) for x in sparsity[i])
+                    # f                        sparsity_str += sparsity[j]
+                    output_file_raw.write(line.strip() + '\t' + sparsity_str + '\n')
+                    count = 0
+                    for j in range(len(sparsity[i])):
+                        if sparsity[i][j] > args.sparsity:
+                            count += 1
+                    if count:
+                        output_file.write(line)
+    # output plot of sparsity distribution per sample
+    
+    # re-arange values again 
+
+    x = [[]] * len(args.matrices)
+    y = [[]] *  len(args.matrices)
+
+    for i in range(len(args.matrices)):
+        y[i] = [i] * len(sparsity)
+    sparsity = sparsity.T
+
+    for i in range(len(args.matrices)):
+        x[i] = sparsity[i].flatten()
+    
+    # log.debug(x)
+    # log.debug(y)
+
+    for i in range(len(args.matrices)):
+        plt.plot(x[i], y[i],  'o', mfc='none', markersize=0.3)
+    
+
+    # plt.axvline(x=args.sparsity, color='r')
+    plt.savefig(args.outFileName + '_sparsity_distribution.png', dpi=300)
+
+    for i in range(len(args.matrices)):
+        plt.hist(x[i], bins=100,  alpha=0.5)
+        # plt.hist()
+    plt.savefig(args.outFileName + '_sparsity_distribution_histogram.png', dpi=300)
+    
