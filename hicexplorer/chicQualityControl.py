@@ -79,8 +79,6 @@ def parse_arguments(args=None):
 
 def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
-    # background_model_data = {}
-    # relative_positions = set()
     test_result = []
     average_count = []
     # undecided = []
@@ -90,17 +88,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
         
-        # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
-        # view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
-        # view_point_range_start, view_point_range_end = \
-        #     pViewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
-
-        # for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
-        #     relative_position = i - view_point_start
         sparsity = (np.count_nonzero(data_list) / len(data_list))
-
-        # if pArgs.averageContactBin > 0:
-        #     data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
 
         # fit_nb_parameters = fit_nbinom.fit(np.array(data_list))
         # fit_nb_parameters_array = [fit_nb_parameters['size'], fit_nb_parameters['prob']]
