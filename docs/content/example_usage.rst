@@ -134,7 +134,7 @@ Once the thresholds have been decided, the matrix can be corrected
 .. code-block:: bash
 
    # correct Hi-C matrix
-   $ hicCorrectMatrix -m hic_matrix.h5 --filterThreshold -1.5 5 -o hic_corrected.h5
+   $ hicCorrectMatrix correct -m hic_matrix.h5 --filterThreshold -1.5 5 -o hic_corrected.h5
 
 
 Visualization of results
