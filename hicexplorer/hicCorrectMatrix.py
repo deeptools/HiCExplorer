@@ -671,7 +671,12 @@ def main(args=None):
                 # Set the kr matrix along with its correction factors vector
                 assert(args.correctionMethod == 'KR')
                 log.debug("Loading a float sparse matrix for KR balancing")
-                kr = kr_balancing(chr_submatrix.astype(float))
+                kr = kr_balancing(chr_submatrix.matrix.shape[0],
+                                  chr_submatrix.matrix.shape[1],
+                                  chr_submatrix.matrix.count_nonzero(),
+                                  chr_submatrix.matrix.indptr,
+                                  chr_submatrix.matrix.indices,
+                                  chr_submatrix.matrix.data)
                 kr.computeKR()
                 corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(True)
                 correction_factors.append(np.true_divide(1,
@@ -686,7 +691,9 @@ def main(args=None):
         else:
             assert(args.correctionMethod == 'KR')
             log.debug("Loading a float sparse matrix for KR balancing")
-            kr = kr_balancing(ma.matrix.shape[0],ma.matrix.shape[1],ma.matrix.count_nonzero(),ma.matrix.indptr, ma.matrix.indices, ma.matrix.data)
+            kr = kr_balancing(ma.matrix.shape[0], ma.matrix.shape[1],
+                              ma.matrix.count_nonzero(), ma.matrix.indptr,
+                              ma.matrix.indices, ma.matrix.data)
             log.debug('passed pointers')
             # kr = kr_balancing(ma.matrix.astype(float))
             kr.computeKR()
@@ -698,7 +705,7 @@ def main(args=None):
             # with the previous True
             correction_factors = np.true_divide(1, kr.get_normalisation_vector(False).todense())
 
-    
+
     ma.setCorrectionFactors(correction_factors)
 
     log.debug("Correction factors {}".format(correction_factors[:10]))
