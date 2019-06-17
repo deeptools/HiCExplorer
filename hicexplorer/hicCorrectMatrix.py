@@ -600,6 +600,18 @@ def main(args=None):
 
     ma.matrix = convertNansToZeros(ma.matrix)
     ma.matrix = convertInfsToZeros(ma.matrix)
+    ma.matrix = ma.matrix.astype(np.float64, copy=True)
+
+    # log.debug('ma.matrix.indices {}'.format(ma.matrix.indices.dtype))
+    # log.debug('ma.matrix.data {}'.format(ma.matrix.data.dtype))
+    # log.debug('ma.matrix.indptr {}'.format(ma.matrix.indptr.dtype))
+
+    # log.debug('ma.matrix.indices {}'.format(np.max(ma.matrix.indices)))
+    # log.debug('ma.matrix.data {}'.format(np.max(ma.matrix.data)))
+    # log.debug('ma.matrix.indptr {}'.format(np.max(ma.matrix.indptr)))
+
+    # ma.matrix.indptr = ma.matrix.indptr.astype(np.int32, copy=False)
+    # ma.matrix.indices = ma.matrix.indices.astype(np.int32, copy=False)
 
     if 'plotName' in args:
         plot_total_contact_dist(ma, args)
@@ -674,13 +686,13 @@ def main(args=None):
                 kr = kr_balancing(chr_submatrix.matrix.shape[0],
                                   chr_submatrix.matrix.shape[1],
                                   chr_submatrix.matrix.count_nonzero(),
-                                  chr_submatrix.matrix.indptr,
-                                  chr_submatrix.matrix.indices,
-                                  chr_submatrix.matrix.data)
+                                  chr_submatrix.matrix.indptr.astype(np.uint64, copy=False),
+                                  chr_submatrix.matrix.indices.astype(np.uint64, copy=False),
+                                  chr_submatrix.matrix.data.astype(np.float64, copy=False))
                 kr.computeKR()
                 corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(True)
                 correction_factors.append(np.true_divide(1,
-                                          kr.get_normalisation_vector(False).todense()))
+                                                         kr.get_normalisation_vector(False).todense()))
 
         correction_factors = np.concatenate(correction_factors)
 
@@ -692,19 +704,15 @@ def main(args=None):
             assert(args.correctionMethod == 'KR')
             log.debug("Loading a float sparse matrix for KR balancing")
             kr = kr_balancing(ma.matrix.shape[0], ma.matrix.shape[1],
-                              ma.matrix.count_nonzero(), ma.matrix.indptr,
-                              ma.matrix.indices, ma.matrix.data)
+                              ma.matrix.count_nonzero(), ma.matrix.indptr.astype(np.uint64, copy=False),
+                              ma.matrix.indices.astype(np.uint64, copy=False), ma.matrix.data.astype(np.float64, copy=False))
             log.debug('passed pointers')
-            # kr = kr_balancing(ma.matrix.astype(float))
             kr.computeKR()
             log.debug('computation done')
-            # corrected_matrix = kr.get_normalised_matrix(True)
-            # log.debug('')
 
             # set it to False since the vector is already normalised
             # with the previous True
             correction_factors = np.true_divide(1, kr.get_normalisation_vector(False).todense())
-
 
     ma.setCorrectionFactors(correction_factors)
 
