@@ -40,11 +40,14 @@ def parse_arguments(args=None):
                                               type=float)
 
     parserOpt = parser.add_argument_group('Optional arguments')
-
+    parserOpt.add_argument('--xFoldBackground', '-xf',
+                            help='Filter x-fold over background. Used only for pValue option.',
+                            type=float)
     parserOpt.add_argument('--outFileNameSuffix', '-suffix',
                            help='File name suffix to save the result.',
                            required=False,
                            default='_aggregate_target.bed')
+
     parserOpt.add_argument('--interactionFileFolder', '-iff',
                            help='Folder where the interaction files are stored in. Applies only for batch mode.',
                            required=False,
