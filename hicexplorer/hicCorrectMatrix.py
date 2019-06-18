@@ -602,9 +602,9 @@ def main(args=None):
     ma.matrix = convertInfsToZeros(ma.matrix)
     ma.matrix = ma.matrix.astype(np.float64, copy=True)
 
-    # log.debug('ma.matrix.indices {}'.format(ma.matrix.indices.dtype))
-    # log.debug('ma.matrix.data {}'.format(ma.matrix.data.dtype))
-    # log.debug('ma.matrix.indptr {}'.format(ma.matrix.indptr.dtype))
+    log.debug('ma.matrix.indices {}'.format(ma.matrix.indices.dtype))
+    log.debug('ma.matrix.data {}'.format(ma.matrix.data.dtype))
+    log.debug('ma.matrix.indptr {}'.format(ma.matrix.indptr.dtype))
 
     # log.debug('ma.matrix.indices {}'.format(np.max(ma.matrix.indices)))
     # log.debug('ma.matrix.data {}'.format(np.max(ma.matrix.data)))
