@@ -1,3 +1,2 @@
-sphinx==1.5.6
-mock
-sphinx-argparse
+sphinx >=2.0
+sphinx-argparse >=0.2.5

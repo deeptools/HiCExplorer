@@ -23,3 +23,14 @@ An example output looks like this:
    Maximum:	2116
    NaN bins:	0
 
+With HiCExplorer version 3 we support metadata in cooler files. The default behavior is to use the metadata:
+
+.. code:: bash
+
+    $ hicInfo -m matrix.cool
+
+To use the old method (and default for h5) please add the parameter:
+
+.. code:: bash
+
+    $ hicInfo -m matrix.cool --no_metadata

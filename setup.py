@@ -12,7 +12,6 @@ from setuptools.command.install import install as _install
 VERSION_PY = """
 # This file is originally generated from Git information by running 'setup.py
 # version'. Distribution tarballs contain a pre-generated copy of this file.
-
 __version__ = '%s'
 """
 
@@ -104,29 +103,30 @@ install_requires_py = ["numpy >= 1.15.*",
                        "pyBigWig >= 0.3.*",
                        "six >= 1.11.*",
                        "future >= 0.17.*",
-                       "cooler == 0.8.2",
+                       "cooler >= 0.8.2",
                        "jinja2 >= 2.10.*",
                        "unidecode >= 1.0.*",
-                       "hicmatrix >= 7",
+                       "hicmatrix >= 9",
                        "pygenometracks >= 2.1",
                        "psutil >= 5.4.8",
-                       "hic2cool >= 0.4"
+                       "fit_nbinom >= 1.0",
+                       "hic2cool >= 0.5",
+                       "krbalancing >= 0.0.4"
                        ]
 
 
 setup(
     name='HiCExplorer',
     version=get_version(),
-    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff',
+    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff, Leily Rabbani',
     author_email='deeptools@googlegroups.com',
     packages=find_packages(),
     scripts=['bin/findRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
-             'bin/hicCorrelate', 'bin/hicFindEnrichedContacts', 'bin/hicFindTADs',
-             'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
+             'bin/hicCorrelate', 'bin/hicFindTADs', 'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
-             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicValidateLocations'
+             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
