@@ -1,0 +1,7 @@
+# HiCExplorer hicValidateLocations 3.0
+# Overlap of loop file loops_1.bedgraph with protein file proteins/GSM733752_hg19_ctcf_GM12878.broadPeak
+#
+Protein peaks: 32276
+Matched Loops: 6615
+Total Loops: 11723
+Loops match protein: 0.5642753561375075
