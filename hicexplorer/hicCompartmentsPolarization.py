@@ -81,14 +81,18 @@ def count_interactions(obs_exp, pc1, quantiles_number):
                 data = chr_submatrix[row_indices, :][:, col_indices]
 
                 if data.shape[0] * data.shape[1] != 0:
-                    normalised_sum_per_quantile[qi, qj] += (np.sum(data) / (data.shape[0] * data.shape[1]))
+                    normalised_sum_per_quantile[qi, qj] += (np.sum(data) /
+                                                            (data.shape[0] * data.shape[1]))
 
     return normalised_sum_per_quantile
 
 
 def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number):
     """
-
+    This function computes the interaction between two compartments and whithin
+    each compartment. It adds one quantile at the time to compute these values
+    on a larger block of the matrix (normalised_sum_per_quantile)until the
+    maximum number of quantiles reached.
     """
     within_to_between = []
     for q in range(1, quantiles_number):
@@ -96,7 +100,11 @@ def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number
                        normalised_sum_per_quantile[quantiles_number-q:quantiles_number,
                                                    quantiles_number-q:quantiles_number].sum()
 
-        between_comps = normalised_sum_per_quantile[0:q, quantiles_number-q:quantiles_number].sum() + normalised_sum_per_quantile[quantiles_number-q:quantiles_number, 0:q].sum()
+        between_comps = normalised_sum_per_quantile[0:q,
+                                                    quantiles_number-q:quantiles_number].sum() + \
+                                                    normalised_sum_per_quantile[
+                                                    quantiles_number-q:quantiles_number,
+                                                    0:q].sum()
 
         within_to_between.append(within_comps / between_comps)
     return within_to_between
@@ -105,7 +113,8 @@ def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number
 def plot_polarization_ratio(polarization_ratio, plotName, labels,
                             number_of_quantiles):
     """
-
+    Generates a plot to visulize the polarization ratio between A and B
+    compartments.
     """
     for i, r in enumerate(polarization_ratio):
         plt.plot(r, marker="o", label=labels[i])
@@ -120,12 +129,11 @@ def plot_polarization_ratio(polarization_ratio, plotName, labels,
 
 def main(args=None):
     """
-
+    Main funcntion to generate the polarization plot.
     """
     args = parse_arguments().parse_args(args)
 
     pc1_bedgraph = pd.read_table(args.pca, header=None, sep="\t")
-#    pc1_bedgraph = pd.read_table(args.pca, sep="\t", usecols=[0,1,2,3])
     pc1 = pd.DataFrame(pc1_bedgraph.values, columns=["chr", "start", "end",
                                                      "pc1"])
     if args.outliers != 0:
