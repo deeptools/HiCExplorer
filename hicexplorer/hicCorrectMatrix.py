@@ -38,7 +38,7 @@ def parse_arguments(args=None):
 This function provides 2 balancing methods which can be applied on a raw
 matrix.
 
-I. KR: It blanaces a matrix using a fast balancing algorithm introduced by
+I. KR: It balances a matrix using a fast balancing algorithm introduced by
 Knight and Ruiz(2012).
 
 II. ICE: Iterative correction for a Hi-C matrix (see Imakaev et al. 2012
@@ -695,8 +695,10 @@ def main(args=None):
 
     ma.setMatrixValues(corrected_matrix)
     ma.setCorrectionFactors(correction_factors)
-    log.info("Correction factors {}".format(correction_factors[:10]))
+
+    log.debug("Correction factors {}".format(correction_factors[:10]))
     if args.inflationCutoff and args.inflationCutoff > 0 and args.correctionMethod == 'ICE':
+
         after_row_sum = np.asarray(corrected_matrix.sum(axis=1)).flatten()
         # identify rows that were expanded more than args.inflationCutoff times
         to_remove = np.flatnonzero(after_row_sum / pre_row_sum >= args.inflationCutoff)

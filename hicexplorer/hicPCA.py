@@ -306,8 +306,7 @@ def main(args=None):
                                      pApplyCorrection=False)
 
     if args.extraTrack and not args.extraTrack.endswith('.bw') and not args.extraTrack.endswith('.bigwig'):
-        vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list,
-                                                      args.extraTrack)
+        vecs_list = correlateEigenvectorWithGeneTrack(ma, vecs_list, args.extraTrack)
 
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):

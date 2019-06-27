@@ -14,7 +14,7 @@ memory = mem.total / 2 ** 30
 
 
 import hicexplorer.hicPlotMatrix
-tolerance = 30  # default matplotlib pixed difference tolerance
+tolerance = 60  # default matplotlib pixed difference tolerance
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
 # memory in GB the test computer needs to have to run the test case
@@ -60,6 +60,21 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig_vmin_vmax
     res = compare_images(test_image_path, outfile.name, tolerance)
     assert res is None, res
 
+
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig_vmin_vmax_vertical():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
+
+    args = "--matrix {0}/Li_et_al_2015.h5 --region chrX:3000000-3500000 --region2 chrX:3100000-3600000 " \
+        "--outFileName  {1} --log1p --clearMaskedBins --bigwig {2} --vMinBigwig {3} --vMaxBigwig {4} --bigwigAdditionalVerticalAxis".format(ROOT, outfile.name,
+                                                                                                                                            ROOT + "bigwig_chrx_2e6_5e6.bw", 0, 1).split()
+    test_image_path = ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_log1p_clearmaskedbins_vbigwigmin_vbigwigmax_vertical.png'
+
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(test_image_path, outfile.name, tolerance)
+    assert res is None, res
 #     if REMOVE_OUTPUT:
 #         os.remove(outfile.name)
 
@@ -367,6 +382,51 @@ def test_hicPlotMatrix_perChr_pca1_bigwig():
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
     args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --perChr  --disable_tight_layout " \
+           "--outFileName  {1} --bigwig {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)
+    assert res is None, res
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
+
+@pytest.mark.skipif(LOW_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_perChr_pca1_bigwig_two_bigwig():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
+
+    args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --perChr  --disable_tight_layout " \
+           "--outFileName  {1} --bigwig {2} {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)
+    assert res is None, res
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
+
+@pytest.mark.xfail
+@pytest.mark.skipif(LOW_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_perChr_pca1_bigwig_two_bigwig_fail():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
+
+    args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --perChr  --disable_tight_layout  --bigwigAdditionalVerticalAxis " \
+           "--outFileName  {1} --bigwig {2} {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)
+    assert res is None, res
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
+
+@pytest.mark.skipif(LOW_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_perChr_pca1_bigwig_vertical():
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
+
+    args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --perChr  --disable_tight_layout --bigwigAdditionalVerticalAxis " \
            "--outFileName  {1} --bigwig {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)
