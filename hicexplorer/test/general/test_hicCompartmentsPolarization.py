@@ -23,11 +23,3 @@ def test_compartments_polarization():
     assert res is None, res
 
     os.unlink(outfile.name)
-
-
-def main(args=None):
-    test_compartments_polarization()
-
-
-if __name__ == '__main__':
-    main()

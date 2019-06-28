@@ -12,7 +12,7 @@ from hicmatrix import HiCMatrix as hm
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="""
-        Rearrenge the average interaction frequencies using the first PC values
+        Rearrange the average interaction frequencies using the first PC values
         to represent the global compartmentalisation signal
 
         $ hicGlobalInteraction --obsexp_matrices obsExpMatrix.h5 --pca pc1.bedgraph\
@@ -28,7 +28,7 @@ def parse_arguments():
                                 required=True)
 
     parserRequired.add_argument('--pca',
-                                help='a PCA vector as a begraph file with '
+                                help='a PCA vector as a bedgraph file with '
                                 'no header. In case of several matrices with '
                                 ' different conditions, ie. control'
                                 'treatment, the PCA of control can be '
@@ -51,8 +51,7 @@ def parse_arguments():
                            default=0)
 
     parserOpt.add_argument('--outputMatrix',
-                           help='output .npz file includs all the generated '
-                           'matrices',
+                           help='output .npz file includes all the generated matrices',
                            default=None)
 
     return parser
@@ -60,7 +59,7 @@ def parse_arguments():
 
 def count_interactions(obs_exp, pc1, quantiles_number):
     "Counts the total interaction on obs_exp matrix per quantile and "
-    "normalises it by the number of bins per quantile."
+    "normalizes it by the number of bins per quantile."
     chromosomes = pc1["chr"].unique()
     normalised_sum_per_quantile = np.zeros((quantiles_number, quantiles_number))
 
@@ -97,14 +96,14 @@ def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number
     within_to_between = []
     for q in range(1, quantiles_number):
         within_comps = normalised_sum_per_quantile[0:q, 0:q].sum() + \
-                       normalised_sum_per_quantile[quantiles_number-q:quantiles_number,
-                                                   quantiles_number-q:quantiles_number].sum()
+            normalised_sum_per_quantile[quantiles_number - q:quantiles_number,
+                                        quantiles_number - q:quantiles_number].sum()
 
         between_comps = normalised_sum_per_quantile[0:q,
-                                                    quantiles_number-q:quantiles_number].sum() + \
-                                                    normalised_sum_per_quantile[
-                                                    quantiles_number-q:quantiles_number,
-                                                    0:q].sum()
+                                                    quantiles_number - q:quantiles_number].sum() + \
+            normalised_sum_per_quantile[
+            quantiles_number - q:quantiles_number,
+            0:q].sum()
 
         within_to_between.append(within_comps / between_comps)
     return within_to_between
@@ -113,7 +112,7 @@ def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number
 def plot_polarization_ratio(polarization_ratio, plotName, labels,
                             number_of_quantiles):
     """
-    Generates a plot to visulize the polarization ratio between A and B
+    Generates a plot to visualize the polarization ratio between A and B
     compartments.
     """
     for i, r in enumerate(polarization_ratio):
@@ -129,7 +128,7 @@ def plot_polarization_ratio(polarization_ratio, plotName, labels,
 
 def main(args=None):
     """
-    Main funcntion to generate the polarization plot.
+    Main function to generate the polarization plot.
     """
     args = parse_arguments().parse_args(args)
 
@@ -137,11 +136,11 @@ def main(args=None):
     pc1 = pd.DataFrame(pc1_bedgraph.values, columns=["chr", "start", "end",
                                                      "pc1"])
     if args.outliers != 0:
-        quantile = [args.outliers/100, (100 - args.outliers)/100]
+        quantile = [args.outliers / 100, (100 - args.outliers) / 100]
         q0, qn = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
         q_bins = np.linspace(q0, qn, args.quantile)
     else:
-        quantile = [j/(args.quantile-1) for j in range(0, args.quantile)]
+        quantile = [j / (args.quantile - 1) for j in range(0, args.quantile)]
         q_bins = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
 
     pc1["quantile"] = np.searchsorted(q_bins, pc1['pc1'].values.astype(float))
@@ -163,6 +162,3 @@ def main(args=None):
     if args.outputMatrix:
         np.savez(args.outputMatrix, [matrix for matrix in output_matrices])
     plot_polarization_ratio(polarization_ratio, args.outputFileName, labels, args.quantile)
-
-# if __name__ == '__main__':
-#        main()
