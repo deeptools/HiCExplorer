@@ -463,12 +463,10 @@ In following plot we will use the listed track file. Please store it as track.in
     where=top
 
     [tad score]
-    file = TADs/marks_et-al_TADs_20kb-Bins_score.bedgraph
+    file = TADs/marks_et-al_TADs_20kb-Bins_score.bm
     title = "TAD separation score"
-    height = 2
-    type = lines
-    color = blue
-    file_type = bedgraph
+    height = 4
+    file_type = bedgraph_matrix
 
     [spacer]
 

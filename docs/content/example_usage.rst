@@ -53,10 +53,10 @@ We have used the HiCExplorer sucessfuly with `bwa`, `bowtie2` and `hisat2`. Howe
    #       -L INT[,INT]  penalty for 5'- and 3'-end clipping [5,5] # this is set to no penalty.
 
    $ bwa mem -A1 -B4  -E50 -L0  index_path \
-       -U mate_R1.fastq.gz 2>>mate_R1.log | samtools view -Shb - > mate_R1.bam
+       mate_R1.fastq.gz 2>>mate_R1.log | samtools view -Shb - > mate_R1.bam
 
    $ bwa mem -A1 -B4  -E50 -L0  index_path \
-       -U mate_R2.fastq.gz 2>>mate_R2.log | samtools view -Shb - > mate_R2.bam
+       mate_R2.fastq.gz 2>>mate_R2.log | samtools view -Shb - > mate_R2.bam
 
 
 Creation of a Hi-C matrix
@@ -134,7 +134,7 @@ Once the thresholds have been decided, the matrix can be corrected
 .. code-block:: bash
 
    # correct Hi-C matrix
-   $ hicCorrectMatrix -m hic_matrix.h5 --filterThreshold -1.5 5 -o hic_corrected.h5
+   $ hicCorrectMatrix correct -m hic_matrix.h5 --filterThreshold -1.5 5 -o hic_corrected.h5
 
 
 Visualization of results
