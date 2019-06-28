@@ -118,7 +118,8 @@ install_requires_py = ["numpy >= 1.15.*",
 setup(
     name='HiCExplorer',
     version=get_version(),
-    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff, Leily Rabbani',
+    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff, '
+           'Leily Rabbani',
     author_email='deeptools@googlegroups.com',
     packages=find_packages(),
     scripts=['bin/findRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
@@ -126,7 +127,7 @@ setup(
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
-             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops'
+             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicCompartmentsPolarization'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},

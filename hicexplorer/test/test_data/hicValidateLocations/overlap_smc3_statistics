@@ -1,0 +1,7 @@
+# HiCExplorer hicValidateLocations 3.0
+# Overlap of loop file loops_1.bedgraph with protein file proteins/GSM935376_hg19_Gm12878_Smc3.narrowPeak
+#
+Protein peaks: 34474
+Matched Loops: 6379
+Total Loops: 11723
+Loops match protein: 0.5441439904461315
