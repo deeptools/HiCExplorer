@@ -55,6 +55,9 @@ HiCExplorer tools
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicDetectLoops`           | analysis         | one Hi-C matrices                 | bedgraph file with loop locations           | Detects enriched regions. Visualization with hicPlotmatrix and --loop parameter.  |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicValidateLoops`         | analysis         | one loop, one protein peak file   | bedgraph file with matched loop locations,  | Matches loop locations with protein peak positions                                |
+|                                |                  |                                   | one file with loop / protein statistics     |                                                                                   |
++--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotAverageRegions`    | visualization    | one npz file                      | one image                                   | Visualization of hicAverageRegions.                                               |
 +--------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicMergeTADbins`          | preprocessing    | one Hi-C matrix, one BED file     | one Hi-C matrix                             | Uses a BED file of domains or TAD boundaries to merge the                         |
@@ -127,6 +130,8 @@ Tools for Hi-C data analysis
 :ref:`hicAverageRegions`
 """"""""""""""""""""""""
 :ref:`hicDetectLoops`
+""""""""""""""""""""""""
+:ref:`hicValidateLoops`
 """"""""""""""""""""""""
 
 Tools for TADs processing
