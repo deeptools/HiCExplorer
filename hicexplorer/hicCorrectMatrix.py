@@ -692,7 +692,7 @@ def main(args=None):
                 kr.computeKR()
                 corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(True)
                 correction_factors.append(np.true_divide(1,
-                                                         kr.get_normalisation_vector(False).todense()))
+                                                         kr.get_normalisation_vector(True).todense()))
 
         correction_factors = np.concatenate(correction_factors)
 
@@ -712,7 +712,13 @@ def main(args=None):
 
             # set it to False since the vector is already normalised
             # with the previous True
-            correction_factors = np.true_divide(1, kr.get_normalisation_vector(False).todense())
+            correction_factors = np.true_divide(1, kr.get_normalisation_vector(True).todense())
+            log.debug('correction_factors {}'.format(correction_factors))
+            log.debug('len(correction_factors) {}'.format(len(correction_factors)))
+            log.debug('matrix.shape {}'.format(ma.matrix.shape))
+
+
+
 
     ma.setCorrectionFactors(correction_factors)
 
