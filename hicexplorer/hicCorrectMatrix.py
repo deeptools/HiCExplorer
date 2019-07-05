@@ -690,7 +690,7 @@ def main(args=None):
                                   chr_submatrix.indices.astype(np.int64, copy=False),
                                   chr_submatrix.data.astype(np.float64, copy=False))
                 kr.computeKR()
-                corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(False)
+                corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(True)
                 correction_factors.append(np.true_divide(1,
                                                          kr.get_normalisation_vector(False).todense()))
 
