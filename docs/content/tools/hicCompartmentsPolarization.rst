@@ -1,8 +1,8 @@
 .. _hicCompartmentsPolarization:
 
-_hicCompartmentsPolarization
+hicCompartmentsPolarization
 ============================
 
 .. argparse::
-   :ref: hicexplorer.hicValidateLoops.parse_arguments
-   :prog: hicValidateLoops
+   :ref: hicexplorer.hicCompartmentsPolarization.parse_arguments
+   :prog: hicCompartmentsPolarization

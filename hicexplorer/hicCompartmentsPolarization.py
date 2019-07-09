@@ -13,7 +13,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description="""
         Rearrange the average interaction frequencies using the first PC values
-        to represent the global compartmentalisation signal
+        to represent the global compartmentalization signal
 
         $ hicGlobalInteraction --obsexp_matrices obsExpMatrix.h5 --pca pc1.bedgraph\
         -o global_signal.png

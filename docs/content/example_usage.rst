@@ -111,7 +111,7 @@ diagnostic plot as follows:
 
 .. code-block:: bash
 
-   $ hicCorrectMatrix diagnostic_plot -m hic_matrix.h5 -o hic_corrected.h5
+   $ hicCorrectMatrix diagnostic_plot -m hic_matrix.h5 -o hic_corrected.png
 
 
 The plot should look like this:
@@ -235,7 +235,7 @@ The A / B compartments can be plotted with :ref:`hicPlotMatrix`.
 
    $ hicPlotMatrix -m pearson_all.h5 --outFileName pca1.png --perChr --bigwig pca1.bw
 
-//.. figure:: ../images/eigenvector1_lieberman.png
-//    :scale: 90 %
-//    :align: center
+.. figure:: ../images/eigenvector1_lieberman.png
+    :scale: 60 %
+    :align: center
 

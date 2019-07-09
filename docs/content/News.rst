@@ -3,7 +3,7 @@ News and Developments
 
 Release 3.1
 -----------
-**28 June 2019**
+**9 July 2019**
 
 - KR correction improvements: It is now able to process larger data sets like GM12878 primary+replicate on 10kb resolution.
 - Adding script for validation of loop locations with protein peak locations
