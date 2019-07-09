@@ -71,7 +71,8 @@ http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html\
 """
     )
 
-    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(__version__))
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(__version__))
 
     subparsers = parser.add_subparsers(
         title="Options",
@@ -304,11 +305,13 @@ def fill_gaps(hic_ma, failed_bins, fill_contiguous=False):
             # the new row value is the mean between the upper
             # and lower rows
             fill_ma[missing_bin, 1:mat_size - 1] = \
-                (hic_ma.matrix[missing_bin - 1, :mat_size - 2] + hic_ma.matrix[missing_bin + 1, 2:]) / 2
+                (hic_ma.matrix[missing_bin - 1, :mat_size - 2] +
+                 hic_ma.matrix[missing_bin + 1, 2:]) / 2
 
             # same for cols
             fill_ma[1:mat_size - 1, missing_bin] = \
-                (hic_ma.matrix[:mat_size - 2, missing_bin - 1] + hic_ma.matrix[2:, missing_bin + 1]) / 2
+                (hic_ma.matrix[:mat_size - 2, missing_bin - 1] +
+                 hic_ma.matrix[2:, missing_bin + 1]) / 2
 
     # identify the intersection points of the failed regions because they
     # neighbors get wrong values
@@ -389,7 +392,8 @@ class MAD(object):
         log.debug("diff: {}".format(diff))
         log.debug("self.med_abs_deviation: {}".format(self.med_abs_deviation))
         log.debug("self.mad_b_value: {}".format(self.mad_b_value))
-        log.debug("all together: {}".format(self.mad_b_value * diff / self.med_abs_deviation))
+        log.debug("all together: {}".format(
+            self.mad_b_value * diff / self.med_abs_deviation))
         # workaround for 'Axis limits cannot be NaN or Inf' bug in version 2.1.1
         # prevent dividing by 0!!!
         if self.med_abs_deviation == 0.0:
@@ -453,12 +457,14 @@ def plot_total_contact_dist(hic_ma, args):
         log.debug("ax1.get_xlim(): {}".format(ax1.get_xlim()))
         log.debug("np.array(ax1.get_xlim()): {}".format(np.array(
                                                         ax1.get_xlim())))
-        log.debug("mad_values.value_to_mad(np.array(ax1.get_xlim())): {}".format(mad_values.value_to_mad(np.array(ax1.get_xlim()))))
+        log.debug("mad_values.value_to_mad(np.array(ax1.get_xlim())): {}".format(
+            mad_values.value_to_mad(np.array(ax1.get_xlim()))))
 
         ax2.set_xlim(mad_values.value_to_mad(np.array(ax1.get_xlim())))
 
         # get first local mininum value
-        local_min = [x for x, y in enumerate(dist) if 1 <= x < len(dist) - 1 and dist[x - 1] > y < dist[x + 1]]
+        local_min = [x for x, y in enumerate(dist) if 1 <= x < len(
+            dist) - 1 and dist[x - 1] > y < dist[x + 1]]
 
         if len(local_min) > 0:
             threshold = bin_s[local_min[0]]
@@ -548,7 +554,8 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
             # and not only self interactions that are the dominant count
             row_sum = row_sum - chr_submatrix.diagonal()
             mad = MAD(row_sum)
-            problematic = np.flatnonzero(mad.is_outlier(lower_threshold, upper_threshold))
+            problematic = np.flatnonzero(
+                mad.is_outlier(lower_threshold, upper_threshold))
 
             # because the problematic indices are specific for the given chromosome
             # they need to be updated to match the large matrix indices
@@ -566,7 +573,8 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
         # and not only self interactions that are the dominant count
         row_sum = row_sum - hic_ma.matrix.diagonal()
         mad = MAD(row_sum)
-        to_remove = np.flatnonzero(mad.is_outlier(lower_threshold, upper_threshold))
+        to_remove = np.flatnonzero(mad.is_outlier(
+            lower_threshold, upper_threshold))
 
     return sorted(to_remove)
 
@@ -630,7 +638,8 @@ def main(args=None):
         if not args.filterThreshold:
             log.error('min and max filtering thresholds should be set')
             sys.exit(1)
-        outlier_regions = filter_by_zscore(ma, args.filterThreshold[0], args.filterThreshold[1], perchr=args.perchr)
+        outlier_regions = filter_by_zscore(
+            ma, args.filterThreshold[0], args.filterThreshold[1], perchr=args.perchr)
         # compute and print some statistics
         pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
         ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%) "
@@ -676,29 +685,37 @@ def main(args=None):
             chr_range = ma.getChrBinRange(chrname)
             chr_submatrix = ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
             if args.correctionMethod == 'ICE':
-                _matrix, _corr_factors = iterative_correction(chr_submatrix, args)
-                corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = _matrix
+                _matrix, _corr_factors = iterative_correction(
+                    chr_submatrix, args)
+                corrected_matrix[chr_range[0]:chr_range[1],
+                                 chr_range[0]:chr_range[1]] = _matrix
                 correction_factors.append(_corr_factors)
             else:
                 # Set the kr matrix along with its correction factors vector
                 assert(args.correctionMethod == 'KR')
                 log.debug("Loading a float sparse matrix for KR balancing")
-                kr = kr_balancing(chr_submatrix.matrix.shape[0],
-                                  chr_submatrix.matrix.shape[1],
-                                  chr_submatrix.matrix.count_nonzero(),
-                                  chr_submatrix.matrix.indptr.astype(np.int64, copy=False),
-                                  chr_submatrix.matrix.indices.astype(np.int64, copy=False),
-                                  chr_submatrix.matrix.data.astype(np.float64, copy=False))
+                kr = kr_balancing(chr_submatrix.shape[0],
+                                  chr_submatrix.shape[1],
+                                  chr_submatrix.count_nonzero(),
+                                  chr_submatrix.indptr.astype(
+                                      np.int64, copy=False),
+                                  chr_submatrix.indices.astype(
+                                      np.int64, copy=False),
+                                  chr_submatrix.data.astype(np.float64, copy=False))
                 kr.computeKR()
-                corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(True)
-                correction_factors.append(np.true_divide(1,
-                                                         kr.get_normalisation_vector(True).todense()))
+                if args.outFileName.endswith('.h5'):
+                    corrected_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = kr.get_normalised_matrix(True)
+                # correction_factors.append(np.true_divide(1,
+                #                                          kr.get_normalisation_vector(False).todense()))
+                correction_factors.append(
+                    kr.get_normalisation_vector(False).todense())
 
         correction_factors = np.concatenate(correction_factors)
 
     else:
         if args.correctionMethod == 'ICE':
-            corrected_matrix, correction_factors = iterative_correction(ma.matrix, args)
+            corrected_matrix, correction_factors = iterative_correction(
+                ma.matrix, args)
             ma.setMatrixValues(corrected_matrix)
         else:
             assert(args.correctionMethod == 'KR')
@@ -712,14 +729,15 @@ def main(args=None):
 
             # set it to False since the vector is already normalised
             # with the previous True
-            correction_factors = np.true_divide(1, kr.get_normalisation_vector(True).todense())
-            log.debug('correction_factors {}'.format(correction_factors))
-            log.debug('len(correction_factors) {}'.format(len(correction_factors)))
-            log.debug('matrix.shape {}'.format(ma.matrix.shape))
+            # correction_factors = np.true_divide(1, kr.get_normalisation_vector(False).todense())
+            correction_factors = kr.get_normalisation_vector(False).todense()
 
+            if args.outFileName.endswith('.h5'):
+                corrected_matrix = kr.get_normalised_matrix(True)
 
-
-
+    if args.outFileName.endswith('.h5'):
+        ma.setMatrixValues(corrected_matrix)
+    # if
     ma.setCorrectionFactors(correction_factors)
 
     log.debug("Correction factors {}".format(correction_factors[:10]))
@@ -727,7 +745,8 @@ def main(args=None):
 
         after_row_sum = np.asarray(corrected_matrix.sum(axis=1)).flatten()
         # identify rows that were expanded more than args.inflationCutoff times
-        to_remove = np.flatnonzero(after_row_sum / pre_row_sum >= args.inflationCutoff)
+        to_remove = np.flatnonzero(
+            after_row_sum / pre_row_sum >= args.inflationCutoff)
         ma.printchrtoremove(to_remove,
                             label="inflated >={} "
                             "regions".format(args.inflationCutoff), restore_masked_bins=False)

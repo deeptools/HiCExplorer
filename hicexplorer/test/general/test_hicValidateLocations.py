@@ -8,14 +8,16 @@ import os
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/hicValidateLocations/")
 
 
-def are_files_equal(file1, file2, delta=1):
+def are_files_equal(file1, file2, delta=1, skip=0):
     equal = True
     if delta:
         mismatches = 0
     with open(file1) as textfile1, open(file2) as textfile2:
-        for x, y in zip(textfile1, textfile2):
+        for i, (x, y) in enumerate(zip(textfile1, textfile2)):
             # if x.startswith('File'):
             #     continue
+            if i < skip:
+                continue
             if x != y:
                 if delta:
                     mismatches += 1
@@ -39,7 +41,7 @@ def test_loop_narrow_peak():
 
     # print(outfile.name + '_matched_locations')
     assert are_files_equal(ROOT + 'overlap_smc3_matched_locations', outfile.name + '_matched_locations')
-    assert are_files_equal(ROOT + 'overlap_smc3_statistics', outfile.name + '_statistics')
+    assert are_files_equal(ROOT + 'overlap_smc3_statistics', outfile.name + '_statistics', skip=3)
 
 
 def test_loop_broad_peak():
@@ -53,4 +55,4 @@ def test_loop_broad_peak():
 
     # print(outfile.name + '_matched_locations')
     assert are_files_equal(ROOT + 'overlap_ctcf_matched_locations', outfile.name + '_matched_locations')
-    assert are_files_equal(ROOT + 'overlap_ctcf_statistics', outfile.name + '_statistics')
+    assert are_files_equal(ROOT + 'overlap_ctcf_statistics', outfile.name + '_statistics', skip=3)
