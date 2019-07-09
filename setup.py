@@ -127,9 +127,9 @@ setup(
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
              'bin/chicViewpointBackgroundModel', 'bin/chicPlotViewpoint', 'bin/chicViewpoint',
-             'bin/chicAggregateStatistic', 'bin/chicDifferentialTest', 'bin/chicQualityControl',
+             'bin/chicAggregateStatistic', 'bin/chicDifferentialTest', 'bin/chicQualityControl', 'bin/chicSignificantInteractions',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
-             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicCompartmentsPolarization'
+             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicCompartmentsPolarization',
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},

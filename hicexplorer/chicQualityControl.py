@@ -231,7 +231,7 @@ def main():
 
     # plt.axvline(x=args.sparsity, color='r')
     plt.savefig(args.outFileName + '_sparsity_distribution.png', dpi=300)
-
+    plt.close()
     for i in range(len(args.matrices)):
         plt.hist(x[i], bins=100,  alpha=0.5)
         # plt.hist()

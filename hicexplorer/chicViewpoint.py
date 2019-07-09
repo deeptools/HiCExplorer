@@ -12,7 +12,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import nbinom
 
 import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
@@ -108,8 +107,10 @@ def adjustViewpointData(pViewpointObj, pData, pBackground,  pReferencePoint, pRe
 
     return data, background
 
+def compute_x_fold(pDataList, pBackgroundList):
+    return pDataList / pBackgroundList
 
-def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pOutputFolder):
+def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions, pOutputFolder):
     # import json
     # with open('backgroundmodel_after_load.txt', 'w') as file:
     #     file.write(json.dumps(pBackgroundModel))
@@ -137,16 +138,22 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
 
         _backgroundModelNBinom = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
         
+        background_relative_interaction = pViewpointObj.interactionBackgroundData(pBackgroundModelRelativeInteractions, _range).flatten()
+        # log.debug('pBackgroundModel {}'.format(background_relative_interaction))
         # log.debug('len(_backgroundModelNBinom) {}'.format(len(_backgroundModelNBinom)))
         # log.debug('len(data_list) {}'.format(len(data_list)))
         # log.debug('_backgroundModelNBinom {}'.format(_backgroundModelNBinom))
 
-
+        data_list_relative = data_list
         if len(data_list) != len(_backgroundModelNBinom):
 
             data_list, _backgroundModelNBinom, = adjustViewpointData(
                 pViewpointObj, data_list, _backgroundModelNBinom, referencePoint, region_start, region_end)
-
+        
+        if len(data_list) != len(background_relative_interaction):
+            _, background_relative_interaction = adjustViewpointData(
+                pViewpointObj, data_list_relative, background_relative_interaction, referencePoint, region_start, region_end)
+        
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(
                 data_list, pArgs.averageContactBin)
@@ -159,6 +166,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         data_list = pViewpointObj.computeRelativeValues(
             data_list, denominator_relative_interactions)
 
+        x_fold_list = compute_x_fold(data_list, background_relative_interaction)
         p_value_list = pViewpointObj.pvalues(_backgroundModelNBinom, data_list_raw)
         # log.debug('p_value_list {}'.format(p_value_list))
         # log.debug('len(p_value_list) {}'.format(len(p_value_list)))
@@ -185,7 +193,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             denominator_relative_interactions)
         header_information = '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(
             region_end_in_units), pGeneList[i], denominator_relative_interactions_str])
-        header_information += '\n#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tRaw\n#'
+        header_information += '\n#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('/')[-1].split('.')[:-1])
         matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
         file_list.append(matrix_name + '.bed')
@@ -193,90 +201,11 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         matrix_name = pOutputFolder + '/' + matrix_name
         # file_list.append(matrix_name + '.bed')
         pViewpointObj.writeInteractionFile(
-            matrix_name, interaction_data, header_information, p_value_list)
+            matrix_name, interaction_data, header_information, p_value_list, x_fold_list)
 
     pQueue.put(file_list)
     return
 
-def computeSumOfDensities(pBackgroundModel, pArgs):
-    background_nbinom = {}
-    background_sum_of_densities_dict = {}
-    max_value = 0
-    
-    fixateRange = int(pArgs.fixateRange)
-    for distance in pBackgroundModel:
-        
-        if max_value < int(pBackgroundModel[distance][2]):
-            max_value = int(pBackgroundModel[distance][2])
-       
-
-        # if distance <= -fixateRange:
-        #     distance_ = -fixateRange
-        #     if max_value_fix_range_reverse and max_value_fix_range_reverse < int(pBackgroundModel[distance][2]):
-        #         max_value_fix_range_reverse = int(pBackgroundModel[distance][2])
-        #     else:
-        #         max_value_fix_range_reverse = int(pBackgroundModel[distance][2])
-        #     continue
-        # elif distance >= fixateRange:
-        #     distance_ = fixateRange
-        #     if max_value_fix_range_forward and max_value_fix_range_forward < int(pBackgroundModel[distance][2]):
-        #         max_value_fix_range_forward = int(pBackgroundModel[distance][2])
-        #     else:
-        #         max_value_fix_range_reverse = int(pBackgroundModel[distance][2])
-        #     continue
-        # else:
-        #     distance_ = distance
-        # if distance_ = distance:
-        #     continue
-        if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
-            background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
-            
-            sum_of_densities = np.zeros(int(pBackgroundModel[distance][2]))
-            for j in range(int(pBackgroundModel[distance][2])):
-                if j >= 1:
-                    sum_of_densities[j] += sum_of_densities[j - 1]
-                sum_of_densities[j] += background_nbinom[distance].pmf(j)
-
-            # if len(sum_of_densities) > less_than - 1:
-            background_sum_of_densities_dict[distance] = sum_of_densities
-    
-    
-    background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
-    
-    log.debug('max_value {}'.format(max_value))
-    sum_of_densities = np.zeros(max_value)
-    for j in range(max_value):
-        if j >= 1:
-            sum_of_densities[j] += sum_of_densities[j - 1]
-        sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
-
-    # if len(sum_of_densities) > less_than - 1:
-    background_sum_of_densities_dict[fixateRange] = sum_of_densities
-    background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
-    
-    sum_of_densities = np.zeros(max_value)
-    for j in range(max_value):
-        if j >= 1:
-            sum_of_densities[j] += sum_of_densities[j - 1]
-        sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
-
-    # if len(sum_of_densities) > less_than - 1:
-    background_sum_of_densities_dict[-fixateRange] = sum_of_densities
-
-
-    min_key = min(background_sum_of_densities_dict)
-    max_key = max(background_sum_of_densities_dict)
-
-    for key in pBackgroundModel.keys():
-        if key in background_sum_of_densities_dict:
-            continue
-        if key < min_key:
-            background_sum_of_densities_dict[key] = background_sum_of_densities_dict[min_key]
-        elif key > max_key:
-            background_sum_of_densities_dict[key] = background_sum_of_densities_dict[max_key]
-    
-
-    return background_sum_of_densities_dict
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -291,9 +220,11 @@ def main(args=None):
     file_list = []
     background_model = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range)
+    background_model_mean_values = viewpointObj.readBackgroundDataFile(
+        args.backgroundModelFile, args.range, pMean=True)
     # log.debug('background_model {}'.format(background_model))
     # log.debug('compute sum of densities')
-    background_sum_of_densities_dict = computeSumOfDensities(background_model, args)
+    background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(background_model, args)
     # for key in background_sum_of_densities_dict:
     #     log.debug('key {} length {}'.format(key, len(background_sum_of_densities_dict[key])))
     # log.debug('compute sum of densities...DONE')
@@ -332,6 +263,7 @@ def main(args=None):
                 pGeneList=geneListThread,
                 pMatrix=matrix,
                 pBackgroundModel=background_sum_of_densities_dict,
+                pBackgroundModelRelativeInteractions=background_model_mean_values,
                 pOutputFolder=args.outputFolder
                 # pSumOfDensities=
             )

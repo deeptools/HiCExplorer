@@ -6,6 +6,8 @@ import copy
 
 import sys
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.stats import nbinom
+
 
 
 class Viewpoint():
@@ -97,8 +99,7 @@ class Viewpoint():
 
         This function returns:
         - header as  a string
-        - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}
-        - p-value in relation to relative position as a dict (same format as interaction data)
+        - interaction data in relation to relative position as a dict together with p-value, raw and x-fold: e.g. {-1000:[0.1, 0.01, 2.3, 5]}
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
         # use header info to store reference point, and based matrix
@@ -119,9 +120,9 @@ class Viewpoint():
                 _line = line.strip().split('\t')
                 # relative postion and relative interactions
                 interaction_data[int(
-                    _line[-4])] = np.array([float(_line[-3]), float(_line[-2]), float(_line[-1])])
+                    _line[-5])] = np.array([float(_line[-4]), float(_line[-3]), float(_line[-1]), float(_line[-2])])
                 # z_score[int(_line[-4])] = float(_line[-2])
-                interaction_file_data[int(_line[-4])] = _line
+                interaction_file_data[int(_line[-5])] = _line
         return header, interaction_data, interaction_file_data
 
     def readBackgroundDataFile(self, pBedFile, pRange, pMean=False):
@@ -168,7 +169,7 @@ class Viewpoint():
                 distance[i] = distance[min_key]
         return distance
 
-    def writeInteractionFile(self, pBedFile, pData, pHeader, pPValueData):
+    def writeInteractionFile(self, pBedFile, pData, pHeader, pPValueData, pXfold):
         '''
         Writes an interaction file for one viewpoint and one sample as a tab delimited file with one interaction per line.
         Header contains information about the interaction:
@@ -179,9 +180,9 @@ class Viewpoint():
         with open((pBedFile + '.bed').strip(), 'w') as fh:
             fh.write('# {}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".
                          format(interaction[0], interaction[1],
-                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], interaction[7]))
+                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7]))
         return
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
@@ -557,3 +558,128 @@ class Viewpoint():
                     pvalue = 1
             p_value_list.append(pvalue)
         return p_value_list
+
+    
+    def computeSumOfDensities(self, pBackgroundModel, pArgs):
+        background_nbinom = {}
+        background_sum_of_densities_dict = {}
+        max_value = 0
+        
+        fixateRange = int(pArgs.fixateRange)
+        for distance in pBackgroundModel:
+            
+            if max_value < int(pBackgroundModel[distance][2]):
+                max_value = int(pBackgroundModel[distance][2])
+        
+
+            # if distance <= -fixateRange:
+            #     distance_ = -fixateRange
+            #     if max_value_fix_range_reverse and max_value_fix_range_reverse < int(pBackgroundModel[distance][2]):
+            #         max_value_fix_range_reverse = int(pBackgroundModel[distance][2])
+            #     else:
+            #         max_value_fix_range_reverse = int(pBackgroundModel[distance][2])
+            #     continue
+            # elif distance >= fixateRange:
+            #     distance_ = fixateRange
+            #     if max_value_fix_range_forward and max_value_fix_range_forward < int(pBackgroundModel[distance][2]):
+            #         max_value_fix_range_forward = int(pBackgroundModel[distance][2])
+            #     else:
+            #         max_value_fix_range_reverse = int(pBackgroundModel[distance][2])
+            #     continue
+            # else:
+            #     distance_ = distance
+            # if distance_ = distance:
+            #     continue
+            if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
+                background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
+                
+                sum_of_densities = np.zeros(int(pBackgroundModel[distance][2]))
+                for j in range(int(pBackgroundModel[distance][2])):
+                    if j >= 1:
+                        sum_of_densities[j] += sum_of_densities[j - 1]
+                    sum_of_densities[j] += background_nbinom[distance].pmf(j)
+
+                # if len(sum_of_densities) > less_than - 1:
+                background_sum_of_densities_dict[distance] = sum_of_densities
+        
+        
+        background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
+        
+        log.debug('max_value {}'.format(max_value))
+        sum_of_densities = np.zeros(max_value)
+        for j in range(max_value):
+            if j >= 1:
+                sum_of_densities[j] += sum_of_densities[j - 1]
+            sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
+
+        # if len(sum_of_densities) > less_than - 1:
+        background_sum_of_densities_dict[fixateRange] = sum_of_densities
+        background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
+        
+        sum_of_densities = np.zeros(max_value)
+        for j in range(max_value):
+            if j >= 1:
+                sum_of_densities[j] += sum_of_densities[j - 1]
+            sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
+
+        # if len(sum_of_densities) > less_than - 1:
+        background_sum_of_densities_dict[-fixateRange] = sum_of_densities
+
+
+        min_key = min(background_sum_of_densities_dict)
+        max_key = max(background_sum_of_densities_dict)
+
+        for key in pBackgroundModel.keys():
+            if key in background_sum_of_densities_dict:
+                continue
+            if key < min_key:
+                background_sum_of_densities_dict[key] = background_sum_of_densities_dict[min_key]
+            elif key > max_key:
+                background_sum_of_densities_dict[key] = background_sum_of_densities_dict[max_key]
+        
+
+        return background_sum_of_densities_dict
+
+    def merge_neighbors(self, pScoresDictionary, pMergeThreshold=1000):
+
+        if pScoresDictionary is None or len(pScoresDictionary) == 0:
+            log.debug('dict is None or empty')
+            return None
+        key_list = list(pScoresDictionary.keys())
+
+        merge_ids = []
+        non_merge = []
+        for i, (key_pre, key_suc) in enumerate(zip(key_list[:-1], key_list[1:])):
+            
+            if np.absolute(int(pScoresDictionary[key_pre][5]) - int(pScoresDictionary[key_suc][5])) <= pMergeThreshold:
+                if len(merge_ids) > 0 and merge_ids[-1][-1] == key_pre:
+                    merge_ids[-1].append(key_suc)
+                else:
+                    merge_ids.append([key_pre, key_suc])
+            else:
+                if i == len(key_list) - 1:
+                    non_merge.append(key_suc)
+                non_merge.append(key_pre)
+        scores_dict = {}
+        for element in merge_ids:
+            base_element = pScoresDictionary[element[0]]
+            values = np.array(list(map(float, base_element[-4:])))
+            for key in element[1:]:
+                base_element[-6] = pScoresDictionary[key][-6]
+                values += np.array(list(map(float, pScoresDictionary[key][-4:])))
+                log.debug('values {}'.format(values))
+            
+            base_element[-4] = values[0]
+            base_element[-3] = values[1]
+            base_element[-2] = values[2]
+            base_element[-1] = values[3]
+
+            log.debug('base_element: {}'.format(base_element))
+            scores_dict[element[0]] = base_element
+        log.debug('len(non_merge {}'.format(len(non_merge)))
+        log.debug('len(merge_ids) {}'.format(len(merge_ids)))
+
+        for key in non_merge:
+            scores_dict[key] = pScoresDictionary[key]
+
+        return scores_dict

@@ -38,11 +38,24 @@ def parse_arguments(args=None):
     parserMutuallyExclusiveGroup.add_argument('--pValue', '-p',
                                               help='p-value threshold value to filter target regions to include them for differential analysis.',
                                               type=float)
+    parserMutuallyExclusiveGroupFilter = parser.add_mutually_exclusive_group(
+        required=True)
+    # parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
+    #                                           help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
+    #                                                 'less significant interactions to one peak with high significance. Used only for pValue option.',
+    #                                           type=float
+    #                                           )
+    # parserMutuallyExclusiveGroupFilter.add_argument('--loosePValue', '-lp',
+    #                                           help='loose p-value threshold value to filter target regions in a first round. '
+    #                                                 'Used to merge neighboring bins with a broader peak but less significant interactions to one peak with high significance.'
+    #                                                 ' Used only for pValue option.',
+    #                                           type=float)
 
     parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--xFoldBackground', '-xf',
-                            help='Filter x-fold over background. Used only for pValue option.',
-                            type=float)
+
+    # parserOpt.add_argument('--xFoldBackground', '-xf',
+    #                         help='Filter x-fold over background. Used only for pValue option.',
+    #                         type=float)
     parserOpt.add_argument('--outFileNameSuffix', '-suffix',
                            help='File name suffix to save the result.',
                            required=False,
@@ -81,7 +94,7 @@ def parse_arguments(args=None):
                            version='%(prog)s {}'.format(__version__))
     return parser
 
-
+# def merge_neighbors_x_fold()
 def create_target_regions(pInteraction_file_data, pInteraction_file_data_1, pPValue):
     # log.debug(pInteraction_file_data)
     accepted_scores_file_1 = []
@@ -138,42 +151,7 @@ def filter_scores_target_list(pScoresDictionary, pTargetRegions):
     return accepted_scores
 
 
-def merge_neighbors(pScoresDictionary, pMergeThreshold=1000):
 
-    if pScoresDictionary is None or len(pScoresDictionary) == 0:
-        log.debug('dict is None or empty')
-        return None
-    key_list = list(pScoresDictionary.keys())
-
-    merge_ids = []
-    non_merge = []
-    for i, (key_pre, key_suc) in enumerate(zip(key_list[:-1], key_list[1:])):
-        
-        if np.absolute(int(pScoresDictionary[key_pre][5]) - int(pScoresDictionary[key_suc][5])) <= pMergeThreshold:
-            if len(merge_ids) > 0 and merge_ids[-1][-1] == key_pre:
-                merge_ids[-1].append(key_suc)
-            else:
-                merge_ids.append([key_pre, key_suc])
-        else:
-            if i == len(key_list) - 1:
-                non_merge.append(key_suc)
-            non_merge.append(key_pre)
-    scores_dict = {}
-    for element in merge_ids:
-        base_element = pScoresDictionary[element[0]]
-        values = np.array(list(map(float, base_element[-3:])))
-        for key in element[1:]:
-            base_element[-5] = pScoresDictionary[key][-5]
-            values += np.array(list(map(float, pScoresDictionary[key][-3:])))
-
-        base_element[-3] = values[0]
-        base_element[-2] = values[1]
-        base_element[-1] = values[2]
-        scores_dict[element[0]] = base_element
-    for key in non_merge:
-        scores_dict[key] = pScoresDictionary[key]
-
-    return scores_dict
 
 
 def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines, pScores=None):
