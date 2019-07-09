@@ -1,6 +1,37 @@
 News and Developments
 =====================
 
+Release 3.1
+-----------
+**9 July 2019**
+
+- KR correction improvements: It is now able to process larger data sets like GM12878 primary+replicate on 10kb resolution.
+- Adding script for validation of loop locations with protein peak locations
+- Adding script hicCompartmentsPolarization: Rearrange the average interaction frequencies using the first PC values to represent the global compartmentalisation signal
+
+
+Release 3.0.2
+-------------
+**28 June 2019**
+
+- Pinning dependencies to:
+
+   - hicmatrix version 9: API changes in version 10
+   - krbalancing version 0.0.4: API changes in version 0.0.5
+   - matplotlib version 3.0: Version 3.1 raises 'Not implemented error' for unknown reasons.
+
+- Set fit_nbinom to version 1.1: Version 1.0 Had deprecated function call of scipy > 1.2.
+- Small documentation fixes and improvements.
+
+
+Release 3.0.1
+-------------
+**5 April 2019**
+
+- Fixes KR balancing correction factors
+- Deactivates log.debug
+
+
 Release 3.0
 -----------
 **3 April 2019**
@@ -13,14 +44,14 @@ Release 3.0
 
 
 Release 2.2.3
----------------------
+-------------
 **22 March 2019**
 
 - This bug fix release patches an issue with cooler files, hicBuildMatrix and the usage of a restriction sequence file instead of fixed bin size.
 
 
 Release 2.2.2
----------------------
+--------------
 **27 February 2019**
 
 - This bug fix release removes reference to hicExport that were forgotten to delete in 2.2. Thanks @BioGeek for this contribution.
