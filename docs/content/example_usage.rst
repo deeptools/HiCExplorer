@@ -53,10 +53,10 @@ We have used the HiCExplorer sucessfuly with `bwa`, `bowtie2` and `hisat2`. Howe
    #       -L INT[,INT]  penalty for 5'- and 3'-end clipping [5,5] # this is set to no penalty.
 
    $ bwa mem -A1 -B4  -E50 -L0  index_path \
-       -U mate_R1.fastq.gz 2>>mate_R1.log | samtools view -Shb - > mate_R1.bam
+       mate_R1.fastq.gz 2>>mate_R1.log | samtools view -Shb - > mate_R1.bam
 
    $ bwa mem -A1 -B4  -E50 -L0  index_path \
-       -U mate_R2.fastq.gz 2>>mate_R2.log | samtools view -Shb - > mate_R2.bam
+       mate_R2.fastq.gz 2>>mate_R2.log | samtools view -Shb - > mate_R2.bam
 
 
 Creation of a Hi-C matrix
@@ -111,7 +111,7 @@ diagnostic plot as follows:
 
 .. code-block:: bash
 
-   $ hicCorrectMatrix diagnostic_plot -m hic_matrix.h5 -o hic_corrected.h5
+   $ hicCorrectMatrix diagnostic_plot -m hic_matrix.h5 -o hic_corrected.png
 
 
 The plot should look like this:
@@ -134,7 +134,7 @@ Once the thresholds have been decided, the matrix can be corrected
 .. code-block:: bash
 
    # correct Hi-C matrix
-   $ hicCorrectMatrix -m hic_matrix.h5 --filterThreshold -1.5 5 -o hic_corrected.h5
+   $ hicCorrectMatrix correct -m hic_matrix.h5 --filterThreshold -1.5 5 -o hic_corrected.h5
 
 
 Visualization of results
@@ -235,7 +235,7 @@ The A / B compartments can be plotted with :ref:`hicPlotMatrix`.
 
    $ hicPlotMatrix -m pearson_all.h5 --outFileName pca1.png --perChr --bigwig pca1.bw
 
-//.. figure:: ../images/eigenvector1_lieberman.png
-//    :scale: 90 %
-//    :align: center
+.. figure:: ../images/eigenvector1_lieberman.png
+    :scale: 60 %
+    :align: center
 
