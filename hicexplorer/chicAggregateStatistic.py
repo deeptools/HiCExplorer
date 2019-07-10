@@ -40,16 +40,16 @@ def parse_arguments(args=None):
                                               type=float)
     parserMutuallyExclusiveGroupFilter = parser.add_mutually_exclusive_group(
         required=True)
-    # parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
-    #                                           help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
-    #                                                 'less significant interactions to one peak with high significance. Used only for pValue option.',
-    #                                           type=float
-    #                                           )
-    # parserMutuallyExclusiveGroupFilter.add_argument('--loosePValue', '-lp',
-    #                                           help='loose p-value threshold value to filter target regions in a first round. '
-    #                                                 'Used to merge neighboring bins with a broader peak but less significant interactions to one peak with high significance.'
-    #                                                 ' Used only for pValue option.',
-    #                                           type=float)
+    parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
+                                              help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
+                                                    'less significant interactions to one peak with high significance. Used only for pValue option.',
+                                              type=float
+                                              )
+    parserMutuallyExclusiveGroupFilter.add_argument('--loosePValue', '-lp',
+                                              help='loose p-value threshold value to filter target regions in a first round. '
+                                                    'Used to merge neighboring bins with a broader peak but less significant interactions to one peak with high significance.'
+                                                    ' Used only for pValue option.',
+                                              type=float)
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
@@ -87,6 +87,15 @@ def parse_arguments(args=None):
                            default=4,
                            type=int
                            )
+    parserOpt.add_argument('--backgroundModelFile', '-bmf',
+                            help='path to the background file which is necessary to compute the rbz-score',
+                            required=True)
+    parserOpt.add_argument('--range',
+                            help='Defines the region upstream and downstream of a reference point which should be included. '
+                            'Format is --region upstream downstream',
+                            required=True,
+                            type=int,
+                            nargs=2)
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -95,20 +104,28 @@ def parse_arguments(args=None):
     return parser
 
 # def merge_neighbors_x_fold()
-def create_target_regions(pInteraction_file_data, pInteraction_file_data_1, pPValue):
+def create_target_regions(pInteraction_file_data, pInteraction_file_data_1, pLoosePValue=None, pXFold=None):
     # log.debug(pInteraction_file_data)
     accepted_scores_file_1 = []
     accepted_scores_file_2 = []
 
-    # get significant regions
-    for key in pInteraction_file_data:
-        if float(pInteraction_file_data[key][-2]) <= pPValue:
-            accepted_scores_file_1.append(key)
+    if pLoosePValue is not None:
+        # get significant regions
+        for key in pInteraction_file_data:
+            if float(pInteraction_file_data[key][-2]) <= pLoosePValue:
+                accepted_scores_file_1.append(key)
 
-    for key in pInteraction_file_data_1:
-        if float(pInteraction_file_data_1[key][-2]) <= pPValue:
-            accepted_scores_file_2.append(key)
+        for key in pInteraction_file_data_1:
+            if float(pInteraction_file_data_1[key][-2]) <= pLoosePValue:
+                accepted_scores_file_2.append(key)
+    else:
+        for key in pInteraction_file_data:
+            if float(pInteraction_file_data[key][-1]) >= pXFold:
+                accepted_scores_file_1.append(key)
 
+        for key in pInteraction_file_data_1:
+            if float(pInteraction_file_data_1[key][-1]) >= pXFold:
+                accepted_scores_file_2.append(key)
     # merge keys
     accepted_scores_file_1.extend(accepted_scores_file_2)
     accepted_scores_file_1 = np.unique(accepted_scores_file_1)
@@ -154,7 +171,7 @@ def filter_scores_target_list(pScoresDictionary, pTargetRegions):
 
 
 
-def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines, pScores=None):
+def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
 
     # sum_of_interactions = float(pHeader.split('\t')[-1].split(' ')[-1])
     # log.debug('sum_of_interactions {}'.format(sum_of_interactions))
@@ -225,7 +242,11 @@ def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=N
         data.append(pViewpointObj.readInteractionFileForAggregateStatistics(
             pArgs.interactionFileFolder + '/' + interactionFile[1]))
 
-        target_regions = create_target_regions(data[0][2], data[1][2], pArgs.pValue)
+        if pArgs.loosePValue is not None:
+            target_regions = create_target_regions(data[0][2], data[1][2], pLoosePValue=pArgs.loosePValue)
+        else:
+            target_regions = create_target_regions(data[0][2], data[1][2], pXFold=pArgs.xFold)
+
         sample_prefix = interactionFile[0].split('/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
         for j in range(2):
 
@@ -250,9 +271,13 @@ def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=N
             # for key in accepted_scores:
             #     log.debug(accepted_scores[key])
             #     exit()
-            if pArgs.mergeBins > 0:
-                merged_neighborhood = merge_neighbors(
-                    accepted_scores, pArgs.mergeBins)
+
+            # TODO change condition!
+            # if pArgs.mergeBins > 0:
+            merged_neighborhood = merge_neighbors(accepted_scores, pArgs.mergeBins)
+
+                #TODO  recompute p-values
+                # TODO redo line matching based on p-value
                 write(outFileName, data[j][0],
                       merged_neighborhood, data[j][2])
             else:
@@ -311,6 +336,10 @@ def call_multi_core(pInteractionFilesList, pFunctionName, pArgs, pViewpointObj):
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
+    if args.pValue:
+        if args.backgroundModelFile is None or args.range is None:
+            log.error('background model file and range need to be defined!')
+            exit(1)
     outfile_names = []
     if not os.path.exists(args.outputFolder):
         try:
