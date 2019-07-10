@@ -20,5 +20,5 @@ hicCompartmentsPolarization
    order of bins is used to rearrange the bins in obs/exp matrix.
    .. code:: bash
 
-   $ hicCompartmentsPolarization --obsexp_matrices obsExpMatrix.h5 --pca pc1.bedgraph
-   -o global_signal.png
+       $ hicCompartmentsPolarization --obsexp_matrices obsExpMatrix.h5 --pca pc1.bedgraph
+         -o global_signal.png
