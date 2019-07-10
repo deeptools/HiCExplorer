@@ -560,46 +560,29 @@ class Viewpoint():
         return p_value_list
 
     
-    def computeSumOfDensities(self, pBackgroundModel, pArgs):
+    def computeSumOfDensities(self, pBackgroundModel, pArgs, pXfoldMaxValue=None):
         background_nbinom = {}
         background_sum_of_densities_dict = {}
         max_value = 0
         
         fixateRange = int(pArgs.fixateRange)
         for distance in pBackgroundModel:
-            
+            max_value_distance = int(pBackgroundModel[distance][2])
             if max_value < int(pBackgroundModel[distance][2]):
                 max_value = int(pBackgroundModel[distance][2])
-        
 
-            # if distance <= -fixateRange:
-            #     distance_ = -fixateRange
-            #     if max_value_fix_range_reverse and max_value_fix_range_reverse < int(pBackgroundModel[distance][2]):
-            #         max_value_fix_range_reverse = int(pBackgroundModel[distance][2])
-            #     else:
-            #         max_value_fix_range_reverse = int(pBackgroundModel[distance][2])
-            #     continue
-            # elif distance >= fixateRange:
-            #     distance_ = fixateRange
-            #     if max_value_fix_range_forward and max_value_fix_range_forward < int(pBackgroundModel[distance][2]):
-            #         max_value_fix_range_forward = int(pBackgroundModel[distance][2])
-            #     else:
-            #         max_value_fix_range_reverse = int(pBackgroundModel[distance][2])
-            #     continue
-            # else:
-            #     distance_ = distance
-            # if distance_ = distance:
-            #     continue
+            if pXfoldMaxValue is not None:
+                max_value_distance *= pXfoldMaxValue
+
             if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
                 background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
                 
-                sum_of_densities = np.zeros(int(pBackgroundModel[distance][2]))
-                for j in range(int(pBackgroundModel[distance][2])):
+                sum_of_densities = np.zeros(max_value_distance)
+                for j in range(max_value_distance):
                     if j >= 1:
                         sum_of_densities[j] += sum_of_densities[j - 1]
                     sum_of_densities[j] += background_nbinom[distance].pmf(j)
 
-                # if len(sum_of_densities) > less_than - 1:
                 background_sum_of_densities_dict[distance] = sum_of_densities
         
         
@@ -612,7 +595,6 @@ class Viewpoint():
                 sum_of_densities[j] += sum_of_densities[j - 1]
             sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
 
-        # if len(sum_of_densities) > less_than - 1:
         background_sum_of_densities_dict[fixateRange] = sum_of_densities
         background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
         
@@ -622,7 +604,6 @@ class Viewpoint():
                 sum_of_densities[j] += sum_of_densities[j - 1]
             sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
 
-        # if len(sum_of_densities) > less_than - 1:
         background_sum_of_densities_dict[-fixateRange] = sum_of_densities
 
 
@@ -659,27 +640,41 @@ class Viewpoint():
             else:
                 if i == len(key_list) - 1:
                     non_merge.append(key_suc)
-                non_merge.append(key_pre)
+                if merge_ids is not None and len(merge_ids) > 0 and merge_ids[-1][-1] != key_pre:
+                    non_merge.append(key_pre)
+                elif merge_ids is not None and len(merge_ids) == 0:
+                    non_merge.append(key_pre)
+
         scores_dict = {}
         for element in merge_ids:
+            index_middle = len(element) // 2
             base_element = pScoresDictionary[element[0]]
             values = np.array(list(map(float, base_element[-4:])))
+            log.debug('element: {} values {}'.format(element[0], values))
+
             for key in element[1:]:
                 base_element[-6] = pScoresDictionary[key][-6]
                 values += np.array(list(map(float, pScoresDictionary[key][-4:])))
-                log.debug('values {}'.format(values))
-            
+                log.debug('element: {} values {}'.format(key, values))
+            base_element = pScoresDictionary[element[index_middle]]
             base_element[-4] = values[0]
             base_element[-3] = values[1]
             base_element[-2] = values[2]
             base_element[-1] = values[3]
 
             log.debug('base_element: {}'.format(base_element))
-            scores_dict[element[0]] = base_element
+            # base_element = pScoresDictionary[element[index_middle]][:-4].append(base_element[-4:])
+            scores_dict[element[index_middle]] = base_element
+        log.debug('non_merge {}'.format(non_merge))
+        log.debug('merge_ids {}'.format(merge_ids))
+
+        # log.debug('len(unique) {}'.format(np.intersect1d(non_merge, merge_ids)))
         log.debug('len(non_merge {}'.format(len(non_merge)))
         log.debug('len(merge_ids) {}'.format(len(merge_ids)))
 
         for key in non_merge:
             scores_dict[key] = pScoresDictionary[key]
 
+        log.debug('scores_dict {}'.format(scores_dict))
         return scores_dict
+        

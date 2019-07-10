@@ -90,6 +90,12 @@ def parse_arguments(args=None):
                            default=500000,
                            type=int
                            )
+    parserOpt.add_argument('--xFoldMaxValueNB', '-xfnb',
+                           help='x-fold factor to increase the number of precomputed p-values per relative genomic distance. If set to 1, the maximal distance is used. ',
+                           required=False,
+                           default=7,
+                           type=int
+                           )
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -111,15 +117,15 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         # filter by x-fold over background value or loose p-value
         # and merge neighbors. Use center position to compute new p-value.
         if pArgs.xFoldBackground is not None:
-           data = merge_neighbors_x_fold(pArgs.xFoldBackground, data, pViewpointObj, pResolution=1000)
+           accepted_scores = merge_neighbors_x_fold(pArgs.xFoldBackground, data, pViewpointObj, pResolution=1000)
         else:
-           data = merge_neighbors_loose_p_value(pArgs.loosePValue, data, pViewpointObj, pResolution=1000)
+           accepted_scores = merge_neighbors_loose_p_value(pArgs.loosePValue, data, pViewpointObj, pResolution=1000)
         
         log.debug('data: {}'.format(len(data)))
-        log.debug('data: {}'.format(data))
+        # log.debug('data: {}'.format(data))
 
         # compute new p-values
-        compute_new_p_values(data, pBackgroundSumOfDensities)
+        accepted_scores = compute_new_p_values(accepted_scores, pBackgroundSumOfDensities, pArgs.pValue)
 
         # filter by new p-value
         if len(accepted_scores) == 0:
@@ -131,30 +137,33 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             else:
                 log.info('No target regions found')
                 # break
-        outFileName = '.'.join(interactionFile[j].split('/')[-1].split('.')[:-1]) + '_' + sample_prefix + pArgs.outFileNameSuffix
+        outFileName = '.'.join(interactionFile.split('/')[-1].split('.')[:-1]) + '_' + sample_prefix + pArgs.outFileNameSuffix
 
         if pArgs.batchMode:
             outfile_names.append(outFileName)
         outFileName = pArgs.outputFolder + '/' + outFileName
 
-        # for key in accepted_scores:
-        #     log.debug(accepted_scores[key])
-        #     exit()
-        if pArgs.mergeBins > 0:
-            merged_neighborhood = merge_neighbors(
-                accepted_scores, pArgs.mergeBins)
-            write(outFileName, data[j][0],
-                    merged_neighborhood, data[j][2])
-        else:
-            write(outFileName, data[j][0], accepted_scores, data[j][2])
+        write(outFileName, data[0], accepted_scores)
         # exit(0)
     if pQueue is None:
         return
     pQueue.put(outfile_names)
     return
 
-def compute_new_p_values():
-    pass
+def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue):
+    # log.debug('pBackgroundSumOfDensities {}'.format(pBackgroundSumOfDensities))
+    accepted = {}
+    for key in pData:
+        if int(float(pData[key][-1])) - 1 < 0:
+            pData[key][-3] = pBackgroundSumOfDensities[key][0]
+        else:
+            pData[key][-3] = 1 - pBackgroundSumOfDensities[key][int(float(pData[key][-1]))]
+        
+        if pData[key][-3] <= pPValue:
+            accepted[key] = pData[key]
+    # log.debug(pData)
+    return accepted
+    
 
 def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
     accepted = {}
@@ -174,13 +183,46 @@ def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
 
     return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
 
-def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj):
+def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolution):
     accepted = {}
-    for key in pData:
-        if pData[key][1] > pLoosePValue:
+    accepted_line = {}
+    log.debug('len(pData[1]) {}'.format(len(pData[1])))
+
+    # log.debug('pData[1] {}'.format(pData[1]))
+    for key in pData[1]:
+        # log.debug('pData[1][key] {}'.format(pData[1][key]))
+        # log.debug('pData[2][key] {}'.format(pData[2][key]))
+        
+        if pData[1][key][1] > pLoosePValue:
             continue
-        accepted[key] = pData[key]
-    return pViewpointObj.merge_neighbors(accepted)
+        accepted[key] = pData[1][key]
+        accepted_line[key] = pData[2][key]
+    log.debug('len(accepted_line) {}'.format(len(accepted_line)))
+
+    return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
+
+def write(pOutFileName, pHeader, pInteractionLines):
+
+    # sum_of_interactions = float(pHeader.split('\t')[-1].split(' ')[-1])
+    # log.debug('sum_of_interactions {}'.format(sum_of_interactions))
+    with open(pOutFileName, 'w') as file:
+        file.write(pHeader)
+        file.write(
+            '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative interactions\tp-value\tx-fold\tRaw target')
+        file.write('\n')
+        
+        
+        for data in pInteractionLines:
+            # log.debug('pInteractionLines[data] {}'.format(pInteractionLines[data]))
+            new_line = '\t'.join(pInteractionLines[data][:6])
+            # new_line += '\t' + format(float(sum_of_interactions), "10.5f")
+
+            new_line += '\t' + '\t'.join(format(float(x), "0.10f") for x in pInteractionLines[data][6:])
+            # new_line += '\t' + \
+            #     format(pNeighborhoods[data][-3], '10.5f') + \
+            #     '\t' + format(pNeighborhoods[data][-1], '10.5f')
+            new_line += '\n'
+            file.write(new_line)
 
 def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities):
     outfile_names = [None] * pArgs.threads
@@ -230,6 +272,12 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    if not os.path.exists(args.outputFolder):
+        try:
+            os.makedirs(args.outputFolder)
+        except OSError as exc:  # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
     viewpointObj = Viewpoint()
     outfile_names = []
 
@@ -241,10 +289,10 @@ def main(args=None):
     
     # log.debug('background_model {}'.format(background_model))
     # log.debug('compute sum of densities')
-    background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(background_model, args)
+    background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(background_model, args, pXfoldMaxValue=args.xFoldMaxValueNB)
     # else:
-    # background_model_mean_values = viewpointObj.readBackgroundDataFile(
-    #     args.backgroundModelFile, args.range, pMean=True)
+    background_model_mean_values = viewpointObj.readBackgroundDataFile(
+        args.backgroundModelFile, args.range, pMean=True)
         # log.debug('rbz')
     if args.batchMode:
         # log.debug('args.interactionFile {}'.format(args.interactionFile))
