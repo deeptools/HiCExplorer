@@ -176,6 +176,7 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
     # sum_of_interactions = float(pHeader.split('\t')[-1].split(' ')[-1])
     # log.debug('sum_of_interactions {}'.format(sum_of_interactions))
     with open(pOutFileName, 'w') as file:
+        file.write('# Aggregated file, created with HiCExplorer\'s chicAggregateStatistic version {}\n'.format(__version__))
         file.write(pHeader)
         file.write(
             '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRel Inter target\tRaw target')

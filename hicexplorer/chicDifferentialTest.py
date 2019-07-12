@@ -72,11 +72,14 @@ def readInteractionFile(pInteractionFile):
     data = []
 
     with open(pInteractionFile, 'r') as file:
+        file.readline()
         header = file.readline()
         sum_of_all_interactions = float(
             header.strip().split('\t')[-1].split(' ')[-1])
         header += file.readline()
         for line in file.readlines():
+            if line.startswith('#'):
+                continue
             _line = line.strip().split('\t')
             if len(_line) <= 1:
                 continue

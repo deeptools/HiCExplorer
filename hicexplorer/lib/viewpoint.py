@@ -76,6 +76,7 @@ class Viewpoint():
         z_score = {}
         interaction_file_data = {}
         with open(pBedFile) as fh:
+            fh.readline()
             header = fh.readline()
             for line in fh.readlines():
                 # Addition header information for end users
@@ -84,9 +85,9 @@ class Viewpoint():
 
                 _line = line.strip().split('\t')
                 # relative postion and relative interactions
-                interaction_data[int(_line[-4])] = float(_line[-3])
-                z_score[int(_line[-4])] = float(_line[-2])
-                interaction_file_data[int(_line[-4])] = _line
+                interaction_data[int(_line[-5])] = float(_line[-4])
+                z_score[int(_line[-5])] = float(_line[-3])
+                interaction_file_data[int(_line[-5])] = _line
         return header, interaction_data, z_score, interaction_file_data
 
     def readInteractionFileForAggregateStatistics(self, pBedFile):
@@ -108,8 +109,10 @@ class Viewpoint():
 
         interaction_file_data = {}
         with open(pBedFile) as fh:
+            fh.readline()
             header = fh.readline()
             fh.readline()
+
 
             for line in fh.readlines():
                 # Addition header information for end users
@@ -178,7 +181,7 @@ class Viewpoint():
         '''
 
         with open((pBedFile + '.bed').strip(), 'w') as fh:
-            fh.write('# {}\n'.format(pHeader))
+            fh.write('{}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
                 fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".
                          format(interaction[0], interaction[1],

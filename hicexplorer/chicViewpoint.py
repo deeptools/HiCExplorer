@@ -191,9 +191,10 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         denominator_relative_interactions_str = 'Sum of interactions in fixate range: '
         denominator_relative_interactions_str += str(
             denominator_relative_interactions)
-        header_information = '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(
+        header_information = '# Interaction file, created with HiCExplorer\'s chicViewpoint version ' + __version__ + '\n# '
+        header_information += '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(
             region_end_in_units), pGeneList[i], denominator_relative_interactions_str])
-        header_information += '\n#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n#'
+        header_information += '\n# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n#'
         matrix_name = '.'.join(pMatrix.split('/')[-1].split('.')[:-1])
         matrix_name = '_'.join([matrix_name, referencePointString, pGeneList[i]])
         file_list.append(matrix_name + '.bed')
@@ -288,7 +289,9 @@ def main(args=None):
             time.sleep(1)
         file_list_sample = [item for sublist in file_list_sample for item in sublist]
         file_list.append(file_list_sample)
+    # file_list = [item for sublist in file_list for item in sublist]
 
+    log.debug('file_list {}'.format(file_list))
     if args.writeFileNamesToFile:
         with open(args.writeFileNamesToFile, 'w') as file:
             for i, sample in enumerate(file_list):
