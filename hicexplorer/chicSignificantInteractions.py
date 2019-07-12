@@ -74,6 +74,9 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
                            help='',
                            default='significantFilesBatch.txt')
+    parserOpt.add_argument('--targetListName', '-tl',
+                           help='The name of the target list',
+                           default='targetList.bed')
     parserOpt.add_argument('--batchMode', '-bm',
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
@@ -105,6 +108,7 @@ def parse_arguments(args=None):
 
 def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities, pQueue=None):
     outfile_names = []
+    target_list = []
     for interactionFile in pInteractionFilesList:
 
         # header, 
@@ -117,15 +121,15 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         # filter by x-fold over background value or loose p-value
         # and merge neighbors. Use center position to compute new p-value.
         if pArgs.xFoldBackground is not None:
-           accepted_scores = merge_neighbors_x_fold(pArgs.xFoldBackground, data, pViewpointObj, pResolution=1000)
+           accepted_scores, merged_lines_dict = merge_neighbors_x_fold(pArgs.xFoldBackground, data, pViewpointObj, pResolution=1000)
         else:
-           accepted_scores = merge_neighbors_loose_p_value(pArgs.loosePValue, data, pViewpointObj, pResolution=1000)
+           accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(pArgs.loosePValue, data, pViewpointObj, pResolution=1000)
         
         log.debug('data: {}'.format(len(data)))
         # log.debug('data: {}'.format(data))
 
         # compute new p-values
-        accepted_scores = compute_new_p_values(accepted_scores, pBackgroundSumOfDensities, pArgs.pValue)
+        accepted_scores, target_lines = compute_new_p_values(accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict)
 
         # filter by new p-value
         if len(accepted_scores) == 0:
@@ -144,15 +148,19 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         outFileName = pArgs.outputFolder + '/' + outFileName
 
         write(outFileName, data[0], accepted_scores)
+        target_list.append(target_lines)
         # exit(0)
+    target_list = [item for sublist in target_list for item in sublist]
+    
     if pQueue is None:
-        return
-    pQueue.put(outfile_names)
+        return target_list
+    pQueue.put([outfile_names, target_list])
     return
 
-def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue):
+def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLinesDict):
     # log.debug('pBackgroundSumOfDensities {}'.format(pBackgroundSumOfDensities))
     accepted = {}
+    accepted_lines = []
     for key in pData:
         if int(float(pData[key][-1])) - 1 < 0:
             pData[key][-3] = pBackgroundSumOfDensities[key][0]
@@ -161,8 +169,12 @@ def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue):
         
         if pData[key][-3] <= pPValue:
             accepted[key] = pData[key]
+            log.debug('pMergedLinesDict[key {}'.format(pMergedLinesDict[key]))
+            for line in pMergedLinesDict[key]:
+                log.debug('line[:3] {}'.format(line[:3]))
+                accepted_lines.append(line[:3])
     # log.debug(pData)
-    return accepted
+    return accepted, accepted_lines
     
 
 def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
@@ -226,6 +238,8 @@ def write(pOutFileName, pHeader, pInteractionLines):
 
 def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities):
     outfile_names = [None] * pArgs.threads
+    target_list = [None] * pArgs.threads
+
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
     all_data_collected = False
     queue = [None] * pArgs.threads
@@ -255,7 +269,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
         for i in range(pArgs.threads):
             if queue[i] is not None and not queue[i].empty():
                 background_data_thread = queue[i].get()
-                outfile_names[i] = background_data_thread
+                outfile_names[i], target_list[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -268,7 +282,9 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
         time.sleep(1)
 
     outfile_names = [item for sublist in outfile_names for item in sublist]
-    return outfile_names
+    target_list = [item for sublist in target_list for item in sublist]
+
+    return outfile_names, target_list
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -306,7 +322,7 @@ def main(args=None):
                 if file_ != '':
                     interactionFileList.append(file_)
         
-        outfile_names = call_multi_core(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
+        outfile_names, target_list = call_multi_core(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
         
     else:
         # if len(args.interactionFile) % 2 == 0:
@@ -319,8 +335,30 @@ def main(args=None):
         #         len(args.interactionFile)))
         #     exit(1)
         # pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities,
-        outfile_names = compute_interaction_file(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
+        target_list = compute_interaction_file(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
 
     if args.batchMode:
         with open(args.writeFileNamesToFile, 'w') as nameListFile:
             nameListFile.write('\n'.join(outfile_names))
+
+    if target_list is not None:
+        with open(args.targetListName, 'w') as targetListFile:
+            header = '# Significant interactions result file of HiCExplorer\'s chicSignificantInteractions version '
+            header += str(__version__)
+            header += '\n'
+            if args.xFoldBackground:
+                header += '# Mode: x-fold background with '
+                header += str(args.xFoldBackground)
+                header += '\n'
+            else:
+                header += '# Mode: loose p-value with '
+                header += str(args.loosePValue)
+                header += '\n'
+            header += '# Used p-value: '
+            header += str(args.pValue)
+            header += '\n#\n'
+            targetListFile.write(header)
+
+            for line in target_list:
+                targetListFile.write('\t'.join(line))
+                targetListFile.write('\n')

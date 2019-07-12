@@ -646,7 +646,10 @@ class Viewpoint():
                     non_merge.append(key_pre)
 
         scores_dict = {}
+        merged_lines_dict = {}
         for element in merge_ids:
+            lines = []
+            lines.append(pScoresDictionary[element[0]])
             index_middle = len(element) // 2
             base_element = pScoresDictionary[element[0]]
             values = np.array(list(map(float, base_element[-4:])))
@@ -655,6 +658,8 @@ class Viewpoint():
             for key in element[1:]:
                 base_element[-6] = pScoresDictionary[key][-6]
                 values += np.array(list(map(float, pScoresDictionary[key][-4:])))
+                lines.append(pScoresDictionary[key])
+
                 log.debug('element: {} values {}'.format(key, values))
             base_element = pScoresDictionary[element[index_middle]]
             base_element[-4] = values[0]
@@ -665,6 +670,7 @@ class Viewpoint():
             log.debug('base_element: {}'.format(base_element))
             # base_element = pScoresDictionary[element[index_middle]][:-4].append(base_element[-4:])
             scores_dict[element[index_middle]] = base_element
+            merged_lines_dict[element[index_middle]] = lines
         log.debug('non_merge {}'.format(non_merge))
         log.debug('merge_ids {}'.format(merge_ids))
 
@@ -674,7 +680,8 @@ class Viewpoint():
 
         for key in non_merge:
             scores_dict[key] = pScoresDictionary[key]
+            merged_lines_dict[key] = [pScoresDictionary[key]]
 
         log.debug('scores_dict {}'.format(scores_dict))
-        return scores_dict
+        return scores_dict, merged_lines_dict
         
