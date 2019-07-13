@@ -182,13 +182,18 @@ def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLines
         if int(float(pData[key][-1])) - 1 < 0:
             pData[key][-3] = pBackgroundSumOfDensities[key][0]
         else:
-            pData[key][-3] = 1 - pBackgroundSumOfDensities[key][int(float(pData[key][-1]))]
-        
+            try:
+                pData[key][-3] = 1 - pBackgroundSumOfDensities[key][int(float(pData[key][-1]))]
+            except:
+                pData[key][-3] = 1 - pBackgroundSumOfDensities[key][-1]
+                log.error('Not enough p-values precomputed, using highest value instead. Please increase --xFoldMaxValueNB value. Value {}, max value {}'.format(int(float(pData[key][-1])), len(pData[key])))
+                
+                # exit(1)
         if pData[key][-3] <= pPValue:
             accepted[key] = pData[key]
-            log.debug('pMergedLinesDict[key {}'.format(pMergedLinesDict[key]))
+            # log.debug('pMergedLinesDict[key {}'.format(pMergedLinesDict[key]))
             for line in pMergedLinesDict[key]:
-                log.debug('line[:3] {}'.format(line[:3]))
+                # log.debug('line[:3] {}'.format(line[:3]))
                 accepted_lines.append(line[:3])
     # log.debug(pData)
     return accepted, accepted_lines
@@ -197,7 +202,7 @@ def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLines
 def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
     accepted = {}
     accepted_line = {}
-    log.debug('len(pData[1]) {}'.format(len(pData[1])))
+    # log.debug('len(pData[1]) {}'.format(len(pData[1])))
 
     # log.debug('pData[1] {}'.format(pData[1]))
     for key in pData[1]:
@@ -208,14 +213,14 @@ def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
             continue
         accepted[key] = pData[1][key]
         accepted_line[key] = pData[2][key]
-    log.debug('len(accepted_line) {}'.format(len(accepted_line)))
+    # log.debug('len(accepted_line) {}'.format(len(accepted_line)))
 
     return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
 
 def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolution):
     accepted = {}
     accepted_line = {}
-    log.debug('len(pData[1]) {}'.format(len(pData[1])))
+    # log.debug('len(pData[1]) {}'.format(len(pData[1])))
 
     # log.debug('pData[1] {}'.format(pData[1]))
     for key in pData[1]:
@@ -226,7 +231,7 @@ def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolutio
             continue
         accepted[key] = pData[1][key]
         accepted_line[key] = pData[2][key]
-    log.debug('len(accepted_line) {}'.format(len(accepted_line)))
+    # log.debug('len(accepted_line) {}'.format(len(accepted_line)))
 
     return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
 
