@@ -13,7 +13,9 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
+from intervaltree import IntervalTree, Interval
 import hicmatrix.HiCMatrix as hm
+
 from hicexplorer import utilities
 from hicexplorer._version import __version__
 from .lib import Viewpoint
@@ -139,32 +141,68 @@ def parse_arguments(args=None):
 #     return target_list
 
 
-def filter_scores_target_list(pScoresDictionary, pTargetRegions):
+def filter_scores_target_list(pScoresDictionary, pTargetIntervalTree):
 
     accepted_scores = {}
-    for target in pTargetRegions:
-        start = int(target[1])
-        end = int(target[2])
-        _accepted_scores = {}
-        for key in pScoresDictionary:
-            if int(pScoresDictionary[key][1]) >= start and int(pScoresDictionary[key][2]) <= end:
-                _accepted_scores[key] = pScoresDictionary[key]
-        # log.debug('_accepted_scores {}'.format(_accepted_scores))
-        if len(_accepted_scores) > 0:
+    same_target_dict = {}
+    for key in pScoresDictionary:
+        # try:
+        chromosome = pScoresDictionary[key][0]
+        start = int(pScoresDictionary[key][1])
+        end = int(pScoresDictionary[key][2])
+        # log.debug('chromsome {}, start {}, end {}'.format(chromosome, start, end))
+        target_interval = pTargetIntervalTree[chromosome][start:end]
+        if target_interval:
+            target_interval = sorted(target_interval)[0]
+            if target_interval in same_target_dict:
+                same_target_dict[target_interval].append(key)
+            else:
+                same_target_dict[target_interval] = [key]
+                # _accepted_scores[key] = pScoresDictionary[key]
+        # except:
+        #     log.error('IntervalTree query faild')
+        #     exit(1)
+    for target in same_target_dict:
 
-            values = np.array([0.0, 0.0, 0.0])
-            for key in _accepted_scores:
-                values += np.array(list(map(float,
-                                            _accepted_scores[key][-3:])))
-            keys_sorted = sorted(_accepted_scores.keys())
-            _accepted_scores[keys_sorted[0]
-                             ][-5] = _accepted_scores[keys_sorted[-1]][-5]
-            _accepted_scores[keys_sorted[0]][-3] = values[0]
-            _accepted_scores[keys_sorted[0]][-2] = values[1]
-            _accepted_scores[keys_sorted[0]][-1] = values[2]
+        values = np.array([0.0, 0.0, 0.0])
+        same_target_dict[target] = sorted(same_target_dict[target])
+        
+        for key in same_target_dict[target]:
+            values += np.array(list(map(float, pScoresDictionary[key][-3:])))
+        # keys_sorted = sorted(_accepted_scores.keys())
+        new_data_line = pScoresDictionary[same_target_dict[target][0]]
+        new_data_line[-5] = pScoresDictionary[same_target_dict[target][-1]][-5]
+        new_data_line[-3] = values[0]
+        new_data_line[-2] = values[1]
+        new_data_line[-1] = values[2]
 
-            accepted_scores[keys_sorted[0]] = _accepted_scores[keys_sorted[0]]
-    # log.debug('accepted_scores {}'.format(len(accepted_scores)))
+        accepted_scores[same_target_dict[target][0]] = new_data_line
+
+
+
+    # for target in pTargetRegions:
+    #     start = int(target[1])
+    #     end = int(target[2])
+    #     _accepted_scores = {}
+    #     for key in pScoresDictionary:
+    #         if int(pScoresDictionary[key][1]) >= start and int(pScoresDictionary[key][2]) <= end:
+    #             _accepted_scores[key] = pScoresDictionary[key]
+    #     # log.debug('_accepted_scores {}'.format(_accepted_scores))
+    #     if len(_accepted_scores) > 0:
+
+    #         values = np.array([0.0, 0.0, 0.0])
+    #         for key in _accepted_scores:
+    #             values += np.array(list(map(float,
+    #                                         _accepted_scores[key][-3:])))
+    #         keys_sorted = sorted(_accepted_scores.keys())
+    #         _accepted_scores[keys_sorted[0]
+    #                          ][-5] = _accepted_scores[keys_sorted[-1]][-5]
+    #         _accepted_scores[keys_sorted[0]][-3] = values[0]
+    #         _accepted_scores[keys_sorted[0]][-2] = values[1]
+    #         _accepted_scores[keys_sorted[0]][-1] = values[2]
+
+    #         accepted_scores[keys_sorted[0]] = _accepted_scores[keys_sorted[0]]
+    # # log.debug('accepted_scores {}'.format(len(accepted_scores)))
     return accepted_scores
 
 
@@ -196,15 +234,15 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
                 file.write(new_line)
 
 
-def run_target_list_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=None):
+def run_target_list_compilation(pInteractionFilesList, pArgs, pViewpointObj, pTargetListIntervalTree, pQueue=None):
     outfile_names = []
     for interactionFile in pInteractionFilesList:
         header, interaction_data, interaction_file_data = pViewpointObj.readInteractionFileForAggregateStatistics(
             pArgs.interactionFileFolder + '/' + interactionFile)
 
-        target_regions = utilities.readBed(pArgs.targetFile)
+        # target_regions = utilities.readBed(pArgs.targetFile)
         accepted_scores = filter_scores_target_list(
-            interaction_file_data, target_regions)
+            interaction_file_data, pTargetListIntervalTree)
 
         if len(accepted_scores) == 0:
             if pArgs.batchMode:
@@ -291,7 +329,7 @@ def run_target_list_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQu
 #     pQueue.put(outfile_names)
 #     return
 
-def call_multi_core(pInteractionFilesList, pFunctionName, pArgs, pViewpointObj):
+def call_multi_core(pInteractionFilesList, pFunctionName, pArgs, pViewpointObj, pTargetIntervalTree):
     outfile_names = [None] * pArgs.threads
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
     all_data_collected = False
@@ -311,6 +349,7 @@ def call_multi_core(pInteractionFilesList, pFunctionName, pArgs, pViewpointObj):
             pInteractionFilesList=interactionFileListThread,
             pArgs=pArgs,
             pViewpointObj=pViewpointObj,
+            pTargetListIntervalTree=pTargetIntervalTree,
             pQueue=queue[i]
         )
         )
@@ -351,6 +390,9 @@ def main(args=None):
             if exc.errno != errno.EEXIST:
                 raise
     if args.targetFile:
+        target_regions = utilities.readBed(args.targetFile)
+        hicmatrix = hm.hiCMatrix()
+        target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
         # read all interaction files.
         if args.batchMode:
             interactionFileList = []
@@ -361,10 +403,10 @@ def main(args=None):
                     if file_ != '':
                         interactionFileList.append(file_)
 
-            outfile_names = call_multi_core(interactionFileList, run_target_list_compilation, args, viewpointObj)
+            outfile_names = call_multi_core(interactionFileList, run_target_list_compilation, args, viewpointObj, target_regions_intervaltree)
         else:
             interactionFileList = args.interactionFile
-            run_target_list_compilation(interactionFileList, args, viewpointObj)
+            run_target_list_compilation(interactionFileList, args, viewpointObj, target_regions_intervaltree)
 
     # elif args.pValue:
     #     interactionFileList = []
