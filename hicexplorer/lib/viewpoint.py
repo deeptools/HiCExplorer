@@ -434,12 +434,15 @@ class Viewpoint():
         # log.debug('data {}'.format(data))
         return header, data, data_background, p_value, viewpoint_index
 
-    def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None):
+    def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHighlightSignificantRegion=None):
         data_plot_label = pAxis.plot(
             range(len(pData)), pData, '--' + pColor, alpha=0.9, label=pLabelName)
         if pHighlightRegion:
             for region in pHighlightRegion:
-                pAxis.axvspan(region[0], region[1], color='red', alpha=0.5)
+                pAxis.axvspan(region[0], region[1], color='red', alpha=0.3)
+        if pHighlightSignificantRegion:
+            for region in pHighlightSignificantRegion:
+                pAxis.axvspan(region[0], region[1], color='green', alpha=0.3)
         return data_plot_label
 
     def plotBackgroundModel(self, pAxis, pBackgroundData):
@@ -591,7 +594,7 @@ class Viewpoint():
         
         background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
         
-        log.debug('max_value {}'.format(max_value))
+        # log.debug('max_value {}'.format(max_value))
         sum_of_densities = np.zeros(max_value)
         for j in range(max_value):
             if j >= 1:
@@ -653,38 +656,40 @@ class Viewpoint():
         for element in merge_ids:
             lines = []
             lines.append(pScoresDictionary[element[0]])
-            index_middle = len(element) // 2
+            index_maximum_element = 0
             base_element = pScoresDictionary[element[0]]
             values = np.array(list(map(float, base_element[-4:])))
-            log.debug('element: {} values {}'.format(element[0], values))
-
-            for key in element[1:]:
+            # log.debug('element: {} values {}'.format(element[0], values))
+            max_value = float(base_element[-1])
+            for i, key in enumerate(element[1:]):
                 base_element[-6] = pScoresDictionary[key][-6]
                 values += np.array(list(map(float, pScoresDictionary[key][-4:])))
                 lines.append(pScoresDictionary[key])
-
-                log.debug('element: {} values {}'.format(key, values))
-            base_element = pScoresDictionary[element[index_middle]]
+                if max_value < float(pScoresDictionary[key][-1]):
+                    max_value = float(pScoresDictionary[key][-1])
+                    index_maximum_element = i + 1
+                # log.debug('element: {} values {}'.format(key, values))
+            base_element = pScoresDictionary[element[index_maximum_element]]
             base_element[-4] = values[0]
             base_element[-3] = values[1]
             base_element[-2] = values[2]
             base_element[-1] = values[3]
 
-            log.debug('base_element: {}'.format(base_element))
+            # log.debug('base_element: {}'.format(base_element))
             # base_element = pScoresDictionary[element[index_middle]][:-4].append(base_element[-4:])
-            scores_dict[element[index_middle]] = base_element
-            merged_lines_dict[element[index_middle]] = lines
-        log.debug('non_merge {}'.format(non_merge))
-        log.debug('merge_ids {}'.format(merge_ids))
+            scores_dict[element[index_maximum_element]] = base_element
+            merged_lines_dict[element[index_maximum_element]] = lines
+        # log.debug('non_merge {}'.format(non_merge))
+        # log.debug('merge_ids {}'.format(merge_ids))
 
         # log.debug('len(unique) {}'.format(np.intersect1d(non_merge, merge_ids)))
-        log.debug('len(non_merge {}'.format(len(non_merge)))
-        log.debug('len(merge_ids) {}'.format(len(merge_ids)))
+        # log.debug('len(non_merge {}'.format(len(non_merge)))
+        # log.debug('len(merge_ids) {}'.format(len(merge_ids)))
 
         for key in non_merge:
             scores_dict[key] = pScoresDictionary[key]
             merged_lines_dict[key] = [pScoresDictionary[key]]
 
-        log.debug('scores_dict {}'.format(scores_dict))
+        # log.debug('scores_dict {}'.format(scores_dict))
         return scores_dict, merged_lines_dict
         

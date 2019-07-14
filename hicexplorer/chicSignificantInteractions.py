@@ -133,7 +133,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         
         # log.debug('data: {}'.format(len(data)))
         # log.debug('data: {}'.format(data))
-
+        # log.debug('interactionfile {}'.format(interactionFile))
         # compute new p-values
         accepted_scores, target_lines = compute_new_p_values(accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict)
 
@@ -179,22 +179,27 @@ def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLines
     accepted = {}
     accepted_lines = []
     for key in pData:
-        if int(float(pData[key][-1])) - 1 < 0:
-            pData[key][-3] = pBackgroundSumOfDensities[key][0]
-        else:
-            try:
-                pData[key][-3] = 1 - pBackgroundSumOfDensities[key][int(float(pData[key][-1]))]
-            except:
-                pData[key][-3] = 1 - pBackgroundSumOfDensities[key][-1]
-                log.error('Not enough p-values precomputed, using highest value instead. Please increase --xFoldMaxValueNB value. Value {}, max value {}'.format(int(float(pData[key][-1])), len(pData[key])))
-                
-                # exit(1)
-        if pData[key][-3] <= pPValue:
-            accepted[key] = pData[key]
-            # log.debug('pMergedLinesDict[key {}'.format(pMergedLinesDict[key]))
-            for line in pMergedLinesDict[key]:
-                # log.debug('line[:3] {}'.format(line[:3]))
-                accepted_lines.append(line[:3])
+        if key in pBackgroundSumOfDensities:
+            if int(float(pData[key][-1])) - 1 < 0:
+                pData[key][-3] = pBackgroundSumOfDensities[key][0]
+            else:
+                try:
+                    if int(float(pData[key][-1])) < len(pBackgroundSumOfDensities[key]):
+                        pData[key][-3] = 1 - pBackgroundSumOfDensities[key][int(float(pData[key][-1]))]
+                    else:
+                        pData[key][-3] = 1 - pBackgroundSumOfDensities[key][-1]
+
+                except:
+                    pData[key][-3] = 1 - pBackgroundSumOfDensities[key][-1]
+                    log.error('Not enough p-values precomputed, using highest value instead. Please increase --xFoldMaxValueNB value. Value {}, max value {}'.format(int(float(pData[key][-1])), len(pData[key])))
+                    
+                    # exit(1)
+            if pData[key][-3] <= pPValue:
+                accepted[key] = pData[key]
+                # log.debug('pMergedLinesDict[key {}'.format(pMergedLinesDict[key]))
+                for line in pMergedLinesDict[key]:
+                    # log.debug('line[:3] {}'.format(line[:3]))
+                    accepted_lines.append(line[:3])
     # log.debug(pData)
     return accepted, accepted_lines
     
@@ -215,7 +220,9 @@ def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
         accepted_line[key] = pData[2][key]
     # log.debug('len(accepted_line) {}'.format(len(accepted_line)))
 
-    return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
+    if accepted_line:
+        return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
+    return accepted_line, None
 
 def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolution):
     accepted = {}
@@ -232,8 +239,9 @@ def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolutio
         accepted[key] = pData[1][key]
         accepted_line[key] = pData[2][key]
     # log.debug('len(accepted_line) {}'.format(len(accepted_line)))
-
-    return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
+    if accepted_line:
+        return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
+    return accepted_line, None
 
 def write(pOutFileName, pHeader, pInteractionLines):
 

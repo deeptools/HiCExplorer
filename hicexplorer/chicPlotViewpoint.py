@@ -61,6 +61,10 @@ def parse_arguments(args=None):
                             help='Path to the files which with the H0 rejected files to highlight the regions in the plot.',
                             required=False,
                             nargs='+')
+    parserOpt.add_argument('--significantInteractions', '-si',
+                            help='Path to the files which detected significant interactions to highlight the regions in the plot.',
+                            required=False,
+                            nargs='+')
     parserOpt.add_argument('--outputFolder', '-of',
                            help='Output folder of the files.',
                            required=False,
@@ -159,6 +163,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             if pArgs.differentialTestResult:
                 # log.debug('pArgs.binResolution {}'.format(pArgs.binResolution))
                 highlight_differential_regions = pViewpointObj.readRejectedFile(pHighlightDifferentialRegionsFileList[j], viewpoint_index, pArgs.binResolution, pArgs.range)
+            if pArgs.significantInteractions:
+                signficiant_regions = pViewpointObj.readSignificantRegionsFile()
             if data_plot_label:
                 data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
             else:
