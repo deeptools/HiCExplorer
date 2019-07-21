@@ -78,11 +78,11 @@ def parse_arguments(args=None):
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
                            action='store_true')
-    parserOpt.add_argument("--mergeBins", "-mb",
-                           type=int,
-                           default=0,
-                           help="Merge neighboring interactions to one. The value of this parameter defines the maximum distance"
-                           " a neighbor can have. The values are averaged.")
+    # parserOpt.add_argument("--mergeBins", "-mb",
+    #                        type=int,
+    #                        default=0,
+    #                        help="Merge neighboring interactions to one. The value of this parameter defines the maximum distance"
+    #                        " a neighbor can have. The values are averaged.")
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads. Using the python multiprocessing module. ',
                            required=False,
@@ -153,6 +153,9 @@ def filter_scores_target_list(pScoresDictionary, pTargetIntervalTree):
         # log.debug('chromsome {}, start {}, end {}'.format(chromosome, start, end))
         target_interval = pTargetIntervalTree[chromosome][start:end]
         if target_interval:
+            # log.debug('pScoresDictionary[key] {}'.format(pScoresDictionary[key]))
+
+            # log.debug('target_interval {}'.format(target_interval))
             target_interval = sorted(target_interval)[0]
             if target_interval in same_target_dict:
                 same_target_dict[target_interval].append(key)
@@ -171,11 +174,13 @@ def filter_scores_target_list(pScoresDictionary, pTargetIntervalTree):
             values += np.array(list(map(float, pScoresDictionary[key][-3:])))
         # keys_sorted = sorted(_accepted_scores.keys())
         new_data_line = pScoresDictionary[same_target_dict[target][0]]
+        new_data_line[2] = pScoresDictionary[same_target_dict[target][-1]][2]
         new_data_line[-5] = pScoresDictionary[same_target_dict[target][-1]][-5]
         new_data_line[-3] = values[0]
         new_data_line[-2] = values[1]
         new_data_line[-1] = values[2]
 
+        # log.debug('new_data_line {}'.format(new_data_line))
         accepted_scores[same_target_dict[target][0]] = new_data_line
 
 
@@ -217,7 +222,7 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
         file.write('# Aggregated file, created with HiCExplorer\'s chicAggregateStatistic version {}\n'.format(__version__))
         file.write(pHeader)
         file.write(
-            '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRel Inter target\tRaw target')
+            '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRaw target')
         file.write('\n')
         
         if pNeighborhoods is not None:
@@ -227,9 +232,7 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
                 # new_line += '\t' + format(float(sum_of_interactions), "10.5f")
 
                 # new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
-                new_line += '\t' + \
-                    format(pNeighborhoods[data][-3], '10.5f') + \
-                    '\t' + format(pNeighborhoods[data][-1], '10.5f')
+                new_line += '\t' +  format(pNeighborhoods[data][-1], '10.5f')
                 new_line += '\n'
                 file.write(new_line)
 
@@ -259,14 +262,14 @@ def run_target_list_compilation(pInteractionFilesList, pArgs, pViewpointObj, pTa
             outfile_names.append(outFileName)
         outFileName = pArgs.outputFolder + '/' + outFileName
 
-        if pArgs.mergeBins > 0:
-            merged_neighborhood, _ = merge_neighbors(
-                accepted_scores, pArgs.mergeBins)
-            write(outFileName, header, merged_neighborhood,
-                  interaction_file_data)
-        else:
-            write(outFileName, header, accepted_scores,
-                  interaction_file_data)
+        # if pArgs.mergeBins > 0:
+        # merged_neighborhood, _ = pViewpointObj.merge_neighbors(
+        #     accepted_scores, pArgs.mergeBins)
+        # write(outFileName, header, merged_neighborhood,
+        #         interaction_file_data)
+        # else:
+        write(outFileName, header, accepted_scores,
+                interaction_file_data)
     if pQueue is None:
         return
     pQueue.put(outfile_names)

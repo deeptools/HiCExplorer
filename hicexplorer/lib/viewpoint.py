@@ -628,7 +628,8 @@ class Viewpoint():
         return background_sum_of_densities_dict
 
     def merge_neighbors(self, pScoresDictionary, pMergeThreshold=1000):
-
+        # log.debug('calling merging of neighbors')
+        # log.debug('pScoresDictssssssssionary {}'.format(pScoresDictionary))
         if pScoresDictionary is None or len(pScoresDictionary) == 0:
             log.debug('dict is None or empty')
             return None
@@ -677,6 +678,12 @@ class Viewpoint():
 
             # log.debug('base_element: {}'.format(base_element))
             # base_element = pScoresDictionary[element[index_middle]][:-4].append(base_element[-4:])
+            # log.debug('base_element {}'.format(base_element))
+            # log.debug('element[-1] {}'.format(pScoresDictionary[element[-1]][2]))
+
+            base_element[2] = pScoresDictionary[element[-1]][2]
+            base_element[1] = pScoresDictionary[element[0]][1]
+
             scores_dict[element[index_maximum_element]] = base_element
             merged_lines_dict[element[index_maximum_element]] = lines
         # log.debug('non_merge {}'.format(non_merge))
