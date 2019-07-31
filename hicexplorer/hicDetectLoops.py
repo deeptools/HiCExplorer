@@ -51,18 +51,15 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
 
     parserOpt.add_argument('--windowSize', '-w',
                            type=int,
-                           default=10,
                            help='The window size for the neighborhood region the peak is located in. All values from this region (exclude the values from the peak '
                            ' region) are tested against the peak region for significant difference. The square will have the size of (2 * windowSize)^2 bins')
     parserOpt.add_argument('--pValuePreselection', '-pp',
                            type=float,
-                           default=0.025,
                            help='Only candidates with p-values less the given threshold will be considered as candidates. '
                                 'For each genomic distance a negative binomial distribution is fitted and for each pixel a p-value given by the cumulative density function is given. '
                                 'This does NOT influence the p-value for the neighborhood testing.')
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
-                           default=20,
                            help='The minimum number of interactions a detected peaks needs to have to be considered. The number of interactions decreases with increasing genomic distances: '
                                 ' peakInteractionsThreshold/log(genomic distance)')
     parserOpt.add_argument('--pValue', '-p',
@@ -76,7 +73,7 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            help='Maximum genomic distance of a loop, usually loops are within a distance of ~2MB.')
     parserOpt.add_argument('--minLoopDistance',
                            type=int,
-                           default=100000,
+                           default=200000,
                            help='Minimum genomic distance of a loop to be considered.')
 
     parserOpt.add_argument('--chromosomes',
@@ -482,6 +479,27 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             - pArgs: Argparser object
             - pQueue: Queue object for multiprocessing communication with parent process
     """
+    if pArgs.peakInteractionsThreshold is None:
+        max_value = np.max(pHiCMatrix.matrix.data)
+        pArgs.peakInteractionsThreshold = int(np.log2(max_value) * 2)
+        log.info('peak interactions threshold set to {}'.format(pArgs.peakInteractionsThreshold))
+    if pArgs.windowSize is None:
+        bin_size = pHiCMatrix.getBinSize() 
+        if 0 < bin_size <= 5000:
+            pArgs.windowSize = 12
+        elif 5000 < bin_size <= 10000:
+            pArgs.windowSize = 10
+        elif 10000 < bin_size <= 25000:
+            pArgs.windowSize = 8
+        elif 25000 < bin_size <= 50000:
+            pArgs.windowSize = 7
+        else:
+            pArgs.windowSize = 6
+        log.info('Setting window size to: {}'.format(pArgs.windowSize))
+    if pArgs.peakWidth is None:
+        pArgs.peakWidth = pArgs.windowSize - 4
+        log.info('Setting peak width to: {}'.format(pArgs.peakWidth))
+
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
     pHiCMatrix.matrix.eliminate_zeros()
     log.debug('candidates region {} {}'.format(
@@ -586,10 +604,15 @@ def smoothInteractionValues(pData, pWindowSize):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    log.info('peak interactions threshold set to {}'.format(args.peakInteractionsThreshold))
 
     if args.region is not None and args.chromosomes is not None:
         log.error('Please choose either --region or --chromosomes.')
         exit(1)
+    
+
+    
+
     is_cooler = check_cooler(args.matrix)
 
     if args.region:

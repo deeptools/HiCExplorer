@@ -138,10 +138,16 @@ def main(args=None):
         if loop_df is None:
             log.error('Empty loop file')
             return
+        loop_df_bedtool = BedTool.from_dataframe(loop_df)
+        loop_df = loop_df_bedtool.sort().to_dataframe(disable_auto_names=True, header=None)
+
         protein_df = readProtein(args.protein)
         if protein_df is None:
             log.error('Empty protein file')
             return
+        protein_df_bedtool = BedTool.from_dataframe(protein_df)
+        protein_df = protein_df_bedtool.sort().to_dataframe(disable_auto_names=True, header=None)
+
         protein_df_resolution = applyBinning(protein_df, args.resolution)
 
         overlap_mask_df = overlapLoop(loop_df, protein_df_resolution)
@@ -164,16 +170,4 @@ def main(args=None):
                 file.write('Total Loops: {}\n'.format(len(loop_df)))
                 file.write('Loops match protein: {}\n'.format(len(loop_df_) / len(loop_df)))
 
-        # else:
-
-        #     # print('{}'.format(loop_df[:10]))
-        #     # loop_df.to_csv(path_or_buf=args.outFileName, sep='\t', header=False, index=False)
-
-    # elif args.method == 'tads':
-    #     tad_df = readLoopFile(args.data, True)
-    #     protein_df = applyBinning(tad_df, args.resolution)
-
-    #     overlap_mask_df = overlapTAD(tad_df, protein_df)
-
-    #     if args.removeLocations:
-    #         tad_df = loop_df[overlap_mask_df]
+    
