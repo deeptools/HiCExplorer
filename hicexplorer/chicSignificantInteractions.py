@@ -79,9 +79,9 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
                            help='',
                            default='significantFilesBatch.txt')
-    parserOpt.add_argument('--targetListName', '-tl',
-                           help='The name of the target list',
-                           default='targetList.bed')
+    parserOpt.add_argument('--targetFolder', '-tl',
+                           help='The folder to store the target files.',
+                           default='targetFolder')
     parserOpt.add_argument('--batchMode', '-bm',
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
@@ -114,65 +114,74 @@ def parse_arguments(args=None):
 def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities, pQueue=None):
     outfile_names = []
     outfile_names_adjusted = []
+    target_outfile_names = []
 
-    target_list = []
     for interactionFile in pInteractionFilesList:
-
-        # header, 
-        # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
-        # interaction_file_data: 
-        data = pViewpointObj.readInteractionFileForAggregateStatistics(pArgs.interactionFileFolder + '/' + interactionFile)
-        interaction_file_data = data[2]
-        sample_prefix = interactionFile.split('/')[-1].split('_')[0]
-        
-        # filter by x-fold over background value or loose p-value
-        # and merge neighbors. Use center position to compute new p-value.
-        if pArgs.xFoldBackground is not None:
-           accepted_scores, merged_lines_dict = merge_neighbors_x_fold(pArgs.xFoldBackground, data, pViewpointObj, pResolution=1000)
-        else:
-           accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(pArgs.loosePValue, data, pViewpointObj, pResolution=1000)
-        
-        # log.debug('data: {}'.format(len(data)))
-        # log.debug('data: {}'.format(data))
-        # log.debug('interactionfile {}'.format(interactionFile))
-        # compute new p-values
-        accepted_scores, target_lines = compute_new_p_values(accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict)
-
-        # filter by new p-value
-        if len(accepted_scores) == 0:
-            if pArgs.batchMode:
-                with open('errorLog.txt', 'a+') as errorlog:
-                    errorlog.write('Failed for: {} and {}.\n'.format(
-                        interactionFile[0], interactionFile[1]))
-                    # break
+        target_list = []
+        sample_prefix = ''
+        for sample in interactionFile:
+            # header, 
+            # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
+            # interaction_file_data: 
+            data = pViewpointObj.readInteractionFileForAggregateStatistics(pArgs.interactionFileFolder + '/' + sample)
+            interaction_file_data = data[2]
+            sample_prefix += sample.split('/')[-1].split('_')[0]
+            sample_prefix += '_'
+            # filter by x-fold over background value or loose p-value
+            # and merge neighbors. Use center position to compute new p-value.
+            if pArgs.xFoldBackground is not None:
+            accepted_scores, merged_lines_dict = merge_neighbors_x_fold(pArgs.xFoldBackground, data, pViewpointObj, pResolution=1000)
             else:
-                log.info('No target regions found')
-                # break
-        outFileName = '.'.join(interactionFile.split('/')[-1].split('.')[:-1]) + '_' + sample_prefix + pArgs.outFileNameSuffix
-        outFileNameAdjusted = '.'.join(interactionFile.split('/')[-1].split('.')[:-1]) + '_' + sample_prefix + '_adjusted_' + pArgs.outFileNameSuffix
-        if pArgs.batchMode:
-            outfile_names.append(outFileName)
-            outfile_names_adjusted.append(outFileNameAdjusted)
-        outFileName = pArgs.outputFolder + '/' + outFileName
-        # outFileNameAdjusted = pArgs.interactionFileFolderOutput + '/' + outFileNameAdjusted
-        # write only significant lines to file
-        write(outFileName, data[0], accepted_scores)
-        target_list.append(target_lines)
+            accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(pArgs.loosePValue, data, pViewpointObj, pResolution=1000)
+            
+            # log.debug('data: {}'.format(len(data)))
+            # log.debug('data: {}'.format(data))
+            # log.debug('interactionfile {}'.format(interactionFile))
+            # compute new p-values
+            accepted_scores, target_lines = compute_new_p_values(accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict)
 
-        # adjust raw values for original interaction data
-        # for key in accepted_scores:
-        #     if key in interaction_file_data and key in accepted_scores:
-        #         interaction_file_data[key] = accepted_scores[key]
-        # # log.debug('interaction_file_data {}'.format(interaction_file_data))
-        # header = '# Adjusted interaction file, created with HiCExplorer\'s chicSignificantInteractions version ' + __version__ + '\n' + data[0]
-        # write(outFileNameAdjusted, header, interaction_file_data)
-        
-        # exit(0)
-    target_list = [item for sublist in target_list for item in sublist]
-    
+            # filter by new p-value
+            if len(accepted_scores) == 0:
+                if pArgs.batchMode:
+                    with open('errorLog.txt', 'a+') as errorlog:
+                        errorlog.write('Failed for: {} and {}.\n'.format(
+                            interactionFile[0], interactionFile[1]))
+                        # break
+                else:
+                    log.info('No target regions found')
+                    # break
+            outFileName = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' +  pArgs.outFileNameSuffix
+            # outFileNameAdjusted = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' + '_adjusted_' + pArgs.outFileNameSuffix
+            if pArgs.batchMode:
+                outfile_names.append(outFileName)
+                # outfile_names_adjusted.append(outFileNameAdjusted)
+            outFileName = pArgs.outputFolder + '/' + outFileName
+            # outFileNameAdjusted = pArgs.interactionFileFolderOutput + '/' + outFileNameAdjusted
+            # write only significant lines to file
+            write(outFileName, data[0], accepted_scores)
+            target_list.append(target_lines)
+
+            # adjust raw values for original interaction data
+            # for key in accepted_scores:
+            #     if key in interaction_file_data and key in accepted_scores:
+            #         interaction_file_data[key] = accepted_scores[key]
+            # # log.debug('interaction_file_data {}'.format(interaction_file_data))
+            # header = '# Adjusted interaction file, created with HiCExplorer\'s chicSignificantInteractions version ' + __version__ + '\n' + data[0]
+            # write(outFileNameAdjusted, header, interaction_file_data)
+            
+            # exit(0)
+            # write target list 
+            interactionFile.split('/')[-1].split('_')[0]
+
+        target_list = [item for sublist in target_list for item in sublist]
+        sample_name = interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:]
+        target_name = sample_prefix + sample_name + '_target.bed'
+        target_outfile_names.append(target_name)
+        target_name = pArgs.targetFolder + target_name
+        writeTargetList(target_list, target_name)
     if pQueue is None:
-        return target_list
-    pQueue.put([outfile_names, target_list])
+        return target_outfile_names
+    pQueue.put([outfile_names, target_outfile_names])
     return
 
 def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLinesDict):
@@ -277,7 +286,7 @@ def write(pOutFileName, pHeader, pInteractionLines):
 
 def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities):
     outfile_names = [None] * pArgs.threads
-    target_list = [None] * pArgs.threads
+    target_list_name = [None] * pArgs.threads
     outfile_names_adjusted = [None] * pArgs.threads
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
     all_data_collected = False
@@ -308,7 +317,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
         for i in range(pArgs.threads):
             if queue[i] is not None and not queue[i].empty():
                 background_data_thread = queue[i].get()
-                outfile_names[i], target_list[i] = background_data_thread
+                outfile_names[i], target_list_name[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -321,11 +330,40 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
         time.sleep(1)
 
     outfile_names = [item for sublist in outfile_names for item in sublist]
-    target_list = [item for sublist in target_list for item in sublist]
+    target_list_name = [item for sublist in target_list_name for item in sublist]
     # outfile_names_adjusted = [item for sublist in outfile_names_adjusted for item in sublist]
 
 
-    return outfile_names, target_list
+    return outfile_names, target_list_name
+
+def writeTargetList(pTargetList, pOutFileName):
+    # remove duplicates
+    target_list_ = []
+    for line in pTargetList:
+        target_list_.append('\t'.join(line))
+    target_set = set(target_list_)
+    pTargetList = sorted(list(target_set))
+
+    a = pybedtools.BedTool(pTargetList)
+    # log.debug('target_list {}'.format(target_list))
+    # with open(args.targetListName, 'w') as targetListFile:
+    header = '# Significant interactions result file of HiCExplorer\'s chicSignificantInteractions version '
+    header += str(__version__)
+    header += '\n'
+    header += '# {}\n'.format(pOutFileName)
+
+    if args.xFoldBackground:
+        header += '# Mode: x-fold background with '
+        header += str(args.xFoldBackground)
+        header += '\n'
+    else:
+        header += '# Mode: loose p-value with '
+        header += str(args.loosePValue)
+        header += '\n'
+    header += '# Used p-value: '
+    header += str(args.pValue)
+    header += '\n#\n'
+    a.sort().merge(d=1000).saveas(pOutFileName, trackline=header)
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -362,65 +400,40 @@ def main(args=None):
     if args.batchMode:
         # log.debug('args.interactionFile {}'.format(args.interactionFile))
         with open(args.interactionFile[0], 'r') as interactionFile:
-
             file_ = True
             while file_:
                 # for line in fh.readlines():
                 file_ = interactionFile.readline().strip()
-                # file2_ = interactionFile.readline().strip()
-                if file_ != '':
-                    interactionFileList.append(file_)
+                file2_ = interactionFile.readline().strip()
+                if file_ != '' and file2_ != '':
+                    interactionFileList.append((file_, file2_))
         
-        outfile_names, target_list = call_multi_core(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
+        outfile_names, target_list_name = call_multi_core(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
         
     else:
         # if len(args.interactionFile) % 2 == 0:
         i = 0
         while i < len(args.interactionFile):
-            interactionFileList.append(args.interactionFile[i])
+            interactionFileList.append([args.interactionFile[i]])
             i += 1
         # else:
         #     log.error('Number of interaction files needs to be even: {}'.format(
         #         len(args.interactionFile)))
         #     exit(1)
         # pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities,
-        target_list = compute_interaction_file(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
+        target_list_name = compute_interaction_file(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
 
 
     if args.batchMode:
         with open(args.writeFileNamesToFile, 'w') as nameListFile:
             nameListFile.write('\n'.join(outfile_names))
         
-        # with open(args.writeFileNamesToFile + '_adjusted', 'w') as adjustedFile:
-        #     adjustedFile.write('\n'.join(outfile_names_adjusted))
+        with open(args.targetFolder, 'w') as targetNamesFile:
+            targetNamesFile.write('\n'.join(target_list_name))
 
-    if target_list is not None:
+    # if target_list_name is not None:
 
-        # remove duplicates
-        target_list_ = []
-        for line in target_list:
-            target_list_.append('\t'.join(line))
-        target_set = set(target_list_)
-        target_list = sorted(list(target_set))
-
-        a = pybedtools.BedTool(target_list)
-        # log.debug('target_list {}'.format(target_list))
-        # with open(args.targetListName, 'w') as targetListFile:
-        header = '# Significant interactions result file of HiCExplorer\'s chicSignificantInteractions version '
-        header += str(__version__)
-        header += '\n'
-        if args.xFoldBackground:
-            header += '# Mode: x-fold background with '
-            header += str(args.xFoldBackground)
-            header += '\n'
-        else:
-            header += '# Mode: loose p-value with '
-            header += str(args.loosePValue)
-            header += '\n'
-        header += '# Used p-value: '
-        header += str(args.pValue)
-        header += '\n#\n'
-        a.sort().merge(d=1000).saveas(args.targetListName, trackline=header)
+        
 
             # targetListFile.write(header)
 
