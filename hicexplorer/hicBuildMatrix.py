@@ -270,6 +270,12 @@ def parse_arguments(args=None):
                            'duplication rates etc.',
                            action='store_true'
                            )
+    parserOpt.add_argument('--doTestRunLines',
+                           help='Number of lines to consider for the qc test run.',
+                           required=False,
+                           default=1000000,
+                           type=int
+                           )
 
     parserOpt.add_argument('--skipDuplicationCheck',
                            help='Identification of duplicated read pairs is '
@@ -1071,10 +1077,10 @@ def main(args=None):
 
     args.samFiles[0].close()
     args.samFiles[1].close()
-
-    if args.outBam:
-        args.outBam.close()
-        out_bam_file = pysam.Samfile(args.outBam.name, 'wb', template=str1)
+    if not args.doTestRun:
+        if args.outBam:
+            args.outBam.close()
+            out_bam_file = pysam.Samfile(args.outBam.name, 'wb', template=str1)
 
     chrom_sizes = get_chrom_sizes(str1)
 
@@ -1195,6 +1201,9 @@ def main(args=None):
     count_output = 0
     count_call_of_read_input = 0
     computed_pairs = 0
+
+    if args.doTestRun:
+        args.inputBufferSize = args.doTestRunLines
 
     while not all_data_processed or not all_threads_done:
 
@@ -1322,7 +1331,7 @@ def main(args=None):
                                                 iter_num / elapsed_time))
                     log.info("{} ({:.2f}%) valid pairs added to matrix"
                              "\n".format(pair_added, float(100 * pair_added) / iter_num))
-                if args.doTestRun and iter_num > 1e5:
+                if args.doTestRun and iter_num > args.doTestRunLines:
                     log.debug(
                         "\n## *WARNING*. Early exit because of --doTestRun parameter  ##\n\n")
                     all_data_processed = True
@@ -1339,35 +1348,36 @@ def main(args=None):
                 if not thread:
                     all_threads_done = False
 
-    # the resulting matrix is only filled unevenly with some pairs
-    # int the upper triangle and others in the lower triangle. To construct
-    # the definite matrix I add the values from the upper and lower triangles
-    # and subtract the diagonal to avoid double counting it.
-    # The resulting matrix is symmetric.
-    if args.outBam:
-        out_bam_file.close()
+    if not args.doTestRun:
+        # the resulting matrix is only filled unevenly with some pairs
+        # int the upper triangle and others in the lower triangle. To construct
+        # the definite matrix I add the values from the upper and lower triangles
+        # and subtract the diagonal to avoid double counting it.
+        # The resulting matrix is symmetric.
+        if args.outBam:
+            out_bam_file.close()
 
-    dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
-    hic_matrix = hic_matrix + hic_matrix.T - dia
-    # extend bins such that they are next to each other
-    bin_intervals = enlarge_bins(bin_intervals[:], chrom_sizes)
-    # compute max bin coverage
-    bin_max = []
+        dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
+        hic_matrix = hic_matrix + hic_matrix.T - dia
+        # extend bins such that they are next to each other
+        bin_intervals = enlarge_bins(bin_intervals[:], chrom_sizes)
+        # compute max bin coverage
+        bin_max = []
 
-    for cover in pos_coverage:
-        max_element = 0
-        for i in range(cover.begin, cover.end, 1):
-            if coverage[i] > max_element:
-                max_element = coverage[i]
-        if max_element == 0:
-            bin_max.append(np.nan)
-        else:
-            bin_max.append(max_element)
+        for cover in pos_coverage:
+            max_element = 0
+            for i in range(cover.begin, cover.end, 1):
+                if coverage[i] > max_element:
+                    max_element = coverage[i]
+            if max_element == 0:
+                bin_max.append(np.nan)
+            else:
+                bin_max.append(max_element)
 
-    chr_name_list, start_list, end_list = list(zip(*bin_intervals))
-    bin_intervals = list(zip(chr_name_list, start_list, end_list, bin_max))
-    hic_ma = hm.hiCMatrix()
-    hic_ma.setMatrix(hic_matrix, cut_intervals=bin_intervals)
+        chr_name_list, start_list, end_list = list(zip(*bin_intervals))
+        bin_intervals = list(zip(chr_name_list, start_list, end_list, bin_max))
+        hic_ma = hm.hiCMatrix()
+        hic_ma.setMatrix(hic_matrix, cut_intervals=bin_intervals)
 
     """
     if args.restrictionCutFile:
@@ -1501,7 +1511,8 @@ Max library insert size\t{}\t\t
             matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(resolution), pSymmetric=True, pApplyCorrection=False)
 
     else:
-        hic_ma.save(args.outFileName.name, pHiCInfo=hic_metadata)
+        if not args.doTestRun:
+            hic_ma.save(args.outFileName.name, pHiCInfo=hic_metadata)
 
 
 class Tester(object):
