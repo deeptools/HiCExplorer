@@ -42,7 +42,6 @@ class Viewpoint():
                     continue
                 if len(_line) == 3:
                     chrom, start, end = _line[0], _line[1], _line[1]
-                    # log.debug('_line: {}'.format(_line))
                     if pGene:
                         gene_list.append(_line[2])
 
@@ -105,14 +104,11 @@ class Viewpoint():
         '''
         # use header info to store reference point, and based matrix
         interaction_data = {}
-        # z_score = {}
-
         interaction_file_data = {}
         with open(pBedFile) as fh:
             fh.readline()
             header = fh.readline()
             fh.readline()
-
 
             for line in fh.readlines():
                 # Addition header information for end users
@@ -124,7 +120,6 @@ class Viewpoint():
                 # relative postion and relative interactions
                 interaction_data[int(
                     _line[-5])] = np.array([float(_line[-4]), float(_line[-3]), float(_line[-1]), float(_line[-2])])
-                # z_score[int(_line[-4])] = float(_line[-2])
                 interaction_file_data[int(_line[-5])] = _line
         return header, interaction_data, interaction_file_data
 
@@ -144,13 +139,6 @@ class Viewpoint():
                 else:
                     distance[int(_line[0])] = [float(_line[-1])]
 
-                # if pRaw:
-                #     distance[int(_line[0])] = [
-                #         float(_line[3]), float(_line[4])]
-            
-                # distance[int(_line[0])] = [
-                #     float(_line[1]), float(_line[2]), float(_line[3])]
-
         max_key = max(distance)
         min_key = min(distance)
         keys = list(distance.keys())
@@ -159,16 +147,12 @@ class Viewpoint():
             i = max_key
             while i < pRange[1]:
                 i += inc
-                # log.debug('i {}'.format(i))
                 distance[i] = distance[max_key]
 
-        # log.debug('min_key {} pRange[0] {}'.format(min_key , pRange[0]))
         if min_key > -pRange[0]:
             i = min_key
             while i > -pRange[0]:
                 i -= inc
-                # log.debug('i {}'.format(i))
-
                 distance[i] = distance[min_key]
         return distance
 
@@ -270,10 +254,6 @@ class Viewpoint():
                 interactions_list.append((chrom_second, start_second, end_second, pGene, str(
                     pSumOfInteractions), relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
             except Exception:
-                # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
-                # log.debug('len(itneraction_position) {}'.format(len(interaction_positions)))
-
-                # log.debug('chrom {}, start {}, end {}, pGene {}, chrom_second {}, start_second {}, end_second {}, relative_position {}'.format(chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position))
                 log.error('Failed to get bin position of index {}'.format(idx))
                 exit(1)
         return interactions_list
@@ -350,8 +330,6 @@ class Viewpoint():
         '''
         This function computes the correct start and end position of a viewpoint given the viewpoint and the range.
         '''
-        # log.debug('pViewpoint {}'.format(pViewpoint))
-        # log.debug('pRange {}'.format(pRange))
 
         max_length = self.hicMatrix.getBinPos(
             self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
@@ -368,14 +346,12 @@ class Viewpoint():
             # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
             region_end = max_length - 1
             _range[1] = (max_length - int(pViewpoint[2])) + bin_size
-        # log.debug()
         return region_start, region_end, _range
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
         header, interaction_data, p_value_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
         matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
         
-        # log.debug('z_score_data {}'.format(z_score_data))
         data = []
         p_value = []
         data_background = None
@@ -412,18 +388,9 @@ class Viewpoint():
                         p_value.append(p_value_data[key])
 
                     data_background.append(pBackgroundModel[key][0])
-                    # data_background_mean.append(pBackgroundModel[key][1])
-
-                    # if key in _interaction_file_data_raw:
-                    #     line_data_raw = _interaction_file_data_raw[key]
-                    #     line_data_raw.append(pBackgroundModel[key][0])
-                    #     line_data_raw.append(pBackgroundModel[key][1])
-
-                    #     interaction_file_data_raw[key] = line_data_raw
 
         else:
             data = []
-            # log.debug('interaction_data {}'.format(interaction_data))
             interaction_key = sorted(interaction_data)
             for key in interaction_key:
                 data.append(interaction_data[key])
@@ -431,7 +398,6 @@ class Viewpoint():
                     p_value.append(p_value_data[key])
             viewpoint_index = interaction_key.index(0)
 
-        # log.debug('data {}'.format(data))
         return header, data, data_background, p_value, viewpoint_index
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHighlightSignificantRegion=None):
@@ -447,10 +413,7 @@ class Viewpoint():
 
     def plotBackgroundModel(self, pAxis, pBackgroundData):
         pBackgroundData = np.array(pBackgroundData)
-        # pBackgroundDataMean = np.array(pBackgroundDataMean)
         data_plot_label = pAxis.plot(range(len(pBackgroundData)), pBackgroundData, '--r', alpha=0.5, label='background model')
-        # pAxis.fill_between(range(len(pBackgroundData)), pBackgroundData + pBackgroundDataMean,
-        #                    pBackgroundData - pBackgroundDataMean, facecolor='red', alpha=0.3)
         return data_plot_label
 
     def plotPValue(self, pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure):
@@ -502,9 +465,6 @@ class Viewpoint():
         for key in background_data_keys_sorted:
             if key >= -pRange[0] and key <= pRange[1]:
                 background_model.append(pBackground[key])
-            # elif:
-                
-                # log.debug('key background {}'.format(key))
         return np.array(background_model)
 
     def rbz_score(self, pRelativeInteractions, pBackgroundModel, pBackgroundModelSEM):
@@ -594,7 +554,6 @@ class Viewpoint():
         
         background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
         
-        # log.debug('max_value {}'.format(max_value))
         sum_of_densities = np.zeros(max_value)
         for j in range(max_value):
             if j >= 1:
@@ -628,8 +587,6 @@ class Viewpoint():
         return background_sum_of_densities_dict
 
     def merge_neighbors(self, pScoresDictionary, pMergeThreshold=1000):
-        # log.debug('calling merging of neighbors')
-        # log.debug('pScoresDictssssssssionary {}'.format(pScoresDictionary))
         if pScoresDictionary is None or len(pScoresDictionary) == 0:
             log.debug('dict is None or empty')
             return None
@@ -660,7 +617,6 @@ class Viewpoint():
             index_maximum_element = 0
             base_element = pScoresDictionary[element[0]]
             values = np.array(list(map(float, base_element[-4:])))
-            # log.debug('element: {} values {}'.format(element[0], values))
             max_value = float(base_element[-1])
             for i, key in enumerate(element[1:]):
                 base_element[-6] = pScoresDictionary[key][-6]
@@ -669,34 +625,21 @@ class Viewpoint():
                 if max_value < float(pScoresDictionary[key][-1]):
                     max_value = float(pScoresDictionary[key][-1])
                     index_maximum_element = i + 1
-                # log.debug('element: {} values {}'.format(key, values))
             base_element = pScoresDictionary[element[index_maximum_element]]
             base_element[-4] = values[0]
             base_element[-3] = values[1]
             base_element[-2] = values[2]
             base_element[-1] = values[3]
 
-            # log.debug('base_element: {}'.format(base_element))
-            # base_element = pScoresDictionary[element[index_middle]][:-4].append(base_element[-4:])
-            # log.debug('base_element {}'.format(base_element))
-            # log.debug('element[-1] {}'.format(pScoresDictionary[element[-1]][2]))
-
             base_element[2] = pScoresDictionary[element[-1]][2]
             base_element[1] = pScoresDictionary[element[0]][1]
 
             scores_dict[element[index_maximum_element]] = base_element
             merged_lines_dict[element[index_maximum_element]] = lines
-        # log.debug('non_merge {}'.format(non_merge))
-        # log.debug('merge_ids {}'.format(merge_ids))
-
-        # log.debug('len(unique) {}'.format(np.intersect1d(non_merge, merge_ids)))
-        # log.debug('len(non_merge {}'.format(len(non_merge)))
-        # log.debug('len(merge_ids) {}'.format(len(merge_ids)))
 
         for key in non_merge:
             scores_dict[key] = pScoresDictionary[key]
             merged_lines_dict[key] = [pScoresDictionary[key]]
 
-        # log.debug('scores_dict {}'.format(scores_dict))
         return scores_dict, merged_lines_dict
         

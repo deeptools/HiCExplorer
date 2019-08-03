@@ -30,9 +30,7 @@ def parse_arguments(args=None):
                                 required=True,
                                 nargs='+')
 
-    # parserRequired.add_argument('--outFileName', '-o',
-    #                             help='File name to save the image.',
-    #                             required=True)
+  
     parserRequired.add_argument('--range',
                                 help='Defines the region upstream and downstream of a reference point which should be included. '
                                 'Format is --region upstream downstream',
@@ -40,14 +38,7 @@ def parse_arguments(args=None):
                                 type=int,
                                 default=[500000, 500000],
                                 nargs=2)
-    # parserRequired.add_argument('--outFileName', '-o',
-    #                             help='File name to save the image. Is not used in batch mode.')
-    # parserRequired.add_argument('--range',
-    #                        help='Defines the region upstream and downstream of a reference point which should be included. '
-    #                        'Format is --region upstream downstream',
-    #                        required=True,
-    #                        type=int,
-    #                        nargs=2)
+  
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
@@ -149,19 +140,16 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
         background_plot = True
         data_plot_label = None
         for i, interactionFile_ in enumerate(interactionFile):
-            # log.debug('interactionFile_ {}'.format(interactionFile_))
             header, data, background_data_plot, p_values, viewpoint_index = pViewpointObj.getDataForPlotting(pArgs.interactionFileFolder + '/' + interactionFile_, pArgs.range, pBackgroundData)
             if len(data) <= 1 or len(p_values) <= 1:
                 log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
                 continue
             matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
             matrix_name = matrix_name[1:].split('.')[0]
-            # if number_of_data_points < len(data):
             number_of_data_points = len(data)
             highlight_differential_regions = None
             
             if pArgs.differentialTestResult:
-                # log.debug('pArgs.binResolution {}'.format(pArgs.binResolution))
                 highlight_differential_regions = pViewpointObj.readRejectedFile(pHighlightDifferentialRegionsFileList[j], viewpoint_index, pArgs.binResolution, pArgs.range)
             if pArgs.significantInteractions:
                 signficiant_regions = pViewpointObj.readSignificantRegionsFile()
@@ -185,7 +173,6 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             elif pArgs.pValue == 'integrated':
                 data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=p_values, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' p-value')
 
-            # pViewpointObj.writePlotData(interaction_file_data_raw, matrix_name + '_' + gene + '_raw_plot', pArgs.backgroundModelFile)
 
         if data_plot_label is not None:
 
@@ -197,7 +184,6 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             x_labels.append('viewpoint')
             x_labels_ = [str(j // 1000) + 'kb' for j in range(value_range, pArgs.range[1] + 1, value_range)]
             x_labels.extend(x_labels_)
-            # ax.set
             ax1.set_ylabel('Number of interactions')
             ax1.set_xticks(ticks)
             ax1.set_xticklabels(x_labels)
@@ -245,7 +231,6 @@ def main(args=None):
 
             file_ = True
             while file_:
-            # for line in fh.readlines():
                 file_ = interactionFile.readline().strip()
                 file2_ = interactionFile.readline().strip()
                 if file_ != '' and file2_ != '':
@@ -255,9 +240,7 @@ def main(args=None):
 
                 file_ = True
                 while file_:
-                # for line in fh.readlines():
                     file_ = differentialTestFile.readline().strip()
-                    # file2_ = differentialTestFile.readline().strip()
                     if file_ != '':
                         highlightDifferentialRegionsFileList.append(file_)
 
@@ -266,10 +249,8 @@ def main(args=None):
         queue = [None] * args.threads
         process = [None] * args.threads
         thread_done = [False] * args.threads
-        # log.debug('matrix read, starting processing')
         log.debug('len(interactionFileList) {}'.format(len(interactionFileList)))
         log.debug('len(highlightDifferentialRegionsFileList) {}'.format(len(highlightDifferentialRegionsFileList)))
-        # exit()
 
         for i in range(args.threads):
 
@@ -311,7 +292,6 @@ def main(args=None):
     else:
         interactionFileList = [args.interactionFile]
         highlightDifferentialRegionsFileList = args.differentialTestResult
-        # plot_images(interactionFileList, highlightDifferentialRegionsFileList, args)
     
         plot_images(pInteractionFileList=interactionFileList,
                 pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileList,

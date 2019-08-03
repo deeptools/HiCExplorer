@@ -55,10 +55,7 @@ def parse_arguments(args=None):
                            default=5)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
                            help='')
-    # parserOpt.add_argument('--useRawBackground', '-raw',
-    #                        help='Use the raw background instead of a smoothed one.',
-    #                        required=False,
-    #                        action='store_true')
+   
     parserOpt.add_argument('--fixateRange', '-fs',
                            help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
                            required=False,
@@ -111,9 +108,6 @@ def compute_x_fold(pDataList, pBackgroundList):
     return pDataList / pBackgroundList
 
 def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions, pOutputFolder):
-    # import json
-    # with open('backgroundmodel_after_load.txt', 'w') as file:
-    #     file.write(json.dumps(pBackgroundModel))
     file_list = []
 
     for i, referencePoint in enumerate(pReferencePoints):
@@ -134,15 +128,10 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             referencePoint, referencePoint[0], region_start, region_end)
 
         # background uses fixed range, handles fixate range implicitly by same range used in background computation
-        # log.debug('_range {}'.format(_range))
 
         _backgroundModelNBinom = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
         
         background_relative_interaction = pViewpointObj.interactionBackgroundData(pBackgroundModelRelativeInteractions, _range).flatten()
-        # log.debug('pBackgroundModel {}'.format(background_relative_interaction))
-        # log.debug('len(_backgroundModelNBinom) {}'.format(len(_backgroundModelNBinom)))
-        # log.debug('len(data_list) {}'.format(len(data_list)))
-        # log.debug('_backgroundModelNBinom {}'.format(_backgroundModelNBinom))
 
         data_list_relative = data_list
         if len(data_list) != len(_backgroundModelNBinom):
@@ -158,9 +147,6 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             data_list = pViewpointObj.smoothInteractionValues(
                 data_list, pArgs.averageContactBin)
 
-        # log.debug('len(_backgroundModelNBinom) {}'.format(len(_backgroundModelNBinom)))
-        # log.debug('len(data_list) {}'.format(len(data_list)))
-
         data_list_raw = np.copy(data_list)
 
         data_list = pViewpointObj.computeRelativeValues(
@@ -168,12 +154,6 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
 
         x_fold_list = compute_x_fold(data_list, background_relative_interaction)
         p_value_list = pViewpointObj.pvalues(_backgroundModelNBinom, data_list_raw)
-        # log.debug('p_value_list {}'.format(p_value_list))
-        # log.debug('len(p_value_list) {}'.format(len(p_value_list)))
-        # log.debug('len(data_list) {}'.format(len(data_list)))
-
-        # rbz_score_data = pViewpointObj.rbz_score(
-        #     data_list, _backgroundModelData, _backgroundModelSEM)
 
         # add values if range is larger than fixate range
 
@@ -200,7 +180,6 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         file_list.append(matrix_name + '.bed')
 
         matrix_name = pOutputFolder + '/' + matrix_name
-        # file_list.append(matrix_name + '.bed')
         pViewpointObj.writeInteractionFile(
             matrix_name, interaction_data, header_information, p_value_list, x_fold_list)
 
@@ -223,14 +202,8 @@ def main(args=None):
         args.backgroundModelFile, args.range)
     background_model_mean_values = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range, pMean=True)
-    # log.debug('background_model {}'.format(background_model))
-    # log.debug('compute sum of densities')
     background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(background_model, args)
-    # for key in background_sum_of_densities_dict:
-    #     log.debug('key {} length {}'.format(key, len(background_sum_of_densities_dict[key])))
-    # log.debug('compute sum of densities...DONE')
-    # exit()
-    # log.debug('background_sum_of_densities_dict {}'.format(background_sum_of_densities_dict))
+
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
@@ -266,7 +239,6 @@ def main(args=None):
                 pBackgroundModel=background_sum_of_densities_dict,
                 pBackgroundModelRelativeInteractions=background_model_mean_values,
                 pOutputFolder=args.outputFolder
-                # pSumOfDensities=
             )
             )
 
@@ -289,17 +261,12 @@ def main(args=None):
             time.sleep(1)
         file_list_sample = [item for sublist in file_list_sample for item in sublist]
         file_list.append(file_list_sample)
-    # file_list = [item for sublist in file_list for item in sublist]
 
     log.debug('file_list {}'.format(file_list))
     if args.writeFileNamesToFile:
         with open(args.writeFileNamesToFile, 'w') as file:
             for i, sample in enumerate(file_list):
-
                 for sample2 in file_list[i+1:]:
-                    # log.debug('sample {}'.format(sample))
-
                     for viewpoint, viewpoint2 in zip(sample, sample2):
-                        # log.debug('viewpoint {}'.format(viewpoint))
                         file.write(viewpoint + '\n')
                         file.write(viewpoint2 + '\n')

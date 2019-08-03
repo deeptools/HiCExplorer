@@ -128,7 +128,6 @@ def main():
         bin_size = hic_ma.getBinSize()
         all_data_collected = False
         thread_done = [False] * args.threads
-        log.debug('matrix read, starting processing')
         for i in range(args.threads):
 
             if i < args.threads - 1:
@@ -199,7 +198,6 @@ def main():
         file.write('Relative position\tsize nbinom\tprob nbinom\tmax value\tmean value\n')
         
         for relative_position in relative_positions:
-            # if lower_limit_range <= relative_position and relative_position <= upper_limit_range:
             relative_position_in_genomic_scale = relative_position * bin_size
             file.write("{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, nbinom_parameters[relative_position]['size'],
                                                        nbinom_parameters[relative_position]['prob'], max_value[relative_position], mean_value[relative_position]))

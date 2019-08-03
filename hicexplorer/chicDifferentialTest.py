@@ -230,15 +230,8 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
 
         write_out_lines_rejected = []
         for result in rejected:
-            # log.debug('result[1] {}'.format(result[1]))
             write_out_lines_rejected.append(
                 [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
-
-        # header_new = interactionFile[0]
-        # header_new += ' '
-        # header_new += interactionFile[1]
-
-        
 
         writeResult(outFileName, write_out_lines, header1, header2,
                     pArgs.alpha, pArgs.statisticTest)
@@ -288,7 +281,6 @@ def main(args=None):
         queue = [None] * args.threads
         process = [None] * args.threads
         thread_done = [False] * args.threads
-        # log.debug('matrix read, starting processing')
         length_of_threads = 0
         for i in range(args.threads):
 
@@ -331,5 +323,4 @@ def main(args=None):
         log.debug('rejected_file_names II {}'.format(len(rejected_file_names)))
 
         with open(args.rejectedFileNamesToFile, 'w') as nameListFile:
-            # for thread_data in rejected_file_names:
                 nameListFile.write('\n'.join(rejected_file_names))

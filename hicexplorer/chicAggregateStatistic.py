@@ -32,35 +32,12 @@ def parse_arguments(args=None):
                                 required=True,
                                 nargs='+')
 
-    # parserMutuallyExclusiveGroup = parser.add_mutually_exclusive_group(
-    #     required=True)
-    # parserMutuallyExclusiveGroup.add_argument('--targetFile', '-tf',
-    #                                           help='path to the target files which contains the target regions to prepare data for differential analysis.'
-    #                                           )
-    # parserMutuallyExclusiveGroup.add_argument('--pValue', '-p',
-    #                                           help='p-value threshold value to filter target regions to include them for differential analysis.',
-    #                                           type=float)
-    # parserMutuallyExclusiveGroupFilter = parser.add_mutually_exclusive_group(
-    #     required=True)
-    # parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
-    #                                           help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
-    #                                                 'less significant interactions to one peak with high significance. Used only for pValue option.',
-    #                                           type=float
-    #                                           )
-    # parserMutuallyExclusiveGroupFilter.add_argument('--loosePValue', '-lp',
-    #                                           help='loose p-value threshold value to filter target regions in a first round. '
-    #                                                 'Used to merge neighboring bins with a broader peak but less significant interactions to one peak with high significance.'
-    #                                                 ' Used only for pValue option.',
-    #                                           type=float)
     parserRequired.add_argument('--targetFile', '-tf',
                                 help='path to the target files which contains the target regions to prepare data for differential analysis.'
                                 )
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
-    # parserOpt.add_argument('--xFoldBackground', '-xf',
-    #                         help='Filter x-fold over background. Used only for pValue option.',
-    #                         type=float)
     parserOpt.add_argument('--outFileNameSuffix', '-suffix',
                            help='File name suffix to save the result.',
                            required=False,
@@ -85,26 +62,13 @@ def parse_arguments(args=None):
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
                            action='store_true')
-    # parserOpt.add_argument("--mergeBins", "-mb",
-    #                        type=int,
-    #                        default=0,
-    #                        help="Merge neighboring interactions to one. The value of this parameter defines the maximum distance"
-    #                        " a neighbor can have. The values are averaged.")
-    parserOpt.add_argument('--threads', '-t',
+  parserOpt.add_argument('--threads', '-t',
                            help='Number of threads. Using the python multiprocessing module. ',
                            required=False,
                            default=4,
                            type=int
                            )
-    # parserOpt.add_argument('--backgroundModelFile', '-bmf',
-    #                         help='path to the background file which is necessary to compute the rbz-score',
-    #                         required=True)
-    # parserOpt.add_argument('--range',
-    #                         help='Defines the region upstream and downstream of a reference point which should be included. '
-    #                         'Format is --region upstream downstream',
-    #                         required=True,
-    #                         type=int,
-    #                         nargs=2)
+
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -112,47 +76,15 @@ def parse_arguments(args=None):
                            version='%(prog)s {}'.format(__version__))
     return parser
 
-# # def merge_neighbors_x_fold()
-# def create_target_regions(pInteraction_file_data, pInteraction_file_data_1, pLoosePValue=None, pXFold=None):
-#     # log.debug(pInteraction_file_data)
-#     accepted_scores_file_1 = []
-#     accepted_scores_file_2 = []
-
-#     if pLoosePValue is not None:
-#         # get significant regions
-#         for key in pInteraction_file_data:
-#             if float(pInteraction_file_data[key][-2]) <= pLoosePValue:
-#                 accepted_scores_file_1.append(key)
-
-#         for key in pInteraction_file_data_1:
-#             if float(pInteraction_file_data_1[key][-2]) <= pLoosePValue:
-#                 accepted_scores_file_2.append(key)
-#     else:
-#         for key in pInteraction_file_data:
-#             if float(pInteraction_file_data[key][-1]) >= pXFold:
-#                 accepted_scores_file_1.append(key)
-
-#         for key in pInteraction_file_data_1:
-#             if float(pInteraction_file_data_1[key][-1]) >= pXFold:
-#                 accepted_scores_file_2.append(key)
-#     # merge keys
-#     accepted_scores_file_1.extend(accepted_scores_file_2)
-#     accepted_scores_file_1 = np.unique(accepted_scores_file_1)
-
-#     target_list = []
-#     for key in accepted_scores_file_1:
-#         # pInteraction_file_data
-#         target_list.append(pInteraction_file_data[key][0:3])
-
-#     # log.debug('target_list {}'.format(target_list))
-#     return target_list
-
 
 def filter_scores_target_list(pScoresDictionary, pTargetList):
 
     accepted_scores = {}
     same_target_dict = {}
     target_regions = utilities.readBed(pTargetList)
+    if len(target_regions) == 0:
+        return accepted_scores
+        
     hicmatrix = hm.hiCMatrix()
     target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
     for key in pScoresDictionary:
@@ -160,21 +92,14 @@ def filter_scores_target_list(pScoresDictionary, pTargetList):
         chromosome = pScoresDictionary[key][0]
         start = int(pScoresDictionary[key][1])
         end = int(pScoresDictionary[key][2])
-        # log.debug('chromsome {}, start {}, end {}'.format(chromosome, start, end))
-        target_interval = pTargetIntervalTree[chromosome][start:end]
+        target_interval = target_regions_intervaltree[chromosome][start:end]
         if target_interval:
-            # log.debug('pScoresDictionary[key] {}'.format(pScoresDictionary[key]))
-
-            # log.debug('target_interval {}'.format(target_interval))
             target_interval = sorted(target_interval)[0]
             if target_interval in same_target_dict:
                 same_target_dict[target_interval].append(key)
             else:
                 same_target_dict[target_interval] = [key]
-                # _accepted_scores[key] = pScoresDictionary[key]
-        # except:
-        #     log.error('IntervalTree query faild')
-        #     exit(1)
+ 
     for target in same_target_dict:
 
         values = np.array([0.0, 0.0, 0.0])
@@ -182,7 +107,6 @@ def filter_scores_target_list(pScoresDictionary, pTargetList):
         
         for key in same_target_dict[target]:
             values += np.array(list(map(float, pScoresDictionary[key][-3:])))
-        # keys_sorted = sorted(_accepted_scores.keys())
         new_data_line = pScoresDictionary[same_target_dict[target][0]]
         new_data_line[2] = pScoresDictionary[same_target_dict[target][-1]][2]
         new_data_line[-5] = pScoresDictionary[same_target_dict[target][-1]][-5]
@@ -190,44 +114,15 @@ def filter_scores_target_list(pScoresDictionary, pTargetList):
         new_data_line[-2] = values[1]
         new_data_line[-1] = values[2]
 
-        # log.debug('new_data_line {}'.format(new_data_line))
         accepted_scores[same_target_dict[target][0]] = new_data_line
 
-
-
-    # for target in pTargetRegions:
-    #     start = int(target[1])
-    #     end = int(target[2])
-    #     _accepted_scores = {}
-    #     for key in pScoresDictionary:
-    #         if int(pScoresDictionary[key][1]) >= start and int(pScoresDictionary[key][2]) <= end:
-    #             _accepted_scores[key] = pScoresDictionary[key]
-    #     # log.debug('_accepted_scores {}'.format(_accepted_scores))
-    #     if len(_accepted_scores) > 0:
-
-    #         values = np.array([0.0, 0.0, 0.0])
-    #         for key in _accepted_scores:
-    #             values += np.array(list(map(float,
-    #                                         _accepted_scores[key][-3:])))
-    #         keys_sorted = sorted(_accepted_scores.keys())
-    #         _accepted_scores[keys_sorted[0]
-    #                          ][-5] = _accepted_scores[keys_sorted[-1]][-5]
-    #         _accepted_scores[keys_sorted[0]][-3] = values[0]
-    #         _accepted_scores[keys_sorted[0]][-2] = values[1]
-    #         _accepted_scores[keys_sorted[0]][-1] = values[2]
-
-    #         accepted_scores[keys_sorted[0]] = _accepted_scores[keys_sorted[0]]
-    # # log.debug('accepted_scores {}'.format(len(accepted_scores)))
     return accepted_scores
-
 
 
 
 
 def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
 
-    # sum_of_interactions = float(pHeader.split('\t')[-1].split(' ')[-1])
-    # log.debug('sum_of_interactions {}'.format(sum_of_interactions))
     with open(pOutFileName, 'w') as file:
         file.write('# Aggregated file, created with HiCExplorer\'s chicAggregateStatistic version {}\n'.format(__version__))
         file.write(pHeader)
@@ -237,11 +132,7 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
         
         if pNeighborhoods is not None:
             for data in pNeighborhoods:
-                # log.debug('pInteractionLines[data] {}'.format(pInteractionLines[data]))
                 new_line = '\t'.join(pInteractionLines[data][:6])
-                # new_line += '\t' + format(float(sum_of_interactions), "10.5f")
-
-                # new_line += '\t' + '\t'.join(format(float(x), "10.5f") for x in pInteractionLines[0][8:])
                 new_line += '\t' +  format(pNeighborhoods[data][-1], '10.5f')
                 new_line += '\n'
                 file.write(new_line)
@@ -254,34 +145,27 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
             header, interaction_data, interaction_file_data = pViewpointObj.readInteractionFileForAggregateStatistics(
                 pArgs.interactionFileFolder + '/' + sample)
 
-            # target_regions = utilities.readBed(pArgs.targetFile)
             if pArgs.batchMode:
                 target_file = pArgs.targetFileFolder+'/'+ pTargetList[i]
             else:
                 target_file = pTargetList[i]
+
             accepted_scores = filter_scores_target_list(interaction_file_data, target_file)
 
             if len(accepted_scores) == 0:
+                # do not call 'break' or 'continue'
+                # with this an empty file is written and no track of 'no significant interactions' detected files needs to be recorded.
                 if pArgs.batchMode:
                     with open('errorLog.txt', 'a+') as errorlog:
                         errorlog.write('Failed for: {} and {}.\n'.format(interactionFile[0], interactionFile[1]))
-                        # break
                 else:
                     log.info('No target regions found')
-                    # break
-            # outFileName = '.'.join(interactionFile.split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
             outFileName = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
 
             if pArgs.batchMode:
                 outfile_names.append(outFileName)
             outFileName = pArgs.outputFolder + '/' + outFileName
 
-            # if pArgs.mergeBins > 0:
-            # merged_neighborhood, _ = pViewpointObj.merge_neighbors(
-            #     accepted_scores, pArgs.mergeBins)
-            # write(outFileName, header, merged_neighborhood,
-            #         interaction_file_data)
-            # else:
             write(outFileName, header, accepted_scores,
                     interaction_file_data)
     if pQueue is None:
@@ -290,62 +174,6 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
     return
 
 
-# def run_pvalue_compilation(pInteractionFilesList, pArgs, pViewpointObj, pQueue=None):
-#     outfile_names = []
-#     for interactionFile in pInteractionFilesList:
-
-#         # header, interaction_data, interaction_file_data
-#         data = [pViewpointObj.readInteractionFileForAggregateStatistics(
-#             pArgs.interactionFileFolder + '/' + interactionFile[0])]
-#         data.append(pViewpointObj.readInteractionFileForAggregateStatistics(
-#             pArgs.interactionFileFolder + '/' + interactionFile[1]))
-
-#         if pArgs.loosePValue is not None:
-#             target_regions = create_target_regions(data[0][2], data[1][2], pLoosePValue=pArgs.pValue)
-#         else:
-#             target_regions = create_target_regions(data[0][2], data[1][2], pXFold=pArgs.xFold)
-
-#         sample_prefix = interactionFile[0].split('/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
-#         for j in range(2):
-
-#             accepted_scores = filter_scores_target_list(
-#                 data[j][2], target_regions)
-#             # log.debug('length of accepted_scores {}'.format(len(accepted_scores)))
-#             if len(accepted_scores) == 0:
-#                 if pArgs.batchMode:
-#                     with open('errorLog.txt', 'a+') as errorlog:
-#                         errorlog.write('Failed for: {} and {}.\n'.format(
-#                             interactionFile[0], interactionFile[1]))
-#                         # break
-#                 else:
-#                     log.info('No target regions found')
-#                     # break
-#             outFileName = '.'.join(interactionFile[j].split('/')[-1].split('.')[:-1]) + '_' + sample_prefix + pArgs.outFileNameSuffix
-
-#             if pArgs.batchMode:
-#                 outfile_names.append(outFileName)
-#             outFileName = pArgs.outputFolder + '/' + outFileName
-
-#             # for key in accepted_scores:
-#             #     log.debug(accepted_scores[key])
-#             #     exit()
-
-#             # TODO change condition!
-#             if pArgs.mergeBins > 0:
-#                 merged_neighborhood = merge_neighbors(accepted_scores, pArgs.mergeBins)
-
-#                 TODO  recompute p-values
-#                 TODO redo line matching based on p-value
-#                 write(outFileName, data[j][0],
-#                       merged_neighborhood, data[j][2])
-#             else:
-#                 write(outFileName, data[j][0], accepted_scores, data[j][2])
-#         # exit(0)
-#     if pQueue is None:
-#         return
-#     pQueue.put(outfile_names)
-#     return
-
 def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs, pViewpointObj):
     outfile_names = [None] * pArgs.threads
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
@@ -353,7 +181,6 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
     queue = [None] * pArgs.threads
     process = [None] * pArgs.threads
     thread_done = [False] * pArgs.threads
-    # log.debug('matrix read, starting processing')
     for i in range(pArgs.threads):
 
         if i < pArgs.threads - 1:
@@ -366,7 +193,7 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
         queue[i] = Queue()
         process[i] = Process(target=pFunctionName, kwargs=dict(
             pInteractionFilesList=interactionFileListThread,
-            pTargetFilesList=targetFileListThread,
+            pTargetList=targetFileListThread,
             pArgs=pArgs,
             pViewpointObj=pViewpointObj,
             pQueue=queue[i]
@@ -397,75 +224,46 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
-    # if args.pValue:
-    #     # if args.backgroundModelFile is None or args.range is None:
-    #     log.error('background model file and range need to be defined!')
-    #         # exit(1)
-    outfile_names = []
+   outfile_names = []
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
         except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
-    if args.targetFile:
-        # target_regions = utilities.readBed(args.targetFile)
-        # hicmatrix = hm.hiCMatrix()
-        # target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
+ 
+    interactionFileList = []
+    targetFileList = []
 
-        # read all interaction files.
-        if args.batchMode:
-            interactionFileList = []
-            with open(args.interactionFile[0], 'r') as interactionFile:
-                file_ = True
-                while file_:
-                    file_ = interactionFile.readline().strip()
-                    if file_ != '':
-                        interactionFileList.append(file_)
-            
-            outfile_names = call_multi_core(interactionFileList, run_target_list_compilation, args, viewpointObj)
+    if args.batchMode:
+        with open(args.interactionFile[0], 'r') as interactionFile:
+            file_ = True
+            while file_:
+                file_ = interactionFile.readline().strip()
+                file2_ = interactionFile.readline().strip()
+                if file_ != '' and file2_ != '':
+                    interactionFileList.append((file_, file2_))
+        with open(args.targetFile, 'r') as targetFile:
+            file_ = True
+            while file_:
+                file_ = targetFile.readline().strip()
+                if file_ != '':
+                    targetFileList.append(file_)
+        outfile_names = call_multi_core(interactionFileList, targetFileList, run_target_list_compilation, args, viewpointObj)
+        
+    else:
+        targetFileList = args.targetFile
+        if len(args.interactionFile) % 2 == 0:
+            i = 0
+            while i < len(args.interactionFile):
+                interactionFileList.append(
+                    (args.interactionFile[i], args.interactionFile[i + 1]))
+                i += 2
         else:
-            interactionFileList = args.interactionFile
-            run_target_list_compilation(interactionFileList, args, viewpointObj)
-
-    # elif args.pValue:
-        interactionFileList = []
-        targetFileList = []
-
-        # log.debug('rbz')
-        if args.batchMode:
-            # log.debug('args.interactionFile {}'.format(args.interactionFile))
-            with open(args.interactionFile[0], 'r') as interactionFile:
-                file_ = True
-                while file_:
-                    # for line in fh.readlines():
-                    file_ = interactionFile.readline().strip()
-                    file2_ = interactionFile.readline().strip()
-                    if file_ != '' and file2_ != '':
-                        interactionFileList.append((file_, file2_))
-            with open(args.targetFile[0], 'r') as targetFile:
-                file_ = True
-                while file_:
-                    file_ = targetFileList.readline().strip()
-                    if file_ != '':
-                        targetFileList.append(file_)
-            # outfile_names = call_multi_core(interactionFileList, run_pvalue_compilation, args, viewpointObj)
-            outfile_names = call_multi_core(interactionFileList, targetFileList, run_target_list_compilation, args, viewpointObj, target_regions_intervaltree)
-            
-        else:
-            targetFileList = args.targetFile
-            if len(args.interactionFile) % 2 == 0:
-                i = 0
-                while i < len(args.interactionFile):
-                    interactionFileList.append(
-                        (args.interactionFile[i], args.interactionFile[i + 1]))
-                    i += 2
-            else:
-                log.error('Number of interaction files needs to be even: {}'.format(
-                    len(args.interactionFile)))
-                exit(1)
-            # outfile_names = run_pvalue_compilation(interactionFileList, args, viewpointObj)
-            run_target_list_compilation(interactionFileList, targetFileList, args, viewpointObj, target_regions_intervaltree)
+            log.error('Number of interaction files needs to be even: {}'.format(
+                len(args.interactionFile)))
+            exit(1)
+        run_target_list_compilation(interactionFileList, targetFileList, args, viewpointObj)
 
 
     if args.batchMode:
