@@ -24,9 +24,9 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-                    Build a background model for viewpoints, the viewpoints over all samples (matrices) are used to build the background model.
+                    Computes the sparsity of each viewpoint, returns a plot with the sparsity distribution per matrix, as a histogram and a filtered reference points file.
                     An example usage is:
-                    $ chicViewpointBackgroundModel -m matrix1.h5 matrix2.h5 matrix3.h5 -rp referencePointsFile.bed --range 20000 40000
+                    $ chicQualityControl -m matrix1.h5 matrix2.h5 matrix3.h5 -rp referencePointsFile.bed --range 20000 40000 --sparsity 0.01
                     """
     )
 
@@ -42,7 +42,8 @@ def parse_arguments(args=None):
                                 type=str,
                                 required=True)
     parserRequired.add_argument('--sparsity', '-s',
-                                help='Viewpoints with a sparsity less than given are considered of bad quality.',
+                                help='Viewpoints with a sparsity less than given are considered of bad quality. If multiple matrices are given, '
+                                'the viewpoint is removed as soon as it too sparse in at least one matrix.',
                                 type=float,
                                 required=True)
 
@@ -77,39 +78,16 @@ def parse_arguments(args=None):
     return parser
 
 
-def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
+def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     test_result = []
     average_count = []
-    # undecided = []
     for i, referencePoint in enumerate(pReferencePoints):
-
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
-
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
-        
         sparsity = (np.count_nonzero(data_list) / len(data_list))
-
-        # fit_nb_parameters = fit_nbinom.fit(np.array(data_list))
-        # fit_nb_parameters_array = [fit_nb_parameters['size'], fit_nb_parameters['prob']]
-        # # np.savetxt('foo.data', np.array(data_list))
-        # # log.debug('fit_nb_parameters {}'.format(fit_nb_parameters))
-        # # nb_distribution = nbinom(fit_nb_parameters['size'], fit_nb_parameters['prob'])
-        # test_result.append(gof_chisquare_discrete(nbinom, arg=fit_nb_parameters_array, rvs=data_list, alpha=0.1, msg=referencePoint))
-        # # log.debug('test_result {}'.format(test_result))
-        # exit()
-
-
         test_result.append(sparsity)
-        # average_count.append(np.average(data_list))
-    # with open('zero_share.txt', 'w') as file:
-    #     for i, referencePoint in enumerate(pReferencePoints):
-    #         file.write('{} zero share: {} {} {} {} {} \n'.format(referencePoint, test_result[i], test_result[i] > 0.95 , average_count[i], average_count[i] < 0.1, test_result[i] > 0.95 and average_count[i] < 0.1))
-    #         if test_result[i] > 0.95:
-    #             undecided.append('{} {} {}\n'.format(referencePoint, test_result[i]))
-    # with open('undecided.txt', 'w') as file:
-    #     for undecided_ in undecided:
-    #         file.write(undecided_)
+   
     pQueue.put(test_result)
     return
 
@@ -130,8 +108,6 @@ def main():
     process = [None] * args.threads
     background_model_data = None
     sparsity =  []
-    
-        
 
     for j, matrix in enumerate(args.matrices):
         sparsity_local = [None] * args.threads
@@ -142,7 +118,6 @@ def main():
         bin_size = hic_ma.getBinSize()
         all_data_collected = False
         thread_done = [False] * args.threads
-        log.debug('matrix read, starting processing')
         for i in range(args.threads):
 
             if i < args.threads - 1:
@@ -151,7 +126,7 @@ def main():
                 referencePointsThread = referencePoints[i * referencePointsPerThread:]
 
             queue[i] = Queue()
-            process[i] = Process(target=compute_background, kwargs=dict(
+            process[i] = Process(target=compute_sparsity, kwargs=dict(
                 pReferencePoints=referencePointsThread,
                 pViewpointObj=viewpointObj,
                 pArgs=args,
@@ -166,7 +141,6 @@ def main():
                 if queue[i] is not None and not queue[i].empty():
                     sparsity_ = queue[i].get()
                     sparsity_local[i] = sparsity_
-                    # relative_positions = relative_positions.union(relative_positions_thread)
                     queue[i] = None
                     process[i].join()
                     process[i].terminate()
@@ -182,25 +156,18 @@ def main():
         del viewpointObj.hicMatrix
 
         # merge sparsity data per matrix from each thread to one list
-        # for i in range(len(sparsity)):
-        # log.debug('sparsity_local {}'.format(sparsity_local))
 
         sparsity_local = [item for sublist in sparsity_local for item in sublist]
-        # log.debug('sparsity_local {}'.format(sparsity_local))
-
         sparsity.append(sparsity_local)
-    # log.debug('sparsity {}'.format(sparsity))
 
     # change sparsity to sparsity values per viewpoint per matrix: viewpoint = [matrix1, ..., matrix_n] 
     sparsity = np.array(sparsity).T
 
-    # log.debug('sparsity {}'.format(sparsity))
     with open(args.referencePoints, 'r') as reference_file_input:
         with open(args.outFileName + '_raw_filter', 'w') as output_file_raw:
             with open(args.outFileName, 'w') as output_file:
                 for i, line in enumerate(reference_file_input.readlines()):
                     sparsity_str = '\t'.join(str(x) for x in sparsity[i])
-                    # f                        sparsity_str += sparsity[j]
                     output_file_raw.write(line.strip() + '\t' + sparsity_str + '\n')
                     count = 0
                     for j in range(len(sparsity[i])):
@@ -221,19 +188,24 @@ def main():
 
     for i in range(len(args.matrices)):
         x[i] = sparsity[i].flatten()
-    
-    # log.debug(x)
-    # log.debug(y)
 
     for i in range(len(args.matrices)):
-        plt.plot(x[i], y[i],  'o', mfc='none', markersize=0.3)
-    
+        plt.plot(x[i], y[i],  'o', mfc='none', markersize=0.3, label=args.matrices[i].split('/')[-1])
+    plt.yticks([])
+    plt.xlabel("Sparsity level")
 
-    # plt.axvline(x=args.sparsity, color='r')
+    plt.axvline(x=args.sparsity, c='r', label='sparsity threshold')
+    plt.xscale('log')
+    plt.legend(loc='upper right')
     plt.savefig(args.outFileName + '_sparsity_distribution.png', dpi=300)
+
+    plt.xlabel("Length of list (number)")
+    plt.ylabel("Time taken (seconds)")
     plt.close()
     for i in range(len(args.matrices)):
-        plt.hist(x[i], bins=100,  alpha=0.5)
-        # plt.hist()
+        plt.hist(x[i], bins=100,  alpha=0.5, label=args.matrices[i].split('/')[-1])
+    plt.xlabel("Sparsity level")
+    plt.ylabel("Number of counts")
+    plt.legend(loc='upper right')
     plt.savefig(args.outFileName + '_sparsity_distribution_histogram.png', dpi=300)
     
