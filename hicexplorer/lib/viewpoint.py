@@ -484,11 +484,13 @@ class Viewpoint():
         _rbz_score[mask] = -1
         return _rbz_score
 
-    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndex, pResolution, pRange):
+    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndex, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
         highlight_areas_list = []
         # for bed_file in pDifferentialHighlightFiles:
+        _, reference_point_start, reference_point_end = pViewpoint.split('_')
+
         with open(pDifferentialHighlightFiles) as fh:
             # skip header
             for line in fh.readlines():
@@ -502,9 +504,22 @@ class Viewpoint():
                 if int(_line[4]) >= -pRange[0] and int(_line[4]) <= pRange[1]:
 
                     width = (end - start) / pResolution
+                    if int(_line[4]) < 0:
+                        # reference_point_position = reference_point_start
+                        relative_position_genomic_coordinates = start - int(reference_point_start)
+                    else:
+                        relative_position_genomic_coordinates = start - int(reference_point_end)
+                        
+                    log.debug('_line[4] {}'.format(_line[4]))
+                    log.debug('relative_position_genomic_coordinates {}'.format(relative_position_genomic_coordinates))
+                    log.debug('start {} end {}'.format(start, end))
+                    log.debug('reference_point_start {} reference_point_end {}'.format(reference_point_start, reference_point_end))
 
+                        # start
+
+                    # relative_position_genomic_coordinates  = reference_point_position
                     relative_position = pViewpointIndex + \
-                        (int(_line[4]) / pResolution)
+                        (relative_position_genomic_coordinates / pResolution)
                     highlight_areas_list.append(
                         [relative_position, relative_position + width])
         if len(highlight_areas_list) == 0:

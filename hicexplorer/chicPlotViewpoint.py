@@ -94,10 +94,7 @@ def parse_arguments(args=None):
                            choices=['heatmap', ''],
                            default=''
                            )
-    parserOpt.add_argument('--useRawBackground', '-raw',
-                           help='Use the raw background instead of a smoothed one.',
-                           required=False,
-                           action='store_true')
+
     parserOpt.add_argument('--outFileName', '-o',
                             help='File name to save the image. It is not used in batch mode.')
     parserOpt.add_argument('--batchMode', '-bm',
@@ -150,7 +147,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             highlight_differential_regions = None
             
             if pArgs.differentialTestResult:
-                highlight_differential_regions = pViewpointObj.readRejectedFile(pHighlightDifferentialRegionsFileList[j], viewpoint_index, pArgs.binResolution, pArgs.range)
+                highlight_differential_regions = pViewpointObj.readRejectedFile(pHighlightDifferentialRegionsFileList[j], viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
             if pArgs.significantInteractions:
                 signficiant_regions = pViewpointObj.readSignificantRegionsFile()
             if data_plot_label:
