@@ -293,6 +293,7 @@ def writeTargetList(pTargetList, pOutFileName, pArgs):
     pTargetList = sorted(list(target_set))
 
     a = pybedtools.BedTool(pTargetList)
+
     header = '# Significant interactions result file of HiCExplorer\'s chicSignificantInteractions version '
     header += str(__version__)
     header += '\n'
@@ -309,7 +310,12 @@ def writeTargetList(pTargetList, pOutFileName, pArgs):
     header += '# Used p-value: '
     header += str(pArgs.pValue)
     header += '\n#\n'
-    a.sort().merge(d=1000).saveas(pOutFileName, trackline=header)
+    if len(pTargetList) == 0:
+        with open(pOutFileName, 'w') as file:
+            file.write(header)
+    else:
+        a.sort().merge(d=1000).saveas(pOutFileName, trackline=header)
+
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
