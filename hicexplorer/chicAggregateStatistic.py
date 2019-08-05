@@ -33,8 +33,8 @@ def parse_arguments(args=None):
                                 nargs='+')
 
     parserRequired.add_argument('--targetFile', '-tf',
-                                help='path to the target files which contains the target regions to prepare data for differential analysis.'
-                                )
+                                help='path to the target files which contains the target regions to prepare data for differential analysis.',
+                                nargs='+')
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
@@ -49,8 +49,7 @@ def parse_arguments(args=None):
                            default='.')
     parserOpt.add_argument('--targetFileFolder', '-tff',
                            help='Folder where the interaction files are stored in. Applies only for batch mode.',
-                           required=False,
-                           default='.')
+                           required=False)
     parserOpt.add_argument('--outputFolder', '-o',
                            help='Output folder of the files.',
                            required=False,
@@ -62,6 +61,7 @@ def parse_arguments(args=None):
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
                            action='store_true')
+
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads. Using the python multiprocessing module. ',
                            required=False,
@@ -77,22 +77,32 @@ def parse_arguments(args=None):
     return parser
 
 
-def filter_scores_target_list(pScoresDictionary, pTargetList):
+def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetIntervalTree=None):
 
     accepted_scores = {}
     same_target_dict = {}
-    target_regions = utilities.readBed(pTargetList)
-    if len(target_regions) == 0:
-        return accepted_scores
+    target_regions_intervaltree = None
+    if pTargetList is not None:
+        target_regions = utilities.readBed(pTargetList)
+        if len(target_regions) == 0:
+            return accepted_scores
 
-    hicmatrix = hm.hiCMatrix()
-    target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
+        hicmatrix = hm.hiCMatrix()
+        target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
+    elif pTargetIntervalTree is not None:
+        target_regions_intervaltree = pTargetIntervalTree
+    else:
+        log.error('No target list given.')
+        exit(1)
     for key in pScoresDictionary:
         # try:
         chromosome = pScoresDictionary[key][0]
         start = int(pScoresDictionary[key][1])
         end = int(pScoresDictionary[key][2])
-        target_interval = target_regions_intervaltree[chromosome][start:end]
+        if chromosome in target_regions_intervaltree:
+            target_interval = target_regions_intervaltree[chromosome][start:end]
+        else:
+            continue
         if target_interval:
             target_interval = sorted(target_interval)[0]
             if target_interval in same_target_dict:
@@ -138,17 +148,25 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
 
 def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pViewpointObj, pQueue=None):
     outfile_names = []
+    target_regions_intervaltree = None
+    if pArgs.batchMode and len(pTargetList) == 1:
+        target_regions = utilities.readBed(pTargetList[0])
+        hicmatrix = hm.hiCMatrix()
+        target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
+
     for i, interactionFile in enumerate(pInteractionFilesList):
         for sample in interactionFile:
             header, interaction_data, interaction_file_data = pViewpointObj.readInteractionFileForAggregateStatistics(
                 pArgs.interactionFileFolder + '/' + sample)
-
-            if pArgs.batchMode:
+            log.debug('len(pTargetList) {}'.format(len(pTargetList)))
+            if pArgs.batchMode and len(pTargetList) > 1:
                 target_file = pArgs.targetFileFolder + '/' + pTargetList[i]
+            elif pArgs.batchMode and len(pTargetList) == 1:
+                target_file = None
             else:
                 target_file = pTargetList[i]
 
-            accepted_scores = filter_scores_target_list(interaction_file_data, target_file)
+            accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree)
 
             if len(accepted_scores) == 0:
                 # do not call 'break' or 'continue'
@@ -242,12 +260,17 @@ def main(args=None):
                 file2_ = interactionFile.readline().strip()
                 if file_ != '' and file2_ != '':
                     interactionFileList.append((file_, file2_))
-        with open(args.targetFile, 'r') as targetFile:
-            file_ = True
-            while file_:
-                file_ = targetFile.readline().strip()
-                if file_ != '':
-                    targetFileList.append(file_)
+        
+        if len(args.targetFile) == 1 and args.targetFileFolder:
+
+            with open(args.targetFile[0], 'r') as targetFile:
+                file_ = True
+                while file_:
+                    file_ = targetFile.readline().strip()
+                    if file_ != '':
+                        targetFileList.append(file_)
+        else:
+            targetFileList = args.targetFile
         outfile_names = call_multi_core(interactionFileList, targetFileList, run_target_list_compilation, args, viewpointObj)
         
     else:
