@@ -84,7 +84,7 @@ def filter_scores_target_list(pScoresDictionary, pTargetList):
     target_regions = utilities.readBed(pTargetList)
     if len(target_regions) == 0:
         return accepted_scores
-        
+
     hicmatrix = hm.hiCMatrix()
     target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
     for key in pScoresDictionary:
@@ -99,12 +99,12 @@ def filter_scores_target_list(pScoresDictionary, pTargetList):
                 same_target_dict[target_interval].append(key)
             else:
                 same_target_dict[target_interval] = [key]
- 
+
     for target in same_target_dict:
 
         values = np.array([0.0, 0.0, 0.0])
         same_target_dict[target] = sorted(same_target_dict[target])
-        
+
         for key in same_target_dict[target]:
             values += np.array(list(map(float, pScoresDictionary[key][-3:])))
         new_data_line = pScoresDictionary[same_target_dict[target][0]]
@@ -119,8 +119,6 @@ def filter_scores_target_list(pScoresDictionary, pTargetList):
     return accepted_scores
 
 
-
-
 def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
 
     with open(pOutFileName, 'w') as file:
@@ -129,11 +127,11 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
         file.write(
             '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRaw target')
         file.write('\n')
-        
+
         if pNeighborhoods is not None:
             for data in pNeighborhoods:
                 new_line = '\t'.join(pInteractionLines[data][:6])
-                new_line += '\t' +  format(pNeighborhoods[data][-1], '10.5f')
+                new_line += '\t' + format(pNeighborhoods[data][-1], '10.5f')
                 new_line += '\n'
                 file.write(new_line)
 
@@ -146,7 +144,7 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
                 pArgs.interactionFileFolder + '/' + sample)
 
             if pArgs.batchMode:
-                target_file = pArgs.targetFileFolder+'/'+ pTargetList[i]
+                target_file = pArgs.targetFileFolder + '/' + pTargetList[i]
             else:
                 target_file = pTargetList[i]
 
@@ -221,10 +219,11 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
     outfile_names = [item for sublist in outfile_names for item in sublist]
     return outfile_names
 
+
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
-   outfile_names = []
+    outfile_names = []
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
