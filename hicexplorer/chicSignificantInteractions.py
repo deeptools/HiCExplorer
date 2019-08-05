@@ -104,6 +104,18 @@ def parse_arguments(args=None):
                            default=10,
                            type=int
                            )
+    parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
+                           type=int,
+                           default=5,
+                           help='The minimum number of interactions a detected peaks needs to have to be considered.')
+
+    parserOpt.add_argument('--resolution', '-r',
+                           help='Resolution of the bin in genomic units. Values are usually e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.'
+                           'This value is used to merge neighboring bins.',
+                           type=int,
+                           default=1000,
+                           required=False)         
+
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -130,12 +142,12 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             # filter by x-fold over background value or loose p-value
             # and merge neighbors. Use center position to compute new p-value.
             if pArgs.xFoldBackground is not None:
-                accepted_scores, merged_lines_dict = merge_neighbors_x_fold(pArgs.xFoldBackground, data, pViewpointObj, pResolution=1000)
+                accepted_scores, merged_lines_dict = merge_neighbors_x_fold(pArgs.xFoldBackground, data, pViewpointObj, pResolution=pArgs.resolution)
             else:
-                accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(pArgs.loosePValue, data, pViewpointObj, pResolution=1000)
+                accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution)
      
             # compute new p-values
-            accepted_scores, target_lines = compute_new_p_values(accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict)
+            accepted_scores, target_lines = compute_new_p_values(accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold)
 
             # filter by new p-value
             if len(accepted_scores) == 0:
@@ -165,7 +177,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
     pQueue.put([outfile_names, target_outfile_names])
     return
 
-def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLinesDict):
+def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLinesDict, pPeakInteractionsThreshold):
     accepted = {}
     accepted_lines = []
     for key in pData:
@@ -184,11 +196,12 @@ def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLines
                     log.error('Not enough p-values precomputed, using highest value instead. Please increase --xFoldMaxValueNB value. Value {}, max value {}'.format(int(float(pData[key][-1])), len(pData[key])))
 
             if pData[key][-3] <= pPValue:
-                accepted[key] = pData[key]
-                target_content = pMergedLinesDict[key][0][:3]
-                target_content[2] = pMergedLinesDict[key][-1][2]
+                if float(pData[key][-1]) >= pPeakInteractionsThreshold:
+                    accepted[key] = pData[key]
+                    target_content = pMergedLinesDict[key][0][:3]
+                    target_content[2] = pMergedLinesDict[key][-1][2]
+                    accepted_lines.append(target_content)
 
-                accepted_lines.append(target_content)
     return accepted, accepted_lines
     
 
@@ -314,7 +327,7 @@ def writeTargetList(pTargetList, pOutFileName, pArgs):
         with open(pOutFileName, 'w') as file:
             file.write(header)
     else:
-        a.sort().merge(d=1000).saveas(pOutFileName, trackline=header)
+        a.sort().merge(d=pArgs.resolution).saveas(pOutFileName, trackline=header)
 
 
 def main(args=None):
