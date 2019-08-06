@@ -55,7 +55,7 @@ def parse_arguments(args=None):
                            default=5)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
                            help='')
-   
+
     parserOpt.add_argument('--fixateRange', '-fs',
                            help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
                            required=False,
@@ -74,7 +74,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def adjustViewpointData(pViewpointObj, pData, pBackground,  pReferencePoint, pRegionStart, pRegionEnd):
+def adjustViewpointData(pViewpointObj, pData, pBackground, pReferencePoint, pRegionStart, pRegionEnd):
     data_viewpoint = {}
     data_background = {}
     data_sem = {}
@@ -91,8 +91,6 @@ def adjustViewpointData(pViewpointObj, pData, pBackground,  pReferencePoint, pRe
         relative_position = i - view_point_start
         data_background[relative_position] = data
 
-   
-
     for i in data_background:
         if i in data_viewpoint:
             continue
@@ -104,8 +102,10 @@ def adjustViewpointData(pViewpointObj, pData, pBackground,  pReferencePoint, pRe
 
     return data, background
 
+
 def compute_x_fold(pDataList, pBackgroundList):
     return pDataList / pBackgroundList
+
 
 def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions, pOutputFolder):
     file_list = []
@@ -130,7 +130,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         # background uses fixed range, handles fixate range implicitly by same range used in background computation
 
         _backgroundModelNBinom = pViewpointObj.interactionBackgroundData(pBackgroundModel, _range)
-        
+
         background_relative_interaction = pViewpointObj.interactionBackgroundData(pBackgroundModelRelativeInteractions, _range).flatten()
 
         data_list_relative = data_list
@@ -138,11 +138,11 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
 
             data_list, _backgroundModelNBinom, = adjustViewpointData(
                 pViewpointObj, data_list, _backgroundModelNBinom, referencePoint, region_start, region_end)
-        
+
         if len(data_list) != len(background_relative_interaction):
             _, background_relative_interaction = adjustViewpointData(
                 pViewpointObj, data_list_relative, background_relative_interaction, referencePoint, region_start, region_end)
-        
+
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(
                 data_list, pArgs.averageContactBin)
@@ -265,8 +265,13 @@ def main(args=None):
     log.debug('file_list {}'.format(file_list))
     if args.writeFileNamesToFile:
         with open(args.writeFileNamesToFile, 'w') as file:
-            for i, sample in enumerate(file_list):
-                for sample2 in file_list[i+1:]:
-                    for viewpoint, viewpoint2 in zip(sample, sample2):
-                        file.write(viewpoint + '\n')
-                        file.write(viewpoint2 + '\n')
+            log.debug('len(file_list) {}'.format(len(file_list)))
+            if len(file_list) > 1:
+                for i, sample in enumerate(file_list):
+                    for sample2 in file_list[i + 1:]:
+                        for viewpoint, viewpoint2 in zip(sample, sample2):
+                            file.write(viewpoint + '\n')
+                            file.write(viewpoint2 + '\n')
+            else:
+                for viewpoint in file_list[0]:
+                    file.write(viewpoint + '\n')
