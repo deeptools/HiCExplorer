@@ -280,7 +280,7 @@ def main(args=None):
                     for i in range(0, args.plotSampleNumber):
                         file_ = significantRegionsFile.readline().strip()
                         if file_ != '':
-                            lines.append(args.significantInteractionFileFolder+'/'+file_)
+                            lines.append(args.significantInteractionFileFolder + '/' + file_)
                     highlightSignificantRegionsFileList.append(lines)
                     # file_ = significantRegionsFile.readline().strip()
                     # file2_ = significantRegionsFile.readline().strip()

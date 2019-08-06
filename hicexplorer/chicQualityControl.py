@@ -48,12 +48,12 @@ def parse_arguments(args=None):
                                 required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
-    
+
     parserOpt.add_argument('--averageContactBin',
                            help='Average the contacts of n bins, written to last column.',
                            type=int,
                            default=5)
-            
+
     parserOpt.add_argument('--outFileName', '-o',
                            help='The name of the outputfile',
                            default='new_referencepoints.bed')
@@ -87,7 +87,7 @@ def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
         sparsity = (np.count_nonzero(data_list) / len(data_list))
         test_result.append(sparsity)
-   
+
     pQueue.put(test_result)
     return
 
@@ -107,13 +107,12 @@ def main():
     queue = [None] * args.threads
     process = [None] * args.threads
     background_model_data = None
-    sparsity =  []
+    sparsity = []
 
     for j, matrix in enumerate(args.matrices):
         sparsity_local = [None] * args.threads
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
-        
 
         bin_size = hic_ma.getBinSize()
         all_data_collected = False
@@ -160,7 +159,7 @@ def main():
         sparsity_local = [item for sublist in sparsity_local for item in sublist]
         sparsity.append(sparsity_local)
 
-    # change sparsity to sparsity values per viewpoint per matrix: viewpoint = [matrix1, ..., matrix_n] 
+    # change sparsity to sparsity values per viewpoint per matrix: viewpoint = [matrix1, ..., matrix_n]
     sparsity = np.array(sparsity).T
 
     with open(args.referencePoints, 'r') as reference_file_input:
@@ -176,11 +175,11 @@ def main():
                     if count:
                         output_file.write(line)
     # output plot of sparsity distribution per sample
-    
-    # re-arange values again 
+
+    # re-arange values again
 
     x = [[]] * len(args.matrices)
-    y = [[]] *  len(args.matrices)
+    y = [[]] * len(args.matrices)
 
     for i in range(len(args.matrices)):
         y[i] = [i] * len(sparsity)
@@ -190,7 +189,7 @@ def main():
         x[i] = sparsity[i].flatten()
 
     for i in range(len(args.matrices)):
-        plt.plot(x[i], y[i],  'o', mfc='none', markersize=0.3, label=args.matrices[i].split('/')[-1])
+        plt.plot(x[i], y[i], 'o', mfc='none', markersize=0.3, label=args.matrices[i].split('/')[-1])
     plt.yticks([])
     plt.xlabel("Sparsity level")
 
@@ -203,9 +202,8 @@ def main():
     plt.ylabel("Time taken (seconds)")
     plt.close()
     for i in range(len(args.matrices)):
-        plt.hist(x[i], bins=100,  alpha=0.5, label=args.matrices[i].split('/')[-1])
+        plt.hist(x[i], bins=100, alpha=0.5, label=args.matrices[i].split('/')[-1])
     plt.xlabel("Sparsity level")
     plt.ylabel("Number of counts")
     plt.legend(loc='upper right')
     plt.savefig(args.outFileName + '_sparsity_distribution_histogram.png', dpi=300)
-    

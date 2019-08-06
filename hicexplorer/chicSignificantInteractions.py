@@ -37,16 +37,16 @@ def parse_arguments(args=None):
     parserMutuallyExclusiveGroupFilter = parser.add_mutually_exclusive_group(
         required=True)
     parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
-                                              help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
+                                                    help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
                                                     'less significant interactions to one peak with high significance. Used only for pValue option.',
-                                              type=float
-                                            
-                                              )
+                                                    type=float
+
+                                                    )
     parserMutuallyExclusiveGroupFilter.add_argument('--loosePValue', '-lp',
-                                              help='loose p-value threshold value to filter target regions in a first round. '
+                                                    help='loose p-value threshold value to filter target regions in a first round. '
                                                     'Used to merge neighboring bins with a broader peak but less significant interactions to one peak with high significance.'
                                                     ' Used only for pValue option.',
-                                              type=float)
+                                                    type=float)
     parserRequired.add_argument('--backgroundModelFile', '-bmf',
                                 help='path to the background file which is necessary to compute the rbz-score',
                                 required=True)
@@ -56,7 +56,7 @@ def parse_arguments(args=None):
                                 required=True,
                                 type=int,
                                 nargs=2)
-    
+
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outFileNameSuffix', '-suffix',
@@ -114,7 +114,7 @@ def parse_arguments(args=None):
                            'This value is used to merge neighboring bins.',
                            type=int,
                            default=1000,
-                           required=False)         
+                           required=False)
 
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
@@ -122,6 +122,7 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
     return parser
+
 
 def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities, pQueue=None):
     outfile_names = []
@@ -132,9 +133,9 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         target_list = []
         sample_prefix = ''
         for sample in interactionFile:
-            # header, 
+            # header,
             # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
-            # interaction_file_data: 
+            # interaction_file_data:
             data = pViewpointObj.readInteractionFileForAggregateStatistics(pArgs.interactionFileFolder + '/' + sample)
             interaction_file_data = data[2]
             sample_prefix += sample.split('/')[-1].split('_')[0]
@@ -145,7 +146,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 accepted_scores, merged_lines_dict = merge_neighbors_x_fold(pArgs.xFoldBackground, data, pViewpointObj, pResolution=pArgs.resolution)
             else:
                 accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution)
-     
+
             # compute new p-values
             accepted_scores, target_lines = compute_new_p_values(accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold)
 
@@ -157,14 +158,13 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                             interactionFile[0], interactionFile[1]))
                 else:
                     log.info('No target regions found')
-            outFileName = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' +  pArgs.outFileNameSuffix
+            outFileName = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
             if pArgs.batchMode:
                 outfile_names.append(outFileName)
             outFileName = pArgs.outputFolder + '/' + outFileName
             # write only significant lines to file
             write(outFileName, data[0], accepted_scores)
             target_list.append(target_lines)
-
 
         target_list = [item for sublist in target_list for item in sublist]
         sample_name = '_'.join(interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:])
@@ -176,6 +176,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         return target_outfile_names
     pQueue.put([outfile_names, target_outfile_names])
     return
+
 
 def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLinesDict, pPeakInteractionsThreshold):
     accepted = {}
@@ -203,13 +204,13 @@ def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLines
                     accepted_lines.append(target_content)
 
     return accepted, accepted_lines
-    
+
 
 def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
     accepted = {}
     accepted_line = {}
     for key in pData[1]:
-        
+
         if pData[1][key][-1] < pXfold:
             continue
         accepted[key] = pData[1][key]
@@ -219,11 +220,12 @@ def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
         return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
     return accepted_line, None
 
+
 def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolution):
     accepted = {}
     accepted_line = {}
     for key in pData[1]:
-        
+
         if pData[1][key][1] > pLoosePValue:
             continue
         accepted[key] = pData[1][key]
@@ -231,6 +233,7 @@ def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolutio
     if accepted_line:
         return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
     return accepted_line, None
+
 
 def write(pOutFileName, pHeader, pInteractionLines):
 
@@ -240,13 +243,13 @@ def write(pOutFileName, pHeader, pInteractionLines):
         file.write(
             '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative interactions\tp-value\tx-fold\tRaw target')
         file.write('\n')
-        
-        
+
         for data in pInteractionLines:
             new_line = '\t'.join(pInteractionLines[data][:6])
             new_line += '\t' + '\t'.join(format(float(x), "0.20f") for x in pInteractionLines[data][6:])
             new_line += '\n'
             file.write(new_line)
+
 
 def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities):
     outfile_names = [None] * pArgs.threads
@@ -297,6 +300,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
 
     return outfile_names, target_list_name
 
+
 def writeTargetList(pTargetList, pOutFileName, pArgs):
     # remove duplicates
     target_list_ = []
@@ -344,7 +348,7 @@ def main(args=None):
         except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
-                
+
     viewpointObj = Viewpoint()
     outfile_names = []
     outfile_names_adjusted = []
@@ -364,9 +368,9 @@ def main(args=None):
                 file2_ = interactionFile.readline().strip()
                 if file_ != '' and file2_ != '':
                     interactionFileList.append((file_, file2_))
-        
+
         outfile_names, target_list_name = call_multi_core(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
-        
+
     else:
         i = 0
         while i < len(args.interactionFile):
@@ -374,10 +378,9 @@ def main(args=None):
             i += 1
         target_list_name = compute_interaction_file(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
 
-
     if args.batchMode:
         with open(args.writeFileNamesToFile, 'w') as nameListFile:
             nameListFile.write('\n'.join(outfile_names))
-        
+
         with open(args.targetFileList, 'w') as targetNamesFile:
             targetNamesFile.write('\n'.join(target_list_name))

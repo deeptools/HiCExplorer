@@ -183,7 +183,7 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
             outFileName = pArgs.outputFolder + '/' + outFileName
 
             write(outFileName, header, accepted_scores,
-                    interaction_file_data)
+                  interaction_file_data)
     if pQueue is None:
         return
     pQueue.put(outfile_names)
@@ -248,7 +248,7 @@ def main(args=None):
         except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
- 
+
     interactionFileList = []
     targetFileList = []
 
@@ -260,7 +260,7 @@ def main(args=None):
                 file2_ = interactionFile.readline().strip()
                 if file_ != '' and file2_ != '':
                     interactionFileList.append((file_, file2_))
-        
+
         if len(args.targetFile) == 1 and args.targetFileFolder:
 
             with open(args.targetFile[0], 'r') as targetFile:
@@ -272,7 +272,7 @@ def main(args=None):
         else:
             targetFileList = args.targetFile
         outfile_names = call_multi_core(interactionFileList, targetFileList, run_target_list_compilation, args, viewpointObj)
-        
+
     else:
         targetFileList = args.targetFile
         if len(args.interactionFile) % 2 == 0:
@@ -286,7 +286,6 @@ def main(args=None):
                 len(args.interactionFile)))
             exit(1)
         run_target_list_compilation(interactionFileList, targetFileList, args, viewpointObj)
-
 
     if args.batchMode:
         with open(args.writeFileNamesToFile, 'w') as nameListFile:

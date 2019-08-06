@@ -66,6 +66,7 @@ def parse_arguments(args=None):
                            version='%(prog)s {}'.format(__version__))
     return parser
 
+
 def readInteractionFile(pInteractionFile):
 
     line_content = []
@@ -204,11 +205,11 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
 
         if len(line_content1) == 0 or len(line_content2) == 0:
             writeResult(outFileName, None, header1, header2,
-                     pArgs.alpha, pArgs.statisticTest)
+                        pArgs.alpha, pArgs.statisticTest)
             writeResult(outFileName_accepted, None, header1, header2,
-                     pArgs.alpha, pArgs.statisticTest)
+                        pArgs.alpha, pArgs.statisticTest)
             writeResult(outFileName_rejected, None, header1, header2,
-                     pArgs.alpha, pArgs.statisticTest)
+                        pArgs.alpha, pArgs.statisticTest)
             rejected_names.append(outFileName_rejected)
             continue
         if pArgs.statisticTest == 'chi2':
@@ -316,11 +317,11 @@ def main(args=None):
             time.sleep(1)
     else:
         run_statistical_tests(interactionFileList, args)
-    
+
     if args.batchMode:
         log.debug('rejected_file_names {}'.format(len(rejected_file_names)))
         rejected_file_names = [item for sublist in rejected_file_names for item in sublist]
         log.debug('rejected_file_names II {}'.format(len(rejected_file_names)))
 
         with open(args.rejectedFileNamesToFile, 'w') as nameListFile:
-                nameListFile.write('\n'.join(rejected_file_names))
+            nameListFile.write('\n'.join(rejected_file_names))

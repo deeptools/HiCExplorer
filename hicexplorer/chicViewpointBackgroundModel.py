@@ -75,7 +75,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
-        
+
         # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
         view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
         view_point_range_start, view_point_range_end = \
@@ -196,8 +196,8 @@ def main():
     # write result to file
     with open(args.outFileName, 'w') as file:
         file.write('Relative position\tsize nbinom\tprob nbinom\tmax value\tmean value\n')
-        
+
         for relative_position in relative_positions:
             relative_position_in_genomic_scale = relative_position * bin_size
             file.write("{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, nbinom_parameters[relative_position]['size'],
-                                                       nbinom_parameters[relative_position]['prob'], max_value[relative_position], mean_value[relative_position]))
+                                                                         nbinom_parameters[relative_position]['prob'], max_value[relative_position], mean_value[relative_position]))
