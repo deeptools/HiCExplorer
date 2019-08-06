@@ -401,7 +401,7 @@ class Viewpoint():
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHighlightSignificantRegion=None):
         data_plot_label = pAxis.plot(
-            range(len(pData)), pData, '--' + pColor, alpha=0.9, label=pLabelName)
+            range(len(pData)), pData, '-' + pColor, alpha=0.9, label=pLabelName, linewidth=1)
         if pHighlightRegion:
             for region in pHighlightRegion:
                 pAxis.axvspan(region[0], region[1], color='red', alpha=0.3)
@@ -412,7 +412,7 @@ class Viewpoint():
 
     def plotBackgroundModel(self, pAxis, pBackgroundData, pXFold=None):
         pBackgroundData = np.array(pBackgroundData)
-        data_plot_label = pAxis.plot(range(len(pBackgroundData)), pBackgroundData, '--r', alpha=0.5, label='background model')
+        data_plot_label = pAxis.plot(range(len(pBackgroundData)), pBackgroundData, '-r', alpha=0.5, label='background model', linewidth=1)
         if pXFold:
             upper_values = pBackgroundData*pXFold
             lower_values = pBackgroundData
