@@ -30,7 +30,6 @@ def parse_arguments(args=None):
                                 required=True,
                                 nargs='+')
 
-  
     parserRequired.add_argument('--range',
                                 help='Defines the region upstream and downstream of a reference point which should be included. '
                                 'Format is --region upstream downstream',
@@ -38,7 +37,7 @@ def parse_arguments(args=None):
                                 type=int,
                                 default=[500000, 500000],
                                 nargs=2)
-  
+
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
@@ -49,13 +48,17 @@ def parse_arguments(args=None):
                            required=False,
                            default='.')
     parserOpt.add_argument('--differentialTestResult', '-dif',
-                            help='Path to the files which with the H0 rejected files to highlight the regions in the plot.',
-                            required=False,
-                            nargs='+')
+                           help='Path to the files which with the H0 rejected files to highlight the regions in the plot.',
+                           required=False,
+                           nargs='+')
+    parserOpt.add_argument('--significantInteractionFileFolder', '-siff',
+                           help='Folder where the detected significant interactions files are stored in. Applies only for batch mode.',
+                           required=False,
+                           default='.')
     parserOpt.add_argument('--significantInteractions', '-si',
-                            help='Path to the files which detected significant interactions to highlight the regions in the plot.',
-                            required=False,
-                            nargs='+')
+                           help='Path to the files which detected significant interactions to highlight the regions in the plot.',
+                           required=False,
+                           nargs='+')
     parserOpt.add_argument('--outputFolder', '-of',
                            help='Output folder of the files.',
                            required=False,
@@ -75,7 +78,7 @@ def parse_arguments(args=None):
                            type=int,
                            default=1000,
                            required=False)
-    
+
     parserOpt.add_argument('--colorMapPvalue',
                            help='Color map to use for the p-value. Available '
                            'values can be seen here: '
@@ -89,18 +92,28 @@ def parse_arguments(args=None):
                            help='Minimal value for p-value. Values below are set to this value.',
                            type=float,
                            default=None)
+
     parserOpt.add_argument('--pValue', '-p',
                            help='Plot p-values as a colorbar',
                            choices=['heatmap', ''],
                            default=''
                            )
+    parserOpt.add_argument('--xFold', '-xf',
+                           help='Plot x-fold region for the mean background.',
+                           type=float,
+                           default=None)
 
     parserOpt.add_argument('--outFileName', '-o',
-                            help='File name to save the image. It is not used in batch mode.')
+                           help='File name to save the image. It is not used in batch mode.')
     parserOpt.add_argument('--batchMode', '-bm',
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
                            action='store_true')
+    parserOpt.add_argument('--plotSampleNumber', '-psn',
+                           help='Number of samples per plot. Applies only in batch mode.',
+                           required=False,
+                           default=2,
+                           type=int)
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads. Using the python multiprocessing module. ',
                            required=False,
@@ -113,7 +126,8 @@ def parse_arguments(args=None):
                            version='%(prog)s {}'.format(__version__))
     return parser
 
-def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBackgroundData, pArgs, pViewpointObj, pQueue=None):
+
+def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBackgroundData, pArgs, pViewpointObj, pSignificantRegionsFileList, pQueue=None):
     for j, interactionFile in enumerate(pInteractionFileList):
         number_of_rows_plot = len(interactionFile)
         matplotlib.rcParams.update({'font.size': 9})
@@ -145,31 +159,36 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             matrix_name = matrix_name[1:].split('.')[0]
             number_of_data_points = len(data)
             highlight_differential_regions = None
-            
+            significant_p_values = None
+            significant_regions = None
             if pArgs.differentialTestResult:
                 highlight_differential_regions = pViewpointObj.readRejectedFile(pHighlightDifferentialRegionsFileList[j], viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
             if pArgs.significantInteractions:
-                signficiant_regions = pViewpointObj.readSignificantRegionsFile()
+                significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(pSignificantRegionsFileList[j][i], viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
             if data_plot_label:
-                data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
+                data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
             else:
-                data_plot_label = pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions)
+                data_plot_label = pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
 
             if background_plot:
                 if background_data_plot is not None:
-                    data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot)
+                    data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot, pXFold=pArgs.xFold)
                 background_plot = False
-            
+
             if pArgs.minPValue is not None or pArgs.maxPValue is not None:
+
                 p_values = np.array(p_values, dtype=np.float32)
+                if significant_p_values:
+                    for location in significant_p_values:
+                        for x in range(location[0], location[1]):
+                            p_values[x] = location[2]
                 p_values.clip(pArgs.minPValue, pArgs.maxPValue, p_values)
             if pArgs.pValue == 'heatmap':
                 pViewpointObj.plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
-                                        pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
-                                        pFigure=fig,)
+                                         pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
+                                         pFigure=fig,)
             elif pArgs.pValue == 'integrated':
                 data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=p_values, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' p-value')
-
 
         if data_plot_label is not None:
 
@@ -189,22 +208,25 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             data_legend = [label.get_label() for label in data_plot_label]
             ax1.legend(data_plot_label, data_legend, loc=0)
 
-            
-
+            sample_prefix = ""
             if pArgs.outFileName:
                 outFileName = pArgs.outFileName
             else:
-                sample_prefix = interactionFile[0].split('/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
+                for interactionFile_ in interactionFile:
+                    sample_prefix += interactionFile[0].split('/')[-1].split('_')[0] + '_'
+                if sample_prefix.endswith('_'):
+                    sample_prefix = sample_prefix[:-1]
                 region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:6])
-                outFileName = sample_prefix + '_' + region_prefix 
+                outFileName = sample_prefix + '_' + region_prefix
                 outFileName = pArgs.outputFolder + '/' + outFileName + '.' + pArgs.outputFormat
             plt.savefig(outFileName, dpi=pArgs.dpi)
         plt.close(fig)
-    
+
     if pQueue is None:
         return
     pQueue.put('done')
     return
+
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -214,32 +236,56 @@ def main(args=None):
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
-        except OSError as exc: # Guard against race condition
+        except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
 
     if args.backgroundModelFile:
         background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, pMean=True)
-   
+
     interactionFileList = []
     highlightDifferentialRegionsFileList = []
+    highlightSignificantRegionsFileList = []
+
     if args.batchMode:
         with open(args.interactionFile[0], 'r') as interactionFile:
 
             file_ = True
             while file_:
-                file_ = interactionFile.readline().strip()
-                file2_ = interactionFile.readline().strip()
-                if file_ != '' and file2_ != '':
-                    interactionFileList.append((file_, file2_))
+                lines = []
+                for i in range(0, args.plotSampleNumber):
+                    file_ = interactionFile.readline().strip()
+                    if file_ != '':
+                        lines.append(file_)
+                interactionFileList.append(lines)
         if args.differentialTestResult:
-            with open(args.differentialTestResult[0], 'r') as differentialTestFile:
+
+            if args.differentialTestResult and args.plotSampleNumber != 2:
+                log.warning('Cannot use differential data, only possible for two samples in one plot.')
+                args.differentialTestResult = None
+            else:
+                with open(args.differentialTestResult[0], 'r') as differentialTestFile:
+
+                    file_ = True
+                    while file_:
+                        file_ = differentialTestFile.readline().strip()
+                        if file_ != '':
+                            highlightDifferentialRegionsFileList.append(file_)
+        if args.significantInteractions:
+            with open(args.significantInteractions[0], 'r') as significantRegionsFile:
 
                 file_ = True
                 while file_:
-                    file_ = differentialTestFile.readline().strip()
-                    if file_ != '':
-                        highlightDifferentialRegionsFileList.append(file_)
+                    lines = []
+                    for i in range(0, args.plotSampleNumber):
+                        file_ = significantRegionsFile.readline().strip()
+                        if file_ != '':
+                            lines.append(args.significantInteractionFileFolder+'/'+file_)
+                    highlightSignificantRegionsFileList.append(lines)
+                    # file_ = significantRegionsFile.readline().strip()
+                    # file2_ = significantRegionsFile.readline().strip()
+                    # if file_ != '' and file2_ != '':
+                    #     highlightSignificantRegionsFileList.append((args.significantInteractionFileFolder+'/'+file_, args.significantInteractionFileFolder+'/'+file2_))
 
         interactionFilesPerThread = len(interactionFileList) // args.threads
         all_data_collected = False
@@ -266,6 +312,7 @@ def main(args=None):
                 pBackgroundData=background_data,
                 pArgs=args,
                 pViewpointObj=viewpointObj,
+                pSignificantRegionsFileList=highlightSignificantRegionsFileList,
                 pQueue=queue[i]
             )
             )
@@ -289,9 +336,10 @@ def main(args=None):
     else:
         interactionFileList = [args.interactionFile]
         highlightDifferentialRegionsFileList = args.differentialTestResult
-    
+        highlightSignificantRegionsFileList = args.significantInteractions
         plot_images(pInteractionFileList=interactionFileList,
-                pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileList,
-                pBackgroundData=background_data,
-                pArgs=args,
-                pViewpointObj=viewpointObj)
+                    pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileList,
+                    pBackgroundData=background_data,
+                    pArgs=args,
+                    pViewpointObj=viewpointObj,
+                    pSignificantRegionsFileList=highlightSignificantRegionsFileList)

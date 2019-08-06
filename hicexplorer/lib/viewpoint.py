@@ -9,7 +9,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import nbinom
 
 
-
 class Viewpoint():
 
     def __init__(self, pHiCMatrix=None):
@@ -351,7 +350,7 @@ class Viewpoint():
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
         header, interaction_data, p_value_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
         matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
-        
+
         data = []
         p_value = []
         data_background = None
@@ -408,12 +407,16 @@ class Viewpoint():
                 pAxis.axvspan(region[0], region[1], color='red', alpha=0.3)
         if pHighlightSignificantRegion:
             for region in pHighlightSignificantRegion:
-                pAxis.axvspan(region[0], region[1], color='green', alpha=0.3)
+                pAxis.axvspan(region[0], region[1], color=pColor, alpha=0.3)
         return data_plot_label
 
-    def plotBackgroundModel(self, pAxis, pBackgroundData):
+    def plotBackgroundModel(self, pAxis, pBackgroundData, pXFold=None):
         pBackgroundData = np.array(pBackgroundData)
         data_plot_label = pAxis.plot(range(len(pBackgroundData)), pBackgroundData, '--r', alpha=0.5, label='background model')
+        if pXFold:
+            upper_values = pBackgroundData*pXFold
+            lower_values = pBackgroundData
+            pAxis.fill_between(range(len(pBackgroundData)), upper_values, lower_values, facecolor='r', alpha=0.5)
         return data_plot_label
 
     def plotPValue(self, pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure):
@@ -509,13 +512,13 @@ class Viewpoint():
                         relative_position_genomic_coordinates = start - int(reference_point_start)
                     else:
                         relative_position_genomic_coordinates = start - int(reference_point_end)
-                        
+
                     log.debug('_line[4] {}'.format(_line[4]))
                     log.debug('relative_position_genomic_coordinates {}'.format(relative_position_genomic_coordinates))
                     log.debug('start {} end {}'.format(start, end))
                     log.debug('reference_point_start {} reference_point_end {}'.format(reference_point_start, reference_point_end))
 
-                        # start
+                    # start
 
                     # relative_position_genomic_coordinates  = reference_point_position
                     relative_position = pViewpointIndex + \
@@ -540,12 +543,11 @@ class Viewpoint():
             p_value_list.append(pvalue)
         return p_value_list
 
-    
     def computeSumOfDensities(self, pBackgroundModel, pArgs, pXfoldMaxValue=None):
         background_nbinom = {}
         background_sum_of_densities_dict = {}
         max_value = 0
-        
+
         fixateRange = int(pArgs.fixateRange)
         for distance in pBackgroundModel:
             max_value_distance = int(pBackgroundModel[distance][2])
@@ -557,7 +559,7 @@ class Viewpoint():
 
             if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
                 background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
-                
+
                 sum_of_densities = np.zeros(max_value_distance)
                 for j in range(max_value_distance):
                     if j >= 1:
@@ -565,10 +567,9 @@ class Viewpoint():
                     sum_of_densities[j] += background_nbinom[distance].pmf(j)
 
                 background_sum_of_densities_dict[distance] = sum_of_densities
-        
-        
+
         background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
-        
+
         sum_of_densities = np.zeros(max_value)
         for j in range(max_value):
             if j >= 1:
@@ -577,7 +578,7 @@ class Viewpoint():
 
         background_sum_of_densities_dict[fixateRange] = sum_of_densities
         background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
-        
+
         sum_of_densities = np.zeros(max_value)
         for j in range(max_value):
             if j >= 1:
@@ -585,7 +586,6 @@ class Viewpoint():
             sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
 
         background_sum_of_densities_dict[-fixateRange] = sum_of_densities
-
 
         min_key = min(background_sum_of_densities_dict)
         max_key = max(background_sum_of_densities_dict)
@@ -597,7 +597,6 @@ class Viewpoint():
                 background_sum_of_densities_dict[key] = background_sum_of_densities_dict[min_key]
             elif key > max_key:
                 background_sum_of_densities_dict[key] = background_sum_of_densities_dict[max_key]
-        
 
         return background_sum_of_densities_dict
 
@@ -610,7 +609,7 @@ class Viewpoint():
         merge_ids = []
         non_merge = []
         for i, (key_pre, key_suc) in enumerate(zip(key_list[:-1], key_list[1:])):
-            
+
             if np.absolute(int(pScoresDictionary[key_pre][5]) - int(pScoresDictionary[key_suc][5])) <= pMergeThreshold:
                 if len(merge_ids) > 0 and merge_ids[-1][-1] == key_pre:
                     merge_ids[-1].append(key_suc)
@@ -657,4 +656,42 @@ class Viewpoint():
             merged_lines_dict[key] = [pScoresDictionary[key]]
 
         return scores_dict, merged_lines_dict
-        
+
+    def readSignificantRegionsFile(self, pSignificantFile, pViewpointIndex, pResolution, pRange, pViewpoint):
+            # list of start and end point of regions to highlight
+            # [[start, end], [start, end]]
+            highlight_areas_list = []
+            p_values = []
+            # for bed_file in pDifferentialHighlightFiles:
+            _, reference_point_start, reference_point_end = pViewpoint.split('_')
+
+            # for i, file in enumerate(pSignificantFile):
+                
+            with open(pSignificantFile) as fh:
+                # skip header
+                for line in fh.readlines():
+                    if line.startswith('#'):
+                        continue
+                    _line = line.split('\t')
+
+                    start = int(_line[1])
+                    end = int(_line[2])
+
+                    if int(_line[5]) >= -pRange[0] and int(_line[5]) <= pRange[1]:
+
+                        width = (end - start) / pResolution
+                        if int(_line[5]) < 0:
+                            # reference_point_position = reference_point_start
+                            relative_position_genomic_coordinates = start - int(reference_point_start)
+                        else:
+                            relative_position_genomic_coordinates = start - int(reference_point_end)
+
+                        relative_position = pViewpointIndex + \
+                            (relative_position_genomic_coordinates / pResolution)
+                        highlight_areas_list.append(
+                            [relative_position, relative_position + width])
+                        p_values.append([int(relative_position), int(relative_position + width), float(_line[-3])])
+            
+            if len(highlight_areas_list) == 0:
+                return None, None
+            return highlight_areas_list, p_values
