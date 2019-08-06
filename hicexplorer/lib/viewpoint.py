@@ -130,7 +130,7 @@ class Viewpoint():
         distance = {}
 
         with open(pBedFile) as fh:
-            header = fh.readline()
+            _ = fh.readline()
             for line in fh.readlines():
                 _line = line.split('\t')
                 if not pMean:
@@ -228,8 +228,8 @@ class Viewpoint():
             pChromViewpoint, pRegion_start, pRegion_end)
         view_point_range = list(view_point_range)
         view_point_range[1] += 1
-        elements_of_viewpoint = view_point_range[1] - view_point_range[0] - (
-            view_point_end - view_point_start) + 1
+        # elements_of_viewpoint = view_point_range[1] - view_point_range[0] - (
+        #     view_point_end - view_point_start) + 1
 
         interactions_list = []
         chrom, start, _, _ = self.hicMatrix.getBinPos(view_point_start)
@@ -354,8 +354,6 @@ class Viewpoint():
         data = []
         p_value = []
         data_background = None
-        data_background_mean = None
-        interaction_file_data_raw = {}
         if pRange:
 
             interaction_data_keys = copy.deepcopy(
@@ -377,7 +375,6 @@ class Viewpoint():
             viewpoint_index = background_data_keys_sorted.index(0)
 
             data_background = []
-            # data_background_mean = []
 
             for key in background_data_keys_sorted:
                 if key in interaction_data:
@@ -414,7 +411,7 @@ class Viewpoint():
         pBackgroundData = np.array(pBackgroundData)
         data_plot_label = pAxis.plot(range(len(pBackgroundData)), pBackgroundData, '-r', alpha=0.5, label='background model', linewidth=1)
         if pXFold:
-            upper_values = pBackgroundData*pXFold
+            upper_values = pBackgroundData * pXFold
             lower_values = pBackgroundData
             pAxis.fill_between(range(len(pBackgroundData)), upper_values, lower_values, facecolor='r', alpha=0.5)
         return data_plot_label
@@ -537,7 +534,7 @@ class Viewpoint():
             else:
                 try:
                     pvalue = 1 - pvalue_list[int(pDataList) - 1]
-                except:
+                except Exception:
                     log.debug('access to densities for element {} failed; value {}, len {}'.format(i, int(pDataList) - 1, len(pvalue_list)))
                     pvalue = 1
             p_value_list.append(pvalue)
@@ -658,40 +655,37 @@ class Viewpoint():
         return scores_dict, merged_lines_dict
 
     def readSignificantRegionsFile(self, pSignificantFile, pViewpointIndex, pResolution, pRange, pViewpoint):
-            # list of start and end point of regions to highlight
-            # [[start, end], [start, end]]
-            highlight_areas_list = []
-            p_values = []
-            # for bed_file in pDifferentialHighlightFiles:
-            _, reference_point_start, reference_point_end = pViewpoint.split('_')
+        # list of start and end point of regions to highlight
+        # [[start, end], [start, end]]
+        highlight_areas_list = []
+        p_values = []
+        _, reference_point_start, reference_point_end = pViewpoint.split('_')
 
-            # for i, file in enumerate(pSignificantFile):
-                
-            with open(pSignificantFile) as fh:
-                # skip header
-                for line in fh.readlines():
-                    if line.startswith('#'):
-                        continue
-                    _line = line.split('\t')
+        with open(pSignificantFile) as fh:
+            # skip header
+            for line in fh.readlines():
+                if line.startswith('#'):
+                    continue
+                _line = line.split('\t')
 
-                    start = int(_line[1])
-                    end = int(_line[2])
+                start = int(_line[1])
+                end = int(_line[2])
 
-                    if int(_line[5]) >= -pRange[0] and int(_line[5]) <= pRange[1]:
+                if int(_line[5]) >= -pRange[0] and int(_line[5]) <= pRange[1]:
 
-                        width = (end - start) / pResolution
-                        if int(_line[5]) < 0:
-                            # reference_point_position = reference_point_start
-                            relative_position_genomic_coordinates = start - int(reference_point_start)
-                        else:
-                            relative_position_genomic_coordinates = start - int(reference_point_end)
+                    width = (end - start) / pResolution
+                    if int(_line[5]) < 0:
+                        # reference_point_position = reference_point_start
+                        relative_position_genomic_coordinates = start - int(reference_point_start)
+                    else:
+                        relative_position_genomic_coordinates = start - int(reference_point_end)
 
-                        relative_position = pViewpointIndex + \
-                            (relative_position_genomic_coordinates / pResolution)
-                        highlight_areas_list.append(
-                            [relative_position, relative_position + width])
-                        p_values.append([int(relative_position), int(relative_position + width), float(_line[-3])])
-            
-            if len(highlight_areas_list) == 0:
-                return None, None
-            return highlight_areas_list, p_values
+                    relative_position = pViewpointIndex + \
+                        (relative_position_genomic_coordinates / pResolution)
+                    highlight_areas_list.append(
+                        [relative_position, relative_position + width])
+                    p_values.append([int(relative_position), int(relative_position + width), float(_line[-3])])
+
+        if len(highlight_areas_list) == 0:
+            return None, None
+        return highlight_areas_list, p_values

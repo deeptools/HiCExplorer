@@ -104,8 +104,6 @@ def main():
     viewpointObj = Viewpoint()
     referencePoints, _ = viewpointObj.readReferencePointFile(args.referencePoints)
 
-    relative_counts_conditions = []
-
     relative_positions = set()
     bin_size = 0
 
@@ -177,8 +175,6 @@ def main():
 
     # for models of all conditions:
     # - fit negative binomial for each relative distance
-    mean_percentage = {}
-    sem = {}
     relative_positions = sorted(relative_positions)
     nbinom_parameters = {}
     max_value = {}

@@ -1,6 +1,7 @@
 import argparse
 import sys
 import os
+import errno
 import math
 from multiprocessing import Process, Queue
 import time
@@ -150,7 +151,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
         colors = ['g', 'b', 'c', 'm', 'y', 'k']
         background_plot = True
         data_plot_label = None
-        gene  = ''
+        gene = ''
         for i, interactionFile_ in enumerate(interactionFile):
             header, data, background_data_plot, p_values, viewpoint_index = pViewpointObj.getDataForPlotting(pArgs.interactionFileFolder + '/' + interactionFile_, pArgs.range, pBackgroundData)
             if len(data) <= 1 or len(p_values) <= 1:
@@ -323,7 +324,7 @@ def main(args=None):
         while not all_data_collected:
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
-                    background_data_thread = queue[i].get()
+                    _ = queue[i].get()
                     queue[i] = None
                     process[i].join()
                     process[i].terminate()

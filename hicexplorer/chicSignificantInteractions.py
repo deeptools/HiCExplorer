@@ -1,6 +1,7 @@
 import argparse
 import sys
 import os
+import errno
 import math
 from multiprocessing import Process, Queue
 import time
@@ -126,7 +127,6 @@ def parse_arguments(args=None):
 
 def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities, pQueue=None):
     outfile_names = []
-    outfile_names_adjusted = []
     target_outfile_names = []
 
     for interactionFile in pInteractionFilesList:
@@ -135,9 +135,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         for sample in interactionFile:
             # header,
             # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
-            # interaction_file_data:
             data = pViewpointObj.readInteractionFileForAggregateStatistics(pArgs.interactionFileFolder + '/' + sample)
-            interaction_file_data = data[2]
             sample_prefix += sample.split('/')[-1].split('_')[0]
             sample_prefix += '_'
             # filter by x-fold over background value or loose p-value
@@ -192,7 +190,7 @@ def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLines
                     else:
                         pData[key][-3] = 1 - pBackgroundSumOfDensities[key][-1]
 
-                except:
+                except Exception:
                     pData[key][-3] = 1 - pBackgroundSumOfDensities[key][-1]
                     log.error('Not enough p-values precomputed, using highest value instead. Please increase --xFoldMaxValueNB value. Value {}, max value {}'.format(int(float(pData[key][-1])), len(pData[key])))
 
@@ -254,7 +252,6 @@ def write(pOutFileName, pHeader, pInteractionLines):
 def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities):
     outfile_names = [None] * pArgs.threads
     target_list_name = [None] * pArgs.threads
-    outfile_names_adjusted = [None] * pArgs.threads
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
     all_data_collected = False
     queue = [None] * pArgs.threads
@@ -351,15 +348,13 @@ def main(args=None):
 
     viewpointObj = Viewpoint()
     outfile_names = []
-    outfile_names_adjusted = []
 
     interactionFileList = []
 
     background_model = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range)
     background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(background_model, args, pXfoldMaxValue=args.xFoldMaxValueNB)
-    background_model_mean_values = viewpointObj.readBackgroundDataFile(
-        args.backgroundModelFile, args.range, pMean=True)
+
     if args.batchMode:
         with open(args.interactionFile[0], 'r') as interactionFile:
             file_ = True

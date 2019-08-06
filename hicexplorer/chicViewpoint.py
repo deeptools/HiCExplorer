@@ -1,6 +1,7 @@
 import argparse
 import sys
 import os
+import errno
 from multiprocessing import Process, Queue
 import time
 import math
@@ -77,7 +78,6 @@ def parse_arguments(args=None):
 def adjustViewpointData(pViewpointObj, pData, pBackground, pReferencePoint, pRegionStart, pRegionEnd):
     data_viewpoint = {}
     data_background = {}
-    data_sem = {}
     view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(
         pReferencePoint)
     view_point_range_start, view_point_range_end = \

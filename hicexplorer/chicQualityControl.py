@@ -81,7 +81,6 @@ def parse_arguments(args=None):
 def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     test_result = []
-    average_count = []
     for i, referencePoint in enumerate(pReferencePoints):
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
         data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
@@ -98,15 +97,11 @@ def main():
     viewpointObj = Viewpoint()
     referencePoints, _ = viewpointObj.readReferencePointFile(args.referencePoints)
 
-    relative_positions = set()
-    bin_size = 0
-
     # compute for each viewpoint the sparsity and consider these as bad with a sparsity less than given.
 
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
-    background_model_data = None
     sparsity = []
 
     for j, matrix in enumerate(args.matrices):
@@ -114,7 +109,6 @@ def main():
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
 
-        bin_size = hic_ma.getBinSize()
         all_data_collected = False
         thread_done = [False] * args.threads
         for i in range(args.threads):
