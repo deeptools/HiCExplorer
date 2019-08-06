@@ -66,6 +66,27 @@ HiCExplorer tools
 |:ref:`hicMergeTADbins`                | preprocessing    | one Hi-C matrix, one BED file     | one Hi-C matrix                             | Uses a BED file of domains or TAD boundaries to merge the                         |
 |                                      |                  |                                   |                                             | bin counts of a Hi-C matrix.                                                      |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`chicQualityControl`             | preprocessing    | Hi-C matrices                     | two plots                                   | Checks for sparsity of viewpoints and removes them if too sparse.                 |
+|                                      |                  | reference point BED file          | accepted reference point BED file           |                                                                                   |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`chicViewpointBackground`        | preprocessing    | Hi-C matrices                     | background model file                       | Creates a background model for all given samples and reference points.            |
+|                                      |                  | reference point BED file          |                                             |                                                                                   |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`chicViewpoint`                  | preprocessing    | Hi-C matrices                     | viewpoint file(s)                           | Creates per sample per viewpoint one viewpoint file.                              |
+|                                      |                  | background model file             |                                             |                                                                                   |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`chicSignificantInteractions`    | preprocessing    | viewpoint file(s)                 | significant interaction file(s)             | Detects significant interactions per viewpoint based on the background and        |
+|                                      | analysis         | background model file             | target file(s)                              | neighborhood merging via x-fold and loose p-values.                               |                                                                                   |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`chicAggregateStatistic`         | preprocessing    | viewpoint files(s)                | aggregated file(s) for differential test    | Aggregates for one viewpoint of two samples via a target file the locations to    |
+|                                      |                  | target file (s)                   |                                             | test for differential interactions.                                               |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`chicDifferentialTest`           | analysis         | aggregated file(s) of two samples | H0_accepted-, H0_rejected-files             | Tests with chi2 or fisher for differential interactions of two samples.           |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`chicPlotViewpoint`              | visualization    | viewpoint file(s)                 | one image per viewpoint                     | Visualization of a viewpoint.                                                     |
+|                                      |                  | differential expression file(s)   |                                             |                                                                                   |
+|                                      |                  | significant interactions file(s)  |                                             |                                                                                   |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 
 
 General principles
@@ -169,3 +190,22 @@ Hi-C contact matrix handling
 """""""""""""""""""""""
 :ref:`hicAdjustMatrix`
 """"""""""""""""""""""
+
+
+Capture Hi-C analysis
+^^^^^^^^^^^^^^^^^^^^^
+
+:ref:`chicQualityControl`
+""""""""""""""""""""""""
+:ref:`chicViewpointBackground`
+""""""""""""""""""""""""""""""
+:ref:`chicViewpoint`
+""""""""""""""""""""
+:ref:`chicSignificantInteractions`
+""""""""""""""""""""""""""""""""""
+:ref:`chicAggregateStatistic`
+"""""""""""""""""""""""""""""
+:ref:`chicDifferentialTest`
+"""""""""""""""""""""""""""
+:ref:`chicPlotViewpoint`
+""""""""""""""""""""""""
