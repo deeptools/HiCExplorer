@@ -150,6 +150,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
         colors = ['g', 'b', 'c', 'm', 'y', 'k']
         background_plot = True
         data_plot_label = None
+        gene  = ''
         for i, interactionFile_ in enumerate(interactionFile):
             header, data, background_data_plot, p_values, viewpoint_index = pViewpointObj.getDataForPlotting(pArgs.interactionFileFolder + '/' + interactionFile_, pArgs.range, pBackgroundData)
             if len(data) <= 1 or len(p_values) <= 1:
@@ -213,11 +214,11 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 outFileName = pArgs.outFileName
             else:
                 for interactionFile_ in interactionFile:
-                    sample_prefix += interactionFile[0].split('/')[-1].split('_')[0] + '_'
+                    sample_prefix += interactionFile_.split('/')[-1].split('_')[0] + '_'
                 if sample_prefix.endswith('_'):
                     sample_prefix = sample_prefix[:-1]
-                region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:6])
-                outFileName = sample_prefix + '_' + region_prefix
+                region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:4])
+                outFileName = gene + '_' + sample_prefix + '_' + region_prefix
                 outFileName = pArgs.outputFolder + '/' + outFileName + '.' + pArgs.outputFormat
             plt.savefig(outFileName, dpi=pArgs.dpi)
         plt.close(fig)
