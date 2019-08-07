@@ -69,7 +69,7 @@ HiCExplorer tools
 |:ref:`chicQualityControl`             | preprocessing    | Hi-C matrices                     | two plots                                   | Checks for sparsity of viewpoints and removes them if too sparse.                 |
 |                                      |                  | reference point BED file          | accepted reference point BED file           |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-|:ref:`chicViewpointBackground`        | preprocessing    | Hi-C matrices                     | background model file                       | Creates a background model for all given samples and reference points.            |
+|:ref:`chicViewpointBackgroundModel`   | preprocessing    | Hi-C matrices                     | background model file                       | Creates a background model for all given samples and reference points.            |
 |                                      |                  | reference point BED file          |                                             |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`chicViewpoint`                  | preprocessing    | Hi-C matrices                     | viewpoint file(s)                           | Creates per sample per viewpoint one viewpoint file.                              |
@@ -197,8 +197,8 @@ Capture Hi-C analysis
 
 :ref:`chicQualityControl`
 """""""""""""""""""""""""
-:ref:`chicViewpointBackground`
-""""""""""""""""""""""""""""""
+:ref:`chicViewpointBackgroundModel`
+"""""""""""""""""""""""""""""""""""
 :ref:`chicViewpoint`
 """"""""""""""""""""
 :ref:`chicSignificantInteractions`

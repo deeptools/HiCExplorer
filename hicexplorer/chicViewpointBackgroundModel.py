@@ -19,16 +19,22 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-                    Build a background model for viewpoints, the viewpoints over all samples (matrices) are used to build the background model.
-                    An example usage is:
-                    $ chicViewpointBackgroundModel -m matrix1.h5 matrix2.h5 matrix3.h5 -rp referencePointsFile.bed --range 20000 40000
-                    """
+chicViewpointBackgroundModel computes for all given samples with all reference points a background model. For all relative distances to a reference point 
+a negative binomial distribution is fitted. Moreover, for each relative distance to a reference point the average value for this location is computed. Both
+background models are used, the first one for p-value and significance computation, the second one to filter out interactions with a less x-fold over mean.
+
+The background distributions are fixed at `--fixateRange` i.e. all distances lower / higher than this value use the fixed background distribution.
+
+An example usage is:
+
+$ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outFileName background_model.bed 
+"""
     )
 
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrices', '-m',
-                                help='The input matrices to build the background model on.',
+                                help='The input matrices (samples) to build the background model on.',
                                 nargs='+',
                                 required=True)
 
@@ -39,7 +45,7 @@ def parse_arguments(args=None):
 
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--averageContactBin',
-                           help='Average the contacts of n bins, written to last column.',
+                           help='Average the contacts of n bins via a sliding window approach.',
                            type=int,
                            default=5)
     parserOpt.add_argument('--outFileName', '-o',
@@ -57,7 +63,8 @@ def parse_arguments(args=None):
                            default=500000,
                            type=int
                            )
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+    parserOpt.add_argument('--help', '-h', action='help',
+                           help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -72,20 +79,25 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     for i, referencePoint in enumerate(pReferencePoints):
 
-        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
+        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
+            referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
-        data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
+        data_list = pViewpointObj.computeViewpoint(
+            referencePoint, referencePoint[0], region_start, region_end)
 
         # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
-        view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
+        view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(
+            referencePoint)
         view_point_range_start, view_point_range_end = \
-            pViewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
+            pViewpointObj.getViewpointRangeAsMatrixIndices(
+                referencePoint[0], region_start, region_end)
 
         for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
             relative_position = i - view_point_start
 
         if pArgs.averageContactBin > 0:
-            data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
+            data_list = pViewpointObj.smoothInteractionValues(
+                data_list, pArgs.averageContactBin)
 
         for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
             relative_position = i - view_point_start
@@ -102,7 +114,8 @@ def main():
     args = parse_arguments().parse_args()
 
     viewpointObj = Viewpoint()
-    referencePoints, _ = viewpointObj.readReferencePointFile(args.referencePoints)
+    referencePoints, _ = viewpointObj.readReferencePointFile(
+        args.referencePoints)
 
     relative_positions = set()
     bin_size = 0
@@ -129,9 +142,11 @@ def main():
         for i in range(args.threads):
 
             if i < args.threads - 1:
-                referencePointsThread = referencePoints[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:(
+                    i + 1) * referencePointsPerThread]
             else:
-                referencePointsThread = referencePoints[i * referencePointsPerThread:]
+                referencePointsThread = referencePoints[i *
+                                                        referencePointsPerThread:]
 
             queue[i] = Queue()
             process[i] = Process(target=compute_background, kwargs=dict(
@@ -154,11 +169,13 @@ def main():
                     else:
                         for relativePosition in background_model_data_thread:
                             if relativePosition in background_model_data:
-                                background_model_data[relativePosition].extend(background_model_data_thread[relativePosition])
+                                background_model_data[relativePosition].extend(
+                                    background_model_data_thread[relativePosition])
                             else:
                                 background_model_data[relativePosition] = background_model_data_thread[relativePosition]
 
-                    relative_positions = relative_positions.union(relative_positions_thread)
+                    relative_positions = relative_positions.union(
+                        relative_positions_thread)
                     queue[i] = None
                     process[i].join()
                     process[i].terminate()
@@ -181,8 +198,10 @@ def main():
     mean_value = {}
     sum_all_values = 0
     for relative_position in relative_positions:
-        nbinom_parameters[relative_position] = fit_nbinom.fit(np.array(background_model_data[relative_position]))
-        max_value[relative_position] = np.max(background_model_data[relative_position])
+        nbinom_parameters[relative_position] = fit_nbinom.fit(
+            np.array(background_model_data[relative_position]))
+        max_value[relative_position] = np.max(
+            background_model_data[relative_position])
         average_value = np.average(background_model_data[relative_position])
         mean_value[relative_position] = average_value
         sum_all_values += average_value
@@ -191,7 +210,8 @@ def main():
         mean_value[relative_position] /= sum_all_values
     # write result to file
     with open(args.outFileName, 'w') as file:
-        file.write('Relative position\tsize nbinom\tprob nbinom\tmax value\tmean value\n')
+        file.write(
+            'Relative position\tsize nbinom\tprob nbinom\tmax value\tmean value\n')
 
         for relative_position in relative_positions:
             relative_position_in_genomic_scale = relative_position * bin_size

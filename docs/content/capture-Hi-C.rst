@@ -80,12 +80,14 @@ Creation of reference point file
 
 Andrey et al writes they used in total 460 reference points, but 24 were removed due to low sequence coverage or non correspondence to a promoter region, leading to 446 in total.
 
-To reproduce this, we need the all reference points which are published in Supplementary Table `S2 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S2.xlsx>`__ and `S8 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S8.xlsx >`__ .  
+To reproduce this, we need the all reference points which are published in Supplementary Table `S2 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S2.xlsx>`__ and `S8 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S8.xlsx>`__ .  
 
 
 It is the easiest to create via Excel the reference point file in the following format and store it as a tab separated file:
 
-chr1	4487435	4487435 Sox17
+.. code:: bash
+
+    chr1	4487435	4487435 Sox17
 
 Or just download the prepared file. We will do the Quality control on our own and compare to the results of Andrey.
 
@@ -102,25 +104,66 @@ Quality control
 Background model
 ^^^^^^^^^^^^^^^^
 
+The background model computes for both samples all viewpoints given by the reference points in a range defined by the parameter `fixateRange`. We recommend to set it to 500kb because real interactions above the range 
+are rarely observed and very low interaction numbers like 1 are already considered as significant. With this setting, only the interactions in a range 500kb up- and downstream of the reference point are considered for each viewpoint.
+Based on this data, two background models are computed, the first one simply computes the average per relative distance to the reference point, and second, a negative binomial distribution per relative distance to
+ the reference point is fitted. This first one is used for filtering in the significant interaction evaluation by an x-fold factor and for plotting. The negative binomial model is more important, it is used to 
+ compute per relative distance in each sample a p-value and based on it the decision if an interaction is considered as significant is made.
 
 .. code:: bash
 
-    chicViewpointBackgroundModel -m FL-E13-5.cool MB-E10-5.cool -t 20 -rp reference_points.bed -o background_model.bed
+    chicViewpointBackgroundModel -m FL-E13-5.cool MB-E10-5.cool --fixateRange 500000 -t 20 -rp reference_points.bed -o background_model.bed
 
 
 Viewpoint computation
 ^^^^^^^^^^^^^^^^^^^^^
 
+In this step the viewpoint for each reference point listed in `reference_points.bed` is computed, the up- and downstream range can be given via `--range upstream downstream` and please use the same `--fixateRange` as in the background model computation.
+For each relative distance the x-fold over the average value of this relative distance is computed and each location gets a p-value based on the background negative binomial distribution for this relative distance.
+For each viewpoint one viewpoint file is created and stored in the folder given by the parameter `--outputFolder`. The name of each viewpoint file starts with its gene / promoter name, followed by the sample (given by the name of the matrix) and the
+exact location. For example the viewpoint `chr1	4487435	4487435 Sox17` from `MB-E10-5.cool` matrix will be called `Sox17_MB-E10-5_chr1_4487435_4487435.bed` and looks as follows:
+
+..code:: bash
+
+    TODO: example viewpoint file stuff
+
+
+in case the parameter `--writeFileNamesToFile` is set, the viewpoint file names are written to a file which can be used for batch processing in the later steps. Each sample is combined with each other sample for each viewpoint to enable the batch processing
+for the differential analysis. Example: matrices `FL-E13-5.cool` and  `MB-E10-5.cool` with the two reference points x and y:
+
+..code:: bash
+
+    x_FL-E13-5_chr1_1000_2000.bed
+    x_MB-E10-5_chr1_1000_2000.bed
+    y_FL-E13-5_chr1_3000_4000.bed
+    y_MB-E10-5_chr1_3000_4000.bed
+
+
+
 .. code:: bash
 
-chicViewpoint -m FL-E13-5.cool MB-E10-5.cool --averageContactBin 5 --range 2000000 2000000 -rp views10.bed -bmf background_model.bed --writeFileNamesToFile TSS_view1.txt --outputFolder TSS_view1 --fixateRange 500000 --threads 5
+    chicViewpoint -m FL-E13-5.cool MB-E10-5.cool --averageContactBin 5 --range 1000000 1000000 -rp views10.bed -bmf background_model.bed --writeFileNamesToFile TSS_view1.txt --outputFolder TSS_view1 --fixateRange 500000 --threads 5
 
 
 Significant interactions detection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+
+To detect significant interactions and to prepare a target file for each viewpoint which will be used for the differential analysis, the script `chicSignificantInteractions` is used. It offers two modi: Either the user can specify 
+a x-fold value or a loose p-value. The first one considers all interactions with a minimum x-fold over the average background for its relative distribution as a candidate or second, all interactions with a loose p-value or less are considered. 
+These are preselcetion steps to be able to detect wider peaks in the same way as sharp ones. All detected candidates are merged to one peak in the case they are direct neighbors and the sum of all interaction values of this neighborhood
+ is used to compute a new p-value. The p-value is computed based the relative distance negative binomial distribution of the interaction with the original highest interaction value. All considered peaks are accepted as significant interactions if
+ their p-value is small as the threshold `--pvalue`.
+
+To exclude interaction with an interaction value which is too less the parameter `--peakInteractionsThreshold` can be set.
+
+
+
 .. code:: bash
 
+
+Batch mode
+~~~~~~~~~~
 
 
 

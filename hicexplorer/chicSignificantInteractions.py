@@ -10,10 +10,6 @@ log = logging.getLogger(__name__)
 
 import pybedtools
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 
 import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
@@ -23,7 +19,27 @@ from .lib import Viewpoint
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-                                     description='Aggregates the statistics of interaction files and prepares them for chicDifferentialTest')
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+
+                                     description="""
+Per viewpoint the significant interactions are detected based on the background model. Each viewpoint file gets as output a file with all recorded significant interactions and
+ a target file. The target file is especially in the batch mode context useful, it merges for two consecutive listed control and treatment viewpoint the significant interactions which can then be used
+ to test for a differential interaction scheme.
+ 
+chicSignificantInteractions supports two modes to detect significant interactions, either by an x-fold over the average background or a loose p-value. In both cases neighboring significant peaks are merged together and an additional 
+p-value based on the sum of interactions for this neighborhood is computed. Only interactions with a higher p-value as specified by the threshold `--pValue` are accepted as a significant interaction.
+
+An example usage is for single mode is:
+
+$ chicSignificantInteractions --interactionFile interactionFilesFolder/Sox17_FL-E13-5_chr1_1000_2000.bed --referencePoints referencePointsFile.bed --range 20000 40000 --backgroundModelFile background_model.bed --loosePValue 0.5 --pValue 0.01
+
+An example usage is for batch mode is:
+interactionFilesFolder --writeFileNamesToFile interactionFile.txt
+$ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outFileName background_model.bed 
+
+The main difference between single mode and batch mode is that in single mode the parameter `--interactionFile` is interpreted as a list of viewpoint files created with `chicViewpoint`, whereas in batch mode only one file is allowed which contains per line the file names of viewpoint files. 
+This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFile`. Please have in mind to specify in batch mode the folder via `--interactionFileFolder` where `chicViewpoint` wrote the files to.
+""")
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -61,7 +77,7 @@ def parse_arguments(args=None):
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outFileNameSuffix', '-suffix',
-                           help='File name suffix to save the result.',
+                           help='File name suffix to save the results, prefix is the input file name.',
                            required=False,
                            default='_significant_interactions.bed')
 
@@ -70,11 +86,11 @@ def parse_arguments(args=None):
                            required=False,
                            default='.')
     parserOpt.add_argument('--targetFolder', '-tf',
-                           help='Folder where the adjusted interaction files are stored in.',
+                           help='Folder where the target files are stored.',
                            required=False,
                            default='targetFolder')
     parserOpt.add_argument('--outputFolder', '-o',
-                           help='Output folder of the files.',
+                           help='Output folder of the files significant interaction files.',
                            required=False,
                            default='significantFiles')
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
@@ -135,18 +151,22 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         for sample in interactionFile:
             # header,
             # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
-            data = pViewpointObj.readInteractionFileForAggregateStatistics(pArgs.interactionFileFolder + '/' + sample)
+            data = pViewpointObj.readInteractionFileForAggregateStatistics(
+                pArgs.interactionFileFolder + '/' + sample)
             sample_prefix += sample.split('/')[-1].split('_')[0]
             sample_prefix += '_'
             # filter by x-fold over background value or loose p-value
             # and merge neighbors. Use center position to compute new p-value.
             if pArgs.xFoldBackground is not None:
-                accepted_scores, merged_lines_dict = merge_neighbors_x_fold(pArgs.xFoldBackground, data, pViewpointObj, pResolution=pArgs.resolution)
+                accepted_scores, merged_lines_dict = merge_neighbors_x_fold(
+                    pArgs.xFoldBackground, data, pViewpointObj, pResolution=pArgs.resolution)
             else:
-                accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution)
+                accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(
+                    pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution)
 
             # compute new p-values
-            accepted_scores, target_lines = compute_new_p_values(accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold)
+            accepted_scores, target_lines = compute_new_p_values(
+                accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold)
 
             # filter by new p-value
             if len(accepted_scores) == 0:
@@ -156,7 +176,8 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                             interactionFile[0], interactionFile[1]))
                 else:
                     log.info('No target regions found')
-            outFileName = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
+            outFileName = '.'.join(sample.split(
+                '/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
             if pArgs.batchMode:
                 outfile_names.append(outFileName)
             outFileName = pArgs.outputFolder + '/' + outFileName
@@ -165,7 +186,8 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             target_list.append(target_lines)
 
         target_list = [item for sublist in target_list for item in sublist]
-        sample_name = '_'.join(interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:])
+        sample_name = '_'.join(interactionFile[0].split(
+            '/')[-1].split('.')[0].split('_')[1:])
         target_name = sample_prefix + sample_name + '_target.bed'
         target_outfile_names.append(target_name)
         target_name = pArgs.targetFolder + '/' + target_name
@@ -186,13 +208,16 @@ def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLines
             else:
                 try:
                     if int(float(pData[key][-1])) < len(pBackgroundSumOfDensities[key]):
-                        pData[key][-3] = 1 - pBackgroundSumOfDensities[key][int(float(pData[key][-1]))]
+                        pData[key][-3] = 1 - \
+                            pBackgroundSumOfDensities[key][int(
+                                float(pData[key][-1]))]
                     else:
                         pData[key][-3] = 1 - pBackgroundSumOfDensities[key][-1]
 
                 except Exception:
                     pData[key][-3] = 1 - pBackgroundSumOfDensities[key][-1]
-                    log.error('Not enough p-values precomputed, using highest value instead. Please increase --xFoldMaxValueNB value. Value {}, max value {}'.format(int(float(pData[key][-1])), len(pData[key])))
+                    log.error('Not enough p-values precomputed, using highest value instead. Please increase --xFoldMaxValueNB value. Value {}, max value {}'.format(
+                        int(float(pData[key][-1])), len(pData[key])))
 
             if pData[key][-3] <= pPValue:
                 if float(pData[key][-1]) >= pPeakInteractionsThreshold:
@@ -244,7 +269,8 @@ def write(pOutFileName, pHeader, pInteractionLines):
 
         for data in pInteractionLines:
             new_line = '\t'.join(pInteractionLines[data][:6])
-            new_line += '\t' + '\t'.join(format(float(x), "0.20f") for x in pInteractionLines[data][6:])
+            new_line += '\t' + '\t'.join(format(float(x), "0.20f")
+                                         for x in pInteractionLines[data][6:])
             new_line += '\n'
             file.write(new_line)
 
@@ -260,9 +286,11 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
     for i in range(pArgs.threads):
 
         if i < pArgs.threads - 1:
-            interactionFileListThread = pInteractionFilesList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
+            interactionFileListThread = pInteractionFilesList[i * interactionFilesPerThread:(
+                i + 1) * interactionFilesPerThread]
         else:
-            interactionFileListThread = pInteractionFilesList[i * interactionFilesPerThread:]
+            interactionFileListThread = pInteractionFilesList[i *
+                                                              interactionFilesPerThread:]
 
         queue[i] = Queue()
         process[i] = Process(target=compute_interaction_file, kwargs=dict(
@@ -293,7 +321,8 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
         time.sleep(1)
 
     outfile_names = [item for sublist in outfile_names for item in sublist]
-    target_list_name = [item for sublist in target_list_name for item in sublist]
+    target_list_name = [
+        item for sublist in target_list_name for item in sublist]
 
     return outfile_names, target_list_name
 
@@ -353,7 +382,8 @@ def main(args=None):
 
     background_model = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range)
-    background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(background_model, args, pXfoldMaxValue=args.xFoldMaxValueNB)
+    background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(
+        background_model, args, pXfoldMaxValue=args.xFoldMaxValueNB)
 
     if args.batchMode:
         with open(args.interactionFile[0], 'r') as interactionFile:
@@ -364,14 +394,16 @@ def main(args=None):
                 if file_ != '' and file2_ != '':
                     interactionFileList.append((file_, file2_))
 
-        outfile_names, target_list_name = call_multi_core(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
+        outfile_names, target_list_name = call_multi_core(
+            interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
 
     else:
         i = 0
         while i < len(args.interactionFile):
             interactionFileList.append([args.interactionFile[i]])
             i += 1
-        target_list_name = compute_interaction_file(interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
+        target_list_name = compute_interaction_file(
+            interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
 
     if args.batchMode:
         with open(args.writeFileNamesToFile, 'w') as nameListFile:
