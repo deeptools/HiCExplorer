@@ -37,7 +37,7 @@ HiCExplorer tools
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicAdjustMatrix`                | data integration | one Hi-C file formats             | Hi-C matrix                                 | Removes, masks or keeps specified regions of a matrix                             |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-|:ref:`hicInfo`                        | information      | one or more hicMatrix objects     | Screen info                                 | Prints information about  matrices, like size, maximum, minimux, bin size, etc.   |
+|:ref:`hicInfo`                        | information      | one or more hicMatrix objects     | Screen info                                 | Prints information about  matrices, like size, maximum, minimum, bin size, etc.   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPCA`                         | analysis         | one Hi-C matrix                   | bedgraph or bigwig file(s) for each         | Computes for A / B compartments the eigenvectors                                  |
 |                                      |                  |                                   | eigenvector                                 |                                                                                   |
@@ -76,8 +76,8 @@ HiCExplorer tools
 |                                      |                  | background model file             |                                             |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`chicSignificantInteractions`    | preprocessing    | viewpoint file(s)                 | significant interaction file(s)             | Detects significant interactions per viewpoint based on the background and        |
-|                                      | analysis         | background model file             | target file(s)                              | neighborhood merging via x-fold and loose p-values.                               |                                                                                   |
-+--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|                                      | analysis         | background model file             | target file(s)                              | neighborhood merging via x-fold and loose p-values.                               |
+|--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`chicAggregateStatistic`         | preprocessing    | viewpoint files(s)                | aggregated file(s) for differential test    | Aggregates for one viewpoint of two samples via a target file the locations to    |
 |                                      |                  | target file (s)                   |                                             | test for differential interactions.                                               |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
@@ -88,7 +88,7 @@ HiCExplorer tools
 |                                      |                  | significant interactions file(s)  |                                             |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 
-
+ 
 General principles
 ^^^^^^^^^^^^^^^^^^
 
@@ -196,7 +196,7 @@ Capture Hi-C analysis
 ^^^^^^^^^^^^^^^^^^^^^
 
 :ref:`chicQualityControl`
-""""""""""""""""""""""""
+"""""""""""""""""""""""""
 :ref:`chicViewpointBackground`
 """"""""""""""""""""""""""""""
 :ref:`chicViewpoint`
