@@ -47,7 +47,7 @@ Create cHi-C matrices
 Creation of reference point file
 --------------------------------
 
-Andrey et al writes they used in total 460 referenc points, but 24 were removed due to low sequence coverage or non correspondence to a promoter region, leading to 446 in total.
+Andrey et al writes they used in total 460 reference points, but 24 were removed due to low sequence coverage or non correspondence to a promoter region, leading to 446 in total.
 
 To reproduce this, we need the all Viewpoint which are published in Supplementary Table `S2 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S2.xlsx>`__ and `S8 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S8.xlsx >`__.  
 
@@ -56,7 +56,7 @@ It is the easiest to create via Excel the reference point file in the following 
 
 chr1	4487435	4487435 Sox17
 
-Or just download the perpared file. We will do the Quality control on our own and compare to the results of Andrey.
+Or just download the prepared file. We will do the Quality control on our own and compare to the results of Andrey.
 
 
 
