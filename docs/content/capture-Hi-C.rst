@@ -1,15 +1,5 @@
-.. _capture-Hi-C:
-
 Captured Hi-C data analysis
 ===========================
-
-.. contents::
-    :local:
-.. toctree::
-    :maxdepth: 1
-
-    capture-Hi-C
-
 
 How we use HiCExplorer to analyse cHi-C data
 --------------------------------------------
@@ -38,7 +28,8 @@ Please download the raw data via the following links or via `NCBI GSE84795 <http
 Mapping
 -------
 
-Map the files with a mapper of your choice against the mm9 reference genome, as an example the mapping with bowtie2 is shown.
+Map the files with a mapper of your choice against the mm9 reference genome, as an example the mapping with bowtie2 is shown. 
+For information on how to create a reference index, :ref:`see <mES-HiC_analysis:create-an-index>`
 
 .. code:: bash
 

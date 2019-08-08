@@ -22,8 +22,21 @@ from .lib import Viewpoint
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-                                     description='Plots a viewpoint computed by chicViewpoint.')
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description="""
+chicPlotViewpoint plots one or many viewpoints with the average background model and the computed p-value per sample. Moreover it can highlight differential interactions of two samples and or significant regions.
 
+An example usage is:
+
+`$ chicPlotViewpoint --interactionFile viewpoint1.bed viewpoint2.bed --range 500000 500000  --backgroundModelFile background_model.bed --pValue --outFileName viewpoint1_2.png --dpi 300`
+
+
+In batch mode the list of file names and the folders containing the files need to be given:
+
+`$ chicPlotViewpoint --interactionFile viewpoint_names.txt -interactionFileFolder viewpointFilesFolder --differentialTestResult rejected_H0.txt --differentialTestResultsFolder differentialFolder --range 500000 500000 --backgroundModelFile background_model.bed --pValue --outputFolder plotsFOlder --dpi 300 --threads 20`
+
+"""
+)
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--interactionFile', '-if',
@@ -33,7 +46,7 @@ def parse_arguments(args=None):
 
     parserRequired.add_argument('--range',
                                 help='Defines the region upstream and downstream of a reference point which should be included. '
-                                'Format is --region upstream downstream',
+                                'Format is --region upstream downstream e.g.: --region 500000 500000 plots 500kb up- and 500kb downstream. This value should not exceed the range used in the other chic-tools.',
                                 required=True,
                                 type=int,
                                 default=[500000, 500000],
@@ -54,6 +67,10 @@ def parse_arguments(args=None):
                            nargs='+')
     parserOpt.add_argument('--significantInteractionFileFolder', '-siff',
                            help='Folder where the detected significant interactions files are stored in. Applies only for batch mode.',
+                           required=False,
+                           default='.')
+    parserOpt.add_argument('--differentialTestResultsFolder', '-diff',
+                           help='Folder where the H0 rejected files are stored in. Applies only for batch mode.',
                            required=False,
                            default='.')
     parserOpt.add_argument('--significantInteractions', '-si',
@@ -96,8 +113,7 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--pValue', '-p',
                            help='Plot p-values as a colorbar',
-                           choices=['heatmap', ''],
-                           default=''
+                           action='store_true'
                            )
     parserOpt.add_argument('--xFold', '-xf',
                            help='Plot x-fold region for the mean background.',
@@ -141,13 +157,11 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             _ratio = 0.6 / number_of_rows_plot
             z_score_heights = [_ratio] * number_of_rows_plot
 
-        if pArgs.pValue == 'heatmap':
+        if pArgs.pValue:
             gs = gridspec.GridSpec(1 + len(interactionFile), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
             gs.update(hspace=0.5, wspace=0.05)
             ax1 = plt.subplot(gs[0, 0])
             ax1.margins(x=0)
-        else:
-            ax1 = plt.subplot()
         colors = ['g', 'b', 'c', 'm', 'y', 'k']
         background_plot = True
         data_plot_label = None
@@ -164,6 +178,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             significant_p_values = None
             significant_regions = None
             if pArgs.differentialTestResult:
+                if pArgs.differentialTestResultsFolder:
+                    pHighlightDifferentialRegionsFileList[j] = pArgs.differentialTestResultsFolder + '/' + pHighlightDifferentialRegionsFileList[j]
                 highlight_differential_regions = pViewpointObj.readRejectedFile(pHighlightDifferentialRegionsFileList[j], viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
             if pArgs.significantInteractions:
                 significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(pSignificantRegionsFileList[j][i], viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
@@ -185,12 +201,12 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                         for x in range(location[0], location[1]):
                             p_values[x] = location[2]
                 p_values.clip(pArgs.minPValue, pArgs.maxPValue, p_values)
-            if pArgs.pValue == 'heatmap':
+            if pArgs.pValue:
                 pViewpointObj.plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
                                          pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
-                                         pFigure=fig,)
-            elif pArgs.pValue == 'integrated':
-                data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=p_values, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' p-value')
+                                         pFigure=fig)
+            # elif pArgs.pValue == 'integrated':
+            #     data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=p_values, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' p-value')
 
         if data_plot_label is not None:
 

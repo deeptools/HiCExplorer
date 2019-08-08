@@ -39,7 +39,7 @@ A second mode is the batch processing mode, for this you need a file containing 
 
 `$ chicDifferentialTest --statisticTest fisher --alpha 0.05 --interactionFile aggregatedFilesBatch.txt --interactionFileFolder aggregatedFilesFolder --batchMode --threads 20 --outputFolder differentialResults`
 
-This will create, as in the non-batch mode, three files per aggregated file and writes the file name to the file given by `--rejectedFileNamesToFile`.
+This will create, as in the non-batch mode, three files per aggregated file and writes the file name to the file given by `--rejectedFileNamesToFile`. This last file can be used to plot the differential interactions per viewpoint in batch mode by chicPlotViewpoint.
 """
 )
 
