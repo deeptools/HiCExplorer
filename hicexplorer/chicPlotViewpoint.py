@@ -65,7 +65,7 @@ def parse_arguments(args=None):
                            required=False,
                            default='plots')
     parserOpt.add_argument('--outputFormat', '-format',
-                           help='Output format of the plot. Ignored if outFileName is given.',
+                           help='Output format of the plot.',
                            required=False,
                            default='png')
     parserOpt.add_argument('--dpi',
@@ -212,7 +212,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
 
             sample_prefix = ""
             if pArgs.outFileName:
-                outFileName = pArgs.outFileName
+                outFileName = pArgs.outputFolder + '/' + pArgs.outFileName
+                
             else:
                 for interactionFile_ in interactionFile:
                     sample_prefix += interactionFile_.split('/')[-1].split('_')[0] + '_'
@@ -220,7 +221,10 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                     sample_prefix = sample_prefix[:-1]
                 region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:4])
                 outFileName = gene + '_' + sample_prefix + '_' + region_prefix
-                outFileName = pArgs.outputFolder + '/' + outFileName + '.' + pArgs.outputFormat
+                outFileName = pArgs.outputFolder + '/' + outFileName
+            
+            if pArgs.outputFormat != outFileName.split('.')[-1]:
+                outFileName = outFileName + '.' + pArgs.outputFormat
             plt.savefig(outFileName, dpi=pArgs.dpi)
         plt.close(fig)
 

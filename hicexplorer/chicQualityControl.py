@@ -65,7 +65,12 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
                            default=500000,
                            type=int
                            )
-
+    parserOpt.add_argument('--dpi',
+                           help='Optional parameter: Resolution for the image in case the'
+                           'output is a raster graphics image (e.g png, jpg)',
+                           type=int,
+                           default=300,
+                           required=False)
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -77,16 +82,22 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
 
 def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
-    test_result = []
+    sparsity_list = []
+    coverage_list = []
+
     for i, referencePoint in enumerate(pReferencePoints):
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
             referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
         data_list = pViewpointObj.computeViewpoint(
             referencePoint, referencePoint[0], region_start, region_end)
         sparsity = (np.count_nonzero(data_list) / len(data_list))
-        test_result.append(sparsity)
 
-    pQueue.put(test_result)
+        sparsity_list.append(sparsity)
+        coverage = (np.sum(data_list))
+        coverage_list.append(coverage)
+
+
+    pQueue.put([sparsity_list, coverage_list])
     return
 
 
@@ -161,17 +172,20 @@ def main():
 
     with open(args.referencePoints, 'r') as reference_file_input:
         with open(args.outFileName + '_raw_filter', 'w') as output_file_raw:
-            with open(args.outFileName, 'w') as output_file:
-                for i, line in enumerate(reference_file_input.readlines()):
-                    sparsity_str = '\t'.join(str(x) for x in sparsity[i])
-                    output_file_raw.write(
-                        line.strip() + '\t' + sparsity_str + '\n')
-                    count = 0
-                    for j in range(len(sparsity[i])):
-                        if sparsity[i][j] > args.sparsity:
-                            count += 1
-                    if count:
-                        output_file.write(line)
+            with open(args.outFileName + '_rejected_filter', 'w') as output_file_rejected:
+                with open(args.outFileName, 'w') as output_file:
+                    for i, line in enumerate(reference_file_input.readlines()):
+                        sparsity_str = '\t'.join(str(x) for x in sparsity[i])
+                        output_file_raw.write(
+                            line.strip() + '\t' + sparsity_str + '\n')
+                        count = 0
+                        for j in range(len(sparsity[i])):
+                            if sparsity[i][j] > args.sparsity:
+                                count += 1
+                        if count:
+                            output_file.write(line)
+                        else:
+                            output_file_rejected.write(line)
     # output plot of sparsity distribution per sample
 
     # re-arange values again
@@ -192,10 +206,13 @@ def main():
     plt.yticks([])
     plt.xlabel("Sparsity level")
 
-    plt.axvline(x=args.sparsity, c='r', label='sparsity threshold')
+    plt.axvline(x=args.sparsity, c='r', label='sparsity threshold', linewidth=0.3)
     plt.xscale('log')
-    plt.legend(loc='upper right')
-    plt.savefig(args.outFileName + '_sparsity_distribution.png', dpi=300)
+    ax = plt.gca()
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.savefig(args.outFileName + '_sparsity_distribution.png', dpi=args.dpi)
 
     plt.xlabel("Length of list (number)")
     plt.ylabel("Time taken (seconds)")
@@ -206,5 +223,10 @@ def main():
     plt.xlabel("Sparsity level")
     plt.ylabel("Number of counts")
     plt.legend(loc='upper right')
+
+    ax = plt.gca()
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.savefig(args.outFileName +
-                '_sparsity_distribution_histogram.png', dpi=300)
+                '_sparsity_distribution_histogram.png', dpi=args.dpi)

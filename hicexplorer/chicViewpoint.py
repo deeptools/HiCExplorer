@@ -250,6 +250,10 @@ def main(args=None):
                                                         referencePointsPerThread:]
                 geneListThread = gene_list[i * referencePointsPerThread:]
 
+            if len(referencePointsThread) == 0:
+                process[i] = None
+                queue[i] = None
+                continue
             queue[i] = Queue()
             process[i] = Process(target=compute_viewpoint, kwargs=dict(
                 pViewpointObj=viewpointObj,
