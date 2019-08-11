@@ -56,6 +56,14 @@ def parse_arguments(args=None):
                            help='The prefix name of the output files. Two file are written: output_matched_locations and output_statistics.'
                            'First file contains all loop locations with protein location matches, second file contains statistics about this matching.'
                            )
+    parserOpt.add_argument('--addChrPrefixLoops', '-cl',
+                           help='Adding a \'chr\'-prefix to chromosome name of the loops.',
+                           action='store_true'
+                           )
+    parserOpt.add_argument('--addChrPrefixProtein', '-cp',
+                           help='Adding a \'chr\'-prefix to chromosome name of the protein.',
+                           action='store_true'
+                           )
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -64,12 +72,11 @@ def parse_arguments(args=None):
     return parser
 
 
-def readProtein(pFile):
-    return pd.read_csv(pFile, sep='\t', header=(-1))[[0, 1, 2]]
-
-# def readTAD_domain(pFile):
-#     return pd.read_csv(pFile, sep='\t', header=(-1))
-
+def readProtein(pFile, pAddChr):
+    protein_df = pd.read_csv(pFile, sep='\t', header=(-1))[[0, 1, 2]]
+    if pAddChr:
+        protein_df[0] = 'chr' + full_loop[0].astype(str)
+    return protein_df
 
 def readLoopFile(pInputFile, pAddChr):
     full_loop = pd.read_csv(pInputFile, sep='\t', header=(-1))
@@ -91,10 +98,6 @@ def overlapLoop(pDataFrameLoop, pDataFrameProtein):
     mask_y = y['name'] >= 1
 
     selection = (mask_x) & (mask_y)
-
-    # return pDataFrameLoop[selection]
-
-    # selection  = (mask_x) & (mask_y)
 
     return selection
 
@@ -134,14 +137,14 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     if args.method == 'loops':
-        loop_df = readLoopFile(args.data, True)
+        loop_df = readLoopFile(args.data, args.addChrPrefixLoops)
         if loop_df is None:
             log.error('Empty loop file')
             return
         loop_df_bedtool = BedTool.from_dataframe(loop_df)
         loop_df = loop_df_bedtool.sort().to_dataframe(disable_auto_names=True, header=None)
 
-        protein_df = readProtein(args.protein)
+        protein_df = readProtein(args.protein, args.addChrPrefixProtein)
         if protein_df is None:
             log.error('Empty protein file')
             return

@@ -34,7 +34,7 @@ def test_loop_narrow_peak():
     outfile = NamedTemporaryFile(suffix='out', delete=True)
     outfile.close()
 
-    args = "--data {} --protein {} --method {} --outFileName {} -r {}".format(ROOT + 'loops_1.bedgraph',
+    args = "--data {} --protein {} --method {} --outFileName {} -r {} --addChrPrefixLoops".format(ROOT + 'loops_1.bedgraph',
                                                                               ROOT + 'GSM935376_hg19_Gm12878_Smc3.narrowPeak',
                                                                               'loops', outfile.name, 10000).split()
     hicValidateLocations.main(args)
@@ -48,7 +48,7 @@ def test_loop_broad_peak():
     outfile = NamedTemporaryFile(suffix='out', delete=True)
     outfile.close()
 
-    args = "--data {} --protein {} --method {} --outFileName {} -r {}".format(ROOT + 'loops_1.bedgraph',
+    args = "--data {} --protein {} --method {} --outFileName {} -r {} --addChrPrefixLoops".format(ROOT + 'loops_1.bedgraph',
                                                                               ROOT + 'GSM733752_hg19_ctcf_GM12878.broadPeak',
                                                                               'loops', outfile.name, 10000).split()
     hicValidateLocations.main(args)
