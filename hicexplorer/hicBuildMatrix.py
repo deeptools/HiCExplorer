@@ -286,7 +286,8 @@ def parse_arguments(args=None):
                            action='store_true'
                            )
 
-    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h", action="help",
+                           help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -936,10 +937,13 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + len(pRestrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
+                    frag_start = min(mate1.pos, mate2.pos) + \
+                        len(pRestrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos +
+                                   mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
-                    has_rf = sorted(pRfPositions[mate_ref][frag_start: frag_end])
+                    has_rf = sorted(
+                        pRfPositions[mate_ref][frag_start: frag_end])
 
                     if len(has_rf) == 0:
                         self_circle += 1
@@ -967,8 +971,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + len(pRestrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
+                    frag_start = min(mate1.pos, mate2.pos) + \
+                        len(pRestrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos +
+                                   mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
                     has_rf = sorted(
                         pRfPositions[mate_ref][frag_start: frag_end])
@@ -1016,8 +1022,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
         for mate in [mate1, mate2]:
             # fill in coverage vector
             vec_start = int(max(0, mate.pos - mate_bin.begin) / pBinsize)
-            length_coverage = pCoverageIndex[mate_bin_id].end - pCoverageIndex[mate_bin_id].begin
-            vec_end = min(length_coverage, int(vec_start + len(mate.seq) / pBinsize))
+            length_coverage = pCoverageIndex[mate_bin_id].end - \
+                pCoverageIndex[mate_bin_id].begin
+            vec_end = min(length_coverage, int(
+                vec_start + len(mate.seq) / pBinsize))
             coverage_index = pCoverageIndex[mate_bin_id].begin + vec_start
             coverage_end = pCoverageIndex[mate_bin_id].begin + vec_end
             for i in range(coverage_index, coverage_end, 1):
@@ -1065,7 +1073,8 @@ def main(args=None):
 
     if args.threads < 2:
         args.threads = 2
-        warnings.warn("\nAt least two threads need to be defined. Setting --threads = 2!s\n")
+        warnings.warn(
+            "\nAt least two threads need to be defined. Setting --threads = 2!s\n")
 
     if args.danglingSequence and not args.restrictionSequence:
         exit("\nIf --danglingSequence is set, --restrictonSequence needs to be set too.\n")
@@ -1357,7 +1366,8 @@ def main(args=None):
         if args.outBam:
             out_bam_file.close()
 
-        dia = dia_matrix(([hic_matrix.diagonal()], [0]), shape=hic_matrix.shape)
+        dia = dia_matrix(([hic_matrix.diagonal()], [0]),
+                         shape=hic_matrix.shape)
         hic_matrix = hic_matrix + hic_matrix.T - dia
         # extend bins such that they are next to each other
         bin_intervals = enlarge_bins(bin_intervals[:], chrom_sizes)
@@ -1396,25 +1406,27 @@ def main(args=None):
     else:
         msg = " (not removed)"
 
-    mappable_unique_high_quality_pairs = iter_num - (one_mate_unmapped + one_mate_low_quality + one_mate_not_unique)
+    mappable_unique_high_quality_pairs = iter_num - \
+        (one_mate_unmapped + one_mate_low_quality + one_mate_not_unique)
 
     intermediate_qc_log = StringIO()
 
     intermediate_qc_log.write("""
 File\t{}\t\t
-Pairs considered\t{}\t\t
+Sequenced reads\t{}\t\t
 Min rest. site distance\t{}\t\t
 Max library insert size\t{}\t\t
 
 """.format(args.outFileName.name, iter_num, args.minDistance, args.maxLibraryInsertSize))
 
-    intermediate_qc_log.write("#\tcount\t(percentage w.r.t. total sequenced reads)\n")
+    intermediate_qc_log.write(
+        "#\tcount\t(percentage w.r.t. total sequenced reads)\n")
 
     intermediate_qc_log.write("Pairs mappable, unique and high quality\t{}\t({:.2f})\n".
                               format(mappable_unique_high_quality_pairs,
                                      100 * float(mappable_unique_high_quality_pairs) / iter_num))
 
-    intermediate_qc_log.write("Pairs used\t{}\t({:.2f})\n".
+    intermediate_qc_log.write("Hi-C contacts\t{}\t({:.2f})\n".
                               format(pair_added, 100 * float(pair_added) / iter_num))
 
     intermediate_qc_log.write("One mate unmapped\t{}\t({:.2f})\n".
@@ -1423,10 +1435,11 @@ Max library insert size\t{}\t\t
     intermediate_qc_log.write("One mate not unique\t{}\t({:.2f})\n".
                               format(one_mate_not_unique, 100 * float(one_mate_not_unique) / iter_num))
 
-    intermediate_qc_log.write("One mate low quality\t{}\t({:.2f})\n".
+    intermediate_qc_log.write("Low mapping quality\t{}\t({:.2f})\n".
                               format(one_mate_low_quality, 100 * float(one_mate_low_quality) / iter_num))
 
-    intermediate_qc_log.write("\n#\tcount\t(percentage w.r.t. mappable, unique and high quality pairs)\n")
+    intermediate_qc_log.write(
+        "\n#\tcount\t(percentage w.r.t. mappable, unique and high quality pairs)\n")
 
     intermediate_qc_log.write("dangling end\t{}\t({:.2f})\n".
                               format(dangling_end, 100 * float(dangling_end) / mappable_unique_high_quality_pairs))
@@ -1447,26 +1460,27 @@ Max library insert size\t{}\t\t
                               format(duplicated_pairs, 100 * float(duplicated_pairs) / mappable_unique_high_quality_pairs))
 
     if pair_added > 0:
-        intermediate_qc_log.write("\n#\tcount\t(percentage w.r.t. total valid pairs used)\n")
+        intermediate_qc_log.write(
+            "\n#\tcount\t(percentage w.r.t. total valid pairs used)\n")
         intermediate_qc_log.write("inter chromosomal\t{}\t({:.2f})\n".
                                   format(inter_chromosomal, 100 * float(inter_chromosomal) / pair_added))
 
-        intermediate_qc_log.write("short range < 20kb\t{}\t({:.2f})\n".
+        intermediate_qc_log.write("Intra short range (< 20kb)\t{}\t({:.2f})\n".
                                   format(short_range, 100 * float(short_range) / pair_added))
 
-        intermediate_qc_log.write("long range\t{}\t({:.2f})\n".
+        intermediate_qc_log.write("Intra long range (>= 20kb)\t{}\t({:.2f})\n".
                                   format(long_range, 100 * float(long_range) / pair_added))
 
-        intermediate_qc_log.write("inward pairs\t{}\t({:.2f})\n".
+        intermediate_qc_log.write("Read pair type: inward pairs\t{}\t({:.2f})\n".
                                   format(count_inward, 100 * float(count_inward) / pair_added))
 
-        intermediate_qc_log.write("outward pairs\t{}\t({:.2f})\n".
+        intermediate_qc_log.write("Read pair type: outward pairs\t{}\t({:.2f})\n".
                                   format(count_outward, 100 * float(count_outward) / pair_added))
 
-        intermediate_qc_log.write("left pairs\t{}\t({:.2f})\n".
+        intermediate_qc_log.write("Read pair type: left pairs\t{}\t({:.2f})\n".
                                   format(count_left, 100 * float(count_left) / pair_added))
 
-        intermediate_qc_log.write("right pairs\t{}\t({:.2f})\n".
+        intermediate_qc_log.write("Read pair type: right pairs\t{}\t({:.2f})\n".
                                   format(count_right, 100 * float(count_right) / pair_added))
 
     log_file_name = os.path.join(args.QCfolder, "QC.log")
@@ -1482,33 +1496,40 @@ Max library insert size\t{}\t\t
 
     hic_metadata = {}
     hic_metadata['statistics'] = intermediate_qc_log.getvalue()
-    hic_metadata['matrix-generated-by'] = np.string_('HiCExplorer-' + __version__)
-    hic_metadata['matrix-generated-by-url'] = np.string_('https://github.com/deeptools/HiCExplorer')
+    hic_metadata['matrix-generated-by'] = np.string_(
+        'HiCExplorer-' + __version__)
+    hic_metadata['matrix-generated-by-url'] = np.string_(
+        'https://github.com/deeptools/HiCExplorer')
     if args.genomeAssembly:
         hic_metadata['genome-assembly'] = np.string_(args.genomeAssembly)
 
     intermediate_qc_log.close()
     if args.outFileName.name.endswith('.cool') and args.binSize is not None and len(args.binSize) > 2:
 
-        matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pHiCInfo=hic_metadata)
+        matrixFileHandlerOutput = MatrixFileHandler(
+            pFileType='cool', pHiCInfo=hic_metadata)
         matrixFileHandlerOutput.set_matrix_variables(hic_ma.matrix,
                                                      hic_ma.cut_intervals,
                                                      hic_ma.nan_bins,
                                                      hic_ma.correction_factors,
                                                      hic_ma.distance_counts)
-        matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(args.binSize[0]), pSymmetric=True, pApplyCorrection=False)
+        matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(
+            args.binSize[0]), pSymmetric=True, pApplyCorrection=False)
 
         for resolution in args.binSize[1:]:
             hic_matrix_to_merge = deepcopy(hic_ma)
             _mergeFactor = int(resolution) // args.binSize[0]
-            merged_matrix = hicMergeMatrixBins.merge_bins(hic_matrix_to_merge, _mergeFactor)
-            matrixFileHandlerOutput = MatrixFileHandler(pFileType='cool', pAppend=True, pHiCInfo=hic_metadata)
+            merged_matrix = hicMergeMatrixBins.merge_bins(
+                hic_matrix_to_merge, _mergeFactor)
+            matrixFileHandlerOutput = MatrixFileHandler(
+                pFileType='cool', pAppend=True, pHiCInfo=hic_metadata)
             matrixFileHandlerOutput.set_matrix_variables(merged_matrix.matrix,
                                                          merged_matrix.cut_intervals,
                                                          merged_matrix.nan_bins,
                                                          merged_matrix.correction_factors,
                                                          merged_matrix.distance_counts)
-            matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(resolution), pSymmetric=True, pApplyCorrection=False)
+            matrixFileHandlerOutput.save(args.outFileName.name + '::/resolutions/' + str(
+                resolution), pSymmetric=True, pApplyCorrection=False)
 
     else:
         if not args.doTestRun:

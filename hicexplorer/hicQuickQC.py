@@ -19,9 +19,9 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         add_help=False,
-        description=('hicFastQC considers the first n lines of two bam/sam files to get a first impression '
-                     ' on the quality of the data.'
-                     ))
+        description="""
+The tool hicQuickQC considers the first n lines of two bam/sam files to get a first estimate on the quality of the data.
+""")
     parserRequired = parser.add_argument_group('Required arguments')
     parserRequired.add_argument('--samFiles', '-s',
                                 help='The two PE alignment sam files to process',
@@ -78,7 +78,8 @@ def parse_arguments(args=None):
                            default=1000000,
                            type=int
                            )
-    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h", action="help",
+                           help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -118,6 +119,3 @@ def main(args=None):
     log.debug('args_hicBuildMatrix {}'.format(args_hicBuildMatrix))
 
     hicBuildMatrix.main(args_hicBuildMatrix)
-
-    # os.unlink(outFile.name)
-    # shutil.rmtree(outFile.name)

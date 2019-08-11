@@ -27,6 +27,7 @@ tool                                description
 =================================== ==========================================================================================================================================================
 :ref:`findRestSite`                 Identifies the genomic locations of restriction sites
 :ref:`hicBuildMatrix`               Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
+:ref:`hicQuickQC`                   Estimates the quality of Hi-C dataset
 :ref:`hicQC`                        Plots QC measures from the output of hicBuildMatrix
 :ref:`hicCorrectMatrix`             Uses iterative correction to remove biases from a Hi-C matrix
 :ref:`hicDetectLoops`               Identifies enriched Hi-C contacts

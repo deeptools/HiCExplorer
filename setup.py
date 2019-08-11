@@ -128,7 +128,7 @@ setup(
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
              'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 
-             'bin/hicCompartmentsPolarization', 'bin/hicFastQC'
+             'bin/hicCompartmentsPolarization', 'bin/hicQuickQC'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},

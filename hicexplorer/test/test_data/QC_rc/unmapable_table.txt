@@ -1,2 +1,2 @@
-File	Pairs used	Pairs used_%	One mate low quality	One mate low quality_%	One mate not unique	One mate not unique_%	One mate unmapped	One mate unmapped_%
-small_test_rf_matrix.h5	36009	0.360151225708	34877	0.348829300981	3603	0.0360361261414	8777	0.087784923437
+File	Hi-C contacts	Hi-C contacts_%	Low mapping quality	Low mapping quality_%	One mate not unique	One mate not unique_%	One mate unmapped	One mate unmapped_%
+/tmp/tmpxs1gdw50.h5	36009	0.36015122570837044	34877	0.3488293009811668	3603	0.036036126141444046	8777	0.08778492343698428
