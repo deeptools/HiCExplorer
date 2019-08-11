@@ -161,7 +161,6 @@ def main(args=None):
 
     dataframe.drop_duplicates(keep=False, inplace=True)
 
-#     dataframe.sort_values([0,1,2,3,4,5], ascending=[True, True, True, True, True, True])
     tuples_x = [tuple(x) for x in dataframe[[0, 1, 2]].values]
     tuples_y = [tuple(x) for x in dataframe[[3, 4, 5]].values]
 
