@@ -77,7 +77,6 @@ Contents:
    content/installation
    content/list-of-tools
    content/example_usage
-   content/capture-Hi-C
    content/News
 
 
