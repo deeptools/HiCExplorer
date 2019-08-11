@@ -45,8 +45,7 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--method', '-m',  # loop or domain
                                 help='The loop file',
                                 choices=['loops'],
-                                default='loops',
-                                required=True)
+                                default='loops')
     parserRequired.add_argument('--resolution', '-r',  # loop or domain
                                 help='The used resolution of the Hi-C interaction matrix.',
                                 required=True,

@@ -19,14 +19,16 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-        Merges the loop locations which were detected on different resolutions.
-        Loops need to have format as follows:
-        chr start end chr start end
+This script merges the loop locations of different different resolutions.
 
-        A merge happens if x and y position of a loop overlap in both cases, all loops are considered with bin sizes of the lowest resolution.
-        This means for a loop with coordinates x and y, the overlap to all other loops is search for (x - lowest resolution) and (y + lowest resolution).
-        If two or more locations should be merged, the one with the lowest resolution is taken as the merged loop.
-       
+
+Loops need to have format as follows:
+
+chr start end chr start end
+
+A merge happens if x and y position of a loop overlap with x and y position of another loop; all loops are considered as an overlap within +/- the bin size of the lowest resolution.
+I.e. for a loop with coordinates x and y, the overlap to all other loops is search for (x - lowest resolution) and (y + lowest resolution).
+If two or more locations should be merged, the one with the lowest resolution is taken as the merged loop.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -43,6 +45,7 @@ def parse_arguments(args=None):
                                 help='The lowest resolution of all loop files, i.e. 5kb, 10kb and 25kb, please use 25000.',
                                 required=True,
                                 type=int)
+    parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
@@ -137,6 +140,7 @@ def readFile(pFile):
 
 
 def main(args=None):
+    args = parse_arguments().parse_args(args)
 
     lowest_resolution = args.lowestResolution
 
