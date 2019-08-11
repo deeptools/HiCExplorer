@@ -6,6 +6,7 @@ from tempfile import NamedTemporaryFile
 import shutil
 import argparse
 import os
+import errno
 
 from hicexplorer import hicBuildMatrix as hicBuildMatrix
 from hicexplorer._version import __version__
