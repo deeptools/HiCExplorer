@@ -58,6 +58,8 @@ HiCExplorer tools
 |:ref:`hicValidateLocations`           | analysis         | one loop, one protein peak file   | bedgraph file with matched loop locations,  | Matches loop locations with protein peak positions                                |
 |                                      |                  |                                   | one file with loop / protein statistics     |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicMergeLoops`                  | analysis         | multiple loop files               | bedgraph file with merged loop locations    | Merges detect loop locations of different resolutions                             |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicCompartmentsPolarization`    | visualization    | one Hi-C interaction matrix       | one image                                   | The global compartmentalization signal.                                           |
 |                                      |                  | one PCA bedgraph file             | polarization plot                           |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
@@ -136,6 +138,8 @@ Tools for Hi-C data analysis
 """"""""""""""""""""""""
 :ref:`hicValidateLocations`
 """""""""""""""""""""""""""
+:ref:`hicMergeLoops`
+""""""""""""""""""""
 :ref:`hicCompartmentsPolarization`
 """"""""""""""""""""""""""""""""""
 

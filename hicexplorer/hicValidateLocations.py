@@ -63,7 +63,8 @@ def parse_arguments(args=None):
                            help='Adding a \'chr\'-prefix to chromosome name of the protein.',
                            action='store_true'
                            )
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+    parserOpt.add_argument('--help', '-h', action='help',
+                           help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -74,8 +75,9 @@ def parse_arguments(args=None):
 def readProtein(pFile, pAddChr):
     protein_df = pd.read_csv(pFile, sep='\t', header=(-1))[[0, 1, 2]]
     if pAddChr:
-        protein_df[0] = 'chr' + full_loop[0].astype(str)
+        protein_df[0] = 'chr' + protein_df[0].astype(str)
     return protein_df
+
 
 def readLoopFile(pInputFile, pAddChr):
     full_loop = pd.read_csv(pInputFile, sep='\t', header=(-1))
@@ -141,14 +143,16 @@ def main(args=None):
             log.error('Empty loop file')
             return
         loop_df_bedtool = BedTool.from_dataframe(loop_df)
-        loop_df = loop_df_bedtool.sort().to_dataframe(disable_auto_names=True, header=None)
+        loop_df = loop_df_bedtool.sort().to_dataframe(
+            disable_auto_names=True, header=None)
 
         protein_df = readProtein(args.protein, args.addChrPrefixProtein)
         if protein_df is None:
             log.error('Empty protein file')
             return
         protein_df_bedtool = BedTool.from_dataframe(protein_df)
-        protein_df = protein_df_bedtool.sort().to_dataframe(disable_auto_names=True, header=None)
+        protein_df = protein_df_bedtool.sort().to_dataframe(
+            disable_auto_names=True, header=None)
 
         protein_df_resolution = applyBinning(protein_df, args.resolution)
 
@@ -165,11 +169,13 @@ def main(args=None):
             writeLoopFile(args.outFileName + '_matched_locations', loop_df_)
 
             with open(args.outFileName + '_statistics', 'w') as file:
-                file.write('# HiCExplorer hicValidateLocations {}\n'.format(__version__))
-                file.write('# Overlap of loop file {} with protein file {}\n#\n'.format(args.data, args.protein))
-                file.write('Protein peaks: {}\n'.format(len(protein_df_resolution)))
+                file.write(
+                    '# HiCExplorer hicValidateLocations {}\n'.format(__version__))
+                file.write('# Overlap of loop file {} with protein file {}\n#\n'.format(
+                    args.data, args.protein))
+                file.write('Protein peaks: {}\n'.format(
+                    len(protein_df_resolution)))
                 file.write('Matched Loops: {}\n'.format(len(loop_df_)))
                 file.write('Total Loops: {}\n'.format(len(loop_df)))
-                file.write('Loops match protein: {}\n'.format(len(loop_df_) / len(loop_df)))
-
-    
+                file.write('Loops match protein: {}\n'.format(
+                    len(loop_df_) / len(loop_df)))

@@ -60,7 +60,6 @@ def mergeLoops(pDataFrame, pLowestResolution, pTupleX, pTupleY):
     hic = hm.hiCMatrix()
     target_regions_intervaltree_x = hic.intervalListToIntervalTree(pTupleX)[0]
     target_regions_intervaltree_y = hic.intervalListToIntervalTree(pTupleY)[0]
-    new_loop_list = []
 
     for i, loop in enumerate(pDataFrame.values):
         # neighborhood factor to extent the search range. This allows to consider the smaller bin sizes
@@ -72,10 +71,10 @@ def mergeLoops(pDataFrame, pLowestResolution, pTupleX, pTupleY):
 
         if loop[0] in target_regions_intervaltree_x:
             x_interval = target_regions_intervaltree_x[loop[0]].overlap(
-                loop[1]-neighborhood_factor_x-1, loop[2]+neighborhood_factor_x+1)
+                loop[1] - neighborhood_factor_x - 1, loop[2] + neighborhood_factor_x + 1)
         if loop[3] in target_regions_intervaltree_y:
             y_interval = target_regions_intervaltree_y[loop[0]].overlap(
-                loop[4]-neighborhood_factor_y-1, loop[5]+neighborhood_factor_y+1)
+                loop[4] - neighborhood_factor_y - 1, loop[5] + neighborhood_factor_y + 1)
 
         if len(x_interval) <= 1 or len(y_interval) <= 1:
             continue
@@ -110,7 +109,6 @@ def mergeLoops(pDataFrame, pLowestResolution, pTupleX, pTupleY):
                 continue
             target_regions_intervaltree_y[loop[0]].remove(data)
 
-    result_list = []
     result_list_index = []
     dict_x = {}
     dict_y = {}

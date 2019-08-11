@@ -114,7 +114,7 @@ def create_distance_distribution(pData, pDistances):
 
 
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
-                                pPeakInteractionsThreshold, pPValue, pPeakWindowSize):
+                                pPeakInteractionsThreshold, pPValue, pPeakWindowSize, pPValuePreselection):
     """
         This function computes the loops by:
             - decreasing the search space by removing zScore values < 0
@@ -169,7 +169,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
         # if len(sum_of_densities) > less_than - 1:
         p_value = 1 - sum_of_densities[less_than - 1]
-        mask_distance = p_value < pPValue
+        mask_distance = p_value < pPValuePreselection
         # else:
 
         for j, value in enumerate(mask_distance):
@@ -482,9 +482,10 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     if pArgs.peakInteractionsThreshold is None:
         max_value = np.max(pHiCMatrix.matrix.data)
         pArgs.peakInteractionsThreshold = int(np.log2(max_value) * 2)
-        log.debug('peak interactions threshold set to {}'.format(pArgs.peakInteractionsThreshold))
+        log.debug('peak interactions threshold set to {}'.format(
+            pArgs.peakInteractionsThreshold))
     if pArgs.windowSize is None:
-        bin_size = pHiCMatrix.getBinSize() 
+        bin_size = pHiCMatrix.getBinSize()
         if 0 < bin_size <= 5000:
             pArgs.windowSize = 12
         elif 5000 < bin_size <= 10000:
@@ -547,7 +548,8 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
                                                          pArgs.windowSize,
                                                          pArgs.peakInteractionsThreshold,
                                                          pArgs.pValue,
-                                                         pArgs.peakWidth)
+                                                         pArgs.peakWidth,
+                                                         pArgs.pValuePreselection)
 
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
@@ -605,14 +607,12 @@ def smoothInteractionValues(pData, pWindowSize):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-    log.info('peak interactions threshold set to {}'.format(args.peakInteractionsThreshold))
+    log.info('peak interactions threshold set to {}'.format(
+        args.peakInteractionsThreshold))
 
     if args.region is not None and args.chromosomes is not None:
         log.error('Please choose either --region or --chromosomes.')
         exit(1)
-    
-
-    
 
     is_cooler = check_cooler(args.matrix)
 
@@ -647,7 +647,8 @@ def main(args=None):
         else:
             chromosomes_list = args.chromosomes
         log.debug('chromosomes_list {}'.format(chromosomes_list))
-        log.debug('cooler.Cooler(args.matrix).chromsizes {}'.format(cooler.Cooler(args.matrix).extent('Y')))
+        log.debug('cooler.Cooler(args.matrix).chromsizes {}'.format(
+            cooler.Cooler(args.matrix).extent('Y')))
         if len(chromosomes_list) == 1:
             single_core = True
         else:
@@ -698,7 +699,7 @@ def main(args=None):
                                 pQueue=queue[i]
                             ))
                             process[i].start()
-                            
+
                         else:
                             queue[i] = None
                             thread_done[i] = True

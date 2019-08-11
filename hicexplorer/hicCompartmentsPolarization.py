@@ -12,6 +12,7 @@ from hicmatrix import HiCMatrix as hm
 
 from hicexplorer._version import __version__
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="""
@@ -58,7 +59,8 @@ def parse_arguments():
     parserOpt.add_argument('--outputMatrix',
                            help='output .npz file includes all the generated matrices',
                            default=None)
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit.')
+    parserOpt.add_argument('--help', '-h', action='help',
+                           help='show this help message and exit.')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -69,7 +71,8 @@ def count_interactions(obs_exp, pc1, quantiles_number):
     "Counts the total interaction on obs_exp matrix per quantile and "
     "normalizes it by the number of bins per quantile."
     chromosomes = pc1["chr"].unique()
-    normalised_sum_per_quantile = np.zeros((quantiles_number, quantiles_number))
+    normalised_sum_per_quantile = np.zeros(
+        (quantiles_number, quantiles_number))
 
     for chrom in chromosomes:
         pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
@@ -169,4 +172,5 @@ def main(args=None):
                                                                  args.quantile))
     if args.outputMatrix:
         np.savez(args.outputMatrix, [matrix for matrix in output_matrices])
-    plot_polarization_ratio(polarization_ratio, args.outputFileName, labels, args.quantile)
+    plot_polarization_ratio(
+        polarization_ratio, args.outputFileName, labels, args.quantile)
