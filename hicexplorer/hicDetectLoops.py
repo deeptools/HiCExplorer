@@ -46,7 +46,6 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--peakWidth', '-pw',
                            type=int,
-                           default=6,
                            help='The width of the peak region in bins. The square around the peak will include (2 * peakWidth)^2 bins.')
 
     parserOpt.add_argument('--windowSize', '-w',
@@ -479,10 +478,11 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             - pArgs: Argparser object
             - pQueue: Queue object for multiprocessing communication with parent process
     """
+    log.debug("foooooooooooooooooooooo")
     if pArgs.peakInteractionsThreshold is None:
         max_value = np.max(pHiCMatrix.matrix.data)
         pArgs.peakInteractionsThreshold = int(np.log2(max_value) * 2)
-        log.info('peak interactions threshold set to {}'.format(pArgs.peakInteractionsThreshold))
+        log.debug('peak interactions threshold set to {}'.format(pArgs.peakInteractionsThreshold))
     if pArgs.windowSize is None:
         bin_size = pHiCMatrix.getBinSize() 
         if 0 < bin_size <= 5000:
@@ -495,10 +495,11 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             pArgs.windowSize = 7
         else:
             pArgs.windowSize = 6
-        log.info('Setting window size to: {}'.format(pArgs.windowSize))
+        log.debug('Setting window size to: {}'.format(pArgs.windowSize))
+    log.debug('Setting values to: {} because default'.format(pArgs.windowSize))
     if pArgs.peakWidth is None:
         pArgs.peakWidth = pArgs.windowSize - 4
-        log.info('Setting peak width to: {}'.format(pArgs.peakWidth))
+    log.debug('Setting peak width to: {}'.format(pArgs.peakWidth))
 
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
     pHiCMatrix.matrix.eliminate_zeros()
@@ -645,7 +646,8 @@ def main(args=None):
                 chromosomes_list = cooler.Cooler(args.matrix).chromnames
         else:
             chromosomes_list = args.chromosomes
-
+        log.debug('chromosomes_list {}'.format(chromosomes_list))
+        log.debug('cooler.Cooler(args.matrix).chromsizes {}'.format(cooler.Cooler(args.matrix).extent('Y')))
         if len(chromosomes_list) == 1:
             single_core = True
         else:
@@ -687,14 +689,19 @@ def main(args=None):
                                 deepcopy(matrix), deepcopy(cut_intervals))
                             hic_matrix.keepOnlyTheseChr(
                                 [chromosomes_list[count_call_of_read_input]])
+                        if len(hic_matrix.matrix.data) > 0:
 
-                        process[i] = Process(target=compute_loops, kwargs=dict(
-                            pHiCMatrix=hic_matrix,
-                            pRegion=chromosomes_list[count_call_of_read_input],
-                            pArgs=args,
-                            pQueue=queue[i]
-                        ))
-                        process[i].start()
+                            process[i] = Process(target=compute_loops, kwargs=dict(
+                                pHiCMatrix=hic_matrix,
+                                pRegion=chromosomes_list[count_call_of_read_input],
+                                pArgs=args,
+                                pQueue=queue[i]
+                            ))
+                            process[i].start()
+                            
+                        else:
+                            queue[i] = None
+                            thread_done[i] = True
                         if count_call_of_read_input < len(chromosomes_list):
                             count_call_of_read_input += 1
                         else:
@@ -719,7 +726,7 @@ def main(args=None):
                     for thread in thread_done:
                         if not thread:
                             all_threads_done = False
-
+        log.debug('done computing. loops {}'.format(mapped_loops))
         if len(mapped_loops) > 0:
             write_bedgraph(mapped_loops, args.outFileName)
 
