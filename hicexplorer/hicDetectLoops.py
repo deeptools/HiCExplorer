@@ -89,14 +89,13 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            type=int
                            )
     parserOpt.add_argument('--statisticalTest', '-st',
-                            help='Which statistical test should be used.',
-                            required=False,
-                            type=str,
-                            default="Wilcoxon rank-sum",
-                            choices=['Wilcoxon rank-sum', 'Anderson-Darling']
+                           help='Which statistical test should be used.',
+                           required=False,
+                           type=str,
+                           default="wilcoxon-rank-sum",
+                           choices=['wilcoxon-rank-sum', 'anderson-darling']
                            )
-                           
-                          
+
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -409,8 +408,8 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         if np.max(peak) < np.max(background):
             mask.append(False)
             continue
-        
-        if pStatisticalTest == 'Wilcoxon rank-sum':
+
+        if pStatisticalTest == 'wilcoxon-rank-sum':
             statistic, significance_level = ranksums(peak, background)
         else:
             statistic, critical_values, significance_level = anderson_ksamp([peak, background])
