@@ -14,7 +14,7 @@ from hicexplorer._version import __version__
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(add_help=False,
         description="""
         Rearrange the average interaction frequencies using the first PC values
         to represent the global compartmentalization signal. To our knowledge
