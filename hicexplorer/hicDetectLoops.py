@@ -58,9 +58,9 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                                 'For each genomic distance a negative binomial distribution is fitted and for each pixel a p-value given by the cumulative density function is given. '
                                 'This does NOT influence the p-value for the neighborhood testing.')
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
-                           type=int,
-                           help='The minimum number of interactions a detected peaks needs to have to be considered. The number of interactions decreases with increasing genomic distances: '
-                                ' peakInteractionsThreshold/log(genomic distance)')
+                           type=float,
+                           help='The minimum number of interactions a detected peaks needs to have to be considered. For each relative distance this value is adjusted: peakInteractionsThreshold / log(relative distance).',
+                           default=0.01)
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
                            default=0.01,
@@ -108,7 +108,7 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
 def create_distance_distribution(pData, pDistances):
     pGenomicDistanceDistribution = {}
     pGenomicDistanceDistributionPosition = {}
-
+    pGenomicDistanceDistribution_max_value = {}
     for i, distance in enumerate(pDistances):
 
         if distance in pGenomicDistanceDistribution:
@@ -118,7 +118,9 @@ def create_distance_distribution(pData, pDistances):
             pGenomicDistanceDistribution[distance] = [pData[i]]
             pGenomicDistanceDistributionPosition[distance] = [i]
 
-    return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition
+    for key in pGenomicDistanceDistribution:
+        pGenomicDistanceDistribution_max_value[key] = np.max(pGenomicDistanceDistribution[key])
+    return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value
 
 
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
@@ -133,14 +135,14 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
         Input:
             - pHiCMatrix: original interaction matrix for neighborhood and peak region subset selection
-            - pZscoreMatrix: z-score matrix
             - pAdjustedHiCMatrix: interation matrix adjusted to dimensions and sparsity of z-score matrix
             - pWindowSize: integer, the size of (2*pWindowSize)^2 around a candidate defines its neighborhood. It is used for
                     a) merging candidates and their neighborhoods to one candidate per neighborhood which appear in this region.
                     b) same neighborhood is used to test the peak region against the neighborhood for significant difference (candidate_region_test)
-            - pPeakInteractionsThreshold: integer, remove candidates with less interactions
-            - pZscoreMeanFactor: float, per genomic distance prune all z-scores with: z-score < mean(z-scores) * pZscoreMeanFactor
-            - pPValue: float, test rejection level for H0 and Bonferroni correction
+            - pPeakInteractionsThreshold: float, remove candidates with less interactions
+            - pPValue: float, test rejection level for H0 and FDR correction
+            - pPValuePreselection: float, p-value for negative binomial 
+            - pStatisticalTest: str, which statistical test should be used
             - pPeakWindowSize: integer, size of the peak region: (2*pPeakWindowSize)^2. Needs to be smaller than pWindowSize
 
         Returns:
@@ -150,7 +152,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
     instances, features = pHiCMatrix.matrix.nonzero()
     distance = np.absolute(instances - features)
     mask = [False] * len(distance)
-    genomic_distance_distributions, pGenomicDistanceDistributionPosition = create_distance_distribution(
+    genomic_distance_distributions, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value = create_distance_distribution(
         pHiCMatrix.matrix.data, distance)
     nbinom_parameters = {}
     for i, key in enumerate(genomic_distance_distributions):
@@ -186,7 +188,14 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     peak_interaction_threshold_array = pPeakInteractionsThreshold / \
         np.log(distance)
+
+    # threshold_interactions = np.zeros(len(distance))
+    # for i, key in enumerate(distance):
+    #     threshold_interactions[i] = pGenomicDistanceDistribution_max_value[key] * pPeakInteractionsThreshold
+    # for key in pGenomicDistanceDistribution_max_value:
+    # log.debug('threshold_interactions {}'.format(threshold_interactions))
     mask_interactions = pHiCMatrix.matrix.data > peak_interaction_threshold_array
+    # mask_interactions = pHiCMatrix.matrix.data > threshold_interactions
 
     mask = np.logical_and(mask, mask_interactions)
 
@@ -410,7 +419,11 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             continue
 
         if pStatisticalTest == 'wilcoxon-rank-sum':
-            statistic, significance_level = ranksums(peak, background)
+            statistic, significance_level = ranksums(sorted(peak), sorted(background))
+            mask.append(True)
+            pvalues.append(significance_level)
+
+            continue
         else:
             statistic, critical_values, significance_level = anderson_ksamp([peak, background])
 
@@ -422,12 +435,29 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
         mask.append(False)
 
+    # if pStatisticalTest == 'anderson-darling':
     if mask is not None and len(mask) == 0:
         return None, None
     mask = np.array(mask)
     pCandidates = pCandidates[mask]
     log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
     pvalues = np.array(pvalues)
+
+    if pStatisticalTest == 'wilcoxon-rank-sum':
+        log.debug('len pCandidates: {}'.format(len(pCandidates)))
+        log.debug('len pvalues: {}'.format(len(pvalues)))
+
+        log.debug('Apply fdr')
+        pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
+        pvalues_ = sorted(pvalues)
+        largest_p_i = 0
+        for i, p in enumerate(pvalues_):
+            if p <= (pPValue * (i + 1) / len(pvalues_)):
+                if p >= largest_p_i:
+                    largest_p_i = p
+        mask = pvalues < largest_p_i
+        pCandidates = pCandidates[mask]
+        pvalues = pvalues[mask]
 
     if len(pCandidates) == 0:
         return None, None
@@ -488,27 +518,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             - pArgs: Argparser object
             - pQueue: Queue object for multiprocessing communication with parent process
     """
-    if pArgs.peakInteractionsThreshold is None:
-        max_value = np.max(pHiCMatrix.matrix.data)
-        if 0 <= max_value <= 100:
-            pArgs.peakInteractionsThreshold = 2
-        elif 100 < max_value <= 500:
-            pArgs.peakInteractionsThreshold = max_value * 0.01
-        elif 500 < max_value <= 1000:
-            pArgs.peakInteractionsThreshold = max_value * 0.004
-        elif 1000 < max_value <= 10000:
-            pArgs.peakInteractionsThreshold = max_value * 0.005
-        elif 10000 < max_value <= 100000:
-            pArgs.peakInteractionsThreshold = max_value * 0.001
-        else:
-            pArgs.peakInteractionsThreshold = max_value * 0.0005
 
-        # pArgs.peakInteractionsThreshold = np.ceil(max_value / int(np.log10(max_value) ** 5))
-        log.debug('peak interactions threshold set to {}'.format(
-            pArgs.peakInteractionsThreshold))
-        log.debug('max values {}'.format(
-            max_value))
-        log.debug("sum: {}".format(np.sum(pHiCMatrix.matrix.data)))
     if pArgs.windowSize is None:
         bin_size = pHiCMatrix.getBinSize()
         if 0 < bin_size <= 5000:
