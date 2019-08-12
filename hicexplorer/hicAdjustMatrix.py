@@ -82,12 +82,12 @@ def main(args=None):
         with open(args.regions, 'r') as file:
             for line in file.readlines():
                 _line = line.strip().split('\t')
-                if len(line) == 0:
+                if len(line) < 3:
+                    log.warning("An entry shorter than 3 column has been found!")
                     continue
-                if len(_line) == 3:
+                if len(_line) >= 3:
                     chrom, start, end = _line[0], _line[1], int(_line[2]) - 1
-
-                genomic_regions.append((chrom, start, end))
+                    genomic_regions.append((chrom, start, end))
 
         # log.debug('genomic_regions {}'.format(genomic_regions))
         matrix_indices_regions = []
