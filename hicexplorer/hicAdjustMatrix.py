@@ -83,7 +83,7 @@ def main(args=None):
             for line in file.readlines():
                 _line = line.strip().split('\t')
                 if len(line) < 3:
-                    log.warning("An entry shorter than 3 column has been found!")
+                    log.warning("An entry shorter than 3 columns has been found!")
                     continue
                 if len(_line) >= 3:
                     chrom, start, end = _line[0], _line[1], int(_line[2]) - 1
