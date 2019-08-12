@@ -939,8 +939,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     # the restriction site are identified
                     frag_start = min(mate1.pos, mate2.pos) + \
                         len(pRestrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos +
-                                   mate2.qlen) - len(pRestrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
                     has_rf = sorted(
                         pRfPositions[mate_ref][frag_start: frag_end])
@@ -973,8 +972,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     # the restriction site are identified
                     frag_start = min(mate1.pos, mate2.pos) + \
                         len(pRestrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos +
-                                   mate2.qlen) - len(pRestrictionSequence)
+                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
                     mate_ref = pRefId2name[mate1.rname]
                     has_rf = sorted(
                         pRfPositions[mate_ref][frag_start: frag_end])
