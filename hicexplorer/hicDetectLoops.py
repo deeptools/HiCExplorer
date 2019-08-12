@@ -8,7 +8,7 @@ import time
 import cooler
 import numpy as np
 from scipy.sparse import csr_matrix, triu
-from scipy.stats import anderson_ksamp
+from scipy.stats import anderson_ksamp, ranksums
 from scipy.stats import nbinom
 import fit_nbinom
 
@@ -88,6 +88,15 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            default=4,
                            type=int
                            )
+    parserOpt.add_argument('--statisticalTest', '-st',
+                            help='Which statistical test should be used.',
+                            required=False,
+                            type=str,
+                            default="Wilcoxon rank-sum",
+                            choices=['Wilcoxon rank-sum', 'Anderson-Darling']
+                           )
+                           
+                          
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -114,7 +123,7 @@ def create_distance_distribution(pData, pDistances):
 
 
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
-                                pPeakInteractionsThreshold, pPValue, pPeakWindowSize, pPValuePreselection):
+                                pPeakInteractionsThreshold, pPValue, pPeakWindowSize, pPValuePreselection, pStatisticalTest):
     """
         This function computes the loops by:
             - decreasing the search space by removing zScore values < 0
@@ -201,7 +210,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     candidates, p_value_list = candidate_region_test(
         pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
-        pPeakInteractionsThreshold, pPeakWindowSize)
+        pPeakInteractionsThreshold, pPeakWindowSize, pStatisticalTest)
 
     return candidates, p_value_list
 
@@ -293,7 +302,7 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix):
 
 
 def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                          pPeakInteractionsThreshold, pPeakWindowSize):
+                          pPeakInteractionsThreshold, pPeakWindowSize, pStatisticalTest=None):
     """
         Tests if a candidate is having a significant peak compared to its neighborhood.
             - smoothes neighborhood in x an y orientation
@@ -400,9 +409,11 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         if np.max(peak) < np.max(background):
             mask.append(False)
             continue
-
-        statistic, critical_values, significance_level = anderson_ksamp([
-                                                                        peak, background])
+        
+        if pStatisticalTest == 'Wilcoxon rank-sum':
+            statistic, significance_level = ranksums(peak, background)
+        else:
+            statistic, critical_values, significance_level = anderson_ksamp([peak, background])
 
         if significance_level <= pPValue:
             mask.append(True)
@@ -564,7 +575,8 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
                                                          pArgs.peakInteractionsThreshold,
                                                          pArgs.pValue,
                                                          pArgs.peakWidth,
-                                                         pArgs.pValuePreselection)
+                                                         pArgs.pValuePreselection,
+                                                         pArgs.statisticalTest)
 
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
