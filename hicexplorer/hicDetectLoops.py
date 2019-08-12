@@ -186,12 +186,12 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             if value:
                 mask[pGenomicDistanceDistributionPosition[key][j]] = True
 
-    peak_interaction_threshold_array = pPeakInteractionsThreshold / \
-        np.log(distance)
+    # peak_interaction_threshold_array = pPeakInteractionsThreshold / \
+    #     np.log(distance)
 
-    # threshold_interactions = np.zeros(len(distance))
-    # for i, key in enumerate(distance):
-    #     threshold_interactions[i] = pGenomicDistanceDistribution_max_value[key] * pPeakInteractionsThreshold
+    peak_interaction_threshold_array = np.zeros(len(distance))
+    for i, key in enumerate(distance):
+        peak_interaction_threshold_array[i] = pGenomicDistanceDistribution_max_value[key] * pPeakInteractionsThreshold
     # for key in pGenomicDistanceDistribution_max_value:
     # log.debug('threshold_interactions {}'.format(threshold_interactions))
     mask_interactions = pHiCMatrix.matrix.data > peak_interaction_threshold_array
@@ -201,6 +201,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     instances = instances[mask]
     features = features[mask]
+    peak_interaction_threshold_array = peak_interaction_threshold_array[mask]
     if len(features) == 0:
         return None, None
     candidates = np.array([*zip(instances, features)])
@@ -216,9 +217,13 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
         if len(candidates) == 0:
             return None, None
 
+    # candidates, p_value_list = candidate_region_test(
+    #     pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
+    #     pPeakInteractionsThreshold, pPeakWindowSize, pStatisticalTest)
+
     candidates, p_value_list = candidate_region_test(
         pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
-        pPeakInteractionsThreshold, pPeakWindowSize, pStatisticalTest)
+        peak_interaction_threshold_array, pPeakWindowSize, pStatisticalTest)
 
     return candidates, p_value_list
 
@@ -382,7 +387,7 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
         peak_region = [peak_x, peak_y]
 
-        if neighborhood[peak_region[0], peak_region[1]] < pPeakInteractionsThreshold:
+        if neighborhood[peak_region[0], peak_region[1]] < pPeakInteractionsThreshold[i]:
             mask.append(False)
             continue
 
