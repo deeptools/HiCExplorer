@@ -12,6 +12,7 @@ from hicmatrix import HiCMatrix as hm
 
 from hicexplorer._version import __version__
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="""
