@@ -478,12 +478,27 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             - pArgs: Argparser object
             - pQueue: Queue object for multiprocessing communication with parent process
     """
-    log.debug("foooooooooooooooooooooo")
     if pArgs.peakInteractionsThreshold is None:
         max_value = np.max(pHiCMatrix.matrix.data)
-        pArgs.peakInteractionsThreshold = int(np.log2(max_value) * 2)
+        if 0 <= max_value <= 100:
+            pArgs.peakInteractionsThreshold = 2
+        elif 100 < max_value <= 500:
+            pArgs.peakInteractionsThreshold = max_value * 0.01
+        elif 500 < max_value <= 1000:
+            pArgs.peakInteractionsThreshold = max_value * 0.004
+        elif 1000 < max_value <= 10000:
+            pArgs.peakInteractionsThreshold = max_value * 0.005
+        elif 10000 < max_value <= 100000:
+            pArgs.peakInteractionsThreshold = max_value * 0.001
+        else:
+            pArgs.peakInteractionsThreshold = max_value * 0.0005
+
+        # pArgs.peakInteractionsThreshold = np.ceil(max_value / int(np.log10(max_value) ** 5))
         log.debug('peak interactions threshold set to {}'.format(
             pArgs.peakInteractionsThreshold))
+        log.debug('max values {}'.format(
+            max_value))
+        log.debug("sum: {}".format(np.sum(pHiCMatrix.matrix.data)))
     if pArgs.windowSize is None:
         bin_size = pHiCMatrix.getBinSize()
         if 0 < bin_size <= 5000:
