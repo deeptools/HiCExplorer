@@ -59,8 +59,12 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                                 'This does NOT influence the p-value for the neighborhood testing.')
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=float,
-                           help='The minimum number of interactions a detected peaks needs to have to be considered. For each relative distance this value is adjusted: peakInteractionsThreshold / log(relative distance).',
-                           default=0.01)
+                           help='The minimum number of interactions a detected peaks needs to have to be considered.',
+                           default=5)
+    parserOpt.add_argument('--maximumInteractionPercentageThreshold', '-mip',
+                            type=float,
+                            help='For each distance the maximum value is considered and all candidates need to have at least \'max_value * maximumInteractionPercentageThreshold\' interactions.',
+                            default=0.01)
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
                            default=0.01,
@@ -124,7 +128,8 @@ def create_distance_distribution(pData, pDistances):
 
 
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
-                                pPeakInteractionsThreshold, pPValue, pPeakWindowSize, pPValuePreselection, pStatisticalTest):
+                                pMaximumInteractionPercentageThreshold, pPValue, pPeakWindowSize, 
+                                pPValuePreselection, pStatisticalTest, pMinimumInteractionsThreshold):
     """
         This function computes the loops by:
             - decreasing the search space by removing zScore values < 0
@@ -191,17 +196,14 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     peak_interaction_threshold_array = np.zeros(len(distance))
     for i, key in enumerate(distance):
-        peak_interaction_threshold_array[i] = pGenomicDistanceDistribution_max_value[key] * pPeakInteractionsThreshold
-    # for key in pGenomicDistanceDistribution_max_value:
-    # log.debug('threshold_interactions {}'.format(threshold_interactions))
+        peak_interaction_threshold_array[i] = pGenomicDistanceDistribution_max_value[key] * pMaximumInteractionPercentageThreshold
     mask_interactions = pHiCMatrix.matrix.data > peak_interaction_threshold_array
-    # mask_interactions = pHiCMatrix.matrix.data > threshold_interactions
 
     mask = np.logical_and(mask, mask_interactions)
 
     instances = instances[mask]
     features = features[mask]
-    peak_interaction_threshold_array = peak_interaction_threshold_array[mask]
+    # peak_interaction_threshold_array = peak_interaction_threshold_array[mask]
     if len(features) == 0:
         return None, None
     candidates = np.array([*zip(instances, features)])
@@ -217,13 +219,13 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
         if len(candidates) == 0:
             return None, None
 
-    # candidates, p_value_list = candidate_region_test(
-    #     pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
-    #     pPeakInteractionsThreshold, pPeakWindowSize, pStatisticalTest)
-
     candidates, p_value_list = candidate_region_test(
         pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
-        peak_interaction_threshold_array, pPeakWindowSize, pStatisticalTest)
+        pMinimumInteractionsThreshold, pPeakWindowSize, pStatisticalTest)
+
+    # candidates, p_value_list = candidate_region_test(
+    #     pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
+    #     peak_interaction_threshold_array, pPeakWindowSize, pStatisticalTest)
 
     return candidates, p_value_list
 
@@ -313,13 +315,31 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix):
     pCandidates = pCandidates[mask]
     return pCandidates, mask
 
+def get_test_data(pNeighborhood, pVertical):
+    x_len = len(pNeighborhood)
+    y_len = len(pNeighborhood[0])
 
+    x_third = x_len // 3
+    y_third = y_len // 3
+
+    return_list = []
+    if pVertical:
+        return_list.append(pNeighborhood.T[0:y_third].flatten())
+        return_list.append(pNeighborhood.T[y_third:y_third+y_third].flatten())
+        return_list.append(pNeighborhood.T[y_third+y_third:].flatten())
+    else:
+        return_list.append(pNeighborhood[0:x_third].flatten())
+        return_list.append(pNeighborhood[x_third:x_third+x_third].flatten())
+        return_list.append(pNeighborhood[x_third+x_third:].flatten())
+    
+    return return_list
+    
 def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                          pPeakInteractionsThreshold, pPeakWindowSize, pStatisticalTest=None):
+                            pMinimumInteractionsThreshold, pPeakWindowSize, pStatisticalTest=None):
     """
         Tests if a candidate is having a significant peak compared to its neighborhood.
             - smoothes neighborhood in x an y orientation
-            - remove candidate if smoothed peak value < pPeakInteractionsThreshold
+            - remove candidate if smoothed peak value < pMinimumInteractionsThreshold
             - reject candidate if:
                 - mean(peak) < mean(background)
                 - max(peak) < max(background)
@@ -332,7 +352,7 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             - pCandidates: list of candidates to test for enrichment
             - pWindowSize: integer, size of neighborhood (2*pWindowSize)^2
             - pPValue: float, significance level for Mann-Whitney rank test
-            - pPeakInteractionsThreshold: integer, if smoothed candidate interaction count is less, it will be removed
+            - pMinimumInteractionsThreshold: integer, if smoothed candidate interaction count is less, it will be removed
             - pPeakWindowSize: size of peak region (2*pPeakWindowSize)^2
 
         Returns:
@@ -387,7 +407,10 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
         peak_region = [peak_x, peak_y]
 
-        if neighborhood[peak_region[0], peak_region[1]] < pPeakInteractionsThreshold[i]:
+        # if neighborhood[peak_region[0], peak_region[1]] < pPeakInteractionsThreshold[i]:
+        # if neighborhood[peak_region[0], peak_region[1]] < pPeakInteractionsThreshold:
+        if neighborhood[peak_region[0], peak_region[1]] < pMinimumInteractionsThreshold:
+
             mask.append(False)
             continue
 
@@ -422,20 +445,43 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         if np.max(peak) < np.max(background):
             mask.append(False)
             continue
-
+        # if np.min(background) * 5 > np.max(peak):
+        #     mask.append(False)
+        #     continue
         if pStatisticalTest == 'wilcoxon-rank-sum':
-            statistic, significance_level = ranksums(sorted(peak), sorted(background))
-            mask.append(True)
-            pvalues.append(significance_level)
+            # test vertical
+            test_list = get_test_data(neighborhood, pVertical=True)
+            statistic, significance_level_test1 = ranksums(sorted(test_list[0]), sorted(test_list[1]))
+            statistic, significance_level_test2 = ranksums(sorted(test_list[1]), sorted(test_list[2]))
+            if significance_level_test1 <= pPValue or significance_level_test2 <= significance_level_test2:
+                test_list = get_test_data(neighborhood, pVertical=False)
+                statistic, significance_level_test1 = ranksums(sorted(test_list[0]), sorted(test_list[1]))
+                statistic, significance_level_test2 = ranksums(sorted(test_list[1]), sorted(test_list[2]))
+                if significance_level_test1 <= pPValue or significance_level_test2 <= significance_level_test2:
 
+                        statistic, significance_level = ranksums(sorted(peak), sorted(background))
+                        mask.append(True)
+                        pvalues.append(significance_level)
+
+                        continue
+            mask.append(False)
             continue
         else:
-            statistic, critical_values, significance_level = anderson_ksamp([peak, background])
+            test_list = get_test_data(neighborhood, pVertical=True)
+            _, _, significance_level_test1 = anderson_ksamp([sorted(test_list[0]), sorted(test_list[1])])
+            _, _, significance_level_test2 = anderson_ksamp([sorted(test_list[1]), sorted(test_list[2])])
+            if significance_level_test1 <= pPValue or significance_level_test2 <= significance_level_test2:
+                test_list = get_test_data(neighborhood, pVertical=False)
+                _, _, significance_level_test1 = anderson_ksamp([sorted(test_list[0]), sorted(test_list[1])])
+                _, _, significance_level_test2 = anderson_ksamp([sorted(test_list[1]), sorted(test_list[2])])
+                if significance_level_test1 <= pPValue or significance_level_test2 <= significance_level_test2:
 
-        if significance_level <= pPValue:
-            mask.append(True)
-            pvalues.append(significance_level)
-
+                        _, _, significance_level = anderson_ksamp([sorted(peak), sorted(background)])
+                        if significance_level <= pPValue:
+                            mask.append(True)
+                            pvalues.append(significance_level)
+                            continue
+            mask.append(False)
             continue
 
         mask.append(False)
@@ -586,11 +632,13 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
 
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix,
                                                          pArgs.windowSize,
-                                                         pArgs.peakInteractionsThreshold,
+                                                         pArgs.maximumInteractionPercentageThreshold,
                                                          pArgs.pValue,
                                                          pArgs.peakWidth,
                                                          pArgs.pValuePreselection,
-                                                         pArgs.statisticalTest)
+                                                         pArgs.statisticalTest,
+                                                         pArgs.peakInteractionsThreshold)
+
 
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
