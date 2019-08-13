@@ -37,17 +37,18 @@ class Viewpoint():
         with open(pBedFile, 'r') as file:
             for line in file.readlines():
                 _line = line.strip().split('\t')
-                if len(line) == 0:
+                if len(line) == 0 or len(_line) == 0 or line == '':
                     continue
                 if len(_line) == 3:
                     chrom, start, end = _line[0], _line[1], _line[1]
                     if pGene:
                         gene_list.append(_line[2])
-
-                else:
+                elif len(_line) > 3:
                     chrom, start, end = _line[:3]
                     if pGene:
                         gene_list.append(_line[3])
+                else:
+                    continue
 
                 viewpoints.append((chrom, start, end))
         if pGene:
@@ -529,7 +530,9 @@ class Viewpoint():
     def pvalues(self, pBackgroundModelNBinomPValues, pDataList):
         p_value_list = []
         for i, (pvalue_list, pDataList) in enumerate(zip(pBackgroundModelNBinomPValues, pDataList)):
-            if int(pDataList) - 1 < 0:
+            if len(pvalue_list) == 0:
+                pvalue = 1
+            elif int(pDataList) - 1 < 0:
                 pvalue = pvalue_list[0]
             else:
                 try:

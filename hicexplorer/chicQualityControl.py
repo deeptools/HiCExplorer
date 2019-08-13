@@ -101,8 +101,8 @@ def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
     return
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=None):
+    args = parse_arguments().parse_args(args)
 
     viewpointObj = Viewpoint()
     referencePoints, _ = viewpointObj.readReferencePointFile(

@@ -253,6 +253,7 @@ def main(args=None):
             if len(referencePointsThread) == 0:
                 process[i] = None
                 queue[i] = None
+                file_list_sample[i] = []
                 continue
             queue[i] = Queue()
             process[i] = Process(target=compute_viewpoint, kwargs=dict(
