@@ -40,23 +40,23 @@ script:
   - py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
 jobs:
   include:
-#     - stage: lint
-#       env:
-#         - LINT=1
-#       before_install:
-#         - curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh
-#         - bash miniconda.sh -b -p $HOME/miniconda
-#         - PATH_WITHOUT_CONDA="$PATH"
-#         - export PATH="$HOME/miniconda/bin:$PATH"
-#         - export PYTHONWARNINGS="ignore"
-#         - hash -r
-#         - conda config --set always_yes yes --set changeps1 no
-#         - conda update -q conda
-#       install:
-#         - conda install --yes python=3.6 flake8
-#         - conda install --yes pathlib
-#       script:
-#         - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504 ; fi
+    - stage: lint
+      env:
+        - LINT=1
+      before_install:
+        - curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - PATH_WITHOUT_CONDA="$PATH"
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - export PYTHONWARNINGS="ignore"
+        - hash -r
+        - conda config --set always_yes yes --set changeps1 no
+        - conda update -q conda
+      install:
+        - conda install --yes python=3.6 flake8
+        - conda install --yes pathlib
+      script:
+        - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504 ; fi
     
     - stage: test
       os: linux
