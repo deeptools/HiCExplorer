@@ -50,7 +50,8 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
 
     parserRequired.add_argument('--pValue', '-p',
                                 help='p-value threshold value to filter target regions to include them for differential analysis.',
-                                type=float)
+                                type=float,
+                                required=True)
     parserMutuallyExclusiveGroupFilter = parser.add_mutually_exclusive_group(
         required=True)
     parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
@@ -132,6 +133,12 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            type=int,
                            default=1000,
                            required=False)
+                           
+    parserOpt.add_argument('--computeSampleNumber', '-csn',
+                           help='Number of samples to compute together. Applies only in batch mode.',
+                           required=False,
+                           default=2,
+                           type=int)
 
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
@@ -151,8 +158,11 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         for sample in interactionFile:
             # header,
             # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
-            data = pViewpointObj.readInteractionFileForAggregateStatistics(
-                pArgs.interactionFileFolder + '/' + sample)
+            if pArgs.interactionFileFolder != '.':
+                absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
+            else:
+                absolute_sample_path = sample
+            data = pViewpointObj.readInteractionFileForAggregateStatistics(absolute_sample_path)
             sample_prefix += sample.split('/')[-1].split('_')[0]
             sample_prefix += '_'
             # filter by x-fold over background value or loose p-value
@@ -186,8 +196,8 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             target_list.append(target_lines)
 
         target_list = [item for sublist in target_list for item in sublist]
-        sample_name = '_'.join(interactionFile[0].split(
-            '/')[-1].split('.')[0].split('_')[1:])
+        log.debug('interactionFile {}'.format(interactionFile))
+        sample_name = '_'.join(interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:])
         target_name = sample_prefix + sample_name + '_target.bed'
         target_outfile_names.append(target_name)
         target_name = pArgs.targetFolder + '/' + target_name
@@ -389,19 +399,27 @@ def main(args=None):
         with open(args.interactionFile[0], 'r') as interactionFile:
             file_ = True
             while file_:
-                file_ = interactionFile.readline().strip()
-                file2_ = interactionFile.readline().strip()
-                if file_ != '' and file2_ != '':
-                    interactionFileList.append((file_, file2_))
-
+                lines = []
+                for i in range(0, args.computeSampleNumber):
+                    file_ = interactionFile.readline().strip()
+                    if file_ != '':
+                        lines.append(file_)
+                if len(lines) > 0:
+                    interactionFileList.append(lines)
+        log.debug('interactionFileList {}'.format(interactionFileList))
         outfile_names, target_list_name = call_multi_core(
             interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
 
     else:
         i = 0
         while i < len(args.interactionFile):
-            interactionFileList.append([args.interactionFile[i]])
-            i += 1
+            lines = []
+            for j in range(0, args.computeSampleNumber):
+                if i < len(args.interactionFile):
+                    lines.append(args.interactionFile[i])
+                i += 1
+            interactionFileList.append(lines)
+            
         target_list_name = compute_interaction_file(
             interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
 
