@@ -129,7 +129,8 @@ def create_distance_distribution(pData, pDistances):
 
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                                 pMaximumInteractionPercentageThreshold, pPValue, pPeakWindowSize, 
-                                pPValuePreselection, pStatisticalTest, pMinimumInteractionsThreshold):
+                                pPValuePreselection, pStatisticalTest, pMinimumInteractionsThreshold, 
+                                pOriginalCsrMatrix, pMinLoopDistance, pMaxLoopDistance):
     """
         This function computes the loops by:
             - decreasing the search space by removing zScore values < 0
@@ -214,13 +215,13 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
         number_of_candidates = len(candidates)
 
         candidates, mask = neighborhood_merge(
-            candidates, pWindowSize, pHiCMatrix.matrix)
+            candidates, pWindowSize, pHiCMatrix.matrix, pMinLoopDistance, pMaxLoopDistance)
 
         if len(candidates) == 0:
             return None, None
 
     candidates, p_value_list = candidate_region_test(
-        pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
+        pOriginalCsrMatrix, candidates, pWindowSize, pPValue,
         pMinimumInteractionsThreshold, pPeakWindowSize, pStatisticalTest)
 
     # candidates, p_value_list = candidate_region_test(
@@ -255,7 +256,7 @@ def filter_duplicates(pCandidates):
     return mask
 
 
-def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix):
+def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLoopDistance, pMaxLoopDistance):
     """
         Clusters candidates together to one candidate if they share / overlap their neighborhood.
         Implemented in an iterative way, the candidate with the highest interaction count is accepted as candidate for the neighborhood.
@@ -298,7 +299,7 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix):
             y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
         if candidate_x < 0 or candidate_y < 0:
             continue
-        if np.absolute(candidate_x - candidate_y) < 4:
+        if np.absolute(candidate_x - candidate_y) < pMinLoopDistance  or np.absolute(candidate_x - candidate_y) > pMaxLoopDistance:
             continue
         new_candidate_list.append([candidate_x, candidate_y])
     mask = filter_duplicates(new_candidate_list)
@@ -587,13 +588,13 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     if pArgs.peakWidth is None:
         pArgs.peakWidth = pArgs.windowSize - 4
     log.debug('Setting peak width to: {}'.format(pArgs.peakWidth))
-
+    original_csr_matrix = deepcopy(pHiCMatrix.matrix)
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
     pHiCMatrix.matrix.eliminate_zeros()
     log.debug('candidates region {} {}'.format(
         pRegion, len(pHiCMatrix.matrix.data)))
     # s
-    max_loop_distance = None
+    max_loop_distance = 0
     if pArgs.maxLoopDistance:
         try:
             max_loop_distance = pArgs.maxLoopDistance / pHiCMatrix.getBinSize()
@@ -605,11 +606,14 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             else:
                 pQueue.put([None])
                 return
+        log.debug('pArgs.maxLoopDistance {} max_loop_distance {}'.format(pArgs.maxLoopDistance, max_loop_distance))
         instances, features = pHiCMatrix.matrix.nonzero()
         distances = np.absolute(instances - features)
         mask = distances > max_loop_distance
         pHiCMatrix.matrix.data[mask] = 0
         pHiCMatrix.matrix.eliminate_zeros()
+    
+        min_loop_distance = 0
     if pArgs.minLoopDistance:
         try:
             min_loop_distance = pArgs.minLoopDistance / pHiCMatrix.getBinSize()
@@ -621,6 +625,8 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             else:
                 pQueue.put([None])
                 return
+        log.debug('pArgs.minLoopDistance {} min_loop_distance {}'.format(pArgs.minLoopDistance, min_loop_distance))
+        
         instances, features = pHiCMatrix.matrix.nonzero()
         distances = np.absolute(instances - features)
         mask = distances < min_loop_distance
@@ -637,7 +643,10 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
                                                          pArgs.peakWidth,
                                                          pArgs.pValuePreselection,
                                                          pArgs.statisticalTest,
-                                                         pArgs.peakInteractionsThreshold)
+                                                         pArgs.peakInteractionsThreshold,
+                                                         original_csr_matrix,
+                                                         min_loop_distance,
+                                                         max_loop_distance)
 
 
     if candidates is None:
