@@ -53,6 +53,12 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
     parserOpt.add_argument('--outFileName', '-o',
                            help='The output file name of the passed reference points. Is used as prefix for the plots too.',
                            default='new_referencepoints.bed')
+    parserOpt.add_argument('--outFileNameHistogram', '-oh',
+                           help='The output file for the histogram plot.',
+                           default='histogram.png')
+    parserOpt.add_argument('--outFileNameSparsity', '-os',
+                           help='The output file for the sparsity distribution plot.',
+                           default='sparsity.png')
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads.',
                            required=False,
@@ -83,7 +89,6 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
 def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     sparsity_list = []
-    coverage_list = []
 
     for i, referencePoint in enumerate(pReferencePoints):
         region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
@@ -93,11 +98,9 @@ def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
         sparsity = (np.count_nonzero(data_list) / len(data_list))
 
         sparsity_list.append(sparsity)
-        coverage = (np.sum(data_list))
-        coverage_list.append(coverage)
 
 
-    pQueue.put([sparsity_list, coverage_list])
+    pQueue.put(sparsity_list)
     return
 
 
@@ -125,22 +128,25 @@ def main(args=None):
         for i in range(args.threads):
 
             if i < args.threads - 1:
-                referencePointsThread = referencePoints[i * referencePointsPerThread:(
-                    i + 1) * referencePointsPerThread]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
             else:
-                referencePointsThread = referencePoints[i *
-                                                        referencePointsPerThread:]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:]
+            if len(referencePointsThread) == 0:
+                process[i] = None
+                queue[i] = None
+                sparsity_local[i] = []
+                continue
+            else:
+                queue[i] = Queue()
+                process[i] = Process(target=compute_sparsity, kwargs=dict(
+                    pReferencePoints=referencePointsThread,
+                    pViewpointObj=viewpointObj,
+                    pArgs=args,
+                    pQueue=queue[i]
+                )
+                )
 
-            queue[i] = Queue()
-            process[i] = Process(target=compute_sparsity, kwargs=dict(
-                pReferencePoints=referencePointsThread,
-                pViewpointObj=viewpointObj,
-                pArgs=args,
-                pQueue=queue[i]
-            )
-            )
-
-            process[i].start()
+                process[i].start()
 
         while not all_data_collected:
             for i in range(args.threads):
@@ -172,6 +178,13 @@ def main(args=None):
 
     with open(args.referencePoints, 'r') as reference_file_input:
         with open(args.outFileName + '_raw_filter', 'w') as output_file_raw:
+            output_file_raw.write('# Created with chicQualityControl version {}\n'.format(__version__))
+            output_file_raw.write('# Chromosome\tStart\tEnd\t')
+            for matrix in args.matrices:
+                output_file_raw.write('Sparsity {}\t'.format(matrix))
+            output_file_raw.write('\n')
+
+
             with open(args.outFileName + '_rejected_filter', 'w') as output_file_rejected:
                 with open(args.outFileName, 'w') as output_file:
                     for i, line in enumerate(reference_file_input.readlines()):
@@ -210,23 +223,21 @@ def main(args=None):
     plt.xscale('log')
     ax = plt.gca()
     box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    plt.savefig(args.outFileName + '_sparsity_distribution.png', dpi=args.dpi)
+    ax.set_position([box.x0, box.y0, box.width * 0.6, box.height])
+    plt.legend(loc='center', bbox_to_anchor=(1.4, 0.5))
+    plt.savefig(args.outFileNameSparsity, dpi=args.dpi)
 
-    plt.xlabel("Length of list (number)")
-    plt.ylabel("Time taken (seconds)")
+    # plt.xlabel("Length of list (number)")
+    # plt.ylabel("Time taken (seconds)")
     plt.close()
     for i in range(len(args.matrices)):
-        plt.hist(x[i], bins=100, alpha=0.5,
-                 label=args.matrices[i].split('/')[-1])
+        plt.hist(x[i], bins=100, alpha=0.5, label=args.matrices[i].split('/')[-1])
     plt.xlabel("Sparsity level")
     plt.ylabel("Number of counts")
-    plt.legend(loc='upper right')
+    # plt.legend(loc='upper right')
 
     ax = plt.gca()
     box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    plt.savefig(args.outFileName +
-                '_sparsity_distribution_histogram.png', dpi=args.dpi)
+    ax.set_position([box.x0, box.y0, box.width * 0.6, box.height])
+    plt.legend(loc='center', bbox_to_anchor=(1.4, 0.5))
+    plt.savefig(args.outFileNameHistogram, dpi=args.dpi)
