@@ -241,13 +241,10 @@ def main(args=None):
         for i in range(args.threads):
 
             if i < args.threads - 1:
-                referencePointsThread = referencePoints[i * referencePointsPerThread:(
-                    i + 1) * referencePointsPerThread]
-                geneListThread = gene_list[i * referencePointsPerThread:(
-                    i + 1) * referencePointsPerThread]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
+                geneListThread = gene_list[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
             else:
-                referencePointsThread = referencePoints[i *
-                                                        referencePointsPerThread:]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:]
                 geneListThread = gene_list[i * referencePointsPerThread:]
 
             if len(referencePointsThread) == 0:
@@ -286,8 +283,7 @@ def main(args=None):
                 if process[i] is not None:
                     all_data_collected = False
             time.sleep(1)
-        file_list_sample = [
-            item for sublist in file_list_sample for item in sublist]
+        file_list_sample = [item for sublist in file_list_sample for item in sublist]
         file_list.append(file_list_sample)
 
     log.debug('file_list {}'.format(file_list))
