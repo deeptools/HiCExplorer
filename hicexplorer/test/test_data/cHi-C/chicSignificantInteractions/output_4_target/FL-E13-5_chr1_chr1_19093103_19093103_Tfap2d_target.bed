@@ -1,0 +1,13 @@
+# Significant interactions result file of HiCExplorer's chicSignificantInteractions version 3.2-dev
+# chicSignificantInteractions/output_4_target/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_target.bed
+# Mode: x-fold background with 1.5
+# Used p-value: 0.2
+#
+chr1	19089000	19091000
+chr1	19104000	19106000
+chr1	19109000	19114000
+chr1	19125000	19129000
+chr1	19133000	19138000
+chr1	19197000	19202000
+chr1	19227000	19233000
+chr1	19254000	19261000

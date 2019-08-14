@@ -1,0 +1,10 @@
+# Significant interactions result file of HiCExplorer's chicSignificantInteractions version 3.2-dev
+# chicSignificantInteractions/output_3_target/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_target.bed
+# Mode: x-fold background with 1.5
+# Used p-value: 0.2
+#
+chr1	14295000	14298000
+chr1	14426000	14432000
+chr1	14447000	14455000
+chr1	14460000	14465000
+chr1	14491000	14501000

@@ -1,0 +1,10 @@
+# Significant interactions result file of HiCExplorer's chicSignificantInteractions version 3.2-dev
+# targetFolder/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_target.bed
+# Mode: loose p-value with 0.5
+# Used p-value: 0.2
+#
+chr1	14274000	14279000
+chr1	14285000	14308000
+chr1	14310000	14322000
+chr1	14361000	14395000
+chr1	14491000	14500000
