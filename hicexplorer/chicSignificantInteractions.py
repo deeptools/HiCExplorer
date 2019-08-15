@@ -20,8 +20,7 @@ from .lib import Viewpoint
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description=
-"""
+                                     description="""
 Per viewpoint the significant interactions are detected based on the background model. Each viewpoint file gets as output a file with all recorded significant interactions and
 a target file. The target file is especially in the batch mode context useful, it merges for two consecutive listed control and treatment viewpoint the significant interactions which can then be used
 to test for a differential interaction scheme.
@@ -133,7 +132,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            type=int,
                            default=1000,
                            required=False)
-                           
+
     parserOpt.add_argument('--computeSampleNumber', '-csn',
                            help='Number of samples to compute together. Applies only in batch mode.',
                            required=False,
@@ -419,7 +418,7 @@ def main(args=None):
                     lines.append(args.interactionFile[i])
                 i += 1
             interactionFileList.append(lines)
-            
+
         target_list_name = compute_interaction_file(
             interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
 

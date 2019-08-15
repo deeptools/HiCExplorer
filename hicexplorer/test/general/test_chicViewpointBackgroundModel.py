@@ -9,6 +9,7 @@ from hicexplorer import chicViewpointBackgroundModel
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/cHi-C/")
 
+
 def are_files_equal(file1, file2, delta=1, skip=0):
     equal = True
     if delta:
@@ -30,10 +31,11 @@ def are_files_equal(file1, file2, delta=1, skip=0):
                     break
     return equal
 
+
 def test_compute_background():
     outfile = NamedTemporaryFile(suffix='.bed', delete=False)
     outfile.close()
-    args = "--matrices {} {} --referencePoints {} -o {}".format(ROOT+ 'FL-E13-5_chr1.cool', ROOT + 'MB-E10-5_chr1.cool', 
+    args = "--matrices {} {} --referencePoints {} -o {}".format(ROOT + 'FL-E13-5_chr1.cool', ROOT + 'MB-E10-5_chr1.cool',
                                                                 ROOT + 'referencePoints.bed', outfile.name).split()
     chicViewpointBackgroundModel.main(args)
 

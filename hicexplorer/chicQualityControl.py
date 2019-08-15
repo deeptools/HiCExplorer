@@ -99,7 +99,6 @@ def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
         sparsity_list.append(sparsity)
 
-
     pQueue.put(sparsity_list)
     return
 
@@ -183,7 +182,6 @@ def main(args=None):
             for matrix in args.matrices:
                 output_file_raw.write('Sparsity {}\t'.format(matrix))
             output_file_raw.write('\n')
-
 
             with open(args.outFileName + '_rejected_filter', 'w') as output_file_rejected:
                 with open(args.outFileName, 'w') as output_file:

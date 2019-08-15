@@ -11,6 +11,7 @@ from matplotlib.testing.compare import compare_images
 from hicexplorer import chicQualityControl
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/cHi-C/")
 
+
 def are_files_equal(file1, file2, delta=1, skip=0):
     equal = True
     if delta:
@@ -32,6 +33,7 @@ def are_files_equal(file1, file2, delta=1, skip=0):
                     break
     return equal
 
+
 def test_two_matrices():
 
     outfile = NamedTemporaryFile(suffix='.bed', delete=False)
@@ -39,18 +41,17 @@ def test_two_matrices():
     outfile_sparsity = NamedTemporaryFile(suffix='.png', delete=False)
 
     outfile.close()
-    args = "--matrices {} {} --referencePoints {} --sparsity {} --outFileName {} --outFileNameHistogram {} --outFileNameSparsity  {}".format(ROOT + 'FL-E13-5_chr1.cool', 
-                                                                        ROOT + 'MB-E10-5_chr1.cool', 
-                                                                        ROOT + 'referencePoints.bed',
-                                                                        0.05,
-                                                                        outfile.name, outfile_histogram.name, outfile_sparsity.name).split()
+    args = "--matrices {} {} --referencePoints {} --sparsity {} --outFileName {} --outFileNameHistogram {} --outFileNameSparsity  {}".format(ROOT + 'FL-E13-5_chr1.cool',
+                                                                                                                                             ROOT + 'MB-E10-5_chr1.cool',
+                                                                                                                                             ROOT + 'referencePoints.bed',
+                                                                                                                                             0.05,
+                                                                                                                                             outfile.name, outfile_histogram.name, outfile_sparsity.name).split()
     chicQualityControl.main(args)
 
     assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed", outfile.name)
     assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_raw_filter", outfile.name + '_raw_filter')
-    assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_rejected_filter", outfile.name  + '_rejected_filter')
+    assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_rejected_filter", outfile.name + '_rejected_filter')
 
-    
     res = compare_images(ROOT + "chicQualityControl/histogram.png", outfile_histogram.name, 50)
     assert res is None, res
 

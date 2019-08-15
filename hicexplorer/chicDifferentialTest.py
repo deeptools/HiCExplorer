@@ -19,8 +19,8 @@ from .lib import Viewpoint
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    description="""
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description="""
 chicDifferentialTest tests if two locations under consideration of the reference point have a different interaction count. For this either Fisher's test or chi2 contingency test can be used.
 The files that are accepted for this test can be created with `chicAggregateStatistic`. H0 is assuming the interactions are not different. Therefore the differential interaction counts are all where H0 was rejected.
 
@@ -41,7 +41,7 @@ A second mode is the batch processing mode, for this you need a file containing 
 
 This will create, as in the non-batch mode, three files per aggregated file and writes the file name to the file given by `--rejectedFileNamesToFile`. This last file can be used to plot the differential interactions per viewpoint in batch mode by chicPlotViewpoint.
 """
-)
+                                     )
 
     parserRequired = parser.add_argument_group('Required arguments')
 
