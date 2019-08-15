@@ -44,7 +44,7 @@ a folder containing them, a target list file containing the name of all target f
 
 If no `--targetFileFolder` in batch mode is given, it is assumed the `--targetFile` should be used for all viewpoints.
 """
-    )                            
+                                     )
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--interactionFile', '-if',
@@ -176,11 +176,18 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
 
     for i, interactionFile in enumerate(pInteractionFilesList):
         for sample in interactionFile:
+            if pArgs.interactionFileFolder != '.':
+                absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
+            else:
+                absolute_sample_path = sample
             header, interaction_data, interaction_file_data = pViewpointObj.readInteractionFileForAggregateStatistics(
-                pArgs.interactionFileFolder + '/' + sample)
+                absolute_sample_path)
             log.debug('len(pTargetList) {}'.format(len(pTargetList)))
             if pArgs.batchMode and len(pTargetList) > 1:
-                target_file = pArgs.targetFileFolder + '/' + pTargetList[i]
+                if pArgs.targetFileFolder != '.':
+                    target_file = pArgs.targetFileFolder + '/' + pTargetList[i]
+                else:
+                    target_file = pTargetList[i]
             elif pArgs.batchMode and len(pTargetList) == 1:
                 target_file = None
             else:
@@ -200,7 +207,8 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
 
             if pArgs.batchMode:
                 outfile_names.append(outFileName)
-            outFileName = pArgs.outputFolder + '/' + outFileName
+            if pArgs.outputFolder != '.':
+                outFileName = pArgs.outputFolder + '/' + outFileName
 
             write(outFileName, header, accepted_scores,
                   interaction_file_data)

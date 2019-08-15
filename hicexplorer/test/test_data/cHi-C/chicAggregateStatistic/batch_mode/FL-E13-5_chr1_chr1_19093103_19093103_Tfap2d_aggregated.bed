@@ -1,0 +1,7 @@
+# Aggregated file, created with HiCExplorer's chicAggregateStatistic version 3.2-dev
+# FL-E13-5_chr1.cool	chr1_19093103_19093103	18.89  Mbp	19.29  Mbp	Tfap2d	Sum of interactions in fixate range: 472.0
+#Chromosome	Start	End	Gene	Sum of interactions	Relative distance	Raw target
+chr1	19077000	19114000	Tfap2d	472.0	20000	 344.80000
+chr1	19125000	19129000	Tfap2d	472.0	35000	   7.80000
+chr1	19134000	19139000	Tfap2d	472.0	45000	   8.40000
+chr1	19141000	19238000	Tfap2d	472.0	144000	  47.40000
