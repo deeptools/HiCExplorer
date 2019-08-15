@@ -27,7 +27,7 @@ The files that are accepted for this test can be created with `chicAggregateStat
 
 An example usage is:
 
-`$ chicDifferentialTest --interactionFile viewpoint1_viewpoint2_aggregated.bed --alpha 0.05 --statisticTest fisher --outputFolder differentialResults`
+`$ chicDifferentialTest --interactionFile viewpoint1_aggregated.bed  viewpoint2_aggregated.bed --alpha 0.05 --statisticTest fisher --outputFolder differentialResults`
 
 and this will create three files: `viewpoint1_viewpoint2_aggregated_H0_accepted.bed`, `viewpoint1_viewpoint2_aggregated_H0_rejected.bed`, `viewpoint1_viewpoint2_aggregated_results.bed`
 
@@ -221,10 +221,16 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
             '/' + outFileName + '_H0_rejected.bed'
         outFileName = pArgs.outputFolder + '/' + outFileName + '_results.bed'
 
-        header1, line_content1, data1 = readInteractionFile(
-            pArgs.interactionFileFolder + '/' + interactionFile[0])
-        header2, line_content2, data2 = readInteractionFile(
-            pArgs.interactionFileFolder + '/' + interactionFile[1])
+        if pArgs.interactionFileFolder != '.':
+            absolute_sample_path1 = pArgs.interactionFileFolder + '/' + interactionFile[0]
+            absolute_sample_path2 = pArgs.interactionFileFolder + '/' + interactionFile[1]
+
+        else:
+            absolute_sample_path1 = interactionFile[0]
+            absolute_sample_path2 = interactionFile[1]
+
+        header1, line_content1, data1 = readInteractionFile(absolute_sample_path1)
+        header2, line_content2, data2 = readInteractionFile(absolute_sample_path2)
 
         if len(line_content1) == 0 or len(line_content2) == 0:
             writeResult(outFileName, None, header1, header2,
