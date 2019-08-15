@@ -22,8 +22,8 @@ from .lib import Viewpoint
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    description="""
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description="""
 chicPlotViewpoint plots one or many viewpoints with the average background model and the computed p-value per sample. Moreover it can highlight differential interactions of two samples and or significant regions.
 
 An example usage is:
@@ -36,7 +36,7 @@ In batch mode the list of file names and the folders containing the files need t
 `$ chicPlotViewpoint --interactionFile viewpoint_names.txt -interactionFileFolder viewpointFilesFolder --differentialTestResult rejected_H0.txt --differentialTestResultsFolder differentialFolder --range 500000 500000 --backgroundModelFile background_model.bed --pValue --outputFolder plotsFOlder --dpi 300 --threads 20`
 
 """
-)
+                                     )
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--interactionFile', '-if',
@@ -80,7 +80,7 @@ In batch mode the list of file names and the folders containing the files need t
     parserOpt.add_argument('--outputFolder', '-of',
                            help='Output folder of the files.',
                            required=False,
-                           default='plots')
+                           default='.')
     parserOpt.add_argument('--outputFormat', '-format',
                            help='Output format of the plot.',
                            required=False,
@@ -162,12 +162,19 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             gs.update(hspace=0.5, wspace=0.05)
             ax1 = plt.subplot(gs[0, 0])
             ax1.margins(x=0)
+        else:
+            ax1 = plt.gca()
         colors = ['g', 'b', 'c', 'm', 'y', 'k']
         background_plot = True
         data_plot_label = None
         gene = ''
         for i, interactionFile_ in enumerate(interactionFile):
-            header, data, background_data_plot, p_values, viewpoint_index = pViewpointObj.getDataForPlotting(pArgs.interactionFileFolder + '/' + interactionFile_, pArgs.range, pBackgroundData)
+            if pArgs.interactionFileFolder != '.':
+                absolute_path_interactionFile_ = pArgs.interactionFileFolder + '/' + interactionFile_
+            else:
+                absolute_path_interactionFile_ = interactionFile_
+
+            header, data, background_data_plot, p_values, viewpoint_index = pViewpointObj.getDataForPlotting(absolute_path_interactionFile_, pArgs.range, pBackgroundData)
             if len(data) <= 1 or len(p_values) <= 1:
                 log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
                 continue
@@ -178,9 +185,13 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             significant_p_values = None
             significant_regions = None
             if pArgs.differentialTestResult:
-                if pArgs.differentialTestResultsFolder:
-                    pHighlightDifferentialRegionsFileList[j] = pArgs.differentialTestResultsFolder + '/' + pHighlightDifferentialRegionsFileList[j]
-                highlight_differential_regions = pViewpointObj.readRejectedFile(pHighlightDifferentialRegionsFileList[j], viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
+                if pArgs.differentialTestResultsFolder != '.':
+                    differentialFilePath = pArgs.differentialTestResultsFolder + '/' + pHighlightDifferentialRegionsFileList[j]
+                else:
+                    differentialFilePath = pHighlightDifferentialRegionsFileList[j]
+
+                    # pHighlightDifferentialRegionsFileList[j] = pArgs.differentialTestResultsFolder + '/' + pHighlightDifferentialRegionsFileList[j]
+                highlight_differential_regions = pViewpointObj.readRejectedFile(differentialFilePath, viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
             if pArgs.significantInteractions:
                 significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(pSignificantRegionsFileList[j][i], viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
             if data_plot_label:
@@ -228,8 +239,11 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
 
             sample_prefix = ""
             if pArgs.outFileName:
-                outFileName = pArgs.outputFolder + '/' + pArgs.outFileName
-                
+                if pArgs.outputFolder != '.':
+                    outFileName = pArgs.outputFolder + '/' + pArgs.outFileName
+                else:
+                    outFileName = pArgs.outFileName
+
             else:
                 for interactionFile_ in interactionFile:
                     sample_prefix += interactionFile_.split('/')[-1].split('_')[0] + '_'
@@ -237,8 +251,9 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                     sample_prefix = sample_prefix[:-1]
                 region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:4])
                 outFileName = gene + '_' + sample_prefix + '_' + region_prefix
-                outFileName = pArgs.outputFolder + '/' + outFileName
-            
+                if pArgs.outputFolder != '.':
+                    outFileName = pArgs.outputFolder + '/' + outFileName
+
             if pArgs.outputFormat != outFileName.split('.')[-1]:
                 outFileName = outFileName + '.' + pArgs.outputFormat
             plt.savefig(outFileName, dpi=pArgs.dpi)
@@ -358,7 +373,7 @@ def main(args=None):
     else:
         interactionFileList = [args.interactionFile]
         highlightDifferentialRegionsFileList = args.differentialTestResult
-        highlightSignificantRegionsFileList = args.significantInteractions
+        highlightSignificantRegionsFileList = [args.significantInteractions]
         plot_images(pInteractionFileList=interactionFileList,
                     pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileList,
                     pBackgroundData=background_data,
