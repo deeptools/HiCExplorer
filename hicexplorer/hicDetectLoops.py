@@ -62,9 +62,9 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            help='The minimum number of interactions a detected peaks needs to have to be considered.',
                            default=5)
     parserOpt.add_argument('--maximumInteractionPercentageThreshold', '-mip',
-                            type=float,
-                            help='For each distance the maximum value is considered and all candidates need to have at least \'max_value * maximumInteractionPercentageThreshold\' interactions.',
-                            default=0.01)
+                           type=float,
+                           help='For each distance the maximum value is considered and all candidates need to have at least \'max_value * maximumInteractionPercentageThreshold\' interactions.',
+                           default=0.01)
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
                            default=0.01,
@@ -128,8 +128,8 @@ def create_distance_distribution(pData, pDistances):
 
 
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
-                                pMaximumInteractionPercentageThreshold, pPValue, pPeakWindowSize, 
-                                pPValuePreselection, pStatisticalTest, pMinimumInteractionsThreshold, 
+                                pMaximumInteractionPercentageThreshold, pPValue, pPeakWindowSize,
+                                pPValuePreselection, pStatisticalTest, pMinimumInteractionsThreshold,
                                 pOriginalCsrMatrix, pMinLoopDistance, pMaxLoopDistance):
     """
         This function computes the loops by:
@@ -147,7 +147,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                     b) same neighborhood is used to test the peak region against the neighborhood for significant difference (candidate_region_test)
             - pPeakInteractionsThreshold: float, remove candidates with less interactions
             - pPValue: float, test rejection level for H0 and FDR correction
-            - pPValuePreselection: float, p-value for negative binomial 
+            - pPValuePreselection: float, p-value for negative binomial
             - pStatisticalTest: str, which statistical test should be used
             - pPeakWindowSize: integer, size of the peak region: (2*pPeakWindowSize)^2. Needs to be smaller than pWindowSize
 
@@ -299,7 +299,7 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLo
             y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
         if candidate_x < 0 or candidate_y < 0:
             continue
-        if np.absolute(candidate_x - candidate_y) < pMinLoopDistance  or np.absolute(candidate_x - candidate_y) > pMaxLoopDistance:
+        if np.absolute(candidate_x - candidate_y) < pMinLoopDistance or np.absolute(candidate_x - candidate_y) > pMaxLoopDistance:
             continue
         new_candidate_list.append([candidate_x, candidate_y])
     mask = filter_duplicates(new_candidate_list)
@@ -316,6 +316,7 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLo
     pCandidates = pCandidates[mask]
     return pCandidates, mask
 
+
 def get_test_data(pNeighborhood, pVertical):
     x_len = len(pNeighborhood)
     y_len = len(pNeighborhood[0])
@@ -326,17 +327,18 @@ def get_test_data(pNeighborhood, pVertical):
     return_list = []
     if pVertical:
         return_list.append(pNeighborhood.T[0:y_third].flatten())
-        return_list.append(pNeighborhood.T[y_third:y_third+y_third].flatten())
-        return_list.append(pNeighborhood.T[y_third+y_third:].flatten())
+        return_list.append(pNeighborhood.T[y_third:y_third + y_third].flatten())
+        return_list.append(pNeighborhood.T[y_third + y_third:].flatten())
     else:
         return_list.append(pNeighborhood[0:x_third].flatten())
-        return_list.append(pNeighborhood[x_third:x_third+x_third].flatten())
-        return_list.append(pNeighborhood[x_third+x_third:].flatten())
-    
+        return_list.append(pNeighborhood[x_third:x_third + x_third].flatten())
+        return_list.append(pNeighborhood[x_third + x_third:].flatten())
+
     return return_list
-    
+
+
 def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                            pMinimumInteractionsThreshold, pPeakWindowSize, pStatisticalTest=None):
+                          pMinimumInteractionsThreshold, pPeakWindowSize, pStatisticalTest=None):
     """
         Tests if a candidate is having a significant peak compared to its neighborhood.
             - smoothes neighborhood in x an y orientation
@@ -460,11 +462,11 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                 statistic, significance_level_test2 = ranksums(sorted(test_list[1]), sorted(test_list[2]))
                 if significance_level_test1 <= pPValue or significance_level_test2 <= significance_level_test2:
 
-                        statistic, significance_level = ranksums(sorted(peak), sorted(background))
-                        mask.append(True)
-                        pvalues.append(significance_level)
+                    statistic, significance_level = ranksums(sorted(peak), sorted(background))
+                    mask.append(True)
+                    pvalues.append(significance_level)
 
-                        continue
+                    continue
             mask.append(False)
             continue
         else:
@@ -477,11 +479,11 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                 _, _, significance_level_test2 = anderson_ksamp([sorted(test_list[1]), sorted(test_list[2])])
                 if significance_level_test1 <= pPValue or significance_level_test2 <= significance_level_test2:
 
-                        _, _, significance_level = anderson_ksamp([sorted(peak), sorted(background)])
-                        if significance_level <= pPValue:
-                            mask.append(True)
-                            pvalues.append(significance_level)
-                            continue
+                    _, _, significance_level = anderson_ksamp([sorted(peak), sorted(background)])
+                    if significance_level <= pPValue:
+                        mask.append(True)
+                        pvalues.append(significance_level)
+                        continue
             mask.append(False)
             continue
 
@@ -612,7 +614,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         mask = distances > max_loop_distance
         pHiCMatrix.matrix.data[mask] = 0
         pHiCMatrix.matrix.eliminate_zeros()
-    
+
         min_loop_distance = 0
     if pArgs.minLoopDistance:
         try:
@@ -626,7 +628,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
                 pQueue.put([None])
                 return
         log.debug('pArgs.minLoopDistance {} min_loop_distance {}'.format(pArgs.minLoopDistance, min_loop_distance))
-        
+
         instances, features = pHiCMatrix.matrix.nonzero()
         distances = np.absolute(instances - features)
         mask = distances < min_loop_distance
@@ -647,7 +649,6 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
                                                          original_csr_matrix,
                                                          min_loop_distance,
                                                          max_loop_distance)
-
 
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
