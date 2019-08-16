@@ -49,6 +49,8 @@ HiCExplorer tools
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicQC`                          | information      | log files from hicBuildMatrix     | A quality control report                    | Quality control of the created contact matrix.                                    |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicQuickQC`                     | information      | 2 BAM/SAM files                   | An estimated quality control report         | Estimated quality report of the Hi-C data.                                        |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicCompareMatrices`             | analysis         | two Hi-C matrices                 | one Hi-C matrix                             | Applies diff, ratio or log2ratio on matrices to compare them.                     |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicAverageRegions`              | analysis         | multiple Hi-C matrices            | one npz object                              | Averages the given locations. Visualization with hicPlotAverageRegions            |
@@ -133,6 +135,8 @@ Tools for Hi-C data pre-processing
 Tools for Hi-C QC
 ^^^^^^^^^^^^^^^^^
 
+:ref:`hicQuickQC`
+"""""""""""""""""
 :ref:`hicQC`
 """"""""""""
 :ref:`hicCorrelate`

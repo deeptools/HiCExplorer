@@ -27,7 +27,6 @@ def parse_arguments():
         formatter_class=CustomFormatter,
         add_help=False,
         conflict_handler='resolve',
-        # usage="%(prog)s --matrix hic_matrix.h5 -o pca1.bedgraph pca2.bedgraph"
         description="""
 Computes PCA eigenvectors for a Hi-C matrix.
 
