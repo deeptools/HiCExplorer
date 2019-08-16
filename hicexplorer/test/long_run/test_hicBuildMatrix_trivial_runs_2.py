@@ -168,7 +168,7 @@ def test_build_matrix_restrictionCutFile_seven(sam1, sam2, outFile, qcFolder, ou
 
     hicBuildMatrix.main(args)
 
-    os.unlink(outFile.name)
+    # os.unlink(outFile.name)
     shutil.rmtree(qcFolder)
     # os.unlink("/tmp/test.bam")
 
@@ -214,6 +214,6 @@ def test_build_matrix_restrictionCutFile_eight(sam1, sam2, outFile, qcFolder, ou
 
     hicBuildMatrix.main(args)
 
-    os.unlink(outFile.name)
+    # os.unlink(outFile.name)
     shutil.rmtree(qcFolder)
     # os.unlink("/tmp/test.bam")
