@@ -1,2 +1,2 @@
 File	Hi-C contacts	Hi-C contacts_%	Low mapping quality	Low mapping quality_%	One mate not unique	One mate not unique_%	One mate unmapped	One mate unmapped_%
-/tmp/tmp1cm9m5mc.cool	37321	0.3732734564876029	34877	0.3488293009811668	3603	0.036036126141444046	8777	0.08778492343698428
+/tmp/tmpi4gm4e58.h5	697	0.1994848311390956	634	0.18145392100744132	68	0.019461934745277618	1792	0.5128792215226102

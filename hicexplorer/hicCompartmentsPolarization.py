@@ -14,8 +14,8 @@ from hicexplorer._version import __version__
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(
-        description="""
+    parser = argparse.ArgumentParser(add_help=False,
+                                     description="""
         Rearrange the average interaction frequencies using the first PC values
         to represent the global compartmentalization signal. To our knowledge
         this has been first introduced and implemented by Wibke Schwarzer et
@@ -24,7 +24,7 @@ def parse_arguments():
         $ hicCompartmentsPolarization --obsexp_matrices obsExpMatrix.h5 --pca pc1.bedgraph\
         -o global_signal.png
         """
-    )
+                                     )
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -91,8 +91,7 @@ def count_interactions(obs_exp, pc1, quantiles_number):
                 data = chr_submatrix[row_indices, :][:, col_indices]
 
                 if data.shape[0] * data.shape[1] != 0:
-                    normalised_sum_per_quantile[qi, qj] += (np.sum(data) /
-                                                            (data.shape[0] * data.shape[1]))
+                    normalised_sum_per_quantile[qi, qj] += (np.sum(data) / (data.shape[0] * data.shape[1]))
 
     return normalised_sum_per_quantile
 
