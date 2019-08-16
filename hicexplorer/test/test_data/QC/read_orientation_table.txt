@@ -1,2 +1,2 @@
-File	inward pairs	inward pairs %	outward pairs	outward pairs %	left pairs	left pairs %	right pairs	right pairs %
-small_test_matrix.h5	7145	0.227794427087	9731	0.310240387681	7156	0.228145125295	7334	0.233820059938
+File	Read pair type: inward pairs	Read pair type: inward pairs %	Read pair type: outward pairs	Read pair type: outward pairs %	Read pair type: left pairs	Read pair type: left pairs %	Read pair type: right pairs	Read pair type: right pairs %
+/tmp/tmp1cm9m5mc.cool	7145	0.22779442708665434	9731	0.3102403876809284	7156	0.2281451252949053	7334	0.23382005993751195
