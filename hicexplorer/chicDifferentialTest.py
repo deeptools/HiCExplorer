@@ -212,14 +212,23 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
 
         sample_prefix = interactionFile[0].split(
             '/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
+
         region_prefix = '_'.join(
             interactionFile[0].split('/')[-1].split('_')[1:6])
+
         outFileName = sample_prefix + '_' + region_prefix
-        outFileName_accepted = pArgs.outputFolder + \
-            '/' + outFileName + '_H0_accepted.bed'
-        outFileName_rejected = pArgs.outputFolder + \
-            '/' + outFileName + '_H0_rejected.bed'
-        outFileName = pArgs.outputFolder + '/' + outFileName + '_results.bed'
+        rejected_name_output_file = outFileName + '_H0_rejected.bed'
+
+        if pArgs.outputFolder != '.':
+            outFileName_accepted = pArgs.outputFolder + \
+                '/' + outFileName + '_H0_accepted.bed'
+            outFileName_rejected = pArgs.outputFolder + \
+                '/' + outFileName + '_H0_rejected.bed'
+            outFileName = pArgs.outputFolder + '/' + outFileName + '_results.bed'
+        else:
+            outFileName_accepted = outFileName + '_H0_accepted.bed'
+            outFileName_rejected = outFileName + '_H0_rejected.bed'
+            outFileName = outFileName + '_results.bed'
 
         if pArgs.interactionFileFolder != '.':
             absolute_sample_path1 = pArgs.interactionFileFolder + '/' + interactionFile[0]
@@ -239,7 +248,7 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
                         pArgs.alpha, pArgs.statisticTest)
             writeResult(outFileName_rejected, None, header1, header2,
                         pArgs.alpha, pArgs.statisticTest)
-            rejected_names.append(outFileName_rejected)
+            rejected_names.append(rejected_name_output_file)
             continue
         if pArgs.statisticTest == 'chi2':
             test_result, accepted, rejected = chisquare_test(
@@ -269,7 +278,7 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
                     pArgs.alpha, pArgs.statisticTest)
         writeResult(outFileName_rejected, write_out_lines_rejected, header1, header2,
                     pArgs.alpha, pArgs.statisticTest)
-        rejected_names.append(outFileName_rejected)
+        rejected_names.append(rejected_name_output_file)
     if pQueue is None:
         return
     pQueue.put(rejected_names)
