@@ -1,0 +1,9 @@
+# Aggregated file, created with HiCExplorer's chicAggregateStatistic version 3.2-dev
+# MB-E10-5_chr1.cool	chr1_4487435_4487435	4.29  Mbp	4.69  Mbp	Sox17	Sum of interactions in fixate range: 978.0
+#Chromosome	Start	End	Gene	Sum of interactions	Relative distance	Raw target
+chr1	4472000	4503000	Sox17	978.0	15000	 724.40000
+chr1	4507000	4516000	Sox17	978.0	28000	  19.00000
+chr1	4520000	4531000	Sox17	978.0	43000	  22.20000
+chr1	4533000	4543000	Sox17	978.0	55000	  12.20000
+chr1	4562000	4593000	Sox17	978.0	105000	  23.20000
+chr1	4664000	4669000	Sox17	978.0	181000	   5.40000

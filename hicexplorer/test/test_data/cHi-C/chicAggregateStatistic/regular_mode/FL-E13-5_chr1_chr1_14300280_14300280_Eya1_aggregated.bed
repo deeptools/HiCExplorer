@@ -1,0 +1,11 @@
+# Aggregated file, created with HiCExplorer's chicAggregateStatistic version 3.2-dev
+# FL-E13-5_chr1.cool	chr1_14300280_14300280	14.10  Mbp	14.50  Mbp	Eya1	Sum of interactions in fixate range: 673.0
+#Chromosome	Start	End	Gene	Sum of interactions	Relative distance	Raw target
+chr1	14274000	14279000	Eya1	673.0	-22000	   7.00000
+chr1	14285000	14308000	Eya1	673.0	7000	 389.40000
+chr1	14310000	14322000	Eya1	673.0	21000	  54.80000
+chr1	14361000	14407000	Eya1	673.0	106000	  21.20000
+chr1	14426000	14432000	Eya1	673.0	131000	   2.40000
+chr1	14447000	14455000	Eya1	673.0	154000	   4.40000
+chr1	14460000	14465000	Eya1	673.0	164000	   3.20000
+chr1	14491000	14500000	Eya1	673.0	199000	  17.65000

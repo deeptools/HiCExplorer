@@ -230,8 +230,7 @@ def main(args=None):
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
         length_chromosome += chr_range[1] - chr_range[0]
-    if args.extraTrack and (args.extraTrack.endswith('.bw') or
-                            args.extraTrack.endswith('.bigwig')):
+    if args.extraTrack and (args.extraTrack.endswith('.bw') or args.extraTrack.endswith('.bigwig')):
         bwTrack = pyBigWig.open(args.extraTrack, 'r')
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
@@ -269,8 +268,7 @@ def main(args=None):
         chrom_list += chrom
         start_list += start
         end_list += end
-        if args.extraTrack and (args.extraTrack.endswith('.bw') or
-           args.extraTrack.endswith('.bigwig')):
+        if args.extraTrack and (args.extraTrack.endswith('.bw') or args.extraTrack.endswith('.bigwig')):
             assert(len(end) == len(start))
             correlateEigenvectorWithHistonMarkTrack(eigs[:, :k].transpose(),
                                                     bwTrack, chrname, start,

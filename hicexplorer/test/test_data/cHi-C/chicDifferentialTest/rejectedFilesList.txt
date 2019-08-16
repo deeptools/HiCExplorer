@@ -1,0 +1,3 @@
+FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_rejected.bed
+FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.bed
+FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_rejected.bed

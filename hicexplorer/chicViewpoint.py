@@ -1,16 +1,13 @@
 import argparse
 import sys
 import os
+import errno
 from multiprocessing import Process, Queue
 import time
 import math
 import logging
 log = logging.getLogger(__name__)
 
-from scipy.stats import zscore
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import numpy as np
 
 import hicmatrix.HiCMatrix as hm
@@ -21,17 +18,36 @@ from hicexplorer._version import __version__
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-                                     description='Computes per input matrix all viewpoints given the reference points.')
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description="""
+Computes per input matrix all viewpoints which are defined in the reference points file. All files are stored in the folder defined by `--outputFolder`, the files
+are named by the name of the reference point, the sample name and the location of the reference point:
+
+gene_matrix_name_chr_start_end.bed
+
+If multiple reference points are used and the processing downstream should be automated via batch processing mode, please activate `--writeFileNamesToFile`. In this
+file all the file names will be written to; in the case of multiple samples two consecutive lines are consideres as treatment vs control in the differential analysis.
+
+An example usage is:
+
+$ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outputFolder interactionFilesFolder
+
+An example usage for batch mode is:
+
+$ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outputFolder interactionFilesFolder --writeFileNamesToFile interactionFile.txt
+
+""")
 
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrices', '-m',
-                                help='path of the Hi-C matrices to plot',
+                                help='Path to the Hi-C matrices which store the captured Hi-C data per sample.',
                                 required=True,
                                 nargs='+')
 
     parserRequired.add_argument('--range',
-                                help='Defines the region upstream and downstream of a reference point which should be included. '
+                                help='Defines the region upstream and downstream of a reference point which should be considered in the analysis. Please have in mind to use the same fixate range setting as it was '
+                                'for the background model computation and that distances of the range larger as the fixate range use the background model of those.'
                                 'Format is --region upstream downstream',
                                 required=True,
                                 type=int,
@@ -41,24 +57,21 @@ def parse_arguments(args=None):
                                 'single reference point or \'chr 100 200\' for a reference region and per line one reference point',
                                 required=True)
     parserRequired.add_argument('--backgroundModelFile', '-bmf',
-                                help='path to the background file which is necessary to compute the rbz-score',
+                                help='path to the background file computed by chicViewpointBackgroundModel',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--threads',
+    parserOpt.add_argument('--threads', '-t',
                            help='Number of threads. Using the python multiprocessing module.',
                            required=False,
                            default=4,
                            type=int)
     parserOpt.add_argument('--averageContactBin',
-                           help='Average the contacts of n bins, written to last column.',
+                           help='Average the contacts of n bins via sliding window approach to smooth the values and be less sensitive for outlieres..',
                            type=int,
                            default=5)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
-                           help='')
-    parserOpt.add_argument('--useRawBackground', '-raw',
-                           help='Use the raw background instead of a smoothed one.',
-                           required=False,
-                           action='store_true')
+                           help='Set this parameter to have a file with all file names of the viewpoint files, useful only for batch processing mode.')
+
     parserOpt.add_argument('--fixateRange', '-fs',
                            help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
                            required=False,
@@ -66,7 +79,7 @@ def parse_arguments(args=None):
                            type=int
                            )
     parserOpt.add_argument('--outputFolder', '-o',
-                           help='File name suffix to save the result.',
+                           help='This folder contains all created viewpoint files.',
                            required=False,
                            default='interactionFiles')
     parserOpt.add_argument("--help", "-h", action="help",
@@ -77,10 +90,9 @@ def parse_arguments(args=None):
     return parser
 
 
-def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint, pRegionStart, pRegionEnd):
+def adjustViewpointData(pViewpointObj, pData, pBackground, pReferencePoint, pRegionStart, pRegionEnd):
     data_viewpoint = {}
     data_background = {}
-    data_sem = {}
     view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(
         pReferencePoint)
     view_point_range_start, view_point_range_end = \
@@ -94,10 +106,6 @@ def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint
         relative_position = i - view_point_start
         data_background[relative_position] = data
 
-    for i, data in zip(range(view_point_range_start, view_point_range_end, 1), pSEM):
-        relative_position = i - view_point_start
-        data_sem[relative_position] = data
-
     for i in data_background:
         if i in data_viewpoint:
             continue
@@ -105,16 +113,16 @@ def adjustViewpointData(pViewpointObj, pData, pBackground, pSEM, pReferencePoint
             data_viewpoint[i] = 0
 
     data = np.fromiter(data_viewpoint.values(), dtype=np.float32)
-    background = np.fromiter(data_background.values(), dtype=np.float32)
-    sem = np.fromiter(data_sem.values(), dtype=np.float32)
+    background = list(data_background.values())
 
-    return data, background, sem
+    return data, background
 
 
-def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pOutputFolder):
-    # import json
-    # with open('backgroundmodel_after_load.txt', 'w') as file:
-    #     file.write(json.dumps(pBackgroundModel))
+def compute_x_fold(pDataList, pBackgroundList):
+    return pDataList / pBackgroundList
+
+
+def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions, pOutputFolder):
     file_list = []
 
     for i, referencePoint in enumerate(pReferencePoints):
@@ -135,13 +143,22 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             referencePoint, referencePoint[0], region_start, region_end)
 
         # background uses fixed range, handles fixate range implicitly by same range used in background computation
-        _backgroundModelData, _backgroundModelSEM = pViewpointObj.interactionBackgroundData(
+
+        _backgroundModelNBinom = pViewpointObj.interactionBackgroundData(
             pBackgroundModel, _range)
 
-        if len(data_list) != len(_backgroundModelData):
+        background_relative_interaction = pViewpointObj.interactionBackgroundData(
+            pBackgroundModelRelativeInteractions, _range).flatten()
 
-            data_list, _backgroundModelData, _backgroundModelSEM = adjustViewpointData(
-                pViewpointObj, data_list, _backgroundModelData, _backgroundModelSEM, referencePoint, region_start, region_end)
+        data_list_relative = data_list
+        if len(data_list) != len(_backgroundModelNBinom):
+
+            data_list, _backgroundModelNBinom, = adjustViewpointData(
+                pViewpointObj, data_list, _backgroundModelNBinom, referencePoint, region_start, region_end)
+
+        if len(data_list) != len(background_relative_interaction):
+            _, background_relative_interaction = adjustViewpointData(
+                pViewpointObj, data_list_relative, background_relative_interaction, referencePoint, region_start, region_end)
 
         if pArgs.averageContactBin > 0:
             data_list = pViewpointObj.smoothInteractionValues(
@@ -152,8 +169,10 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         data_list = pViewpointObj.computeRelativeValues(
             data_list, denominator_relative_interactions)
 
-        rbz_score_data = pViewpointObj.rbz_score(
-            data_list, _backgroundModelData, _backgroundModelSEM)
+        x_fold_list = compute_x_fold(
+            data_list, background_relative_interaction)
+        p_value_list = pViewpointObj.pvalues(
+            _backgroundModelNBinom, data_list_raw)
 
         # add values if range is larger than fixate range
 
@@ -171,18 +190,19 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         denominator_relative_interactions_str = 'Sum of interactions in fixate range: '
         denominator_relative_interactions_str += str(
             denominator_relative_interactions)
-        header_information = '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(
+        header_information = '# Interaction file, created with HiCExplorer\'s chicViewpoint version ' + \
+            __version__ + '\n# '
+        header_information += '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(
             region_end_in_units), pGeneList[i], denominator_relative_interactions_str])
-        header_information += '\n#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\trbz-score\tRaw\n#'
-        matrix_name = '.'.join(pMatrix.split('.')[:-1])
+        header_information += '\n# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n#'
+        matrix_name = '.'.join(pMatrix.split('/')[-1].split('.')[:-1])
         matrix_name = '_'.join(
             [matrix_name, referencePointString, pGeneList[i]])
         file_list.append(matrix_name + '.bed')
 
         matrix_name = pOutputFolder + '/' + matrix_name
-        # file_list.append(matrix_name + '.bed')
         pViewpointObj.writeInteractionFile(
-            matrix_name, interaction_data, header_information, rbz_score_data)
+            matrix_name, interaction_data, header_information, p_value_list, x_fold_list)
 
     pQueue.put(file_list)
     return
@@ -200,7 +220,12 @@ def main(args=None):
     process = [None] * args.threads
     file_list = []
     background_model = viewpointObj.readBackgroundDataFile(
-        args.backgroundModelFile, args.range, args.useRawBackground)
+        args.backgroundModelFile, args.range)
+    background_model_mean_values = viewpointObj.readBackgroundDataFile(
+        args.backgroundModelFile, args.range, pMean=True)
+    background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(
+        background_model, args)
+
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
@@ -216,15 +241,17 @@ def main(args=None):
         for i in range(args.threads):
 
             if i < args.threads - 1:
-                referencePointsThread = referencePoints[i * referencePointsPerThread:(
-                    i + 1) * referencePointsPerThread]
-                geneListThread = gene_list[i * referencePointsPerThread:(
-                    i + 1) * referencePointsPerThread]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
+                geneListThread = gene_list[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
             else:
-                referencePointsThread = referencePoints[i *
-                                                        referencePointsPerThread:]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:]
                 geneListThread = gene_list[i * referencePointsPerThread:]
 
+            if len(referencePointsThread) == 0:
+                process[i] = None
+                queue[i] = None
+                file_list_sample[i] = []
+                continue
             queue[i] = Queue()
             process[i] = Process(target=compute_viewpoint, kwargs=dict(
                 pViewpointObj=viewpointObj,
@@ -233,7 +260,8 @@ def main(args=None):
                 pReferencePoints=referencePointsThread,
                 pGeneList=geneListThread,
                 pMatrix=matrix,
-                pBackgroundModel=background_model,
+                pBackgroundModel=background_sum_of_densities_dict,
+                pBackgroundModelRelativeInteractions=background_model_mean_values,
                 pOutputFolder=args.outputFolder
             )
             )
@@ -255,18 +283,19 @@ def main(args=None):
                 if process[i] is not None:
                     all_data_collected = False
             time.sleep(1)
-        file_list_sample = [
-            item for sublist in file_list_sample for item in sublist]
+        file_list_sample = [item for sublist in file_list_sample for item in sublist]
         file_list.append(file_list_sample)
 
+    log.debug('file_list {}'.format(file_list))
     if args.writeFileNamesToFile:
         with open(args.writeFileNamesToFile, 'w') as file:
-            for i, sample in enumerate(file_list):
-
-                for sample2 in file_list[i+1:]:
-                    # log.debug('sample {}'.format(sample))
-
-                    for viewpoint, viewpoint2 in zip(sample, sample2):
-                        # log.debug('viewpoint {}'.format(viewpoint))
-                        file.write(viewpoint + '\n')
-                        file.write(viewpoint2 + '\n')
+            log.debug('len(file_list) {}'.format(len(file_list)))
+            if len(file_list) > 1:
+                for i, sample in enumerate(file_list):
+                    for sample2 in file_list[i + 1:]:
+                        for viewpoint, viewpoint2 in zip(sample, sample2):
+                            file.write(viewpoint + '\n')
+                            file.write(viewpoint2 + '\n')
+            else:
+                for viewpoint in file_list[0]:
+                    file.write(viewpoint + '\n')

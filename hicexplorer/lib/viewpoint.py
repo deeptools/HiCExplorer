@@ -6,6 +6,7 @@ import copy
 
 import sys
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.stats import nbinom
 
 
 class Viewpoint():
@@ -36,18 +37,18 @@ class Viewpoint():
         with open(pBedFile, 'r') as file:
             for line in file.readlines():
                 _line = line.strip().split('\t')
-                if len(line) == 0:
+                if len(line) == 0 or len(_line) == 0 or line == '':
                     continue
                 if len(_line) == 3:
                     chrom, start, end = _line[0], _line[1], _line[1]
-                    # log.debug('_line: {}'.format(_line))
                     if pGene:
                         gene_list.append(_line[2])
-
-                else:
+                elif len(_line) > 3:
                     chrom, start, end = _line[:3]
                     if pGene:
                         gene_list.append(_line[3])
+                else:
+                    continue
 
                 viewpoints.append((chrom, start, end))
         if pGene:
@@ -74,6 +75,7 @@ class Viewpoint():
         z_score = {}
         interaction_file_data = {}
         with open(pBedFile) as fh:
+            fh.readline()
             header = fh.readline()
             for line in fh.readlines():
                 # Addition header information for end users
@@ -82,9 +84,9 @@ class Viewpoint():
 
                 _line = line.strip().split('\t')
                 # relative postion and relative interactions
-                interaction_data[int(_line[-4])] = float(_line[-3])
-                z_score[int(_line[-4])] = float(_line[-2])
-                interaction_file_data[int(_line[-4])] = _line
+                interaction_data[int(_line[-5])] = float(_line[-4])
+                z_score[int(_line[-5])] = float(_line[-3])
+                interaction_file_data[int(_line[-5])] = _line
         return header, interaction_data, z_score, interaction_file_data
 
     def readInteractionFileForAggregateStatistics(self, pBedFile):
@@ -93,20 +95,18 @@ class Viewpoint():
         start with '#'.
         Interactions files contain:
         Chromosome Viewpoint, Start, End, Gene, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
-        Relative number of interactions, z-score based on relative interactions.
+        Relative number of interactions, p-value based on negative binomial distribution for the relative position.
 
         This function returns:
         - header as  a string
-        - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}
-        - rbz-score in relation to relative position as a dict (same format as interaction data)
+        - interaction data in relation to relative position as a dict together with p-value, raw and x-fold: e.g. {-1000:[0.1, 0.01, 2.3, 5]}
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
         # use header info to store reference point, and based matrix
         interaction_data = {}
-        # z_score = {}
-
         interaction_file_data = {}
         with open(pBedFile) as fh:
+            fh.readline()
             header = fh.readline()
             fh.readline()
 
@@ -114,16 +114,16 @@ class Viewpoint():
                 # Addition header information for end users
                 if line.strip().startswith('#'):
                     continue
-
+                if not line:
+                    continue
                 _line = line.strip().split('\t')
                 # relative postion and relative interactions
                 interaction_data[int(
-                    _line[-4])] = np.array([float(_line[-3]), float(_line[-2]), float(_line[-1])])
-                # z_score[int(_line[-4])] = float(_line[-2])
-                interaction_file_data[int(_line[-4])] = _line
+                    _line[-5])] = np.array([float(_line[-4]), float(_line[-3]), float(_line[-1]), float(_line[-2])])
+                interaction_file_data[int(_line[-5])] = _line
         return header, interaction_data, interaction_file_data
 
-    def readBackgroundDataFile(self, pBedFile, pRange, pRaw=False):
+    def readBackgroundDataFile(self, pBedFile, pRange, pMean=False):
         '''
         Reads a background data file, containing per line a tab delimited content:
         Relative position to viewpoint, relative interaction count to total number of interactions of all viewpoints over all samples, SEM value of this data point.
@@ -131,15 +131,13 @@ class Viewpoint():
         distance = {}
 
         with open(pBedFile) as fh:
-            header = fh.readline()
+            _ = fh.readline()
             for line in fh.readlines():
                 _line = line.split('\t')
-                if pRaw:
-                    distance[int(_line[0])] = [
-                        float(_line[3]), float(_line[4])]
+                if not pMean:
+                    distance[int(_line[0])] = [float(_line[1]), float(_line[2]), float(_line[3])]
                 else:
-                    distance[int(_line[0])] = [
-                        float(_line[1]), float(_line[2])]
+                    distance[int(_line[0])] = [float(_line[-1])]
 
         max_key = max(distance)
         min_key = min(distance)
@@ -149,33 +147,29 @@ class Viewpoint():
             i = max_key
             while i < pRange[1]:
                 i += inc
-                # log.debug('i {}'.format(i))
                 distance[i] = distance[max_key]
 
-        # log.debug('min_key {} pRange[0] {}'.format(min_key , pRange[0]))
         if min_key > -pRange[0]:
             i = min_key
             while i > -pRange[0]:
                 i -= inc
-                # log.debug('i {}'.format(i))
-
                 distance[i] = distance[min_key]
         return distance
 
-    def writeInteractionFile(self, pBedFile, pData, pHeader, pZscoreData):
+    def writeInteractionFile(self, pBedFile, pData, pHeader, pPValueData, pXfold):
         '''
         Writes an interaction file for one viewpoint and one sample as a tab delimited file with one interaction per line.
         Header contains information about the interaction:
         Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
-        Relative number of interactions, z-score based on relative interactions, raw interaction data
+        Relative number of interactions, p-values based on negative binomial distribution per relative distance, raw interaction data
         '''
 
         with open((pBedFile + '.bed').strip(), 'w') as fh:
-            fh.write('# {}\n'.format(pHeader))
+            fh.write('{}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\n".
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".
                          format(interaction[0], interaction[1],
-                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pZscoreData[j], interaction[7]))
+                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7]))
         return
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
@@ -235,8 +229,8 @@ class Viewpoint():
             pChromViewpoint, pRegion_start, pRegion_end)
         view_point_range = list(view_point_range)
         view_point_range[1] += 1
-        elements_of_viewpoint = view_point_range[1] - view_point_range[0] - (
-            view_point_end - view_point_start) + 1
+        # elements_of_viewpoint = view_point_range[1] - view_point_range[0] - (
+        #     view_point_end - view_point_start) + 1
 
         interactions_list = []
         chrom, start, _, _ = self.hicMatrix.getBinPos(view_point_start)
@@ -260,10 +254,6 @@ class Viewpoint():
                 interactions_list.append((chrom_second, start_second, end_second, pGene, str(
                     pSumOfInteractions), relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
             except Exception:
-                # log.debug('elements_of_viewpoint {}'.format(elements_of_viewpoint))
-                # log.debug('len(itneraction_position) {}'.format(len(interaction_positions)))
-
-                # log.debug('chrom {}, start {}, end {}, pGene {}, chrom_second {}, start_second {}, end_second {}, relative_position {}'.format(chrom, start, end, pGene, chrom_second, start_second, end_second, relative_position))
                 log.error('Failed to get bin position of index {}'.format(idx))
                 exit(1)
         return interactions_list
@@ -340,8 +330,6 @@ class Viewpoint():
         '''
         This function computes the correct start and end position of a viewpoint given the viewpoint and the range.
         '''
-        # log.debug('pViewpoint {}'.format(pViewpoint))
-        # log.debug('pRange {}'.format(pRange))
 
         max_length = self.hicMatrix.getBinPos(
             self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
@@ -358,18 +346,15 @@ class Viewpoint():
             # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
             region_end = max_length - 1
             _range[1] = (max_length - int(pViewpoint[2])) + bin_size
-        # log.debug()
         return region_start, region_end, _range
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
-        header, interaction_data, z_score_data, _interaction_file_data_raw = self.readInteractionFile(
-            pInteractionFile)
-        matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split(
-            '\t')
+        header, interaction_data, p_value_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
+        matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
 
         data = []
-        z_score = []
-        interaction_file_data_raw = {}
+        p_value = []
+        data_background = None
         if pRange:
 
             interaction_data_keys = copy.deepcopy(
@@ -391,65 +376,60 @@ class Viewpoint():
             viewpoint_index = background_data_keys_sorted.index(0)
 
             data_background = []
-            data_background_mean = []
 
             for key in background_data_keys_sorted:
                 if key in interaction_data:
                     data.append(interaction_data[key])
 
-                    if key in z_score_data:
-                        z_score.append(z_score_data[key])
+                    if key in p_value_data:
+                        p_value.append(p_value_data[key])
 
                     data_background.append(pBackgroundModel[key][0])
-                    data_background_mean.append(pBackgroundModel[key][1])
-
-                    if key in _interaction_file_data_raw:
-                        line_data_raw = _interaction_file_data_raw[key]
-                        line_data_raw.append(pBackgroundModel[key][0])
-                        line_data_raw.append(pBackgroundModel[key][1])
-
-                        interaction_file_data_raw[key] = line_data_raw
 
         else:
             data = []
             interaction_key = sorted(interaction_data)
             for key in interaction_key:
                 data.append(interaction_data[key])
+                if key in p_value_data:
+                    p_value.append(p_value_data[key])
             viewpoint_index = interaction_key.index(0)
 
-        # log.debug('rbz-score {}'.format(z_score))
-        return header, data, data_background, data_background_mean, z_score, interaction_file_data_raw, viewpoint_index
+        return header, data, data_background, p_value, viewpoint_index
 
-    def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None):
+    def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHighlightSignificantRegion=None):
         data_plot_label = pAxis.plot(
-            range(len(pData)), pData, '--' + pColor, alpha=0.9, label=pLabelName)
+            range(len(pData)), pData, '-' + pColor, alpha=0.9, label=pLabelName, linewidth=1)
         if pHighlightRegion:
             for region in pHighlightRegion:
-                pAxis.axvspan(region[0], region[1], color='red', alpha=0.5)
+                pAxis.axvspan(region[0], region[1], color='red', alpha=0.3)
+        if pHighlightSignificantRegion:
+            for region in pHighlightSignificantRegion:
+                pAxis.axvspan(region[0], region[1], color=pColor, alpha=0.3)
         return data_plot_label
 
-    def plotBackgroundModel(self, pAxis, pBackgroundData, pBackgroundDataMean):
+    def plotBackgroundModel(self, pAxis, pBackgroundData, pXFold=None):
         pBackgroundData = np.array(pBackgroundData)
-        pBackgroundDataMean = np.array(pBackgroundDataMean)
-        data_plot_label = pAxis.plot(range(len(
-            pBackgroundData)), pBackgroundData, '--r', alpha=0.5, label='background model')
-        pAxis.fill_between(range(len(pBackgroundData)), pBackgroundData + pBackgroundDataMean,
-                           pBackgroundData - pBackgroundDataMean, facecolor='red', alpha=0.3)
+        data_plot_label = pAxis.plot(range(len(pBackgroundData)), pBackgroundData, '-r', alpha=0.5, label='background model', linewidth=1)
+        if pXFold:
+            upper_values = pBackgroundData * pXFold
+            lower_values = pBackgroundData
+            pAxis.fill_between(range(len(pBackgroundData)), upper_values, lower_values, facecolor='r', alpha=0.5)
         return data_plot_label
 
-    def plotZscore(self, pAxis, pAxisLabel, pZscoreData, pLabelText, pCmap, pFigure):
+    def plotPValue(self, pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure):
 
-        _z_score = np.empty([2, len(pZscoreData)])
-        _z_score[:, :] = pZscoreData
+        _z_score = np.empty([2, len(pPValueData)])
+        _z_score[:, :] = pPValueData
         pAxis.xaxis.set_visible(False)
         pAxis.yaxis.set_visible(False)
         img = pAxis.contourf(_z_score, cmap=pCmap)
         divider = make_axes_locatable(pAxisLabel)
         cax = divider.append_axes("left", size="20%", pad=0.09)
         colorbar = pFigure.colorbar(
-            img, cax=cax, ticks=[min(pZscoreData), max(pZscoreData)])
+            img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
 
-        colorbar.ax.set_ylabel('rbz-score', size=6)
+        colorbar.ax.set_ylabel('p-value', size=6)
 
         pAxisLabel.text(0.45, 0, pLabelText, size=7)
         pAxisLabel.xaxis.set_visible(False)
@@ -482,15 +462,11 @@ class Viewpoint():
     def interactionBackgroundData(self, pBackground, pRange):
 
         background_model = []
-        background_model_sem = []
         background_data_keys_sorted = sorted(pBackground)
         for key in background_data_keys_sorted:
             if key >= -pRange[0] and key <= pRange[1]:
-                background_model.append(pBackground[key][0])
-                background_model_sem.append(pBackground[key][1])
-
-                # log.debug('key background {}'.format(key))
-        return np.array(background_model), np.array(background_model_sem)
+                background_model.append(pBackground[key])
+        return np.array(background_model)
 
     def rbz_score(self, pRelativeInteractions, pBackgroundModel, pBackgroundModelSEM):
         _rbz_score = np.empty(len(pRelativeInteractions))
@@ -509,11 +485,13 @@ class Viewpoint():
         _rbz_score[mask] = -1
         return _rbz_score
 
-    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndex, pResolution, pRange):
+    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndex, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
         highlight_areas_list = []
         # for bed_file in pDifferentialHighlightFiles:
+        _, reference_point_start, reference_point_end = pViewpoint.split('_')
+
         with open(pDifferentialHighlightFiles) as fh:
             # skip header
             for line in fh.readlines():
@@ -527,11 +505,190 @@ class Viewpoint():
                 if int(_line[4]) >= -pRange[0] and int(_line[4]) <= pRange[1]:
 
                     width = (end - start) / pResolution
+                    if int(_line[4]) < 0:
+                        # reference_point_position = reference_point_start
+                        relative_position_genomic_coordinates = start - int(reference_point_start)
+                    else:
+                        relative_position_genomic_coordinates = start - int(reference_point_end)
 
+                    log.debug('_line[4] {}'.format(_line[4]))
+                    log.debug('relative_position_genomic_coordinates {}'.format(relative_position_genomic_coordinates))
+                    log.debug('start {} end {}'.format(start, end))
+                    log.debug('reference_point_start {} reference_point_end {}'.format(reference_point_start, reference_point_end))
+
+                    # start
+
+                    # relative_position_genomic_coordinates  = reference_point_position
                     relative_position = pViewpointIndex + \
-                        (int(_line[4]) / pResolution)
+                        (relative_position_genomic_coordinates / pResolution)
                     highlight_areas_list.append(
                         [relative_position, relative_position + width])
         if len(highlight_areas_list) == 0:
             return None
         return highlight_areas_list
+
+    def pvalues(self, pBackgroundModelNBinomPValues, pDataList):
+        p_value_list = []
+        for i, (pvalue_list, pDataList) in enumerate(zip(pBackgroundModelNBinomPValues, pDataList)):
+            if len(pvalue_list) == 0:
+                pvalue = 1
+            elif int(pDataList) - 1 < 0:
+                pvalue = pvalue_list[0]
+            else:
+                try:
+                    pvalue = 1 - pvalue_list[int(pDataList) - 1]
+                except Exception:
+                    log.debug('access to densities for element {} failed; value {}, len {}'.format(i, int(pDataList) - 1, len(pvalue_list)))
+                    pvalue = 1
+            p_value_list.append(pvalue)
+        return p_value_list
+
+    def computeSumOfDensities(self, pBackgroundModel, pArgs, pXfoldMaxValue=None):
+        background_nbinom = {}
+        background_sum_of_densities_dict = {}
+        max_value = 0
+
+        fixateRange = int(pArgs.fixateRange)
+        for distance in pBackgroundModel:
+            max_value_distance = int(pBackgroundModel[distance][2])
+            if max_value < int(pBackgroundModel[distance][2]):
+                max_value = int(pBackgroundModel[distance][2])
+
+            if pXfoldMaxValue is not None:
+                max_value_distance *= pXfoldMaxValue
+
+            if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
+                background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
+
+                sum_of_densities = np.zeros(max_value_distance)
+                for j in range(max_value_distance):
+                    if j >= 1:
+                        sum_of_densities[j] += sum_of_densities[j - 1]
+                    sum_of_densities[j] += background_nbinom[distance].pmf(j)
+
+                background_sum_of_densities_dict[distance] = sum_of_densities
+
+        background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
+
+        sum_of_densities = np.zeros(max_value)
+        for j in range(max_value):
+            if j >= 1:
+                sum_of_densities[j] += sum_of_densities[j - 1]
+            sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
+
+        background_sum_of_densities_dict[fixateRange] = sum_of_densities
+        background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
+
+        sum_of_densities = np.zeros(max_value)
+        for j in range(max_value):
+            if j >= 1:
+                sum_of_densities[j] += sum_of_densities[j - 1]
+            sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
+
+        background_sum_of_densities_dict[-fixateRange] = sum_of_densities
+
+        min_key = min(background_sum_of_densities_dict)
+        max_key = max(background_sum_of_densities_dict)
+
+        for key in pBackgroundModel.keys():
+            if key in background_sum_of_densities_dict:
+                continue
+            if key < min_key:
+                background_sum_of_densities_dict[key] = background_sum_of_densities_dict[min_key]
+            elif key > max_key:
+                background_sum_of_densities_dict[key] = background_sum_of_densities_dict[max_key]
+
+        return background_sum_of_densities_dict
+
+    def merge_neighbors(self, pScoresDictionary, pMergeThreshold=1000):
+        if pScoresDictionary is None or len(pScoresDictionary) == 0:
+            log.debug('dict is None or empty')
+            return None
+        key_list = list(pScoresDictionary.keys())
+
+        merge_ids = []
+        non_merge = []
+        for i, (key_pre, key_suc) in enumerate(zip(key_list[:-1], key_list[1:])):
+
+            if np.absolute(int(pScoresDictionary[key_pre][5]) - int(pScoresDictionary[key_suc][5])) <= pMergeThreshold:
+                if len(merge_ids) > 0 and merge_ids[-1][-1] == key_pre:
+                    merge_ids[-1].append(key_suc)
+                else:
+                    merge_ids.append([key_pre, key_suc])
+            else:
+                if i == len(key_list) - 1:
+                    non_merge.append(key_suc)
+                if merge_ids is not None and len(merge_ids) > 0 and merge_ids[-1][-1] != key_pre:
+                    non_merge.append(key_pre)
+                elif merge_ids is not None and len(merge_ids) == 0:
+                    non_merge.append(key_pre)
+
+        scores_dict = {}
+        merged_lines_dict = {}
+        for element in merge_ids:
+            lines = []
+            lines.append(pScoresDictionary[element[0]])
+            index_maximum_element = 0
+            base_element = pScoresDictionary[element[0]]
+            values = np.array(list(map(float, base_element[-4:])))
+            max_value = float(base_element[-1])
+            for i, key in enumerate(element[1:]):
+                base_element[-6] = pScoresDictionary[key][-6]
+                values += np.array(list(map(float, pScoresDictionary[key][-4:])))
+                lines.append(pScoresDictionary[key])
+                if max_value < float(pScoresDictionary[key][-1]):
+                    max_value = float(pScoresDictionary[key][-1])
+                    index_maximum_element = i + 1
+            base_element = pScoresDictionary[element[index_maximum_element]]
+            base_element[-4] = values[0]
+            base_element[-3] = values[1]
+            base_element[-2] = values[2]
+            base_element[-1] = values[3]
+
+            base_element[2] = pScoresDictionary[element[-1]][2]
+            base_element[1] = pScoresDictionary[element[0]][1]
+
+            scores_dict[element[index_maximum_element]] = base_element
+            merged_lines_dict[element[index_maximum_element]] = lines
+
+        for key in non_merge:
+            scores_dict[key] = pScoresDictionary[key]
+            merged_lines_dict[key] = [pScoresDictionary[key]]
+
+        return scores_dict, merged_lines_dict
+
+    def readSignificantRegionsFile(self, pSignificantFile, pViewpointIndex, pResolution, pRange, pViewpoint):
+        # list of start and end point of regions to highlight
+        # [[start, end], [start, end]]
+        highlight_areas_list = []
+        p_values = []
+        _, reference_point_start, reference_point_end = pViewpoint.split('_')
+
+        with open(pSignificantFile) as fh:
+            # skip header
+            for line in fh.readlines():
+                if line.startswith('#'):
+                    continue
+                _line = line.split('\t')
+
+                start = int(_line[1])
+                end = int(_line[2])
+
+                if int(_line[5]) >= -pRange[0] and int(_line[5]) <= pRange[1]:
+
+                    width = (end - start) / pResolution
+                    if int(_line[5]) < 0:
+                        # reference_point_position = reference_point_start
+                        relative_position_genomic_coordinates = start - int(reference_point_start)
+                    else:
+                        relative_position_genomic_coordinates = start - int(reference_point_end)
+
+                    relative_position = pViewpointIndex + \
+                        (relative_position_genomic_coordinates / pResolution)
+                    highlight_areas_list.append(
+                        [relative_position, relative_position + width])
+                    p_values.append([int(relative_position), int(relative_position + width), float(_line[-3])])
+
+        if len(highlight_areas_list) == 0:
+            return None, None
+        return highlight_areas_list, p_values

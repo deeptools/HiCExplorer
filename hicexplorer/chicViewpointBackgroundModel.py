@@ -6,6 +6,7 @@ import logging
 log = logging.getLogger(__name__)
 
 import numpy as np
+import fit_nbinom
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
@@ -18,16 +19,22 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-                    Build a background model for viewpoints, the viewpoints over all samples (matrices) are used to build the background model.
-                    An example usage is:
-                    $ chicViewpointBackgroundModel -m matrix1.h5 matrix2.h5 matrix3.h5 -rp referencePointsFile.bed --range 20000 40000
-                    """
+chicViewpointBackgroundModel computes for all given samples with all reference points a background model. For all relative distances to a reference point
+a negative binomial distribution is fitted. Moreover, for each relative distance to a reference point the average value for this location is computed. Both
+background models are used, the first one for p-value and significance computation, the second one to filter out interactions with a less x-fold over mean.
+
+The background distributions are fixed at `--fixateRange` i.e. all distances lower / higher than this value use the fixed background distribution.
+
+An example usage is:
+
+$ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outFileName background_model.bed
+"""
     )
 
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrices', '-m',
-                                help='The input matrices to build the background model on.',
+                                help='The input matrices (samples) to build the background model on.',
                                 nargs='+',
                                 required=True)
 
@@ -38,7 +45,7 @@ def parse_arguments(args=None):
 
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--averageContactBin',
-                           help='Average the contacts of n bins, written to last column.',
+                           help='Average the contacts of n bins via a sliding window approach.',
                            type=int,
                            default=5)
     parserOpt.add_argument('--outFileName', '-o',
@@ -56,7 +63,8 @@ def parse_arguments(args=None):
                            default=500000,
                            type=int
                            )
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+    parserOpt.add_argument('--help', '-h', action='help',
+                           help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -69,49 +77,45 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
     background_model_data = {}
     relative_positions = set()
 
-    background_model_data_raw = {}
-    relative_positions_raw = set()
     for i, referencePoint in enumerate(pReferencePoints):
 
-        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
+        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
+            referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
-        data_list = pViewpointObj.computeViewpoint(referencePoint, referencePoint[0], region_start, region_end)
-        
+        data_list = pViewpointObj.computeViewpoint(
+            referencePoint, referencePoint[0], region_start, region_end)
+
         # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
-        view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(referencePoint)
+        view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(
+            referencePoint)
         view_point_range_start, view_point_range_end = \
-            pViewpointObj.getViewpointRangeAsMatrixIndices(referencePoint[0], region_start, region_end)
+            pViewpointObj.getViewpointRangeAsMatrixIndices(
+                referencePoint[0], region_start, region_end)
 
         for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
             relative_position = i - view_point_start
-            if relative_position in background_model_data_raw:
-                background_model_data_raw[relative_position] += data
-            else:
-                background_model_data_raw[relative_position] = data
-                # relative_positions_raw.add(relative_position)
 
         if pArgs.averageContactBin > 0:
-            data_list = pViewpointObj.smoothInteractionValues(data_list, pArgs.averageContactBin)
+            data_list = pViewpointObj.smoothInteractionValues(
+                data_list, pArgs.averageContactBin)
 
         for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
             relative_position = i - view_point_start
             if relative_position in background_model_data:
-                background_model_data[relative_position] += data
+                background_model_data[relative_position].append(data)
             else:
-                background_model_data[relative_position] = data
+                background_model_data[relative_position] = [data]
                 relative_positions.add(relative_position)
-    pQueue.put([background_model_data, relative_positions, background_model_data_raw])
+    pQueue.put([background_model_data, relative_positions])
     return
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=None):
+    args = parse_arguments().parse_args(args)
 
     viewpointObj = Viewpoint()
-    referencePoints, _ = viewpointObj.readReferencePointFile(args.referencePoints)
-
-    relative_counts_conditions = []
-    relative_counts_conditions_raw = []
+    referencePoints, _ = viewpointObj.readReferencePointFile(
+        args.referencePoints)
 
     relative_positions = set()
     bin_size = 0
@@ -121,23 +125,20 @@ def main():
     # - after smoothing, sum all viewpoints up to one
     # - compute the percentage of each position with respect to the total interaction count
     # for models of all conditions:
-    # - compute mean percentage for each bin
-    # - compute SEM = Standard deviation / (square root of sample size)
+    # - compute nbinom parameters
 
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
+    background_model_data = None
+
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
-        # hic_ma.
         viewpointObj.hicMatrix = hic_ma
-        background_model_data = None
-        background_model_data_raw = None
 
         bin_size = hic_ma.getBinSize()
         all_data_collected = False
         thread_done = [False] * args.threads
-        log.debug('matrix read, starting processing')
         for i in range(args.threads):
 
             if i < args.threads - 1:
@@ -160,25 +161,19 @@ def main():
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
                     background_data_thread = queue[i].get()
-                    # log.debug('len(queue[i].get() {}'.format(len(foo)))
-                    background_model_data_thread, relative_positions_thread, background_model_data_thread_raw = background_data_thread
+                    background_model_data_thread, relative_positions_thread = background_data_thread
                     if background_model_data is None:
                         background_model_data = background_model_data_thread
-                        background_model_data_raw = background_model_data_thread_raw
                     else:
                         for relativePosition in background_model_data_thread:
                             if relativePosition in background_model_data:
-                                background_model_data[relativePosition] += background_model_data_thread[relativePosition]
+                                background_model_data[relativePosition].extend(
+                                    background_model_data_thread[relativePosition])
                             else:
                                 background_model_data[relativePosition] = background_model_data_thread[relativePosition]
-                        for relativePosition in background_model_data_thread_raw:
-                            if relativePosition in background_model_data:
-                                background_model_data_raw[relativePosition] += background_model_data_thread_raw[relativePosition]
-                            else:
-                                background_model_data_raw[relativePosition] = background_model_data_thread_raw[relativePosition]
-                        # log.debug('relative_positions_thread {}'.format(relative_positions_thread))
 
-                    relative_positions = relative_positions.union(relative_positions_thread)
+                    relative_positions = relative_positions.union(
+                        relative_positions_thread)
                     queue[i] = None
                     process[i].join()
                     process[i].terminate()
@@ -193,84 +188,30 @@ def main():
         del hic_ma
         del viewpointObj.hicMatrix
 
-        total_count = sum(background_model_data.values())
-        relative_counts = background_model_data
-        # for the current condition compute the relative interactions per relative distance
-        for key in relative_counts:
-            relative_counts[key] /= total_count
-
-        relative_counts_conditions.append(relative_counts)
-
-        total_count_raw = sum(background_model_data_raw.values())
-        relative_counts_raw= background_model_data_raw
-        # for the current condition compute the relative interactions per relative distance
-        for key in relative_counts_raw:
-            relative_counts_raw[key] /= total_count_raw
-
-        relative_counts_conditions_raw.append(relative_counts_raw)
-
-    # log.debug('background_model_data {}'.format(background_model_data))
-    # log.debug('relative_positions {}'.format(relative_positions))
-
     # for models of all conditions:
-    # - compute mean percentage for each bin
-    # - compute SEM = Standard deviation / (square root of sample size)
-    mean_percentage = {}
-    sem = {}
-    mean_percentage_raw = {}
-    sem_raw = {}
+    # - fit negative binomial for each relative distance
     relative_positions = sorted(relative_positions)
+    nbinom_parameters = {}
+    max_value = {}
+    mean_value = {}
+    sum_all_values = 0
+    for relative_position in relative_positions:
+        nbinom_parameters[relative_position] = fit_nbinom.fit(
+            np.array(background_model_data[relative_position]))
+        max_value[relative_position] = np.max(
+            background_model_data[relative_position])
+        average_value = np.average(background_model_data[relative_position])
+        mean_value[relative_position] = average_value
+        sum_all_values += average_value
 
     for relative_position in relative_positions:
-        i = 0
-        count = 0
-        interaction_values_relative_position = []
-        for condition in relative_counts_conditions:
-            # count the number of relative interactions at 'relative_position' if this position exists in the condition
-            if relative_position in condition:
-                i += 1
-                count += condition[relative_position]
-                interaction_values_relative_position.append(condition[relative_position])
-        # mean_percentage is given by number of relative interactions at a relative position divided by the number of conditions
-        # log.debug('relative pos: {} count: {}'.format(relative_position, count))
-        mean_percentage[relative_position] = count / i
-        
-        standard_deviation = 0
-        for interaction_value in interaction_values_relative_position:
-            standard_deviation += np.square(interaction_value - mean_percentage[relative_position])
-        standard_deviation /= len(interaction_values_relative_position)
-        standard_deviation = np.sqrt(standard_deviation)
-        sem[relative_position] = standard_deviation / math.sqrt(i)
-
-        i = 0
-        count = 0
-        interaction_values_relative_position_raw = []
-        for condition in relative_counts_conditions_raw:
-            # count the number of relative interactions at 'relative_position' if this position exists in the condition
-            if relative_position in condition:
-                i += 1
-                count += condition[relative_position]
-                interaction_values_relative_position_raw.append(condition[relative_position])
-        # mean_percentage is given by number of relative interactions at a relative position divided by the number of conditions
-        # log.debug('relative pos: {} count: {}'.format(relative_position, count))
-        mean_percentage_raw[relative_position] = count / i
-        
-        standard_deviation = 0
-        for interaction_value in interaction_values_relative_position_raw:
-            standard_deviation += np.square(interaction_value - mean_percentage[relative_position])
-        standard_deviation /= len(interaction_values_relative_position_raw)
-        standard_deviation = np.sqrt(standard_deviation)
-        sem_raw[relative_position] = standard_deviation / math.sqrt(i)
-    # lower_limit_range = args.range[0] * (-1) / bin_size
-    # upper_limit_range = args.range[1]  / bin_size
-
+        mean_value[relative_position] /= sum_all_values
     # write result to file
     with open(args.outFileName, 'w') as file:
-        file.write('Relative position\tSmoothed mean\tSmoothed SEM\tRaw mean\traw SEM\n')
-        
+        file.write(
+            'Relative position\tsize nbinom\tprob nbinom\tmax value\tmean value\n')
+
         for relative_position in relative_positions:
-            # if lower_limit_range <= relative_position and relative_position <= upper_limit_range:
             relative_position_in_genomic_scale = relative_position * bin_size
-            file.write("{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, mean_percentage[relative_position],
-                                                       sem[relative_position], mean_percentage_raw[relative_position],
-                                                       sem_raw[relative_position]))
+            file.write("{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, nbinom_parameters[relative_position]['size'],
+                                                                         nbinom_parameters[relative_position]['prob'], max_value[relative_position], mean_value[relative_position]))

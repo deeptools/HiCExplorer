@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from hicexplorer.chicSignificantInteractions import main
+
+if __name__ == "__main__":
+    main()
+

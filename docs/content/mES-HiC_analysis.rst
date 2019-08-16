@@ -40,6 +40,8 @@ The fastq files can be downloaded from the EBI archive (or NCBI archive). We wil
     wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/009/SRR1956529/SRR1956529_2.fastq.gz -O original_data/SRR1956529_2.fastq.gz
 
 
+.. _create-an-index:
+
 Create an index 
 ~~~~~~~~~~~~~~~
 
@@ -463,12 +465,10 @@ In following plot we will use the listed track file. Please store it as track.in
     where=top
 
     [tad score]
-    file = TADs/marks_et-al_TADs_20kb-Bins_score.bedgraph
+    file = TADs/marks_et-al_TADs_20kb-Bins_score.bm
     title = "TAD separation score"
-    height = 2
-    type = lines
-    color = blue
-    file_type = bedgraph
+    height = 4
+    file_type = bedgraph_matrix
 
     [spacer]
 
