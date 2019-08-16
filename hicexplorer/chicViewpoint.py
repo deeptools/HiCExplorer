@@ -26,7 +26,7 @@ are named by the name of the reference point, the sample name and the location o
 gene_matrix_name_chr_start_end.bed
 
 If multiple reference points are used and the processing downstream should be automated via batch processing mode, please activate `--writeFileNamesToFile`. In this
-file all the file names will be written to; in the case of multiple samples two consecutive lines are consideres as treatment vs control in the differential analysis. 
+file all the file names will be written to; in the case of multiple samples two consecutive lines are consideres as treatment vs control in the differential analysis.
 
 An example usage is:
 

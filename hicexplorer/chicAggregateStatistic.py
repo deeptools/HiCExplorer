@@ -26,7 +26,7 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description="""
-chicAggregateStatistic is a preprocessing tool for chicDifferentialTest. It takes two consecutive viewpoint files and one target file and creates one 
+chicAggregateStatistic is a preprocessing tool for chicDifferentialTest. It takes two consecutive viewpoint files and one target file and creates one
 file containing all locations which should be tested for differential interactions. Either one target file for two consecutive viewpoint files or one
 target file for all viewpoints is accepted.
 

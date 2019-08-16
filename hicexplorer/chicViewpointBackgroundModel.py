@@ -19,7 +19,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-chicViewpointBackgroundModel computes for all given samples with all reference points a background model. For all relative distances to a reference point 
+chicViewpointBackgroundModel computes for all given samples with all reference points a background model. For all relative distances to a reference point
 a negative binomial distribution is fitted. Moreover, for each relative distance to a reference point the average value for this location is computed. Both
 background models are used, the first one for p-value and significance computation, the second one to filter out interactions with a less x-fold over mean.
 
@@ -27,7 +27,7 @@ The background distributions are fixed at `--fixateRange` i.e. all distances low
 
 An example usage is:
 
-$ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outFileName background_model.bed 
+$ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outFileName background_model.bed
 """
     )
 
@@ -142,11 +142,9 @@ def main(args=None):
         for i in range(args.threads):
 
             if i < args.threads - 1:
-                referencePointsThread = referencePoints[i * referencePointsPerThread:(
-                    i + 1) * referencePointsPerThread]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
             else:
-                referencePointsThread = referencePoints[i *
-                                                        referencePointsPerThread:]
+                referencePointsThread = referencePoints[i * referencePointsPerThread:]
 
             queue[i] = Queue()
             process[i] = Process(target=compute_background, kwargs=dict(

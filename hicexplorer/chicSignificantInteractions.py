@@ -24,8 +24,8 @@ def parse_arguments(args=None):
 Per viewpoint the significant interactions are detected based on the background model. Each viewpoint file gets as output a file with all recorded significant interactions and
 a target file. The target file is especially in the batch mode context useful, it merges for two consecutive listed control and treatment viewpoint the significant interactions which can then be used
 to test for a differential interaction scheme.
- 
-chicSignificantInteractions supports two modes to detect significant interactions, either by an x-fold over the average background or a loose p-value. In both cases neighboring significant peaks are merged together and an additional 
+
+chicSignificantInteractions supports two modes to detect significant interactions, either by an x-fold over the average background or a loose p-value. In both cases neighboring significant peaks are merged together and an additional
 p-value based on the sum of interactions for this neighborhood is computed. Only interactions with a higher p-value as specified by the threshold `--pValue` are accepted as a significant interaction.
 
 An example usage is for single mode is:
@@ -36,7 +36,7 @@ An example usage is for batch mode is:
 
 `$ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outFileName background_model.bed`
 
-The main difference between single mode and batch mode is that in single mode the parameter `--interactionFile` is interpreted as a list of viewpoint files created with `chicViewpoint`, whereas in batch mode only one file is allowed which contains per line the file names of viewpoint files. 
+The main difference between single mode and batch mode is that in single mode the parameter `--interactionFile` is interpreted as a list of viewpoint files created with `chicViewpoint`, whereas in batch mode only one file is allowed which contains per line the file names of viewpoint files.
 This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFile`. Please have in mind to specify in batch mode the folder via `--interactionFileFolder` where `chicViewpoint` wrote the files to.
 """)
 
@@ -295,11 +295,9 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
     for i in range(pArgs.threads):
 
         if i < pArgs.threads - 1:
-            interactionFileListThread = pInteractionFilesList[i * interactionFilesPerThread:(
-                i + 1) * interactionFilesPerThread]
+            interactionFileListThread = pInteractionFilesList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
         else:
-            interactionFileListThread = pInteractionFilesList[i *
-                                                              interactionFilesPerThread:]
+            interactionFileListThread = pInteractionFilesList[i * interactionFilesPerThread:]
 
         queue[i] = Queue()
         process[i] = Process(target=compute_interaction_file, kwargs=dict(
