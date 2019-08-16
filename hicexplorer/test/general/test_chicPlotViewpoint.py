@@ -115,10 +115,6 @@ def test_one_viewpoint_colormap_pvalue():
     res = compare_images(ROOT + 'chicPlotViewpoint/two_viewpoint_pvalue.png', outfile.name, tolerance)
     assert res is None, res
 
-# all above with batch mode
-
-# x-fold background
-
 
 def test_one_viewpoint_per_file_batch_mode():
     output_folder = mkdtemp(prefix="output_")
@@ -136,3 +132,28 @@ def test_one_viewpoint_per_file_batch_mode():
     res = compare_images(ROOT + 'chicPlotViewpoint/batchMode/one/Tfap2d_FL-E13-5_chr1_chr1_19093103.png', output_folder + '/Tfap2d_FL-E13-5_chr1_chr1_19093103.png', tolerance)
     assert res is None, res
     assert set(os.listdir(ROOT + "chicPlotViewpoint/batchMode/one")) == set(os.listdir(output_folder))
+
+
+def test_two_viewpoints_per_file_batch_mode_significances_differential_pvalue():
+    output_folder = mkdtemp(prefix="output_")
+
+    args = "-if {} -iff {} --range {} {} --outputFolder {} -psn {} -bm  --differentialTestResult {} -diff {} -si {} -siff {} -p -xf {} -bmf {}".format(
+        ROOT + 'chicViewpoint/fileNames_two_matrices.txt',
+        ROOT + 'chicViewpoint/output_1',
+        200000, 200000,
+        output_folder, 2,
+        ROOT + 'chicDifferentialTest/rejectedFilesList.txt',
+        ROOT + 'chicDifferentialTest/batch_mode_fisher_outfile/',
+        ROOT + 'chicSignificantInteractions/output_5_significant_files.txt',
+        ROOT + 'chicSignificantInteractions/output_5/',
+        1.5,
+        ROOT + 'background.bed').split()
+    chicPlotViewpoint.main(args)
+
+    res = compare_images(ROOT + 'chicPlotViewpoint/batchMode/two/Eya1_FL-E13-5_MB-E10-5_chr1_chr1_14300280.png', output_folder + '/Eya1_FL-E13-5_MB-E10-5_chr1_chr1_14300280.png', tolerance)
+    assert res is None, res
+    res = compare_images(ROOT + 'chicPlotViewpoint/batchMode/two/Sox17_FL-E13-5_MB-E10-5_chr1_chr1_4487435.png', output_folder + '/Sox17_FL-E13-5_MB-E10-5_chr1_chr1_4487435.png', tolerance)
+    assert res is None, res
+    res = compare_images(ROOT + 'chicPlotViewpoint/batchMode/two/Tfap2d_FL-E13-5_MB-E10-5_chr1_chr1_19093103.png', output_folder + '/Tfap2d_FL-E13-5_MB-E10-5_chr1_chr1_19093103.png', tolerance)
+    assert res is None, res
+    assert set(os.listdir(ROOT + "chicPlotViewpoint/batchMode/two")) == set(os.listdir(output_folder))
