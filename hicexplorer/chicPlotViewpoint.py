@@ -131,6 +131,12 @@ In batch mode the list of file names and the folders containing the files need t
                            required=False,
                            default=2,
                            type=int)
+    parserOpt.add_argument('--colorList', '-cl',
+                           help='Colorlist for the viewpoint lines.',
+                           required=False,
+                           default=['g', 'b', 'c', 'm', 'y', 'k'],
+                           type=str,
+                           nargs='+')
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads. Using the python multiprocessing module. ',
                            required=False,
@@ -164,7 +170,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             ax1.margins(x=0)
         else:
             ax1 = plt.gca()
-        colors = ['g', 'b', 'c', 'm', 'y', 'k']
+        colors = pArgs.colorList
         background_plot = True
         data_plot_label = None
         gene = ''
@@ -190,10 +196,13 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 else:
                     differentialFilePath = pHighlightDifferentialRegionsFileList[j]
 
-                    # pHighlightDifferentialRegionsFileList[j] = pArgs.differentialTestResultsFolder + '/' + pHighlightDifferentialRegionsFileList[j]
                 highlight_differential_regions = pViewpointObj.readRejectedFile(differentialFilePath, viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
             if pArgs.significantInteractions:
-                significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(pSignificantRegionsFileList[j][i], viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
+                if pArgs.significantInteractionFileFolder != '.':
+                    significantInteractionsFilePath = pArgs.significantInteractionFileFolder + '/' + pSignificantRegionsFileList[j][i]
+                else:
+                    significantInteractionsFilePath = pSignificantRegionsFileList[j][i]
+                significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(significantInteractionsFilePath, viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
             if data_plot_label:
                 data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
             else:
@@ -216,8 +225,6 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 pViewpointObj.plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
                                          pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
                                          pFigure=fig)
-            # elif pArgs.pValue == 'integrated':
-            #     data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=p_values, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name + ' p-value')
 
         if data_plot_label is not None:
 
@@ -317,31 +324,28 @@ def main(args=None):
                     for i in range(0, args.plotSampleNumber):
                         file_ = significantRegionsFile.readline().strip()
                         if file_ != '':
-                            lines.append(args.significantInteractionFileFolder + '/' + file_)
-                    highlightSignificantRegionsFileList.append(lines)
-                    # file_ = significantRegionsFile.readline().strip()
-                    # file2_ = significantRegionsFile.readline().strip()
-                    # if file_ != '' and file2_ != '':
-                    #     highlightSignificantRegionsFileList.append((args.significantInteractionFileFolder+'/'+file_, args.significantInteractionFileFolder+'/'+file2_))
 
+                            lines.append(file_)
+                    if len(lines) > 0:
+                        highlightSignificantRegionsFileList.append(lines)
         interactionFilesPerThread = len(interactionFileList) // args.threads
+        highlightSignificantRegionsFileListThread = len(highlightSignificantRegionsFileList) // args.threads
+
         all_data_collected = False
         queue = [None] * args.threads
         process = [None] * args.threads
         thread_done = [False] * args.threads
-        log.debug('len(interactionFileList) {}'.format(len(interactionFileList)))
-        log.debug('len(highlightDifferentialRegionsFileList) {}'.format(len(highlightDifferentialRegionsFileList)))
 
         for i in range(args.threads):
 
             if i < args.threads - 1:
                 interactionFileListThread = interactionFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
                 highlightDifferentialRegionsFileListThread = highlightDifferentialRegionsFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
-
+                highlightSignificantRegionsFileListThread = highlightSignificantRegionsFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
             else:
                 interactionFileListThread = interactionFileList[i * interactionFilesPerThread:]
                 highlightDifferentialRegionsFileListThread = highlightDifferentialRegionsFileList[i * interactionFilesPerThread:]
-
+                highlightSignificantRegionsFileListThread = highlightSignificantRegionsFileList[i * interactionFilesPerThread:]
             queue[i] = Queue()
             process[i] = Process(target=plot_images, kwargs=dict(
                 pInteractionFileList=interactionFileListThread,
@@ -349,7 +353,7 @@ def main(args=None):
                 pBackgroundData=background_data,
                 pArgs=args,
                 pViewpointObj=viewpointObj,
-                pSignificantRegionsFileList=highlightSignificantRegionsFileList,
+                pSignificantRegionsFileList=highlightSignificantRegionsFileListThread,
                 pQueue=queue[i]
             )
             )
