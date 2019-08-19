@@ -192,7 +192,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             if value:
                 mask[pGenomicDistanceDistributionPosition[key][j]] = True
 
-    # peak_interaction_threshold_array = pPeakInteractionsThreshold / \
+    # peak_interaction_threshold_array = pMinimumInteractionsThreshold / \
     #     np.log(distance)
 
     peak_interaction_threshold_array = np.zeros(len(distance))
@@ -221,7 +221,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             return None, None
 
     candidates, p_value_list = candidate_region_test(
-        pOriginalCsrMatrix, candidates, pWindowSize, pPValue,
+        pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
         pMinimumInteractionsThreshold, pPeakWindowSize, pStatisticalTest)
 
     # candidates, p_value_list = candidate_region_test(
@@ -484,8 +484,8 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                         mask.append(True)
                         pvalues.append(significance_level)
                         continue
-            mask.append(False)
-            continue
+                    mask.append(False)
+                    continue
 
         mask.append(False)
 
