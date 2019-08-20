@@ -52,6 +52,7 @@ tool                                description
 :ref:`hicConvertFormat`             Converts between different Hi-C interaction matrices
 :ref:`hicAdjustMatrix`              Keeps, removes or masks regions in a Hi-C matrix
 :ref:`hicValidateLocations`         Compare the loops with known peak protein locations
+:ref:`hicMergeLoops`                Merges loops of different resolutions
 :ref:`hicCompartmentsPolarization`  Compute the global compartmentalization signal
 =================================== ==========================================================================================================================================================
 
