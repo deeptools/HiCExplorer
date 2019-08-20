@@ -9,8 +9,11 @@ Release 3.2
 - Adding documentation for captured Hi-C module and a tutorial on how to use it.
 - Adding a module to be able to detect quite fast the quality of a Hi-C data set: hicQuickQC.
 - Adding a tool to merge loops of different resolutions.
-- Improving validation of locations: Presorting is no longer necessary.
-
+- Improving validation of locations: Presorting is no longer necessary; adding feature to add 'chr' prefix to loop or protein chromosome name
+- Change loop detection slightly to improve results and fixed bugs:
+   - preselection p-value was ignored and only p-value was used 
+   - adding additional test to the peak region test to decrease false discoveries
+   - exchanging pThreshold / ln(distance) to remove too low values by a share of the maximum value of the distance. New parameter 'maximumInteractionPercentageThreshold'
 
 Release 3.1
 -----------
