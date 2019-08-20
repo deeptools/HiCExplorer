@@ -5,7 +5,8 @@ from tempfile import NamedTemporaryFile
 import os
 
 
-ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/hicValidateLocations/")
+ROOT = os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "test_data/hicValidateLocations/")
 
 
 def are_files_equal(file1, file2, delta=1, skip=0):
@@ -34,25 +35,29 @@ def test_loop_narrow_peak():
     outfile = NamedTemporaryFile(suffix='out', delete=True)
     outfile.close()
 
-    args = "--data {} --protein {} --method {} --outFileName {} -r {}".format(ROOT + 'loops_1.bedgraph',
-                                                                              ROOT + 'GSM935376_hg19_Gm12878_Smc3.narrowPeak',
-                                                                              'loops', outfile.name, 10000).split()
+    args = "--data {} --protein {} --method {} --outFileName {} -r {} --addChrPrefixLoops".format(ROOT + 'loops_1.bedgraph',
+                                                                                                  ROOT + 'GSM935376_hg19_Gm12878_Smc3.narrowPeak',
+                                                                                                  'loops', outfile.name, 10000).split()
     hicValidateLocations.main(args)
 
     # print(outfile.name + '_matched_locations')
-    assert are_files_equal(ROOT + 'overlap_smc3_matched_locations', outfile.name + '_matched_locations')
-    assert are_files_equal(ROOT + 'overlap_smc3_statistics', outfile.name + '_statistics', skip=3)
+    assert are_files_equal(
+        ROOT + 'overlap_smc3_matched_locations', outfile.name + '_matched_locations')
+    assert are_files_equal(ROOT + 'overlap_smc3_statistics',
+                           outfile.name + '_statistics', skip=3)
 
 
 def test_loop_broad_peak():
     outfile = NamedTemporaryFile(suffix='out', delete=True)
     outfile.close()
 
-    args = "--data {} --protein {} --method {} --outFileName {} -r {}".format(ROOT + 'loops_1.bedgraph',
-                                                                              ROOT + 'GSM733752_hg19_ctcf_GM12878.broadPeak',
-                                                                              'loops', outfile.name, 10000).split()
+    args = "--data {} --protein {} --method {} --outFileName {} -r {} --addChrPrefixLoops".format(ROOT + 'loops_1.bedgraph',
+                                                                                                  ROOT + 'GSM733752_hg19_ctcf_GM12878.broadPeak',
+                                                                                                  'loops', outfile.name, 10000).split()
     hicValidateLocations.main(args)
 
     # print(outfile.name + '_matched_locations')
-    assert are_files_equal(ROOT + 'overlap_ctcf_matched_locations', outfile.name + '_matched_locations')
-    assert are_files_equal(ROOT + 'overlap_ctcf_statistics', outfile.name + '_statistics', skip=3)
+    assert are_files_equal(
+        ROOT + 'overlap_ctcf_matched_locations', outfile.name + '_matched_locations')
+    assert are_files_equal(ROOT + 'overlap_ctcf_statistics',
+                           outfile.name + '_statistics', skip=3)
