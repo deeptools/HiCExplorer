@@ -4,7 +4,7 @@ Captured Hi-C data analysis
 How we use HiCExplorer to analyse cHi-C data
 --------------------------------------------
 
-This How-to for is based on the published dataset from Andrey et al 2017(doi:10.1101/gr.213066.116). For the tutorial we use the samples FL-E13.5 and MB-E-10.5. 
+This How-to is based on the published dataset from `Andrey et al 2017 <https://doi.org/10.1101/gr.213066.116>`__. For the tutorial we use the samples FL-E13.5 and MB-E-10.5. 
 
 
 Download the raw data
@@ -28,8 +28,7 @@ Please download the raw data via the following links or via `NCBI GSE84795 <http
 Mapping
 -------
 
-Map the files with a mapper of your choice against the mm9 reference genome, as an example the mapping with bowtie2 is shown. 
-For information on how to create a reference index, :ref:`see <mES-HiC_analysis:create-an-index>`
+Map the files with a mapper of your choice against the mm9 reference genome, as an example the mapping with bowtie2 is shown.
 
 .. code:: bash
 
@@ -48,7 +47,7 @@ For information on how to create a reference index, :ref:`see <mES-HiC_analysis:
 Create cHi-C matrices
 ---------------------
 
-To create cHi-C matrix we use HiCExplorer's hicBuildMatrix for each replicate separately and merge the replicate to one matrix later. Like Andrey et al we use a resolution of 1kb and use the restriction enzyme DpnII.
+To create a cHi-C matrix we use HiCExplorer's hicBuildMatrix for each replicate separately and merge the replicate to one matrix later. Like Andrey et al we use a resolution of 1kb and use the restriction enzyme DpnII.
 
 .. code:: bash
 
@@ -71,7 +70,7 @@ Creation of reference point file
 
 Andrey et al writes they used in total 460 reference points, but 24 were removed due to low sequence coverage or non correspondence to a promoter region, leading to 446 in total.
 
-To reproduce this, we need the all reference points which are published in Supplementary Table `S2 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S2.xlsx>`__ and `S8 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S8.xlsx>`__ .  
+To reproduce this, we need all reference points which are published in Supplementary Table `S2 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S2.xlsx>`__ and `S8 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S8.xlsx>`__ .  
 
 
 It is the easiest to create via Excel the reference point file in the following format and store it as a tab separated file:
@@ -80,7 +79,7 @@ It is the easiest to create via Excel the reference point file in the following 
 
     chr1	4487435	4487435 Sox17
 
-Or just `download <../data/chic/referencePoints.bed>`__ the prepared file. We will do the Quality control on our own and compare to the results of Andrey.
+Or just `download <https://drive.google.com/open?id=14kNDI1xuEiP-8S5lssTbRm5d3s2eMNLU>`__ the prepared file. We will do the quality control on our own and compare to the results of Andrey.
 
 
 
@@ -112,7 +111,7 @@ The plot shows clearly more or less no interactions expect the reference point i
 
 The result of the quality control rejected 71 reference points as too sparse, surprisingly the rejected viewpoints by Andrey are accepted. An explanation of this can be that we only consider two samples and not all samples used by Andrey, and therefore we missed the bad quality of some viewpoints.
 
-Download the data: `Filtered reference points <../data/chic/new_referencepoints.bed>`__ , `Quality control raw data <../data/chic/new_referencepoints.bed_raw_filter>`__ and `rejected reference points <../data/chic/new_referencepoints.bed_rejected_filter>`__ .
+Download the data: `Filtered reference points <https://drive.google.com/open?id=1y3G1wJRBy0aZPQJ504N94jLE4jco2GAT>`__ , `Quality control raw data <https://drive.google.com/open?id=1E0Ii-5QdZDco8NkEXb-rMoBCcGjYUfJg>`__ and `rejected reference points <https://drive.google.com/open?id=1LGDIoT7etslvHfNSPajYszaQlSsQegBx>`__ .
 
 Background model
 ^^^^^^^^^^^^^^^^
@@ -138,7 +137,7 @@ The background model looks like this:
     -497000	        75.706478185610	0.998327784087	3.800000000000	0.000116147819
 
 
-You can `download <../data/chic/background_model.bed>`__ the background model.
+You can `download <https://drive.google.com/open?id=1zblxEWa513LGwkjBknt83oZugg-uIJdw>`__ the background model.
 
 
 Viewpoint computation
