@@ -20,15 +20,16 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-        Overlap the loop locations with protein locations.
-        Loops need to have format as follows:
-        chr start end chr start end
+This script overlaps the loop locations with protein locations to determine the accuracy of the loop detection.
+Loops need to have format as follows:
 
-        Protein must be narrowPeaks or broadPeak format.
+`chr start end chr start end`
 
-        A protein match is successfull if at the bin of the x and y location a protein peak is overlapped.
-        A bin is assumed to have a protein if one or more protein peaks falling within the bin region.
-        The value of the protein is not considered, only match or non-match.
+The protein peaks need to be in narrowPeaks or broadPeak format.
+
+A protein match is successfull if at the bin of the x and y location a protein peak is overlapped.
+A bin is assumed to have a protein if one or more protein peaks falling within the bin region.
+The value of the protein is not considered, only match or non-match.
 """)
 
     # TAD or Loop data track

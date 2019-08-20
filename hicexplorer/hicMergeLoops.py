@@ -21,7 +21,6 @@ def parse_arguments(args=None):
         description="""
 This script merges the loop locations of different different resolutions.
 
-
 Loops need to have format as follows:
 
 chr start end chr start end
@@ -29,6 +28,12 @@ chr start end chr start end
 A merge happens if x and y position of a loop overlap with x and y position of another loop; all loops are considered as an overlap within +/- the bin size of the lowest resolution.
 I.e. for a loop with coordinates x and y, the overlap to all other loops is search for (x - lowest resolution) and (y + lowest resolution).
 If two or more locations should be merged, the one with the lowest resolution is taken as the merged loop.
+
+Example usage:
+
+`$ hicMergeLoops -i gm12878_10kb.bedgraph gm12878_5kb.bedgraph gm12878_25kb.bedgraph -o merged_result.bedgraph -r 25000`
+
+Please recall: We work with binned data i.e. the lowest resolution is therefore the one where we merge the most bases into one bin. In the above example the lowest resultion is 25kb, the highest resolution is 5kb.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
