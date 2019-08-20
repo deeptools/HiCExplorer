@@ -73,14 +73,14 @@ def parse_arguments(args=None):
 
 
 def readProtein(pFile, pAddChr):
-    protein_df = pd.read_csv(pFile, sep='\t', header=(-1))[[0, 1, 2]]
+    protein_df = pd.read_csv(pFile, sep='\t', header=None)[[0, 1, 2]]
     if pAddChr:
         protein_df[0] = 'chr' + protein_df[0].astype(str)
     return protein_df
 
 
 def readLoopFile(pInputFile, pAddChr):
-    full_loop = pd.read_csv(pInputFile, sep='\t', header=(-1))
+    full_loop = pd.read_csv(pInputFile, sep='\t', header=None)
     if pAddChr:
         full_loop[0] = 'chr' + full_loop[0].astype(str)
         full_loop[3] = 'chr' + full_loop[3].astype(str)

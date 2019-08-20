@@ -56,7 +56,8 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            type=float,
                            help='Only candidates with p-values less the given threshold will be considered as candidates. '
                                 'For each genomic distance a negative binomial distribution is fitted and for each pixel a p-value given by the cumulative density function is given. '
-                                'This does NOT influence the p-value for the neighborhood testing.')
+                                'This does NOT influence the p-value for the neighborhood testing.',
+                           default=0.05)
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=float,
                            help='The minimum number of interactions a detected peaks needs to have to be considered.',
@@ -67,7 +68,7 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            default=0.01)
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
-                           default=0.01,
+                           default=0.05,
                            help='Rejection level for Anderson-Darling test for H0. H0 is peak region and background have the same distribution.')
 
     parserOpt.add_argument('--maxLoopDistance',
@@ -76,7 +77,7 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            help='Maximum genomic distance of a loop, usually loops are within a distance of ~2MB.')
     parserOpt.add_argument('--minLoopDistance',
                            type=int,
-                           default=200000,
+                           default=100000,
                            help='Minimum genomic distance of a loop to be considered.')
 
     parserOpt.add_argument('--chromosomes',
@@ -96,7 +97,7 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            help='Which statistical test should be used.',
                            required=False,
                            type=str,
-                           default="wilcoxon-rank-sum",
+                           default="anderson-darling",
                            choices=['wilcoxon-rank-sum', 'anderson-darling']
                            )
 
@@ -130,22 +131,20 @@ def create_distance_distribution(pData, pDistances):
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                                 pMaximumInteractionPercentageThreshold, pPValue, pPeakWindowSize,
                                 pPValuePreselection, pStatisticalTest, pMinimumInteractionsThreshold,
-                                pOriginalCsrMatrix, pMinLoopDistance, pMaxLoopDistance):
+                                pMinLoopDistance, pMaxLoopDistance):
     """
         This function computes the loops by:
-            - decreasing the search space by removing zScore values < 0
-            - decreasing the search space with the zScoreMeanFactor
-            - decreasing the search space by excluding candidates with too less counts
-            - merging candidates which share a neighborhood to one candidate
+            - decreasing the search space by removing values with p-values > pPValuePreselection
+            - decreasing the search space with the pMaximumInteractionPercentageThreshold: removes all values with less interactions as maximum value of their distance  * pMaximumInteractionPercentageThreshold
+            - calls neighborhood_merge to merging candidates which share a neighborhood to one candidate
             - calling candidate_region_test to test the neighborhood of a candidate against its peak to detect significant peaks
 
         Input:
             - pHiCMatrix: original interaction matrix for neighborhood and peak region subset selection
-            - pAdjustedHiCMatrix: interation matrix adjusted to dimensions and sparsity of z-score matrix
             - pWindowSize: integer, the size of (2*pWindowSize)^2 around a candidate defines its neighborhood. It is used for
                     a) merging candidates and their neighborhoods to one candidate per neighborhood which appear in this region.
                     b) same neighborhood is used to test the peak region against the neighborhood for significant difference (candidate_region_test)
-            - pPeakInteractionsThreshold: float, remove candidates with less interactions
+            - pMinimumInteractionsThreshold: float, remove candidates with less interactions
             - pPValue: float, test rejection level for H0 and FDR correction
             - pPValuePreselection: float, p-value for negative binomial
             - pStatisticalTest: str, which statistical test should be used
@@ -562,7 +561,6 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     """
         Master function to compute the loops for one chromosome.
             - Removes all regions smaller minLoopSize, greater maxLoopSize
-            - Computes z-score for this chromosome per genomic distance
             - Calls compute_long_range_contacts
             - Writes computed loops to a bedgraph file
 
@@ -586,11 +584,9 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
         else:
             pArgs.windowSize = 6
         log.debug('Setting window size to: {}'.format(pArgs.windowSize))
-    log.debug('Setting values to: {} because default'.format(pArgs.windowSize))
     if pArgs.peakWidth is None:
         pArgs.peakWidth = pArgs.windowSize - 4
     log.debug('Setting peak width to: {}'.format(pArgs.peakWidth))
-    original_csr_matrix = deepcopy(pHiCMatrix.matrix)
     pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
     pHiCMatrix.matrix.eliminate_zeros()
     log.debug('candidates region {} {}'.format(
@@ -646,7 +642,6 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
                                                          pArgs.pValuePreselection,
                                                          pArgs.statisticalTest,
                                                          pArgs.peakInteractionsThreshold,
-                                                         original_csr_matrix,
                                                          min_loop_distance,
                                                          max_loop_distance)
 
@@ -712,9 +707,9 @@ def main(args=None):
     if args.region is not None and args.chromosomes is not None:
         log.error('Please choose either --region or --chromosomes.')
         exit(1)
-
+    log.debug('args.matrix {}'.format(args.matrix))
     is_cooler = check_cooler(args.matrix)
-
+    log.debug('is_cooler {}'.format(is_cooler))
     if args.region:
         chrom, region_start, region_end = translate_region(args.region)
 
@@ -745,9 +740,7 @@ def main(args=None):
                 chromosomes_list = cooler.Cooler(args.matrix).chromnames
         else:
             chromosomes_list = args.chromosomes
-        log.debug('chromosomes_list {}'.format(chromosomes_list))
-        log.debug('cooler.Cooler(args.matrix).chromsizes {}'.format(
-            cooler.Cooler(args.matrix).extent('Y')))
+
         if len(chromosomes_list) == 1:
             single_core = True
         else:

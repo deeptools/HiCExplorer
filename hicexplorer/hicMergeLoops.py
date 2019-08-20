@@ -134,7 +134,7 @@ def mergeLoops(pDataFrame, pLowestResolution, pTupleX, pTupleY):
 
 
 def readFile(pFile):
-    return pd.read_csv(pFile, sep='\t', header=(-1))
+    return pd.read_csv(pFile, sep='\t', header=None)
 
 
 def main(args=None):
