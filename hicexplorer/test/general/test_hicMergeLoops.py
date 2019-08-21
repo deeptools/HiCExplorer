@@ -39,4 +39,5 @@ def test_loop_narrow_peak():
                                             ROOT + 'gm12878_5kb.bedgraph', outfile.name, 5000).split()
     hicMergeLoops.main(args)
 
+    print(open(outfile.name, "r").read(1000))
     assert are_files_equal(ROOT + 'gm12878_all.bedgraph', outfile.name)

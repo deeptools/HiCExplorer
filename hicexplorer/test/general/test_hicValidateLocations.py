@@ -41,6 +41,10 @@ def test_loop_narrow_peak():
     hicValidateLocations.main(args)
 
     # print(outfile.name + '_matched_locations')
+    print(open(outfile.name + '_matched_locations', "r").read(1000))
+    print(open(outfile.name + '_statistics', "r").read(1000))
+
+
     assert are_files_equal(
         ROOT + 'overlap_smc3_matched_locations', outfile.name + '_matched_locations')
     assert are_files_equal(ROOT + 'overlap_smc3_statistics',
@@ -57,6 +61,8 @@ def test_loop_broad_peak():
     hicValidateLocations.main(args)
 
     # print(outfile.name + '_matched_locations')
+    print(open(outfile.name + '_matched_locations', "r").read(1000))
+    print(open(outfile.name + '_statistics', "r").read(1000))
     assert are_files_equal(
         ROOT + 'overlap_ctcf_matched_locations', outfile.name + '_matched_locations')
     assert are_files_equal(ROOT + 'overlap_ctcf_statistics',

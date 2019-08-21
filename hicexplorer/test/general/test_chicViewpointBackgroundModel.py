@@ -38,5 +38,5 @@ def test_compute_background():
     args = "--matrices {} {} --referencePoints {} -o {}".format(ROOT + 'FL-E13-5_chr1.cool', ROOT + 'MB-E10-5_chr1.cool',
                                                                 ROOT + 'referencePoints.bed', outfile.name).split()
     chicViewpointBackgroundModel.main(args)
-
+    print(open(outfile.name, "r").read(1000))
     assert are_files_equal(ROOT + 'background.bed', outfile.name, skip=0)
