@@ -74,8 +74,6 @@ This will create, as in the non-batch mode, three files per aggregated file and 
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
                            action='store_true')
-    parserOpt.add_argument("--help", "-h", action="help",
-                           help="show this help message and exit")
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads. Using the python multiprocessing module. ',
                            required=False,
@@ -85,6 +83,8 @@ This will create, as in the non-batch mode, three files per aggregated file and 
     parserOpt.add_argument('--rejectedFileNamesToFile', '-r',
                            help='Writes the names of the rejected H0 (therefore containing the differential interactions) to file. Can be used for batch processing mode of chicPlotViewpoint.',
                            default='rejected_H0.txt')
+    parserOpt.add_argument("--help", "-h", action="help",
+                           help="show this help message and exit")
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
     return parser

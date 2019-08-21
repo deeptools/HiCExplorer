@@ -44,7 +44,6 @@ def test_loop_narrow_peak():
     print(open(outfile.name + '_matched_locations', "r").read(1000))
     print(open(outfile.name + '_statistics', "r").read(1000))
 
-
     assert are_files_equal(
         ROOT + 'overlap_smc3_matched_locations', outfile.name + '_matched_locations')
     assert are_files_equal(ROOT + 'overlap_smc3_statistics',
