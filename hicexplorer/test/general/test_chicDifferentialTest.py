@@ -9,7 +9,7 @@ from hicexplorer import chicDifferentialTest
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/cHi-C/")
 
 
-def are_files_equal(file1, file2, delta=1, skip=0):
+def are_files_equal(file1, file2, delta=2, skip=0):
     equal = True
     if delta:
         mismatches = 0

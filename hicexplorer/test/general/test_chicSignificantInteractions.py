@@ -153,9 +153,9 @@ def test_batchMode_loose_pValue_csn_2():
     assert are_files_equal(ROOT + "chicSignificantInteractions/output_5/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_output_significant.bed", output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_output_significant.bed')
     assert are_files_equal(ROOT + "chicSignificantInteractions/output_5/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_output_significant.bed", output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_output_significant.bed')
 
-    assert are_files_equal(ROOT + "chicSignificantInteractions/output_5_target/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_target.bed", output_folder_target + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_target.bed')
-    assert are_files_equal(ROOT + "chicSignificantInteractions/output_5_target/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_target.bed", output_folder_target + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_target.bed')
-    assert are_files_equal(ROOT + "chicSignificantInteractions/output_5_target/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_target.bed", output_folder_target + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_target.bed')
+    assert are_files_equal(ROOT + "chicSignificantInteractions/output_5_target/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_target.bed", output_folder_target + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_target.bed', skip=4)
+    assert are_files_equal(ROOT + "chicSignificantInteractions/output_5_target/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_target.bed", output_folder_target + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_target.bed', skip=4)
+    assert are_files_equal(ROOT + "chicSignificantInteractions/output_5_target/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_target.bed", output_folder_target + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_target.bed', skip=4)
 
     assert are_files_equal(ROOT + "chicSignificantInteractions/output_5_target_list.txt", outfile_target_list.name)
     assert are_files_equal(ROOT + "chicSignificantInteractions/output_5_significant_files.txt", outfile_significant_files_list.name)

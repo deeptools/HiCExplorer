@@ -43,12 +43,12 @@ def test_two_matrices():
                                                                                                    output_folder).split()
     chicViewpoint.main(args)
 
-    assert are_files_equal(ROOT + "chicViewpoint/output_1/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_1/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_1/MB-E10-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/MB-E10-5_chr1_chr1_4487435_4487435_Sox17.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_1/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d.bed')
+    assert are_files_equal(ROOT + "chicViewpoint/output_1/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_1/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_1/MB-E10-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/MB-E10-5_chr1_chr1_4487435_4487435_Sox17.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_1/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d.bed', skip=4)
 
     assert set(os.listdir(ROOT + "chicViewpoint/output_1/")) == set(os.listdir(output_folder))
 
@@ -64,9 +64,9 @@ def test_one_matrix():
                                                                                                 output_folder).split()
     chicViewpoint.main(args)
 
-    assert are_files_equal(ROOT + "chicViewpoint/output_2/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_2/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_2/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed')
+    assert are_files_equal(ROOT + "chicViewpoint/output_2/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_2/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_2/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed', skip=4)
 
     assert set(os.listdir(ROOT + "chicViewpoint/output_2/")) == set(os.listdir(output_folder))
 
@@ -86,12 +86,12 @@ def test_two_matrices_writeFileName():
     chicViewpoint.main(args)
     assert are_files_equal(ROOT + "chicViewpoint/fileNames_two_matrices.txt", outfile_name_list.name)
 
-    assert are_files_equal(ROOT + "chicViewpoint/output_3/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_3/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_3/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_3/MB-E10-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/MB-E10-5_chr1_chr1_4487435_4487435_Sox17.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_3/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_3/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d.bed')
+    assert are_files_equal(ROOT + "chicViewpoint/output_3/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_3/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_3/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_3/MB-E10-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/MB-E10-5_chr1_chr1_4487435_4487435_Sox17.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_3/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_3/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d.bed', skip=4)
 
     assert set(os.listdir(ROOT + "chicViewpoint/output_3/")) == set(os.listdir(output_folder))
 
@@ -110,8 +110,8 @@ def test_one_matrix_writeFileName():
     chicViewpoint.main(args)
     assert are_files_equal(ROOT + "chicViewpoint/fileNames_one_matrix.txt", outfile_name_list.name)
 
-    assert are_files_equal(ROOT + "chicViewpoint/output_4/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_4/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed')
-    assert are_files_equal(ROOT + "chicViewpoint/output_4/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed')
+    assert are_files_equal(ROOT + "chicViewpoint/output_4/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed", output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_4/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed', skip=4)
+    assert are_files_equal(ROOT + "chicViewpoint/output_4/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed", output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d.bed', skip=4)
 
     assert set(os.listdir(ROOT + "chicViewpoint/output_4/")) == set(os.listdir(output_folder))
