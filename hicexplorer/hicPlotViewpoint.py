@@ -103,7 +103,7 @@ def getViewpointValues(pMatrix, pReferencePoint, pChromViewpoint, pRegion_start,
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-
+    log.warning('This tool is deprecated. Please use chicViewpoint, chicViewpointBackgroundModel and chicPlotViewpoint.')
     if args.region:
 
         args.region = args.region.replace(",", "")

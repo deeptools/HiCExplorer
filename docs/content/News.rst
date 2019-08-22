@@ -1,13 +1,28 @@
 News and Developments
 =====================
 
+Release 3.2
+-----------
+** 21 August 2019**
+
+- Adding the new captured Hi-C module. Viewpoint analysis based on a background model, significant interaction detection and differential analysis are provided.
+- Adding documentation for captured Hi-C module and a tutorial on how to use it.
+- Adding a module to be able to detect quite fast the quality of a Hi-C data set: hicQuickQC.
+- Adding a tool to merge loops of different resolutions.
+- Improving validation of locations: Presorting is no longer necessary; adding feature to add 'chr' prefix to loop or protein chromosome name
+- Change loop detection slightly to improve results and fixed bugs:
+   - preselection p-value was ignored and only p-value was used 
+   - adding additional test to the peak region test to decrease false discoveries
+   - exchanging pThreshold / ln(distance) to remove too low values by a share of the maximum value of the distance. New parameter 'maximumInteractionPercentageThreshold'
+- Removal of the folder 'scripts' and its content. These were outdated scripts and will maybe part of regular Hi-C tools in the future.
+
 Release 3.1
 -----------
 **9 July 2019**
 
 - KR correction improvements: It is now able to process larger data sets like GM12878 primary+replicate on 10kb resolution.
 - Adding script for validation of loop locations with protein peak locations
-- Adding script hicCompartmentsPolarization: Rearrange the average interaction frequencies using the first PC values to represent the global compartmentalisation signal
+- Adding script hicCompartmentsPolarization: Rearrange the average interaction frequencies using the first PC values to represent the global compartmentalization signal
 
 
 Release 3.0.2

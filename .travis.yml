@@ -30,6 +30,7 @@ before_install:
 install:
   - conda install --yes -c conda-forge -c bioconda python=$TRAVIS_PYTHON_VERSION --file requirements.txt
   - conda install --yes -c conda-forge -c bioconda pytest
+  - conda install --yes -c conda-forge -c bioconda nose
   - conda install --yes pathlib
   - if [[ "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then conda install --yes -c defaults -c conda-forge -c bioconda configparser ; fi
   - python setup.py install

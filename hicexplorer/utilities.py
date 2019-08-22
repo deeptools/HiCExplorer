@@ -13,6 +13,22 @@ import logging
 log = logging.getLogger(__name__)
 
 
+def readBed(pBedFile):
+    viewpoints = []
+    with open(pBedFile, 'r') as file:
+        for line in file.readlines():
+            if line.startswith('#'):
+                continue
+            _line = line.strip().split('\t')
+            if len(line) == 0:
+                continue
+
+            chrom, start, end = _line[:3]
+            viewpoints.append((chrom, start, end))
+
+    return viewpoints
+
+
 def writableFile(string):
     try:
         open(string, 'w').close()
@@ -507,3 +523,18 @@ def check_cooler(pFileName):
     if pFileName.endswith('.cool') or cooler.fileops.is_cooler(pFileName) or'.mcool' in pFileName:
         return True
     return False
+
+
+def in_units(pBasePosition):
+    pBasePosition = float(pBasePosition)
+    # log.debug("pBasePosition {}".format(pBasePosition))
+    if pBasePosition > 1.5e6:
+        labels = "{:.2f} ".format(pBasePosition / 1e6)
+        labels += " Mbp"
+    elif pBasePosition > 1500:
+        labels = "{:.0f}".format(pBasePosition / 1e3)
+        labels += " Kbp"
+    else:
+        labels = "{:.2f} ".format((pBasePosition))
+        labels += " bp"
+    return labels

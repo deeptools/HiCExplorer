@@ -40,6 +40,8 @@ The fastq files can be downloaded from the EBI archive (or NCBI archive). We wil
     wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR195/009/SRR1956529/SRR1956529_2.fastq.gz -O original_data/SRR1956529_2.fastq.gz
 
 
+.. _create-an-index:
+
 Create an index 
 ~~~~~~~~~~~~~~~
 

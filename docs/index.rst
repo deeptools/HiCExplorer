@@ -54,6 +54,13 @@ tool                                description
 :ref:`hicValidateLocations`         Compare the loops with known peak protein locations
 :ref:`hicMergeLoops`                Merges loops of different resolutions
 :ref:`hicCompartmentsPolarization`  Compute the global compartmentalization signal
+:ref:`chicQualityControl`           Quality control for cHi-C data
+:ref:`chicViewpointBackgroundModel` Background model computation for cHi-C analysis
+:ref:`chicViewpoint`                Computation of all viewpoints based on background model for cHi-C analysis
+:ref:`chicSignificantInteractions`  Detection of significant interactions per viewpoint based on background model
+:ref:`chicAggregateStatistic`       Compiling of target regions for two samples as input for differential analysis
+:ref:`chicDifferentialTest`         Differential analysis of interactions of two samples
+:ref:`chicPlotViewpoint`            Plotting of viewpoint with background model and highlighting of significant and differential regions
 =================================== ==========================================================================================================================================================
 
 
