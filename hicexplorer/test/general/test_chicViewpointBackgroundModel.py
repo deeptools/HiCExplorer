@@ -4,7 +4,7 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import pytest
 import os
 from tempfile import NamedTemporaryFile
-
+from sys import platform
 from hicexplorer import chicViewpointBackgroundModel
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/cHi-C/")
@@ -46,4 +46,7 @@ def test_compute_background():
     args = "--matrices {} {} --referencePoints {} -o {}".format(ROOT + 'FL-E13-5_chr1.cool', ROOT + 'MB-E10-5_chr1.cool',
                                                                 ROOT + 'referencePoints.bed', outfile.name).split()
     chicViewpointBackgroundModel.main(args)
-    assert are_files_equal(ROOT + 'background.bed', outfile.name, delta=40, skip=0)
+    if platform == 'darwin':
+        assert are_files_equal(ROOT + 'background.bed', outfile.name, delta=100, skip=0)
+    else:
+        assert are_files_equal(ROOT + 'background.bed', outfile.name, delta=1, skip=0)
