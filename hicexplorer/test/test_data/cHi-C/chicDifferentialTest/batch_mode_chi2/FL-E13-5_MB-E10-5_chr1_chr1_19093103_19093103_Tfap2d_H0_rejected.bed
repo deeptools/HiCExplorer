@@ -1,0 +1,13 @@
+# Differential analysis result file of HiCExplorer's chicDifferentialTest version 3.2-dev
+# This file contains the p-values computed by chi2 test
+# To test the smoothed (float) values they were rounded up to the next integer
+#
+# Alpha level 0.5
+# Degrees of freedom 1
+#
+# FL-E13-5_chr1.cool	chr1_19093103_19093103	18.89  Mbp	19.29  Mbp	Tfap2d	Sum of interactions in fixate range: 472.0
+# MB-E10-5_chr1.cool	chr1_19093103_19093103	18.89  Mbp	19.29  Mbp	Tfap2d	Sum of interactions in fixate range: 800.0
+#Chromosome	Start	End	Gene	Relative distance	sum of interactions 1	target_1 raw	sum of interactions 2	target_2 raw	p-value
+chr1	19077000	19114000	Tfap2d	20000	472.00000	344.80000	800.00000	527.80000		0.25943
+chr1	19125000	19129000	Tfap2d	35000	472.00000	7.80000	800.00000	8.80000		0.40802
+chr1	19141000	19238000	Tfap2d	144000	472.00000	47.40000	800.00000	163.00000		0.00004

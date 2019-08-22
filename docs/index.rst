@@ -27,6 +27,7 @@ tool                                description
 =================================== ==========================================================================================================================================================
 :ref:`findRestSite`                 Identifies the genomic locations of restriction sites
 :ref:`hicBuildMatrix`               Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
+:ref:`hicQuickQC`                   Estimates the quality of Hi-C dataset
 :ref:`hicQC`                        Plots QC measures from the output of hicBuildMatrix
 :ref:`hicCorrectMatrix`             Uses iterative correction to remove biases from a Hi-C matrix
 :ref:`hicDetectLoops`               Identifies enriched Hi-C contacts
@@ -51,7 +52,15 @@ tool                                description
 :ref:`hicConvertFormat`             Converts between different Hi-C interaction matrices
 :ref:`hicAdjustMatrix`              Keeps, removes or masks regions in a Hi-C matrix
 :ref:`hicValidateLocations`         Compare the loops with known peak protein locations
+:ref:`hicMergeLoops`                Merges loops of different resolutions
 :ref:`hicCompartmentsPolarization`  Compute the global compartmentalization signal
+:ref:`chicQualityControl`           Quality control for cHi-C data
+:ref:`chicViewpointBackgroundModel` Background model computation for cHi-C analysis
+:ref:`chicViewpoint`                Computation of all viewpoints based on background model for cHi-C analysis
+:ref:`chicSignificantInteractions`  Detection of significant interactions per viewpoint based on background model
+:ref:`chicAggregateStatistic`       Compiling of target regions for two samples as input for differential analysis
+:ref:`chicDifferentialTest`         Differential analysis of interactions of two samples
+:ref:`chicPlotViewpoint`            Plotting of viewpoint with background model and highlighting of significant and differential regions
 =================================== ==========================================================================================================================================================
 
 

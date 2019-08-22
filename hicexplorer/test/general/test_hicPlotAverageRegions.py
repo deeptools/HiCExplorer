@@ -45,7 +45,7 @@ def test_average_regions_plot_log1p():
     args = "--matrix {} -o {} --log1p --colorMap RdYlBu_r".format(matrix, outfile.name).split()
     hicPlotAverageRegions.main(args)
 
-    res = compare_images(ROOT + '/hicPlotAverageRegions/defaults_log1p.png', outfile.name, tol=40)
+    res = compare_images(ROOT + '/hicPlotAverageRegions/defaults_log1p.png', outfile.name, tol=45)
     assert res is None, res
 
     os.remove(outfile.name)

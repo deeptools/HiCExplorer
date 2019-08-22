@@ -384,7 +384,7 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
                 # thus I add this dummy variable to avoid the error
                 Axes3D(fig)
                 ax = plt.subplot(gs[cluster_number, idx], projection='3d')
-                ax.set_aspect('equal')
+                # ax.set_aspect('equal')
                 ax.margins(0)
                 X, Y = np.meshgrid(range(-M_half, M_half + 1),
                                    range(-M_half, M_half + 1))

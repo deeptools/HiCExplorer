@@ -4,21 +4,27 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
 from scipy.sparse import dia_matrix
+import logging
+log = logging.getLogger(__name__)
+
 from hicmatrix import HiCMatrix as hm
+
+from hicexplorer._version import __version__
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(
-        description="""
+    parser = argparse.ArgumentParser(add_help=False,
+                                     description="""
         Rearrange the average interaction frequencies using the first PC values
-        to represent the global compartmentalization signal
+        to represent the global compartmentalization signal. To our knowledge
+        this has been first introduced and implemented by Wibke Schwarzer et
+        al. 2017 (Nature. 2017 Nov 2; 551(7678): 51–56)
 
-        $ hicGlobalInteraction --obsexp_matrices obsExpMatrix.h5 --pca pc1.bedgraph\
+        $ hicCompartmentsPolarization --obsexp_matrices obsExpMatrix.h5 --pca pc1.bedgraph\
         -o global_signal.png
         """
-    )
+                                     )
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -53,7 +59,11 @@ def parse_arguments():
     parserOpt.add_argument('--outputMatrix',
                            help='output .npz file includes all the generated matrices',
                            default=None)
+    parserOpt.add_argument('--help', '-h', action='help',
+                           help='show this help message and exit.')
 
+    parserOpt.add_argument('--version', action='version',
+                           version='%(prog)s {}'.format(__version__))
     return parser
 
 
@@ -61,7 +71,8 @@ def count_interactions(obs_exp, pc1, quantiles_number):
     "Counts the total interaction on obs_exp matrix per quantile and "
     "normalizes it by the number of bins per quantile."
     chromosomes = pc1["chr"].unique()
-    normalised_sum_per_quantile = np.zeros((quantiles_number, quantiles_number))
+    normalised_sum_per_quantile = np.zeros(
+        (quantiles_number, quantiles_number))
 
     for chrom in chromosomes:
         pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
@@ -80,8 +91,7 @@ def count_interactions(obs_exp, pc1, quantiles_number):
                 data = chr_submatrix[row_indices, :][:, col_indices]
 
                 if data.shape[0] * data.shape[1] != 0:
-                    normalised_sum_per_quantile[qi, qj] += (np.sum(data) /
-                                                            (data.shape[0] * data.shape[1]))
+                    normalised_sum_per_quantile[qi, qj] += (np.sum(data) / (data.shape[0] * data.shape[1]))
 
     return normalised_sum_per_quantile
 
@@ -161,4 +171,5 @@ def main(args=None):
                                                                  args.quantile))
     if args.outputMatrix:
         np.savez(args.outputMatrix, [matrix for matrix in output_matrices])
-    plot_polarization_ratio(polarization_ratio, args.outputFileName, labels, args.quantile)
+    plot_polarization_ratio(
+        polarization_ratio, args.outputFileName, labels, args.quantile)
