@@ -17,3 +17,4 @@ fit_nbinom >= 1.1
 cooler >= 0.8.5
 krbalancing >= 0.0.5
 pybedtools >= 0.8.*
+future >= 0.17
