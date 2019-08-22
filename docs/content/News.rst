@@ -3,7 +3,7 @@ News and Developments
 
 Release 3.2
 -----------
-** 21 August 2019**
+** 22 August 2019**
 
 - Adding the new captured Hi-C module. Viewpoint analysis based on a background model, significant interaction detection and differential analysis are provided.
 - Adding documentation for captured Hi-C module and a tutorial on how to use it.
