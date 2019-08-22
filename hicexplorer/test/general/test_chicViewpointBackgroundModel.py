@@ -11,25 +11,33 @@ ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 
 
 def are_files_equal(file1, file2, delta=1, skip=0):
-    equal = True
-    if delta:
-        mismatches = 0
-    with open(file1) as textfile1, open(file2) as textfile2:
-        for i, (x, y) in enumerate(zip(textfile1, textfile2)):
-            # if x.startswith('File'):
-            #     continue
+
+    lines_file1_dict = {}
+    mismatches = 0
+    matches = 0
+    line_count_file1 = 0
+    with open(file1, 'r') as textfile1:
+        file_content = textfile1.readlines()
+
+        for i, line in enumerate(file_content):
             if i < skip:
                 continue
-            if x != y:
-                if delta:
-                    mismatches += 1
-                    if mismatches > delta:
-                        equal = False
-                        break
-                else:
-                    equal = False
-                    break
-    return equal
+            lines_file1_dict[line] = True
+            line_count_file1 += 1
+    with open(file2, 'r') as textfile2:
+
+        file_content = textfile2.readlines()
+        for i, line in enumerate(file_content):
+            if i < skip:
+                continue
+            if line in lines_file1_dict:
+                matches += 1
+            else:
+                mismatches += 1
+    if mismatches < delta and line_count_file1 - delta <= matches:
+        return True
+    else:
+        return False
 
 
 def test_compute_background():
@@ -38,5 +46,4 @@ def test_compute_background():
     args = "--matrices {} {} --referencePoints {} -o {}".format(ROOT + 'FL-E13-5_chr1.cool', ROOT + 'MB-E10-5_chr1.cool',
                                                                 ROOT + 'referencePoints.bed', outfile.name).split()
     chicViewpointBackgroundModel.main(args)
-    print(open(outfile.name, "r").read(1000))
-    assert are_files_equal(ROOT + 'background.bed', outfile.name, skip=0)
+    assert are_files_equal(ROOT + 'background.bed', outfile.name, delta=40, skip=0)
