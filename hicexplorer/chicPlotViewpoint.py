@@ -115,6 +115,11 @@ In batch mode the list of file names and the folders containing the files need t
                            help='Plot p-values as a colorbar',
                            action='store_true'
                            )
+    parserOpt.add_argument('--pValueSignificanceLevels', '-psl',
+                           help='Highlight the p-values by the defined significance levels.',
+                           type=float,
+                           nargs='+'
+                           )
     parserOpt.add_argument('--xFold', '-xf',
                            help='Plot x-fold region for the mean background.',
                            type=float,
@@ -221,10 +226,12 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                         for x in range(location[0], location[1]):
                             p_values[x] = location[2]
                 p_values.clip(pArgs.minPValue, pArgs.maxPValue, p_values)
+            # if pArgs.pValueSignificanceLevels:
+                
             if pArgs.pValue:
                 pViewpointObj.plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
                                          pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
-                                         pFigure=fig)
+                                         pFigure=fig, pValueSignificanceLevels=pArgs.pValueSignificanceLevels)
 
         if data_plot_label is not None:
 
