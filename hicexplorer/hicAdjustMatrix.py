@@ -99,7 +99,7 @@ def main(args=None):
 
         # log.debug('matrix_indices_regions {}'.format(matrix_indices_regions))
         if args.action == 'keep':
-            #hic_ma.reorderBins(matrix_indices_regions)
+            # hic_ma.reorderBins(matrix_indices_regions)
             values_submatrix = matrix_indices_regions
             instances, features = hic_ma.matrix.nonzero()
             mask = np.isin(instances, values_submatrix)
