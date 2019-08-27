@@ -220,6 +220,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
         dist_list[dist_list == -1] = -binsize
         # divide by binsize to get a list of bin distances and add +1 to remove negative values
         dist_list = (np.array(dist_list).astype(float) / binsize).astype(int) + 1
+        print(submatrix.data)
 
         # for each distance, return the sum of all values
         sum_counts = np.bincount(dist_list, weights=submatrix.data)
