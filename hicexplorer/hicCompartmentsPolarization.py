@@ -59,7 +59,10 @@ def parse_arguments():
     parserOpt.add_argument('--outputMatrix',
                            help='output .npz file includes all the generated matrices',
                            default=None)
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit.')
+
+    parserOpt.add_argument('-h',
+                            action='help',
+                            help='show the help message and exit.')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
