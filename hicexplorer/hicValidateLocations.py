@@ -20,15 +20,16 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-        Overlap the loop locations with protein locations.
-        Loops need to have format as follows:
-        chr start end chr start end
+This script overlaps the loop locations with protein locations to determine the accuracy of the loop detection.
+Loops need to have format as follows:
 
-        Protein must be narrowPeaks or broadPeak format.
+`chr start end chr start end`
 
-        A protein match is successfull if at the bin of the x and y location a protein peak is overlapped.
-        A bin is assumed to have a protein if one or more protein peaks falling within the bin region.
-        The value of the protein is not considered, only match or non-match.
+The protein peaks need to be in narrowPeaks or broadPeak format.
+
+A protein match is successfull if at the bin of the x and y location a protein peak is overlapped.
+A bin is assumed to have a protein if one or more protein peaks falling within the bin region.
+The value of the protein is not considered, only match or non-match.
 """)
 
     # TAD or Loop data track
@@ -45,8 +46,7 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--method', '-m',  # loop or domain
                                 help='The loop file',
                                 choices=['loops'],
-                                default='loops',
-                                required=True)
+                                default='loops')
     parserRequired.add_argument('--resolution', '-r',  # loop or domain
                                 help='The used resolution of the Hi-C interaction matrix.',
                                 required=True,
@@ -56,7 +56,16 @@ def parse_arguments(args=None):
                            help='The prefix name of the output files. Two file are written: output_matched_locations and output_statistics.'
                            'First file contains all loop locations with protein location matches, second file contains statistics about this matching.'
                            )
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+    parserOpt.add_argument('--addChrPrefixLoops', '-cl',
+                           help='Adding a \'chr\'-prefix to chromosome name of the loops.',
+                           action='store_true'
+                           )
+    parserOpt.add_argument('--addChrPrefixProtein', '-cp',
+                           help='Adding a \'chr\'-prefix to chromosome name of the protein.',
+                           action='store_true'
+                           )
+    parserOpt.add_argument('--help', '-h', action='help',
+                           help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -64,15 +73,15 @@ def parse_arguments(args=None):
     return parser
 
 
-def readProtein(pFile):
-    return pd.read_csv(pFile, sep='\t', header=(-1))[[0, 1, 2]]
-
-# def readTAD_domain(pFile):
-#     return pd.read_csv(pFile, sep='\t', header=(-1))
+def readProtein(pFile, pAddChr):
+    protein_df = pd.read_csv(pFile, sep='\t', header=None)[[0, 1, 2]]
+    if pAddChr:
+        protein_df[0] = 'chr' + protein_df[0].astype(str)
+    return protein_df
 
 
 def readLoopFile(pInputFile, pAddChr):
-    full_loop = pd.read_csv(pInputFile, sep='\t', header=(-1))
+    full_loop = pd.read_csv(pInputFile, sep='\t', header=None)
     if pAddChr:
         full_loop[0] = 'chr' + full_loop[0].astype(str)
         full_loop[3] = 'chr' + full_loop[3].astype(str)
@@ -91,10 +100,6 @@ def overlapLoop(pDataFrameLoop, pDataFrameProtein):
     mask_y = y['name'] >= 1
 
     selection = (mask_x) & (mask_y)
-
-    # return pDataFrameLoop[selection]
-
-    # selection  = (mask_x) & (mask_y)
 
     return selection
 
@@ -134,14 +139,22 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     if args.method == 'loops':
-        loop_df = readLoopFile(args.data, True)
+        loop_df = readLoopFile(args.data, args.addChrPrefixLoops)
         if loop_df is None:
             log.error('Empty loop file')
             return
-        protein_df = readProtein(args.protein)
+        loop_df_bedtool = BedTool.from_dataframe(loop_df)
+        loop_df = loop_df_bedtool.sort().to_dataframe(
+            disable_auto_names=True, header=None)
+
+        protein_df = readProtein(args.protein, args.addChrPrefixProtein)
         if protein_df is None:
             log.error('Empty protein file')
             return
+        protein_df_bedtool = BedTool.from_dataframe(protein_df)
+        protein_df = protein_df_bedtool.sort().to_dataframe(
+            disable_auto_names=True, header=None)
+
         protein_df_resolution = applyBinning(protein_df, args.resolution)
 
         overlap_mask_df = overlapLoop(loop_df, protein_df_resolution)
@@ -157,23 +170,13 @@ def main(args=None):
             writeLoopFile(args.outFileName + '_matched_locations', loop_df_)
 
             with open(args.outFileName + '_statistics', 'w') as file:
-                file.write('# HiCExplorer hicValidateLocations {}\n'.format(__version__))
-                file.write('# Overlap of loop file {} with protein file {}\n#\n'.format(args.data, args.protein))
-                file.write('Protein peaks: {}\n'.format(len(protein_df_resolution)))
+                file.write(
+                    '# HiCExplorer hicValidateLocations {}\n'.format(__version__))
+                file.write('# Overlap of loop file {} with protein file {}\n#\n'.format(
+                    args.data, args.protein))
+                file.write('Protein peaks: {}\n'.format(
+                    len(protein_df_resolution)))
                 file.write('Matched Loops: {}\n'.format(len(loop_df_)))
                 file.write('Total Loops: {}\n'.format(len(loop_df)))
-                file.write('Loops match protein: {}\n'.format(len(loop_df_) / len(loop_df)))
-
-        # else:
-
-        #     # print('{}'.format(loop_df[:10]))
-        #     # loop_df.to_csv(path_or_buf=args.outFileName, sep='\t', header=False, index=False)
-
-    # elif args.method == 'tads':
-    #     tad_df = readLoopFile(args.data, True)
-    #     protein_df = applyBinning(tad_df, args.resolution)
-
-    #     overlap_mask_df = overlapTAD(tad_df, protein_df)
-
-    #     if args.removeLocations:
-    #         tad_df = loop_df[overlap_mask_df]
+                file.write('Loops match protein: {}\n'.format(
+                    len(loop_df_) / len(loop_df)))

@@ -1,2 +1,2 @@
-File	inter chromosomal	inter chromosomal %	short range < 20kb	short range < 20kb %	long range	long range %
-small_test_matrix.h5	5955	0.159561640899	8853	0.237212293347	22513	0.603226065754
+File	inter chromosomal	inter chromosomal %	Intra short range (< 20kb)	Intra short range (< 20kb) %	Intra long range (>= 20kb)	Intra long range (>= 20kb) %
+/tmp/tmp1cm9m5mc.cool	5955	0.15956164089922564	8853	0.23721229334690924	22513	0.6032260657538652

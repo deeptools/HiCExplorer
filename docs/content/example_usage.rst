@@ -9,6 +9,8 @@ Example usage
    :maxdepth: 1
 
    mES-HiC_analysis
+   HiCExport
+   capture-Hi-C
 
 How we use HiCExplorer
 ----------------------

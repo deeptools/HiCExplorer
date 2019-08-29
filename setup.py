@@ -92,26 +92,26 @@ class install(_install):
             sys.stderr.write("Error: {}".format(e))
 
 
-install_requires_py = ["numpy >= 1.16.*",
-                       "scipy >= 1.2.*",
-                       "matplotlib == 3.0.*",
+install_requires_py = ["numpy >= 1.17.*",
+                       "scipy >= 1.3.*",
+                       "matplotlib == 3.1.*",
                        "pysam >= 0.15",
                        "intervaltree >= 3.0.*",
-                       "biopython >= 1.73",
+                       "biopython >= 1.74",
                        "tables >= 3.5.*",
-                       "pandas >= 0.24.*",
+                       "pandas >= 0.25.*",
                        "pyBigWig >= 0.3.*",
-                       "six >= 1.12.*",
-                       "future >= 0.17.*",
                        "cooler >= 0.8.5",
                        "jinja2 >= 2.10.*",
                        "unidecode >= 1.1.*",
-                       "hicmatrix >= 10",
+                       "hicmatrix >= 11",
                        "pygenometracks >= 3.0",
                        "psutil >= 5.6.*",
                        "fit_nbinom >= 1.1",
                        "hic2cool >= 0.7",
-                       "krbalancing >= 0.0.5"
+                       "krbalancing >= 0.0.5",
+                       "pybedtools >= 0.8",
+                       "future >= 0.17"
                        ]
 
 
@@ -126,8 +126,11 @@ setup(
              'bin/hicCorrelate', 'bin/hicFindTADs', 'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
+             'bin/chicViewpointBackgroundModel', 'bin/chicPlotViewpoint', 'bin/chicViewpoint',
+             'bin/chicAggregateStatistic', 'bin/chicDifferentialTest', 'bin/chicQualityControl', 'bin/chicSignificantInteractions',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
-             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicCompartmentsPolarization'
+             'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicMergeLoops',
+             'bin/hicCompartmentsPolarization', 'bin/hicQuickQC'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},

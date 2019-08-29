@@ -1,0 +1,2 @@
+File	inter chromosomal	inter chromosomal %	Intra short range (< 20kb)	Intra short range (< 20kb) %	Intra long range (>= 20kb)	Intra long range (>= 20kb) %
+/tmp/tmpi4gm4e58.h5	98	0.1406025824964132	169	0.242467718794835	430	0.6169296987087518
