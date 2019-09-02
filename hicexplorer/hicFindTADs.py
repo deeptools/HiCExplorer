@@ -110,7 +110,7 @@ of information at certain bins, and depending on the parameters used with this t
     parserOpt.add_argument('--step',
                            help='Step size when moving from --minDepth to --maxDepth. Note, the step size'
                            'grows exponentially as '
-                           '`maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
+                           '`minDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
                            'reaches `maxDepth`. For example, selecting  step=10,000, minDepth=20,000 '
                            'and maxDepth=150,000 will compute TAD-scores for window sizes: '
                            '20,000, 30,000, 40,000, 70,000 and 100,000',
