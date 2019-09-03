@@ -77,17 +77,72 @@ def main(args=None):
 
     accepted_H0 = []
     rejected_H0 = []
-    log.debug('domains_df {}'.format(domains_df))
-    for row in domains_df.values.tolist():
+    # log.debug('domains_df {}'.format(domains_df))
+    domains = domains_df.values.tolist()
+    for i, row in enumerate(domains):
     # for domain in domains_df:
+
         log.debug('domain {} {} {}'.format(row[0], row[1], row[2]))
         if is_cooler_target:
+
+            # get intra-TAD data
             hic_matrix_target = hm.hiCMatrix(
                 pMatrixFile=args.targetMatrix, pChrnameList=[str(row[0]) + ':' + str(row[1])+'-'+str(row[2])])
             hic_matrix_control = hm.hiCMatrix(
                 pMatrixFile=args.controlMatrix, pChrnameList=[str(row[0]) + ':' + str(row[1])+'-'+str(row[2])])
             matrix_target = hic_matrix_target.matrix.toarray()
             matrix_control = hic_matrix_control.matrix.toarray()
+            log.debug('Received intra tad')
+            midpos = row[1] + ((row[2] - row[1] )/ 2)
+            log.debug('row {}'.format(row))
+            log.debug('midpos {}'.format(midpos))
+
+            # get inter-tad data
+            if i - 1 > 0:
+                chromosom = domains[i-1][0]
+                start = domains[i-1][1]
+            else:
+                chromosom = domains[i][0]
+                start = domains[i][1]
+            end = domains[i+1][2]
+            log.debug('{} {} {}'.format(chromosom, start, end))
+            hic_matrix_target_inter_tad = hm.hiCMatrix(
+                pMatrixFile=args.targetMatrix, pChrnameList=[str(chromosom) + ':' + str(start)+'-'+str(end)])
+            hic_matrix_control_inter_tad = hm.hiCMatrix(
+                pMatrixFile=args.controlMatrix, pChrnameList=[str(chromosom) + ':' + str(start)+'-'+str(end)])
+            matrix_target_inter_tad = hic_matrix_target_inter_tad.matrix.toarray()
+            matrix_control_inter_tad = hic_matrix_control_inter_tad.matrix.toarray()
+
+            log.debug('Received inter tad')
+            tad_midpoint = hic_matrix_target_inter_tad.getRegionBinRange(str(row[0]),midpos,midpos )[0]
+            
+            if i - 1 > 0:
+            # get index position left tad with tad
+                left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
+                left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
+                log.debug('left_boundary_index_target {}'.format(left_boundary_index_target))
+                log.debug('left_boundary_index_control {}'.format(left_boundary_index_control))
+            if i + 1 < len(domains):
+            # get index position left tad with tad
+                right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+                right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+            
+
+                log.debug('right_boundary_index_target {}'.format(right_boundary_index_target))
+                log.debug('right_boundary_index_control {}'.format(right_boundary_index_control))
+
+            log.debug('len(matrix_target_inter_tad) {} {}'.format(len(matrix_target_inter_tad), len(matrix_target_inter_tad[0])))
+            if i - 1 > 0:
+                log.debug('tad_midpoint {}'.format(tad_midpoint))
+                log.debug('left_boundary_index_target {}'.format(left_boundary_index_target))
+                log.debug('right_boundary_index_target {}'.format(right_boundary_index_target))
+
+                log.debug(matrix_target_inter_tad)
+                log.debug(matrix_target_inter_tad[:tad_midpoint, left_boundary_index_target:tad_midpoint])
+                log.debug(matrix_target_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:])
+
+            if i > 2:
+                exit()
         else:
             chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, hic_matrix_target)
             matrix_target = np.asarray(hic_matrix_target.matrix[idx1, :][:, idx2].todense().astype(float))
