@@ -49,8 +49,8 @@ def test_two_matrices():
     chicQualityControl.main(args)
 
     assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed", outfile.name)
-    assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_raw_filter", outfile.name + '_raw_filter')
-    assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_rejected_filter", outfile.name + '_rejected_filter')
+    assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_raw_filter", outfile.name + '_raw_filter', skip=2)
+    assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_rejected_filter", outfile.name + '_rejected_filter', skip=2)
 
     res = compare_images(ROOT + "chicQualityControl/histogram.png", outfile_histogram.name, 50)
     assert res is None, res

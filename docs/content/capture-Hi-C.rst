@@ -78,7 +78,7 @@ It is simplest to create the reference point file in the following format using 
 
     chr1	4487435	4487435 Sox17
 
-Otherwise, just `download <https://drive.google.com/open?id=14kNDI1xuEiP-8S5lssTbRm5d3s2eMNLU>`__ the prepared file. We will do the quality control on our own and compare to the results of Andrey et al.
+Otherwise, just `download <https://drive.google.com/open?id=14kNDI1xuEiP-8S5lssTbRm5d3s2eMNLU>`__ the prepared file. We will do the quality control on our own and compare with the results of Andrey et al.
 
 
 

@@ -265,7 +265,7 @@ def main(args=None):
     all_nan = []
 
     for i, matrix in enumerate(args.matrices):
-        log.info("loading hic matrix {}\n".format(matrix))
+        log.debug("loading hic matrix {}\n".format(matrix))
 
         if (check_cooler(args.matrices[i])) and args.chromosomes is not None and len(args.chromosomes) == 1:
             _mat = hm.hiCMatrix(matrix, pChrnameList=args.chromosomes)
@@ -276,7 +276,7 @@ def main(args=None):
             _mat.filterOutInterChrCounts()
 
         _mat.diagflat(0)
-        log.info("restore masked bins {}\n".format(matrix))
+        log.debug("restore masked bins {}\n".format(matrix))
         bin_size = _mat.getBinSize()
         all_nan = np.unique(np.concatenate([all_nan, _mat.nan_bins]))
 
@@ -376,8 +376,8 @@ def main(args=None):
             ax.set_axis_off()
             continue
 
-        log.info("comparing {} and {}\n".format(args.matrices[row],
-                                                args.matrices[col]))
+        log.debug("comparing {} and {}\n".format(args.matrices[row],
+                                                 args.matrices[col]))
 
         # remove cases in which both are zero or one is zero and
         # the other is one
@@ -433,7 +433,7 @@ def main(args=None):
 
         ax.hist2d(vector1, vector2, bins=150, cmin=0.1)
     fig.tight_layout()
-    log.info("saving {}".format(args.outFileNameScatter))
+    log.debug("saving {}".format(args.outFileNameScatter))
     fig.savefig(args.outFileNameScatter, bbox_inches='tight')
 
     results = results + np.triu(results, 1).T

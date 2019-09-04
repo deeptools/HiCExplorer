@@ -3,7 +3,7 @@ News and Developments
 
 Release 3.2
 -----------
-** August 2019**
+** 21 August 2019**
 
 - Adding the new captured Hi-C module. Viewpoint analysis based on a background model, significant interaction detection and differential analysis are provided.
 - Adding documentation for captured Hi-C module and a tutorial on how to use it.
@@ -14,6 +14,7 @@ Release 3.2
    - preselection p-value was ignored and only p-value was used 
    - adding additional test to the peak region test to decrease false discoveries
    - exchanging pThreshold / ln(distance) to remove too low values by a share of the maximum value of the distance. New parameter 'maximumInteractionPercentageThreshold'
+- Removal of the folder 'scripts' and its content. These were outdated scripts and will maybe part of regular Hi-C tools in the future.
 
 Release 3.1
 -----------
