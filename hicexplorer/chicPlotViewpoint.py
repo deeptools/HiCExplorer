@@ -77,6 +77,10 @@ In batch mode the list of file names and the folders containing the files need t
                            help='Path to the files with detected significant interactions to highlight the regions in the plot.',
                            required=False,
                            nargs='+')
+    parserOpt.add_argument('--plotSignificantInteractions', '-psi',
+                           help='Highlights the significant interactions in the plot itself. If not set, only the p-values are updated',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument('--outputFolder', '-of',
                            help='Output folder of the files.',
                            required=False,
@@ -208,6 +212,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 else:
                     significantInteractionsFilePath = pSignificantRegionsFileList[j][i]
                 significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(significantInteractionsFilePath, viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
+            if not pArgs.plotSignificantInteractions:
+                significant_regions = None
             if data_plot_label:
                 data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
             else:
