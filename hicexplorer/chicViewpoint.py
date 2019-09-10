@@ -77,6 +77,10 @@ $ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoi
                            default=500000,
                            type=int
                            )
+    parserOpt.add_argument('--allViewpointsList', '-avl',
+                           help='Writes a file where all viewpoints all samples are sorted by the viewpoints.',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument('--outputFolder', '-o',
                            help='This folder contains all created viewpoint files.',
                            required=False,
@@ -295,6 +299,17 @@ def main(args=None):
                         for viewpoint, viewpoint2 in zip(sample, sample2):
                             file.write(viewpoint + '\n')
                             file.write(viewpoint2 + '\n')
+            else:
+                for viewpoint in file_list[0]:
+                    file.write(viewpoint + '\n')
+    if args.allViewpointsList:
+
+        with open(args.writeFileNamesToFile+'all', 'w') as file:
+            if len(file_list) > 1:
+                for i, sample in enumerate(file_list[0]):
+                    file.write(sample + '\n')
+                    for j in range(1, len(file_list)):
+                        file.write(file_list[j][i] + '\n')
             else:
                 for viewpoint in file_list[0]:
                     file.write(viewpoint + '\n')
