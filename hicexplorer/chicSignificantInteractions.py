@@ -21,12 +21,12 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description="""
-Per viewpoint the significant interactions are detected based on the background model. Each viewpoint file gets as output a file with all recorded significant interactions and
-a target file. The target file is especially in the batch mode context useful, it merges for two consecutive listed control and treatment viewpoint the significant interactions which can then be used
+Per viewpoint the significant interactions are detected based on the background model. For each viewpoint file, an output file is created with all recorded significant interactions and
+a target file. The target file is especially useful in the batch mode context; for two consecutive listed control and treatment viewpoints it merges the significant interactions which can then be used
 to test for a differential interaction scheme.
 
 chicSignificantInteractions supports two modes to detect significant interactions, either by an x-fold over the average background or a loose p-value. In both cases neighboring significant peaks are merged together and an additional
-p-value based on the sum of interactions for this neighborhood is computed. Only interactions with a higher p-value as specified by the threshold `--pValue` are accepted as a significant interaction.
+p-value is computed based on the sum of interactions for this neighborhood. Only interactions with a higher p-value (as specified by the threshold `--pValue`) are accepted as a significant interaction.
 
 An example usage is for single mode is:
 
@@ -36,8 +36,8 @@ An example usage is for batch mode is:
 
 `$ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outFileName background_model.bed`
 
-The main difference between single mode and batch mode is that in single mode the parameter `--interactionFile` is interpreted as a list of viewpoint files created with `chicViewpoint`, whereas in batch mode only one file is allowed which contains per line the file names of viewpoint files.
-This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFile`. Please have in mind to specify in batch mode the folder via `--interactionFileFolder` where `chicViewpoint` wrote the files to.
+The main difference between single mode and batch mode is that in single mode the parameter `--interactionFile` is interpreted as a list of viewpoint files created with `chicViewpoint`, whereas in batch mode only one file is allowed, containing the file names of viewpoint files (one per line).
+This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFile`. In batch mode, please remember to specify the folder (via `--interactionFileFolder`) where `chicViewpoint` wrote the files.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -48,20 +48,20 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                                 nargs='+')
 
     parserRequired.add_argument('--pValue', '-p',
-                                help='p-value threshold value to filter target regions to include them for differential analysis.',
+                                help='p-value threshold to filter target regions for inclusion in differential analysis.',
                                 type=float,
                                 required=True)
     parserMutuallyExclusiveGroupFilter = parser.add_mutually_exclusive_group(
         required=True)
     parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
                                                     help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
-                                                    'less significant interactions to one peak with high significance. Used only for pValue option.',
+                                                    'less significant interactions to a single peak with high significance. Used only for pValue option.',
                                                     type=float
 
                                                     )
     parserMutuallyExclusiveGroupFilter.add_argument('--loosePValue', '-lp',
-                                                    help='loose p-value threshold value to filter target regions in a first round. '
-                                                    'Used to merge neighboring bins with a broader peak but less significant interactions to one peak with high significance.'
+                                                    help='loose p-value threshold to filter target regions in a first round. '
+                                                    'Used to merge neighboring bins with a broader peak but less significant interactions to a single peak with high significance.'
                                                     ' Used only for pValue option.',
                                                     type=float)
     parserRequired.add_argument('--backgroundModelFile', '-bmf',
@@ -69,7 +69,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                                 required=True)
     parserRequired.add_argument('--range',
                                 help='Defines the region upstream and downstream of a reference point which should be included. '
-                                'Format is --region upstream downstream',
+                                'Format is --region upstream downstream, e.g. --region 500000 500000 plots 500kb up- and 500kb downstream. This value should not exceed the range used in the other chic-tools.',
                                 required=True,
                                 type=int,
                                 nargs=2)
@@ -77,12 +77,12 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outFileNameSuffix', '-suffix',
-                           help='File name suffix to save the results, prefix is the input file name.',
+                           help='File name suffix to save the results; prefix is the input file name.',
                            required=False,
                            default='_significant_interactions.bed')
 
     parserOpt.add_argument('--interactionFileFolder', '-iff',
-                           help='Folder where the interaction files are stored in. Applies only for batch mode.',
+                           help='Folder where the interaction files are stored. Applies only for batch mode.',
                            required=False,
                            default='.')
     parserOpt.add_argument('--targetFolder', '-tf',
@@ -90,7 +90,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            required=False,
                            default='targetFolder')
     parserOpt.add_argument('--outputFolder', '-o',
-                           help='Output folder of the files significant interaction files.',
+                           help='Output folder of the significant interaction files.',
                            required=False,
                            default='significantFiles')
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
@@ -100,17 +100,17 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            help='The file to store the target file names.',
                            default='targetList.txt')
     parserOpt.add_argument('--batchMode', '-bm',
-                           help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
+                           help='Turn on batch mode. The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads. Using the python multiprocessing module. ',
+                           help='Number of threads (uses the python multiprocessing module). ',
                            required=False,
                            default=4,
                            type=int
                            )
     parserOpt.add_argument('--fixateRange', '-fs',
-                           help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
+                           help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater than 500kb are set to the value of the 500kb bin.',
                            required=False,
                            default=500000,
                            type=int
@@ -127,7 +127,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            help='The minimum number of interactions a detected peaks needs to have to be considered.')
 
     parserOpt.add_argument('--resolution', '-r',
-                           help='Resolution of the bin in genomic units. Values are usually e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.'
+                           help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.',
                            'This value is used to merge neighboring bins.',
                            type=int,
                            default=1000,
