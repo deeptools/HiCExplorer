@@ -21,9 +21,9 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-Computes the sparsity of each viewpoint to determine the quality. A viewpoint is considered of bad quality if it is too sparse i.e. there are too many locations with no interactions recorded.
+Computes the sparsity of each viewpoint to determine the quality. A viewpoint is considered to be of bad quality if it is too sparse i.e. if there are too many locations with no interactions recorded.
 
-This script outputs three files: A plot with the sparsity distribution per matrix, a plot with the sparsity distribution as histograms and a filtered reference points file.
+This script creates three output files: a plot with the sparsity distribution per matrix, a plot with the sparsity distribution as histograms and a filtered reference points file.
 
 An example usage is:
 
@@ -39,11 +39,11 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
                                 required=True)
 
     parserRequired.add_argument('--referencePoints', '-rp',
-                                help='Bed file contains all reference points which are check for a sufficient number of interactions.',
+                                help='Bed file contains all reference points which are checked for a sufficient number of interactions.',
                                 type=str,
                                 required=True)
     parserRequired.add_argument('--sparsity', '-s',
-                                help='Viewpoints with a sparsity less than given are considered of bad quality. If multiple matrices are given, '
+                                help='Viewpoints with a sparsity less than the value given are considered of bad quality. If multiple matrices are given, '
                                 'the viewpoint is removed as soon as it is of bad quality in at least one matrix.',
                                 type=float,
                                 required=True)
@@ -51,7 +51,7 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outFileName', '-o',
-                           help='The output file name of the passed reference points. Is used as prefix for the plots too.',
+                           help='The output file name of the passed reference points. Used as prefix for the plots as well.',
                            default='new_referencepoints.bed')
     parserOpt.add_argument('--outFileNameHistogram', '-oh',
                            help='The output file for the histogram plot.',
@@ -66,13 +66,13 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
                            type=int
                            )
     parserOpt.add_argument('--fixateRange', '-fs',
-                           help='Fixate score of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
+                           help='Fixate score of background model starting at distance x. E.g. all values greater than 500kb are set to the value of the 500kb bin.',
                            required=False,
                            default=500000,
                            type=int
                            )
     parserOpt.add_argument('--dpi',
-                           help='Optional parameter: Resolution for the image in case the'
+                           help='Optional parameter: Resolution for the image if the'
                            'output is a raster graphics image (e.g png, jpg)',
                            type=int,
                            default=300,
