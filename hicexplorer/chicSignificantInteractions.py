@@ -127,7 +127,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            help='The minimum number of interactions a detected peaks needs to have to be considered.')
 
     parserOpt.add_argument('--resolution', '-r',
-                           help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.',
+                           help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.'
                            'This value is used to merge neighboring bins.',
                            type=int,
                            default=1000,
