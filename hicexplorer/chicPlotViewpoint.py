@@ -189,7 +189,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             else:
                 absolute_path_interactionFile_ = interactionFile_
 
-            header, data, background_data_plot, p_values, viewpoint_index = pViewpointObj.getDataForPlotting(absolute_path_interactionFile_, pArgs.range, pBackgroundData)
+            header, data, background_data_plot, p_values, viewpoint_index_start, viewpoint_index_end = pViewpointObj.getDataForPlotting(absolute_path_interactionFile_, pArgs.range, pBackgroundData, pArgs.binResolution)
+            # log.debug('data {}'.format(data))
             if len(data) <= 1 or len(p_values) <= 1:
                 log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
                 continue
@@ -205,13 +206,13 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 else:
                     differentialFilePath = pHighlightDifferentialRegionsFileList[j]
 
-                highlight_differential_regions = pViewpointObj.readRejectedFile(differentialFilePath, viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
+                highlight_differential_regions = pViewpointObj.readRejectedFile(differentialFilePath, viewpoint_index_start, viewpoint_index_end, pArgs.binResolution, pArgs.range, viewpoint)
             if pArgs.significantInteractions:
                 if pArgs.significantInteractionFileFolder != '.':
                     significantInteractionsFilePath = pArgs.significantInteractionFileFolder + '/' + pSignificantRegionsFileList[j][i]
                 else:
                     significantInteractionsFilePath = pSignificantRegionsFileList[j][i]
-                significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(significantInteractionsFilePath, viewpoint_index, pArgs.binResolution, pArgs.range, viewpoint)
+                significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(significantInteractionsFilePath, viewpoint_index_start, viewpoint_index_end, pArgs.binResolution, pArgs.range, viewpoint)
             if not pArgs.plotSignificantInteractions:
                 significant_regions = None
             if data_plot_label:
@@ -242,13 +243,39 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
         if data_plot_label is not None:
 
             step_size = number_of_data_points // 10
-            ticks = range(0, number_of_data_points, step_size)
+            ticks = list(range(0, number_of_data_points, step_size))
 
-            value_range = (pArgs.range[0]) // (5)
-            x_labels = [str(-j // 1000) + 'kb' for j in range(pArgs.range[0], 0, -value_range)]
-            x_labels.append('viewpoint')
-            x_labels_ = [str(j // 1000) + 'kb' for j in range(value_range, pArgs.range[1] + 1, value_range)]
+            number_of_ticks = len(ticks)
+            
+            if pArgs.range[0] != pArgs.range[1]:
+                relation = pArgs.range[0] / pArgs.range[1]
+                log.debug('relation: {}'.format(relation))
+                if relation < 1:
+                    upstream_share = int(np.floor((number_of_ticks-1) * relation))
+                    downstream_share = (number_of_ticks-1) - upstream_share
+                else:
+                    downstream_share = int(np.floor((number_of_ticks-1) * (1/relation)))
+                    upstream_share = (number_of_ticks-1) - downstream_share
+
+                log.debug('upstream shae {}'.format(upstream_share))
+                log.debug('downstream_share {}'.format(downstream_share))
+
+            else:
+                upstream_share = (number_of_ticks // 2)
+                downstream_share = (number_of_ticks // 2)
+            value_range_upstream = (pArgs.range[0]) // upstream_share
+
+            value_range_downstream = (pArgs.range[1]) // downstream_share
+
+
+
+            x_labels = [str(-j // 1000) + 'kb' for j in range(pArgs.range[0], 0, -value_range_upstream)]
+            number_of_ticks_upstream = len(x_labels)
+            x_labels.append('RP')
+            x_labels_ = [str(j // 1000) + 'kb' for j in range(0, pArgs.range[1] + 1, value_range_downstream)]
             x_labels.extend(x_labels_)
+
+            ticks[number_of_ticks_upstream] = viewpoint_index_start + ((viewpoint_index_start - viewpoint_index_end) // 2)
             ax1.set_ylabel('Number of interactions')
             ax1.set_xticks(ticks)
             ax1.set_xticklabels(x_labels)

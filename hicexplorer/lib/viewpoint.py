@@ -74,6 +74,7 @@ class Viewpoint():
         interaction_data = {}
         z_score = {}
         interaction_file_data = {}
+        genomic_coordinates = {}
         with open(pBedFile) as fh:
             fh.readline()
             header = fh.readline()
@@ -87,7 +88,9 @@ class Viewpoint():
                 interaction_data[int(_line[-5])] = float(_line[-4])
                 z_score[int(_line[-5])] = float(_line[-3])
                 interaction_file_data[int(_line[-5])] = _line
-        return header, interaction_data, z_score, interaction_file_data
+                genomic_coordinates[int(_line[-5])] = [_line[0], _line[1], _line[2]]
+
+        return header, interaction_data, z_score, interaction_file_data, genomic_coordinates
 
     def readInteractionFileForAggregateStatistics(self, pBedFile):
         '''
@@ -348,13 +351,14 @@ class Viewpoint():
             _range[1] = (max_length - int(pViewpoint[2])) + bin_size
         return region_start, region_end, _range
 
-    def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
-        header, interaction_data, p_value_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
+    def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel, pResolution):
+        header, interaction_data, p_value_data, _interaction_file_data_raw, genomic_coordinates = self.readInteractionFile(pInteractionFile)
         matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
 
         data = []
         p_value = []
         data_background = None
+        viewpoint_index_end = None
         if pRange:
 
             interaction_data_keys = copy.deepcopy(
@@ -378,6 +382,7 @@ class Viewpoint():
             data_background = []
 
             for key in background_data_keys_sorted:
+                log.debug('key {}'.format(key))
                 if key in interaction_data:
                     data.append(interaction_data[key])
 
@@ -390,12 +395,41 @@ class Viewpoint():
             data = []
             interaction_key = sorted(interaction_data)
             for key in interaction_key:
-                data.append(interaction_data[key])
-                if key in p_value_data:
-                    p_value.append(p_value_data[key])
-            viewpoint_index = interaction_key.index(0)
+                # log.debug('key {}'.format(key))
+                if key == 0:
+                    chromosome, start, end = genomic_coordinates[key]
+                    log.debug('peak width {}'.format(np.abs(int(start) - int(end))))
+                    log.debug('pResolution {}'.format(pResolution))
 
-        return header, data, data_background, p_value, viewpoint_index
+                    if np.abs(int(start) - int(end)) > pResolution:
+                        
+                        peak_width = np.abs(int(start) - int(end)) // pResolution
+                        viewpoint_index_end = peak_width
+                        i = 0
+                        while i < peak_width:
+                            data.append(interaction_data[key] / peak_width)
+                            i += 1
+                else:
+                    data.append(interaction_data[key])
+                if key in p_value_data:
+                    if key == 0:
+                        chromosome, start, end = genomic_coordinates[key]
+                        if np.abs(int(start) - int(end)) > pResolution:
+                            peak_width = np.abs(int(start) - int(end)) // pResolution
+                            i = 0
+                            while i < peak_width:
+                                p_value.append(p_value_data[key])
+                                i += 1
+                            log.debug('peak width: {}'.format(peak_width))
+                    else:
+                        p_value.append(p_value_data[key])
+                    
+            viewpoint_index_start = interaction_key.index(0)
+            if viewpoint_index_end is None:
+                viewpoint_index_end = viewpoint_index_start
+            else:
+                viewpoint_index_end += viewpoint_index_start
+        return header, data, data_background, p_value, viewpoint_index_start, viewpoint_index_end
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHighlightSignificantRegion=None):
         data_plot_label = pAxis.plot(
@@ -497,7 +531,7 @@ class Viewpoint():
         _rbz_score[mask] = -1
         return _rbz_score
 
-    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndex, pResolution, pRange, pViewpoint):
+    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
         highlight_areas_list = []
@@ -520,8 +554,10 @@ class Viewpoint():
                     if int(_line[4]) < 0:
                         # reference_point_position = reference_point_start
                         relative_position_genomic_coordinates = start - int(reference_point_start)
+                        viewpointIndex = pViewpointIndexStart
                     else:
                         relative_position_genomic_coordinates = start - int(reference_point_end)
+                        viewpointIndex = pViewpointIndexEnd
 
                     log.debug('_line[4] {}'.format(_line[4]))
                     log.debug('relative_position_genomic_coordinates {}'.format(relative_position_genomic_coordinates))
@@ -531,7 +567,7 @@ class Viewpoint():
                     # start
 
                     # relative_position_genomic_coordinates  = reference_point_position
-                    relative_position = pViewpointIndex + \
+                    relative_position = viewpointIndex + \
                         (relative_position_genomic_coordinates / pResolution)
                     highlight_areas_list.append(
                         [relative_position, relative_position + width])
@@ -669,7 +705,7 @@ class Viewpoint():
 
         return scores_dict, merged_lines_dict
 
-    def readSignificantRegionsFile(self, pSignificantFile, pViewpointIndex, pResolution, pRange, pViewpoint):
+    def readSignificantRegionsFile(self, pSignificantFile, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
         highlight_areas_list = []
@@ -692,10 +728,12 @@ class Viewpoint():
                     if int(_line[5]) < 0:
                         # reference_point_position = reference_point_start
                         relative_position_genomic_coordinates = start - int(reference_point_start)
+                        viewpointIndex = pViewpointIndexStart
                     else:
                         relative_position_genomic_coordinates = start - int(reference_point_end)
+                        viewpointIndex = pViewpointIndexEnd
 
-                    relative_position = pViewpointIndex + \
+                    relative_position = viewpointIndex + \
                         (relative_position_genomic_coordinates / pResolution)
                     highlight_areas_list.append(
                         [relative_position, relative_position + width])
