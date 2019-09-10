@@ -24,7 +24,7 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description="""
-chicPlotViewpoint plots one or many viewpoints with the average background model and the computed p-value per sample. Moreover it can highlight differential interactions of two samples and or significant regions.
+chicPlotViewpoint plots one or many viewpoints with the average background model and the computed p-value per sample. In addition, it can highlight differential interactions of two samples and/or significant regions.
 
 An example usage is:
 
@@ -46,7 +46,7 @@ In batch mode the list of file names and the folders containing the files need t
 
     parserRequired.add_argument('--range',
                                 help='Defines the region upstream and downstream of a reference point which should be included. '
-                                'Format is --region upstream downstream e.g.: --region 500000 500000 plots 500kb up- and 500kb downstream. This value should not exceed the range used in the other chic-tools.',
+                                'Format is --region upstream downstream, e.g.: --region 500000 500000 plots 500kb up- and 500kb downstream. This value should not exceed the range used in the other chic-tools.',
                                 required=True,
                                 type=int,
                                 default=[500000, 500000],
@@ -58,23 +58,23 @@ In batch mode the list of file names and the folders containing the files need t
                            help='path to the background file which should be used for plotting',
                            required=False)
     parserOpt.add_argument('--interactionFileFolder', '-iff',
-                           help='Folder where the interaction files are stored in. Applies only for batch mode.',
+                           help='Folder where the interaction files are stored. Applies only for batch mode.',
                            required=False,
                            default='.')
     parserOpt.add_argument('--differentialTestResult', '-dif',
-                           help='Path to the files which with the H0 rejected files to highlight the regions in the plot.',
+                           help='Path to the H0 rejected files to highlight the regions in the plot.',
                            required=False,
                            nargs='+')
     parserOpt.add_argument('--significantInteractionFileFolder', '-siff',
-                           help='Folder where the detected significant interactions files are stored in. Applies only for batch mode.',
+                           help='Folder where the files with detected significant interactions are stored. Applies only for batch mode.',
                            required=False,
                            default='.')
     parserOpt.add_argument('--differentialTestResultsFolder', '-diff',
-                           help='Folder where the H0 rejected files are stored in. Applies only for batch mode.',
+                           help='Folder where the H0 rejected files are stored. Applies only for batch mode.',
                            required=False,
                            default='.')
     parserOpt.add_argument('--significantInteractions', '-si',
-                           help='Path to the files which detected significant interactions to highlight the regions in the plot.',
+                           help='Path to the files with detected significant interactions to highlight the regions in the plot.',
                            required=False,
                            nargs='+')
     parserOpt.add_argument('--outputFolder', '-of',
@@ -86,13 +86,13 @@ In batch mode the list of file names and the folders containing the files need t
                            required=False,
                            default='png')
     parserOpt.add_argument('--dpi',
-                           help='Optional parameter: Resolution for the image in case the'
+                           help='Optional parameter: Resolution for the image, if'
                            'output is a raster graphics image (e.g png, jpg)',
                            type=int,
                            default=300,
                            required=False)
     parserOpt.add_argument('--binResolution', '-r',
-                           help='Resolution of the bin in genomic units. Values are usually e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.',
+                           help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.',
                            type=int,
                            default=1000,
                            required=False)
@@ -103,11 +103,11 @@ In batch mode the list of file names and the folders containing the files need t
                            'http://matplotlib.org/examples/color/colormaps_reference.html',
                            default='RdYlBu')
     parserOpt.add_argument('--maxPValue', '-map',
-                           help='Maximal value for p-value. Values above are set to this value.',
+                           help='Maximal value for p-value. Values above this threshold are set to this value.',
                            type=float,
                            default=None)
     parserOpt.add_argument('--minPValue', '-mp',
-                           help='Minimal value for p-value. Values below are set to this value.',
+                           help='Minimal value for p-value. Values below this threshold are set to this value.',
                            type=float,
                            default=None)
 
@@ -126,7 +126,7 @@ In batch mode the list of file names and the folders containing the files need t
                            default=None)
 
     parserOpt.add_argument('--outFileName', '-o',
-                           help='File name to save the image. It is not used in batch mode.')
+                           help='File name to save the image. Not used in batch mode.')
     parserOpt.add_argument('--batchMode', '-bm',
                            help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
@@ -143,7 +143,7 @@ In batch mode the list of file names and the folders containing the files need t
                            type=str,
                            nargs='+')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads. Using the python multiprocessing module. ',
+                           help='Number of threads (uses the python multiprocessing module).',
                            required=False,
                            default=4,
                            type=int

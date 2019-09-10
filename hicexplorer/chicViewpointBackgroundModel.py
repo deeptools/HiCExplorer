@@ -19,11 +19,11 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-chicViewpointBackgroundModel computes for all given samples with all reference points a background model. For all relative distances to a reference point
-a negative binomial distribution is fitted. Moreover, for each relative distance to a reference point the average value for this location is computed. Both
-background models are used, the first one for p-value and significance computation, the second one to filter out interactions with a less x-fold over mean.
+chicViewpointBackgroundModel computes a background model for all given samples with all reference points. For all relative distances to a reference point
+a negative binomial distribution is fitted. In addition, for each relative distance to a reference point the average value for this location is computed. Both
+background models are used, the first one for p-value and significance computation, the second one to filter out interactions with a smaller x-fold over the mean.
 
-The background distributions are fixed at `--fixateRange` i.e. all distances lower / higher than this value use the fixed background distribution.
+The background distributions are fixed at `--fixateRange`, i.e. all distances lower or higher than this value use the fixed background distribution.
 
 An example usage is:
 
@@ -52,7 +52,7 @@ $ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool
                            help='The name of the background model file',
                            default='background_model.bed')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads. Using the python multiprocessing module. ',
+                           help='Number of threads (uses the python multiprocessing module). ',
                            required=False,
                            default=4,
                            type=int
