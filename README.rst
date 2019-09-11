@@ -6,8 +6,6 @@
    :target: https://anaconda.org/bioconda/hicexplorer
 .. image:: https://quay.io/repository/biocontainers/hicexplorer/status
    :target: https://quay.io/repository/biocontainers/hicexplorer
-.. image:: https://badge.fury.io/py/HiCExplorer.svg
-       :target: https://badge.fury.io/py/HiCExplorer
 
 HiCExplorer
 ===========
