@@ -41,8 +41,8 @@ Normalizes given matrices either to the smallest given read number of all matric
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--multiplicativeValue', '-mv', default=1,
-                                type=float,
-                                help='show this help message and exit')
+                           type=float,
+                           help='show this help message and exit')
 
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
@@ -113,7 +113,7 @@ def main(args=None):
 
         for i, hic_matrix in enumerate(hic_matrix_list):
             hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
-            
+
             mask = np.isnan(hic_matrix.matrix.data)
             hic_matrix.matrix.data[mask] = 0
 

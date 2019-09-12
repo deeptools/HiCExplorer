@@ -232,9 +232,9 @@ def test_normalize_multiplicative_h5_cool(capsys):
     outfile_one.close()
 
     args = "--matrices {} --normalize multiplicative --multiplicativeValue {} -o {}".format(matrix_one_cool, 2,
-                                                                   outfile_one.name).split()
+                                                                                            outfile_one.name).split()
     hicNormalize.main(args)
-   
+
     test_one = hm.hiCMatrix(ROOT + "/small_test_matrix_scaled_by_2.cool")
 
     new_one = hm.hiCMatrix(outfile_one.name)
