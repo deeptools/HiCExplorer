@@ -232,7 +232,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 if significant_p_values:
                     for location in significant_p_values:
                         for x in range(location[0], location[1]):
-                            p_values[x] = location[2]
+                            if x < len(p_values):
+                                p_values[x] = location[2]
                 p_values.clip(pArgs.minPValue, pArgs.maxPValue, p_values)
             # if pArgs.pValueSignificanceLevels:
                 
@@ -364,7 +365,15 @@ def main(args=None):
         except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
-
+    if args.pValueSignificanceLevels:
+        old = -100
+        for element in args.pValueSignificanceLevels:
+            if old < element:
+                old = element
+                continue
+            else:
+                log.error('--pValueSignificanceLevels levels need to increase: {}'.format(args.pValueSignificanceLevels))
+                exit(1)
     if args.backgroundModelFile:
         background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, pMean=True)
 
