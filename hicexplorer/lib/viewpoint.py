@@ -377,19 +377,62 @@ class Viewpoint():
                 background_data_keys_sorted = sorted(pBackgroundModel)
 
         if pBackgroundModel:
-            viewpoint_index = background_data_keys_sorted.index(0)
-
+            # viewpoint_index = background_data_keys_sorted.index(0)
+            viewpoint_index_start = background_data_keys_sorted.index(0)
+            
             data_background = []
 
             for key in background_data_keys_sorted:
-                log.debug('key {}'.format(key))
+                # log.debug('key {}'.format(key))
                 if key in interaction_data:
-                    data.append(interaction_data[key])
+                    if key == 0:
+                        chromosome, start, end = genomic_coordinates[key]
+                        # log.debug('peak width {}'.format(np.abs(int(start) - int(end))))
+                        # log.debug('pResolution {}'.format(pResolution))
+
+                        if np.abs(int(start) - int(end)) > pResolution:
+                            
+                            peak_width = np.abs(int(start) - int(end)) // pResolution
+                            viewpoint_index_end = peak_width
+                            i = 0
+                            while i < peak_width:
+                                data.append(interaction_data[key])
+                                i += 1
+                    else:
+                        data.append(interaction_data[key])
 
                     if key in p_value_data:
-                        p_value.append(p_value_data[key])
+                        if key == 0:
+                            chromosome, start, end = genomic_coordinates[key]
+                            if np.abs(int(start) - int(end)) > pResolution:
+                                peak_width = np.abs(int(start) - int(end)) // pResolution
+                                i = 0
+                                while i < peak_width:
+                                    p_value.append(p_value_data[key])
+                                    i += 1
+                                # log.debug('peak width: {}'.format(peak_width))
+                        else:
+                            p_value.append(p_value_data[key])
+                    if key == 0:
+                        chromosome, start, end = genomic_coordinates[key]
+                        if np.abs(int(start) - int(end)) > pResolution:
+                            peak_width = np.abs(int(start) - int(end)) // pResolution
+                            i = 0
+                            while i < peak_width:
+                                data_background.append(pBackgroundModel[key][0])
+                                log.debug('pBackgroundModel[key][0] {}'.format(pBackgroundModel[key][0]))
+                                log.debug('peak_width {}'.format(peak_width))
+                                log.debug('data_background[-1] {}'.format(data_background[-1]))
 
-                    data_background.append(pBackgroundModel[key][0])
+                                i += 1
+                            # log.debug('peak width: {}'.format(peak_width))
+                    else:
+                        data_background.append(pBackgroundModel[key][0])
+                    
+            if viewpoint_index_end is None:
+                viewpoint_index_end = viewpoint_index_start
+            else:
+                viewpoint_index_end += viewpoint_index_start
 
         else:
             data = []
@@ -398,8 +441,8 @@ class Viewpoint():
                 # log.debug('key {}'.format(key))
                 if key == 0:
                     chromosome, start, end = genomic_coordinates[key]
-                    log.debug('peak width {}'.format(np.abs(int(start) - int(end))))
-                    log.debug('pResolution {}'.format(pResolution))
+                    # log.debug('peak width {}'.format(np.abs(int(start) - int(end))))
+                    # log.debug('pResolution {}'.format(pResolution))
 
                     if np.abs(int(start) - int(end)) > pResolution:
                         
@@ -407,7 +450,7 @@ class Viewpoint():
                         viewpoint_index_end = peak_width
                         i = 0
                         while i < peak_width:
-                            data.append(interaction_data[key] / peak_width)
+                            data.append(interaction_data[key])
                             i += 1
                 else:
                     data.append(interaction_data[key])
@@ -420,7 +463,7 @@ class Viewpoint():
                             while i < peak_width:
                                 p_value.append(p_value_data[key])
                                 i += 1
-                            log.debug('peak width: {}'.format(peak_width))
+                            # log.debug('peak width: {}'.format(peak_width))
                     else:
                         p_value.append(p_value_data[key])
                     

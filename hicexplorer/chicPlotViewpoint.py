@@ -221,6 +221,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 data_plot_label = pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
 
             if background_plot:
+                # log.debug('background_data_plot {}'.format(len(background_data_plot)))
                 if background_data_plot is not None:
                     data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot, pXFold=pArgs.xFold)
                 background_plot = False
@@ -244,9 +245,35 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
 
             ticks = []
             x_labels = []
-            upstream_divisor = 1e3 if pArgs.range[0] < 1e6 else 1e4
-            upstream_mod = 2e5 if pArgs.range[0] < 1e6 else 2e6
-            upstream_unit = 'kb' if pArgs.range[0] < 1e6 else 'Mb'
+            
+            if pArgs.range[0] < 1e6:
+                upstream_divisor = 1e3 
+                upstream_mod = 2e5
+
+                if pArgs.range[0] <= 1e4:
+                    upstream_mod = 5e3    
+                    # upstream_divisor = 5e1
+                elif pArgs.range[0] <= 5e4:
+                    upstream_mod = 1e4
+                    # upstream_divisor = 1e3
+                elif pArgs.range[0] <= 1e5:
+                    upstream_mod = 5e4
+                    # upstream_divisor = 5e2 
+
+                 
+
+                 
+                log.debug('upstream_divisor {}'.format(upstream_divisor))
+
+                upstream_unit = 'kb'
+            elif pArgs.range[0] >= 1e6:
+                upstream_divisor = 1e4
+                upstream_mod = 2e6
+                upstream_unit = 'Mb'
+
+            # upstream_divisor = 1e3 if pArgs.range[0] < 1e6 else 1e4
+            # upstream_mod = 2e5 if pArgs.range[0] < 1e6 else 2e6
+            # upstream_unit = 'kb' if pArgs.range[0] < 1e6 else 'Mb'
 
             for k, j in zip(range((pArgs.range[0])), range(pArgs.range[0], 1, -1)):
                 if j % upstream_mod == 0:
@@ -255,14 +282,40 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             x_labels.append('RP')
             ticks.append(pArgs.range[0] // pArgs.binResolution)
 
-            downstream_divisor = 1e3 if pArgs.range[1] < 1e6 else 1e4
-            downstream_mod = 2e5 if pArgs.range[1] < 1e6 else 2e6
-            downstream_unit = 'kb' if pArgs.range[1] < 1e6 else 'Mb'
+            if pArgs.range[1] < 1e6:
+                downstream_divisor = 1e3 
+                downstream_mod = 2e5
+
+                
+                if pArgs.range[1] <= 1e4:
+                    downstream_mod = 5e3
+                    # downstream_divisor = 5e1
+                elif pArgs.range[1] <= 5e4:
+                    downstream_mod = 1e4
+                    # downstream_divisor = 1e2 
+                elif pArgs.range[1] <= 1e5:
+                    downstream_mod = 5e4
+                    # downstream_divisor = 5e2 
+
+
+                downstream_unit = 'kb'
+            elif pArgs.range[1] >= 1e6:
+                downstream_divisor = 1e4
+                downstream_mod = 2e6
+                downstream_unit = 'Mb'
+            # downstream_divisor = 1e3 if pArgs.range[1] < 1e6 else 1e4
+            # downstream_mod = 2e5 if pArgs.range[1] < 1e6 else 2e6
+            # downstream_unit = 'kb' if pArgs.range[1] < 1e6 else 'Mb'
             referencepoint_index = ticks[-1]
             for k, j in zip(range(pArgs.range[1]), range(1, pArgs.range[1]+1, 1)):
                 if j % downstream_mod == 0:
                     x_labels.append(str(-int(j) // int(downstream_divisor)) + downstream_unit)
                     ticks.append(referencepoint_index + (k // pArgs.binResolution))
+
+            # log.debug('ticks {}'.format(ticks))
+            # log.debug('x_labels {}'.format(x_labels))
+            # log.debug('data {}'.format(data))
+            # log.debug('data {}'.format(len(data)))
 
             ax1.set_ylabel('Number of interactions')
             ax1.set_xticks(ticks)
