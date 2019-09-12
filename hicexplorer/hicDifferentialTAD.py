@@ -79,10 +79,15 @@ def main(args=None):
     rejected_H0 = []
     # log.debug('domains_df {}'.format(domains_df))
     domains = domains_df.values.tolist()
+    accepted_inter_left = []
+    accepted_inter_right = []
+    accepted_intra = []
+    p_values_list = []
+    rows = []
     for i, row in enumerate(domains):
     # for domain in domains_df:
 
-        log.debug('domain {} {} {}'.format(row[0], row[1], row[2]))
+        # log.debug('domain {} {} {}'.format(row[0], row[1], row[2]))
         if is_cooler_target:
 
             # get intra-TAD data
@@ -92,20 +97,23 @@ def main(args=None):
                 pMatrixFile=args.controlMatrix, pChrnameList=[str(row[0]) + ':' + str(row[1])+'-'+str(row[2])])
             matrix_target = hic_matrix_target.matrix.toarray()
             matrix_control = hic_matrix_control.matrix.toarray()
-            log.debug('Received intra tad')
+            # log.debug('Received intra tad')
             midpos = row[1] + ((row[2] - row[1] )/ 2)
-            log.debug('row {}'.format(row))
-            log.debug('midpos {}'.format(midpos))
+            # log.debug('row {}'.format(row))
+            # log.debug('midpos {}'.format(midpos))
 
             # get inter-tad data
-            if i - 1 > 0:
+            if i - 1 >= 0:
                 chromosom = domains[i-1][0]
                 start = domains[i-1][1]
             else:
                 chromosom = domains[i][0]
                 start = domains[i][1]
-            end = domains[i+1][2]
-            log.debug('{} {} {}'.format(chromosom, start, end))
+            if i + 1 < len(domains):
+                end = domains[i+1][2]
+            else:
+                end = domains[i][2]
+            # log.debug('{} {} {}'.format(chromosom, start, end))
             hic_matrix_target_inter_tad = hm.hiCMatrix(
                 pMatrixFile=args.targetMatrix, pChrnameList=[str(chromosom) + ':' + str(start)+'-'+str(end)])
             hic_matrix_control_inter_tad = hm.hiCMatrix(
@@ -113,36 +121,44 @@ def main(args=None):
             matrix_target_inter_tad = hic_matrix_target_inter_tad.matrix.toarray()
             matrix_control_inter_tad = hic_matrix_control_inter_tad.matrix.toarray()
 
-            log.debug('Received inter tad')
+            # log.debug('Received inter tad')
             tad_midpoint = hic_matrix_target_inter_tad.getRegionBinRange(str(row[0]),midpos,midpos )[0]
             
-            if i - 1 > 0:
+            if i - 1 >= 0:
             # get index position left tad with tad
                 left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
                 left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
-                log.debug('left_boundary_index_target {}'.format(left_boundary_index_target))
-                log.debug('left_boundary_index_control {}'.format(left_boundary_index_control))
+                # log.debug('left_boundary_index_target {}'.format(left_boundary_index_target))
+                # log.debug('left_boundary_index_control {}'.format(left_boundary_index_control))
             if i + 1 < len(domains):
             # get index position left tad with tad
                 right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
                 right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
             
 
-                log.debug('right_boundary_index_target {}'.format(right_boundary_index_target))
-                log.debug('right_boundary_index_control {}'.format(right_boundary_index_control))
+                # log.debug('right_boundary_index_target {}'.format(right_boundary_index_target))
+                # log.debug('right_boundary_index_control {}'.format(right_boundary_index_control))
 
-            log.debug('len(matrix_target_inter_tad) {} {}'.format(len(matrix_target_inter_tad), len(matrix_target_inter_tad[0])))
-            if i - 1 > 0:
-                log.debug('tad_midpoint {}'.format(tad_midpoint))
-                log.debug('left_boundary_index_target {}'.format(left_boundary_index_target))
-                log.debug('right_boundary_index_target {}'.format(right_boundary_index_target))
+            # log.debug('len(matrix_target_inter_tad) {} {}'.format(len(matrix_target_inter_tad), len(matrix_target_inter_tad[0])))
+            if i - 1 >= 0 and i + 1 < len(domains):
+                # log.debug('both')
 
-                log.debug(matrix_target_inter_tad)
-                log.debug(matrix_target_inter_tad[:tad_midpoint, left_boundary_index_target:tad_midpoint])
-                log.debug(matrix_target_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:])
+                intertad_left_target = matrix_target_inter_tad[:tad_midpoint, left_boundary_index_target:tad_midpoint]
+                intertad_right_target = matrix_target_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:]
+                intertad_left_control = matrix_control_inter_tad[:tad_midpoint, left_boundary_index_target:tad_midpoint]
+                intertad_right_control = matrix_control_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:]
+            elif i - 1 < 0 and i + 1 < len(domains):
+                # log.debug('right')
+                intertad_right_target = matrix_target_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:]
+                intertad_right_control = matrix_control_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:]
+            elif i - 1 > 0 and i + 1 >= len(domains):
+                # log.debug('left')
 
-            if i > 2:
-                exit()
+                intertad_left_target = matrix_target_inter_tad[:tad_midpoint, left_boundary_index_target:tad_midpoint]
+                intertad_left_control = matrix_control_inter_tad[:tad_midpoint, left_boundary_index_target:tad_midpoint]
+
+            # if i > 2:
+            #     exit()
         else:
             chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, hic_matrix_target)
             matrix_target = np.asarray(hic_matrix_target.matrix[idx1, :][:, idx2].todense().astype(float))
@@ -151,23 +167,97 @@ def main(args=None):
 
         matrix_target = matrix_target.flatten()
         matrix_control = matrix_control.flatten()
+        
+        significance_level_left = None
+        significance_level_right = None
+        # log.debug('i {}'.format(i))
+        if i - 1 > 0 and i + 1 < len(domains):
+            intertad_left_target = intertad_left_target.flatten()
+            intertad_left_control = intertad_left_control.flatten()
+            intertad_right_target = intertad_right_target.flatten()
+            intertad_right_control = intertad_right_control.flatten()
 
-        statistic, significance_level = ranksums(sorted(matrix_target), sorted(matrix_control))
-        if significance_level <= args.pValue:
-            rejected_H0.append(row)
-            rejected_H0[-1].append(significance_level)
+            statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
+            statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
+        elif i -1 <= 0 and i + 1 < len(domains):
+            # log.debug('size target: {}'.format(len(intertad_right_target)))
+            # log.debug('size control: {}'.format(len(intertad_right_control)))
+            intertad_right_target = intertad_right_target.flatten()
+            intertad_right_control = intertad_right_control.flatten()
+            statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
+        elif i - 1 > 0 and i + 1 >= len(domains):
+            intertad_left_target = intertad_left_target.flatten()
+            intertad_left_control = intertad_left_control.flatten()
+            statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
+            
+
+        statistic, significance_level = ranksums(matrix_target, matrix_control)
+
+    
+        p_values = []
+        if significance_level_left is None:
+            accepted_inter_left.append(1)
+            p_values.append(2)
+        elif significance_level_left <= args.pValue:
+            accepted_inter_left.append(1)
+            p_values.append(significance_level_left)
         else:
-            accepted_H0.append(row)
-            accepted_H0[-1].append(significance_level)
+            accepted_inter_left.append(0)
+            p_values.append(significance_level_left)
 
+        if significance_level_right is None:
+            accepted_inter_right.append(1)
+            p_values.append(2)
+        elif significance_level_right <= args.pValue:
+            accepted_inter_right.append(1)
+            p_values.append(significance_level_right)
+        else:
+            accepted_inter_right.append(0)
+            p_values.append(significance_level_right)
+        
+        if significance_level <= args.pValue:
+            accepted_intra.append(1)
+            p_values.append(significance_level)
+        else:
+            accepted_intra.append(0)
+            p_values.append(significance_level)
+            
+        p_values_list.append(p_values)
+
+        rows.append(row)
+        # if significance_level <= args.pValue:
+        #     rejected_H0.append(row)
+        #     rejected_H0[-1].append(significance_level)
+        # else:
+        #     accepted_H0.append(row)
+        #     accepted_H0[-1].append(significance_level)
+    accepted_inter_left = np.array(accepted_inter_left)
+    accepted_inter_right = np.array(accepted_inter_right)
+    accepted_intra = np.array(accepted_intra)
+    rows = np.array(rows)
+    mask = np.logical_and(accepted_inter_left, accepted_inter_right)
+    mask = np.logical_and(mask, accepted_intra)
+    p_values_list = np.array(p_values_list)
+    accepted_HO = p_values_list[~mask]
+    rejected_H0 = p_values_list[mask]
+    accepted_rows = rows[~mask]
+    rejected_rows = rows[mask]
     with open(args.outFileNamePrefix + '_accepted.bed', 'w') as file:
-        for row in accepted_H0:
+        for i, row in enumerate(accepted_rows):
             row_list = list(map(str, row))
             file.write('\t'.join(row_list))
+            file.write('\t')
+            pvalue_list = list(map(str, accepted_HO[i]))
+            file.write('\t'.join(pvalue_list))
+
+            
             file.write('\n')
     with open(args.outFileNamePrefix + '_rejected.bed', 'w') as file:
-        for row in rejected_H0:
+        for i, row in enumerate(rejected_rows):
             row_list = list(map(str, row))
             file.write('\t'.join(row_list))
+            file.write('\t')
+            pvalue_list = list(map(str, rejected_H0[i]))
+            file.write('\t'.join(pvalue_list))
             file.write('\n')
 
