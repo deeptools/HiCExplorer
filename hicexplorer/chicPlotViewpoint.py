@@ -242,40 +242,28 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
 
         if data_plot_label is not None:
 
-            step_size = number_of_data_points // 10
-            ticks = list(range(0, number_of_data_points, step_size))
+            ticks = []
+            x_labels = []
+            upstream_divisor = 1e3 if pArgs.range[0] < 1e6 else 1e4
+            upstream_mod = 2e5 if pArgs.range[0] < 1e6 else 2e6
+            upstream_unit = 'kb' if pArgs.range[0] < 1e6 else 'Mb'
 
-            number_of_ticks = len(ticks)
-            
-            if pArgs.range[0] != pArgs.range[1]:
-                relation = pArgs.range[0] / pArgs.range[1]
-                log.debug('relation: {}'.format(relation))
-                if relation < 1:
-                    upstream_share = int(np.floor((number_of_ticks-1) * relation))
-                    downstream_share = (number_of_ticks-1) - upstream_share
-                else:
-                    downstream_share = int(np.floor((number_of_ticks-1) * (1/relation)))
-                    upstream_share = (number_of_ticks-1) - downstream_share
-
-                log.debug('upstream shae {}'.format(upstream_share))
-                log.debug('downstream_share {}'.format(downstream_share))
-
-            else:
-                upstream_share = (number_of_ticks // 2)
-                downstream_share = (number_of_ticks // 2)
-            value_range_upstream = (pArgs.range[0]) // upstream_share
-
-            value_range_downstream = (pArgs.range[1]) // downstream_share
-
-
-
-            x_labels = [str(-j // 1000) + 'kb' for j in range(pArgs.range[0], 0, -value_range_upstream)]
-            number_of_ticks_upstream = len(x_labels)
+            for k, j in zip(range((pArgs.range[0])), range(pArgs.range[0], 1, -1)):
+                if j % upstream_mod == 0:
+                    x_labels.append(str(-int(j) // int(upstream_divisor)) + upstream_unit)
+                    ticks.append(k // pArgs.binResolution)
             x_labels.append('RP')
-            x_labels_ = [str(j // 1000) + 'kb' for j in range(0, pArgs.range[1] + 1, value_range_downstream)]
-            x_labels.extend(x_labels_)
+            ticks.append(pArgs.range[0] // pArgs.binResolution)
 
-            ticks[number_of_ticks_upstream] = viewpoint_index_start + ((viewpoint_index_start - viewpoint_index_end) // 2)
+            downstream_divisor = 1e3 if pArgs.range[1] < 1e6 else 1e4
+            downstream_mod = 2e5 if pArgs.range[1] < 1e6 else 2e6
+            downstream_unit = 'kb' if pArgs.range[1] < 1e6 else 'Mb'
+            referencepoint_index = ticks[-1]
+            for k, j in zip(range(pArgs.range[1]), range(1, pArgs.range[1]+1, 1)):
+                if j % downstream_mod == 0:
+                    x_labels.append(str(-int(j) // int(downstream_divisor)) + downstream_unit)
+                    ticks.append(referencepoint_index + (k // pArgs.binResolution))
+
             ax1.set_ylabel('Number of interactions')
             ax1.set_xticks(ticks)
             ax1.set_xticklabels(x_labels)
