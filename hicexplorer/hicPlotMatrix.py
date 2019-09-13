@@ -853,6 +853,7 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
 
     x_list = []
     y_list = []
+    log.debug('pRegion {}'.format(pRegion))
     with open(pNameOfLongRangeContactsFile, 'rb') as file:
         for line in file.readlines():
             line = toString(line)
@@ -869,7 +870,9 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
                 y_list.append(y)
             except Exception:
                 pass
-        pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
-        pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
+        
+        if int(pRegion[1]) != 0  and int(pRegion[2]) != 1e15:
+            pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
+            pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
 
         pAxis.plot(x_list, y_list, 's', lw=2, markerfacecolor='none', markeredgecolor='red')
