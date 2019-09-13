@@ -264,7 +264,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     if pLoops:
         log.debug('pLoops called')
 
-        plotLongRangeContacts(axHeat2, pLoops, pHiCMatrix, args.region)
+        plotLongRangeContacts(axHeat2, pLoops, pHiCMatrix, args.region, args.chromosomeOrder)
         # pLongRangeContacts=None, pHiCMatrix=None
         # plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix)
     axHeat2.invert_yaxis()
@@ -849,7 +849,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                     pAxis[i].fill_between(x_values, 0, bigwig_scores, edgecolor='none')
 
 
-def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion):
+def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion, pChromosomeOrder):
 
     x_list = []
     y_list = []
@@ -861,7 +861,10 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
             try:
                 chrom_X, start_X, end_X = fields[0:3]
                 chrom_Y, start_Y, end_Y = fields[3:6]
-                if chrom_X != pRegion[0] or chrom_Y != pRegion[0]:
+                
+                if pRegion is not None and (chrom_X != pRegion[0] or chrom_Y != pRegion[0]):
+                    continue
+                elif pChromosomeOrder is not None and (chrom_X not in pChromosomeOrder or chrom_Y not in pChromosomeOrder):
                     continue
                 x = int(start_X)
                 y = int(start_Y)
@@ -871,7 +874,7 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
             except Exception:
                 pass
         
-        if int(pRegion[1]) != 0  and int(pRegion[2]) != 1e15:
+        if pRegion is not None and (int(pRegion[1]) != 0  and int(pRegion[2]) != 1e15):
             pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
             pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
 
