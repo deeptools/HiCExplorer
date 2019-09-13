@@ -17,6 +17,7 @@ from hicmatrix import HiCMatrix as hm
 from hicexplorer.utilities import check_cooler
 from hicexplorer._version import __version__
 
+
 def get_linenumber():
     cf = currentframe()
     return cf.f_back.f_lineno
@@ -51,10 +52,10 @@ Please notice that the matrices need to have the same read coverage, this can be
                            help='Only candidates with p-values less the given threshold will be accepted as differential.',
                            default=0.05)
     parserOpt.add_argument('--mode', '-m',
-                                help='Consider only intra-TAD interactions, or additional left inter-TAD, right inter-TAD or all.',
-                                choices=['intra-TAD', 'left-inter-TAD', 'right-inter-TAD', 'all'],
-                                default='smallest',
-                                required=True)
+                           help='Consider only intra-TAD interactions, or additional left inter-TAD, right inter-TAD or all.',
+                           choices=['intra-TAD', 'left-inter-TAD', 'right-inter-TAD', 'all'],
+                           default='smallest',
+                           required=True)
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads to use, the parallelization is implemented per chromosome.',
                            required=False,
@@ -67,10 +68,12 @@ Please notice that the matrices need to have the same read coverage, this can be
                            version='%(prog)s {}'.format(__version__))
     return parser
 
+
 def readDomainBoundaries(pFile):
     domains_df = pd.read_csv(pFile, sep='\t', header=None)[[0, 1, 2]]
 
     return domains_df
+
 
 def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH5, pPValue, pQueue):
     accepted_inter_left = []
@@ -79,86 +82,91 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
     p_values_list = []
     rows = []
     for i, row in enumerate(pDomainList):
-    # for domain in domains_df:
+        # for domain in domains_df:
 
         # log.debug('domain {} {} {}'.format(row[0], row[1], row[2]))
         # get inter-tad data
         if i - 1 >= 0:
-            chromosom = pDomainList[i-1][0]
-            start = pDomainList[i-1][1]
+            chromosom = pDomainList[i - 1][0]
+            start = pDomainList[i - 1][1]
         else:
             chromosom = pDomainList[i][0]
             start = pDomainList[i][1]
         if i + 1 < len(pDomainList):
-            end = pDomainList[i+1][2]
+            end = pDomainList[i + 1][2]
         else:
             end = pDomainList[i][2]
-        midpos = row[1] + ((row[2] - row[1] )/ 2)
+        midpos = row[1] + ((row[2] - row[1]) / 2)
 
         if pCoolOrH5:
 
             # get intra-TAD data
             hic_matrix_target = hm.hiCMatrix(
-                pMatrixFile=pMatrixTarget, pChrnameList=[str(row[0]) + ':' + str(row[1])+'-'+str(row[2])])
+                pMatrixFile=pMatrixTarget, pChrnameList=[str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])])
             hic_matrix_control = hm.hiCMatrix(
-                pMatrixFile=pMatrixControl, pChrnameList=[str(row[0]) + ':' + str(row[1])+'-'+str(row[2])])
+                pMatrixFile=pMatrixControl, pChrnameList=[str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])])
             matrix_target = hic_matrix_target.matrix.toarray()
             matrix_control = hic_matrix_control.matrix.toarray()
-            
-            hic_matrix_target_inter_tad = hm.hiCMatrix(
-                pMatrixFile=pMatrixTarget, pChrnameList=[str(chromosom) + ':' + str(start)+'-'+str(end)])
-            hic_matrix_control_inter_tad = hm.hiCMatrix(
-                pMatrixFile=pMatrixControl, pChrnameList=[str(chromosom) + ':' + str(start)+'-'+str(end)])
-            matrix_target_inter_tad = hic_matrix_target_inter_tad.matrix.toarray()
-            matrix_control_inter_tad = hic_matrix_control_inter_tad.matrix.toarray()
 
-            
+            hic_matrix_target_inter_tad = hm.hiCMatrix(
+                pMatrixFile=pMatrixTarget, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
+            hic_matrix_control_inter_tad = hm.hiCMatrix(
+                pMatrixFile=pMatrixControl, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
+            matrix_target_inter_tad = hic_matrix_target_inter_tad.matrix
+            matrix_control_inter_tad = hic_matrix_control_inter_tad.matrix
+
         else:
             # in case of h5 pMatrixTarget is already a HiCMatrix object
             hic_matrix_target = pMatrixTarget
             hic_matrix_control = pMatrixControl
             hic_matrix_target_inter_tad = pMatrixTarget
             hic_matrix_control_inter_tad = pMatrixControl
-            indices_target = hic_matrix_target.getRegionBinRange(str(row[0]), row[1], row[2])))
-            indices_control = hic_matrix_control.getRegionBinRange(str(row[0]), row[1], row[2])))
+            indices_target = hic_matrix_target.getRegionBinRange(str(row[0]), row[1], row[2])
+            indices_control = hic_matrix_control.getRegionBinRange(str(row[0]), row[1], row[2])
 
-
-           
-
-            # = hic_matrix_control.getRegionBinRange(str(row[0]), row[1], row[2])[0]
-            # matrix[idx1, :][:, idx2]
-
-
-            # matrix_target 
-            # matrix_control = 
+            matrix_target = hic_matrix_target.matrix[indices_target[0]:indices_target[1], indices_target[0]:indices_target[1]].toarray()
+            matrix_control = hic_matrix_control.matrix[indices_control[0]:indices_control[1], indices_control[0]:indices_control[1]].toarray()
             matrix_target_inter_tad = pMatrixTarget.matrix
             matrix_control_inter_tad = pMatrixControl.matrix
 
-
         matrix_target = matrix_target.flatten()
         matrix_control = matrix_control.flatten()
-        tad_midpoint = hic_matrix_target_inter_tad.getRegionBinRange(str(row[0]),midpos,midpos )[0]
-            
+        tad_midpoint = hic_matrix_target_inter_tad.getRegionBinRange(str(row[0]), midpos, midpos)[0]
+
         if i - 1 >= 0:
-        # get index position left tad with tad
+            # get index position left tad with tad
             left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
             left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
+        if pCoolOrH5:
+            outer_left_boundary_index_target = 0
+            outer_left_boundary_index_control = 0
+
+            outer_right_boundary_index_control = -1
+            outer_right_boundary_index_target = -1
+
+        else:
+            outer_left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
+            outer_left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
+
+            outer_right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
+            outer_right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
+
         if i + 1 < len(pDomainList):
-        # get index position left tad with tad
+            # get index position left tad with tad
             right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
             right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
 
         if i - 1 >= 0 and i + 1 < len(pDomainList):
-            intertad_left_target = matrix_target_inter_tad[:tad_midpoint, left_boundary_index_target:tad_midpoint]
-            intertad_right_target = matrix_target_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:]
-            intertad_left_control = matrix_control_inter_tad[:tad_midpoint, left_boundary_index_target:tad_midpoint]
-            intertad_right_control = matrix_control_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:]
+            intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:tad_midpoint, left_boundary_index_target:tad_midpoint].toarray()
+            intertad_right_target = matrix_target_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:outer_right_boundary_index_target].toarray()
+            intertad_left_control = matrix_control_inter_tad[outer_left_boundary_index_control:tad_midpoint, left_boundary_index_control:tad_midpoint].toarray()
+            intertad_right_control = matrix_control_inter_tad[tad_midpoint:right_boundary_index_control, tad_midpoint:outer_right_boundary_index_control].toarray()
         elif i - 1 < 0 and i + 1 < len(pDomainList):
-            intertad_right_target = matrix_target_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:]
-            intertad_right_control = matrix_control_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:]
+            intertad_right_target = matrix_target_inter_tad[tad_midpoint:right_boundary_index_target, tad_midpoint:outer_right_boundary_index_target].toarray()
+            intertad_right_control = matrix_control_inter_tad[tad_midpoint:right_boundary_index_control, tad_midpoint:outer_right_boundary_index_control].toarray()
         elif i - 1 > 0 and i + 1 >= len(pDomainList):
-            intertad_left_target = matrix_target_inter_tad[:tad_midpoint, left_boundary_index_target:tad_midpoint]
-            intertad_left_control = matrix_control_inter_tad[:tad_midpoint, left_boundary_index_target:tad_midpoint]
+            intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:tad_midpoint, left_boundary_index_target:tad_midpoint].toarray()
+            intertad_left_control = matrix_control_inter_tad[outer_left_boundary_index_control:tad_midpoint, left_boundary_index_control:tad_midpoint].toarray()
 
         significance_level_left = None
         significance_level_right = None
@@ -170,7 +178,7 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
 
             statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
             statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
-        elif i -1 <= 0 and i + 1 < len(pDomainList):
+        elif i - 1 <= 0 and i + 1 < len(pDomainList):
             intertad_right_target = intertad_right_target.flatten()
             intertad_right_control = intertad_right_control.flatten()
             statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
@@ -180,7 +188,7 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
             statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
 
         statistic, significance_level = ranksums(matrix_target, matrix_control)
-    
+
         p_values = []
         if significance_level_left is None:
             accepted_inter_left.append(1)
@@ -201,19 +209,20 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
         else:
             accepted_inter_right.append(0)
             p_values.append(significance_level_right)
-        
+
         if significance_level <= pPValue:
             accepted_intra.append(1)
             p_values.append(significance_level)
         else:
             accepted_intra.append(0)
             p_values.append(significance_level)
-            
+
         p_values_list.append(p_values)
 
         rows.append(row)
 
     pQueue.put([p_values_list, accepted_inter_left, accepted_inter_right, accepted_intra, rows])
+
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -237,9 +246,6 @@ def main(args=None):
     rejected_H0 = []
     # log.debug('domains_df {}'.format(domains_df))
     domains = domains_df.values.tolist()
-    
-
-
 
     p_values_threads = [None] * args.threads
     accepted_left_inter_threads = [None] * args.threads
@@ -278,7 +284,7 @@ def main(args=None):
                 p_values_threads[i], accepted_left_inter_threads[i], \
                     accepted_right_inter_threads[i], \
                     accepted_intra_threads[i], rows_threads[i] = queue[i].get()
-               
+
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -306,8 +312,6 @@ def main(args=None):
     accepted_intra = np.array(accepted_intra)
     rows = np.array(rows)
 
-
-
     if args.mode == 'intra-TAD':
         mask = accepted_intra
     elif args.mode == 'left-inter-TAD':
@@ -323,8 +327,8 @@ def main(args=None):
     accepted_rows = rows[~mask]
     rejected_rows = rows[mask]
     with open(args.outFileNamePrefix + '_accepted.bed', 'w') as file:
-        header = '# Created with HiCExplorer\s hicDifferentialTAD version ' + __version__ + '\n'
-        header += '# H0 accepted file to p-value: args.pValue with used mode: ' + args.mode + '\n' 
+        header = '# Created with HiCExplorer\'s hicDifferentialTAD version ' + __version__ + '\n'
+        header += '# H0 accepted file to p-value: args.pValue with used mode: ' + args.mode + '\n'
         header += '# Chromosome\tstart\tend\tp-value left-inter-TAD\tp-value right-inter-TAD\tp-value intra-TAD\n'
         file.write(header)
         for i, row in enumerate(accepted_rows):
@@ -334,11 +338,10 @@ def main(args=None):
             pvalue_list = list(map(str, accepted_HO[i]))
             file.write('\t'.join(pvalue_list))
 
-            
             file.write('\n')
     with open(args.outFileNamePrefix + '_rejected.bed', 'w') as file:
-        header = '# Created with HiCExplorer\s hicDifferentialTAD version ' + __version__ + '\n'
-        header += '# H0 rejected file to p-value: args.pValue with used mode: ' + args.mode + '\n' 
+        header = '# Created with HiCExplorer\'s hicDifferentialTAD version ' + __version__ + '\n'
+        header += '# H0 rejected file to p-value: args.pValue with used mode: ' + args.mode + '\n'
         header += '# Chromosome\tstart\tend\tp-value left-inter-TAD\tp-value right-inter-TAD\tp-value intra-TAD\n'
         file.write(header)
 
@@ -349,4 +352,3 @@ def main(args=None):
             pvalue_list = list(map(str, rejected_H0[i]))
             file.write('\t'.join(pvalue_list))
             file.write('\n')
-
