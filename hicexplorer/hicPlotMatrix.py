@@ -861,7 +861,7 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
             try:
                 chrom_X, start_X, end_X = fields[0:3]
                 chrom_Y, start_Y, end_Y = fields[3:6]
-                
+
                 if pRegion is not None and (chrom_X != pRegion[0] or chrom_Y != pRegion[0]):
                     continue
                 elif pChromosomeOrder is not None and (chrom_X not in pChromosomeOrder or chrom_Y not in pChromosomeOrder):
@@ -873,8 +873,8 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
                 y_list.append(y)
             except Exception:
                 pass
-        
-        if pRegion is not None and (int(pRegion[1]) != 0  and int(pRegion[2]) != 1e15):
+
+        if pRegion is not None and (int(pRegion[1]) != 0 and int(pRegion[2]) != 1e15):
             pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
             pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
 
