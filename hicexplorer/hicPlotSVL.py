@@ -212,7 +212,7 @@ def main(args=None):
         with open(args.outFileName, 'w') as file:
             header = '# Created with HiCExplorer\'s hicPlotSVL ' + __version__ + '\n'
             header += "# Short range vs long range contacts per chromosome, p-values of each distribution against each other distribution with Wilcoxon rank-sum\n"
-            header += '# Short range contacts: <= ' + str(args.distance)+ '\n'
+            header += '# Short range contacts: <= ' + str(args.distance) + '\n'
             file.write(header)
             counter = 0
             for i, matrix_0 in enumerate(args.matrices):
