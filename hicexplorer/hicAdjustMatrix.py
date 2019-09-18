@@ -103,7 +103,7 @@ def main(args=None):
                     log.warning("An entry shorter than 3 columns has been found!")
                     continue
                 if len(_line) >= 3:
-                    chrom, start, end = _line[0], _line[1], int(_line[2]) - 1
+                    chrom, start, end = _line[0], int(_line[1]), int(_line[2])
                     if chrom in chromosomes_list:
                         genomic_regions.append((chrom, start, end))
                     else:
