@@ -44,6 +44,20 @@ def test_hicAggregateContacts():
 
     os.remove(outfile_aggregate_plots.name)
 
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicAggregateContacts_chromosome_not_given():
+
+    outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
+
+    args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions_region_not_given.bed " \
+           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100".\
+        format(root=ROOT, out_agg=outfile_aggregate_plots.name)
+
+    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'
+
+    hicexplorer.hicAggregateContacts.main(args.split())
+
 
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
