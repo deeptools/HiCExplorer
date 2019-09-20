@@ -196,7 +196,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 continue
             matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
             matrix_name = matrix_name[1:].split('.')[0]
-            number_of_data_points = len(data)
+            # number_of_data_points = len(data)
             highlight_differential_regions = None
             significant_p_values = None
             significant_regions = None
@@ -236,7 +236,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                                 p_values[x] = location[2]
                 p_values.clip(pArgs.minPValue, pArgs.maxPValue, p_values)
             # if pArgs.pValueSignificanceLevels:
-                
+
             if pArgs.pValue:
                 pViewpointObj.plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
                                          pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
@@ -246,24 +246,21 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
 
             ticks = []
             x_labels = []
-            
+
             if pArgs.range[0] < 1e6:
-                upstream_divisor = 1e3 
+                upstream_divisor = 1e3
                 upstream_mod = 2e5
 
                 if pArgs.range[0] <= 1e4:
-                    upstream_mod = 5e3    
+                    upstream_mod = 5e3
                     # upstream_divisor = 5e1
                 elif pArgs.range[0] <= 5e4:
                     upstream_mod = 1e4
                     # upstream_divisor = 1e3
                 elif pArgs.range[0] <= 1e5:
                     upstream_mod = 5e4
-                    # upstream_divisor = 5e2 
+                    # upstream_divisor = 5e2
 
-                 
-
-                 
                 log.debug('upstream_divisor {}'.format(upstream_divisor))
 
                 upstream_unit = 'kb'
@@ -284,20 +281,18 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             ticks.append(pArgs.range[0] // pArgs.binResolution)
 
             if pArgs.range[1] < 1e6:
-                downstream_divisor = 1e3 
+                downstream_divisor = 1e3
                 downstream_mod = 2e5
 
-                
                 if pArgs.range[1] <= 1e4:
                     downstream_mod = 5e3
                     # downstream_divisor = 5e1
                 elif pArgs.range[1] <= 5e4:
                     downstream_mod = 1e4
-                    # downstream_divisor = 1e2 
+                    # downstream_divisor = 1e2
                 elif pArgs.range[1] <= 1e5:
                     downstream_mod = 5e4
-                    # downstream_divisor = 5e2 
-
+                    # downstream_divisor = 5e2
 
                 downstream_unit = 'kb'
             elif pArgs.range[1] >= 1e6:
@@ -308,7 +303,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             # downstream_mod = 2e5 if pArgs.range[1] < 1e6 else 2e6
             # downstream_unit = 'kb' if pArgs.range[1] < 1e6 else 'Mb'
             referencepoint_index = ticks[-1]
-            for k, j in zip(range(pArgs.range[1]), range(1, pArgs.range[1]+1, 1)):
+            for k, j in zip(range(pArgs.range[1]), range(1, pArgs.range[1] + 1, 1)):
                 if j % downstream_mod == 0:
                     x_labels.append(str(-int(j) // int(downstream_divisor)) + downstream_unit)
                     ticks.append(referencepoint_index + (k // pArgs.binResolution))

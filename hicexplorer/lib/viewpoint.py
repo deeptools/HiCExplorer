@@ -379,7 +379,7 @@ class Viewpoint():
         if pBackgroundModel:
             # viewpoint_index = background_data_keys_sorted.index(0)
             viewpoint_index_start = background_data_keys_sorted.index(0)
-            
+
             data_background = []
 
             for key in background_data_keys_sorted:
@@ -391,7 +391,7 @@ class Viewpoint():
                         # log.debug('pResolution {}'.format(pResolution))
 
                         if np.abs(int(start) - int(end)) > pResolution:
-                            
+
                             peak_width = np.abs(int(start) - int(end)) // pResolution
                             viewpoint_index_end = peak_width
                             i = 0
@@ -428,7 +428,7 @@ class Viewpoint():
                             # log.debug('peak width: {}'.format(peak_width))
                     else:
                         data_background.append(pBackgroundModel[key][0])
-                    
+
             if viewpoint_index_end is None:
                 viewpoint_index_end = viewpoint_index_start
             else:
@@ -445,7 +445,7 @@ class Viewpoint():
                     # log.debug('pResolution {}'.format(pResolution))
 
                     if np.abs(int(start) - int(end)) > pResolution:
-                        
+
                         peak_width = np.abs(int(start) - int(end)) // pResolution
                         viewpoint_index_end = peak_width
                         i = 0
@@ -466,7 +466,7 @@ class Viewpoint():
                             # log.debug('peak width: {}'.format(peak_width))
                     else:
                         p_value.append(p_value_data[key])
-                    
+
             viewpoint_index_start = interaction_key.index(0)
             if viewpoint_index_end is None:
                 viewpoint_index_end = viewpoint_index_start
@@ -502,11 +502,11 @@ class Viewpoint():
         pAxis.yaxis.set_visible(False)
         divider = make_axes_locatable(pAxisLabel)
         cax = divider.append_axes("left", size="20%", pad=0.09)
-        
+
         if pValueSignificanceLevels is None:
-            img = pAxis.contourf(_z_score, levels=pValueSignificanceLevels,cmap=pCmap)
+            img = pAxis.contourf(_z_score, levels=pValueSignificanceLevels, cmap=pCmap)
             colorbar = pFigure.colorbar(
-            img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
+                img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
         else:
             pValueSignificanceLevels.insert(0, -1)
             pValueSignificanceLevels.append(1)
@@ -515,10 +515,6 @@ class Viewpoint():
             colorbar = pFigure.colorbar(img, cax=cax, ticks=[pValueSignificanceLevels[1], pValueSignificanceLevels[2], pValueSignificanceLevels[3]])
             colorbar.ax.tick_params(labelsize=6)
         colorbar.ax.set_ylabel('p-value', size=6)
-
-        
-
-        
 
         pAxisLabel.text(0.45, 0, pLabelText, size=7)
         pAxisLabel.xaxis.set_visible(False)

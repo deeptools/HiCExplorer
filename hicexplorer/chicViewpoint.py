@@ -304,7 +304,7 @@ def main(args=None):
                     file.write(viewpoint + '\n')
     if args.allViewpointsList:
 
-        with open(args.writeFileNamesToFile+'all', 'w') as file:
+        with open(args.writeFileNamesToFile + 'all', 'w') as file:
             if len(file_list) > 1:
                 for i, sample in enumerate(file_list[0]):
                     file.write(sample + '\n')
