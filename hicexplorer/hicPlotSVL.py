@@ -46,6 +46,9 @@ $ hicPlotSVL -m hmec_10kb.cool nhek_10kb.cool
     parserOpt.add_argument('--outFileName', '-o',
                            help='File the p-values are written to, p-values are only computed if at least two matrices are given.',
                            default='p_values.txt')
+    parserOpt.add_argument('--outFileNameData', '-od',
+                           help='File the computed ratios are written to.',
+                           default='data.txt')
     parserOpt.add_argument('--distance', '-d',
                            help='Distance which should be considered as short range. Default 2MB.',
                            default=2000000,
@@ -219,3 +222,23 @@ def main(args=None):
                 for j, matrix_1 in enumerate(args.matrices[i + 1:]):
                     file.write(matrix_0 + '\t' + matrix_1 + '\t' + str(p_values[counter]) + '\n')
                     counter += 1
+
+    with open(args.outFileNameData, 'w') as file:
+        header = '# Created with HiCExplorer\'s hicPlotSVL ' + __version__ + '\n'
+        header += "# Short range vs long range contacts per chromosome: raw data\n"
+        header += '# Short range contacts: <= ' + str(args.distance) + '\n'
+        matrices_names = '\t'.join(args.matrices)
+        header += '# {}\n'.format(matrices_names)
+        # for matrix in args.matrices:
+
+        file.write(header)
+        counter = 0
+        for i, chromosome in enumerate(chromosomes_list):
+            file.write('{}\t'.format(chromosome))
+            for j, matrix in enumerate(args.matrices):
+                if i < len(short_v_long_range[j]):
+                    file.write('{}\t'.format(short_v_long_range[j][i]))
+                else:
+                    file.write('\t')
+
+            file.write('\n')
