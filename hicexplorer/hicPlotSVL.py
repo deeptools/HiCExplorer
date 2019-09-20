@@ -93,7 +93,7 @@ def compute_relation_short_long_range(pHiCMatrix, pChromosomes, pDistance, pIsCo
 
         else:
             # in case it is h5 pHiCMatrix is an HiCMatrix object
-            indices_chromosome = hic_matrix_target.getChrBinRange(chromosome)
+            indices_chromosome = pHiCMatrix.getChrBinRange(chromosome)
             hic_matrix = pHiCMatrix.matrix[indices_chromosome[0]:indices_chromosome[1], indices_chromosome[0]:indices_chromosome[1]]
             max_distance = pDistance / pHiCMatrix.getBinSize()
 
