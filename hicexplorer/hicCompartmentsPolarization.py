@@ -21,8 +21,8 @@ def parse_arguments():
         this has been first introduced and implemented by Wibke Schwarzer et
         al. 2017 (Nature. 2017 Nov 2; 551(7678): 51–56)
 
-        $ hicCompartmentsPolarization --obsexp_matrices obsExpMatrix.h5 --pca pc1.bedgraph\
-        -o global_signal.png
+        $ hicCompartmentsPolarization --obsexp_matrices obsExpMatrix.h5 \
+        --pca pc1.bedgraph -o global_signal.png
         """
                                      )
 
@@ -37,8 +37,8 @@ def parse_arguments():
                                 help='a PCA vector as a bedgraph file with '
                                 'no header. In case of several matrices with '
                                 ' different conditions, ie. control'
-                                'treatment, the PCA of control can be '
-                                'used. Note that only one PCA can be provided.',
+                                'treatment, the PCA of control can be used. '
+                                'Note that only one PCA can be provided.',
                                 required=True)
 
     parserRequired.add_argument('--outputFileName', '-o',
@@ -50,17 +50,22 @@ def parse_arguments():
 
     parserOpt.add_argument('--quantile', '-q',
                            help='number of quantiles',
-                           default=30)
+                           default=30,
+                           type=int)
 
     parserOpt.add_argument('--outliers',
                            help='precentage of outlier to remove',
-                           default=0)
+                           default=0,
+                           type=float)
 
     parserOpt.add_argument('--outputMatrix',
-                           help='output .npz file includes all the generated matrices',
+                           help='output .npz file includes all the '
+                                'generated matrices',
                            default=None)
-    parserOpt.add_argument('--help', '-h', action='help',
-                           help='show this help message and exit.')
+
+    parserOpt.add_argument('-h',
+                           action='help',
+                           help='show the help message and exit.')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
