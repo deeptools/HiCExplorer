@@ -73,6 +73,7 @@ def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange):
 
 
 def getBinIndices(pHiCMatrix, pViewpoint):
+    
     return pHiCMatrix.getRegionBinRange(pViewpoint[0], pViewpoint[1], pViewpoint[2])
 
 
@@ -105,9 +106,22 @@ def main(args=None):
                 viewpoint = (chrom, start, end)
             if args.range:
                 start_range_genomic, end_range_genomic, _ = calculateViewpointRange(hic_ma, viewpoint, args.range)
+                min_length, max_length = hic_ma.getBinPos(hic_ma.getChrBinRange(pViewpoint[0])[1] - 1)[1:]
+                if start_range_genomic < min_length:
+                    log.warning('Ignoring {} {} {} because the reference point minus the range {} is smaller than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
+                    continue
+                if end_bin > :
+                    log.warning('Ignoring {} {} {} because the reference point plus the range {} is greater than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
+                    continue
                 start_bin, end_bin = getBinIndices(hic_ma, (chrom, start_range_genomic, end_range_genomic))
             else:
                 start_bin, end_bin = calculateViewpointRangeBins(hic_ma, viewpoint, args.rangeInBins)
+            # if start_bin < 0:
+            #     log.warning('Ignoring {} {} {} because the reference point minus the range {} is smaller than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
+            #     continue
+            # if end_bin > :
+            #     log.warning('Ignoring {} {} {} because the reference point plus the range {} is greater than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
+            #     continue
             indices_values.append([start_bin, end_bin])
 
     if args.range:
