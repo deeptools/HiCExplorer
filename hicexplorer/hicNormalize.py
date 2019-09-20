@@ -30,15 +30,19 @@ Normalizes given matrices either to the smallest given read number of all matric
 
     parserRequired.add_argument('--normalize', '-n',
                                 help='Normalize to a) 0 to 1 range, b) all matrices to the lowest read count of the given matrices.',
-                                choices=['norm_range', 'smallest'],
+                                choices=['norm_range', 'smallest', 'multiplicative'],
                                 default='smallest',
                                 required=True)
+
     parserRequired.add_argument('--outFileName', '-o',
                                 help='Output file name for the Hi-C matrix.',
                                 metavar='FILENAME',
                                 nargs='+',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
+    parserOpt.add_argument('--multiplicativeValue', '-mv', default=1,
+                           type=float,
+                           help='show this help message and exit')
 
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
@@ -96,6 +100,28 @@ def main(args=None):
                 adjust_factor = sum_list[i] / sum_list[argmin]
                 hic_matrix.matrix.data /= adjust_factor
                 mask = np.isnan(hic_matrix.matrix.data)
+
+            mask = np.isnan(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
+
+            mask = np.isinf(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
+            hic_matrix.matrix.eliminate_zeros()
+
+            hic_matrix.save(args.outFileName[i], pApplyCorrection=False)
+    elif args.normalize == 'multiplicative':
+
+        for i, hic_matrix in enumerate(hic_matrix_list):
+            hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
+
+            mask = np.isnan(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
+
+            mask = np.isinf(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
+            # adjust_factor = sum_list[i] / sum_list[argmin]
+            hic_matrix.matrix.data *= args.multiplicativeValue
+            mask = np.isnan(hic_matrix.matrix.data)
 
             mask = np.isnan(hic_matrix.matrix.data)
             hic_matrix.matrix.data[mask] = 0
