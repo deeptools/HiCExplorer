@@ -14,9 +14,9 @@ def test_compartments_polarization():
     outfile = NamedTemporaryFile(suffix='.png', delete=False)
     outfile.close()
 
-    args = " -m {} --pca {} -o {} ".format(ROOT + "hicPCA/obsexp_norm.h5",
-                                           ROOT + "hicCompartmentsPolarization/pca1.bedgraph",
-                                           outfile.name).split()
+    args = " -m {} --pca {} -o {} --outliers 0.0 --quantile 30".format(ROOT + "hicPCA/obsexp_norm.h5",
+                                                                       ROOT + "hicCompartmentsPolarization/pca1.bedgraph",
+                                                                       outfile.name).split()
     hicCompartmentsPolarization.main(args)
     test = ROOT + "hicCompartmentsPolarization/compartmentsPolarizationRatio.png"
     res = compare_images(test, outfile.name, tolerance)
