@@ -7,7 +7,6 @@ logging.getLogger('hicmatrix').setLevel(logging.WARNING)
 logging.getLogger('numexpr').setLevel(logging.WARNING)
 
 
-
 import warnings
 import sys
 
