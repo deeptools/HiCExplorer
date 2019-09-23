@@ -27,7 +27,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-Plots the relation between short and long range interactions as boxplots and if more than one matrix is given, p-values of the distributions are computed. 
+Plots the relation between short and long range interactions as boxplots and if more than one matrix is given, p-values of the distributions are computed.
 An example usage is:
 $ hicPlotSVL -m hmec_10kb.cool nhek_10kb.cool
 """)
@@ -87,6 +87,8 @@ def compute_relation_short_long_range(pHiCMatrix, pChromosomes, pDistance, pIsCo
     # hic_matrix = hm.hiCMatrix(
     #             pMatrixFile=args.matrix, pChrnameList=[args.region])
     svl_relations = []
+    sum_smaller = []
+    sum_greater = []
     for chromosome in pChromosomes:
         if pIsCooler:
             hic_matrix_obj = hm.hiCMatrix(
@@ -110,8 +112,10 @@ def compute_relation_short_long_range(pHiCMatrix, pChromosomes, pDistance, pIsCo
         if np.isinf(svl_relation) or np.isnan(svl_relation):
             continue
         svl_relations.append(svl_relation)
+        sum_smaller.append(sum_smaller_max_distance)
+        sum_greater.append(sum_greater_max_distance)
 
-    pQueue.put(svl_relations)
+    pQueue.put([svl_relations, sum_smaller, sum_greater])
     return
 
 
@@ -119,6 +123,8 @@ def main(args=None):
 
     args = parse_arguments().parse_args(args)
     short_v_long_range = []
+    sum_smaller = []
+    sum_greater = []
     for matrix in args.matrices:
 
         is_cooler = check_cooler(matrix)
@@ -138,12 +144,10 @@ def main(args=None):
         else:
             chromosomes_list = args.chromosomes
 
-        if len(chromosomes_list) == 1:
-            single_core = True
-        else:
-            single_core = False
-
         short_v_long_range_matrix_threads = [None] * args.threads
+        sum_smaller_threads = [None] * args.threads
+        sum_greater_threads = [None] * args.threads
+
         chromosomesListPerThread = len(chromosomes_list) // args.threads
         all_data_collected = False
         queue = [None] * args.threads
@@ -171,7 +175,7 @@ def main(args=None):
         while not all_data_collected:
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
-                    short_v_long_range_matrix_threads[i] = queue[i].get()
+                    short_v_long_range_matrix_threads[i], sum_smaller_threads[i], sum_greater_threads[i] = queue[i].get()
                     queue[i] = None
                     process[i].join()
                     process[i].terminate()
@@ -184,7 +188,12 @@ def main(args=None):
             time.sleep(1)
 
         short_v_long_range_matrix = [item for sublist in short_v_long_range_matrix_threads for item in sublist]
+        sum_smaller_matrix = [item for sublist in sum_smaller_threads for item in sublist]
+        sum_greater_matrix = [item for sublist in sum_greater_threads for item in sublist]
+
         short_v_long_range.append(short_v_long_range_matrix)
+        sum_smaller.append(sum_smaller_matrix)
+        sum_greater.append(sum_greater_matrix)
 
     log.debug(short_v_long_range)
     plt.ylabel('Sum short range / long range')
@@ -227,17 +236,19 @@ def main(args=None):
         header = '# Created with HiCExplorer\'s hicPlotSVL ' + __version__ + '\n'
         header += "# Short range vs long range contacts per chromosome: raw data\n"
         header += '# Short range contacts: <= ' + str(args.distance) + '\n'
-        matrices_names = '\t'.join(args.matrices)
-        header += '# {}\n'.format(matrices_names)
+        matrices_names = '\t\t\t'.join(args.matrices)
+        header += '#\t{}\n'.format(matrices_names)
         # for matrix in args.matrices:
-
+        header += '# Chromosome\t'
+        header += '\t'.join(['Ratio', 'Sum <= {}'.format(args.distance), 'Sum > {}'.format(args.distance)] * len(args.matrices))
+        header += '\n'
         file.write(header)
         counter = 0
         for i, chromosome in enumerate(chromosomes_list):
             file.write('{}\t'.format(chromosome))
             for j, matrix in enumerate(args.matrices):
                 if i < len(short_v_long_range[j]):
-                    file.write('{}\t'.format(short_v_long_range[j][i]))
+                    file.write('{}\t{}\t{}\t'.format(short_v_long_range[j][i], sum_smaller[j][i], sum_greater[j][i]))
                 else:
                     file.write('\t')
 
