@@ -169,12 +169,19 @@ def computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pQueue):
             density_right_left = intertad_right.count_nonzero() / (intertad_right.shape[0] * intertad_right.shape[1])
         elif i - 1 <= 0 and i + 1 < length_domains_list:
             density_right_left = intertad_right.count_nonzero() / (intertad_right.shape[0] * intertad_right.shape[1])
+            density_inter_left = -1 
         elif i - 1 > 0 and i + 1 >= length_domains_list:
             density_inter_left = intertad_left.count_nonzero() / (intertad_left.shape[0] * intertad_left.shape[1])
+            density_right_left = -1
 
         density_intra = matrix.count_nonzero() / (matrix.shape[0] * matrix.shape[1])
 
-    return density_inter_left, density_right_left, density_intra
+        density_inter_left_list.append(density_inter_left)
+        density_inter_right_list.append(density_right_left)
+        density_intra_list.append(density_intra)
+
+    pQueue.put([density_inter_left_list, density_inter_right_list, density_intra_list])
+    return
 
 
 def main(args=None):
@@ -200,11 +207,6 @@ def main(args=None):
         else:
             chromosomes_list = args.chromosomes
 
-        if len(chromosomes_list) == 1:
-            single_core = True
-        else:
-            single_core = False
-
         short_v_long_range_matrix_threads = [None] * args.threads
         chromosomesListPerThread = len(chromosomes_list) // args.threads
         all_data_collected = False
@@ -219,11 +221,11 @@ def main(args=None):
                 chromosomeListThread = chromosomes_list[i * chromosomesListPerThread:]
 
             queue[i] = Queue()
-            process[i] = Process(target=compute_relation_short_long_range, kwargs=dict(
-                pHiCMatrix=hic_matrix,
-                pChromosomes=chromosomeListThread,
-                pDistance=args.distance,
-                pIsCooler=is_cooler,
+            # computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pQueue):
+            process[i] = Process(target=computeDensityTADs, kwargs=dict(
+                pMatrix=hic_matrix,
+                pDomainList=chromosomeListThread,
+                pCoolOrH5=is_cooler,
                 pQueue=queue[i]
             )
             )
