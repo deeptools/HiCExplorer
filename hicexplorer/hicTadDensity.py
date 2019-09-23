@@ -154,9 +154,9 @@ def computeRegionsTADs(pMatrix, pDomainList, pCoolOrH5, pI, pRow):
     return matrix, intertad_left, intertad_right
 
 def computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pQueue):
-    density_inter_left = []
-    density_inter_right = []
-    density_intra = []
+    density_inter_left_list = []
+    density_inter_right_list = []
+    density_intra_list = []
     # p_values_list = []
     rows = []
     length_domains_list = len(pDomainList)
