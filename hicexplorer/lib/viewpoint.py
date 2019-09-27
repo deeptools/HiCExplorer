@@ -62,17 +62,17 @@ class Viewpoint():
         start with '#'.
         Interactions files contain:
         Chromosome Viewpoint, Start, End, Gene, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
-        Relative number of interactions, z-score based on relative interactions.
+        Relative number of interactions, p-score based on relative interactions.
 
         This function returns:
         - header as  a string
         - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}
-        - rbz-score in relation to relative position as a dict (same format as interaction data)
+        - p-score in relation to relative position as a dict (same format as interaction data)
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
         # use header info to store reference point, and based matrix
         interaction_data = {}
-        z_score = {}
+        p_score = {}
         interaction_file_data = {}
         genomic_coordinates = {}
         with open(pBedFile) as fh:
@@ -86,11 +86,11 @@ class Viewpoint():
                 _line = line.strip().split('\t')
                 # relative postion and relative interactions
                 interaction_data[int(_line[-5])] = float(_line[-4])
-                z_score[int(_line[-5])] = float(_line[-3])
+                p_score[int(_line[-5])] = float(_line[-3])
                 interaction_file_data[int(_line[-5])] = _line
                 genomic_coordinates[int(_line[-5])] = [_line[0], _line[1], _line[2]]
 
-        return header, interaction_data, z_score, interaction_file_data, genomic_coordinates
+        return header, interaction_data, p_score, interaction_file_data, genomic_coordinates
 
     def readInteractionFileForAggregateStatistics(self, pBedFile):
         '''
