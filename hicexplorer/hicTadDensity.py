@@ -29,7 +29,7 @@ def parse_arguments(args=None):
         description="""
 Plots the relation between short and long range interactions as boxplots and if more than one matrix is given, p-values of the distributions are computed. 
 An example usage is:
-$ hicPlotSVL -m hmec_10kb.cool nhek_10kb.cool
+$ hicTadDensity -m hmec_10kb.cool -td domains.bed -o tad_densities_output.txt
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -55,18 +55,10 @@ $ hicPlotSVL -m hmec_10kb.cool nhek_10kb.cool
                            default=4,
                            type=int
                            )
-    # parserOpt.add_argument('--dpi',
-    #                        help='Optional parameter: Resolution for the image in case the'
-    #                        'output is a raster graphics image (e.g png, jpg)',
-    #                        type=int,
-    #                        default=300,
-    #                        required=False)
-    # parserOpt.add_argument('--colorList', '-cl',
-    #                        help='Colorlist for the boxplots.',
-    #                        required=False,
-    #                        default=['g', 'b', 'c', 'm', 'y', 'k'],
-    #                        type=str,
-    #                        nargs='+')
+    parserOpt.add_argument('--mode', '-mo',
+                           help='Compute the density via binary: number of non-zero elements / number of all elements;  the raw sum interaction counts; or sum of interactions / number of all elements',
+                           choices=['binary', 'raw_interactions', 'interactions_size'],
+                           default='interactions_size')
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -82,16 +74,16 @@ def readDomainBoundaries(pFile):
     return domains_df
 
 
-def computeRegionsTADs(pMatrix, pDomainList, pCoolOrH5, pI, pRow):
+def computeRegionsTADs(pMatrix, pDomainList, pCoolOrH5, pI, pFirst, pLast, pRow):
     length_domains_list = len(pDomainList)
     matrix, intertad_left, intertad_right = [None] * 3
-    if pI - 1 >= 0:
+    if not pFirst:
         chromosom = pDomainList[pI - 1][0]
         start = pDomainList[pI - 1][1]
     else:
         chromosom = pDomainList[pI][0]
         start = pDomainList[pI][1]
-    if pI + 1 < length_domains_list:
+    if not pLast:
         end = pDomainList[pI + 1][2]
     else:
         end = pDomainList[pI][2]
@@ -106,6 +98,7 @@ def computeRegionsTADs(pMatrix, pDomainList, pCoolOrH5, pI, pRow):
 
         hic_matrix_inter_tad = hm.hiCMatrix(
             pMatrixFile=pMatrix, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
+
         matrix_inter_tad = hic_matrix_inter_tad.matrix
 
     else:
@@ -119,7 +112,7 @@ def computeRegionsTADs(pMatrix, pDomainList, pCoolOrH5, pI, pRow):
 
     tad_midpoint = hic_matrix_inter_tad.getRegionBinRange(str(pRow[0]), midpos, midpos)[0]
 
-    if pI - 1 >= 0:
+    if not pFirst:
         # get index position left tad with tad
         left_boundary_index = hic_matrix_inter_tad.getRegionBinRange(str(chromosom), pRow[1], pRow[1])[0]
     if pCoolOrH5:
@@ -131,46 +124,94 @@ def computeRegionsTADs(pMatrix, pDomainList, pCoolOrH5, pI, pRow):
 
         outer_right_boundary_index = hic_matrix_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
 
-    if pI + 1 < length_domains_list:
+    if not pLast:
         # get index position left tad with tad
         right_boundary_index = hic_matrix_inter_tad.getRegionBinRange(str(chromosom), pRow[2], pRow[2])[0]
 
-    if pI - 1 >= 0 and pI + 1 < length_domains_list:
-        intertad_left = matrix_inter_tad[outer_left_boundary_index:tad_midpoint, left_boundary_index:tad_midpoint]
+    if pFirst:
         intertad_right = matrix_inter_tad[tad_midpoint:right_boundary_index, tad_midpoint:outer_right_boundary_index]
-    elif pI - 1 < 0 and pI + 1 < length_domains_list:
-        intertad_right = matrix_inter_tad[tad_midpoint:right_boundary_index, tad_midpoint:outer_right_boundary_index]
-    elif pI - 1 > 0 and pI + 1 >= length_domains_list:
+
+    elif pLast:
         intertad_left = matrix_inter_tad[outer_left_boundary_index:tad_midpoint, left_boundary_index:tad_midpoint]
 
+    else:
+        intertad_left = matrix_inter_tad[outer_left_boundary_index:tad_midpoint, left_boundary_index:tad_midpoint]
+        intertad_right = matrix_inter_tad[tad_midpoint:right_boundary_index, tad_midpoint:outer_right_boundary_index]
     return matrix, intertad_left, intertad_right
 
 
-def computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pQueue):
+def computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pFirst, pLast, pThreads, pMode, pQueue):
     density_inter_left_list = []
     density_inter_right_list = []
     density_intra_list = []
-    # p_values_list = []
     rows = []
     length_domains_list = len(pDomainList)
-    for i, row in enumerate(pDomainList):
+
+    if pThreads > 1:
+        if pFirst:
+            startValue = 0
+        else:
+            startValue = 1
+        if pLast:
+            endValue = len(pDomainList)
+        else:
+            endValue = len(pDomainList) - 1
+    else:
+        startValue = 0
+        endValue = len(pDomainList)
+
+    for i, row in enumerate(pDomainList[startValue:endValue]):
         # get intra / inter-tad data
-        matrix, intertad_left, intertad_right = computeRegionsTADs(pMatrix, pDomainList, pCoolOrH5, i, row)
+        first = pFirst
+        last = pLast
+        if startValue == 0 and i == 0:
+            first = True
+            last = False
+        elif i + startValue == len(pDomainList) - 1:
+            first = False
+            last = True
+        else:
+            last = False
+            first = False
 
-        if i - 1 > 0 and i + 1 < length_domains_list:
-            density_inter_left = intertad_left.count_nonzero() / (intertad_left.shape[0] * intertad_left.shape[1])
-            density_right_left = intertad_right.count_nonzero() / (intertad_right.shape[0] * intertad_right.shape[1])
-        elif i - 1 <= 0 and i + 1 < length_domains_list:
-            density_right_left = intertad_right.count_nonzero() / (intertad_right.shape[0] * intertad_right.shape[1])
+        matrix, intertad_left, intertad_right = computeRegionsTADs(pMatrix, pDomainList, pCoolOrH5, i + startValue, first, last, row)
+        if first:
+
+            if pMode == 'binary':
+                density_inter_right = intertad_right.count_nonzero() / (intertad_right.shape[0] * intertad_right.shape[1])
+            elif pMode == 'raw_interactions':
+                density_inter_right = np.sum(intertad_right.data)
+            else:
+                density_inter_right = np.sum(intertad_right.data) / (intertad_right.shape[0] * intertad_right.shape[1])
             density_inter_left = -1
-        elif i - 1 > 0 and i + 1 >= length_domains_list:
-            density_inter_left = intertad_left.count_nonzero() / (intertad_left.shape[0] * intertad_left.shape[1])
-            density_right_left = -1
+        elif last:
+            if pMode == 'binary':
+                density_inter_left = intertad_left.count_nonzero() / (intertad_left.shape[0] * intertad_left.shape[1])
+            elif pMode == 'raw_interactions':
+                density_inter_left = np.sum(intertad_left.data)
+            else:
+                density_inter_left = np.sum(intertad_left.data) / (intertad_left.shape[0] * intertad_left.shape[1])
+            density_inter_right = -1
+        else:
+            if pMode == 'binary':
+                density_inter_left = intertad_left.count_nonzero() / (intertad_left.shape[0] * intertad_left.shape[1])
+                density_inter_right = intertad_right.count_nonzero() / (intertad_right.shape[0] * intertad_right.shape[1])
+            elif pMode == 'raw_interactions':
+                density_inter_left = np.sum(intertad_left.data)
+                density_inter_right = np.sum(intertad_right.data)
+            else:
+                density_inter_left = np.sum(intertad_left.data) / (intertad_left.shape[0] * intertad_left.shape[1])
+                density_inter_right = np.sum(intertad_right.data) / (intertad_right.shape[0] * intertad_right.shape[1])
 
-        density_intra = matrix.count_nonzero() / (matrix.shape[0] * matrix.shape[1])
+        if pMode == 'binary':
+            density_intra = matrix.count_nonzero() / (matrix.shape[0] * matrix.shape[1])
+        elif pMode == 'raw_interactions':
+            density_intra = np.sum(matrix.data)
+        else:
+            density_intra = np.sum(matrix.data) / (matrix.shape[0] * matrix.shape[1])
 
         density_inter_left_list.append(density_inter_left)
-        density_inter_right_list.append(density_right_left)
+        density_inter_right_list.append(density_inter_right)
         density_intra_list.append(density_intra)
 
     pQueue.put([density_inter_left_list, density_inter_right_list, density_intra_list])
@@ -184,24 +225,12 @@ def main(args=None):
     domains = domains_df.values.tolist()
     tads_list = []
     matrix = args.matrix
-    # for matrix in args.matrices:
 
     is_cooler = check_cooler(matrix)
     if not is_cooler:
         hic_matrix = hm.hiCMatrix(matrix)
-        # hic_matrix.keepOnlyTheseChr([chromosome])
-        # matrix = deepcopy(hic_matrix.matrix)
-        # cut_intervals = deepcopy(hic_matrix.cut_intervals)
     else:
         hic_matrix = matrix
-    if args.chromosomes is None:
-        # get all chromosomes from cooler file
-        if not is_cooler:
-            chromosomes_list = list(hic_matrix.chrBinBoundaries)
-        else:
-            chromosomes_list = cooler.Cooler(matrix).chromnames
-    else:
-        chromosomes_list = args.chromosomes
 
     domainsListPerThread = [None] * args.threads
     tadResultListPerThread = [None] * args.threads
@@ -213,18 +242,33 @@ def main(args=None):
     thread_done = [False] * args.threads
     for i in range(args.threads):
 
-        if i < args.threads - 1:
-            domainsListPerThread[i] = domains[i * numberOfDomainsPerThread:(i + 1) * numberOfDomainsPerThread]
+        if i == 0 and args.threads > 1:
+            domainsListPerThread[i] = domains[(i * numberOfDomainsPerThread):((i + 1) * numberOfDomainsPerThread) + 1]
+        elif i < args.threads - 1:
+            domainsListPerThread[i] = domains[(i * numberOfDomainsPerThread) - 1:((i + 1) * numberOfDomainsPerThread) + 1]
         else:
-            domainsListPerThread[i] = domains[i * numberOfDomainsPerThread:]
+            if args.threads == 1:
+                domainsListPerThread[i] = domains
+            else:
+                domainsListPerThread[i] = domains[(i * numberOfDomainsPerThread) - 1:]
 
         queue[i] = Queue()
-        log.debug('len(domainsListPerThread[i]) {}'.format(len(domainsListPerThread[i])))
-        # computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pQueue):
+        if i == 0:
+            first = True
+        else:
+            first = False
+        if i == args.threads - 1:
+            last = True
+        else:
+            last = False
         process[i] = Process(target=computeDensityTADs, kwargs=dict(
             pMatrix=hic_matrix,
             pDomainList=domainsListPerThread[i],
             pCoolOrH5=is_cooler,
+            pFirst=first,
+            pLast=last,
+            pThreads=args.threads,
+            pMode=args.mode,
             pQueue=queue[i]
         )
         )
@@ -252,7 +296,7 @@ def main(args=None):
 
     with open(args.outFileName, 'w') as file:
         header = '# Created with HiCExplorer\'s hicTadDensity ' + __version__ + '\n'
-        header += "# intra- and inter-tad densities\n"
+        header += "# intra- and inter-tad densities; mode: {}\n#\n".format(args.mode)
         header += "# Chromosome\tstart\tend\tinter-left\tinter-right\tintra\n"
 
         file.write(header)
