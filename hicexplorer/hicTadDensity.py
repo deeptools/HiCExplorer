@@ -12,7 +12,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.stats import ranksums
-
+import pandas as pd
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
@@ -34,25 +34,18 @@ $ hicPlotSVL -m hmec_10kb.cool nhek_10kb.cool
 
     parserRequired = parser.add_argument_group('Required arguments')
 
-    parserRequired.add_argument('--matrices', '-m',
-                                help='The matrix (or multiple matrices) to use for the comparison',
-                                nargs='+',
+    parserRequired.add_argument('--matrix', '-m',
+                                help='The matrix to compute the TAD densities on',
                                 required=True)
     parserRequired.add_argument('--tadDomains', '-td',
                                 help='The TADs domain file computed by hicFindTADs.',
-                                required=True,
-                                nargs='+')
+                                required=True)
+
     parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--plotFileName', '-pfn',
-                           help='Plot name.',
-                           default='plot.png')
+
     parserOpt.add_argument('--outFileName', '-o',
                            help='File the densities are written to, p-values are only computed if at least two matrices are given.',
                            default='densities.txt')
-    parserOpt.add_argument('--distance', '-d',
-                           help='Distance which should be considered as short range. Default 2MB.',
-                           default=2000000,
-                           type=int)
     parserOpt.add_argument('--chromosomes',
                            help='Chromosomes to include in the analysis. If not set, all chromosomes are included.',
                            nargs='+')
@@ -62,18 +55,18 @@ $ hicPlotSVL -m hmec_10kb.cool nhek_10kb.cool
                            default=4,
                            type=int
                            )
-    parserOpt.add_argument('--dpi',
-                           help='Optional parameter: Resolution for the image in case the'
-                           'output is a raster graphics image (e.g png, jpg)',
-                           type=int,
-                           default=300,
-                           required=False)
-    parserOpt.add_argument('--colorList', '-cl',
-                           help='Colorlist for the boxplots.',
-                           required=False,
-                           default=['g', 'b', 'c', 'm', 'y', 'k'],
-                           type=str,
-                           nargs='+')
+    # parserOpt.add_argument('--dpi',
+    #                        help='Optional parameter: Resolution for the image in case the'
+    #                        'output is a raster graphics image (e.g png, jpg)',
+    #                        type=int,
+    #                        default=300,
+    #                        required=False)
+    # parserOpt.add_argument('--colorList', '-cl',
+    #                        help='Colorlist for the boxplots.',
+    #                        required=False,
+    #                        default=['g', 'b', 'c', 'm', 'y', 'k'],
+    #                        type=str,
+    #                        nargs='+')
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -81,7 +74,6 @@ $ hicPlotSVL -m hmec_10kb.cool nhek_10kb.cool
                            version='%(prog)s {}'.format(__version__))
 
     return parser
-
 
 
 def readDomainBoundaries(pFile):
@@ -129,7 +121,7 @@ def computeRegionsTADs(pMatrix, pDomainList, pCoolOrH5, pI, pRow):
 
     if pI - 1 >= 0:
         # get index position left tad with tad
-        left_boundary_index_target = hic_matrix_inter_tad.getRegionBinRange(str(chromosom), pRow[1], pRow[1])[0]
+        left_boundary_index = hic_matrix_inter_tad.getRegionBinRange(str(chromosom), pRow[1], pRow[1])[0]
     if pCoolOrH5:
         outer_left_boundary_index = 0
         outer_right_boundary_index = -1
@@ -153,6 +145,7 @@ def computeRegionsTADs(pMatrix, pDomainList, pCoolOrH5, pI, pRow):
 
     return matrix, intertad_left, intertad_right
 
+
 def computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pQueue):
     density_inter_left_list = []
     density_inter_right_list = []
@@ -169,7 +162,7 @@ def computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pQueue):
             density_right_left = intertad_right.count_nonzero() / (intertad_right.shape[0] * intertad_right.shape[1])
         elif i - 1 <= 0 and i + 1 < length_domains_list:
             density_right_left = intertad_right.count_nonzero() / (intertad_right.shape[0] * intertad_right.shape[1])
-            density_inter_left = -1 
+            density_inter_left = -1
         elif i - 1 > 0 and i + 1 >= length_domains_list:
             density_inter_left = intertad_left.count_nonzero() / (intertad_left.shape[0] * intertad_left.shape[1])
             density_right_left = -1
@@ -187,102 +180,82 @@ def computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pQueue):
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-    short_v_long_range = []
-    for matrix in args.matrices:
+    domains_df = readDomainBoundaries(args.tadDomains)
+    domains = domains_df.values.tolist()
+    tads_list = []
+    matrix = args.matrix
+    # for matrix in args.matrices:
 
-        is_cooler = check_cooler(matrix)
+    is_cooler = check_cooler(matrix)
+    if not is_cooler:
+        hic_matrix = hm.hiCMatrix(matrix)
+        # hic_matrix.keepOnlyTheseChr([chromosome])
+        # matrix = deepcopy(hic_matrix.matrix)
+        # cut_intervals = deepcopy(hic_matrix.cut_intervals)
+    else:
+        hic_matrix = matrix
+    if args.chromosomes is None:
+        # get all chromosomes from cooler file
         if not is_cooler:
-            hic_matrix = hm.hiCMatrix(matrix)
-            # hic_matrix.keepOnlyTheseChr([chromosome])
-            # matrix = deepcopy(hic_matrix.matrix)
-            # cut_intervals = deepcopy(hic_matrix.cut_intervals)
+            chromosomes_list = list(hic_matrix.chrBinBoundaries)
         else:
-            hic_matrix = matrix
-        if args.chromosomes is None:
-            # get all chromosomes from cooler file
-            if not is_cooler:
-                chromosomes_list = list(hic_matrix.chrBinBoundaries)
-            else:
-                chromosomes_list = cooler.Cooler(matrix).chromnames
-        else:
-            chromosomes_list = args.chromosomes
+            chromosomes_list = cooler.Cooler(matrix).chromnames
+    else:
+        chromosomes_list = args.chromosomes
 
-        short_v_long_range_matrix_threads = [None] * args.threads
-        chromosomesListPerThread = len(chromosomes_list) // args.threads
-        all_data_collected = False
-        queue = [None] * args.threads
-        process = [None] * args.threads
-        thread_done = [False] * args.threads
+    domainsListPerThread = [None] * args.threads
+    tadResultListPerThread = [None] * args.threads
+
+    numberOfDomainsPerThread = len(domains) // args.threads
+    all_data_collected = False
+    queue = [None] * args.threads
+    process = [None] * args.threads
+    thread_done = [False] * args.threads
+    for i in range(args.threads):
+
+        if i < args.threads - 1:
+            domainsListPerThread[i] = domains[i * numberOfDomainsPerThread:(i + 1) * numberOfDomainsPerThread]
+        else:
+            domainsListPerThread[i] = domains[i * numberOfDomainsPerThread:]
+
+        queue[i] = Queue()
+        log.debug('len(domainsListPerThread[i]) {}'.format(len(domainsListPerThread[i])))
+        # computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pQueue):
+        process[i] = Process(target=computeDensityTADs, kwargs=dict(
+            pMatrix=hic_matrix,
+            pDomainList=domainsListPerThread[i],
+            pCoolOrH5=is_cooler,
+            pQueue=queue[i]
+        )
+        )
+
+        process[i].start()
+
+    while not all_data_collected:
         for i in range(args.threads):
+            if queue[i] is not None and not queue[i].empty():
+                tadResultListPerThread[i] = queue[i].get()
+                queue[i] = None
+                process[i].join()
+                process[i].terminate()
+                process[i] = None
+                thread_done[i] = True
+        all_data_collected = True
+        for thread in thread_done:
+            if not thread:
+                all_data_collected = False
+        time.sleep(1)
 
-            if i < args.threads - 1:
-                chromosomeListThread = chromosomes_list[i * chromosomesListPerThread:(i + 1) * chromosomesListPerThread]
-            else:
-                chromosomeListThread = chromosomes_list[i * chromosomesListPerThread:]
+    inter_left_list = [item for sublist in tadResultListPerThread for item in sublist[0]]
+    inter_right_list = [item for sublist in tadResultListPerThread for item in sublist[1]]
+    intra_list = [item for sublist in tadResultListPerThread for item in sublist[2]]
 
-            queue[i] = Queue()
-            # computeDensityTADs(pMatrix, pDomainList, pCoolOrH5, pQueue):
-            process[i] = Process(target=computeDensityTADs, kwargs=dict(
-                pMatrix=hic_matrix,
-                pDomainList=chromosomeListThread,
-                pCoolOrH5=is_cooler,
-                pQueue=queue[i]
-            )
-            )
+    with open(args.outFileName, 'w') as file:
+        header = '# Created with HiCExplorer\'s hicTadDensity ' + __version__ + '\n'
+        header += "# intra- and inter-tad densities\n"
+        header += "# Chromosome\tstart\tend\tinter-left\tinter-right\tintra\n"
 
-            process[i].start()
+        file.write(header)
 
-        while not all_data_collected:
-            for i in range(args.threads):
-                if queue[i] is not None and not queue[i].empty():
-                    short_v_long_range_matrix_threads[i] = queue[i].get()
-                    queue[i] = None
-                    process[i].join()
-                    process[i].terminate()
-                    process[i] = None
-                    thread_done[i] = True
-            all_data_collected = True
-            for thread in thread_done:
-                if not thread:
-                    all_data_collected = False
-            time.sleep(1)
-
-        short_v_long_range_matrix = [item for sublist in short_v_long_range_matrix_threads for item in sublist]
-        short_v_long_range.append(short_v_long_range_matrix)
-
-    log.debug(short_v_long_range)
-    plt.ylabel('Sum short range / long range')
-    plt.tick_params(
-        axis='x',
-        which='both',
-        bottom=False,
-        top=False,
-        labelbottom=False)
-
-    box_plot = plt.boxplot(short_v_long_range, patch_artist=True)
-    legend_handels_color = []
-    for i, patch in enumerate(box_plot['boxes']):
-        patch.set_facecolor(args.colorList[i % len(args.colorList)])
-        legend_handels_color.append(mpatches.Patch(color=args.colorList[i % len(args.colorList)], label=args.matrices[i]))
-    # red_patch = mpatches.Patch(color='red', label='The red data')
-    plt.legend(handles=legend_handels_color)
-    # plt.legend(args.matrices)
-    plt.savefig(args.plotFileName, dpi=args.dpi)
-
-    if len(args.matrices) > 1:
-        p_values = []
-        for i, sample in enumerate(short_v_long_range):
-            for sample2 in short_v_long_range[i + 1:]:
-                statistic, significance_level = ranksums(sample, sample2)
-                p_values.append(significance_level)
-        log.debug('p_values {}'.format(p_values))
-        with open(args.outFileName, 'w') as file:
-            header = '# Created with HiCExplorer\'s hicPlotSVL ' + __version__ + '\n'
-            header += "# Short range vs long range contacts per chromosome, p-values of each distribution against each other distribution with Wilcoxon rank-sum\n"
-            header += '# Short range contacts: <= ' + str(args.distance) + '\n'
-            file.write(header)
-            counter = 0
-            for i, matrix_0 in enumerate(args.matrices):
-                for j, matrix_1 in enumerate(args.matrices[i + 1:]):
-                    file.write(matrix_0 + '\t' + matrix_1 + '\t' + str(p_values[counter]) + '\n')
-                    counter += 1
+        for i, domain in enumerate(domains):
+            file.write('{}\t{}\t{}\t{}\n'.format(domain, inter_left_list[i], inter_right_list[i], intra_list[i]))
