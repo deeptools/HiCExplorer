@@ -503,7 +503,8 @@ class Viewpoint():
         divider = make_axes_locatable(pAxisLabel)
         cax = divider.append_axes("left", size="20%", pad=0.09)
 
-        if pValueSignificanceLevels is None:
+        if pValueSignificanceLevels is not None:
+            log.debug('pValueSignificanceLevels {}'.format(pValueSignificanceLevels))
             img = pAxis.contourf(_z_score, levels=pValueSignificanceLevels, cmap=pCmap)
             colorbar = pFigure.colorbar(
                 img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
@@ -749,8 +750,12 @@ class Viewpoint():
         # [[start, end], [start, end]]
         highlight_areas_list = []
         p_values = []
-        _, reference_point_start, reference_point_end = pViewpoint.split('_')
-
+        viewpoint_split = pViewpoint.split('_')
+        if len(viewpoint_split) == 3:
+            _, reference_point_start, reference_point_end = viewpoint_split
+        else:
+            log.debug('viewpoint_split {}, file: {}'.format(viewpoint_split, pSignificantFile))
+            return None, None
         with open(pSignificantFile) as fh:
             # skip header
             for line in fh.readlines():

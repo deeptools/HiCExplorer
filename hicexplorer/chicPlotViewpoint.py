@@ -247,66 +247,88 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             ticks = []
             x_labels = []
 
-            if pArgs.range[0] < 1e6:
-                upstream_divisor = 1e3
-                upstream_mod = 2e5
+            if pArgs.range[0] + pArgs.range[1] < 1e6:
+                divisor_legend = 1e3
+                mod_legend = 2e5
 
-                if pArgs.range[0] <= 1e4:
-                    upstream_mod = 5e3
-                    # upstream_divisor = 5e1
-                elif pArgs.range[0] <= 5e4:
-                    upstream_mod = 1e4
-                    # upstream_divisor = 1e3
-                elif pArgs.range[0] <= 1e5:
-                    upstream_mod = 5e4
-                    # upstream_divisor = 5e2
+                if pArgs.range[0] + pArgs.range[1] <= 1e4:
+                    mod_legend = 5e3
+                elif pArgs.range[0] + pArgs.range[1] <= 5e4:
+                    mod_legend = 1e4
+                elif pArgs.range[0] + pArgs.range[1] <= 1e5:
+                    mod_legend = 5e4
+                elif pArgs.range[0] + pArgs.range[1] <= 5e5:
+                    mod_legend = 1e5
+                log.debug('divisor_legend {}'.format(divisor_legend))
 
-                log.debug('upstream_divisor {}'.format(upstream_divisor))
-
-                upstream_unit = 'kb'
-            elif pArgs.range[0] >= 1e6:
-                upstream_divisor = 1e4
-                upstream_mod = 2e6
-                upstream_unit = 'Mb'
-
-            # upstream_divisor = 1e3 if pArgs.range[0] < 1e6 else 1e4
-            # upstream_mod = 2e5 if pArgs.range[0] < 1e6 else 2e6
-            # upstream_unit = 'kb' if pArgs.range[0] < 1e6 else 'Mb'
+                unit = 'kb'
+            elif pArgs.range[0] + pArgs.range[1] >= 1e6:
+                divisor_legend = 1e4
+                mod_legend = 2e6
+                unit = 'Mb'
 
             for k, j in zip(range((pArgs.range[0])), range(pArgs.range[0], 1, -1)):
-                if j % upstream_mod == 0:
-                    x_labels.append(str(-int(j) // int(upstream_divisor)) + upstream_unit)
+                if j % mod_legend == 0:
+                    x_labels.append(str(-int(j) // int(divisor_legend)) + unit)
                     ticks.append(k // pArgs.binResolution)
             x_labels.append('RP')
             ticks.append(pArgs.range[0] // pArgs.binResolution)
 
-            if pArgs.range[1] < 1e6:
-                downstream_divisor = 1e3
-                downstream_mod = 2e5
+            referencepoint_index = ticks[-1]
+            for k, j in zip(range(pArgs.range[1]), range(1, pArgs.range[1] + 1, 1)):
+                if j % mod_legend == 0:
+                    x_labels.append(str(-int(j) // int(divisor_legend)) + unit)
+                    ticks.append(referencepoint_index + (k // pArgs.binResolution))
+            # if pArgs.range[0]  < 1e6:
+            #     upstream_divisor = 1e3
+            #     upstream_mod = 2e5
 
-                if pArgs.range[1] <= 1e4:
-                    downstream_mod = 5e3
-                    # downstream_divisor = 5e1
-                elif pArgs.range[1] <= 5e4:
-                    downstream_mod = 1e4
-                    # downstream_divisor = 1e2
-                elif pArgs.range[1] <= 1e5:
-                    downstream_mod = 5e4
-                    # downstream_divisor = 5e2
+            #     if pArgs.range[0] <= 1e4:
+            #         upstream_mod = 5e3
+            #     elif pArgs.range[0] <= 5e4:
+            #         upstream_mod = 1e4
+            #     elif pArgs.range[0] <= 1e5:
+            #         upstream_mod = 5e4
 
-                downstream_unit = 'kb'
-            elif pArgs.range[1] >= 1e6:
-                downstream_divisor = 1e4
-                downstream_mod = 2e6
-                downstream_unit = 'Mb'
+            #     log.debug('upstream_divisor {}'.format(upstream_divisor))
+
+            #     upstream_unit = 'kb'
+            # elif pArgs.range[0] >= 1e6:
+            #     upstream_divisor = 1e4
+            #     upstream_mod = 2e6
+            #     upstream_unit = 'Mb'
+
+            # for k, j in zip(range((pArgs.range[0])), range(pArgs.range[0], 1, -1)):
+            #     if j % upstream_mod == 0:
+            #         x_labels.append(str(-int(j) // int(upstream_divisor)) + upstream_unit)
+            #         ticks.append(k // pArgs.binResolution)
+            # x_labels.append('RP')
+            # ticks.append(pArgs.range[0] // pArgs.binResolution)
+
+            # if pArgs.range[1] < 1e6:
+            #     downstream_divisor = 1e3
+            #     downstream_mod = 2e5
+
+            #     if pArgs.range[1] <= 1e4:
+            #         downstream_mod = 5e3
+            #     elif pArgs.range[1] <= 5e4:
+            #         downstream_mod = 1e4
+            #     elif pArgs.range[1] <= 1e5:
+            #         downstream_mod = 5e4
+
+            #     downstream_unit = 'kb'
+            # elif pArgs.range[1] >= 1e6:
+            #     downstream_divisor = 1e4
+            #     downstream_mod = 2e6
+            #     downstream_unit = 'Mb'
             # downstream_divisor = 1e3 if pArgs.range[1] < 1e6 else 1e4
             # downstream_mod = 2e5 if pArgs.range[1] < 1e6 else 2e6
             # downstream_unit = 'kb' if pArgs.range[1] < 1e6 else 'Mb'
-            referencepoint_index = ticks[-1]
-            for k, j in zip(range(pArgs.range[1]), range(1, pArgs.range[1] + 1, 1)):
-                if j % downstream_mod == 0:
-                    x_labels.append(str(-int(j) // int(downstream_divisor)) + downstream_unit)
-                    ticks.append(referencepoint_index + (k // pArgs.binResolution))
+            # referencepoint_index = ticks[-1]
+            # for k, j in zip(range(pArgs.range[1]), range(1, pArgs.range[1] + 1, 1)):
+            #     if j % downstream_mod == 0:
+            #         x_labels.append(str(-int(j) // int(downstream_divisor)) + downstream_unit)
+            #         ticks.append(referencepoint_index + (k // pArgs.binResolution))
 
             # log.debug('ticks {}'.format(ticks))
             # log.debug('x_labels {}'.format(x_labels))
