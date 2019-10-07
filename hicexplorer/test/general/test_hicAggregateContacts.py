@@ -55,7 +55,7 @@ def test_hicAggregateContacts_cooler():
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100".\
         format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
-    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'
+    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png' # noqa: F841
 
     hicexplorer.hicAggregateContacts.main(args.split())
 
