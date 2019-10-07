@@ -503,19 +503,21 @@ class Viewpoint():
         divider = make_axes_locatable(pAxisLabel)
         cax = divider.append_axes("left", size="20%", pad=0.09)
 
-        if pValueSignificanceLevels is not None:
-            log.debug('pValueSignificanceLevels {}'.format(pValueSignificanceLevels))
-            img = pAxis.contourf(_z_score, levels=pValueSignificanceLevels, cmap=pCmap)
+        if pPValueData is not None:
+            # log.debug('pValueSignificanceLevels {}'.format(pValueSignificanceLevels))
+            img = pAxis.contourf(_z_score, cmap=pCmap)
             colorbar = pFigure.colorbar(
                 img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
-        else:
+            colorbar.ax.set_ylabel('p-value', size=6)
+
+        elif pValueSignificanceLevels:
             pValueSignificanceLevels.insert(0, -1)
             pValueSignificanceLevels.append(1)
 
             img = pAxis.contourf(_z_score, levels=pValueSignificanceLevels, colors=['#CC0000', '#FFD43B', '#306998', '#FFFFFF'])
             colorbar = pFigure.colorbar(img, cax=cax, ticks=[pValueSignificanceLevels[1], pValueSignificanceLevels[2], pValueSignificanceLevels[3]])
             colorbar.ax.tick_params(labelsize=6)
-        colorbar.ax.set_ylabel('p-value', size=6)
+            colorbar.ax.set_ylabel('p-value', size=6)
 
         pAxisLabel.text(0.45, 0, pLabelText, size=7)
         pAxisLabel.xaxis.set_visible(False)
