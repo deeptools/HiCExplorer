@@ -1,0 +1,4 @@
+# Created with HiCExplorer's hicPlotSVL 3.3-dev
+# Short range vs long range contacts per chromosome, p-values of each distribution against each other distribution with Wilcoxon rank-sum
+# Short range contacts: <= 2000000
+hicexplorer/test/test_data/small_test_matrix_50kb_res.h5	hicexplorer/test/test_data/small_test_matrix_50kb_res.h5	1.0

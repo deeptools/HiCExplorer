@@ -130,9 +130,6 @@ def main(args=None):
         is_cooler = check_cooler(matrix)
         if not is_cooler:
             hic_matrix = hm.hiCMatrix(matrix)
-            # hic_matrix.keepOnlyTheseChr([chromosome])
-            # matrix = deepcopy(hic_matrix.matrix)
-            # cut_intervals = deepcopy(hic_matrix.cut_intervals)
         else:
             hic_matrix = matrix
         if args.chromosomes is None:
@@ -209,9 +206,7 @@ def main(args=None):
     for i, patch in enumerate(box_plot['boxes']):
         patch.set_facecolor(args.colorList[i % len(args.colorList)])
         legend_handels_color.append(mpatches.Patch(color=args.colorList[i % len(args.colorList)], label=args.matrices[i]))
-    # red_patch = mpatches.Patch(color='red', label='The red data')
     plt.legend(handles=legend_handels_color)
-    # plt.legend(args.matrices)
     plt.savefig(args.plotFileName, dpi=args.dpi)
 
     if len(args.matrices) > 1:
@@ -238,7 +233,6 @@ def main(args=None):
         header += '# Short range contacts: <= ' + str(args.distance) + '\n'
         matrices_names = '\t\t\t'.join(args.matrices)
         header += '#\t{}\n'.format(matrices_names)
-        # for matrix in args.matrices:
         header += '# Chromosome\t'
         header += '\t'.join(['Ratio', 'Sum <= {}'.format(args.distance), 'Sum > {}'.format(args.distance)] * len(args.matrices))
         header += '\n'
