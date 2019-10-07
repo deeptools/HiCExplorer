@@ -52,51 +52,48 @@ def parse_arguments(args=None):
     return parser
 
 
-def main(args=None):
-
-    args = parse_arguments().parse_args(args)
-
-    if args.chromosomes is not None and args.regions is not None:
+def adjustMatrix(pArgs):
+    if pArgs.chromosomes is not None and pArgs.regions is not None:
         log.error('Please specify either --chromosomes or --regions.')
         exit(1)
     hic_matrix = None
-    if args.chromosomes:
+    if pArgs.chromosomes:
 
-        if check_cooler(args.matrix) and len(args.chromosomes) == 1 and args.action == 'keep':
-            chromosomes_list = cooler.Cooler(args.matrix).chromnames
-            if args.chromosomes[0] in chromosomes_list:
-                hic_matrix = hm.hiCMatrix(args.matrix, pChrnameList=args.chromosomes)
+        if check_cooler(pArgs.matrix) and len(pArgs.chromosomes) == 1 and pArgs.action == 'keep':
+            chromosomes_list = cooler.Cooler(pArgs.matrix).chromnames
+            if pArgs.chromosomes[0] in chromosomes_list:
+                hic_matrix = hm.hiCMatrix(pArgs.matrix, pChrnameList=pArgs.chromosomes)
             else:
-                log.error('Chromosome not available in matrix: {} {}'.format(args.matrix, args.chromosomes[0]))
+                log.error('Chromosome not available in matrix: {} {}'.format(pArgs.matrix, pArgs.chromosomes[0]))
                 exit(1)
         else:
-            hic_matrix = hm.hiCMatrix(args.matrix)
+            hic_matrix = hm.hiCMatrix(pArgs.matrix)
 
         chromosomes_list = list(hic_matrix.chrBinBoundaries)
         chromosomes_list_to_operate_on = []
-        for chromosome in args.chromosomes:
+        for chromosome in pArgs.chromosomes:
             if chromosome in chromosomes_list:
                 chromosomes_list_to_operate_on.append(chromosome)
             else:
-                log.warning('Chromosome not available in matrix: {} {}'.format(args.matrix, chromosome))
+                log.warning('Chromosome not available in matrix: {} {}'.format(pArgs.matrix, chromosome))
         if len(chromosomes_list_to_operate_on) == 0:
-            log.error('No valid chromosome given: {}. Available: {}'.format(args.chromosomes, chromosomes_list))
+            log.error('No valid chromosome given: {}. Available: {}'.format(pArgs.chromosomes, chromosomes_list))
             exit(1)
-        if args.action == 'keep':
+        if pArgs.action == 'keep':
             hic_matrix.reorderChromosomes(chromosomes_list_to_operate_on)
-        elif args.action == 'remove':
+        elif pArgs.action == 'remove':
             # chromosomes = list(hic_matrix.chrBinBoundaries)
             for chromosome in chromosomes_list:
                 if chromosome in chromosomes_list_to_operate_on:
                     chromosomes_list.remove(chromosome)
             hic_matrix.reorderChromosomes(chromosomes_list)
-        elif args.action == 'mask':
+        elif pArgs.action == 'mask':
             hic_matrix.maskChromosomes(chromosomes_list_to_operate_on)
-    elif args.regions:
-        hic_matrix = hm.hiCMatrix(args.matrix)
+    elif pArgs.regions:
+        hic_matrix = hm.hiCMatrix(pArgs.matrix)
         chromosomes_list = list(hic_matrix.chrBinBoundaries)
         genomic_regions = []
-        with open(args.regions, 'r') as file:
+        with open(pArgs.regions, 'r') as file:
             for line in file.readlines():
                 _line = line.strip().split('\t')
                 if len(line) < 3:
@@ -107,7 +104,7 @@ def main(args=None):
                     if chrom in chromosomes_list:
                         genomic_regions.append((chrom, start, end))
                     else:
-                        log.warning('Chromosome not available in matrix, ignoring regions: {} {}'.format(args.matrix, chrom))
+                        log.warning('Chromosome not available in matrix, ignoring regions: {} {}'.format(pArgs.matrix, chrom))
         if len(genomic_regions) == 0:
             log.error('No valid chromosome given. Available: {}'.format(chromosomes_list))
             exit(1)
@@ -120,17 +117,17 @@ def main(args=None):
                 matrix_indices_regions.extend(list(range(start, end)))
 
         # log.debug('matrix_indices_regions {}'.format(matrix_indices_regions))
-        if args.action == 'keep':
+        if pArgs.action == 'keep':
             values_submatrix = matrix_indices_regions
             instances, features = hic_matrix.matrix.nonzero()
             mask = np.isin(instances, values_submatrix)
             mask = np.logical_not(mask)
             hic_matrix.matrix.data[mask] = 0
             hic_matrix.matrix.eliminate_zeros()
-        elif args.action == 'mask':
+        elif pArgs.action == 'mask':
             hic_matrix.maskBins(matrix_indices_regions)
 
-        elif args.action == 'remove':
+        elif pArgs.action == 'remove':
 
             full_matrix_range = np.array(range(0, max(hic_matrix.matrix.shape[0], hic_matrix.matrix.shape[1])))
             matrix_indices_regions = np.array(matrix_indices_regions)
@@ -139,14 +136,23 @@ def main(args=None):
             full_matrix_range = full_matrix_range[mask]
 
             hic_matrix.reorderBins(full_matrix_range)
-    elif args.maskBadRegions:
-        if check_cooler(args.matrix) and len(args.chromosomes) == 1 and args.action == 'keep':
-            hic_matrix = hm.hiCMatrix(args.matrix, pChrnameList=args.chromosomes)
+    elif pArgs.maskBadRegions:
+        if check_cooler(pArgs.matrix) and len(pArgs.chromosomes) == 1 and pArgs.action == 'keep':
+            hic_matrix = hm.hiCMatrix(pArgs.matrix, pChrnameList=pArgs.chromosomes)
         else:
-            hic_matrix = hm.hiCMatrix(args.matrix)
+            hic_matrix = hm.hiCMatrix(pArgs.matrix)
 
     else:
         log.info('No data to adjust given. Please specify either --chromosomes or --region parameter.')
+
+    return hic_matrix
+
+
+def main(args=None):
+
+    args = parse_arguments().parse_args(args)
+
+    hic_matrix = adjustMatrix(args)
 
     if hic_matrix is not None:
         hic_matrix.save(args.outFileName)
