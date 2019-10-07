@@ -62,18 +62,19 @@ class Viewpoint():
         start with '#'.
         Interactions files contain:
         Chromosome Viewpoint, Start, End, Gene, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
-        Relative number of interactions, z-score based on relative interactions.
+        Relative number of interactions, p-score based on relative interactions.
 
         This function returns:
         - header as  a string
         - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}
-        - rbz-score in relation to relative position as a dict (same format as interaction data)
+        - p-score in relation to relative position as a dict (same format as interaction data)
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
         # use header info to store reference point, and based matrix
         interaction_data = {}
-        z_score = {}
+        p_score = {}
         interaction_file_data = {}
+        genomic_coordinates = {}
         with open(pBedFile) as fh:
             fh.readline()
             header = fh.readline()
@@ -85,9 +86,11 @@ class Viewpoint():
                 _line = line.strip().split('\t')
                 # relative postion and relative interactions
                 interaction_data[int(_line[-5])] = float(_line[-4])
-                z_score[int(_line[-5])] = float(_line[-3])
+                p_score[int(_line[-5])] = float(_line[-3])
                 interaction_file_data[int(_line[-5])] = _line
-        return header, interaction_data, z_score, interaction_file_data
+                genomic_coordinates[int(_line[-5])] = [_line[0], _line[1], _line[2]]
+
+        return header, interaction_data, p_score, interaction_file_data, genomic_coordinates
 
     def readInteractionFileForAggregateStatistics(self, pBedFile):
         '''
@@ -348,13 +351,14 @@ class Viewpoint():
             _range[1] = (max_length - int(pViewpoint[2])) + bin_size
         return region_start, region_end, _range
 
-    def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
-        header, interaction_data, p_value_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
+    def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel, pResolution):
+        header, interaction_data, p_value_data, _interaction_file_data_raw, genomic_coordinates = self.readInteractionFile(pInteractionFile)
         matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
 
         data = []
         p_value = []
         data_background = None
+        viewpoint_index_end = None
         if pRange:
 
             interaction_data_keys = copy.deepcopy(
@@ -373,29 +377,102 @@ class Viewpoint():
                 background_data_keys_sorted = sorted(pBackgroundModel)
 
         if pBackgroundModel:
-            viewpoint_index = background_data_keys_sorted.index(0)
+            # viewpoint_index = background_data_keys_sorted.index(0)
+            viewpoint_index_start = background_data_keys_sorted.index(0)
 
             data_background = []
 
             for key in background_data_keys_sorted:
+                # log.debug('key {}'.format(key))
                 if key in interaction_data:
-                    data.append(interaction_data[key])
+                    if key == 0:
+                        chromosome, start, end = genomic_coordinates[key]
+                        # log.debug('peak width {}'.format(np.abs(int(start) - int(end))))
+                        # log.debug('pResolution {}'.format(pResolution))
+
+                        if np.abs(int(start) - int(end)) > pResolution:
+
+                            peak_width = np.abs(int(start) - int(end)) // pResolution
+                            viewpoint_index_end = peak_width
+                            i = 0
+                            while i < peak_width:
+                                data.append(interaction_data[key])
+                                i += 1
+                    else:
+                        data.append(interaction_data[key])
 
                     if key in p_value_data:
-                        p_value.append(p_value_data[key])
+                        if key == 0:
+                            chromosome, start, end = genomic_coordinates[key]
+                            if np.abs(int(start) - int(end)) > pResolution:
+                                peak_width = np.abs(int(start) - int(end)) // pResolution
+                                i = 0
+                                while i < peak_width:
+                                    p_value.append(p_value_data[key])
+                                    i += 1
+                                # log.debug('peak width: {}'.format(peak_width))
+                        else:
+                            p_value.append(p_value_data[key])
+                    if key == 0:
+                        chromosome, start, end = genomic_coordinates[key]
+                        if np.abs(int(start) - int(end)) > pResolution:
+                            peak_width = np.abs(int(start) - int(end)) // pResolution
+                            i = 0
+                            while i < peak_width:
+                                data_background.append(pBackgroundModel[key][0])
+                                log.debug('pBackgroundModel[key][0] {}'.format(pBackgroundModel[key][0]))
+                                log.debug('peak_width {}'.format(peak_width))
+                                log.debug('data_background[-1] {}'.format(data_background[-1]))
 
-                    data_background.append(pBackgroundModel[key][0])
+                                i += 1
+                            # log.debug('peak width: {}'.format(peak_width))
+                    else:
+                        data_background.append(pBackgroundModel[key][0])
+
+            if viewpoint_index_end is None:
+                viewpoint_index_end = viewpoint_index_start
+            else:
+                viewpoint_index_end += viewpoint_index_start
 
         else:
             data = []
             interaction_key = sorted(interaction_data)
             for key in interaction_key:
-                data.append(interaction_data[key])
-                if key in p_value_data:
-                    p_value.append(p_value_data[key])
-            viewpoint_index = interaction_key.index(0)
+                # log.debug('key {}'.format(key))
+                if key == 0:
+                    chromosome, start, end = genomic_coordinates[key]
+                    # log.debug('peak width {}'.format(np.abs(int(start) - int(end))))
+                    # log.debug('pResolution {}'.format(pResolution))
 
-        return header, data, data_background, p_value, viewpoint_index
+                    if np.abs(int(start) - int(end)) > pResolution:
+
+                        peak_width = np.abs(int(start) - int(end)) // pResolution
+                        viewpoint_index_end = peak_width
+                        i = 0
+                        while i < peak_width:
+                            data.append(interaction_data[key])
+                            i += 1
+                else:
+                    data.append(interaction_data[key])
+                if key in p_value_data:
+                    if key == 0:
+                        chromosome, start, end = genomic_coordinates[key]
+                        if np.abs(int(start) - int(end)) > pResolution:
+                            peak_width = np.abs(int(start) - int(end)) // pResolution
+                            i = 0
+                            while i < peak_width:
+                                p_value.append(p_value_data[key])
+                                i += 1
+                            # log.debug('peak width: {}'.format(peak_width))
+                    else:
+                        p_value.append(p_value_data[key])
+
+            viewpoint_index_start = interaction_key.index(0)
+            if viewpoint_index_end is None:
+                viewpoint_index_end = viewpoint_index_start
+            else:
+                viewpoint_index_end += viewpoint_index_start
+        return header, data, data_background, p_value, viewpoint_index_start, viewpoint_index_end
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHighlightSignificantRegion=None):
         data_plot_label = pAxis.plot(
@@ -417,19 +494,30 @@ class Viewpoint():
             pAxis.fill_between(range(len(pBackgroundData)), upper_values, lower_values, facecolor='r', alpha=0.5)
         return data_plot_label
 
-    def plotPValue(self, pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure):
+    def plotPValue(self, pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure, pValueSignificanceLevels):
 
         _z_score = np.empty([2, len(pPValueData)])
         _z_score[:, :] = pPValueData
         pAxis.xaxis.set_visible(False)
         pAxis.yaxis.set_visible(False)
-        img = pAxis.contourf(_z_score, cmap=pCmap)
         divider = make_axes_locatable(pAxisLabel)
         cax = divider.append_axes("left", size="20%", pad=0.09)
-        colorbar = pFigure.colorbar(
-            img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
 
-        colorbar.ax.set_ylabel('p-value', size=6)
+        if pPValueData is not None:
+            # log.debug('pValueSignificanceLevels {}'.format(pValueSignificanceLevels))
+            img = pAxis.contourf(_z_score, cmap=pCmap)
+            colorbar = pFigure.colorbar(
+                img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
+            colorbar.ax.set_ylabel('p-value', size=6)
+
+        elif pValueSignificanceLevels:
+            pValueSignificanceLevels.insert(0, -1)
+            pValueSignificanceLevels.append(1)
+
+            img = pAxis.contourf(_z_score, levels=pValueSignificanceLevels, colors=['#CC0000', '#FFD43B', '#306998', '#FFFFFF'])
+            colorbar = pFigure.colorbar(img, cax=cax, ticks=[pValueSignificanceLevels[1], pValueSignificanceLevels[2], pValueSignificanceLevels[3]])
+            colorbar.ax.tick_params(labelsize=6)
+            colorbar.ax.set_ylabel('p-value', size=6)
 
         pAxisLabel.text(0.45, 0, pLabelText, size=7)
         pAxisLabel.xaxis.set_visible(False)
@@ -485,7 +573,7 @@ class Viewpoint():
         _rbz_score[mask] = -1
         return _rbz_score
 
-    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndex, pResolution, pRange, pViewpoint):
+    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
         highlight_areas_list = []
@@ -508,8 +596,10 @@ class Viewpoint():
                     if int(_line[4]) < 0:
                         # reference_point_position = reference_point_start
                         relative_position_genomic_coordinates = start - int(reference_point_start)
+                        viewpointIndex = pViewpointIndexStart
                     else:
                         relative_position_genomic_coordinates = start - int(reference_point_end)
+                        viewpointIndex = pViewpointIndexEnd
 
                     log.debug('_line[4] {}'.format(_line[4]))
                     log.debug('relative_position_genomic_coordinates {}'.format(relative_position_genomic_coordinates))
@@ -519,7 +609,7 @@ class Viewpoint():
                     # start
 
                     # relative_position_genomic_coordinates  = reference_point_position
-                    relative_position = pViewpointIndex + \
+                    relative_position = viewpointIndex + \
                         (relative_position_genomic_coordinates / pResolution)
                     highlight_areas_list.append(
                         [relative_position, relative_position + width])
@@ -657,13 +747,17 @@ class Viewpoint():
 
         return scores_dict, merged_lines_dict
 
-    def readSignificantRegionsFile(self, pSignificantFile, pViewpointIndex, pResolution, pRange, pViewpoint):
+    def readSignificantRegionsFile(self, pSignificantFile, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
         highlight_areas_list = []
         p_values = []
-        _, reference_point_start, reference_point_end = pViewpoint.split('_')
-
+        viewpoint_split = pViewpoint.split('_')
+        if len(viewpoint_split) == 3:
+            _, reference_point_start, reference_point_end = viewpoint_split
+        else:
+            log.debug('viewpoint_split {}, file: {}'.format(viewpoint_split, pSignificantFile))
+            return None, None
         with open(pSignificantFile) as fh:
             # skip header
             for line in fh.readlines():
@@ -680,10 +774,12 @@ class Viewpoint():
                     if int(_line[5]) < 0:
                         # reference_point_position = reference_point_start
                         relative_position_genomic_coordinates = start - int(reference_point_start)
+                        viewpointIndex = pViewpointIndexStart
                     else:
                         relative_position_genomic_coordinates = start - int(reference_point_end)
+                        viewpointIndex = pViewpointIndexEnd
 
-                    relative_position = pViewpointIndex + \
+                    relative_position = viewpointIndex + \
                         (relative_position_genomic_coordinates / pResolution)
                     highlight_areas_list.append(
                         [relative_position, relative_position + width])

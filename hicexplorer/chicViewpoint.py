@@ -20,13 +20,12 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description="""
-Computes per input matrix all viewpoints which are defined in the reference points file. All files are stored in the folder defined by `--outputFolder`, the files
+Computes per input matrix all viewpoints which are defined in the reference points file. All files are stored in the folder defined by `--outputFolder`, and the files
 are named by the name of the reference point, the sample name and the location of the reference point:
 
 gene_matrix_name_chr_start_end.bed
 
-If multiple reference points are used and the processing downstream should be automated via batch processing mode, please activate `--writeFileNamesToFile`. In this
-file all the file names will be written to; in the case of multiple samples two consecutive lines are consideres as treatment vs control in the differential analysis.
+If multiple reference points are used and the processing downstream should be automated via batch processing mode, please activate `--writeFileNamesToFile`. All the file names will be written to this file; in the case of multiple samples two consecutive lines are considered as treatment vs. control for the differential analysis.
 
 An example usage is:
 
@@ -46,38 +45,42 @@ $ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoi
                                 nargs='+')
 
     parserRequired.add_argument('--range',
-                                help='Defines the region upstream and downstream of a reference point which should be considered in the analysis. Please have in mind to use the same fixate range setting as it was '
-                                'for the background model computation and that distances of the range larger as the fixate range use the background model of those.'
+                                help='Defines the region upstream and downstream of a reference point which should be considered in the analysis. Please remember to use the same fixate range setting as '
+                                'for the background model computation and that distances of the range larger than the fixate range use the background model of those.'
                                 'Format is --region upstream downstream',
                                 required=True,
                                 type=int,
                                 nargs=2)
 
     parserRequired.add_argument('--referencePoints', '-rp', help='Reference point file. Needs to be in the format: \'chr 100\' for a '
-                                'single reference point or \'chr 100 200\' for a reference region and per line one reference point',
+                                'single reference point or \'chr 100 200\' for a reference region and with a single reference point per line',
                                 required=True)
     parserRequired.add_argument('--backgroundModelFile', '-bmf',
                                 help='path to the background file computed by chicViewpointBackgroundModel',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads. Using the python multiprocessing module.',
+                           help='Number of threads (uses the python multiprocessing module).',
                            required=False,
                            default=4,
                            type=int)
     parserOpt.add_argument('--averageContactBin',
-                           help='Average the contacts of n bins via sliding window approach to smooth the values and be less sensitive for outlieres..',
+                           help='Average the contacts of n bins via a sliding window approach to smooth the values and be less sensitive for outliers.',
                            type=int,
                            default=5)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
-                           help='Set this parameter to have a file with all file names of the viewpoint files, useful only for batch processing mode.')
+                           help='Set this parameter to have a file with all file names of the viewpoint files (useful only in batch processing mode).')
 
     parserOpt.add_argument('--fixateRange', '-fs',
-                           help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
+                           help='Fixate range of background model starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
                            required=False,
                            default=500000,
                            type=int
                            )
+    parserOpt.add_argument('--allViewpointsList', '-avl',
+                           help='Writes a file where all viewpoints all samples are sorted by the viewpoints.',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument('--outputFolder', '-o',
                            help='This folder contains all created viewpoint files.',
                            required=False,
@@ -296,6 +299,17 @@ def main(args=None):
                         for viewpoint, viewpoint2 in zip(sample, sample2):
                             file.write(viewpoint + '\n')
                             file.write(viewpoint2 + '\n')
+            else:
+                for viewpoint in file_list[0]:
+                    file.write(viewpoint + '\n')
+    if args.allViewpointsList:
+
+        with open(args.writeFileNamesToFile + 'all', 'w') as file:
+            if len(file_list) > 1:
+                for i, sample in enumerate(file_list[0]):
+                    file.write(sample + '\n')
+                    for j in range(1, len(file_list)):
+                        file.write(file_list[j][i] + '\n')
             else:
                 for viewpoint in file_list[0]:
                     file.write(viewpoint + '\n')
