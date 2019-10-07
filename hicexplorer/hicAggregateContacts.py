@@ -549,7 +549,7 @@ def main(args=None):
     chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
 
     for chrom in chrom_list:
-        if chrom not in bed_intervals:
+        if chrom not in bed_intervals or chrom not in bed_intervals2:
             continue
 
         chrom_matrix[chrom] = []
@@ -651,13 +651,16 @@ def main(args=None):
         cluster_ids = {}
         num_clusters = 1
         for chrom in chrom_list:
+            if chrom not in bed_intervals or chrom not in bed_intervals2:
+                continue
             cluster_ids[chrom] = [range(len(chrom_matrix[chrom]))]
 
     plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, num_clusters, M_half, args)
 
     if args.outFileContactPairs:
         for idx, chrom in enumerate(chrom_matrix):
-
+            if chrom not in bed_intervals or chrom not in bed_intervals2:
+                continue
             for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
                 center_values_to_order = np.array(center_values[chrom])[cluster_indices]
                 center_values_order = np.argsort(center_values_to_order)[::-1]

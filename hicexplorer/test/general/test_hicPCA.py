@@ -84,6 +84,24 @@ def test_pca_bedgraph():
     os.unlink(pca2.name)
 
 
+def test_pca_bedgraph_ignore_masked_bins():
+    pca1 = NamedTemporaryFile(suffix='.bedgraph', delete=False)
+    pca2 = NamedTemporaryFile(suffix='.bedgraph', delete=False)
+
+    pca1.close()
+    pca2.close()
+    matrix = ROOT + "small_test_matrix_50kb_res.h5"
+    args = "--matrix {} --outputFileName {} {} -f bedgraph -noe 2 --ignoreMaskedBins"\
+        .format(matrix, pca1.name, pca2.name).split()
+    hicPCA.main(args)
+
+    assert are_files_equal(ROOT + "hicPCA/pca1_ignoredMaskedBins.bedgraph", pca1.name)
+    assert are_files_equal(ROOT + "hicPCA/pca2_ignoredMaskedBins.bedgraph", pca2.name)
+
+    os.unlink(pca1.name)
+    os.unlink(pca2.name)
+
+
 def test_pca_bigwig():
     pca1 = NamedTemporaryFile(suffix='.bw', delete=False)
     pca2 = NamedTemporaryFile(suffix='.bw', delete=False)
