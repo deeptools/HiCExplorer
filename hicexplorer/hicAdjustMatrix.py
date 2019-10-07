@@ -122,11 +122,11 @@ def main(args=None):
         # log.debug('matrix_indices_regions {}'.format(matrix_indices_regions))
         if args.action == 'keep':
             values_submatrix = matrix_indices_regions
-            instances, features = hic_ma.matrix.nonzero()
+            instances, features = hic_matrix.matrix.nonzero()
             mask = np.isin(instances, values_submatrix)
             mask = np.logical_not(mask)
-            hic_ma.matrix.data[mask] = 0
-            hic_ma.matrix.eliminate_zeros()
+            hic_matrix.matrix.data[mask] = 0
+            hic_matrix.matrix.eliminate_zeros()
         elif args.action == 'mask':
             hic_matrix.maskBins(matrix_indices_regions)
 
