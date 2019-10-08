@@ -205,7 +205,7 @@ def main(args=None):
     legend_handels_color = []
     for i, patch in enumerate(box_plot['boxes']):
         patch.set_facecolor(args.colorList[i % len(args.colorList)])
-        legend_handels_color.append(mpatches.Patch(color=args.colorList[i % len(args.colorList)], label=args.matrices[i]))
+        legend_handels_color.append(mpatches.Patch(color=args.colorList[i % len(args.colorList)], label=args.matrices[i].split('/')[-1]))
     plt.legend(handles=legend_handels_color)
     plt.savefig(args.plotFileName, dpi=args.dpi)
 
