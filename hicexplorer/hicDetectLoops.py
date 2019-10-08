@@ -191,9 +191,6 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             if value:
                 mask[pGenomicDistanceDistributionPosition[key][j]] = True
 
-    # peak_interaction_threshold_array = pMinimumInteractionsThreshold / \
-    #     np.log(distance)
-
     peak_interaction_threshold_array = np.zeros(len(distance))
     for i, key in enumerate(distance):
         peak_interaction_threshold_array[i] = pGenomicDistanceDistribution_max_value[key] * pMaximumInteractionPercentageThreshold
@@ -203,7 +200,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     instances = instances[mask]
     features = features[mask]
-    # peak_interaction_threshold_array = peak_interaction_threshold_array[mask]
+
     if len(features) == 0:
         return None, None
     candidates = np.array([*zip(instances, features)])
@@ -570,7 +567,17 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
             - pArgs: Argparser object
             - pQueue: Queue object for multiprocessing communication with parent process
     """
+    # log.debug('pRegion {}'.format(pRegion))
+    # log.debug('pHiCMatrix.matrix {}'.format(pHiCMatrix.matrix))
+    # log.debug('pHiCMatrix.shape {}'.format(pHiCMatrix.matrix.shape))
+    if pHiCMatrix.matrix.shape[0] < 5 or pHiCMatrix.matrix.shape[1] < 5:
+        log.info('Computed loops for {}: 0'.format(pRegion))
 
+        if pQueue is None:
+            return None
+        else:
+            pQueue.put([None])
+            return
     if pArgs.windowSize is None:
         bin_size = pHiCMatrix.getBinSize()
         if 0 < bin_size <= 5000:

@@ -34,29 +34,43 @@ Nucleic Acids Research, Volume 46, Issue W1, 2 July 2018, Pages W11–W16, doi: 
 
 The following is the list of tools:
 
-   findRestSites            Identifies the genomic locations of restriction sites
-   hicBuildMatrix           Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
-   hicQC                    Plots QC measures from the output of hicBuildMatrix
-   hicCorrectMatrix         Uses iterative correction to remove biases from a Hi-C matrix
-   hicFindEnrichedContacts  Identifies enriched Hi-C contacts
-   hicCorrelate             Computes and visualizes the correlation of Hi-C matrices
-   hicFindTADs	            Identifies Topologically Associating Domains (TADs)
-   hicMergeMatrixBins	    Merges consecutive bins on a Hi-C matrix to reduce resolution
-   hicPCA                   Computes the principal components (eigenvectors) for A/B compartment analysis
-   hicTransform             Computes obs_exp (like Lieberman-Aiden), pearson and covariance matrix for A/B compartment analysis
-   hicPlotDistVsCounts	    Plot the decay in interaction frequency with distance
-   hicPlotMatrix	        Plots a Hi-C matrix as a heatmap and can add a pca track to it
-   hicPlotTADs	            Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
-   hicPlotViewpoint         Plots the number of interactions around a reference point
-   hicSumMatrices	        Adds Hi-C matrices of the same size
-   hicPlotDistVsCounts	    Plots distance vs. Hi-C counts of corrected data
-   hicInfo                  Shows information about a Hi-C matrix (no. of bins, bin length, sum, max, min, etc)
-   hicCompareMatrices       Computes difference or ratio between two matrices
-   hicAdjustMatrix          Remove, keep or mask specific regions in a matrix
-   hicAverageRegions        Sum up defined reference points and a range up/downstream of it. Useful for TAD analysis
-   hicPlotAverageRegions    Plot tool for hicAverageRegions
-   hicNormalize             Normalizes matrices to 0 1 range or to lowest read coverage
-   hicConvertFormat         Converter for different interaction matrix file formats.
+findRestSite                 Identifies the genomic locations of restriction sites
+hicBuildMatrix               Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
+hicQuickQC                   Estimates the quality of Hi-C dataset
+hicQC                        Plots QC measures from the output of hicBuildMatrix
+hicCorrectMatrix             Uses iterative correction to remove biases from a Hi-C matrix
+hicDetectLoops               Identifies enriched Hi-C contacts
+hicCorrelate                 Computes and visualizes the correlation of Hi-C matrices
+hicFindTADs                  Identifies Topologically Associating Domains (TADs)
+hicPCA                       Computes for A / B compartments the eigenvectors
+hicTransform                 Computes a obs_exp matrix like Lieberman-Aiden (2009), a pearson correlation matrix and or a covariance matrix. These matrices can be used for plotting.
+hicMergeMatrixBins           Merges consecutive bins on a Hi-C matrix to reduce resolution
+hicMergeTADbins              Uses a BED file of domains or TAD boundaries to merge the bin counts of a Hi-C matrix.
+hicPlotDistVsCounts          Plot the decay in interaction frequency with distance
+hicPlotMatrix                Plots a Hi-C matrix as a heatmap
+hicPlotTADs                  Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
+hicPlotViewpoint             A plot with the interactions around a reference point or region.
+hicAggregateContacts         A tool that allows plotting of aggregated Hi-C sub-matrices of a specified list of positions.
+hicSumMatrices               Adds Hi-C matrices of the same size
+hicPlotDistVsCounts          Plots distance vs. Hi-C counts of corrected data
+hicInfo                      Shows information about a Hi-C matrix file (no. of bins, bin length, sum, max, min, etc)
+hicCompareMatrices           Computes difference or ratio between two matrices
+hicAverageRegions            Computes the average of multiple given regions, usually TAD regions
+hicPlotAverageRegions        visualization of hicAverageRegions
+hicNormalize                 Normalizes the given matrices to 0-1 range or the smallest read coverage
+hicConvertFormat             Converts between different Hi-C interaction matrices
+hicAdjustMatrix              Keeps, removes or masks regions in a Hi-C matrix
+hicValidateLocations         Compare the loops with known peak protein locations
+hicMergeLoops                Merges loops of different resolutions
+hicCompartmentsPolarization  Compute the global compartmentalization signal
+chicQualityControl           Quality control for cHi-C data
+chicViewpointBackgroundModel Background model computation for cHi-C analysis
+chicViewpoint                Computation of all viewpoints based on background model for cHi-C analysis
+chicSignificantInteractions  Detection of significant interactions per viewpoint based on background model
+chicAggregateStatistic       Compiling of target regions for two samples as input for differential analysis
+chicDifferentialTest         Differential analysis of interactions of two samples
+chicPlotViewpoint            Plotting of viewpoint with background model and highlighting of significant and differential regions
+hicPlotSVL                   Computing short vs long range contacts and plotting the results
 
 For more information visit: http://hicexplorer.readthedocs.org
 """)

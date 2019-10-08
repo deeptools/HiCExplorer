@@ -7,7 +7,7 @@ from hicexplorer._version import __version__
 import logging
 log = logging.getLogger(__name__)
 import numpy as np
-from scipy.sparse import csr_matrix, save_npz
+from scipy.sparse import csr_matrix, save_npz, lil_matrix
 
 
 def parse_arguments(args=None):
@@ -73,6 +73,7 @@ def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange):
 
 
 def getBinIndices(pHiCMatrix, pViewpoint):
+
     return pHiCMatrix.getRegionBinRange(pViewpoint[0], pViewpoint[1], pViewpoint[2])
 
 
@@ -96,22 +97,40 @@ def main(args=None):
             _line = line.strip().split('\t')
             if len(line) == 0:
                 continue
-            if len(_line) >= 2:
+            if len(_line) == 2:
                 chrom, start = _line[0], _line[1]
 
-            viewpoint = (chrom, start, start)
+                viewpoint = (chrom, start, start)
+            elif len(_line) >= 3:
+                chrom, start, end = _line[0], _line[1], _line[2]
+                viewpoint = (chrom, start, end)
             if args.range:
                 start_range_genomic, end_range_genomic, _ = calculateViewpointRange(hic_ma, viewpoint, args.range)
+                # min_length, max_length = hic_ma.getBinPos(hic_ma.getChrBinRange(pViewpoint[0])[1] - 1)[1:]
+                # if start_range_genomic < min_length:
+                #     log.warning('Ignoring {} {} {} because the reference point minus the range {} is smaller than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
+                #     continue
+                # if end_bin > :
+                #     log.warning('Ignoring {} {} {} because the reference point plus the range {} is greater than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
+                #     continue
                 start_bin, end_bin = getBinIndices(hic_ma, (chrom, start_range_genomic, end_range_genomic))
             else:
                 start_bin, end_bin = calculateViewpointRangeBins(hic_ma, viewpoint, args.rangeInBins)
+            # if start_bin < 0:
+            #     log.warning('Ignoring {} {} {} because the reference point minus the range {} is smaller than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
+            #     continue
+            # if end_bin > :
+            #     log.warning('Ignoring {} {} {} because the reference point plus the range {} is greater than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
+            #     continue
             indices_values.append([start_bin, end_bin])
 
     if args.range:
         dimensions_new_matrix = (args.range[0] // hic_ma.getBinSize()) + (args.range[1] // hic_ma.getBinSize())
     elif args.rangeInBins:
         dimensions_new_matrix = args.rangeInBins[0] + args.rangeInBins[1]
-    summed_matrix = csr_matrix((dimensions_new_matrix, dimensions_new_matrix), dtype=np.float32)
+    # summed_matrix = csr_matrix((dimensions_new_matrix, dimensions_new_matrix), dtype=np.float32)
+    summed_matrix = lil_matrix((dimensions_new_matrix, dimensions_new_matrix), dtype=np.float32)
+
     max_length = hic_ma.matrix.shape[1]
     for start, end in indices_values:
         _start = 0
@@ -127,4 +146,5 @@ def main(args=None):
 
     summed_matrix /= len(indices_values)
 
+    summed_matrix = summed_matrix.tocsr()
     save_npz(args.outFileName, summed_matrix)

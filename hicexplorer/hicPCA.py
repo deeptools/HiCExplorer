@@ -13,6 +13,7 @@ from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
+from hicexplorer.utilities import enlarge_bins
 from hicexplorer.parserCommon import CustomFormatter
 from hicexplorer.utilities import toString
 from hicexplorer.utilities import opener
@@ -97,6 +98,9 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            'a Pearson matrix.'
                            ' Set this parameter to write the observe/expected '
                            'matrix to a file.')
+    parserOpt.add_argument('--ignoreMaskedBins',
+                           help='Mask bins are usually set to 0. This option removes the masked bins before the PCA is computed. Attention: this will lead to empty PCA regions.',
+                           action='store_true')
     parserOpt.add_argument('--help', '-h', action='help', help='show the help '
                            'message and exit')
 
@@ -209,6 +213,11 @@ def main(args=None):
 
     ma = hm.hiCMatrix(args.matrix)
     ma.maskBins(ma.nan_bins)
+
+    if args.ignoreMaskedBins:
+        # ma.maskBins(ma.nan_bins)
+        new_intervals = enlarge_bins(ma.cut_intervals)
+        ma.setCutIntervals(new_intervals)
 
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
