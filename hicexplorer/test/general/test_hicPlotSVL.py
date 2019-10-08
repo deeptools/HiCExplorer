@@ -50,7 +50,7 @@ def test_plotSVL():
     matrix = ROOT + "small_test_matrix_50kb_res.h5"
     matrix2 = ROOT + "small_test_matrix_50kb_res.h5"
 
-    args = "--matrices {} {} --plotFileName {} --outFileName {} --outFileNameData {}"\
+    args = "--matrices {} {} --plotFileName {} --outFileName {} --outFileNameData {} --dpi 300"\
         .format(matrix, matrix2, plot.name, outputFileName.name, outputFileNameData.name).split()
     hicPlotSVL.main(args)
 
