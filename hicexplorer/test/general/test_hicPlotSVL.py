@@ -54,8 +54,8 @@ def test_plotSVL():
         .format(matrix, matrix2, plot.name, outputFileName.name, outputFileNameData.name).split()
     hicPlotSVL.main(args)
 
-    assert are_files_equal(ROOT + 'hicPlotSVL/data.txt', outputFileNameData.name)
-    assert are_files_equal(ROOT + 'hicPlotSVL/p_values.txt', outputFileName.name)
+    assert are_files_equal(ROOT + 'hicPlotSVL/data.txt', outputFileNameData.name, delta=2)
+    assert are_files_equal(ROOT + 'hicPlotSVL/p_values.txt', outputFileName.name, delta=2)
     res = compare_images(ROOT + 'hicPlotSVL/plot.png', plot.name, tol=50)
     assert res is None, res
     os.unlink(plot.name)
