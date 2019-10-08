@@ -1,6 +1,35 @@
 News and Developments
 =====================
 
+Release 3.3
+-----------
+**8 October 2019**
+
+- Fixing many bugs:
+   - A bug in hicDetectLoops if a sub-matrix was very small
+   - A bug in hicPlotMatrix if the region defined by --region was only a chromosome and loops should be plotted too
+   - A bug in hicPlotMatrix if a loop region should be plotted and chromosomeOrder argument was used too
+   - A bug in hicAggregateContacts (issue #405) if chromosomes were present in the matrix but not in the bed file
+   - A bug in hicAdjustMatrix concerning a bed file and consecutive regions, see issue #343
+   - A bug in hicAdjustMatrix if a chromosome is present in the matrix but not in the bed file, see issue #397
+   - A bug in hicCompartmentsPolarization concerning the arguments 'quantile' and 'outliers' were interpreted as strings but should be integers
+   - A bug in hicAdjustMatrix concerning the 'keep' option and how matrices are reordered internally. Thanks @LeilyR
+
+- Added features as requested:
+   - hicPCA ignores now masked bins, see issue #342
+   - chicPlotViewpoint: 
+      - Better legend handling on x-axis
+      - Peaks are now display with their fill width
+      - Add option `--pValueSignificantLevels` to categorize the p-values in x levels (e.g. 0.001 0.05 0.1)
+   - chicViewpoint:
+      - adding sorting via viewpoints and not by samples option (--allViewpointsList)
+   - Adding an option to hicNormalize to normalize via multiplication and a use defined value (see issues #385, #424)
+
+- Rearrange hicAdjustMatrix to have a better accessibility to its functions from outside of main
+- Improving the documentation and fixing grammar / spelling mistakes. Thanks @simonbray
+- New script: hicPlotSVL to investigate short range vs long range ratios.
+
+
 Release 3.2
 -----------
 ** 22 August 2019**

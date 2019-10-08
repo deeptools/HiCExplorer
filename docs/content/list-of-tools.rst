@@ -66,6 +66,8 @@ HiCExplorer tools
 |                                      |                  | one PCA bedgraph file             | polarization plot                           |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotAverageRegions`          | visualization    | one npz file                      | one image                                   | Visualization of hicAverageRegions.                                               |
++-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|:ref`hicPlotSVL`                      | analysis         | one / multiple Hi-C matrices      | one image, p-values file, raw data file     | Computes short/long range contacts; a box plot, a p-value and raw data file       |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicMergeTADbins`                | preprocessing    | one Hi-C matrix, one BED file     | one Hi-C matrix                             | Uses a BED file of domains or TAD boundaries to merge the                         |
 |                                      |                  |                                   |                                             | bin counts of a Hi-C matrix.                                                      |
@@ -166,6 +168,8 @@ Tools for Hi-C data analysis
 :ref:`hicMergeLoops`
 """"""""""""""""""""
 :ref:`hicCompartmentsPolarization`
+""""""""""""""""""""""""""""""""""
+:ref:`hicPlotSVL`
 """"""""""""""""""""""""""""""""""
 
 Tools for TADs processing
