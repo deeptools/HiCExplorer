@@ -12,8 +12,8 @@
 HiCExplorer
 ===========
 
-Set of programs to process, analyze and visualize Hi-C data
------------------------------------------------------------
+Set of programs to process, analyze and visualize Hi-C and cHi-C data
+---------------------------------------------------------------------
 
 Sequencing techniques that probe the 3D organization of the genome generate large amounts of data whose processing,
 analysis and visualization is challenging. Here, we present HiCExplorer, a set of tools for the analysis and
