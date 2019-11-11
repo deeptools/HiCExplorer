@@ -1,8 +1,8 @@
 HiCExplorer
 ===========
 
-Set of programs to process, normalize, analyze and visualize Hi-C data
-----------------------------------------------------------------------
+Set of programs to process, normalize, analyze and visualize Hi-C and cHi-C data
+--------------------------------------------------------------------------------
 
 HiCExplorer addresses the common tasks of Hi-C data analysis from processing to visualization.
 
@@ -61,6 +61,7 @@ tool                                description
 :ref:`chicAggregateStatistic`       Compiling of target regions for two samples as input for differential analysis
 :ref:`chicDifferentialTest`         Differential analysis of interactions of two samples
 :ref:`chicPlotViewpoint`            Plotting of viewpoint with background model and highlighting of significant and differential regions
+:ref:`hicPlotSVL`                   Computing short vs long range contacts and plotting the results
 =================================== ==========================================================================================================================================================
 
 

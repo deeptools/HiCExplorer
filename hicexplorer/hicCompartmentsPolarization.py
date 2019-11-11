@@ -50,11 +50,13 @@ def parse_arguments():
 
     parserOpt.add_argument('--quantile', '-q',
                            help='number of quantiles',
-                           default=30)
+                           default=30,
+                           type=int)
 
     parserOpt.add_argument('--outliers',
                            help='precentage of outlier to remove',
-                           default=0)
+                           default=0,
+                           type=float)
 
     parserOpt.add_argument('--outputMatrix',
                            help='output .npz file includes all the '
