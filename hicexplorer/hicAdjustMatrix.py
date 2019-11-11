@@ -121,7 +121,7 @@ def adjustMatrix(pArgs):
         # log.debug('matrix_indices_regions {}'.format(matrix_indices_regions))
         if pArgs.action == 'keep':
             hic_matrix.reorderBins(matrix_indices_regions)
-    
+
         elif pArgs.action == 'mask':
             hic_matrix.maskBins(matrix_indices_regions)
 
