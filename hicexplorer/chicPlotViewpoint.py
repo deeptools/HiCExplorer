@@ -376,7 +376,6 @@ def main(args=None):
                     for i in range(0, args.plotSampleNumber):
                         file_ = significantRegionsFile.readline().strip()
                         if file_ != '':
-
                             lines.append(file_)
                     if len(lines) > 0:
                         highlightSignificantRegionsFileList.append(lines)
