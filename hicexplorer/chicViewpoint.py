@@ -77,6 +77,12 @@ $ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoi
                            default=500000,
                            type=int
                            )
+    parserOpt.add_argument('--xFoldMaxValueNB', '-xfnb',
+                           help='x-fold factor to increase the number of precomputed p-values per relative genomic distance. If set to 1, the maximal distance is used. ',
+                           required=False,
+                           default=1,
+                           type=int
+                           )
     parserOpt.add_argument('--allViewpointsList', '-avl',
                            help='Writes a file where all viewpoints all samples are sorted by the viewpoints.',
                            required=False,
@@ -227,7 +233,7 @@ def main(args=None):
     background_model_mean_values = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range, pMean=True)
     background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(
-        background_model, args)
+        background_model, args, pXfoldMaxValue=args.xFoldMaxValueNB)
 
     if not os.path.exists(args.outputFolder):
         try:
