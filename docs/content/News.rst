@@ -1,6 +1,14 @@
 News and Developments
 =====================
 
+Release 3.3.1
+-------------
+**15 November 2019**
+
+- Fixing a bug in the labeling of chicPlotViewpoints if the value range is counted in MB
+- Add an option to chicViewpoint to pre-compute a x-fold of p-value over the maximum value of the relative distance
+
+
 Release 3.3
 -----------
 **8 October 2019**
