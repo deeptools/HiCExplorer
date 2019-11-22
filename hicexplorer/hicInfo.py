@@ -40,10 +40,10 @@ $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
                            help='File name to save information of the matrix instead of writing it to the bash.'
                            )
     parserOpt.add_argument('--no_metadata', '-nm', action='store_false', help='Do not use meta data from cooler file to display information. '
-                           'This method is slower and was default until version 2.2 of HiCExplorer. H5 files use always this parameter.')
+                           'This method is slower and was the default until version 2.2 of HiCExplorer. H5 files always use this parameter.')
 
     parserOpt.add_argument('--help', '-h', action='help',
-                           help='show this help message and exit')
+                           help='Show this help message and exit.')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
