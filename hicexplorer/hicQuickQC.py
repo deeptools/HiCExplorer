@@ -21,17 +21,17 @@ def parse_arguments(args=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         add_help=False,
         description="""
-The tool hicQuickQC considers the first n lines of two bam/sam files to get a first estimate on the quality of the data.
+The tool hicQuickQC considers the first n lines of two bam/sam files to get a first estimate of the quality of the data.
 """)
     parserRequired = parser.add_argument_group('Required arguments')
     parserRequired.add_argument('--samFiles', '-s',
-                                help='The two PE alignment sam files to process',
+                                help='The two PE alignment sam files to process.',
                                 metavar='two sam files',
                                 nargs=2,
                                 required=True)
 
     parserRequired.add_argument('--QCfolder',
-                                help='Path of folder to save the quality control data for the matrix. The log files '
+                                help='Path of folder to save the quality control data of the matrix. The log files '
                                 'produced this way can be loaded into `hicQC` in order to compare the quality of multiple '
                                 'Hi-C libraries.',
                                 metavar='FOLDER',
@@ -51,9 +51,9 @@ The tool hicQuickQC considers the first n lines of two bam/sam files to get a fi
                        default=10000)
 
     group.add_argument('--restrictionCutFile', '-rs',
-                       help=('BED file with all restriction cut places '
+                       help=('BED file with all restriction cut sites '
                              '(output of "findRestSite" command). '
-                             'Should contain only  mappable '
+                             'Should contain only mappable '
                              'restriction sites. If given, the bins are '
                              'set to match the restriction fragments (i.e. '
                              'the region between one restriction site and '
@@ -66,7 +66,7 @@ The tool hicQuickQC considers the first n lines of two bam/sam files to get a fi
     parserOpt.add_argument('--danglingSequence',
                            help='Sequence left by the restriction enzyme after cutting. Each restriction enzyme '
                                 'recognizes a different DNA sequence and, after cutting, they leave behind a specific '
-                                '"sticky" end or dangling end sequence.  For example, for HindIII the restriction site '
+                                '"sticky" end or dangling end sequence. For example, for HindIII the restriction site '
                                 'is AAGCTT and the dangling end is AGCT. For DpnII, the restriction site and dangling '
                                 'end sequence are the same: GATC. This information is easily found on the description '
                                 'of the restriction enzyme. The dangling sequence is used to classify and report reads '
@@ -74,7 +74,7 @@ The tool hicQuickQC considers the first n lines of two bam/sam files to get a fi
                                 'of dangling-end reads in a sample are indicative of a problem with the re-ligation '
                                 'step of the protocol.')
     parserOpt.add_argument('--lines',
-                           help='Number of lines to consider for the qc test run.',
+                           help='Number of lines to consider for the QC test run.',
                            required=False,
                            default=1000000,
                            type=int
