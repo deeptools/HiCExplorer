@@ -44,7 +44,7 @@ Computes PCA eigenvectors for a Hi-C matrix.
 
     parserRequired.add_argument('--outputFileName', '-o',
                                 help='File names for the result of the pca.'
-                                'Number of output file '
+                                'Number of output files '
                                 'must match the number of computed '
                                 'eigenvectors.',
                                 nargs='+',
@@ -61,7 +61,7 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            required=False)
 
     parserOpt.add_argument('--format', '-f',
-                           help='output format. Either bedgraph or bigwig.',
+                           help='Output format. Either bedgraph or bigwig.',
                            choices=['bedgraph', 'bigwig'],
                            default='bigwig',
                            required=False)
@@ -77,12 +77,12 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            action='store_true')
     parserOpt.add_argument('--extraTrack',
                            help='Either a gene track or a histon mark coverage'
-                           ' file(preferably a broad mark) is needed to decide'
+                           ' file (preferably a broad mark) is needed to decide'
                            ' if the values of the eigenvector need a sign flip'
                            ' or not.',
                            default=None)
     parserOpt.add_argument('--histonMarkType',
-                           help='set it to active or inactive. This is only '
+                           help='Set it to active or inactive. This is only '
                            'necessary if a histon mark coverage file is given '
                            'as an extraTrack.',
                            default='active')
@@ -99,7 +99,7 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            ' Set this parameter to write the observe/expected '
                            'matrix to a file.')
     parserOpt.add_argument('--ignoreMaskedBins',
-                           help='Mask bins are usually set to 0. This option removes the masked bins before the PCA is computed. Attention: this will lead to empty PCA regions.',
+                           help='Masked bins are usually set to 0. This option removes the masked bins before the PCA is computed. Attention: this will lead to empty PCA regions.',
                            action='store_true')
     parserOpt.add_argument('--help', '-h', action='help', help='show the help '
                            'message and exit')
