@@ -11,7 +11,7 @@ hicTransform
 Background
 ===========
 
-hicTransform transforms a given input matrix to a matrix with the defined method applied on.
+hicTransform transforms a given input matrix into a new matrix using one of the following methods:
 
 - obs_exp
 - obs_exp_norm
@@ -45,9 +45,8 @@ All values, including non-zero values, are used to compute the expected values p
 Observed / Expected norm
 ------------------------
 
-The expected matrix is computed in the same way `Homer software <http://homer.ucsd.edu/homer/interactions/HiCBackground.html>`_ computes it with the option '-norm' set,
-to conserve this reference, HiCExplorer names this expected matrix computation 'norm'. The usage of this expected
-value computation gives better results for A/B compartment computation for drosophila genomes.
+The expected matrix is computed in the same way as the `Homer software <http://homer.ucsd.edu/homer/interactions/HiCBackground.html>`_ computes it with the option '-norm' set. To conserve this reference, HiCExplorer names this expected matrix computation 'norm'. The usage of this expected
+value computation gives better results for A/B compartment computation for Drosophila genomes.
 
 .. math::
 
@@ -58,8 +57,8 @@ value computation gives better results for A/B compartment computation for droso
 Observed / Expected lieberman
 -----------------------------
 
-The expected matrix is computed in the way Lieberman-Aiden used it in the 2009 publication, it is quite similar 
-to obs/exp matrix computation.
+The expected matrix is computed in the way as Lieberman-Aiden used it in the 2009 publication. It is quite similar 
+to the obs/exp matrix computation.
 
 .. math::
 
