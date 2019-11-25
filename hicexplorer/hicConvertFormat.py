@@ -46,10 +46,10 @@ def parse_arguments(args=None):
                                 nargs='+')
 
     parserRequired.add_argument('--inputFormat',
-                                help='file format of the matrix file. \n'
+                                help='File format of the input matrix file. \n'
                                 'The following options are available: `h5` (native HiCExplorer '
                                 'format based on hdf5 storage format), '
-                                ' `cool`, `hic`, `homer`, `hicpro`',
+                                ' `cool`, `hic`, `homer`, `hicpro`.',
                                 choices=['h5', 'cool', 'hic',
                                          'homer', 'hicpro'],
                                 required=True)
@@ -57,7 +57,7 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--outputFormat',
                                 help='Output format. The following options are available: `h5` (native HiCExplorer '
                                 'format based on hdf5 storage format). '
-                                ' `cool` and `ginteractions`',
+                                ' `cool` and `ginteractions`.',
                                 default='cool',
                                 choices=['cool', 'h5', 'homer',
                                          'ginteractions', 'mcool'],
