@@ -20,9 +20,9 @@ Here's an example of Hi-C data from wild-type D. melanogaster embryos.
 
 .. image:: ../../images/hicPlotMatrix.png
 
-This plot shows contacts of a Hi-C matrix that was merged to a 25 kb bin size
+This plot shows all contacts of a Hi-C matrix. Its bins were merged into 25 kb bins
 using :doc:`hicMergeMatrixBins`. Alternatively, chromosomes can be plotted
-separately. 
+separately: 
 
 .. image:: ../../images/hicPlotMatrix_perChromosome.png
 
