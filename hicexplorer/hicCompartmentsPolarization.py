@@ -86,7 +86,9 @@ def count_interactions(obs_exp, pc1, quantiles_number):
                                        chr_range[0]:chr_range[1]]
 
         chr_submatrix = chr_submatrix.todense()
-
+        # TODO: Do it on the sparse matrix if possible!
+        # TODO: replace all nans with zeros everywhere on the matrix
+        # TODO: set main diagonal to zero too
         np.fill_diagonal(chr_submatrix, np.nan)  # Added nan to the main diag
         for qi in range(0, quantiles_number+1):
             row_indices = pc1_chr.loc[pc1_chr["quantile"] == qi].index
@@ -95,7 +97,7 @@ def count_interactions(obs_exp, pc1, quantiles_number):
                 data = chr_submatrix[np.ix_(row_indices, col_indices)]
                 data = data[np.isfinite(data)]
                 sum[qi, qj] += np.sum(data)
-                count[qi, qj] += data.shape[1]
+                count[qi, qj] += data.shape[1]  # TODO what if only !=0 values?
 
     sum += sum.T
     count += count.T
@@ -103,7 +105,7 @@ def count_interactions(obs_exp, pc1, quantiles_number):
     count = count[1:-1, 1:-1]
     return sum/count
 
-
+# TODO: test!
 def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number):
     """
     This function computes the interaction between two compartments and whithin
@@ -161,7 +163,7 @@ def main(args=None):
         quantile = [j / (args.quantile - 1) for j in range(0, args.quantile)]
         q_bins = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
 
-    pc1["quantile"] = np.searchsorted(q_bins, pc1['pc1'].values.astype(float)) #it does return the bin size instead of -1 for the last bin
+    pc1["quantile"] = np.searchsorted(q_bins, pc1['pc1'].values.astype(float)) # it does return the bin size instead of -1 for the last bin
 
     polarization_ratio = []
     output_matrices = []
