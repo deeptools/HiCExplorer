@@ -76,29 +76,32 @@ def count_interactions(obs_exp, pc1, quantiles_number):
     "Counts the total interaction on obs_exp matrix per quantile and "
     "normalizes it by the number of bins per quantile."
     chromosomes = pc1["chr"].unique()
-    normalised_sum_per_quantile = np.zeros(
-        (quantiles_number, quantiles_number))
-
+    sum = np.zeros((quantiles_number+1, quantiles_number+1))
+    count = np.zeros((quantiles_number+1, quantiles_number+1))
     for chrom in chromosomes:
         pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
         chr_range = obs_exp.getChrBinRange(chrom)
+
         chr_submatrix = obs_exp.matrix[chr_range[0]:chr_range[1],
                                        chr_range[0]:chr_range[1]]
+
         chr_submatrix = chr_submatrix.todense()
 
-        np.fill_diagonal(chr_submatrix, 0)
-
-        for qi in range(0, quantiles_number):
+        np.fill_diagonal(chr_submatrix, np.nan)  # Added nan to the main diag
+        for qi in range(0, quantiles_number+1):
             row_indices = pc1_chr.loc[pc1_chr["quantile"] == qi].index
-
-            for qj in range(0, quantiles_number):
+            for qj in range(0, quantiles_number+1):
                 col_indices = pc1_chr.loc[pc1_chr["quantile"] == qj].index
-                data = chr_submatrix[row_indices, :][:, col_indices]
+                data = chr_submatrix[np.ix_(row_indices, col_indices)]
+                data = data[np.isfinite(data)]
+                sum[qi, qj] += np.sum(data)
+                count[qi, qj] += data.shape[1]
 
-                if data.shape[0] * data.shape[1] != 0:
-                    normalised_sum_per_quantile[qi, qj] += (np.sum(data) / (data.shape[0] * data.shape[1]))
-
-    return normalised_sum_per_quantile
+    sum += sum.T
+    count += count.T
+    sum = sum[1:-1, 1:-1]
+    count = count[1:-1, 1:-1]
+    return sum/count
 
 
 def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number):
@@ -158,7 +161,8 @@ def main(args=None):
         quantile = [j / (args.quantile - 1) for j in range(0, args.quantile)]
         q_bins = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
 
-    pc1["quantile"] = np.searchsorted(q_bins, pc1['pc1'].values.astype(float))
+    pc1["quantile"] = np.searchsorted(q_bins, pc1['pc1'].values.astype(float)) #it does return the bin size instead of -1 for the last bin
+
     polarization_ratio = []
     output_matrices = []
     labels = []
