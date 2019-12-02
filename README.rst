@@ -22,6 +22,12 @@ multiple contact matrices along with other types of data like genes, compartment
 any type of genomic scores), long range contacts and the visualization of viewpoints.
 
 
+Single-cell Hi-C data
+---------------------
+
+We provide the scHiCExplorer to create, manipulate, analyse and visualize single-cell Hi-C data in its own software:
+The  `scHiCExplorer <https://github.com/joachimwolff/schicexplorer>`_.
+
 Citation:
 ^^^^^^^^^
 
