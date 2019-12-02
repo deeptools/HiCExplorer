@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 from hicmatrix import HiCMatrix as hm
 
 from hicexplorer._version import __version__
-
+from hicexplorer.utilities import convertNansToZeros
 
 def parse_arguments():
     parser = argparse.ArgumentParser(add_help=False,
@@ -63,6 +63,16 @@ def parse_arguments():
                                 'generated matrices',
                            default=None)
 
+    parserOpt.add_argument('--offset',
+                           help='set nan for the distances mentioned as '
+                                'offset from main diagonal, only positive '
+                                'values are accepted. For example: if '
+                                '--offset 1 then +1 and -1 diagonal set to '
+                                'nan.',
+                           nargs='+',
+                           type=int,
+                           default=None)
+
     parserOpt.add_argument('-h',
                            action='help',
                            help='show the help message and exit.')
@@ -72,41 +82,44 @@ def parse_arguments():
     return parser
 
 
-def count_interactions(obs_exp, pc1, quantiles_number):
+def count_interactions(obs_exp, pc1, quantiles_number, offset):
     "Counts the total interaction on obs_exp matrix per quantile and "
     "normalizes it by the number of bins per quantile."
     chromosomes = pc1["chr"].unique()
-    sum = np.zeros((quantiles_number+1, quantiles_number+1))
-    count = np.zeros((quantiles_number+1, quantiles_number+1))
+    sum = np.zeros((quantiles_number, quantiles_number))
+    count = np.zeros((quantiles_number, quantiles_number))
     for chrom in chromosomes:
         pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
         chr_range = obs_exp.getChrBinRange(chrom)
 
         chr_submatrix = obs_exp.matrix[chr_range[0]:chr_range[1],
                                        chr_range[0]:chr_range[1]]
+        chr_submatrix = convertNansToZeros(chr_submatrix)
+        chr_submatrix = chr_submatrix.todense()  # TODO: Do it on the sparse matrix if possible!
 
-        chr_submatrix = chr_submatrix.todense()
-        # TODO: Do it on the sparse matrix if possible!
-        # TODO: replace all nans with zeros everywhere on the matrix
-        # TODO: set main diagonal to zero too
-        np.fill_diagonal(chr_submatrix, np.nan)  # Added nan to the main diag
-        for qi in range(0, quantiles_number+1):
+        if offset:
+            for dist in offset:  # change it to a user given value
+                indices = np.arange(0, chr_submatrix.shape[0]-dist)
+                chr_submatrix[indices, indices+dist] = np.nan
+                chr_submatrix[indices+dist, indices] = np.nan
+            np.fill_diagonal(chr_submatrix, np.nan)  # Added nan to the main diag
+
+        for qi in range(0, quantiles_number):
             row_indices = pc1_chr.loc[pc1_chr["quantile"] == qi].index
-            for qj in range(0, quantiles_number+1):
+            for qj in range(0, quantiles_number):
                 col_indices = pc1_chr.loc[pc1_chr["quantile"] == qj].index
                 data = chr_submatrix[np.ix_(row_indices, col_indices)]
-                data = data[np.isfinite(data)]
+                data = data[~np.isnan(data)]  # remove nans
                 sum[qi, qj] += np.sum(data)
-                count[qi, qj] += data.shape[1]  # TODO what if only !=0 values?
+                sum[qj, qi] += np.sum(data)
+                count[qi, qj] += data.shape[1]
+                count[qj, qi] += data.shape[1]
 
-    sum += sum.T
-    count += count.T
-    sum = sum[1:-1, 1:-1]
-    count = count[1:-1, 1:-1]
     return sum/count
 
-# TODO: test!
-def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number):
+
+def within_vs_between_compartments(normalised_sum_per_quantile,
+                                   quantiles_number):
     """
     This function computes the interaction between two compartments and whithin
     each compartment. It adds one quantile at the time to compute these values
@@ -157,14 +170,13 @@ def main(args=None):
                                                      "pc1"])
     if args.outliers != 0:
         quantile = [args.outliers / 100, (100 - args.outliers) / 100]
-        q0, qn = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
-        q_bins = np.linspace(q0, qn, args.quantile)
+        boundaries = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
+        quantiled_bins = np.linspace(boundaries[0], boundaries[1], args.quantile)
     else:
         quantile = [j / (args.quantile - 1) for j in range(0, args.quantile)]
-        q_bins = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
+        quantiled_bins = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
 
-    pc1["quantile"] = np.searchsorted(q_bins, pc1['pc1'].values.astype(float)) # it does return the bin size instead of -1 for the last bin
-
+    pc1["quantile"] = np.searchsorted(quantiled_bins, pc1['pc1'].values.astype(float), side ="right") # it does return the bin size instead of -1 for the last bin
     polarization_ratio = []
     output_matrices = []
     labels = []
@@ -174,7 +186,8 @@ def main(args=None):
         labels.append(name)
 
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
-                                                         args.quantile)
+                                                         args.quantile,
+                                                         args.offset)
         if args.outputMatrix:
             output_matrices.append(normalised_sum_per_quantile)
 
