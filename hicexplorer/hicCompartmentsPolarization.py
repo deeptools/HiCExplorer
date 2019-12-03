@@ -2,16 +2,14 @@ import numpy as np
 import argparse
 import pandas as pd
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from scipy.sparse import dia_matrix
 import logging
-log = logging.getLogger(__name__)
-
 from hicmatrix import HiCMatrix as hm
-
 from hicexplorer._version import __version__
 from hicexplorer.utilities import convertNansToZeros
+matplotlib.use('Agg')
+log = logging.getLogger(__name__)
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(add_help=False,
@@ -99,9 +97,9 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
 
         if offset:
             for dist in offset:  # change it to a user given value
-                indices = np.arange(0, chr_submatrix.shape[0]-dist)
-                chr_submatrix[indices, indices+dist] = np.nan
-                chr_submatrix[indices+dist, indices] = np.nan
+                indices = np.arange(0, chr_submatrix.shape[0] - dist)
+                chr_submatrix[indices, indices + dist] = np.nan
+                chr_submatrix[indices + dist, indices] = np.nan
             np.fill_diagonal(chr_submatrix, np.nan)  # Added nan to the main diag
 
         for qi in range(0, quantiles_number):
@@ -115,7 +113,7 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
                 count[qi, qj] += data.shape[1]
                 count[qj, qi] += data.shape[1]
 
-    return sum/count
+    return sum / count
 
 
 def within_vs_between_compartments(normalised_sum_per_quantile,
@@ -145,9 +143,10 @@ def within_vs_between_compartments(normalised_sum_per_quantile,
 def plot_polarization_ratio(polarization_ratio, plotName, labels,
                             number_of_quantiles):
     """
-    Generates a plot to visualize the polarization ratio between A and B
-    compartments.
+    Generate a plot to visualize the polarization ratio between A and B
+    compartments. It presents how well 2 compartments are seperated.
     """
+
     for i, r in enumerate(polarization_ratio):
         plt.plot(r, marker="o", label=labels[i])
     plt.axhline(1, c='grey', ls='--', lw=1)
@@ -171,12 +170,16 @@ def main(args=None):
     if args.outliers != 0:
         quantile = [args.outliers / 100, (100 - args.outliers) / 100]
         boundaries = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
-        quantiled_bins = np.linspace(boundaries[0], boundaries[1], args.quantile)
+        quantiled_bins = np.linspace(boundaries[0], boundaries[1],
+                                     args.quantile)
     else:
         quantile = [j / (args.quantile - 1) for j in range(0, args.quantile)]
-        quantiled_bins = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
+        quantiled_bins = np.nanquantile(pc1['pc1'].values.astype(float),
+                                        quantile)
 
-    pc1["quantile"] = np.searchsorted(quantiled_bins, pc1['pc1'].values.astype(float), side ="right") # it does return the bin size instead of -1 for the last bin
+    pc1["quantile"] = np.searchsorted(quantiled_bins,
+                                      pc1['pc1'].values.astype(float),
+                                      side="right")  # it does return the bin size instead of -1 for the last bin
     polarization_ratio = []
     output_matrices = []
     labels = []
@@ -191,8 +194,9 @@ def main(args=None):
         if args.outputMatrix:
             output_matrices.append(normalised_sum_per_quantile)
 
-        polarization_ratio.append(within_vs_between_compartments(normalised_sum_per_quantile,
-                                                                 args.quantile))
+        polarization_ratio.append(within_vs_between_compartments(
+                                  normalised_sum_per_quantile,
+                                  args.quantile))
     if args.outputMatrix:
         np.savez(args.outputMatrix, [matrix for matrix in output_matrices])
     plot_polarization_ratio(
