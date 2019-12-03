@@ -111,19 +111,17 @@ def adjustMatrix(pArgs):
         # log.debug('genomic_regions {}'.format(genomic_regions))
         matrix_indices_regions = []
         for region in genomic_regions:
-            _regionBinRange = hic_matrix.getRegionBinRange(region[0], region[1], region[2])
+            _regionBinRange = hic_matrix.getRegionBinRange(region[0],
+                                                           int(region[1]),
+                                                           int(region[2]))
             if _regionBinRange is not None:
                 start, end = _regionBinRange
                 matrix_indices_regions.extend(list(range(start, end)))
 
         # log.debug('matrix_indices_regions {}'.format(matrix_indices_regions))
         if pArgs.action == 'keep':
-            values_submatrix = matrix_indices_regions
-            instances, features = hic_matrix.matrix.nonzero()
-            mask = np.isin(instances, values_submatrix)
-            mask = np.logical_not(mask)
-            hic_matrix.matrix.data[mask] = 0
-            hic_matrix.matrix.eliminate_zeros()
+            hic_matrix.reorderBins(matrix_indices_regions)
+
         elif pArgs.action == 'mask':
             hic_matrix.maskBins(matrix_indices_regions)
 
