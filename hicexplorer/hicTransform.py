@@ -57,7 +57,7 @@ def parse_arguments(args=None):
                            help='Each chromosome is processed individually, inter-chromosomal interactions are ignored. Option not valid for obs_exp_lieberman.',
                            action='store_true')
 
-    parserOpt.add_argument("-help", "-h", action="help", help="Show this help message and exit.")
+    parserOpt.add_argument("--help", "-h", action="help", help="Show this help message and exit.")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
