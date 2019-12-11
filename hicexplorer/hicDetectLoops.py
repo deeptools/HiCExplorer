@@ -792,7 +792,7 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
                 fh.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % loop_item)
 
 
-def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
+def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
     """
         Master function to compute the loops for one chromosome.
             - Removes all regions smaller minLoopSize, greater maxLoopSize
@@ -808,6 +808,18 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     # log.debug('pRegion {}'.format(pRegion))
     # log.debug('pHiCMatrix.matrix {}'.format(pHiCMatrix.matrix))
     # log.debug('pHiCMatrix.shape {}'.format(pHiCMatrix.matrix.shape))
+
+    # if pIsCooler:
+    pHiCMatrix = hm.hiCMatrix(pMatrixFile=pArgs.matrix, pChrnameList=[pRegion])
+    if not pIsCooler:
+        # pHiCMatrix.setMatrix(
+        #     deepcopy(matrix), deepcopy(cut_intervals))
+        pHiCMatrix.keepOnlyTheseChr([pRegion])
+
+    if len(pHiCMatrix.matrix.data) == 0:
+        pQueue.put([None])
+        return
+
     if pHiCMatrix.matrix.shape[0] < 5 or pHiCMatrix.matrix.shape[1] < 5:
         log.info('Computed loops for {}: 0'.format(pRegion))
 
@@ -1020,27 +1032,21 @@ def main(args=None):
                             continue
                         queue[i] = Queue()
                         thread_done[i] = False
-                        if is_cooler:
-                            hic_matrix = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=[
-                                                      chromosomes_list[count_call_of_read_input]])
-                        else:
-                            hic_matrix.setMatrix(
-                                deepcopy(matrix), deepcopy(cut_intervals))
-                            hic_matrix.keepOnlyTheseChr(
-                                [chromosomes_list[count_call_of_read_input]])
-                        if len(hic_matrix.matrix.data) > 0:
+                        
+                        # if len(hic_matrix.matrix.data) > 0:
 
-                            process[i] = Process(target=compute_loops, kwargs=dict(
-                                pHiCMatrix=hic_matrix,
-                                pRegion=chromosomes_list[count_call_of_read_input],
-                                pArgs=args,
-                                pQueue=queue[i]
-                            ))
-                            process[i].start()
+                        process[i] = Process(target=compute_loops, kwargs=dict(
+                            pHiCMatrix=args.matrix,
+                            pRegion=chromosomes_list[count_call_of_read_input],
+                            pArgs=args,
+                            pIsCooler=is_cooler,
+                            pQueue=queue[i]
+                        ))
+                        process[i].start()
 
-                        else:
-                            queue[i] = None
-                            thread_done[i] = True
+                        # else:
+                        #     queue[i] = None
+                        #     thread_done[i] = True
                         if count_call_of_read_input < len(chromosomes_list):
                             count_call_of_read_input += 1
                         else:
