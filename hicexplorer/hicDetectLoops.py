@@ -271,6 +271,9 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     mask = np.logical_and(mask, mask_interactions)
 
+    mask_interactions_hard_threshold = pHiCMatrix.matrix.data > pMinimumInteractionsThreshold
+    mask = np.logical_and(mask, mask_interactions_hard_threshold)
+
     instances = instances[mask]
     features = features[mask]
 
