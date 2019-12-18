@@ -1,6 +1,4 @@
 import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 
 from scipy.sparse import csr_matrix, lil_matrix
@@ -11,7 +9,7 @@ import pyBigWig
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_non_zero
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 from hicexplorer.utilities import enlarge_bins
 from hicexplorer.parserCommon import CustomFormatter
@@ -21,6 +19,9 @@ from hicmatrix.lib import MatrixFileHandler
 from .readBed import ReadBed
 import logging
 log = logging.getLogger(__name__)
+
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 def parse_arguments():
@@ -71,36 +72,52 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            'correlation.',
                            default=None,
                            nargs='+')
-    parserOpt.add_argument('--norm',
-                           help='Different obs-exp normalization as used by '
-                           'Homer software.',
+
+    parserOpt.add_argument('--method',
+                           help='possible methods which can be used to build '
+                           'the obs-exp matrix.',
+                           choices=['dist_norm', 'lieberman'],
+                           default='dist_norm',
+                           required=False)
+
+    parserOpt.add_argument('--ligation_factor',
+                           help="Setting this flag multiplies a value to "
+                           "every entry of the expected matrix to take care "
+                           "of the proximity ligation as has been explained "
+                           "in Homer software. ",
                            action='store_true')
+
     parserOpt.add_argument('--extraTrack',
                            help='Either a gene track or a histon mark coverage'
                            ' file(preferably a broad mark) is needed to decide'
                            ' if the values of the eigenvector need a sign flip'
                            ' or not.',
                            default=None)
+
     parserOpt.add_argument('--histonMarkType',
                            help='set it to active or inactive. This is only '
                            'necessary if a histon mark coverage file is given '
                            'as an extraTrack.',
                            default='active')
+
     parserOpt.add_argument('--pearsonMatrix', '-pm',
                            help='Internally the input matrix is converted per '
                            'chromosome to obs_exp matrix and consecutively to '
                            'a Pearson matrix.'
                            ' Set this parameter to write the pearson matrix to'
                            ' a file.')
+
     parserOpt.add_argument('--obsexpMatrix', '-oem',
                            help='Internally the input matrix is converted per '
                            'chromosome to obs_exp matrix and consecutively to '
                            'a Pearson matrix.'
                            ' Set this parameter to write the observe/expected '
                            'matrix to a file.')
+
     parserOpt.add_argument('--ignoreMaskedBins',
                            help='Mask bins are usually set to 0. This option removes the masked bins before the PCA is computed. Attention: this will lead to empty PCA regions.',
                            action='store_true')
+
     parserOpt.add_argument('--help', '-h', action='help', help='show the help '
                            'message and exit')
 
@@ -245,27 +262,29 @@ def main(args=None):
 
         submatrix = ma.matrix[chr_range[0]:chr_range[1],
                               chr_range[0]:chr_range[1]]
-        if args.norm:
-            obs_exp_matrix_ = obs_exp_matrix_norm(submatrix)
-
-        else:
+        if args.method =='lieberman':
             obs_exp_matrix_ = obs_exp_matrix_lieberman(submatrix,
                                                        length_chromosome,
                                                        chromosome_count)
-        obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_)).todense()
-        obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
+        else:
+            obs_exp_matrix_ = obs_exp_matrix_non_zero(submatrix, args.ligation_factor)
+
+        obs_exp_matrix_ = csr_matrix(obs_exp_matrix_).todense()
+    #    obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_)).todense() ## TODO todense??!!
+    #    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
 
         if args.obsexpMatrix:
             trasf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
 
         pearson_correlation_matrix = np.corrcoef(obs_exp_matrix_)
-        pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
-        pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
+    #    pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
+    #    pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
 
         if args.pearsonMatrix:
             trasf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(pearson_correlation_matrix)
 
-        corrmatrix = np.cov(pearson_correlation_matrix)
+    #    corrmatrix = np.cov(pearson_correlation_matrix)
+        corrmatrix = pearson_correlation_matrix
         corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
         corrmatrix = convertInfsToZeros(csr_matrix(corrmatrix)).todense()
         evals, eigs = linalg.eig(corrmatrix)

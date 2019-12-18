@@ -337,15 +337,17 @@ def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     return pSubmatrix
 
 
-def obs_exp_matrix_norm(pSubmatrix):
+def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor = False):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
         expected contacts for loci at
-        that genomic distance. Expected values contain a genomic distance based factor.
-        Method from: Homer Software
-        exp_i,j = expected_interactions_distance(abs(i-j)) * sum(row(i)) * sum(row(j)) / sum(matrix)
-        m_i,j = interaction_i,j / exp_i,j
+        that genomic distance.
+        exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero
+        interactions at abs(i-j). If ligation_factor, then
+        exp_i,j = exp_i,j * sum(row(i)) * sum(row(j)) / sum(matrix)
+        This factor has been used by Homer software to correct for the effect
+        of proximity ligation
     """
 
     expected_interactions_in_distance = expected_interactions_non_zero(pSubmatrix)
@@ -357,39 +359,17 @@ def obs_exp_matrix_norm(pSubmatrix):
     pSubmatrix.data = pSubmatrix.data.astype(np.float32)
     for i in range(len(row)):
         expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
-        # expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
+        if ligation_factor:
+            expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
 
         pSubmatrix.data[i] /= expected
 
-
-    mask = np.isnan(pSubmatrix.data)
-    pSubmatrix.data[mask] = 0
-    mask = np.isinf(pSubmatrix.data)
-    pSubmatrix.data[mask] = 0
-    pSubmatrix.eliminate_zeros()
-    return pSubmatrix
-
-
-def obs_exp_matrix_non_zero(pSubmatrix):
-    """
-        Creates normalized contact matrix M* by
-        dividing each entry by the gnome-wide
-        expected contacts for loci at
-        that genomic distance.
-        exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
-    """
-
-    expected_interactions_in_distance_ = expected_interactions_non_zero(pSubmatrix)
-    row, col = pSubmatrix.nonzero()
-    distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
-
-    if len(pSubmatrix.data) > 0:
-        data_type = type(pSubmatrix.data[0])
-
-        expected = expected_interactions_in_distance_[distance]
-        pSubmatrix.data = pSubmatrix.data.astype(np.float32)
-        pSubmatrix.data /= expected
-        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+    ## TODO Check the result of keeping nans on pca and pearson!!
+    # mask = np.isnan(pSubmatrix.data)
+    # pSubmatrix.data[mask] = 0
+    # mask = np.isinf(pSubmatrix.data)
+    # pSubmatrix.data[mask] = 0
+    # pSubmatrix.eliminate_zeros()
     return pSubmatrix
 
 

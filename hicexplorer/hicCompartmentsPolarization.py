@@ -113,6 +113,7 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
                 submatrix = chr_submatrix[np.ix_(row_indices, col_indices)]
                 submatrix = submatrix.todense()
                 submatrix = submatrix[~np.isnan(submatrix)]  # remove nans
+                submatrix = submatrix[~np.isinf(submatrix)]
                 sum[qi, qj] += np.sum(submatrix)
                 sum[qj, qi] += np.sum(submatrix)
                 count[qi, qj] += submatrix.shape[1]
