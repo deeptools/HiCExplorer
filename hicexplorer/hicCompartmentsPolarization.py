@@ -156,7 +156,7 @@ def plot_polarization_ratio(polarization_ratio, plotName, labels,
         plt.plot(r, marker="o", label=labels[i])
     plt.axhline(1, c='grey', ls='--', lw=1)
     plt.axvline(number_of_quantiles / 2, c='grey', ls='--', lw=1)
-    plt.legend(loc='upper right') #TODO best
+    plt.legend(loc='best')
     plt.xlabel('Quantiles')
     plt.ylabel('signal within comp. / signla between comp.')
     plt.title('compartment polarization ratio')
