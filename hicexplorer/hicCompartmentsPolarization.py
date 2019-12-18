@@ -142,6 +142,7 @@ def within_vs_between_compartments(normalised_sum_per_quantile,
             0:q].sum()
 
         within_to_between.append(within_comps / between_comps)
+    print(within_to_between)
     return within_to_between
 
 
@@ -196,6 +197,7 @@ def main(args=None):
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
                                                          args.quantile,
                                                          args.offset)
+        print(normalised_sum_per_quantile)
         if args.outputMatrix:
             output_matrices.append(normalised_sum_per_quantile)
 
