@@ -89,6 +89,7 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
     sum = np.zeros((quantiles_number, quantiles_number))
     count = np.zeros((quantiles_number, quantiles_number))
     for chrom in chromosomes:
+
         pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
         chr_range = obs_exp.getChrBinRange(chrom)
 
@@ -113,11 +114,11 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
                 submatrix = chr_submatrix[np.ix_(row_indices, col_indices)]
                 submatrix = submatrix.todense()
                 submatrix = submatrix[~np.isnan(submatrix)]  # remove nans
+                submatrix = submatrix[~np.isinf(submatrix)]
                 sum[qi, qj] += np.sum(submatrix)
                 sum[qj, qi] += np.sum(submatrix)
                 count[qi, qj] += submatrix.shape[1]
                 count[qj, qi] += submatrix.shape[1]
-
     return sum / count
 
 
@@ -178,6 +179,7 @@ def main(args=None):
         boundaries = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
         quantiled_bins = np.linspace(boundaries[0], boundaries[1],
                                      args.quantile)
+
     else:
         quantile = [j / (args.quantile - 1) for j in range(0, args.quantile)]
         quantiled_bins = np.nanquantile(pc1['pc1'].values.astype(float),
@@ -185,7 +187,9 @@ def main(args=None):
 
     pc1["quantile"] = np.searchsorted(quantiled_bins,
                                       pc1['pc1'].values.astype(float),
-                                      side="right")  # it does return the bin size instead of -1 for the last bin
+                                      side="right")
+    pc1.loc[pc1["pc1"] == np.nan]["quantile"] = args.quantile+1
+
     polarization_ratio = []
     output_matrices = []
     labels = []
@@ -197,6 +201,7 @@ def main(args=None):
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
                                                          args.quantile,
                                                          args.offset)
+        np.nan_to_num(normalised_sum_per_quantile)
         print(normalised_sum_per_quantile)
         if args.outputMatrix:
             output_matrices.append(normalised_sum_per_quantile)
