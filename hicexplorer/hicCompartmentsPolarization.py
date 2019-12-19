@@ -143,7 +143,6 @@ def within_vs_between_compartments(normalised_sum_per_quantile,
             0:q].sum()
 
         within_to_between.append(within_comps / between_comps)
-    print(within_to_between)
     return within_to_between
 
 
@@ -202,7 +201,6 @@ def main(args=None):
                                                          args.quantile,
                                                          args.offset)
         np.nan_to_num(normalised_sum_per_quantile)
-        print(normalised_sum_per_quantile)
         if args.outputMatrix:
             output_matrices.append(normalised_sum_per_quantile)
 
