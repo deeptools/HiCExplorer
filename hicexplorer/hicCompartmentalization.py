@@ -19,7 +19,7 @@ def parse_arguments():
         this has been first introduced and implemented by Wibke Schwarzer et
         al. 2017 (Nature. 2017 Nov 2; 551(7678): 51–56)
 
-        $ hicCompartmentsPolarization --obsexp_matrices obsExpMatrix.h5 \
+        $ hicCompartmentalization --obsexp_matrices obsExpMatrix.h5 \
         --pca pc1.bedgraph -o global_signal.png
         """
                                      )

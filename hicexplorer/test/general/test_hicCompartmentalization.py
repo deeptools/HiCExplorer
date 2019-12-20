@@ -10,14 +10,14 @@ tolerance = 60  # default matplotlib
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
 
-def test_compartments_polarization():
+def test_compartmentalization():
     outfile = NamedTemporaryFile(suffix='.png', delete=False)
     outfile.close()
 
     args = " -m {} --pca {} -o {} --outliers 0.0 --quantile 30".format(ROOT + "hicPCA/obsexp_norm.h5",
                                                                        ROOT + "hicCompartmentalization/pca1.bedgraph",
                                                                        outfile.name).split()
-    hicCompartmentsPolarization.main(args)
+    hicCompartmentalization.main(args)
     test = ROOT + "hicCompartmentalization/compartmentalizationRatio.png"
     res = compare_images(test, outfile.name, tolerance)
     assert res is None, res
