@@ -188,7 +188,7 @@ def main(args=None):
     pc1["quantile"] = np.searchsorted(quantiled_bins,
                                       pc1['pc1'].values.astype(float),
                                       side="right")
-    pc1.loc[pc1["pc1"] == np.nan]["quantile"] = args.quantile+1
+    pc1.loc[pc1["pc1"] == np.nan]["quantile"] = args.quantile + 1
 
     polarization_ratio = []
     output_matrices = []
