@@ -119,6 +119,7 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
                 sum[qj, qi] += np.sum(submatrix)
                 count[qi, qj] += submatrix.shape[1]
                 count[qj, qi] += submatrix.shape[1]
+
     return sum / count
 
 
@@ -200,7 +201,7 @@ def main(args=None):
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
                                                          args.quantile,
                                                          args.offset)
-        np.nan_to_num(normalised_sum_per_quantile)
+        normalised_sum_per_quantile = np.nan_to_num(normalised_sum_per_quantile)
         if args.outputMatrix:
             output_matrices.append(normalised_sum_per_quantile)
 
