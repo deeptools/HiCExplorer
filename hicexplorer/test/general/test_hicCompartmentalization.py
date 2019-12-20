@@ -1,7 +1,7 @@
 import warnings
 import os
 from matplotlib.testing.compare import compare_images
-from hicexplorer import hicCompartmentsPolarization
+from hicexplorer import hicCompartmentalization
 from tempfile import NamedTemporaryFile
 
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
@@ -15,10 +15,10 @@ def test_compartments_polarization():
     outfile.close()
 
     args = " -m {} --pca {} -o {} --outliers 0.0 --quantile 30".format(ROOT + "hicPCA/obsexp_norm.h5",
-                                                                       ROOT + "hicCompartmentsPolarization/pca1.bedgraph",
+                                                                       ROOT + "hicCompartmentalization/pca1.bedgraph",
                                                                        outfile.name).split()
     hicCompartmentsPolarization.main(args)
-    test = ROOT + "hicCompartmentsPolarization/compartmentsPolarizationRatio.png"
+    test = ROOT + "hicCompartmentalization/compartmentalizationRatio.png"
     res = compare_images(test, outfile.name, tolerance)
     assert res is None, res
 
