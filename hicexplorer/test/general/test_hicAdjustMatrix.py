@@ -4,6 +4,7 @@ import os
 from tempfile import NamedTemporaryFile
 from hicmatrix import HiCMatrix as hm
 from hicexplorer import hicAdjustMatrix
+import numpy.testing as np
 
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -110,7 +111,7 @@ def test_keep(matrix, outFileName, bed_file):
     hicAdjustMatrix.main(args)
     test = hm.hiCMatrix(ROOT + "hicAdjustMatrix/small_test_matrix_50kb_res_keep.gz")
     new = hm.hiCMatrix(outfile.name)
-    nt.assert_almost_equal(test.matrix.data, new.matrix.data, decimal=5)
-    nt.assert_equal(test.cut_intervals, new.cut_intervals)
+    np.assert_almost_equal(test.matrix.data, new.matrix.data, decimal=5)
+    np.assert_equal(test.cut_intervals, new.cut_intervals)
 
     os.unlink(outfile.name)
