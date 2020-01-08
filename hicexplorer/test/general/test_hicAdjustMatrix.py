@@ -1,11 +1,12 @@
 import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
-warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import pytest
 import os
 from tempfile import NamedTemporaryFile
-
+from hicmatrix import HiCMatrix as hm
 from hicexplorer import hicAdjustMatrix
+
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
+warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
@@ -98,3 +99,18 @@ def test_trivial_run_xfail_regions(matrix, outFileName, action, regions):
         ).split()
 
     hicAdjustMatrix.main(args)
+
+
+def test_keep(matrix, outFileName, bed_file):
+    args = "--matrix {} --outFileName {} --regions {} --action {}".format(
+        matrix,
+        outFileName.name,
+        bed_file,
+        "keep").split()
+    hicAdjustMatrix.main(args)
+    test = hm.hiCMatrix(ROOT + "hicAdjustMatrix/small_test_matrix_50kb_res_keep.gz")
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_almost_equal(test.matrix.data, new.matrix.data, decimal=5)
+    nt.assert_equal(test.cut_intervals, new.cut_intervals)
+
+    os.unlink(outfile.name)
