@@ -106,7 +106,7 @@ def test_keep():
     outfile = NamedTemporaryFile(suffix='.h5', prefix='test_matrix', delete=True)
     outfile.close()
     args = "--matrix {} --outFileName {} --regions {} --action {}".format(
-        ROOT+'small_test_matrix_50kb_res.h5',
+        ROOT + 'small_test_matrix_50kb_res.h5',
         outfile.name,
         ROOT + 'hicAdjustMatrix/keep_region.bed',
         "keep").split()
