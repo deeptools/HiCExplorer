@@ -36,7 +36,9 @@ def are_files_equal(file1, file2, delta=1, skip=0, eps=0.1):
                     if np.abs(value1 - value2) < eps:
                         continue
                     else:
-                        log.debug('{} {}'.format(line1_list, line2_list))
+                        log.debug('{}'.format(line1_list))
+                        log.debug('{}'.format(line2_list))
+
                         mismatches += 1
 
     if mismatches < delta:
