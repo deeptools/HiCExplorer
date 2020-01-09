@@ -759,7 +759,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pQueueOut, pTemplate, pOutputBamSet, pCounter,
                  pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex,
                  pOutputFileBufferDir, pRow, pCol, pData,
-                 pMaxInsertSize):
+                 pMaxInsertSize, pQuickQCMode):
     """
     This function computes for a given number of elements in pMateBuffer1 and pMaterBuffer2 a partial interaction matrix.
     This function is used by multiple processes to speed up the computation.
@@ -1028,9 +1028,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             for i in range(coverage_index, coverage_end, 1):
                 pCoverage[i] += 1
 
-        pRow[pair_added] = mate_bins[0]
-        pCol[pair_added] = mate_bins[1]
-        pData[pair_added] = np.uint8(1)
+        if not pQuickQCMode:
+            pRow[pair_added] = mate_bins[0]
+            pCol[pair_added] = mate_bins[1]
+            pData[pair_added] = np.uint8(1)
 
         pair_added += 1
         if pOutputBamSet:
@@ -1261,7 +1262,8 @@ def main(args=None):
                     pRow=row[i],
                     pCol=col[i],
                     pData=data[i],
-                    pMaxInsertSize=args.maxLibraryInsertSize
+                    pMaxInsertSize=args.maxLibraryInsertSize,
+                    pQuickQCMode=args.doTestRun
                 ))
                 process[i].start()
                 count_output += 1
