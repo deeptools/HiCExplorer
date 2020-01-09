@@ -10,6 +10,8 @@ import numpy as np
 from hicexplorer import chicViewpointBackgroundModel
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/cHi-C/")
+import logging
+log = logging.getLogger(__name__)
 
 
 def are_files_equal(file1, file2, delta=1, skip=0, eps=0.1):
