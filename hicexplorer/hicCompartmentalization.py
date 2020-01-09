@@ -86,8 +86,8 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
     "Counts the total interaction on obs_exp matrix per quantile and "
     "normalizes it by the number of bins per quantile."
     chromosomes = pc1["chr"].unique()
-    sum = np.zeros((quantiles_number, quantiles_number))
-    count = np.zeros((quantiles_number, quantiles_number))
+    interaction_sum = np.zeros((quantiles_number, quantiles_number))
+    number_of_bins = np.zeros((quantiles_number, quantiles_number))
     for chrom in chromosomes:
 
         pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
@@ -115,12 +115,12 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
                 submatrix = submatrix.todense()
                 submatrix = submatrix[~np.isnan(submatrix)]  # remove nans
                 submatrix = submatrix[~np.isinf(submatrix)]
-                sum[qi, qj] += np.sum(submatrix)
-                sum[qj, qi] += np.sum(submatrix)
-                count[qi, qj] += submatrix.shape[1]
-                count[qj, qi] += submatrix.shape[1]
+                interaction_sum[qi, qj] += np.sum(submatrix)
+                interaction_sum[qj, qi] += np.sum(submatrix)
+                number_of_bins[qi, qj] += submatrix.shape[1]
+                number_of_bins[qj, qi] += submatrix.shape[1]
 
-    return sum / count
+    return interaction_sum / number_of_bins
 
 
 def within_vs_between_compartments(normalised_sum_per_quantile,
