@@ -68,6 +68,8 @@ For a more in-depth review of how to determine the threshold values,
 please visit:
 http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html\
 #correction-of-hi-c-matrix
+
+We recommend to compute first the normalization (with hicNormalize) and correct the data (with hicCorrectMatrix) in a second step.
 """
     )
 

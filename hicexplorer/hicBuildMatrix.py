@@ -138,12 +138,11 @@ def parse_arguments(args=None):
                        help='Size in bp for the bins. The bin size depends '
                             'on the depth of sequencing. Use a larger bin size for '
                             'libraries sequenced with lower depth. Alternatively, the location of '
-                            'the restriction sites can be given (see --restrictionCutFile). '
+                            'the restriction sites can be given (see --restrictionCutFile). However, either binSize or restrictionCutFile must be defined.'
                             'Optional for mcool file format: Define multiple resolutions which are all a multiple of the first value. '
                             ' Example: --binSize 10000 20000 50000 will create a mcool file formate containing the three defined resolutions.',
                        type=int,
-                       nargs='+',
-                       default=[10000])
+                       nargs='+')
 
     group.add_argument('--restrictionCutFile', '-rs',
                        help=('BED file with all restriction cut places '
@@ -152,7 +151,7 @@ def parse_arguments(args=None):
                              'restriction sites. If given, the bins are '
                              'set to match the restriction fragments (i.e. '
                              'the region between one restriction site and '
-                             'the next).'),
+                             'the next). Alternativly, a fixed binSize can be defined instead. However, either binSize or restrictionCutFile must be defined.'),
                        type=argparse.FileType('r'),
                        metavar='BED file')
 
