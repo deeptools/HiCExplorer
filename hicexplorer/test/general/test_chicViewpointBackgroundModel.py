@@ -49,7 +49,7 @@ def test_compute_background_functional():
                                                                 ROOT + 'referencePoints.bed', outfile.name).split()
     chicViewpointBackgroundModel.main(args)
 
-    assert are_files_equal(ROOT + 'background.bed', outfile.name, delta=1, skip=1)
+    assert are_files_equal(ROOT + 'background.bed', outfile.name, delta=20, skip=1)
 
 
 def test_compute_background_number_of_lines():
