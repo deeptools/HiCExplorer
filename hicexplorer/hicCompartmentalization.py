@@ -19,7 +19,7 @@ def parse_arguments():
         this has been first introduced and implemented by Wibke Schwarzer et
         al. 2017 (Nature. 2017 Nov 2; 551(7678): 51–56)
 
-        $ hicCompartmentsPolarization --obsexp_matrices obsExpMatrix.h5 \
+        $ hicCompartmentalization --obsexp_matrices obsExpMatrix.h5 \
         --pca pc1.bedgraph -o global_signal.png
         """
                                      )
@@ -86,9 +86,12 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
     "Counts the total interaction on obs_exp matrix per quantile and "
     "normalizes it by the number of bins per quantile."
     chromosomes = pc1["chr"].unique()
-    sum = np.zeros((quantiles_number, quantiles_number))
-    count = np.zeros((quantiles_number, quantiles_number))
+
+    interaction_sum = np.zeros((quantiles_number, quantiles_number))
+    number_of_bins = np.zeros((quantiles_number, quantiles_number))
+
     for chrom in chromosomes:
+
         pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
         chr_range = obs_exp.getChrBinRange(chrom)
 
@@ -114,12 +117,12 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
                 submatrix = submatrix.todense()
                 submatrix = submatrix[~np.isnan(submatrix)]  # remove nans
                 submatrix = submatrix[~np.isinf(submatrix)]
-                sum[qi, qj] += np.sum(submatrix)
-                sum[qj, qi] += np.sum(submatrix)
-                count[qi, qj] += submatrix.shape[1]
-                count[qj, qi] += submatrix.shape[1]
+                interaction_sum[qi, qj] += np.sum(submatrix)
+                interaction_sum[qj, qi] += np.sum(submatrix)
+                number_of_bins[qi, qj] += submatrix.shape[1]
+                number_of_bins[qj, qi] += submatrix.shape[1]
 
-    return sum / count
+    return interaction_sum / number_of_bins
 
 
 def within_vs_between_compartments(normalised_sum_per_quantile,
@@ -157,7 +160,7 @@ def plot_polarization_ratio(polarization_ratio, plotName, labels,
         plt.plot(r, marker="o", label=labels[i])
     plt.axhline(1, c='grey', ls='--', lw=1)
     plt.axvline(number_of_quantiles / 2, c='grey', ls='--', lw=1)
-    plt.legend(loc='upper right') #TODO best
+    plt.legend(loc='best')
     plt.xlabel('Quantiles')
     plt.ylabel('signal within comp. / signla between comp.')
     plt.title('compartment polarization ratio')
@@ -185,7 +188,8 @@ def main(args=None):
 
     pc1["quantile"] = np.searchsorted(quantiled_bins,
                                       pc1['pc1'].values.astype(float),
-                                      side="right")  # it does return the bin size instead of -1 for the last bin
+                                      side="right")
+    pc1.loc[pc1["pc1"] == np.nan]["quantile"] = args.quantile + 1
     polarization_ratio = []
     output_matrices = []
     labels = []
@@ -197,6 +201,8 @@ def main(args=None):
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
                                                          args.quantile,
                                                          args.offset)
+        normalised_sum_per_quantile = np.nan_to_num(normalised_sum_per_quantile)
+
         if args.outputMatrix:
             output_matrices.append(normalised_sum_per_quantile)
 

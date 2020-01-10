@@ -81,10 +81,12 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            required=False)
 
     parserOpt.add_argument('--ligation_factor',
-                           help="Setting this flag multiplies a value to "
-                           "every entry of the expected matrix to take care "
+                           help="Setting this flag multiplies a scaling factor "
+                           "to each entry of the expected matrix to take care "
                            "of the proximity ligation as has been explained "
-                           "in Homer software. ",
+                           "in Homer software. This flag is only affective "
+                           "with dist_norm method and will be ignored if "
+                           "lieberman method is chosen.",
                            action='store_true')
 
     parserOpt.add_argument('--extraTrack',
