@@ -30,6 +30,8 @@ def parse_arguments(args=None):
 Plots the relation between short and long range interactions as boxplots and if more than one matrix is given, p-values of the distributions are computed.
 An example usage is:
 $ hicPlotSVL -m hmec_10kb.cool nhek_10kb.cool
+
+The datapoints per sample are the ratios per chromosome.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -207,6 +209,7 @@ def main(args=None):
         patch.set_facecolor(args.colorList[i % len(args.colorList)])
         legend_handels_color.append(mpatches.Patch(color=args.colorList[i % len(args.colorList)], label=args.matrices[i].split('/')[-1]))
     plt.legend(handles=legend_handels_color)
+    plt.xlabel('Boxplot shows svl-ratio per chromosome.')
     plt.savefig(args.plotFileName, dpi=args.dpi)
 
     if len(args.matrices) > 1:

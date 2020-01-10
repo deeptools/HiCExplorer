@@ -138,12 +138,11 @@ def parse_arguments(args=None):
                        help='Size in bp for the bins. The bin size depends '
                             'on the depth of sequencing. Use a larger bin size for '
                             'libraries sequenced with lower depth. Alternatively, the location of '
-                            'the restriction sites can be given (see --restrictionCutFile). '
+                            'the restriction sites can be given (see --restrictionCutFile). However, either binSize or restrictionCutFile must be defined.'
                             'Optional for mcool file format: Define multiple resolutions which are all a multiple of the first value. '
                             ' Example: --binSize 10000 20000 50000 will create a mcool file formate containing the three defined resolutions.',
                        type=int,
-                       nargs='+',
-                       default=[10000])
+                       nargs='+')
 
     group.add_argument('--restrictionCutFile', '-rs',
                        help=('BED file with all restriction cut places '
@@ -152,7 +151,7 @@ def parse_arguments(args=None):
                              'restriction sites. If given, the bins are '
                              'set to match the restriction fragments (i.e. '
                              'the region between one restriction site and '
-                             'the next).'),
+                             'the next). Alternativly, a fixed binSize can be defined instead. However, either binSize or restrictionCutFile must be defined.'),
                        type=argparse.FileType('r'),
                        metavar='BED file')
 
@@ -760,7 +759,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pQueueOut, pTemplate, pOutputBamSet, pCounter,
                  pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex,
                  pOutputFileBufferDir, pRow, pCol, pData,
-                 pMaxInsertSize):
+                 pMaxInsertSize, pQuickQCMode):
     """
     This function computes for a given number of elements in pMateBuffer1 and pMaterBuffer2 a partial interaction matrix.
     This function is used by multiple processes to speed up the computation.
@@ -1029,9 +1028,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             for i in range(coverage_index, coverage_end, 1):
                 pCoverage[i] += 1
 
-        pRow[pair_added] = mate_bins[0]
-        pCol[pair_added] = mate_bins[1]
-        pData[pair_added] = np.uint8(1)
+        if not pQuickQCMode:
+            pRow[pair_added] = mate_bins[0]
+            pCol[pair_added] = mate_bins[1]
+            pData[pair_added] = np.uint8(1)
 
         pair_added += 1
         if pOutputBamSet:
@@ -1262,7 +1262,8 @@ def main(args=None):
                     pRow=row[i],
                     pCol=col[i],
                     pData=data[i],
-                    pMaxInsertSize=args.maxLibraryInsertSize
+                    pMaxInsertSize=args.maxLibraryInsertSize,
+                    pQuickQCMode=args.doTestRun
                 ))
                 process[i].start()
                 count_output += 1

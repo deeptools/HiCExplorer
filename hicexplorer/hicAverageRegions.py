@@ -44,31 +44,46 @@ WARNING: This tool can only be used with fixed bin size Hi-C matrices. No guaran
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
-
+    parserOpt.add_argument('--coordinatesToBinMapping', '-cb',
+                                help='If the region contains start and end coordinates, define if the start, center (start + (end-start) / 2), end or start (for upstream) and end (downstream) bin should be used as start for range.'
+                                'This parameter is only important to set if the given start and end coordinates are not in the same bin.',
+                                choices=['start', 'center', 'end', 'start_end'],
+                                default='start')
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
 
     return parser
 
 
-def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange):
+def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMapping):
     '''
     This function computes the correct start and end position of a viewpoint given the reference and the range.
     '''
 
     max_length = pHiCMatrix.getBinPos(pHiCMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
     bin_size = pHiCMatrix.getBinSize()
-    _range = [pRange[0], pRange[1]]
-    region_start = int(pViewpoint[1]) - pRange[0]
+    # _range = [pRange[0], pRange[1]]
+
+    if pCoordinatesToBinMapping == 'start_end':
+        region_start = int(pViewpoint[1]) - pRange[0]
+        region_end = int(pViewpoint[2]) + pRange[1]
+    elif pCoordinatesToBinMapping == 'start':
+        region_start = int(pViewpoint[1]) - pRange[0]
+        region_end = int(pViewpoint[1]) + pRange[1]
+    elif pCoordinatesToBinMapping == 'end':
+        region_start = int(pViewpoint[2]) - pRange[0]
+        region_end = int(pViewpoint[2]) + pRange[1]
+    elif pCoordinatesToBinMapping == 'center':
+        viewpoint_center_value = int(float(pViewpoint[1]) + ((float(pViewpoint[2]) - float(pViewpoint[1]) ) / 2))
+        region_start = viewpoint_center_value - pRange[0]
+        region_end = viewpoint_center_value + pRange[1]
+
     if region_start < 0:
         region_start = 0
-        _range[0] = int(pViewpoint[1])
 
-    region_end = int(pViewpoint[2]) + pRange[1]
     if region_end > max_length:
         # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
         region_end = max_length - 1
-        _range[1] = (max_length - int(pViewpoint[2])) + bin_size
     return region_start, region_end, _range
 
 
@@ -77,11 +92,26 @@ def getBinIndices(pHiCMatrix, pViewpoint):
     return pHiCMatrix.getRegionBinRange(pViewpoint[0], pViewpoint[1], pViewpoint[2])
 
 
-def calculateViewpointRangeBins(pHiCMatrix, pViewpoint, pRange):
+def calculateViewpointRangeBins(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMapping):
+    if pCoordinatesToBinMapping == 'start_end':
+        viewpoint_index_start = getBinIndices(pHiCMatrix, pViewpoint)[0]
+        viewpoint_index_end = getBinIndices(pHiCMatrix, pViewpoint)[1]
 
-    viewpoint_index = getBinIndices(pHiCMatrix, pViewpoint)[0]
-    start = viewpoint_index - pRange[0]
-    end = viewpoint_index + pRange[1]
+    elif pCoordinatesToBinMapping == 'start':
+        viewpoint_index = getBinIndices(pHiCMatrix, pViewpoint)[0]
+    elif pCoordinatesToBinMapping == 'end':
+        viewpoint_index = getBinIndices(pHiCMatrix, pViewpoint)[1]
+    else:
+        viewpoint_center_value = int(float(pViewpoint[1]) + ((float(pViewpoint[2]) - float(pViewpoint[1]) )/ 2))
+        viewpoint_center = [pViewpoint[0], viewpoint_center_value, viewpoint_center_value]
+        viewpoint_index = getBinIndices(pHiCMatrix, pViewpoint)[1]
+    
+    if pCoordinatesToBinMapping == 'start_end':
+        start = viewpoint_index_start - pRange[0]
+        end = viewpoint_index_end + pRange[1]
+    else:
+        start = viewpoint_index - pRange[0]
+        end = viewpoint_index + pRange[1]
 
     return start, end
 
@@ -105,23 +135,10 @@ def main(args=None):
                 chrom, start, end = _line[0], _line[1], _line[2]
                 viewpoint = (chrom, start, end)
             if args.range:
-                start_range_genomic, end_range_genomic, _ = calculateViewpointRange(hic_ma, viewpoint, args.range)
-                # min_length, max_length = hic_ma.getBinPos(hic_ma.getChrBinRange(pViewpoint[0])[1] - 1)[1:]
-                # if start_range_genomic < min_length:
-                #     log.warning('Ignoring {} {} {} because the reference point minus the range {} is smaller than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
-                #     continue
-                # if end_bin > :
-                #     log.warning('Ignoring {} {} {} because the reference point plus the range {} is greater than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
-                #     continue
+                start_range_genomic, end_range_genomic = calculateViewpointRange(hic_ma, viewpoint, args.range, args.coordinatesToBinMapping)
                 start_bin, end_bin = getBinIndices(hic_ma, (chrom, start_range_genomic, end_range_genomic))
             else:
-                start_bin, end_bin = calculateViewpointRangeBins(hic_ma, viewpoint, args.rangeInBins)
-            # if start_bin < 0:
-            #     log.warning('Ignoring {} {} {} because the reference point minus the range {} is smaller than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
-            #     continue
-            # if end_bin > :
-            #     log.warning('Ignoring {} {} {} because the reference point plus the range {} is greater than the chromosome border.'.format(viewpoint[0], viewpoint[1], viewpoint[2], args.range))
-            #     continue
+                start_bin, end_bin = calculateViewpointRangeBins(hic_ma, viewpoint, args.rangeInBins, args.coordinatesToBinMapping)
             indices_values.append([start_bin, end_bin])
 
     if args.range:

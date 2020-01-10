@@ -118,6 +118,8 @@ def main(args=None):
                 if 'sum-elements' in cooler_file.info:
                     sum_elements = cooler_file.info['sum-elements']
 
+                chromosome_sizes = cooler_file.chromsizes
+
         else:
             hic_ma = hm.hiCMatrix(matrix)
             size = hic_ma.matrix.shape[0]
@@ -129,6 +131,8 @@ def main(args=None):
             max_non_zero = hic_ma.matrix.data.max()
 
             chromosomes = list(hic_ma.chrBinBoundaries)
+            chromosome_sizes = hic_ma.get_chromosome_sizes()
+
 
         information = StringIO()
         information.write(
@@ -147,9 +151,13 @@ def main(args=None):
             information.write("Bin_length:\t{}\n".format(bin_length))
         if sum_elements is not None:
             information.write("Sum of matrix:\t{}\n".format(sum_elements))
-        if chromosomes is not None:
-            information.write("Chromosomes:\t{}\n".format(
-                ", ".join(toString(chromosomes))))
+        # if chromosomes is not None:
+        #     information.write("Chromosomes:\t{}\n".format(
+        #         ", ".join(toString(chromosomes))))
+        information.write("Chromosomes:length: ")
+        for key, value in chromosome_sizes.items():
+            information.write("{}: {} bp; ".format(key, value))
+        information.write('\n')
         if nchroms is not None:
             information.write("Number of chromosomes:\t{}\n".format(nchroms))
         if num_non_zero is not None:
