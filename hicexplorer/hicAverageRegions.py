@@ -64,7 +64,6 @@ def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMap
     # bin_size = pHiCMatrix.getBinSize()
     # _range = [pRange[0], pRange[1]]
 
-    
     if pCoordinatesToBinMapping == 'start':
         region_start = int(pViewpoint[1]) - pRange[0]
         region_end = int(pViewpoint[1]) + pRange[1]
