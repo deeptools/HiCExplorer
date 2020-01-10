@@ -354,13 +354,13 @@ def obs_exp_matrix_norm(pSubmatrix):
     total_interactions = pSubmatrix.sum()
 
     row, col = pSubmatrix.nonzero()
-    # data = pSubmatrix.data.tolist()
     pSubmatrix.data = pSubmatrix.data.astype(np.float32)
     for i in range(len(row)):
         expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
         expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
 
         pSubmatrix.data[i] /= expected
+
     mask = np.isnan(pSubmatrix.data)
     pSubmatrix.data[mask] = 0
     mask = np.isinf(pSubmatrix.data)
