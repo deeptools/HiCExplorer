@@ -45,9 +45,9 @@ WARNING: This tool can only be used with fixed bin size Hi-C matrices. No guaran
 
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
     parserOpt.add_argument('--coordinatesToBinMapping', '-cb',
-                                help='If the region contains start and end coordinates, define if the start, center (start + (end-start) / 2), end or start (for upstream) and end (downstream) bin should be used as start for range.'
-                                'This parameter is only important to set if the given start and end coordinates are not in the same bin.',
-                                choices=['start', 'center', 'end', 'start_end'],
+                           help='If the region contains start and end coordinates, define if the start, center (start + (end-start) / 2) or end bin should be used as start for range.'
+                           'This parameter is only important to set if the given start and end coordinates are not in the same bin.',
+                                choices=['start', 'center', 'end'],
                                 default='start')
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -61,20 +61,18 @@ def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMap
     '''
 
     max_length = pHiCMatrix.getBinPos(pHiCMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
-    bin_size = pHiCMatrix.getBinSize()
+    # bin_size = pHiCMatrix.getBinSize()
     # _range = [pRange[0], pRange[1]]
 
-    if pCoordinatesToBinMapping == 'start_end':
-        region_start = int(pViewpoint[1]) - pRange[0]
-        region_end = int(pViewpoint[2]) + pRange[1]
-    elif pCoordinatesToBinMapping == 'start':
+    
+    if pCoordinatesToBinMapping == 'start':
         region_start = int(pViewpoint[1]) - pRange[0]
         region_end = int(pViewpoint[1]) + pRange[1]
     elif pCoordinatesToBinMapping == 'end':
         region_start = int(pViewpoint[2]) - pRange[0]
         region_end = int(pViewpoint[2]) + pRange[1]
     elif pCoordinatesToBinMapping == 'center':
-        viewpoint_center_value = int(float(pViewpoint[1]) + ((float(pViewpoint[2]) - float(pViewpoint[1]) ) / 2))
+        viewpoint_center_value = int(float(pViewpoint[1]) + ((float(pViewpoint[2]) - float(pViewpoint[1])) / 2))
         region_start = viewpoint_center_value - pRange[0]
         region_end = viewpoint_center_value + pRange[1]
 
@@ -84,7 +82,7 @@ def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMap
     if region_end > max_length:
         # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
         region_end = max_length - 1
-    return region_start, region_end, _range
+    return region_start, region_end
 
 
 def getBinIndices(pHiCMatrix, pViewpoint):
@@ -93,25 +91,25 @@ def getBinIndices(pHiCMatrix, pViewpoint):
 
 
 def calculateViewpointRangeBins(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMapping):
-    if pCoordinatesToBinMapping == 'start_end':
-        viewpoint_index_start = getBinIndices(pHiCMatrix, pViewpoint)[0]
-        viewpoint_index_end = getBinIndices(pHiCMatrix, pViewpoint)[1]
+    # if pCoordinatesToBinMapping == 'start_end':
+    #     viewpoint_index_start = getBinIndices(pHiCMatrix, pViewpoint)[0]
+    #     viewpoint_index_end = getBinIndices(pHiCMatrix, pViewpoint)[1]
 
-    elif pCoordinatesToBinMapping == 'start':
+    if pCoordinatesToBinMapping == 'start':
         viewpoint_index = getBinIndices(pHiCMatrix, pViewpoint)[0]
     elif pCoordinatesToBinMapping == 'end':
         viewpoint_index = getBinIndices(pHiCMatrix, pViewpoint)[1]
     else:
-        viewpoint_center_value = int(float(pViewpoint[1]) + ((float(pViewpoint[2]) - float(pViewpoint[1]) )/ 2))
+        viewpoint_center_value = int(float(pViewpoint[1]) + ((float(pViewpoint[2]) - float(pViewpoint[1])) / 2))
         viewpoint_center = [pViewpoint[0], viewpoint_center_value, viewpoint_center_value]
-        viewpoint_index = getBinIndices(pHiCMatrix, pViewpoint)[1]
-    
-    if pCoordinatesToBinMapping == 'start_end':
-        start = viewpoint_index_start - pRange[0]
-        end = viewpoint_index_end + pRange[1]
-    else:
-        start = viewpoint_index - pRange[0]
-        end = viewpoint_index + pRange[1]
+        viewpoint_index = getBinIndices(pHiCMatrix, viewpoint_center)[1]
+
+    # if pCoordinatesToBinMapping == 'start_end':
+    #     start = viewpoint_index_start - pRange[0]
+    #     end = viewpoint_index_end + pRange[1]
+    # else:
+    start = viewpoint_index - pRange[0]
+    end = viewpoint_index + pRange[1]
 
     return start, end
 
