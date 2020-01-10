@@ -88,6 +88,7 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
     chromosomes = pc1["chr"].unique()
     interaction_sum = np.zeros((quantiles_number, quantiles_number))
     number_of_bins = np.zeros((quantiles_number, quantiles_number))
+
     for chrom in chromosomes:
 
         pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
@@ -179,7 +180,6 @@ def main(args=None):
         boundaries = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
         quantiled_bins = np.linspace(boundaries[0], boundaries[1],
                                      args.quantile)
-
     else:
         quantile = [j / (args.quantile - 1) for j in range(0, args.quantile)]
         quantiled_bins = np.nanquantile(pc1['pc1'].values.astype(float),
@@ -202,6 +202,7 @@ def main(args=None):
                                                          args.quantile,
                                                          args.offset)
         normalised_sum_per_quantile = np.nan_to_num(normalised_sum_per_quantile)
+
         if args.outputMatrix:
             output_matrices.append(normalised_sum_per_quantile)
 
