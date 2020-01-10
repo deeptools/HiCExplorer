@@ -64,7 +64,6 @@ def main(args=None):
         matrix_generated_by = None
         matrix_generated_by_url = None
         creation_date = None
-        chromosomes = None
         bin_length = None
         size = None
         nchroms = None
@@ -85,8 +84,8 @@ def main(args=None):
                     size = cooler_file.info['nbins']
                 if 'nchroms' in cooler_file.info:
                     nchroms = cooler_file.info['nchroms']
-                if 'chromosomes' in cooler_file.info:
-                    chromosomes = cooler_file.info['chromosomes']
+                # if 'chromosomes' in cooler_file.info:
+                #     chromosomes = cooler_file.info['chromosomes']
                 if 'nnz' in cooler_file.info:
                     num_non_zero = cooler_file.info['nnz']
                 if 'min-value' in cooler_file.info:
@@ -130,9 +129,8 @@ def main(args=None):
             min_non_zero = hic_ma.matrix.data.min()
             max_non_zero = hic_ma.matrix.data.max()
 
-            chromosomes = list(hic_ma.chrBinBoundaries)
+            # chromosomes = list(hic_ma.chrBinBoundaries)
             chromosome_sizes = hic_ma.get_chromosome_sizes()
-
 
         information = StringIO()
         information.write(

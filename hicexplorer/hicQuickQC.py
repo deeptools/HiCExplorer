@@ -76,10 +76,10 @@ def main(args=None):
                 raise
     outFile = NamedTemporaryFile(suffix='.h5', delete=False)
     args_hicBuildMatrix = "--samFiles {} {} --outFileName {}  --QCfolder {} --doTestRun --doTestRunLines {} --threads 1 ".format(args.samFiles[0], args.samFiles[1],
-                                                                                                                                outFile.name,
-                                                                                                                                args.QCfolder,
-                                                                                                                                str(args.lines)
-                                                                                                                                ).split()
+                                                                                                                                 outFile.name,
+                                                                                                                                 args.QCfolder,
+                                                                                                                                 str(args.lines)
+                                                                                                                                 ).split()
     # if args.binSize:
     args_hicBuildMatrix.append('--binSize')
     args_hicBuildMatrix.append(str(10000))
