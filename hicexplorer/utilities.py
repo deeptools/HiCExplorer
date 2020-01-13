@@ -364,12 +364,10 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor = False):
 
         pSubmatrix.data[i] /= expected
 
-    ## TODO Check the result of keeping nans on pca and pearson!!
-    # mask = np.isnan(pSubmatrix.data)
-    # pSubmatrix.data[mask] = 0
-    # mask = np.isinf(pSubmatrix.data)
-    # pSubmatrix.data[mask] = 0
-    # pSubmatrix.eliminate_zeros()
+    mask = np.isnan(pSubmatrix.data)
+    pSubmatrix.data[mask] = 0
+    mask = np.isinf(pSubmatrix.data)
+    pSubmatrix.data[mask] = 0
     return pSubmatrix
 
 
@@ -379,7 +377,8 @@ def obs_exp_matrix(pSubmatrix):
         dividing each entry by the gnome-wide
         expected contacts for loci at
         that genomic distance.
-        exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero interactions at abs(i-j)
+        exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero
+        interactions at abs(i-j)
     """
 
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix)
