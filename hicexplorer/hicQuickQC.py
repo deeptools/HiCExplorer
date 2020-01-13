@@ -83,9 +83,9 @@ def main(args=None):
     # if args.binSize:
     args_hicBuildMatrix.append('--binSize')
     args_hicBuildMatrix.append(str(10000))
-    if args.restrictionCutFile:
-        args_hicBuildMatrix.append('--restrictionCutFile')
-        args_hicBuildMatrix.append(args.restrictionCutFile)
+    # if args.restrictionCutFile:
+    #     args_hicBuildMatrix.append('--restrictionCutFile')
+    #     args_hicBuildMatrix.append(args.restrictionCutFile)
 
     if args.restrictionSequence:
         args_hicBuildMatrix.append('--restrictionSequence')
