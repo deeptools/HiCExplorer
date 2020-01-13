@@ -49,6 +49,15 @@ def parse_arguments(args=None):
                            choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', 'obs_exp_norm', 'pearson', 'covariance'],
                            default='obs_exp')
 
+    parserOpt.add_argument('--ligation_factor',
+                           help="Setting this flag multiplies a scaling factor "
+                           "to each entry of the expected matrix to take care "
+                           "of the proximity ligation as has been explained "
+                           "in Homer software. This flag is only affective "
+                           "with dist_norm method and will be ignored if "
+                           "lieberman method is chosen.",
+                           action='store_true')
+
     parserOpt.add_argument('--chromosomes',
                            help='List of chromosomes to be included in the computation.',
                            default=None,

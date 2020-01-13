@@ -368,6 +368,7 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False):
     pSubmatrix.data[mask] = 0
     mask = np.isinf(pSubmatrix.data)
     pSubmatrix.data[mask] = 0
+    pSubmatrix.eliminate_zeros()
     return pSubmatrix
 
 
