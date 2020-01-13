@@ -252,7 +252,6 @@ def main(args=None):
         trasf_matrix_pearson = lil_matrix(ma.matrix.shape)
 
     if args.obsexpMatrix:
-        #transf_matrix_obsexp = lil_matrix(ma.matrix.shape)
         transf_matrix_obsexp = csr_matrix(ma.matrix.shape)
 
     for chrname in ma.getChrNames():
