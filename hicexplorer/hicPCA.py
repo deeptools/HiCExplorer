@@ -264,7 +264,7 @@ def main(args=None):
 
         submatrix = ma.matrix[chr_range[0]:chr_range[1],
                               chr_range[0]:chr_range[1]]
-        if args.method =='lieberman':
+        if args.method == 'lieberman':
             obs_exp_matrix_ = obs_exp_matrix_lieberman(submatrix,
                                                        length_chromosome,
                                                        chromosome_count)

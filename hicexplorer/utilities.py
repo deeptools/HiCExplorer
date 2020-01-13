@@ -337,7 +337,7 @@ def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     return pSubmatrix
 
 
-def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor = False):
+def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
