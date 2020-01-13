@@ -111,9 +111,7 @@ def adjustMatrix(pArgs):
         # log.debug('genomic_regions {}'.format(genomic_regions))
         matrix_indices_regions = []
         for region in genomic_regions:
-            _regionBinRange = hic_matrix.getRegionBinRange(region[0],
-                                                           int(region[1]),
-                                                           int(region[2]))
+            _regionBinRange = hic_matrix.getRegionBinRange(region[0], int(region[1]), int(region[2]))
             if _regionBinRange is not None:
                 start, end = _regionBinRange
                 matrix_indices_regions.extend(list(range(start, end)))
