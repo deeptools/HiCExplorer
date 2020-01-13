@@ -63,7 +63,11 @@ To create a cHi-C matrix we use HiCExplorer's hicBuildMatrix for each replicate 
     hicSumMatrix --matrices SRR3950559.cool SRR3950560.cool --outFileName MB-E10-5.cool
 
 
+Terminology: Reference point vs viewpoint
+-----------------------------------------
 
+A reference point is one single genomic position i.e. chr1 500 510 is a reference point. A viewpoint is in contrast the region defined by the 
+reference point and the up and downstream range, i.e. range 100 and reference point chr1 50 70 leads to the viewpoint chr1 400 610.
 
 Creation of reference point file
 --------------------------------
@@ -110,6 +114,8 @@ The plot shows there are effectively no interactions except with the reference p
 
 The result of the quality control rejected 71 reference points as too sparse, but surprisingly the viewpoints rejected by Andrey et al. are accepted. An explanation for this could be that we only consider two samples and not all samples used by Andrey, and therefore we missed the bad quality of some viewpoints.
 
+Please consider that this bad viewpoint was selected arbitrary out of the sample data and is only an example.
+
 Download the data: `Filtered reference points <https://drive.google.com/open?id=1y3G1wJRBy0aZPQJ504N94jLE4jco2GAT>`__, `Quality control raw data <https://drive.google.com/open?id=1E0Ii-5QdZDco8NkEXb-rMoBCcGjYUfJg>`__ and `rejected reference points <https://drive.google.com/open?id=1LGDIoT7etslvHfNSPajYszaQlSsQegBx>`__.
 
 Background model
@@ -117,7 +123,7 @@ Background model
 
 The background model computes all viewpoints given by the reference points for both samples in a range defined by the parameter `fixateRange`. We recommend setting it to 500kb because real interactions above the range 
 are rarely observed and very low interaction numbers such as 1 are already considered to be significant. With this setting, only the interactions in a range 500kb up- and downstream of the reference point are considered for each viewpoint.
-Based on this data, two background models are computed; the first one simply computes the average per relative distance to the reference point, and secondly, a negative binomial distribution per relative distance to
+Based on this data, two background models are computed; the first one computes the average per relative distance to the reference point, and secondly, a negative binomial distribution per relative distance to
 the reference point is fitted. This first model is used for filtering in the significant interaction evaluation by an x-fold factor and for plotting. The negative binomial model is more important; it is used to 
 compute a p-value per relative distance in each sample, which is used to make the decision if an interaction is considered as significant.
 
@@ -142,7 +148,7 @@ You can `download <https://drive.google.com/open?id=1zblxEWa513LGwkjBknt83oZugg-
 Viewpoint computation
 ^^^^^^^^^^^^^^^^^^^^^
 
-In this step the viewpoints for each reference point listed in a `reference_points.bed`-file is computed, using the quality controlled file created by `chicQualityControl`. The up- and downstream range can be given via `--range upstream downstream`. Please use the same value for `--fixateRange` as in the background model computation.
+In this step the viewpoints for each reference point listed in a `reference_points.bed`-file is extracted from the interaction matrix, using the quality controlled file created by `chicQualityControl`. The up- and downstream range can be given via `--range upstream downstream`. Please use the same value for `--fixateRange` as in the background model computation.
 For each relative distance the x-fold over the average value of this relative distance is computed and each location is assigned a p-value based on the background negative binomial distribution for this relative distance.
 For each viewpoint one viewpoint file is created and stored in the folder given by the parameter `--outputFolder`. 
 

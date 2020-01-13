@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-                                     description='Creates a Heatmap of a HiC matrix.')
+                                     description='Creates a heatmap of a Hi-C matrix.')
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -144,7 +144,7 @@ def parse_arguments(args=None):
                            default=1.0)
     parserOpt.add_argument('--loops',
                            help='Bedgraph file to plot detected long range contacts '
-                           'from hicDetectLongRangeContacts.',
+                           'from hicDetectLoops.',
                            type=str,
                            default=None)
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')

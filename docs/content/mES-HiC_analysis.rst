@@ -355,7 +355,7 @@ This can be solved by a more stringent z-score values for the filter threshold o
 we see that chromosome Y is having more or less 0 counts in its bins. This chromosome can be excluded from the correction by not
 defining it for the set of chromosomes that should be corrected, parameter `--chromosomes`.
 
-
+In the case of multiple samples / replicates that need to be normalized to the same read coverage we recommend to compute first the normalization (with hicNormalize) and correct the data (with hicCorrectMatrix) in a second step.
 
 Plot corrected matrix
 ^^^^^^^^^^^^^^^^^^^^^
