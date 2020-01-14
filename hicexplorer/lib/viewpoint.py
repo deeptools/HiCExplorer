@@ -7,6 +7,7 @@ import copy
 import sys
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import nbinom
+from scipy.special import gamma
 
 
 class Viewpoint():
@@ -315,6 +316,7 @@ class Viewpoint():
             average_contacts[i] = np.mean(pData[start:end])
             average_contacts[-(i + 1)] = np.mean(pData[-end:])
 
+        # average_contacts = average_contacts
         return average_contacts
 
     def computeRelativeValues(self, pData, pDenominator=None):
@@ -322,12 +324,13 @@ class Viewpoint():
         Computes the relative values of pData by adding all data points together and divding all data points by the result.
         pData[i] = pData[i] / sum(pData)
         '''
+        pOutput = np.array(pData, dtype=float)
         if pDenominator:
-            pData /= pDenominator
+            pOutput /= pDenominator
         else:
-            sumValue = np.sum(pData)
-            pData /= sumValue
-        return pData
+            sumValue = np.sum(pOutput)
+            pOutput /= sumValue
+        return pOutput
 
     def calculateViewpointRange(self, pViewpoint, pRange):
         '''
@@ -627,10 +630,21 @@ class Viewpoint():
             else:
                 try:
                     pvalue = 1 - pvalue_list[int(pDataList) - 1]
+
+                    # pvalue = pvalue_list[int(pDataList) - 1]
+
                 except Exception:
                     log.debug('access to densities for element {} failed; value {}, len {}'.format(i, int(pDataList) - 1, len(pvalue_list)))
                     pvalue = 1
             p_value_list.append(pvalue)
+
+        # for reason I do not understand atm the values needs to be inverted again, it seems it is not enough to do this in try/catch region
+        p_value_list = 1 - p_value_list
+
+        # remove possible occuring nan with a p-value of 1
+        mask = np.isnan(p_value_list)
+        p_value_list = np.array(p_value_list)
+        p_value_list[mask] = 1.0
         return p_value_list
 
     def computeSumOfDensities(self, pBackgroundModel, pArgs, pXfoldMaxValue=None):
@@ -648,32 +662,38 @@ class Viewpoint():
                 max_value_distance *= pXfoldMaxValue
 
             if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
-                background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
+                # background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
+                background_nbinom[distance] = (pBackgroundModel[distance][0], pBackgroundModel[distance][1])
 
                 sum_of_densities = np.zeros(max_value_distance)
                 for j in range(max_value_distance):
                     if j >= 1:
                         sum_of_densities[j] += sum_of_densities[j - 1]
-                    sum_of_densities[j] += background_nbinom[distance].pmf(j)
+                    # sum_of_densities[j] += background_nbinom[distance].pmf(j)
+                    sum_of_densities[j] += pmf(j, background_nbinom[distance][0], background_nbinom[distance][1])
 
                 background_sum_of_densities_dict[distance] = sum_of_densities
 
-        background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
+        # background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
+        background_nbinom[fixateRange] = (pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
 
         sum_of_densities = np.zeros(max_value)
         for j in range(max_value):
             if j >= 1:
                 sum_of_densities[j] += sum_of_densities[j - 1]
-            sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
+            # sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
+            sum_of_densities[j] += pmf(j, background_nbinom[fixateRange][0], background_nbinom[fixateRange][1])
 
         background_sum_of_densities_dict[fixateRange] = sum_of_densities
-        background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
+        # background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
+        background_nbinom[-fixateRange] = (pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
 
         sum_of_densities = np.zeros(max_value)
         for j in range(max_value):
             if j >= 1:
                 sum_of_densities[j] += sum_of_densities[j - 1]
-            sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
+            # sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
+            sum_of_densities[j] += pmf(j, background_nbinom[-fixateRange][0], background_nbinom[-fixateRange][1])
 
         background_sum_of_densities_dict[-fixateRange] = sum_of_densities
 
@@ -788,3 +808,14 @@ class Viewpoint():
         if len(highlight_areas_list) == 0:
             return None, None
         return highlight_areas_list, p_values
+
+
+def pmf(pX, pR, pP):
+    """
+    PMF function for a continuous generalization of NB distribution
+    """
+
+    gamma_part = (gamma(pX + pR) / (gamma(pX + 1) * gamma(pR)))
+    probability_part = np.power(pP, pX) * np.power((1 - pP), pR)
+
+    return gamma_part * probability_part
