@@ -117,7 +117,9 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            'matrix to a file.')
 
     parserOpt.add_argument('--ignoreMaskedBins',
-                           help='Mask bins are usually set to 0. This option removes the masked bins before the PCA is computed. Attention: this will lead to empty PCA regions.',
+                           help='Mask bins are usually set to 0. This option '
+                           'removes the masked bins before the PCA is computed. '
+                           'Attention: this will lead to empty PCA regions.',
                            action='store_true')
 
     parserOpt.add_argument('--help', '-h', action='help', help='show the help '
@@ -249,10 +251,10 @@ def main(args=None):
     length_chromosome = 0
     chromosome_count = len(ma.getChrNames())
     if args.pearsonMatrix:
-        trasf_matrix_pearson = lil_matrix(ma.matrix.shape)
+        transf_matrix_pearson = lil_matrix(ma.matrix.shape)
 
     if args.obsexpMatrix:
-        transf_matrix_obsexp = csr_matrix(ma.matrix.shape)
+        transf_matrix_obsexp = lil_matrix(ma.matrix.shape)
 
     for chrname in ma.getChrNames():
         chr_range = ma.getChrBinRange(chrname)
@@ -271,16 +273,15 @@ def main(args=None):
         else:
             obs_exp_matrix_ = obs_exp_matrix_non_zero(submatrix, args.ligation_factor)
 
-
+        obs_exp_matrix_ = csr_matrix(obs_exp_matrix_).todense()
         if args.obsexpMatrix:
-            transf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = obs_exp_matrix_
-
-        pearson_correlation_matrix = np.corrcoef(csr_matrix(obs_exp_matrix_).todense())
+            transf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
+        pearson_correlation_matrix = np.corrcoef(obs_exp_matrix_)
         pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
         pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
 
         if args.pearsonMatrix:
-            trasf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(pearson_correlation_matrix)
+            transf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(pearson_correlation_matrix)
 
         corrmatrix = np.cov(pearson_correlation_matrix)
         corrmatrix = pearson_correlation_matrix
@@ -308,7 +309,7 @@ def main(args=None):
         if args.pearsonMatrix.endswith('.h5'):
             file_type = 'h5'
         matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
-        matrixFileHandlerOutput.set_matrix_variables(trasf_matrix_pearson.tocsr(),
+        matrixFileHandlerOutput.set_matrix_variables(transf_matrix_pearson.tocsr(),
                                                      ma.cut_intervals,
                                                      ma.nan_bins,
                                                      ma.correction_factors,
@@ -321,7 +322,7 @@ def main(args=None):
         if args.obsexpMatrix.endswith('.h5'):
             file_type = 'h5'
         matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
-        matrixFileHandlerOutput.set_matrix_variables(transf_matrix_obsexp,
+        matrixFileHandlerOutput.set_matrix_variables(transf_matrix_obsexp.tocsr(),
                                                      ma.cut_intervals,
                                                      ma.nan_bins,
                                                      ma.correction_factors,
