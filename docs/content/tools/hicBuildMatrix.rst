@@ -8,13 +8,13 @@ hicBuildMatrix
    :prog: hicBuildMatrix
 
 
-Multiple interaction matrices
------------------------------
+Building multicooler matrices
+------------------------------
 
-hicBuildMatrix supports the build of multicooler matrices, to do so, use as outfile format either .cool or .mcool and define
-for `--binSize` the desired resolutions. hicBuildMatrix builds the interaction matrix for the highest resolution and
-merges the bins to achieve the lower resolutions. The lower resolutions need to be an integer multiplicative of the highest
-resolution.
+``hicBuildMatrix`` supports building multicooler matrices which are for example needed for visualization with `HiGlass <https://higlass.io/>`__.
+To do so, use as outfile format either .cool or .mcool and define the desired resolutions as `--binSize`.
+``hicBuildMatrix`` builds the interaction matrix for the highest resolution and merges the bins for the lower resolutions.
+The lower resolutions need to be an integer multiplicative of the highest resolution.
 
 .. code:: bash
 

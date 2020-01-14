@@ -81,7 +81,7 @@ def parse_arguments(args=None):
                            'not valid for obs_exp_lieberman.',
                            action='store_true')
 
-    parserOpt.add_argument("-help", "-h", action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h", action="help", help="Show this help message and exit.")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))

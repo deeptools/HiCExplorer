@@ -21,60 +21,38 @@ def parse_arguments(args=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         add_help=False,
         description="""
-The tool hicQuickQC considers the first n lines of two bam/sam files to get a first estimate on the quality of the data.
+The tool hicQuickQC considers the first n lines of two bam/sam files to get a first estimate of the quality of the data. It is highly recommended to set the restriction enzyme and dangling end parameter to get a good quality report.
 """)
     parserRequired = parser.add_argument_group('Required arguments')
     parserRequired.add_argument('--samFiles', '-s',
-                                help='The two PE alignment sam files to process',
+                                help='The two PE alignment sam files to process.',
                                 metavar='two sam files',
                                 nargs=2,
                                 required=True)
 
     parserRequired.add_argument('--QCfolder',
-                                help='Path of folder to save the quality control data for the matrix. The log files '
+                                help='Path of folder to save the quality control data of the matrix. The log files '
                                 'produced this way can be loaded into `hicQC` in order to compare the quality of multiple '
                                 'Hi-C libraries.',
                                 metavar='FOLDER',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
 
-    group = parserOpt.add_mutually_exclusive_group(required=True)
-
-    group.add_argument('--binSize', '-bs',
-                       help='Size in bp for the bins. The bin size depends '
-                            'on the depth of sequencing. Use a larger bin size for '
-                            'libraries sequenced with lower depth. Alternatively, the location of '
-                            'the restriction sites can be given (see --restrictionCutFile). '
-                            'Optional for mcool file format: Define multiple resolutions which are all a multiple of the first value. '
-                            ' Example: --binSize 10000 20000 50000 will create a mcool file formate containing the three defined resolutions.',
-                       type=int,
-                       default=10000)
-
-    group.add_argument('--restrictionCutFile', '-rs',
-                       help=('BED file with all restriction cut places '
-                             '(output of "findRestSite" command). '
-                             'Should contain only  mappable '
-                             'restriction sites. If given, the bins are '
-                             'set to match the restriction fragments (i.e. '
-                             'the region between one restriction site and '
-                             'the next).'),
-                       type=argparse.FileType('r'),
-                       metavar='BED file')
     parserOpt.add_argument('--restrictionSequence', '-seq',
-                           help='Sequence of the restriction site.')
+                           help='Sequence of the restriction site. It is highly recommended to set this parameter to get a good quality report.')
 
     parserOpt.add_argument('--danglingSequence',
                            help='Sequence left by the restriction enzyme after cutting. Each restriction enzyme '
                                 'recognizes a different DNA sequence and, after cutting, they leave behind a specific '
-                                '"sticky" end or dangling end sequence.  For example, for HindIII the restriction site '
+                                '"sticky" end or dangling end sequence. For example, for HindIII the restriction site '
                                 'is AAGCTT and the dangling end is AGCT. For DpnII, the restriction site and dangling '
                                 'end sequence are the same: GATC. This information is easily found on the description '
                                 'of the restriction enzyme. The dangling sequence is used to classify and report reads '
                                 'whose 5\' end starts with such sequence as dangling-end reads. A significant portion '
                                 'of dangling-end reads in a sample are indicative of a problem with the re-ligation '
-                                'step of the protocol.')
+                                'step of the protocol. It is highly recommended to set this parameter to get a good quality report.')
     parserOpt.add_argument('--lines',
-                           help='Number of lines to consider for the qc test run.',
+                           help='Number of lines to consider for the QC test run.',
                            required=False,
                            default=1000000,
                            type=int
@@ -97,17 +75,17 @@ def main(args=None):
             if exc.errno != errno.EEXIST:
                 raise
     outFile = NamedTemporaryFile(suffix='.h5', delete=False)
-    args_hicBuildMatrix = "--samFiles {} {} --outFileName {}  --QCfolder {} --doTestRun --doTestRunLines {} --threads 1".format(args.samFiles[0], args.samFiles[1],
-                                                                                                                                outFile.name,
-                                                                                                                                args.QCfolder,
-                                                                                                                                str(args.lines)
-                                                                                                                                ).split()
-    if args.binSize:
-        args_hicBuildMatrix.append('--binSize')
-        args_hicBuildMatrix.append(str(args.binSize))
-    if args.restrictionCutFile:
-        args_hicBuildMatrix.append('--restrictionCutFile')
-        args_hicBuildMatrix.append(args.restrictionCutFile)
+    args_hicBuildMatrix = "--samFiles {} {} --outFileName {}  --QCfolder {} --doTestRun --doTestRunLines {} --threads 1 ".format(args.samFiles[0], args.samFiles[1],
+                                                                                                                                 outFile.name,
+                                                                                                                                 args.QCfolder,
+                                                                                                                                 str(args.lines)
+                                                                                                                                 ).split()
+    # if args.binSize:
+    args_hicBuildMatrix.append('--binSize')
+    args_hicBuildMatrix.append(str(10000))
+    # if args.restrictionCutFile:
+    #     args_hicBuildMatrix.append('--restrictionCutFile')
+    #     args_hicBuildMatrix.append(args.restrictionCutFile)
 
     if args.restrictionSequence:
         args_hicBuildMatrix.append('--restrictionSequence')

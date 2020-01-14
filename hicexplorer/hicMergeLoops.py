@@ -19,15 +19,15 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-This script merges the loop locations of different different resolutions.
+This script merges the locations of loops detected at several resolutions.
 
-Loops need to have format as follows:
+Loops in the inputFiles need to have the following format:
 
 chr start end chr start end
 
-A merge happens if x and y position of a loop overlap with x and y position of another loop; all loops are considered as an overlap within +/- the bin size of the lowest resolution.
-I.e. for a loop with coordinates x and y, the overlap to all other loops is search for (x - lowest resolution) and (y + lowest resolution).
-If two or more locations should be merged, the one with the lowest resolution is taken as the merged loop.
+Loops are merged if the x and y position of a loop overlap with the x and y position of another loop; all loops are considered as an overlap within +/- the bin size of the lowest resolution.
+I.e. for a loop with coordinates x and y, the overlap with all other loops is checked for (x - lowest resolution) and (y + lowest resolution).
+If two or more locations are to be merged, the loop at the lowest resolution is taken as the merged loop.
 
 Example usage:
 

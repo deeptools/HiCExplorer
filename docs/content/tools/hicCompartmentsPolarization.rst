@@ -8,8 +8,8 @@ hicCompartmentsPolarization
    :prog: hicCompartmentsPolarization
 
 
-Applying PCA to compute the global compartmentalization signal
-   -----------------------------
+PCA to compute the global compartmentalization signal
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To our knowledge this method has been first introduced by Wibke Schwarzer
 et al. 2017 (Nature. 2017 Nov 2; 551(7678): 51–56). In this method, a
