@@ -89,6 +89,7 @@ def test_hic_transfer_obs_exp_lieberman():
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
     os.unlink(outfile.name)
 
+
 def test_hic_transfer_obs_exp_non_zero_with_ligation_factor():
     outfile = NamedTemporaryFile(suffix='obs_exp_norm_.h5', delete=False)
     outfile.close()
