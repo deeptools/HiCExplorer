@@ -86,6 +86,7 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
     "Counts the total interaction on obs_exp matrix per quantile and "
     "normalizes it by the number of bins per quantile."
     chromosomes = pc1["chr"].unique()
+
     interaction_sum = np.zeros((quantiles_number, quantiles_number))
     number_of_bins = np.zeros((quantiles_number, quantiles_number))
 
@@ -189,7 +190,6 @@ def main(args=None):
                                       pc1['pc1'].values.astype(float),
                                       side="right")
     pc1.loc[pc1["pc1"] == np.nan]["quantile"] = args.quantile + 1
-
     polarization_ratio = []
     output_matrices = []
     labels = []
