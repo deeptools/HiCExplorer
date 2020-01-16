@@ -1014,7 +1014,7 @@ def main(args=None):
                         deepcopy(matrix), deepcopy(cut_intervals))
                     hic_matrix.keepOnlyTheseChr([chromosome])
                 hic_matrix.maskBins(hic_matrix.nan_bins)
-                loops = compute_loops(hic_matrix, chromosome, args)
+                loops = compute_loops(hic_matrix, chromosome, args,is_cooler)
                 if loops is not None:
                     mapped_loops.extend(loops)
         else:
