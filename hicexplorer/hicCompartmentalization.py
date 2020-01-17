@@ -178,7 +178,6 @@ def main(args=None):
 
     pc1 = pc1.rename(columns={0: "chr", 1: "start", 2: "end", 3: "pc1"})
 
-
     if args.outliers != 0:
         quantile = [args.outliers / 100, (100 - args.outliers) / 100]
         boundaries = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
