@@ -47,13 +47,13 @@ def parse_arguments():
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--quantile', '-q',
-                           help='number of quantiles. (Default: %(default)).',
+                           help='number of quantiles. (Default: %(default)s).',
                            default=30,
                            type=int)
 
     parserOpt.add_argument('--outliers',
                            help='precentage of outlier to remove. '
-                           '(Default: %(default)).',
+                           '(Default: %(default)s).',
                            default=0,
                            type=float)
 
