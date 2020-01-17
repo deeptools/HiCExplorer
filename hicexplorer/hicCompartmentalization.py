@@ -174,7 +174,7 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     pc1 = pd.read_table(args.pca, header=None, sep="\t",
-                                 dtype={0:"object", 1:"Int64", 2:"Int64", 3:"float32"})
+                        dtype={0: "object", 1: "Int64", 2: "Int64", 3: "float32"})
 
     pc1 = pc1.rename(columns={0: "chr", 1: "start", 2: "end", 3: "pc1"})
 
