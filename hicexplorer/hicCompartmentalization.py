@@ -47,12 +47,13 @@ def parse_arguments():
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--quantile', '-q',
-                           help='number of quantiles',
+                           help='number of quantiles. (Default: %(default)s).',
                            default=30,
                            type=int)
 
     parserOpt.add_argument('--outliers',
-                           help='precentage of outlier to remove',
+                           help='precentage of outlier to remove. '
+                           '(Default: %(default)s).',
                            default=0,
                            type=float)
 
@@ -91,7 +92,6 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
     number_of_bins = np.zeros((quantiles_number, quantiles_number))
 
     for chrom in chromosomes:
-
         pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
         chr_range = obs_exp.getChrBinRange(chrom)
 
@@ -173,9 +173,11 @@ def main(args=None):
     """
     args = parse_arguments().parse_args(args)
 
-    pc1_bedgraph = pd.read_table(args.pca, header=None, sep="\t")
-    pc1 = pd.DataFrame(pc1_bedgraph.values, columns=["chr", "start", "end",
-                                                     "pc1"])
+    pc1 = pd.read_table(args.pca, header=None, sep="\t",
+                        dtype={0: "object", 1: "Int64", 2: "Int64", 3: "float32"})
+
+    pc1 = pc1.rename(columns={0: "chr", 1: "start", 2: "end", 3: "pc1"})
+
     if args.outliers != 0:
         quantile = [args.outliers / 100, (100 - args.outliers) / 100]
         boundaries = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
@@ -197,12 +199,10 @@ def main(args=None):
         obs_exp = hm.hiCMatrix(matrix)
         name = ".".join(matrix.split("/")[-1].split(".")[0:-1])
         labels.append(name)
-
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
                                                          args.quantile,
                                                          args.offset)
         normalised_sum_per_quantile = np.nan_to_num(normalised_sum_per_quantile)
-
         if args.outputMatrix:
             output_matrices.append(normalised_sum_per_quantile)
 
