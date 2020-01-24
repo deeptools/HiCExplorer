@@ -93,6 +93,12 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            default=4,
                            type=int
                            )
+    parserOpt.add_argument('--threadsPerChromosome', '-tpc',
+                           help='Number of threads to use per parallel thread processing a chromosome. E.g. --threads = 4 and --threadsPerChromosome = 4 makes 4 * 4 = 16 threads in total.',
+                           required=False,
+                           default=4,
+                           type=int
+                           )
     parserOpt.add_argument('--statisticalTest', '-st',
                            help='Which statistical test should be used.',
                            required=False,
@@ -131,6 +137,9 @@ def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistrib
                             pPValuePreselection, pMask, pGenomicDistanceDistributionPosition, pQueue): 
 
     # mask = [False] * len(pGenomicDistanceDistributionsKeyList)
+    if len(pGenomicDistanceDistributionsKeyList) == 0:
+        pQueue.put(pMask)
+        return
     for i, key in enumerate(pGenomicDistanceDistributionsKeyList):
 
         nbinom_parameters = fit_nbinom.fit(
@@ -332,9 +341,13 @@ def filter_duplicates(pCandidates):
 
 def neighborhood_merge_thread(pCandidateList, pWindowSize, pInteractionCountMatrix, pMinLoopDistance, pMaxLoopDistance, pQueue):
 
+    new_candidate_list = []
+
+    if len(pCandidateList) == 0:
+        pQueue.put(new_candidate_list)
+        return
     x_max = pInteractionCountMatrix.shape[0]
     y_max = pInteractionCountMatrix.shape[1]
-    new_candidate_list = []
 
     for candidate in pCandidateList:
         start_x = candidate[0] - \
@@ -504,7 +517,9 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                           pMinimumInteractionsThreshold, pPeakWindowSize, pQueue, pStatisticalTest=None):
     mask = []
     pvalues = []
-
+    if len(pCandidates) == 0:
+        pQueue.put([mask, pvalues])
+        return
     x_max = pHiCMatrix.shape[0]
     y_max = pHiCMatrix.shape[1]
     for i, candidate in enumerate(pCandidates):
@@ -623,6 +638,7 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
     # pvalues = []
 
     pQueue.put([mask, pvalues])
+    return
     
 def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                           pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pStatisticalTest=None):
@@ -901,7 +917,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
                                                          pArgs.peakInteractionsThreshold,
                                                          min_loop_distance,
                                                          max_loop_distance,
-                                                         pArgs.threads)
+                                                         pArgs.threadsPerChromosome)
 
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
@@ -968,6 +984,8 @@ def main(args=None):
     log.debug('args.matrix {}'.format(args.matrix))
     is_cooler = check_cooler(args.matrix)
     log.debug('is_cooler {}'.format(is_cooler))
+    if args.threadsPerChromosome < 1:
+        args.threadsPerChromosome = 1
     if args.region:
         chrom, region_start, region_end = translate_region(args.region)
 
@@ -999,6 +1017,8 @@ def main(args=None):
         else:
             chromosomes_list = args.chromosomes
 
+        if len(chromosomes_list) < args.threads:
+            args.threads = len(chromosomes_list)
         if len(chromosomes_list) == 1:
             single_core = True
         else:
@@ -1014,7 +1034,7 @@ def main(args=None):
                         deepcopy(matrix), deepcopy(cut_intervals))
                     hic_matrix.keepOnlyTheseChr([chromosome])
                 hic_matrix.maskBins(hic_matrix.nan_bins)
-                loops = compute_loops(hic_matrix, chromosome, args,is_cooler)
+                loops = compute_loops(hic_matrix, chromosome, args, is_cooler)
                 if loops is not None:
                     mapped_loops.extend(loops)
         else:
