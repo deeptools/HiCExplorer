@@ -130,13 +130,13 @@ setup(
              'bin/chicAggregateStatistic', 'bin/chicDifferentialTest', 'bin/chicQualityControl', 'bin/chicSignificantInteractions',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
              'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicMergeLoops',
-             'bin/hicCompartmentsPolarization', 'bin/hicQuickQC', 'bin/hicPlotSVL'
+             'bin/hicCompartmentalization', 'bin/hicQuickQC', 'bin/hicPlotSVL'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
     package_data={'hicexplorer': ['qc_template.html']},
     url='http://hicexplorer.readthedocs.io',
-    license='LICENSE.txt',
+    license='LICENSE',
     description='Set of programs to process, analyze and visualize Hi-C data',
     long_description=open('README.rst').read(),
     classifiers=[

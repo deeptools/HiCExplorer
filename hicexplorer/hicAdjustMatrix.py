@@ -23,7 +23,7 @@ def parse_arguments(args=None):
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrix', '-m',
-                                help='The matrix to adjust. '
+                                help='The Hi-C matrix to adjust. '
                                 'HiCExplorer supports the following file formats: h5 (native HiCExplorer format) '
                                 'and cool.',
                                 required=True)
@@ -34,13 +34,13 @@ def parse_arguments(args=None):
     parserMutuallyExclusive = parser.add_mutually_exclusive_group()
     parserMutuallyExclusive.add_argument('--chromosomes', '-c',
                                          nargs='+',
-                                         help='List of chromosomes to keep / remove')
+                                         help='List of chromosomes to keep / remove.')
     parserMutuallyExclusive.add_argument('--regions', '-r',
-                                         help='BED file which stores a list of regions to keep / remove')
+                                         help='BED file which stores a list of regions to keep / remove.')
     parserMutuallyExclusive.add_argument('--maskBadRegions', '-mbr',
                                          help='Bad regions are identified and masked.')
     parserOpt.add_argument('--action',
-                           help='Keep, remove or mask the list of specified chromosomes / regions ',
+                           help='Keep, remove or mask the list of specified chromosomes / regions. ',
                            default='keep',
                            choices=['keep', 'remove', 'mask']
                            )
@@ -111,9 +111,7 @@ def adjustMatrix(pArgs):
         # log.debug('genomic_regions {}'.format(genomic_regions))
         matrix_indices_regions = []
         for region in genomic_regions:
-            _regionBinRange = hic_matrix.getRegionBinRange(region[0],
-                                                           int(region[1]),
-                                                           int(region[2]))
+            _regionBinRange = hic_matrix.getRegionBinRange(region[0], int(region[1]), int(region[2]))
             if _regionBinRange is not None:
                 start, end = _regionBinRange
                 matrix_indices_regions.extend(list(range(start, end)))

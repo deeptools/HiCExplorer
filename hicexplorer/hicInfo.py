@@ -40,10 +40,10 @@ $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
                            help='File name to save information of the matrix instead of writing it to the bash.'
                            )
     parserOpt.add_argument('--no_metadata', '-nm', action='store_false', help='Do not use meta data from cooler file to display information. '
-                           'This method is slower and was default until version 2.2 of HiCExplorer. H5 files use always this parameter.')
+                           'This method is slower and was the default until version 2.2 of HiCExplorer. H5 files always use this parameter.')
 
     parserOpt.add_argument('--help', '-h', action='help',
-                           help='show this help message and exit')
+                           help='Show this help message and exit.')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -64,7 +64,6 @@ def main(args=None):
         matrix_generated_by = None
         matrix_generated_by_url = None
         creation_date = None
-        chromosomes = None
         bin_length = None
         size = None
         nchroms = None
@@ -85,8 +84,8 @@ def main(args=None):
                     size = cooler_file.info['nbins']
                 if 'nchroms' in cooler_file.info:
                     nchroms = cooler_file.info['nchroms']
-                if 'chromosomes' in cooler_file.info:
-                    chromosomes = cooler_file.info['chromosomes']
+                # if 'chromosomes' in cooler_file.info:
+                #     chromosomes = cooler_file.info['chromosomes']
                 if 'nnz' in cooler_file.info:
                     num_non_zero = cooler_file.info['nnz']
                 if 'min-value' in cooler_file.info:
@@ -118,6 +117,8 @@ def main(args=None):
                 if 'sum-elements' in cooler_file.info:
                     sum_elements = cooler_file.info['sum-elements']
 
+                chromosome_sizes = cooler_file.chromsizes
+
         else:
             hic_ma = hm.hiCMatrix(matrix)
             size = hic_ma.matrix.shape[0]
@@ -128,7 +129,8 @@ def main(args=None):
             min_non_zero = hic_ma.matrix.data.min()
             max_non_zero = hic_ma.matrix.data.max()
 
-            chromosomes = list(hic_ma.chrBinBoundaries)
+            # chromosomes = list(hic_ma.chrBinBoundaries)
+            chromosome_sizes = hic_ma.get_chromosome_sizes()
 
         information = StringIO()
         information.write(
@@ -147,9 +149,13 @@ def main(args=None):
             information.write("Bin_length:\t{}\n".format(bin_length))
         if sum_elements is not None:
             information.write("Sum of matrix:\t{}\n".format(sum_elements))
-        if chromosomes is not None:
-            information.write("Chromosomes:\t{}\n".format(
-                ", ".join(toString(chromosomes))))
+        # if chromosomes is not None:
+        #     information.write("Chromosomes:\t{}\n".format(
+        #         ", ".join(toString(chromosomes))))
+        information.write("Chromosomes:length: ")
+        for key, value in chromosome_sizes.items():
+            information.write("{}: {} bp; ".format(key, value))
+        information.write('\n')
         if nchroms is not None:
             information.write("Number of chromosomes:\t{}\n".format(nchroms))
         if num_non_zero is not None:

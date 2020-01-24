@@ -17,6 +17,8 @@ def parse_arguments(args=None):
         add_help=False,
         description="""
 Normalizes given matrices either to the smallest given read number of all matrices or to 0 - 1 range. However, it does NOT compute the contact probability.
+
+We recommend to compute first the normalization (with hicNormalize) and correct the data (with hicCorrectMatrix) in a second step.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -43,7 +45,10 @@ Normalizes given matrices either to the smallest given read number of all matric
     parserOpt.add_argument('--multiplicativeValue', '-mv', default=1,
                            type=float,
                            help='show this help message and exit')
-
+    parserOpt.add_argument('--setToZeroThreshold', '-sz', default=0.0,
+                           type=float,
+                           help='A threshold to set all values after normalization to 0 if smaller this threshold. Default value is 0 i.e. there is no effect.'
+                                'It is recommended to set it for the normalize mode "smallest" to 1.0. This parameter will influence the sparsity of the matrix by removing many values close to 0 in smallest normalization mode.')
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
@@ -85,6 +90,10 @@ def main(args=None):
             hic_matrix.matrix.data[mask] = 0
             hic_matrix.matrix.eliminate_zeros()
 
+            mask = hic_matrix.matrix.data < args.setToZeroThreshold
+            hic_matrix.matrix.data[mask] = 0
+            hic_matrix.matrix.eliminate_zeros()
+
             hic_matrix.save(args.outFileName[i], pApplyCorrection=False)
     elif args.normalize == 'smallest':
         argmin = np.argmin(sum_list)
@@ -108,6 +117,10 @@ def main(args=None):
             hic_matrix.matrix.data[mask] = 0
             hic_matrix.matrix.eliminate_zeros()
 
+            mask = hic_matrix.matrix.data < args.setToZeroThreshold
+            hic_matrix.matrix.data[mask] = 0
+            hic_matrix.matrix.eliminate_zeros()
+
             hic_matrix.save(args.outFileName[i], pApplyCorrection=False)
     elif args.normalize == 'multiplicative':
 
@@ -127,6 +140,10 @@ def main(args=None):
             hic_matrix.matrix.data[mask] = 0
 
             mask = np.isinf(hic_matrix.matrix.data)
+            hic_matrix.matrix.data[mask] = 0
+            hic_matrix.matrix.eliminate_zeros()
+
+            mask = hic_matrix.matrix.data < args.setToZeroThreshold
             hic_matrix.matrix.data[mask] = 0
             hic_matrix.matrix.eliminate_zeros()
 

@@ -90,11 +90,11 @@ def test_hic_transfer_obs_exp_lieberman():
     os.unlink(outfile.name)
 
 
-def test_hic_transfer_obs_exp_norm():
+def test_hic_transfer_obs_exp_non_zero_with_ligation_factor():
     outfile = NamedTemporaryFile(suffix='obs_exp_norm_.h5', delete=False)
     outfile.close()
 
-    args = "--matrix {} --outFileName {} --method obs_exp_norm".format(original_matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method obs_exp_non_zero --ligation_factor".format(original_matrix, outfile.name).split()
     hicTransform.main(args)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_norm.h5")
@@ -105,11 +105,11 @@ def test_hic_transfer_obs_exp_norm():
     os.unlink(outfile.name)
 
 
-def test_hic_transfer_obs_exp_norm_perChromosome():
+def test_hic_transfer_obs_exp_non_zero_with_ligation_factor_perChromosome():
     outfile = NamedTemporaryFile(suffix='obs_exp_norm_.h5', delete=False)
     outfile.close()
 
-    args = "--matrix {} --outFileName {} --method obs_exp_norm --perChromosome".format(original_matrix, outfile.name).split()
+    args = "--matrix {} --outFileName {} --method obs_exp_non_zero --ligation_factor --perChromosome".format(original_matrix, outfile.name).split()
     hicTransform.main(args)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_norm_perChromosome.h5")
