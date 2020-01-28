@@ -660,7 +660,12 @@ class Viewpoint():
             if max_value < int(pBackgroundModel[distance][2]):
                 max_value = int(pBackgroundModel[distance][2])
 
+
             if pXfoldMaxValue is not None:
+                if max_value_distance == 0:
+                    max_value_distance = 1
+                if pXfoldMaxValue == 0:
+                    pXfoldMaxValue = 1
                 max_value_distance *= pXfoldMaxValue
 
             if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
