@@ -639,6 +639,8 @@ class Viewpoint():
             p_value_list.append(pvalue)
 
         # for reason I do not understand atm the values needs to be inverted again, it seems it is not enough to do this in try/catch region
+        p_value_list = np.array(p_value_list)
+
         p_value_list = 1 - p_value_list
 
         # remove possible occuring nan with a p-value of 1
