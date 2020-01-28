@@ -71,8 +71,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'HiCExplorer'
-copyright = u'2019, Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff, Leily Rabbani'
-author = u'Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff, Leily Rabbani'
+copyright = u'2020, Joachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez'
+author = u'Joachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

@@ -118,8 +118,7 @@ install_requires_py = ["numpy >= 1.17.*",
 setup(
     name='HiCExplorer',
     version=get_version(),
-    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff, '
-           'Leily Rabbani',
+    author='Joachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez',
     author_email='deeptools@googlegroups.com',
     packages=find_packages(),
     scripts=['bin/hicFindRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
