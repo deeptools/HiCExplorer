@@ -5,17 +5,17 @@ Release 3.4
 -----------
 **28 January 2020**
 
-- Fixing a bug in hicAdjustMatrix: keep option had a bug in cutting before the end of a chromosome or the start position was not from the beginning of the chromosome 
-- HicCompartmentPolarization was renamed to hicCompartmentalization and got some bug fixes 
-- Extending the option on how the observed vs. Expected matrix is computed and adding the parameter `--ligation_factor` to achieve a rescale behaviour of the values as it is implemented in Homer. The same changes are applies to `hicTransform` 
+- Fixing a bug in hicAdjustMatrix: `keep` option had a bug concerning the cutting before the end of a chromosome or the start position was not from the beginning of the chromosome 
+- hicCompartmentPolarization was renamed to hicCompartmentalization and got some bug fixes 
+- Extending the option on how the observed vs. Expected matrix is computed and adding the parameter `--ligation_factor` to achieve a rescale behaviour of the values as it is implemented in Homer. The same changes are applied to `hicTransform` 
 - Improved the documentation 
-- adding option in hicAverageRegions to select start, end, center or start_end as start index for up/downstream range. 
-- HicBuildMatrix: Removed default value of binSize to enable mutually exclusive group error if not one of them is set. Behavior so far was that the binSize was taken. 
-- HicPlotSVL: adding xlegend to plot of SVL ratios to indicate the data points per boxplots are the chromosome ratios 
-- HicQuickQC: Remove binSize option of hicQuickQC because it does not matter for qc calculation and adding sentence to recommend the usage of restriction enzyme and dangling end sequence. Fixing bug issue #464 
-- HicNormalize: Adding option in hicNormalize to remove values after the normalization smaller a given threshold 
+- Adding an option in hicAverageRegions to select start, end, center or start_end as start index for up/downstream range. 
+- hicBuildMatrix: Removed default value of binSize to enable mutually exclusive group error if not one of them is set. Behaviour so far was that the binSize was taken. 
+- hicPlotSVL: adding xlegend to plot of SVL ratios to indicate the data points per boxplots are the chromosome ratios 
+- hicQuickQC: Removed binSize option of hicQuickQC because it does not matter for QC calculation and adding a sentence to recommend the usage of restriction enzyme and dangling end sequence. Fixing bug issue #464 
+- hicNormalize: Adding option in hicNormalize to remove values after the normalization if values are smaller than a given threshold 
 - Capture Hi-C modules: Change background model distribution assumption from negative binomial to continuous negative binomial by using Gamma functions as a replacement for the binomial coefficient. Source: https://stats.stackexchange.com/questions/310676/continuous-generalization-of-the-negative-binomial-distribution/311927 
-- HicInfo: Implementing feature request #456. The length of chromosomes is now show in the information too 
+- hicInfo: Implementing feature request #456. The length of chromosomes is now show in the information too 
 
 
 Release 3.3.1
