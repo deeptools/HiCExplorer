@@ -20,14 +20,14 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
 Uses a BED file of domains or TAD boundaries to merge
-the bin counts of a Hi-C matrix.
+the bin counts of a Hi-C matrix per TAD.
 
-In this matrix only contains the total counts in each TAD and
-its total contacts of all other TADs.""")
+The output matrix contains the total counts per TAD and
+the total contacts with all other TADs.""")
 
     # define the arguments
     parser.add_argument('--matrix', '-m',
-                        help='Path to Hi-C matrix to use',
+                        help='Path to Hi-C matrix to use.',
                         required=True)
 
     parser.add_argument('--domains',

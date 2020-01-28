@@ -22,13 +22,13 @@ def parse_arguments(args=None):
         add_help=False,
         description="""
         hicPlotAverage regions plots the data computed by hicAverageRegions. It shows the summed up and averaged regions around
-        all given reference points. This is useful to determine the difference between samples if the TAD configuration is equal or changed.
+        all given reference points. This tool is useful to plot differences at certain reference points as for example TAD boundaries between samples.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrix', '-m',
-                                help='The averaged regions file computed by hicAverageRegions, ends npz.',
+                                help='The averaged regions file computed by hicAverageRegions (npz file).',
                                 required=True)
     parserRequired.add_argument('--outputFile', '-o',
                                 help='The averaged regions plot.',
@@ -36,11 +36,11 @@ def parse_arguments(args=None):
 
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--log1p',
-                           help='Plot the log1p of the matrix values.',
+                           help='Plot log1p of the matrix values.',
                            action='store_true')
 
     parserOpt.add_argument('--log',
-                           help='Plot the log of the matrix values.',
+                           help='Plot log of the matrix values.',
                            action='store_true')
     parserOpt.add_argument('--colorMap',
                            help='Color map to use for the heatmap. Available '
@@ -57,7 +57,7 @@ def parse_arguments(args=None):
                            type=float,
                            default=None)
     parserOpt.add_argument('--dpi',
-                           help='Resolution for the image in case the'
+                           help='Resolution of image if'
                            'ouput is a raster graphics image (e.g png, jpg).',
                            type=int,
                            default=300)

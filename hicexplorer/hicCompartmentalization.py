@@ -2,15 +2,13 @@ import numpy as np
 import argparse
 import pandas as pd
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from scipy.sparse import dia_matrix
 import logging
-log = logging.getLogger(__name__)
-
 from hicmatrix import HiCMatrix as hm
-
 from hicexplorer._version import __version__
+from hicexplorer.utilities import convertNansToZeros
+matplotlib.use('Agg')
+log = logging.getLogger(__name__)
 
 
 def parse_arguments():
@@ -21,7 +19,7 @@ def parse_arguments():
         this has been first introduced and implemented by Wibke Schwarzer et
         al. 2017 (Nature. 2017 Nov 2; 551(7678): 51–56)
 
-        $ hicCompartmentsPolarization --obsexp_matrices obsExpMatrix.h5 \
+        $ hicCompartmentalization --obsexp_matrices obsExpMatrix.h5 \
         --pca pc1.bedgraph -o global_signal.png
         """
                                      )
@@ -33,7 +31,7 @@ def parse_arguments():
                                 nargs="+",
                                 required=True)
 
-    parserRequired.add_argument('--pca',
+    parserRequired.add_argument('--pca',  # TODO bedgraph or bigwig
                                 help='a PCA vector as a bedgraph file with '
                                 'no header. In case of several matrices with '
                                 ' different conditions, ie. control'
@@ -49,18 +47,31 @@ def parse_arguments():
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--quantile', '-q',
-                           help='number of quantiles',
+                           help='number of quantiles. (Default: %(default)s).',
                            default=30,
                            type=int)
 
     parserOpt.add_argument('--outliers',
-                           help='precentage of outlier to remove',
+                           help='precentage of outlier to remove. '
+                           '(Default: %(default)s).',
                            default=0,
                            type=float)
 
     parserOpt.add_argument('--outputMatrix',
                            help='output .npz file includes all the '
                                 'generated matrices',
+                           default=None)
+
+    parserOpt.add_argument('--offset',
+                           help='set nan for the distances mentioned as '
+                                'offset from main diagonal, only positive '
+                                'values are accepted! Example: if '
+                                '--offset 0, then values of main diagonal will'
+                                ' set to nan and if --offset 0 1 then on top '
+                                'of the main diagonal, +1 and -1 diagonal '
+                                'values are also set to nan. ',
+                           nargs='+',
+                           type=int,
                            default=None)
 
     parserOpt.add_argument('-h',
@@ -72,36 +83,50 @@ def parse_arguments():
     return parser
 
 
-def count_interactions(obs_exp, pc1, quantiles_number):
+def count_interactions(obs_exp, pc1, quantiles_number, offset):
     "Counts the total interaction on obs_exp matrix per quantile and "
     "normalizes it by the number of bins per quantile."
     chromosomes = pc1["chr"].unique()
-    normalised_sum_per_quantile = np.zeros(
-        (quantiles_number, quantiles_number))
+
+    interaction_sum = np.zeros((quantiles_number, quantiles_number))
+    number_of_bins = np.zeros((quantiles_number, quantiles_number))
 
     for chrom in chromosomes:
         pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
         chr_range = obs_exp.getChrBinRange(chrom)
+
         chr_submatrix = obs_exp.matrix[chr_range[0]:chr_range[1],
                                        chr_range[0]:chr_range[1]]
-        chr_submatrix = chr_submatrix.todense()
 
-        np.fill_diagonal(chr_submatrix, 0)
+        if offset:
+            for dist in offset:
+                assert(dist >= 0)
+                indices = np.arange(0, chr_submatrix.shape[0] - dist)
+                chr_submatrix[indices, indices + dist] = np.nan
+                chr_submatrix[indices + dist, indices] = np.nan
 
         for qi in range(0, quantiles_number):
             row_indices = pc1_chr.loc[pc1_chr["quantile"] == qi].index
-
+            if row_indices.empty:
+                continue
             for qj in range(0, quantiles_number):
                 col_indices = pc1_chr.loc[pc1_chr["quantile"] == qj].index
-                data = chr_submatrix[row_indices, :][:, col_indices]
+                if col_indices.empty:
+                    continue
+                submatrix = chr_submatrix[np.ix_(row_indices, col_indices)]
+                submatrix = submatrix.todense()
+                submatrix = submatrix[~np.isnan(submatrix)]  # remove nans
+                submatrix = submatrix[~np.isinf(submatrix)]
+                interaction_sum[qi, qj] += np.sum(submatrix)
+                interaction_sum[qj, qi] += np.sum(submatrix)
+                number_of_bins[qi, qj] += submatrix.shape[1]
+                number_of_bins[qj, qi] += submatrix.shape[1]
 
-                if data.shape[0] * data.shape[1] != 0:
-                    normalised_sum_per_quantile[qi, qj] += (np.sum(data) / (data.shape[0] * data.shape[1]))
-
-    return normalised_sum_per_quantile
+    return interaction_sum / number_of_bins
 
 
-def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number):
+def within_vs_between_compartments(normalised_sum_per_quantile,
+                                   quantiles_number):
     """
     This function computes the interaction between two compartments and whithin
     each compartment. It adds one quantile at the time to compute these values
@@ -127,14 +152,15 @@ def within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number
 def plot_polarization_ratio(polarization_ratio, plotName, labels,
                             number_of_quantiles):
     """
-    Generates a plot to visualize the polarization ratio between A and B
-    compartments.
+    Generate a plot to visualize the polarization ratio between A and B
+    compartments. It presents how well 2 compartments are seperated.
     """
+
     for i, r in enumerate(polarization_ratio):
         plt.plot(r, marker="o", label=labels[i])
     plt.axhline(1, c='grey', ls='--', lw=1)
     plt.axvline(number_of_quantiles / 2, c='grey', ls='--', lw=1)
-    plt.legend(loc='upper right')
+    plt.legend(loc='best')
     plt.xlabel('Quantiles')
     plt.ylabel('signal within comp. / signla between comp.')
     plt.title('compartment polarization ratio')
@@ -147,18 +173,25 @@ def main(args=None):
     """
     args = parse_arguments().parse_args(args)
 
-    pc1_bedgraph = pd.read_table(args.pca, header=None, sep="\t")
-    pc1 = pd.DataFrame(pc1_bedgraph.values, columns=["chr", "start", "end",
-                                                     "pc1"])
+    pc1 = pd.read_table(args.pca, header=None, sep="\t",
+                        dtype={0: "object", 1: "Int64", 2: "Int64", 3: "float32"})
+
+    pc1 = pc1.rename(columns={0: "chr", 1: "start", 2: "end", 3: "pc1"})
+
     if args.outliers != 0:
         quantile = [args.outliers / 100, (100 - args.outliers) / 100]
-        q0, qn = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
-        q_bins = np.linspace(q0, qn, args.quantile)
+        boundaries = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
+        quantiled_bins = np.linspace(boundaries[0], boundaries[1],
+                                     args.quantile)
     else:
         quantile = [j / (args.quantile - 1) for j in range(0, args.quantile)]
-        q_bins = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
+        quantiled_bins = np.nanquantile(pc1['pc1'].values.astype(float),
+                                        quantile)
 
-    pc1["quantile"] = np.searchsorted(q_bins, pc1['pc1'].values.astype(float))
+    pc1["quantile"] = np.searchsorted(quantiled_bins,
+                                      pc1['pc1'].values.astype(float),
+                                      side="right")
+    pc1.loc[pc1["pc1"] == np.nan]["quantile"] = args.quantile + 1
     polarization_ratio = []
     output_matrices = []
     labels = []
@@ -166,14 +199,16 @@ def main(args=None):
         obs_exp = hm.hiCMatrix(matrix)
         name = ".".join(matrix.split("/")[-1].split(".")[0:-1])
         labels.append(name)
-
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
-                                                         args.quantile)
+                                                         args.quantile,
+                                                         args.offset)
+        normalised_sum_per_quantile = np.nan_to_num(normalised_sum_per_quantile)
         if args.outputMatrix:
             output_matrices.append(normalised_sum_per_quantile)
 
-        polarization_ratio.append(within_vs_between_compartments(normalised_sum_per_quantile,
-                                                                 args.quantile))
+        polarization_ratio.append(within_vs_between_compartments(
+                                  normalised_sum_per_quantile,
+                                  args.quantile))
     if args.outputMatrix:
         np.savez(args.outputMatrix, [matrix for matrix in output_matrices])
     plot_polarization_ratio(
