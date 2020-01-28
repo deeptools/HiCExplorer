@@ -8,7 +8,7 @@ import numpy as np
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_norm, obs_exp_matrix_non_zero, obs_exp_matrix
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_non_zero, obs_exp_matrix
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 
@@ -39,25 +39,49 @@ def parse_arguments(args=None):
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--method', '-me',
-                           help='Transformation method to use for input matrix. Transformation is computed per chromosome.'
-                           'obs_exp computes the expected matrix as the sum per genomic distance j divided by maximal possible contacts: sum(diagonal(j) / number of elements in diagonal(j) '
-                           'obs_exp_lieberman computes the expected matrix as the sum per genomic distance j divided by the : sum(diagonal(j) / (length of chromosome - j))'
-                           'obs_exp_non_zero computes the expected matrix as the sum per genomic distance j divided by sum of non-zero contacts: sum(diagonal(j) / number of non-zero elements in diagonal(j)'
-                           'obs_exp_norm computes the expected matrix for exp_i,j: sum(diagonal(i-j)) * sum(row(j)) * sum(row(i)) / sum(matrix)'
-                           'pearson computes the Pearson correlation matrix on the input matrix: Pearson_i,j = C_i,j / sqrt(C_i,i * C_j,j) and C is the covariance matrix'
-                           'covariance computes the Covariance matrix on the input matrix: Cov_i,j = E[M_i, M_j] - my_i * my_j where M is the input matrix and my the mean.',
-                           choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', 'obs_exp_norm', 'pearson', 'covariance'],
+                           help='Transformation methods to use for input matrix. '
+                           'Transformation is computed per chromosome.'
+                           'obs_exp computes the expected matrix as the sum per '
+                           'genomic distance j divided by maximal possible contacts: '
+                           'sum(diagonal(j) / number of elements in diagonal(j) '
+                           'obs_exp_lieberman computes the expected matrix as '
+                           'the sum per genomic distance j divided by the : '
+                           'sum(diagonal(j) / (length of chromosome - j))'
+                           'obs_exp_non_zero computes the expected matrix as '
+                           'the sum per genomic distance j divided by sum of '
+                           'non-zero contacts: sum(diagonal(j) / number of non-zero elements in diagonal(j)'
+                           'Optionaly, ``--ligation_factor` can be used for this '
+                           'method as has been used by HOMER software. If --ligation_factor, '
+                           'then exp_i,j = exp_i,j * sum(row(i)) * sum(row(j)) / sum(matrix)'
+                           'pearson computes the Pearson correlation of '
+                           'the input matrix: Pearson_i,j = C_i,j / sqrt(C_i,i * C_j,j) '
+                           'and C is the covariance matrix'
+                           'covariance computes the Covariance of the '
+                           'input matrix: Cov_i,j = E[M_i, M_j] - my_i * my_j '
+                           'where M is the input matrix and my the mean.',
+                           choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', 'pearson', 'covariance'],
                            default='obs_exp')
+
+    parserOpt.add_argument('--ligation_factor',
+                           help="Setting this flag, multiplies a scaling factor "
+                           "to each entry of the expected matrix to take care "
+                           "of the proximity ligation as has been explained "
+                           "in Homer software. This flag is only affective "
+                           "with obs_exp_non_zero method and will be ignored if "
+                           "any other obs/exp method is chosen.",
+                           action='store_true')
 
     parserOpt.add_argument('--chromosomes',
                            help='List of chromosomes to be included in the computation.',
                            default=None,
                            nargs='+')
     parserOpt.add_argument('--perChromosome', '-pc',
-                           help='Each chromosome is processed individually, inter-chromosomal interactions are ignored. Option not valid for obs_exp_lieberman.',
+                           help='Each chromosome is processed individually, '
+                           'inter-chromosomal interactions are ignored. Option '
+                           'not valid for obs_exp_lieberman.',
                            action='store_true')
 
-    parserOpt.add_argument("-help", "-h", action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h", action="help", help="Show this help message and exit.")
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -80,14 +104,6 @@ def _pearson(pSubmatrix):
     return pearson_correlation_matrix
 
 
-def _obs_exp_norm(pSubmatrix):
-
-    obs_exp_matrix_ = obs_exp_matrix_norm(pSubmatrix)
-    obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
-    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
-    return obs_exp_matrix_
-
-
 def _obs_exp(pSubmatrix):
 
     obs_exp_matrix_ = obs_exp_matrix(pSubmatrix)
@@ -96,9 +112,9 @@ def _obs_exp(pSubmatrix):
     return obs_exp_matrix_
 
 
-def _obs_exp_non_zero(pSubmatrix):
+def _obs_exp_non_zero(pSubmatrix, ligation_factor):
 
-    obs_exp_matrix_ = obs_exp_matrix_non_zero(pSubmatrix)
+    obs_exp_matrix_ = obs_exp_matrix_non_zero(pSubmatrix, ligation_factor)
     obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
     obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
     return obs_exp_matrix_
@@ -123,20 +139,7 @@ def main(args=None):
 
     trasf_matrix = lil_matrix(hic_ma.matrix.shape)
 
-    if args.method == 'obs_exp_norm':
-        # trasf_matrix = lil_matrix(hic_ma.matrix.shape)
-        if args.perChromosome:
-            for chrname in hic_ma.getChrNames():
-                chr_range = hic_ma.getChrBinRange(chrname)
-                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
-                submatrix.astype(float)
-                submatrix = _obs_exp_norm(submatrix)
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(submatrix)
-        else:
-            submatrix = _obs_exp_norm(hic_ma.matrix)
-            trasf_matrix = csr_matrix(submatrix)
-
-    elif args.method == 'obs_exp':
+    if args.method == 'obs_exp':
         if args.perChromosome:
 
             for chrname in hic_ma.getChrNames():
@@ -155,9 +158,9 @@ def main(args=None):
                 chr_range = hic_ma.getChrBinRange(chrname)
                 submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
                 submatrix.astype(float)
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp_non_zero(submatrix))
+                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp_non_zero(submatrix, args.ligation_factor))
         else:
-            submatrix = _obs_exp(hic_ma.matrix)
+            submatrix = _obs_exp_non_zero(hic_ma.matrix, args.ligation_factor)
             trasf_matrix = csr_matrix(submatrix)
     elif args.method == 'obs_exp_lieberman':
         length_chromosome = 0

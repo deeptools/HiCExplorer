@@ -22,7 +22,7 @@ def parse_arguments(args=None):
         'using a matrix containing 5kb bins, a matrix '
         'of 50kb bins can be derived using --numBins 10. '
         'From one type of downstream analysis to another, '
-        'different bin sizes must be used. For example to call TADs, '
+        'different bin sizes are used. For example to call TADs, '
         'unmerged matrices are recommended while to display '
         'Hi-C matrices, bins of approximately 2000bp usually '
         'yield the best reprensentations with `hicPlotMatrix` for small regions, '
@@ -51,11 +51,11 @@ def parse_arguments(args=None):
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--runningWindow',
-                           help='set to merge for using a running '
+                           help='Set to merge for using a running '
                            'window of length --numBins.',
                            action='store_true')
 
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+    parserOpt.add_argument('--help', '-h', action='help', help='Show this help message and exit.')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))

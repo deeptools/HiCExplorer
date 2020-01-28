@@ -118,11 +118,10 @@ install_requires_py = ["numpy >= 1.17.*",
 setup(
     name='HiCExplorer',
     version=get_version(),
-    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff, '
-           'Leily Rabbani',
+    author='Joachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez',
     author_email='deeptools@googlegroups.com',
     packages=find_packages(),
-    scripts=['bin/findRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
+    scripts=['bin/hicFindRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindTADs', 'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
@@ -130,7 +129,7 @@ setup(
              'bin/chicAggregateStatistic', 'bin/chicDifferentialTest', 'bin/chicQualityControl', 'bin/chicSignificantInteractions',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
              'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicMergeLoops',
-             'bin/hicCompartmentsPolarization', 'bin/hicQuickQC', 'bin/hicPlotSVL'
+             'bin/hicCompartmentalization', 'bin/hicQuickQC', 'bin/hicPlotSVL'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},

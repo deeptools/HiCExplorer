@@ -22,7 +22,7 @@ from collections import OrderedDict
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-                                     description='Takes a list of positions in the hic-matrix and '
+                                     description='Takes a list of positions in the Hi-C matrix and '
                                                  'makes a pooled image.')
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -58,21 +58,21 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--numberOfBins',
                            help='Number of  bins to include in the submatrix. The bed regions will be centered between '
-                           '- half number of bins and the other half number of bins.',
+                           'half number of bins and the other half number of bins.',
                            default='51',
                            type=int)
 
     parserOpt.add_argument('--transform',
                            help='Type of transformation for the matrix. The options are "none",  '
-                           '"total-counts", "z-score" or "obs/exp". If total counts are selected, '
-                           'then the sub-matrix values are divided by the total counts for normalization. '
-                           'If z-score or obs/exp are selected, then H-C matrix is converted into a '
+                           '"total-counts", "z-score" and "obs/exp". If total counts are selected, '
+                           'the sub-matrix values are divided by the total counts for normalization. '
+                           'If z-score or obs/exp are selected, the Hi-C matrix is converted into a '
                            'z-score or observed / expected matrix.',
                            choices=['total-counts', 'z-score', 'obs/exp', 'none'],
                            default='none')
 
     parserOpt.add_argument('--avgType',
-                           help='Type of average to compute final matrix. Options are mean and median. Default is median.',
+                           help='Type of average used in the output matrix. Options are mean and median. Default is median.',
                            choices=['mean', 'median'],
                            default='median')
 
@@ -82,15 +82,15 @@ def parse_arguments(args=None):
     parserOut = parser.add_argument_group('Output options')
 
     parserOut.add_argument('--outFilePrefixMatrix',
-                           help='If this option is given, then the values underlying the final matrix will be '
+                           help='If this option is set, the values underlying the output matrix will be '
                            'saved to tab-delimited tables (one per chromosome) using the indicated prefix, '
-                           'for example TSS_to_TSS_chrX.tab. If clustering is performed, then the values are '
-                           'saved including the cluster_id a in TSS_to_TSS_chrX_cluster_1.tab',
+                           'for example TSS_to_TSS_chrX.tab. If clustering is performed, the values are '
+                           'saved including the cluster_id in the file TSS_to_TSS_chrX_cluster_1.tab.',
                            required=False)
 
     parserOut.add_argument('--outFileContactPairs',
-                           help='The value should be a prefix. If this option is given, then the position '
-                           'of the contacts positions are saved as (chrom1, start1, end1, chrom2, start2, end2) '
+                           help='Output file prefix. If this option is set, the position '
+                           'of the contact positions are saved as (chrom1, start1, end1, chrom2, start2, end2) '
                            'where chrom_n, start_n, end_n correspond to the pair of positions used to compute '
                            'the submatrix. The data is saved per chromosome and per '
                            'cluster separately (one file each). The format is {prefix}_{chrom}_{cluster_id}.tab. '
@@ -98,7 +98,7 @@ def parse_arguments(args=None):
                            required=False)
 
     parserOut.add_argument('--diagnosticHeatmapFile',
-                           help='If given, a heatmap file (per chromosome) is saved. Each row in the heatmap contains the'
+                           help='If given, a heatmap (per chromosome) is saved. Each row in the heatmap contains the'
                            'diagonal of each of the submatrices centered on the bed file. This file is useful to '
                            'get an idea of the values that are used for the aggregate matrix and to determine '
                            'the fraction of sub-matrices that are aggregated that may have an enrichment at the '
@@ -110,13 +110,13 @@ def parse_arguments(args=None):
 
     parserClust.add_argument('--kmeans',
                              help='Number of clusters to compute. When this '
-                             'option is set, the submatrices are split into clusters (per chromosome)'
+                             'option is set, the submatrices are split into clusters (per chromosome) '
                              'using the k-means algorithm.',
                              type=int)
 
     parserClust.add_argument('--hclust',
                              help='Number of clusters to compute (per chromosome). When this '
-                             'option is set, then the matrix is split into clusters '
+                             'option is set, the matrix is split into clusters '
                              'using the hierarchical clustering algorithm, using "ward linkage". '
                              ' --hclust could be very slow if you have '
                              '>1000 submatrices per chromosome. In those cases, you might prefer --kmeans',
@@ -164,7 +164,7 @@ def parse_arguments(args=None):
                             action='store_true')
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
-                           'ouput is a raster graphics image (e.g png, jpg)',
+                           'ouput is a raster graphics image (e.g png, jpg).',
                            type=int,
                            default=300)
     return parser
