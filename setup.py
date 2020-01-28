@@ -122,7 +122,7 @@ setup(
            'Leily Rabbani',
     author_email='deeptools@googlegroups.com',
     packages=find_packages(),
-    scripts=['bin/findRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
+    scripts=['bin/hicFindRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindTADs', 'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',

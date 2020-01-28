@@ -8,7 +8,7 @@ HiCExplorer tools
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 | tool                                 | type             | input files                       | main output file(s)                         | application                                                                       |
 +======================================+==================+===================================+=============================================+===================================================================================+
-|:ref:`findRestSite`                   | preprocessing    | 1 genome FASTA file               | bed file with restriction site coordinates  | Identifies the genomic locations of restriction sites                             |
+|:ref:`hicFindRestSite`                | preprocessing    | 1 genome FASTA file               | bed file with restriction site coordinates  | Identifies the genomic locations of restriction sites                             |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicBuildMatrix`                 | preprocessing    | 2 BAM/SAM files                   | hicMatrix object                            | Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads    |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
@@ -62,11 +62,11 @@ HiCExplorer tools
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicMergeLoops`                  | analysis         | multiple loop files               | bedgraph file with merged loop locations    | Merges detect loop locations of different resolutions                             |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-|:ref:`hicCompartmentsPolarization`    | visualization    | one Hi-C interaction matrix       | one image                                   | The global compartmentalization signal.                                           |
+|:ref:`hicCompartmentalization`        | visualization    | one Hi-C interaction matrix       | one image                                   | The global compartmentalization signal.                                           |
 |                                      |                  | one PCA bedgraph file             | polarization plot                           |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotAverageRegions`          | visualization    | one npz file                      | one image                                   | Visualization of hicAverageRegions.                                               |
-+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref`hicPlotSVL`                      | analysis         | one / multiple Hi-C matrices      | one image, p-values file, raw data file     | Computes short/long range contacts; a box plot, a p-value and raw data file       |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicMergeTADbins`                | preprocessing    | one Hi-C matrix, one BED file     | one Hi-C matrix                             | Uses a BED file of domains or TAD boundaries to merge the                         |
@@ -123,8 +123,8 @@ You can always see all available command-line options via --help:
 Tools for Hi-C data pre-processing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-:ref:`findRestSite`
-"""""""""""""""""""
+:ref:`hicFindRestSite`
+""""""""""""""""""""""
 :ref:`hicBuildMatrix`
 """""""""""""""""""""
 :ref:`hicSumMatrices`
@@ -167,10 +167,10 @@ Tools for Hi-C data analysis
 """""""""""""""""""""""""""
 :ref:`hicMergeLoops`
 """"""""""""""""""""
-:ref:`hicCompartmentsPolarization`
-""""""""""""""""""""""""""""""""""
+:ref:`hicCompartmentalization`
+""""""""""""""""""""""""""""""
 :ref:`hicPlotSVL`
-""""""""""""""""""""""""""""""""""
+"""""""""""""""""
 
 Tools for TADs processing
 ^^^^^^^^^^^^^^^^^^^^^^^^^

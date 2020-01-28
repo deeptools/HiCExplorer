@@ -19,6 +19,7 @@ Usage example
 ^^^^^^^^^^^^^^
 
 .. code-block:: bash
+
     $ hicPlotSVL -m hmec_10kb.cool nhek_10kb.cool hmec_10kb.cool --distance 2000000 --threads 4 --plotFileName plot.png --outFileName pvalues.txt --outFileNameData rawData.txt
 
 
