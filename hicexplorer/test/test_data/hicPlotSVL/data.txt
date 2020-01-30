@@ -1,0 +1,17 @@
+# Created with HiCExplorer's hicPlotSVL 3.3-dev
+# Short range vs long range contacts per chromosome: raw data
+# Short range contacts: <= 2000000
+#	hicexplorer/test/test_data/small_test_matrix_50kb_res.h5			hicexplorer/test/test_data/small_test_matrix_50kb_res.h5
+# Chromosome	Ratio	Sum <= 2000000	Sum > 2000000	Ratio	Sum <= 2000000	Sum > 2000000
+chr2RHet	43.166666666666664	259	6	43.166666666666664	259	6	
+chr3RHet	4.33640350877193	9887	2280	4.33640350877193	9887	2280	
+chr2LHet	4.2679445350734095	10465	2452	4.2679445350734095	10465	2452	
+chr4	6.5625	105	16	6.5625	105	16	
+chr3L	4.818731117824774	3190	662	4.818731117824774	3190	662	
+chr2L	4.604556074766355	7883	1712	4.604556074766355	7883	1712	
+chrU	4.192916352675208	11128	2654	4.192916352675208	11128	2654	
+chrX			
+chrXHet			
+chr2R			
+chr3R			
+chr3LHet			

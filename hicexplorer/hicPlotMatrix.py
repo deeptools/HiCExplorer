@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
-                                     description='Creates a Heatmap of a HiC matrix.')
+                                     description='Creates a heatmap of a Hi-C matrix.')
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -144,7 +144,7 @@ def parse_arguments(args=None):
                            default=1.0)
     parserOpt.add_argument('--loops',
                            help='Bedgraph file to plot detected long range contacts '
-                           'from hicDetectLongRangeContacts.',
+                           'from hicDetectLoops.',
                            type=str,
                            default=None)
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
@@ -264,7 +264,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     if pLoops:
         log.debug('pLoops called')
 
-        plotLongRangeContacts(axHeat2, pLoops, pHiCMatrix, args.region)
+        plotLongRangeContacts(axHeat2, pLoops, pHiCMatrix, args.region, args.chromosomeOrder)
         # pLongRangeContacts=None, pHiCMatrix=None
         # plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix)
     axHeat2.invert_yaxis()
@@ -849,10 +849,11 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                     pAxis[i].fill_between(x_values, 0, bigwig_scores, edgecolor='none')
 
 
-def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion):
+def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion, pChromosomeOrder):
 
     x_list = []
     y_list = []
+    log.debug('pRegion {}'.format(pRegion))
     with open(pNameOfLongRangeContactsFile, 'rb') as file:
         for line in file.readlines():
             line = toString(line)
@@ -860,7 +861,10 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
             try:
                 chrom_X, start_X, end_X = fields[0:3]
                 chrom_Y, start_Y, end_Y = fields[3:6]
-                if chrom_X != pRegion[0] or chrom_Y != pRegion[0]:
+
+                if pRegion is not None and (chrom_X != pRegion[0] or chrom_Y != pRegion[0]):
+                    continue
+                elif pChromosomeOrder is not None and (chrom_X not in pChromosomeOrder or chrom_Y not in pChromosomeOrder):
                     continue
                 x = int(start_X)
                 y = int(start_Y)
@@ -869,7 +873,9 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
                 y_list.append(y)
             except Exception:
                 pass
-        pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
-        pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
+
+        if pRegion is not None and (int(pRegion[1]) != 0 and int(pRegion[2]) != 1e15):
+            pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
+            pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
 
         pAxis.plot(x_list, y_list, 's', lw=2, markerfacecolor='none', markeredgecolor='red')

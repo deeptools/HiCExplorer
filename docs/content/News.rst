@@ -1,13 +1,82 @@
 News and Developments
 =====================
 
+Release 3.4
+-----------
+**28 January 2020**
+
+- Fixing a bug in hicAdjustMatrix: `keep` option had a bug concerning the cutting before the end of a chromosome or the start position was not from the beginning of the chromosome 
+- hicCompartmentPolarization was renamed to hicCompartmentalization and got some bug fixes 
+- Extending the option on how the observed vs. Expected matrix is computed and adding the parameter `--ligation_factor` to achieve a rescale behaviour of the values as it is implemented in Homer. The same changes are applied to `hicTransform` 
+- Improved the documentation 
+- Adding an option in hicAverageRegions to select start, end, center or start_end as start index for up/downstream range. 
+- hicBuildMatrix: Removed default value of binSize to enable mutually exclusive group error if not one of them is set. Behaviour so far was that the binSize was taken. 
+- hicPlotSVL: adding xlegend to plot of SVL ratios to indicate the data points per boxplots are the chromosome ratios 
+- hicQuickQC: Removed binSize option of hicQuickQC because it does not matter for QC calculation and adding a sentence to recommend the usage of restriction enzyme and dangling end sequence. Fixing bug issue #464 
+- hicNormalize: Adding option in hicNormalize to remove values after the normalization if values are smaller than a given threshold 
+- Capture Hi-C modules: Change background model distribution assumption from negative binomial to continuous negative binomial by using Gamma functions as a replacement for the binomial coefficient. Source: https://stats.stackexchange.com/questions/310676/continuous-generalization-of-the-negative-binomial-distribution/311927 
+- hicInfo: Implementing feature request #456. The length of chromosomes is now show in the information too 
+
+
+Release 3.3.1
+-------------
+**15 November 2019**
+
+- Fixing a bug in the labeling of chicPlotViewpoints if the value range is counted in MB
+- Add an option to chicViewpoint to pre-compute a x-fold of p-value over the maximum value of the relative distance
+
+
+Release 3.3
+-----------
+**8 October 2019**
+
+- Fixing many bugs:
+   - A bug in hicDetectLoops if a sub-matrix was very small
+   - A bug in hicPlotMatrix if the region defined by --region was only a chromosome and loops should be plotted too
+   - A bug in hicPlotMatrix if a loop region should be plotted and chromosomeOrder argument was used too
+   - A bug in hicAggregateContacts (issue #405) if chromosomes were present in the matrix but not in the bed file
+   - A bug in hicAdjustMatrix concerning a bed file and consecutive regions, see issue #343
+   - A bug in hicAdjustMatrix if a chromosome is present in the matrix but not in the bed file, see issue #397
+   - A bug in hicCompartmentsPolarization concerning the arguments 'quantile' and 'outliers' were interpreted as strings but should be integers
+   - A bug in hicAdjustMatrix concerning the 'keep' option and how matrices are reordered internally. Thanks @LeilyR
+
+- Added features as requested:
+   - hicPCA ignores now masked bins, see issue #342
+   - chicPlotViewpoint: 
+      - Better legend handling on x-axis
+      - Peaks are now display with their fill width
+      - Add option `--pValueSignificantLevels` to categorize the p-values in x levels (e.g. 0.001 0.05 0.1)
+   - chicViewpoint:
+      - adding sorting via viewpoints and not by samples option (--allViewpointsList)
+   - Adding an option to hicNormalize to normalize via multiplication and a use defined value (see issues #385, #424)
+
+- Rearrange hicAdjustMatrix to have a better accessibility to its functions from outside of main
+- Improving the documentation and fixing grammar / spelling mistakes. Thanks @simonbray
+- New script: hicPlotSVL to investigate short range vs long range ratios.
+
+
+Release 3.2
+-----------
+** 22 August 2019**
+
+- Adding the new captured Hi-C module. Viewpoint analysis based on a background model, significant interaction detection and differential analysis are provided.
+- Adding documentation for captured Hi-C module and a tutorial on how to use it.
+- Adding a module to be able to detect quite fast the quality of a Hi-C data set: hicQuickQC.
+- Adding a tool to merge loops of different resolutions.
+- Improving validation of locations: Presorting is no longer necessary; adding feature to add 'chr' prefix to loop or protein chromosome name
+- Change loop detection slightly to improve results and fixed bugs:
+   - preselection p-value was ignored and only p-value was used 
+   - adding additional test to the peak region test to decrease false discoveries
+   - exchanging pThreshold / ln(distance) to remove too low values by a share of the maximum value of the distance. New parameter 'maximumInteractionPercentageThreshold'
+- Removal of the folder 'scripts' and its content. These were outdated scripts and will maybe part of regular Hi-C tools in the future.
+
 Release 3.1
 -----------
 **9 July 2019**
 
 - KR correction improvements: It is now able to process larger data sets like GM12878 primary+replicate on 10kb resolution.
 - Adding script for validation of loop locations with protein peak locations
-- Adding script hicCompartmentsPolarization: Rearrange the average interaction frequencies using the first PC values to represent the global compartmentalisation signal
+- Adding script hicCompartmentsPolarization: Rearrange the average interaction frequencies using the first PC values to represent the global compartmentalization signal
 
 
 Release 3.0.2

@@ -57,7 +57,7 @@ of information at certain bins, and depending on the parameters used with this t
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrix', '-m',
-                                help='Corrected Hi-C matrix to use for the computations',
+                                help='Corrected Hi-C matrix to use for the computations.',
                                 required=True)
 
     parserRequired.add_argument('--outPrefix',
@@ -67,7 +67,7 @@ of information at certain bins, and depending on the parameters used with this t
                                 '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
                                 'a different window length starting from --minDepth to --maxDepth. '
                                 '2. <prefix>_zscore_matrix.h5, the zscore matrix used for the computation of '
-                                'the TAD-separation score.  3. < prefix > _boundaries.bed, which'
+                                'the TAD-separation score.  3. < prefix > _boundaries.bed, which '
                                 'contains the positions of boundaries. The genomic coordinates in this file '
                                 'correspond to the resolution used. Thus, for Hi-C bins of '
                                 '10.000bp the boundary position is 10.000bp long. For restriction fragment '
@@ -83,7 +83,7 @@ of information at certain bins, and depending on the parameters used with this t
 
     parserRequired.add_argument('--correctForMultipleTesting',
                                 help='Select the bonferroni or false discovery rate for a multiple comparison. Bonferroni '
-                                'controlls the familywise error rate (FWER) and needs a p-value. The false discovery rate '
+                                'controls the family-wise error rate (FWER) and needs a p-value. The false discovery rate '
                                 '(FDR) controls the likelyhood of type I errors and needs a q-value. As a third option '
                                 'it is possible to not use a multiple comparison method at all.',
                                 type=str,
@@ -108,9 +108,9 @@ of information at certain bins, and depending on the parameters used with this t
                            type=int)
 
     parserOpt.add_argument('--step',
-                           help='Step size when moving from --minDepth to --maxDepth. Note, the step size'
+                           help='Step size when moving from --minDepth to --maxDepth. Note, the step size '
                            'grows exponentially as '
-                           '`maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
+                           '`minDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
                            'reaches `maxDepth`. For example, selecting  step=10,000, minDepth=20,000 '
                            'and maxDepth=150,000 will compute TAD-scores for window sizes: '
                            '20,000, 30,000, 40,000, 70,000 and 100,000',

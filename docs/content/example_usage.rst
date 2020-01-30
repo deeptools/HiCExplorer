@@ -9,6 +9,8 @@ Example usage
    :maxdepth: 1
 
    mES-HiC_analysis
+   HiCExport
+   capture-Hi-C
 
 How we use HiCExplorer
 ----------------------
@@ -136,6 +138,7 @@ Once the thresholds have been decided, the matrix can be corrected
    # correct Hi-C matrix
    $ hicCorrectMatrix correct -m hic_matrix.h5 --filterThreshold -1.5 5 -o hic_corrected.h5
 
+In the case of multiple samples / replicates that need to be normalized to the same read coverage we recommend to compute first the normalization (with hicNormalize) and correct the data (with hicCorrectMatrix) in a second step.
 
 Visualization of results
 ^^^^^^^^^^^^^^^^^^^^^^^^

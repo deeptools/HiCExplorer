@@ -8,26 +8,26 @@ Requirements
 -------------
 
 * Python 3.6
-* numpy >= 1.16
-* scipy >= 1.2
-* matplotlib == 3.0
+* numpy >= 1.17
+* scipy >= 1.3
+* matplotlib == 3.1
 * pysam >= 0.15
 * intervaltree >= 3.0
-* biopython >= 1.73
+* biopython >= 1.74
 * pytables >= 3.5
 * pyBigWig >= 0.3
 * future >= 0.17
-* six >= 1.12
 * jinja2 >= 2.10
-* pandas >= 0.24
+* pandas >= 0.25
 * unidecode >= 1.1
-* hicmatrix = 10
+* hicmatrix = 11
 * pygenometracks >= 3.0
 * psutil >= 5.6
 * hic2cool >= 0.7
 * cooler >= 0.8.5
 * krbalancing >= 0.0.5 (Needs the library eigen; openmp is recommended for linux users. No openmp support on macOS.)
 * fit_nbinom >= 1.1
+* pybedtools >= 0.8
 
 
 **Warning:** Python 2.7 support is discontinued. Moreover, the support for pip is discontinued too. 

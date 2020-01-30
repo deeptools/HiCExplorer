@@ -7,7 +7,7 @@ hicAdjustMatrix
    :ref: hicexplorer.hicAdjustMatrix.parse_arguments
    :prog: hicAdjustMatrix
 
-hicAdjustMatrix can mask, remove or keep defined regions from a BED file or given chromosomes.
+hicAdjustMatrix can mask, remove or keep defined regions from a BED file or given chromosomes. This can be useful to create a smaller Hi-C matrix of a single chromosome for e.g. testing purposes or to remove repetitive chromosome ends before calculating A/B compartments using :doc:`hicPCA`.
 
 Example usages
 --------------

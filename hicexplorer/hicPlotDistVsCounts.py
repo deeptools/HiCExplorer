@@ -205,8 +205,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
     for chrname, submatrix in chr_submatrix.items():
         log.info("processing chromosome {}\n".format(chrname))
 
-        dist_list, chrom_list = hicmat.getDistList(submatrix.row, submatrix.col,
-                                                   HiCMatrix.hiCMatrix.fit_cut_intervals(cut_intervals[chrname]))
+        dist_list, chrom_list = hicmat.getDistList(submatrix.row, submatrix.col, HiCMatrix.hiCMatrix.fit_cut_intervals(cut_intervals[chrname]))
 
         # to get the sum of all values at a given distance I use np.bincount which
         # is quite fast. However, the input of bincount is positive integers. Moreover

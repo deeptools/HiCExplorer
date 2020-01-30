@@ -24,13 +24,13 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 # import mock
 
 MOCK_MODULES = ['numpy', 'numpy.core', 'numpy.core.multiarray', 'numpy.distutils.core', 'pandas', 'pysam', 'intervaltree',
-                'scipy', 'scipy.sparse', 'scipy.stats', 'scipy.ndimage',
+                'scipy', 'scipy.sparse', 'scipy.stats', 'scipy.ndimage', 'scipy.special',
                 'matplotlib', 'matplotlib.pyplot', 'matplotlib.gridspec', 'matplotlib.ticker',
                 'matplotlib.textpath', 'matplotlib.patches', 'matplotlib.colors', 'matplotlib.cm',
                 'mpl_toolkits', 'mpl_toolkits.axisartist', 'mpl_toolkits.mplot3d', 'mpl_toolkits.axes_grid1',
                 'Bio', 'Bio.Seq', 'Bio.Alphabet', 'pyBigWig', 'tables', 'pytables', 'future', 'past', 'past.builtins',
                 'future.utils', 'cooler', 'logging', 'unidecode', 'hic2cool', 'hicmatrix', 'hicmatrix.HiCMatrix',
-                'hicmatrix.lib', 'krbalancing', 'fit_nbinom']
+                'hicmatrix.lib', 'krbalancing', 'fit_nbinom', 'pybedtools']
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = Mock()
@@ -71,8 +71,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'HiCExplorer'
-copyright = u'2019, Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff, Leily Rabbani'
-author = u'Fidel Ramírez, Bjoern Gruening, Vivek Bhardwaj, Joachim Wolff, Leily Rabbani'
+copyright = u'2020, Joachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez'
+author = u'Joachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

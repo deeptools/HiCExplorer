@@ -1,0 +1,3 @@
+# /home/wolffj/src/HiCExplorer/hicexplorer/test/test_data/cHi-C/FL-E13-5_chr1.cool	chr1_19093103_19093103	18.89  Mbp	19.29  Mbp	Tfap2d	Sum of interactions in fixate range: 472.0
+#Chromosome	Start	End	Gene	Sum of interactions	Relative position	Relative interactions	p-value	x-fold	Raw target
+chr1	19124000	19130000	Tfap2d	472.0	33000	0.02076271186600000054	0.10353729660313626404	9.16165897065000045529	9.80000000000000071054

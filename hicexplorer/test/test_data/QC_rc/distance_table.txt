@@ -1,2 +1,2 @@
-File	inter chromosomal	inter chromosomal %	short range < 20kb	short range < 20kb %	long range	long range %
-small_test_rf_matrix.h5	5849	0.162431614319	8038	0.223221972285	22122	0.614346413397
+File	inter chromosomal	inter chromosomal %	Intra short range (< 20kb)	Intra short range (< 20kb) %	Intra long range (>= 20kb)	Intra long range (>= 20kb) %
+/tmp/tmpxs1gdw50.h5	5849	0.16243161431864256	8038	0.2232219722847066	22122	0.6143464133966509
