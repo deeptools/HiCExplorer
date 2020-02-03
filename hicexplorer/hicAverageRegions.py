@@ -59,7 +59,8 @@ def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMap
     '''
     This function computes the correct start and end position of a viewpoint given the reference and the range.
     '''
-
+    start_out_of_range = False
+    end_out_of_range = False
     max_length = pHiCMatrix.getBinPos(pHiCMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
     # bin_size = pHiCMatrix.getBinSize()
     # _range = [pRange[0], pRange[1]]
@@ -77,11 +78,13 @@ def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMap
 
     if region_start < 0:
         region_start = 0
+        start_out_of_range = True
 
     if region_end > max_length:
-        # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
+    #     # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
         region_end = max_length - 1
-    return region_start, region_end
+        end_out_of_range = True
+    return region_start, region_end, start_out_of_range, end_out_of_range
 
 
 def getBinIndices(pHiCMatrix, pViewpoint):
@@ -132,21 +135,23 @@ def main(args=None):
                 chrom, start, end = _line[0], _line[1], _line[2]
                 viewpoint = (chrom, start, end)
             if args.range:
-                start_range_genomic, end_range_genomic = calculateViewpointRange(hic_ma, viewpoint, args.range, args.coordinatesToBinMapping)
+                start_range_genomic, end_range_genomic, start_out, end_out = calculateViewpointRange(hic_ma, viewpoint, args.range, args.coordinatesToBinMapping)
                 start_bin, end_bin = getBinIndices(hic_ma, (chrom, start_range_genomic, end_range_genomic))
             else:
+                start_out = False
+                end_out = False
                 start_bin, end_bin = calculateViewpointRangeBins(hic_ma, viewpoint, args.rangeInBins, args.coordinatesToBinMapping)
-            indices_values.append([start_bin, end_bin])
+            indices_values.append([start_bin, end_bin, start_out, end_out])
 
     if args.range:
         dimensions_new_matrix = (args.range[0] // hic_ma.getBinSize()) + (args.range[1] // hic_ma.getBinSize())
     elif args.rangeInBins:
         dimensions_new_matrix = args.rangeInBins[0] + args.rangeInBins[1]
-    # summed_matrix = csr_matrix((dimensions_new_matrix, dimensions_new_matrix), dtype=np.float32)
+    #summed_matrix = csr_matrix((dimensions_new_matrix, dimensions_new_matrix), dtype=np.float32)
     summed_matrix = lil_matrix((dimensions_new_matrix, dimensions_new_matrix), dtype=np.float32)
 
     max_length = hic_ma.matrix.shape[1]
-    for start, end in indices_values:
+    for start, end, start_out, end_out in indices_values:
         _start = 0
         _end = summed_matrix.shape[1]
         if start < 0:
@@ -155,7 +160,11 @@ def main(args=None):
         if end >= max_length:
             _end = end
             end = max_length
-
+        orig_matrix_length = end - start
+        if start_out:
+            _start = _end - orig_matrix_length
+        if end_out:
+            _end = start + orig_matrix_length
         summed_matrix[_start:_end, _start:_end] += hic_ma.matrix[start:end, start:end]
 
     summed_matrix /= len(indices_values)
