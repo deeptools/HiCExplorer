@@ -169,7 +169,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             _, background_relative_interaction = adjustViewpointData(
                 pViewpointObj, data_list_relative, background_relative_interaction, referencePoint, region_start, region_end)
 
-        if pArgs.averageContactBin > 0:
+        if pArgs.averageContactBin > 0 and len(data_list) >= pArgs.averageContactBin:
             data_list = pViewpointObj.smoothInteractionValues(
                 data_list, pArgs.averageContactBin)
 
