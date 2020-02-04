@@ -147,10 +147,12 @@ def main(args=None):
         dimensions_new_matrix = (args.range[0] // hic_ma.getBinSize()) + (args.range[1] // hic_ma.getBinSize())
     elif args.rangeInBins:
         dimensions_new_matrix = args.rangeInBins[0] + args.rangeInBins[1]
-    #summed_matrix = csr_matrix((dimensions_new_matrix, dimensions_new_matrix), dtype=np.float32)
+
     summed_matrix = lil_matrix((dimensions_new_matrix, dimensions_new_matrix), dtype=np.float32)
+    count_matrix = np.zeros(shape=(dimensions_new_matrix,dimensions_new_matrix))
 
     max_length = hic_ma.matrix.shape[1]
+
     for start, end, start_out, end_out in indices_values:
         _start = 0
         _end = summed_matrix.shape[1]
@@ -165,9 +167,13 @@ def main(args=None):
             _start = _end - orig_matrix_length
         if end_out:
             _end = start + orig_matrix_length
+        count_matrix[_start:_end, _start:_end] += 1
         summed_matrix[_start:_end, _start:_end] += hic_ma.matrix[start:end, start:end]
 
-    summed_matrix /= len(indices_values)
-
-    summed_matrix = summed_matrix.tocsr()
+    summed_matrix /= count_matrix
+    summed_matrix = np.array(summed_matrix)
+    data = summed_matrix[np.nonzero(summed_matrix)]
+    row = np.nonzero(summed_matrix)[0]
+    col = np.nonzero(summed_matrix)[1]
+    summed_matrix = csr_matrix((data, (row, col)), shape=(dimensions_new_matrix, dimensions_new_matrix))
     save_npz(args.outFileName, summed_matrix)
