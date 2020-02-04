@@ -81,7 +81,7 @@ def calculateViewpointRange(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMap
         start_out_of_range = True
 
     if region_end > max_length:
-    #     # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
+        # -1 is important, otherwise self.hicMatrix.getRegionBinRange will crash
         region_end = max_length - 1
         end_out_of_range = True
     return region_start, region_end, start_out_of_range, end_out_of_range
@@ -154,9 +154,9 @@ def main(args=None):
         dimensions_new_matrix = args.rangeInBins[0] + args.rangeInBins[1]
 
     summed_matrix = lil_matrix((dimensions_new_matrix, dimensions_new_matrix), dtype=np.float32)
-    count_matrix = np.zeros(shape=(dimensions_new_matrix,dimensions_new_matrix))
+    count_matrix = np.zeros(shape=(dimensions_new_matrix, dimensions_new_matrix))
 
-    max_length = hic_ma.matrix.shape[1]
+    # max_length = hic_ma.matrix.shape[1]
     for start, end, start_out, end_out in indices_values:
         _start = 0
         _end = summed_matrix.shape[1]
