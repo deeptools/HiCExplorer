@@ -96,7 +96,8 @@ def calculateViewpointRangeBins(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBi
     # if pCoordinatesToBinMapping == 'start_end':
     #     viewpoint_index_start = getBinIndices(pHiCMatrix, pViewpoint)[0]
     #     viewpoint_index_end = getBinIndices(pHiCMatrix, pViewpoint)[1]
-
+    start_out_of_range = False
+    end_out_of_range = False
     if pCoordinatesToBinMapping == 'start':
         viewpoint_index = getBinIndices(pHiCMatrix, pViewpoint)[0]
     elif pCoordinatesToBinMapping == 'end':
@@ -110,10 +111,16 @@ def calculateViewpointRangeBins(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBi
     #     start = viewpoint_index_start - pRange[0]
     #     end = viewpoint_index_end + pRange[1]
     # else:
+    first_bin, last_bin = pHiCMatrix.getChrBinRange(pViewpoint[0])
     start = viewpoint_index - pRange[0]
     end = viewpoint_index + pRange[1]
-
-    return start, end
+    if start < first_bin:
+        start = first_bin
+        start_out_of_range = True
+    if end > last_bin:
+        end = last_bin
+        end_out_of_range = True
+    return start, end, start_out_of_range, end_out_of_range
 
 
 def main(args=None):
@@ -138,9 +145,7 @@ def main(args=None):
                 start_range_genomic, end_range_genomic, start_out, end_out = calculateViewpointRange(hic_ma, viewpoint, args.range, args.coordinatesToBinMapping)
                 start_bin, end_bin = getBinIndices(hic_ma, (chrom, start_range_genomic, end_range_genomic))
             else:
-                start_out = False
-                end_out = False
-                start_bin, end_bin = calculateViewpointRangeBins(hic_ma, viewpoint, args.rangeInBins, args.coordinatesToBinMapping)
+                start_bin, end_bin, start_out, end_out = calculateViewpointRangeBins(hic_ma, viewpoint, args.rangeInBins, args.coordinatesToBinMapping)
             indices_values.append([start_bin, end_bin, start_out, end_out])
 
     if args.range:
@@ -152,16 +157,15 @@ def main(args=None):
     count_matrix = np.zeros(shape=(dimensions_new_matrix,dimensions_new_matrix))
 
     max_length = hic_ma.matrix.shape[1]
-
     for start, end, start_out, end_out in indices_values:
         _start = 0
         _end = summed_matrix.shape[1]
-        if start < 0:
-            _start = np.absolute(start)
-            start = 0
-        if end >= max_length:
-            _end = end
-            end = max_length
+        # if start < 0:
+        #     _start = np.absolute(start)
+        #     start = 0
+        # if end >= max_length:
+        #     _end = end
+        #     end = max_length
         orig_matrix_length = end - start
         if start_out:
             _start = _end - orig_matrix_length
@@ -169,7 +173,6 @@ def main(args=None):
             _end = start + orig_matrix_length
         count_matrix[_start:_end, _start:_end] += 1
         summed_matrix[_start:_end, _start:_end] += hic_ma.matrix[start:end, start:end]
-
     summed_matrix /= count_matrix
     summed_matrix = np.array(summed_matrix)
     data = summed_matrix[np.nonzero(summed_matrix)]
