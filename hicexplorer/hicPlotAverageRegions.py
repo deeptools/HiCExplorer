@@ -80,8 +80,6 @@ def main(args=None):
     matrix = rotate(matrix, 45, cval=np.nan)
     matrix_shapes = matrix.shape
     matrix = matrix[:matrix_shapes[0] // 2, :]
-    if args.vMax is not None or args.vMin is not None:
-        matrix = matrix.clip(min=args.vMin, max=args.vMax)
     if args.log1p:
         matrix += 1
 
