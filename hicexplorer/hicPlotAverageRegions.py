@@ -82,20 +82,8 @@ def main(args=None):
     matrix = matrix[:matrix_shapes[0] // 2, :]
     if args.vMax is not None or args.vMin is not None:
         matrix = matrix.clip(min=args.vMin, max=args.vMax)
-    if args.log1p or args.log:
-
-        mask = matrix == 0
-        mask_nan = np.isnan(matrix)
-        mask_inf = np.isinf(matrix)
-
-        try:
-            matrix[mask] = np.nanmin(matrix[mask == False])
-            matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
-            matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
-        except Exception:
-            log.warning('Clearing of matrix failed. Plotting can fail.')
-        if args.log1p:
-            matrix += 1
+    if args.log1p:
+        matrix += 1
 
     fig = plt.figure()
     axis = plt.gca()
