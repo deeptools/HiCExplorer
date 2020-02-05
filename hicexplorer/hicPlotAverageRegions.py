@@ -101,10 +101,20 @@ def main(args=None):
     axis = plt.gca()
     # Force the scale to correspond to vMin vMax even if these values
     # are not in the range.
-    if args.log1p or args.log:
-      norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
+    if args.log:
+        norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
+    elif args.log1p:
+        if args.vMin is not None:
+            vMin = args.vMin + 1
+        else:
+            vMin = None
+        if args.vMax is not None:
+            vMax = args.vMax + 1
+        else:
+            vMax = None
+        norm = LogNorm(vmin=vMin, vmax=vMax)
     else:
-      norm = matplotlib.colors.Normalize(vmin=args.vMin, vmax=args.vMax)
+        norm = matplotlib.colors.Normalize(vmin=args.vMin, vmax=args.vMax)
 
     matrix_axis = axis.matshow(matrix, cmap=args.colorMap, norm=norm)
     divider = make_axes_locatable(axis)
