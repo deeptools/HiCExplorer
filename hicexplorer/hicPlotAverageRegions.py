@@ -80,7 +80,6 @@ def main(args=None):
     matrix = rotate(matrix, 45, cval=np.nan)
     matrix_shapes = matrix.shape
     matrix = matrix[:matrix_shapes[0] // 2, :]
-    norm = None
     if args.vMax is not None or args.vMin is not None:
         matrix = matrix.clip(min=args.vMin, max=args.vMax)
     if args.log1p or args.log:
@@ -97,13 +96,16 @@ def main(args=None):
             log.warning('Clearing of matrix failed. Plotting can fail.')
         if args.log1p:
             matrix += 1
-            norm = LogNorm()
-
-        elif args.log:
-            norm = LogNorm()
 
     fig = plt.figure()
     axis = plt.gca()
+    # Force the scale to correspond to vMin vMax even if these values
+    # are not in the range.
+    if args.log1p or args.log:
+      norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
+    else:
+      norm = matplotlib.colors.Normalize(vmin=args.vMin, vmax=args.vMax)
+
     matrix_axis = axis.matshow(matrix, cmap=args.colorMap, norm=norm)
     divider = make_axes_locatable(axis)
     cax = divider.append_axes("right", size="5%", pad=0.05)
