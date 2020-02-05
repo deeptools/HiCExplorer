@@ -77,7 +77,7 @@ def main(args=None):
 
     matrix = matrix.toarray()
     matrix = np.triu(matrix)
-    matrix = rotate(matrix, 45)
+    matrix = rotate(matrix, 45, cval=np.nan)
     matrix_shapes = matrix.shape
     matrix = matrix[:matrix_shapes[0] // 2, :]
     norm = None
