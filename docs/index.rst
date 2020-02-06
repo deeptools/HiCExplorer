@@ -6,7 +6,7 @@ Set of programs to process, normalize, analyze and visualize Hi-C and cHi-C data
 
 HiCExplorer addresses the common tasks of Hi-C data analysis from processing to visualization.
 
-.. image:: ./images/hicex2.png
+.. image:: ./images/hicex3.png
 
 
 Availability
