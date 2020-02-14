@@ -56,12 +56,12 @@ section as `color`, `title`, etc. For details please see the documentation of `p
     [tads]
     file = domains.bed
     file_type = domains
-    border color = black
+    border_color = black
     color = none
     # the tads are overlay over the hic-matrix
     # the share-y options sets the y-axis to be shared
     # between the Hi-C matrix and the TADs. 
-    overlay previous = share-y
+    overlay_previous = share-y
 
     [spacer]
 
