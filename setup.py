@@ -130,7 +130,7 @@ setup(
              'bin/chicAggregateStatistic', 'bin/chicDifferentialTest', 'bin/chicQualityControl', 'bin/chicSignificantInteractions',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
              'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicMergeLoops',
-             'bin/hicCompartmentsPolarization', 'bin/hicQuickQC', 'bin/hicPlotSVL'
+             'bin/hicCompartmentsPolarization', 'bin/hicMergeDomains', 'bin/hicQuickQC', 'bin/hicPlotSVL'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
