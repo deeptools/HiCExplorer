@@ -6,7 +6,7 @@ Set of programs to process, normalize, analyze and visualize Hi-C and cHi-C data
 
 HiCExplorer addresses the common tasks of Hi-C data analysis from processing to visualization.
 
-.. image:: ./images/hicex2.png
+.. image:: ./images/hicex3.png
 
 
 Availability
@@ -25,7 +25,7 @@ The following is the list of tools available in HiCExplorer
 =================================== ==========================================================================================================================================================
 tool                                description
 =================================== ==========================================================================================================================================================
-:ref:`findRestSite`                 Identifies the genomic locations of restriction sites
+:ref:`hicFindRestSite`              Identifies the genomic locations of restriction sites
 :ref:`hicBuildMatrix`               Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
 :ref:`hicQuickQC`                   Estimates the quality of Hi-C dataset
 :ref:`hicQC`                        Plots QC measures from the output of hicBuildMatrix
@@ -53,7 +53,7 @@ tool                                description
 :ref:`hicAdjustMatrix`              Keeps, removes or masks regions in a Hi-C matrix
 :ref:`hicValidateLocations`         Compare the loops with known peak protein locations
 :ref:`hicMergeLoops`                Merges loops of different resolutions
-:ref:`hicCompartmentsPolarization`  Compute the global compartmentalization signal
+:ref:`hicCompartmentalization`      Compute the global compartmentalization signal
 :ref:`chicQualityControl`           Quality control for cHi-C data
 :ref:`chicViewpointBackgroundModel` Background model computation for cHi-C analysis
 :ref:`chicViewpoint`                Computation of all viewpoints based on background model for cHi-C analysis

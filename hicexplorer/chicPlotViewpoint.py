@@ -195,7 +195,11 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
                 continue
             matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
-            matrix_name = matrix_name[1:].split('.')[0]
+            log.debug('Matrix_name {}'.format(matrix_name))
+            matrix_name = os.path.basename(matrix_name)
+
+            matrix_name = matrix_name.split('.')[0]
+            log.debug('matrix_name {}'.format(matrix_name))
             # number_of_data_points = len(data)
             highlight_differential_regions = None
             significant_p_values = None
@@ -277,9 +281,10 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             referencepoint_index = ticks[-1]
             for k, j in zip(range(pArgs.range[1]), range(1, pArgs.range[1] + 1, 1)):
                 if j % mod_legend == 0:
-                    x_labels.append(str(-int(j) // int(divisor_legend)) + unit)
+                    x_labels.append(str(int(j) // int(divisor_legend)) + unit)
                     ticks.append(referencepoint_index + (k // pArgs.binResolution))
 
+            # log.debug('labels: {}'.format(x_labels))
             ax1.set_ylabel('Number of interactions')
             ax1.set_xticks(ticks)
             ax1.set_xticklabels(x_labels)

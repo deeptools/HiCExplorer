@@ -1,11 +1,11 @@
 .. _hicCompartmentalization:
 
-_hicCompartmentalization
-============================
+hicCompartmentalization
+=======================
 
 .. argparse::
-   :ref: hicexplorer._hicCompartmentalization.parse_arguments
-   :prog: _hicCompartmentalization
+   :ref: hicexplorer.hicCompartmentalization.parse_arguments
+   :prog: hicCompartmentalization
 
 
 PCA to compute the global compartmentalization signal

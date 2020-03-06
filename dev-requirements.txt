@@ -13,9 +13,6 @@ CommonMark>=0.5.6
 # Used to check readme.
 readme
 
-# For Python 2.6 tests
-unittest2
-
 # Used for code checking.
 pyflakes
 flake8
