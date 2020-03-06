@@ -133,23 +133,26 @@ def create_distance_distribution(pData, pDistances):
         pGenomicDistanceDistribution_max_value[key] = np.max(pGenomicDistanceDistribution[key])
     return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value
 
-def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistributionsKeyList, 
-                            pPValuePreselection, pMask, pGenomicDistanceDistributionPosition, pQueue): 
+
+def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistributionsKeyList,
+                          pPValuePreselection, pMask, pGenomicDistanceDistributionPosition, pQueue):
 
     # mask = [False] * len(pGenomicDistanceDistributionsKeyList)
+
     if len(pGenomicDistanceDistributionsKeyList) == 0:
         pQueue.put(pMask)
         return
-    for i, key in enumerate(pGenomicDistanceDistributionsKeyList):
 
+    for i, key in enumerate(pGenomicDistanceDistributionsKeyList):
         nbinom_parameters = fit_nbinom.fit(
-                np.array(pGenomicDistanceDistributions[key]))
+            np.array(pGenomicDistanceDistributions[key]))
         nbinom_distance = nbinom(
             nbinom_parameters['size'], nbinom_parameters['prob'])
         less_than = np.array(
             pGenomicDistanceDistributions[key]).astype(int) - 1
         mask_less_than = less_than < 0
         less_than[mask_less_than] = 1
+
         if len(less_than) <= 0:
             continue
         max_element = np.max(less_than)
@@ -157,22 +160,21 @@ def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistrib
             continue
         max_element = np.max(less_than)
         sum_of_densities = np.zeros(max_element)
-
         for j in range(max_element):
             if j >= 1:
                 sum_of_densities[j] += sum_of_densities[j - 1]
             sum_of_densities[j] += nbinom_distance.pmf(j)
-
         # if len(sum_of_densities) > less_than - 1:
         p_value = 1 - sum_of_densities[less_than - 1]
         mask_distance = p_value < pPValuePreselection
         # else:
-
         for j, value in enumerate(mask_distance):
             if value:
                 pMask[pGenomicDistanceDistributionPosition[key][j]] = True
+
     pQueue.put(pMask)
     return
+
 
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                                 pMaximumInteractionPercentageThreshold, pPValue, pPeakWindowSize,
@@ -200,18 +202,15 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             - A list of detected loops [(x,y)] and x, y are matrix index values
             - An associated list of p-values
     """
-    log.debug('compute_long_range_contacts initial')
 
     instances, features = pHiCMatrix.matrix.nonzero()
     distance = np.absolute(instances - features)
     mask = [False] * len(distance)
-    log.debug('compute distributions initial')
 
     genomic_distance_distributions, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value = create_distance_distribution(
         pHiCMatrix.matrix.data, distance)
-    log.debug('compute distributions DONE')
 
-    nbinom_parameters = {}
+    # nbinom_parameters = {}
     genomic_distance_distributions_thread = len(genomic_distance_distributions) // pThreads
 
     queue = [None] * pThreads
@@ -222,19 +221,22 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
     all_data_collected = False
     thread_done = [False] * pThreads
     genomic_keys_list = list(genomic_distance_distributions.keys())
-    index_counter = 0
+    # index_counter = 0
     for i in range(pThreads):
 
         if i < pThreads - 1:
             genomic_distance_keys_thread = genomic_keys_list[i * genomic_distance_distributions_thread:(i + 1) * genomic_distance_distributions_thread]
         else:
             genomic_distance_keys_thread = genomic_keys_list[i * genomic_distance_distributions_thread:]
-        index_pos = index_counter
+        # index_pos = index_counter
         # index_counter += len(genomic_distance_keys_thread)
         if len(genomic_distance_keys_thread) == 0:
+
             process[i] = None
             queue[i] = None
-            mask_threads[i] = []
+            thread_done[i] = True
+
+            mask_threads[i] = [False] * len(distance)
             continue
         else:
             queue[i] = Queue()
@@ -242,7 +244,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                 pGenomicDistanceDistributions=genomic_distance_distributions,
                 pGenomicDistanceDistributionsKeyList=genomic_distance_keys_thread,
                 pPValuePreselection=pPValuePreselection,
-                pMask = mask,
+                pMask=mask,
                 pGenomicDistanceDistributionPosition=pGenomicDistanceDistributionPosition,
                 pQueue=queue[i]
             )
@@ -259,6 +261,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                 process[i].terminate()
                 process[i] = None
                 thread_done[i] = True
+                log.debug("276")
         all_data_collected = True
         for thread in thread_done:
             if not thread:
@@ -267,11 +270,6 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     for mask_i in mask_threads:
         mask = np.logical_or(mask, mask_i)
-       
-
-    
-        
-    log.debug('compute of nbs DONE')
 
     peak_interaction_threshold_array = np.zeros(len(distance))
     for i, key in enumerate(distance):
@@ -380,6 +378,7 @@ def neighborhood_merge_thread(pCandidateList, pWindowSize, pInteractionCountMatr
     pQueue.put(new_candidate_list)
     return
 
+
 def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLoopDistance, pMaxLoopDistance, pThreads):
     """
         Clusters candidates together to one candidate if they share / overlap their neighborhood.
@@ -397,40 +396,42 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLo
     # y_max = pInteractionCountMatrix.shape[1]
     new_candidate_list = []
 
-    new_candidate_list_threads = [None] *  pThreads
+    new_candidate_list_threads = [None] * pThreads
     interactionFilesPerThread = len(pCandidates) // pThreads
     all_data_collected = False
-    queue = [None] *  pThreads
-    process = [None] *  pThreads
-    thread_done = [False] *  pThreads
-    length_of_threads = 0
+    queue = [None] * pThreads
+    process = [None] * pThreads
+    thread_done = [False] * pThreads
+    # length_of_threads = 0
     for i in range(pThreads):
 
-        if i <  pThreads - 1:
+        if i < pThreads - 1:
             candidateThread = pCandidates[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
         else:
             candidateThread = pCandidates[i * interactionFilesPerThread:]
         # length_of_threads += len(candidateThread)
         queue[i] = Queue()
         process[i] = Process(target=neighborhood_merge_thread, kwargs=dict(
-                            pCandidateList=candidateThread,
-                            pWindowSize=pWindowSize,
-                            pInteractionCountMatrix=pInteractionCountMatrix,
-                            pMinLoopDistance=pMinLoopDistance, 
-                            pMaxLoopDistance=pMaxLoopDistance,
-                            pQueue=queue[i]
+            pCandidateList=candidateThread,
+            pWindowSize=pWindowSize,
+            pInteractionCountMatrix=pInteractionCountMatrix,
+            pMinLoopDistance=pMinLoopDistance,
+            pMaxLoopDistance=pMaxLoopDistance,
+            pQueue=queue[i]
         )
         )
         if len(candidateThread) == 0:
             process[i] = None
             queue[i] = None
+            thread_done[i] = True
+
             new_candidate_list_threads[i] = []
             continue
         else:
             process[i].start()
     # log.debug('length_of_threads {}'.format(length_of_threads))
     while not all_data_collected:
-        for i in range( pThreads):
+        for i in range(pThreads):
             if queue[i] is not None and not queue[i].empty():
                 new_candidate_list_threads[i] = queue[i].get()
                 # rejected_file_names[i] = background_data_thread
@@ -447,37 +448,35 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLo
 
     new_candidate_list = [item for sublist in new_candidate_list_threads for item in sublist]
 
-
     # for candidate in pCandidates:
 
-        # get neighborhood out of pInteractionCountMatrix matrix
-        # start_x = candidate[0] - \
-        #     pWindowSize if candidate[0] - pWindowSize > 0 else 0
-        # end_x = candidate[0] + pWindowSize if candidate[0] + \
-        #     pWindowSize < x_max else x_max
-        # start_y = candidate[1] - \
-        #     pWindowSize if candidate[1] - pWindowSize > 0 else 0
-        # end_y = candidate[1] + pWindowSize if candidate[1] + \
-        #     pWindowSize < y_max else y_max
+    # get neighborhood out of pInteractionCountMatrix matrix
+    # start_x = candidate[0] - \
+    #     pWindowSize if candidate[0] - pWindowSize > 0 else 0
+    # end_x = candidate[0] + pWindowSize if candidate[0] + \
+    #     pWindowSize < x_max else x_max
+    # start_y = candidate[1] - \
+    #     pWindowSize if candidate[1] - pWindowSize > 0 else 0
+    # end_y = candidate[1] + pWindowSize if candidate[1] + \
+    #     pWindowSize < y_max else y_max
 
-        # neighborhood = pInteractionCountMatrix[start_x:end_x,
-        #                                        start_y:end_y].toarray().flatten()
-        # if len(neighborhood) == 0:
-        #     continue
-        # argmax = np.argmax(neighborhood)
-        # x = argmax // (pWindowSize * 2)
-        # y = argmax % (pWindowSize * 2)
+    # neighborhood = pInteractionCountMatrix[start_x:end_x,
+    #                                        start_y:end_y].toarray().flatten()
+    # if len(neighborhood) == 0:
+    #     continue
+    # argmax = np.argmax(neighborhood)
+    # x = argmax // (pWindowSize * 2)
+    # y = argmax % (pWindowSize * 2)
 
-        # candidate_x = (candidate[0] - pWindowSize) + \
-        #     x if (candidate[0] - pWindowSize + x) < x_max else x_max - 1
-        # candidate_y = (candidate[1] - pWindowSize) + \
-        #     y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
-        # if candidate_x < 0 or candidate_y < 0:
-        #     continue
-        # if np.absolute(candidate_x - candidate_y) < pMinLoopDistance or np.absolute(candidate_x - candidate_y) > pMaxLoopDistance:
-        #     continue
-        # new_candidate_list.append([candidate_x, candidate_y])
-
+    # candidate_x = (candidate[0] - pWindowSize) + \
+    #     x if (candidate[0] - pWindowSize + x) < x_max else x_max - 1
+    # candidate_y = (candidate[1] - pWindowSize) + \
+    #     y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
+    # if candidate_x < 0 or candidate_y < 0:
+    #     continue
+    # if np.absolute(candidate_x - candidate_y) < pMinLoopDistance or np.absolute(candidate_x - candidate_y) > pMaxLoopDistance:
+    #     continue
+    # new_candidate_list.append([candidate_x, candidate_y])
 
     mask = filter_duplicates(new_candidate_list)
 
@@ -513,8 +512,9 @@ def get_test_data(pNeighborhood, pVertical):
 
     return return_list
 
+
 def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                          pMinimumInteractionsThreshold, pPeakWindowSize, pQueue, pStatisticalTest=None):
+                                 pMinimumInteractionsThreshold, pPeakWindowSize, pQueue, pStatisticalTest=None):
     mask = []
     pvalues = []
     if len(pCandidates) == 0:
@@ -523,7 +523,7 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
     x_max = pHiCMatrix.shape[0]
     y_max = pHiCMatrix.shape[1]
     for i, candidate in enumerate(pCandidates):
-        
+
         if (candidate[0] - pWindowSize) > 0:
             start_x = candidate[0] - pWindowSize
             peak_x = pWindowSize - 1
@@ -639,7 +639,8 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
     pQueue.put([mask, pvalues])
     return
-    
+
+
 def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                           pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pStatisticalTest=None):
     """
@@ -668,8 +669,8 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
     mask = []
     pvalues = []
-    x_max = pHiCMatrix.shape[0]
-    y_max = pHiCMatrix.shape[1]
+    # x_max = pHiCMatrix.shape[0]
+    # y_max = pHiCMatrix.shape[1]
     log.debug('candidate_region_test initial: {}'.format(len(pCandidates)))
 
     if len(pCandidates) == 0:
@@ -679,46 +680,48 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
     mask = []
 
-    mask_thread = [None] *  pThreads
-    pvalues_thread = [None] *  pThreads
+    mask_thread = [None] * pThreads
+    pvalues_thread = [None] * pThreads
 
     interactionFilesPerThread = len(pCandidates) // pThreads
     all_data_collected = False
-    queue = [None] *  pThreads
-    process = [None] *  pThreads
-    thread_done = [False] *  pThreads
-    length_of_threads = 0
+    queue = [None] * pThreads
+    process = [None] * pThreads
+    thread_done = [False] * pThreads
+    # length_of_threads = 0
     for i in range(pThreads):
 
-        if i <  pThreads - 1:
+        if i < pThreads - 1:
             candidateThread = pCandidates[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
         else:
             candidateThread = pCandidates[i * interactionFilesPerThread:]
         # length_of_threads += len(candidateThread)
         queue[i] = Queue()
         process[i] = Process(target=candidate_region_test_thread, kwargs=dict(
-                            pHiCMatrix=pHiCMatrix, 
-                            pCandidates=candidateThread, 
-                            pWindowSize=pWindowSize,
-                            pPValue=pPValue,
-                            pMinimumInteractionsThreshold=pMinimumInteractionsThreshold,
-                            pPeakWindowSize=pPeakWindowSize,
-                            pQueue=queue[i],
-                            pStatisticalTest=pStatisticalTest
+            pHiCMatrix=pHiCMatrix,
+            pCandidates=candidateThread,
+            pWindowSize=pWindowSize,
+            pPValue=pPValue,
+            pMinimumInteractionsThreshold=pMinimumInteractionsThreshold,
+            pPeakWindowSize=pPeakWindowSize,
+            pQueue=queue[i],
+            pStatisticalTest=pStatisticalTest
         )
         )
 # candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                        #   pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pStatisticalTest
+        #   pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pStatisticalTest
         if len(candidateThread) == 0:
             process[i] = None
             queue[i] = None
-            mask_threads[i] = []
+            thread_done[i] = True
+            pvalues_thread[i] = []
+            mask_thread[i] = []
             continue
         else:
             process[i].start()
     # log.debug('length_of_threads {}'.format(length_of_threads))
     while not all_data_collected:
-        for i in range( pThreads):
+        for i in range(pThreads):
             if queue[i] is not None and not queue[i].empty():
                 result_thread = queue[i].get()
                 mask_thread[i], pvalues_thread[i] = result_thread
@@ -736,8 +739,6 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
     mask = [item for sublist in mask_thread for item in sublist]
     pvalues = [item for sublist in pvalues_thread for item in sublist]
-
-   
 
     # if pStatisticalTest == 'anderson-darling':
     if mask is not None and len(mask) == 0:
@@ -1052,7 +1053,7 @@ def main(args=None):
                             continue
                         queue[i] = Queue()
                         thread_done[i] = False
-                        
+
                         # if len(hic_matrix.matrix.data) > 0:
 
                         process[i] = Process(target=compute_loops, kwargs=dict(
