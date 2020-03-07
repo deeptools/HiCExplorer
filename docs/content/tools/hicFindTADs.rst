@@ -83,13 +83,15 @@ Multiple combinations of parameters can be tested that way with only one z-score
     min_value = 1
     max_value = 80
     transform = log1p
-    boundaries_file = myHiCmatrix_min10000_max40000_step1500_thres0.05_delta0.01_fdr_domains.bed
-    x labels = yes
     file_type = hic_matrix
-    show_masked_bins = no
+    show_masked_bins = false
 
-    [spacer]
-    width = 0.1
+    [tads]
+    file = myHiCmatrix_min10000_max40000_step1500_thres0.05_delta0.01_fdr_domains.bed
+    file_type = domains
+    border_color = black
+    color = none
+    overlay_previous = share-y
 
     [hic]
     file = myHiCmatrix.h5
@@ -99,13 +101,18 @@ Multiple combinations of parameters can be tested that way with only one z-score
     min_value = 1
     max_value = 80
     transform = log1p
-    boundaries_file = myHiCmatrix_min10000_max40000_step1500_thres0.01_delta0.01_fdr_domains.bed
-    x labels = yes
     file_type = hic_matrix
-    show_masked_bins = no
+    show_masked_bins = false
+
+    [tads]
+    file = myHiCmatrix_min10000_max40000_step1500_thres0.01_delta0.01_fdr_domains.bed
+    file_type = domains
+    border_color = black
+    color = none
+    overlay_previous = share-y
     
     [spacer]
-    width = 0.1
+    height = 0.1
 
     [hic]
     file = myHiCmatrix.h5
@@ -115,13 +122,18 @@ Multiple combinations of parameters can be tested that way with only one z-score
     min_value = 1
     max_value = 80
     transform = log1p
-    boundaries_file = myHiCmatrix_min10000_max40000_step1500_thres0.005_delta0.01_fdr_domains.bed
-    x labels = yes
     file_type = hic_matrix
-    show_masked_bins = no  
+    show_masked_bins = false  
+
+    [tads]
+    file = myHiCmatrix_min10000_max40000_step1500_thres0.005_delta0.01_fdr_domains.bed
+    file_type = domains
+    border_color = black
+    color = none
+    overlay_previous = share-y
     
     [spacer]
-    width = 0.1
+    height = 0.1
 
     [hic]
     file = myHiCmatrix.h5
@@ -131,13 +143,18 @@ Multiple combinations of parameters can be tested that way with only one z-score
     min_value = 1
     max_value = 80
     transform = log1p
-    boundaries_file = myHiCmatrix_min10000_max40000_step1500_thres0.001_delta0.01_fdr_domains.bed
-    x labels = yes
     file_type = hic_matrix
-    show_masked_bins = no  
+    show_masked_bins = false  
+
+    [tads]
+    file = myHiCmatrix_min10000_max40000_step1500_thres0.001_delta0.01_fdr_domains.bed
+    file_type = domains
+    border_color = black
+    color = none
+    overlay_previous = share-y
     
     [spacer]
-    width = 0.1
+    height = 0.1
     
     [bigwig]
     file = /data/processing/ChIP-Seq_Embryos/H3K36me3_14c.bigwig
@@ -145,19 +162,18 @@ Multiple combinations of parameters can be tested that way with only one z-score
     color = darkred
     min_value = 0
     max_value = auto
-    width = 2
+    height = 2
     file_type = bigwig
 
     [spacer]
-    width = 0.1
+    height = 0.1
 
     [genes]
     file = /data/group/bedfiles/dm6/genes_sorted.bed
     title = genes
     color = black
-    width = 18
-    labels = on
-    type = genes
+    height = 18
+    labels = true
     file_type = bed
 
 
