@@ -35,15 +35,15 @@ def test_regular_mode():
     output_folder = mkdtemp(prefix="output_")
 
     args = "--interactionFile {} {} --targetFile {} --outFileNameSuffix {} \
-            --outputFolder {}".format(ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed',
-                                      ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed ',
-                                      ROOT + 'chicSignificantInteractions/output_5_target/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_target.bed',
-                                      'aggregated.bed',
+            --outputFolder {}".format(ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.txt',
+                                      ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.txt ',
+                                      ROOT + 'chicSignificantInteractions/output_5_target/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_target.txt',
+                                      'aggregated.txt',
                                       output_folder).split()
     chicAggregateStatistic.main(args)
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/regular_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.bed", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.bed')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/regular_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.bed", output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.bed')
+    assert are_files_equal(ROOT + "chicAggregateStatistic/regular_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
+    assert are_files_equal(ROOT + "chicAggregateStatistic/regular_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt", output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
 
     assert set(os.listdir(ROOT + "chicAggregateStatistic/regular_mode/")) == set(os.listdir(output_folder))
 
@@ -56,7 +56,7 @@ def test_batch_mode():
     args = "--interactionFile {} --targetFile {} --outFileNameSuffix {} \
         --outputFolder {} -iff {} -tff {} -w {} -bm".format(ROOT + 'chicViewpoint/fileNames_two_matrices.txt',
                                                             ROOT + 'chicSignificantInteractions/output_5_target_list.txt',
-                                                            'aggregated.bed',
+                                                            'aggregated.txt',
                                                             output_folder,
                                                             ROOT + 'chicViewpoint/output_1',
                                                             ROOT + 'chicSignificantInteractions/output_5_target',
@@ -64,13 +64,13 @@ def test_batch_mode():
     chicAggregateStatistic.main(args)
     assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode_file_names.txt", outfile.name)
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.bed", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.bed')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.bed", output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.bed')
+    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt", output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
+    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt", output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.bed", output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.bed')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.bed", output_folder + '/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.bed')
+    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt", output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt')
+    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt", output_folder + '/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt')
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.bed", output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.bed')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.bed", output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.bed')
+    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt", output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt')
+    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt", output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt')
 
     assert set(os.listdir(ROOT + "chicAggregateStatistic/batch_mode/")) == set(os.listdir(output_folder))

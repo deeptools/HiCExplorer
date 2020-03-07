@@ -49,17 +49,17 @@ def are_files_equal(file1, file2, delta=1, skip=0, eps=0.1):
 
 
 def test_compute_background_functional():
-    outfile = NamedTemporaryFile(suffix='.bed', delete=False)
+    outfile = NamedTemporaryFile(suffix='.txt', delete=False)
     outfile.close()
     args = "--matrices {} {} --referencePoints {} -o {}".format(ROOT + 'FL-E13-5_chr1.cool', ROOT + 'MB-E10-5_chr1.cool',
                                                                 ROOT + 'referencePoints.bed', outfile.name).split()
     chicViewpointBackgroundModel.main(args)
 
-    assert are_files_equal(ROOT + 'background.bed', outfile.name, delta=700, skip=1)
+    assert are_files_equal(ROOT + 'background.txt', outfile.name, delta=700, skip=1)
 
 
 def test_compute_background_number_of_lines():
-    outfile = NamedTemporaryFile(suffix='.bed', delete=False)
+    outfile = NamedTemporaryFile(suffix='.txt', delete=False)
     outfile.close()
     args = "--matrices {} {} --referencePoints {} -o {}".format(ROOT + 'FL-E13-5_chr1.cool', ROOT + 'MB-E10-5_chr1.cool',
                                                                 ROOT + 'referencePoints.bed', outfile.name).split()
@@ -68,7 +68,7 @@ def test_compute_background_number_of_lines():
     length_background = 0
     length_background_outfile = 0
 
-    with open(ROOT + 'background.bed') as textfile:
+    with open(ROOT + 'background.txt') as textfile:
         file_content = textfile.readlines()
         length_background = len(file_content)
     with open(outfile.name) as textfile:

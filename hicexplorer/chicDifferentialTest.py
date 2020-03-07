@@ -27,9 +27,9 @@ The files that are accepted for this test can be created with `chicAggregateStat
 
 An example usage is:
 
-`$ chicDifferentialTest --interactionFile viewpoint1_aggregated.bed  viewpoint2_aggregated.bed --alpha 0.05 --statisticTest fisher --outputFolder differentialResults`
+`$ chicDifferentialTest --interactionFile viewpoint1_aggregated.txt  viewpoint2_aggregated.txt --alpha 0.05 --statisticTest fisher --outputFolder differentialResults`
 
-and this will create three files: `viewpoint1_viewpoint2_aggregated_H0_accepted.bed`, `viewpoint1_viewpoint2_aggregated_H0_rejected.bed`, `viewpoint1_viewpoint2_aggregated_results.bed`
+and this will create three files: `viewpoint1_viewpoint2_aggregated_H0_accepted.txt`, `viewpoint1_viewpoint2_aggregated_H0_rejected.txt`, `viewpoint1_viewpoint2_aggregated_results.txt`
 
 The first file contains all locations where H0 was accepted, the second file all locations where H0 was rejected and the third one all locations with the test result.
 
@@ -217,18 +217,18 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
             interactionFile[0].split('/')[-1].split('_')[1:6])
 
         outFileName = sample_prefix + '_' + region_prefix
-        rejected_name_output_file = outFileName + '_H0_rejected.bed'
+        rejected_name_output_file = outFileName + '_H0_rejected.txt'
 
         if pArgs.outputFolder != '.':
             outFileName_accepted = pArgs.outputFolder + \
-                '/' + outFileName + '_H0_accepted.bed'
+                '/' + outFileName + '_H0_accepted.txt'
             outFileName_rejected = pArgs.outputFolder + \
-                '/' + outFileName + '_H0_rejected.bed'
-            outFileName = pArgs.outputFolder + '/' + outFileName + '_results.bed'
+                '/' + outFileName + '_H0_rejected.txt'
+            outFileName = pArgs.outputFolder + '/' + outFileName + '_results.txt'
         else:
-            outFileName_accepted = outFileName + '_H0_accepted.bed'
-            outFileName_rejected = outFileName + '_H0_rejected.bed'
-            outFileName = outFileName + '_results.bed'
+            outFileName_accepted = outFileName + '_H0_accepted.txt'
+            outFileName_rejected = outFileName + '_H0_rejected.txt'
+            outFileName = outFileName + '_results.txt'
 
         if pArgs.interactionFileFolder != '.':
             absolute_sample_path1 = pArgs.interactionFileFolder + '/' + interactionFile[0]

@@ -50,7 +50,7 @@ $ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool
                            default=5)
     parserOpt.add_argument('--outFileName', '-o',
                            help='The name of the background model file',
-                           default='background_model.bed')
+                           default='background_model.txt')
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module). ',
                            required=False,

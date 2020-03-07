@@ -197,7 +197,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         target_list = [item for sublist in target_list for item in sublist]
         log.debug('interactionFile {}'.format(interactionFile))
         sample_name = '_'.join(interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:])
-        target_name = sample_prefix + sample_name + '_target.bed'
+        target_name = sample_prefix + sample_name + '_target.txt'
         target_outfile_names.append(target_name)
         target_name = pArgs.targetFolder + '/' + target_name
         writeTargetList(target_list, target_name, pArgs)

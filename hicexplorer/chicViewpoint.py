@@ -207,7 +207,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         matrix_name = '.'.join(pMatrix.split('/')[-1].split('.')[:-1])
         matrix_name = '_'.join(
             [matrix_name, referencePointString, pGeneList[i]])
-        file_list.append(matrix_name + '.bed')
+        file_list.append(matrix_name + '.txt')
 
         matrix_name = pOutputFolder + '/' + matrix_name
         pViewpointObj.writeInteractionFile(
