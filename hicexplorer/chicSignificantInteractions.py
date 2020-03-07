@@ -79,7 +79,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
     parserOpt.add_argument('--outFileNameSuffix', '-suffix',
                            help='File name suffix to save the results; prefix is the input file name.',
                            required=False,
-                           default='_significant_interactions.bed')
+                           default='_significant_interactions.txt')
 
     parserOpt.add_argument('--interactionFileFolder', '-iff',
                            help='Folder where the interaction files are stored. Applies only for batch mode.',

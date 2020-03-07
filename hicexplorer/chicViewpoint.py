@@ -23,17 +23,17 @@ def parse_arguments(args=None):
 Computes per input matrix all viewpoints which are defined in the reference points file. All files are stored in the folder defined by `--outputFolder`, and the files
 are named by the name of the reference point, the sample name and the location of the reference point:
 
-gene_matrix_name_chr_start_end.bed
+gene_matrix_name_chr_start_end.txt
 
 If multiple reference points are used and the processing downstream should be automated via batch processing mode, please activate `--writeFileNamesToFile`. All the file names will be written to this file; in the case of multiple samples two consecutive lines are considered as treatment vs. control for the differential analysis.
 
 An example usage is:
 
-$ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outputFolder interactionFilesFolder
+$ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.txt --range 20000 40000 --outputFolder interactionFilesFolder
 
 An example usage for batch mode is:
 
-$ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outputFolder interactionFilesFolder --writeFileNamesToFile interactionFile.txt
+$ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.txt --range 20000 40000 --outputFolder interactionFilesFolder --writeFileNamesToFile interactionFile.txt
 
 """)
 

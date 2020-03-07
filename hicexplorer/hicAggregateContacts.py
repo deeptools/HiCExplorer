@@ -164,7 +164,7 @@ def parse_arguments(args=None):
                             action='store_true')
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
-                           'ouput is a raster graphics image (e.g png, jpg).',
+                           'output is a raster graphics image (e.g png, jpg).',
                            type=int,
                            default=300)
     return parser

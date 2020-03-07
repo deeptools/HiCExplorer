@@ -32,7 +32,7 @@ def parse_arguments(args=None):
                                 required=True)
 
     parserRequired.add_argument('--outFileName', '-o',
-                                help='File name of the imapge to save.',
+                                help='File name of the image to save.',
                                 required=True)
 
     parserRequired.add_argument('--referencePoint', '-rp', help='Reference point. Needs to be in the format: \'chr:100\' for a '
