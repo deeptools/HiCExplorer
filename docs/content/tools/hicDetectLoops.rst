@@ -14,7 +14,7 @@ Example usage
 
 .. code:: bash
 
-    $ hicDetectLoops -m matrix.cool -o loops.bedgraph --maxLoopDistance 2000000 --windowSize 10 --peakWidth 6 --pValuePreselection 0.05 --pValue 0.05 --peakInteractionsThreshold 20 --maximumInteractionPercentageThreshold 0.1 --statisticTest anderson-darling
+    $ hicDetectLoops -m matrix.cool -o loops.bedgraph --maxLoopDistance 2000000 --windowSize 10 --peakWidth 6 --pValuePreselection 0.05 --pValue 0.05 --peakInteractionsThreshold 20 --maximumInteractionPercentageThreshold 0.1 --statisticalTest anderson-darling
 
 
 The candidate selection is based on the restriction of the maximum genomic distance, here 2MB. This distance is given by Rao 2014. For each genomic distance 

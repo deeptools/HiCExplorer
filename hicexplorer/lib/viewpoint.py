@@ -168,7 +168,7 @@ class Viewpoint():
         Relative number of interactions, p-values based on negative binomial distribution per relative distance, raw interaction data
         '''
 
-        with open((pBedFile + '.bed').strip(), 'w') as fh:
+        with open((pBedFile + '.txt').strip(), 'w') as fh:
             fh.write('{}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
                 fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".
@@ -529,7 +529,7 @@ class Viewpoint():
 
     def writePlotData(self, pInteractionFileDataRaw, pFileName, pBackgroundModel):
         interaction_file_data_raw_sorted = sorted(pInteractionFileDataRaw)
-        with open(pFileName + '.bed', 'w') as output_file:
+        with open(pFileName + '.txt', 'w') as output_file:
             output_file.write(
                 '#ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw')
 

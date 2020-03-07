@@ -151,7 +151,7 @@ def parse_arguments(args=None):
                              'restriction sites. If given, the bins are '
                              'set to match the restriction fragments (i.e. '
                              'the region between one restriction site and '
-                             'the next). Alternativly, a fixed binSize can be defined instead. However, either binSize or restrictionCutFile must be defined.'),
+                             'the next). Alternatively, a fixed binSize can be defined instead. However, either binSize or restrictionCutFile must be defined.'),
                        type=argparse.FileType('r'),
                        metavar='BED file')
 
@@ -228,7 +228,7 @@ def parse_arguments(args=None):
                            'Because the restriction enzyme site could be located '
                            'on top of the read, this may reduce the '
                            'reported quality of the read. Thus, this parameter '
-                           'may be adusted if too many low quality '
+                           'may be adjusted if too many low quality '
                            '(but otherwise perfectly valid Hi-C reads) are found. '
                            'A good strategy is to make a test run (using the --doTestRun), '
                            'then checking the results to see if too many low quality '
@@ -246,8 +246,8 @@ def parse_arguments(args=None):
                            'Minimum value for the \'--thread\' parameter is 2. '
                            'The usage of 8 threads is optimal if you have an HDD. A higher number of threads is only '
                            'useful if you have a fast SSD. Have in mind that the performance of hicBuildMatrix is influenced by '
-                           'the number of threads, the speed of your hard drive and the inputBufferSize. To clearify: the peformance '
-                           'with a higher thread number is not negative influenced but not positiv too. With a slow HDD and a high number of '
+                           'the number of threads, the speed of your hard drive and the inputBufferSize. To clarify: the performance '
+                           'with a higher thread number is not negative influenced but not positive too. With a slow HDD and a high number of '
                            'threads many threads will do nothing most of the time. ',
                            required=False,
                            default=4,

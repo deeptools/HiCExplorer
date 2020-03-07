@@ -25,7 +25,7 @@ def parse_arguments(args=None):
         'different bin sizes are used. For example to call TADs, '
         'unmerged matrices are recommended while to display '
         'Hi-C matrices, bins of approximately 2000bp usually '
-        'yield the best reprensentations with `hicPlotMatrix` for small regions, '
+        'yield the best representations with `hicPlotMatrix` for small regions, '
         'and even larger bins (50kb) are recommended for whole chromosome '
         'representations or for `hicPlotDistVsCounts`.')
 

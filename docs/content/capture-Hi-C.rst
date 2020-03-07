@@ -129,7 +129,7 @@ compute a p-value per relative distance in each sample, which is used to make th
 
 .. code:: bash
 
-    chicViewpointBackgroundModel -m FL-E13-5.cool MB-E10-5.cool --fixateRange 500000 -t 20 -rp reference_points.bed -o background_model.bed
+    chicViewpointBackgroundModel -m FL-E13-5.cool MB-E10-5.cool --fixateRange 500000 -t 20 -rp reference_points.bed -o background_model.txt
 
 The background model looks like this:
 
@@ -154,11 +154,11 @@ For each viewpoint one viewpoint file is created and stored in the folder given 
 
 .. code:: bash
 
-    chicViewpoint -m FL-E13-5.cool MB-E10-5.cool --averageContactBin 5 --range 1000000 1000000 -rp referencePoints.bed -bmf background_model.bed --writeFileNamesToFile interactionFiles.txt --outputFolder interactionFilesFolder --fixateRange 500000 --threads 20
+    chicViewpoint -m FL-E13-5.cool MB-E10-5.cool --averageContactBin 5 --range 1000000 1000000 -rp referencePoints.bed -bmf background_model.txt --writeFileNamesToFile interactionFiles.txt --outputFolder interactionFilesFolder --fixateRange 500000 --threads 20
 
 
 The name of each viewpoint file starts with its sample name (given by the name of the matrix), the
-exact location and the gene / promoter name. For example, the viewpoint `chr1	4487435	4487435 Sox17` from `MB-E10-5.cool` matrix will be called `MB-E10-5_chr1_4487435_4487435_Sox17.bed` and looks like the following:
+exact location and the gene / promoter name. For example, the viewpoint `chr1	4487435	4487435 Sox17` from `MB-E10-5.cool` matrix will be called `MB-E10-5_chr1_4487435_4487435_Sox17.txt` and looks like the following:
 
 .. code:: text
 
@@ -185,12 +185,12 @@ for the differential analysis. Example: matrices `FL-E13-5.cool` and  `MB-E10-5.
 
 .. code:: bash
 
-    FL-E13-5_chr1_4487435_4487435_Sox17.bed
-    MB-E10-5_chr1_4487435_4487435_Sox17.bed
-    FL-E13-5_chr1_14300280_14300280_Eya1.bed
-    MB-E10-5_chr1_14300280_14300280_Eya1.bed
-    FL-E13-5_chr1_19093103_19093103_Tfap2d.bed
-    MB-E10-5_chr1_19093103_19093103_Tfap2d.bed
+    FL-E13-5_chr1_4487435_4487435_Sox17.txt
+    MB-E10-5_chr1_4487435_4487435_Sox17.txt
+    FL-E13-5_chr1_14300280_14300280_Eya1.txt
+    MB-E10-5_chr1_14300280_14300280_Eya1.txt
+    FL-E13-5_chr1_19093103_19093103_Tfap2d.txt
+    MB-E10-5_chr1_19093103_19093103_Tfap2d.txt
 
 
 
@@ -201,7 +201,7 @@ Significant interactions detection
 
 To detect significant interactions and to prepare a target file for each viewpoint which will be used for the differential analysis, the script `chicSignificantInteractions` is used. It offers two modes: either the user can specify 
 an x-fold value or a loose p-value. The first one considers all interactions with a minimum x-fold over the average background for its relative distribution as a candidate or secondly, all interactions with a loose p-value or less are considered. 
-These are preselection steps to be able to detect wider peaks in the same way as sharp ones. All detected candidates are merged to one peak if they are direct neighbors, and the sum of all interaction values of this neighborhood
+These are pre-selection steps to be able to detect wider peaks in the same way as sharp ones. All detected candidates are merged to one peak if they are direct neighbors, and the sum of all interaction values of this neighborhood
 is used to compute a new p-value. The p-value is computed based on the relative distance negative binomial distribution of the interaction with the original highest interaction value. All peaks considered are accepted as significant interactions if
 their p-value is as small as the threshold `--pvalue`.
 
@@ -211,15 +211,15 @@ In this example we use the reference point Mstn at location chr1 53118507, a loo
 
 .. code:: bash
 
-    chicSignificantInteractions --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.bed -bmf background_model.bed --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1
+    chicSignificantInteractions --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt -bmf background_model.txt --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1
 
 
 This creates two files: 
 
 .. code:: bash
 
-    FL-E13-5_chr1_53118507_53118507_Mstn_target.bed
-    FL-E13-5_chr1_53118507_53118507_Mstn__significant_interactions.bed
+    FL-E13-5_chr1_53118507_53118507_Mstn_target.txt
+    FL-E13-5_chr1_53118507_53118507_Mstn__significant_interactions.txt
 
 These files are stored in the folders given by the parameters `--targetFolder` and `--outputFolder`.
 
@@ -242,7 +242,7 @@ The target file looks like:
 .. code:: bash
 
     # Significant interactions result file of HiCExplorer's chicSignificantInteractions version 3.2-dev
-    # targetFolder/FL-E13-5_chr1_53118507_53118507_Mstn_target.bed
+    # targetFolder/FL-E13-5_chr1_53118507_53118507_Mstn_target.txt
     # Mode: loose p-value with 0.1
     # Used p-value: 0.01
     #
@@ -263,7 +263,7 @@ two samples and one target file is supported.
 
 .. code:: bash
 
-    chicSignificantInteractions --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder/  -bmf background_model.bed --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1 --batchMode
+    chicSignificantInteractions --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder/  -bmf background_model.txt --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1 --batchMode
 
 The output is: 
 
@@ -282,7 +282,7 @@ or one target file which applies for all viewpoints.
 
 .. code:: bash
 
-    chicAggregateStatistic --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.bed interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.bed --targetFile targetFolder/FL-E13-5_MB-E10-5_chr1_53118507_53118507_Mstn_target.bed
+    chicAggregateStatistic --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.txt --targetFile targetFolder/FL-E13-5_MB-E10-5_chr1_53118507_53118507_Mstn_target.txt
 
 It selects the original data based on the target locations and returns one file per sample which is used for the differential test.
 
@@ -292,7 +292,7 @@ Batch mode
 In the batch mode the interaction file is the file containing the viewpoint file names, the folder needs to be defined by `--interactionFileFolder`, the same applies to the target file and folder.
 Two viewpoint files are match with one target file created by `chicSignificantInteractions` or one target file for all viewpoints. Please notice the output files are written to the folder name
 defined by `--outputFolder`, the default is `aggregatedFiles` and it is recommended to write the file names for further batch processing with `hicDifferentialTest` to `--writeFileNamesToFile`. All output files
-get the suffix defined by `--outFileNameSuffix`, default value is `_aggregate_target.bed`.
+get the suffix defined by `--outFileNameSuffix`, default value is `_aggregate_target.txt`.
 
 .. code:: bash
 
@@ -311,7 +311,7 @@ This can be computed per sample:
 
 .. code:: bash
 
-    chicDifferentialTest --interactionFile aggregatedFiles/FL-E13-5_chr1_53118507_53118507_Mstn__aggregate_target.bed aggregatedFiles/MB-E10-5_chr1_53118507_53118507_Mstn__aggregate_target.bed --alpha 0.05 --statisticTest fisher
+    chicDifferentialTest --interactionFile aggregatedFiles/FL-E13-5_chr1_53118507_53118507_Mstn__aggregate_target.txt aggregatedFiles/MB-E10-5_chr1_53118507_53118507_Mstn__aggregate_target.txt --alpha 0.05 --statisticTest fisher
 
 Or via batch mode:
 
@@ -400,7 +400,7 @@ One viewpoint:
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.bed --range 200000 200000 -o single_plot.png
+    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt --range 200000 200000 -o single_plot.png
 
 .. image:: ../images/chic/single_plot.png
 
@@ -408,7 +408,7 @@ Two viewpoints, background, differential expression and p-values:
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.bed interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.bed --range 300000 300000 --pValue --differentialTestResult differentialResults/FL-E13-5_MB-E10-5_chr1_53118507_53118507_Mstn__H0_rejected.bed --backgroundModelFile background_model.bed -o differential_background_pvalue.png
+    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.txt --range 300000 300000 --pValue --differentialTestResult differentialResults/FL-E13-5_MB-E10-5_chr1_53118507_53118507_Mstn__H0_rejected.txt --backgroundModelFile background_model.txt -o differential_background_pvalue.png
 
 
 .. image:: ../images/chic/differential_background_pvalue.png
@@ -417,7 +417,7 @@ Two viewpoints, background, significant interactions and p-values:
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.bed interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.bed --range 300000 300000 --pValue --significantInteractions significantFiles/FL-E13-5_chr1_53118507_53118507_Mstn__significant_interactions.bed significantFiles/MB-E10-5_chr1_53118507_53118507_Mstn__significant_interactions.bed --backgroundModelFile background_model.bed -o significant_background_pvalue.png
+    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.txt --range 300000 300000 --pValue --significantInteractions significantFiles/FL-E13-5_chr1_53118507_53118507_Mstn__significant_interactions.txt significantFiles/MB-E10-5_chr1_53118507_53118507_Mstn__significant_interactions.txt --backgroundModelFile background_model.txt -o significant_background_pvalue.png
 
 .. image:: ../images/chic/significant_background_pvalue.png
 
@@ -432,4 +432,4 @@ For all modes the principle of a file containing the file names and a folder con
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder/ --range 300000 300000 --pValue --significantInteractions significantFilesBatch.txt --significantInteractionFileFolder significantFiles --backgroundModelFile background_model.bed --outputFolder plots --threads 20 --batchMode
+    chicPlotViewpoint --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder/ --range 300000 300000 --pValue --significantInteractions significantFilesBatch.txt --significantInteractionFileFolder significantFiles --backgroundModelFile background_model.txt --outputFolder plots --threads 20 --batchMode

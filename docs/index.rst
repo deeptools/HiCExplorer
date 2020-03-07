@@ -31,7 +31,7 @@ tool                                description
 :ref:`hicQC`                        Plots QC measures from the output of hicBuildMatrix
 :ref:`hicCorrectMatrix`             Uses iterative correction to remove biases from a Hi-C matrix
 :ref:`hicDetectLoops`               Identifies enriched Hi-C contacts
-:ref:`hicCorrelate`                 Computes and visualises the correlation of Hi-C matrices
+:ref:`hicCorrelate`                 Computes and visualizes the correlation of Hi-C matrices
 :ref:`hicFindTADs`                  Identifies Topologically Associating Domains (TADs)
 :ref:`hicPCA`                       Computes for A / B compartments the eigenvectors
 :ref:`hicTransform`                 Computes a obs_exp matrix like Lieberman-Aiden (2009), a pearson correlation matrix and or a covariance matrix. These matrices can be used for plotting.

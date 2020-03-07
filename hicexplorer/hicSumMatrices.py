@@ -14,7 +14,7 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      add_help=False,
                                      description=('Adds Hi-C matrices of the same size. Format '
-                                                  'has to be hdf5 (.h5) or npz. In order to minimze the '
+                                                  'has to be hdf5 (.h5) or npz. In order to minimize the '
                                                   'the loss of information, it is recommended to '
                                                   'to sum uncorrected matrices (before hicCorrectMatrix).'))
 

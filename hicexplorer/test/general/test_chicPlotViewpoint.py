@@ -41,7 +41,7 @@ def are_files_equal(file1, file2, delta=1, skip=0):
 def test_one_viewpoint():
     outfile = NamedTemporaryFile(suffix='.png', delete=False)
     outfile.close()
-    args = "-if {} --range {} {} -o {}".format(ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed', 200000, 200000, outfile.name).split()
+    args = "-if {} --range {} {} -o {}".format(ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.txt', 200000, 200000, outfile.name).split()
     chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + 'chicPlotViewpoint/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.png', outfile.name, tolerance)
@@ -54,8 +54,8 @@ def test_two_viewpoint_fileformat_dpi():
     outfile = NamedTemporaryFile(suffix='.pdf', delete=False)
     outfile.close()
     args = "-if {} {} --range {} {} -o {} --dpi {} --outputFormat {}".format(
-        ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed',
-        ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed',
+        ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.txt',
+        ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.txt',
         200000, 200000, outfile.name, 100, 'pdf').split()
     chicPlotViewpoint.main(args)
 
@@ -68,9 +68,9 @@ def test_two_viewpoint_background():
     outfile = NamedTemporaryFile(suffix='.png', delete=False)
     outfile.close()
     args = "-if {} {} --range {} {} -o {} -bmf {}".format(
-        ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed',
-        ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed',
-        200000, 200000, outfile.name, ROOT + 'background.bed').split()
+        ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.txt',
+        ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.txt',
+        200000, 200000, outfile.name, ROOT + 'background.txt').split()
     chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + 'chicPlotViewpoint/two_viewpoint_background.png', outfile.name, tolerance)
@@ -81,11 +81,11 @@ def test_two_viewpoint_background_significant():
     outfile = NamedTemporaryFile(suffix='.png', delete=False)
     outfile.close()
     args = "-if {} {} --range {} {} -o {} -bmf {} --significantInteractions {} {}".format(
-        ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed',
-        ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed',
-        200000, 200000, outfile.name, ROOT + 'background.bed',
-        ROOT + 'chicSignificantInteractions/output_3/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_output_significant.bed',
-        ROOT + 'chicSignificantInteractions/output_3/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_output_significant.bed').split()
+        ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.txt',
+        ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.txt',
+        200000, 200000, outfile.name, ROOT + 'background.txt',
+        ROOT + 'chicSignificantInteractions/output_3/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_output_significant.txt',
+        ROOT + 'chicSignificantInteractions/output_3/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_output_significant.txt').split()
     chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + 'chicPlotViewpoint/two_viewpoint_background_significant.png', outfile.name, tolerance)
@@ -96,10 +96,10 @@ def test_two_viewpoint_background_differential():
     outfile = NamedTemporaryFile(suffix='.png', delete=False)
     outfile.close()
     args = "-if {} {} --range {} {} -o {} -bmf {} --differentialTestResult {}".format(
-        ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed',
-        ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.bed',
-        200000, 200000, outfile.name, ROOT + 'background.bed',
-        ROOT + 'chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.bed').split()
+        ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.txt',
+        ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.txt',
+        200000, 200000, outfile.name, ROOT + 'background.txt',
+        ROOT + 'chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt').split()
     chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + 'chicPlotViewpoint/two_viewpoint_background_differential.png', outfile.name, tolerance)
@@ -109,7 +109,7 @@ def test_two_viewpoint_background_differential():
 def test_one_viewpoint_colormap_pvalue():
     outfile = NamedTemporaryFile(suffix='.png', delete=False)
     outfile.close()
-    args = "-if {} --range {} {} --pValue --colorMapPvalue {} -o {} --pValue --colorMapPvalue plasma --maxPValue 0.5 --minPValue 0.1".format(ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.bed', 200000, 200000, 'plasma', outfile.name).split()
+    args = "-if {} --range {} {} --pValue --colorMapPvalue {} -o {} --pValue --colorMapPvalue plasma --maxPValue 0.5 --minPValue 0.1".format(ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.txt', 200000, 200000, 'plasma', outfile.name).split()
     chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + 'chicPlotViewpoint/two_viewpoint_pvalue.png', outfile.name, tolerance)
@@ -147,7 +147,7 @@ def test_two_viewpoints_per_file_batch_mode_significances_differential_pvalue():
         ROOT + 'chicSignificantInteractions/output_5_significant_files.txt',
         ROOT + 'chicSignificantInteractions/output_5/',
         1.5,
-        ROOT + 'background.bed').split()
+        ROOT + 'background.txt').split()
     chicPlotViewpoint.main(args)
 
     res = compare_images(ROOT + 'chicPlotViewpoint/batchMode/two/Eya1_FL-E13-5_MB-E10-5_chr1_chr1_14300280.png', output_folder + '/Eya1_FL-E13-5_MB-E10-5_chr1_chr1_14300280.png', tolerance)

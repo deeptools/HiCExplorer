@@ -9,7 +9,7 @@ hicMergeMatrixBins
 Background
 ^^^^^^^^^^
 
-Depending on the downstream analyses to perform on a Hi-C matrix generated with HiCExplorer, one might need different bin resolutions. For example using :doc:`hicPlotMatrix` to display chromatin interactions of a whole chromosome will not produce any meaningful vizualisation if it is performed on a matrix at restriction sites resolution. :doc:`hicMergeMatrixBins` address this issue by merging a given number of adjacent bins (determined by ``--numBins``). To minimize the loss of information (matrix bins with few counts), it is recommended to perform :doc:`hicMergeMatrixBins` on uncorrected matrices (before matrix correction). The matrix correction can be performed after bin merging for downstream analyses using :doc:`hicCorrectMatrix`. 
+Depending on the downstream analyses to perform on a Hi-C matrix generated with HiCExplorer, one might need different bin resolutions. For example using :doc:`hicPlotMatrix` to display chromatin interactions of a whole chromosome will not produce any meaningful visualization if it is performed on a matrix at restriction sites resolution. :doc:`hicMergeMatrixBins` address this issue by merging a given number of adjacent bins (determined by ``--numBins``). To minimize the loss of information (matrix bins with few counts), it is recommended to perform :doc:`hicMergeMatrixBins` on uncorrected matrices (before matrix correction). The matrix correction can be performed after bin merging for downstream analyses using :doc:`hicCorrectMatrix`. 
 
 Description
 ^^^^^^^^^^^
@@ -24,7 +24,7 @@ Usage example
 Running hicMergeMatrixBins
 """"""""""""""""""""""""""
 
-Below, we display the example of plotting a Hi-C matrix at the scale of the whole X-chromosome and at the scale of a 1Mb region of the X chromosome. To do this, we will perform two different bin mergings using :doc:`hicMergeMatrixBins` on an uncorrected matrix built at restiction site resolution using :doc:`hicBuildMatrix`. To do this, we run the two following commands:
+Below, we display the example of plotting a Hi-C matrix at the scale of the whole X-chromosome and at the scale of a 1Mb region of the X chromosome. To do this, we will perform two different bin merging using :doc:`hicMergeMatrixBins` on an uncorrected matrix built at restriction site resolution using :doc:`hicBuildMatrix`. To do this, we run the two following commands:
 
 .. code:: bash
 

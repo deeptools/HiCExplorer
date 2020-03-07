@@ -31,7 +31,7 @@ Reads mapping
 Mates have to be mapped individually to avoid mapper specific heuristics designed
 for standard paired-end libraries.
 
-We have used the HiCExplorer sucessfuly with `bwa`, `bowtie2` and `hisat2`. However, it is important to:
+We have used the HiCExplorer successfully with `bwa`, `bowtie2` and `hisat2`. However, it is important to:
 
  * for either `bowtie2`or `hisat2` use the `--reorder` parameter which tells bowtie2 or hisat2 to output
    the *sam* files in the **exact** same order as in the *.fastq* files.
@@ -167,7 +167,7 @@ plot the counts using the `--log1p` option.
 Quality control of Hi-C data and biological replicates comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-HiCExplorer integrates multiple tools that allow the evualuation of the quality of Hi-C libraries and matrices.
+HiCExplorer integrates multiple tools that allow the evaluation of the quality of Hi-C libraries and matrices.
 
 - hicQC on the log files produced by hicBuildMatrix and control of the pdf file produced.
 
