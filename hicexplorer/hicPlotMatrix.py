@@ -1,33 +1,32 @@
+import logging
+from collections import OrderedDict
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib.gridspec as gridspec
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+import matplotlib
+import argparse
+from past.builtins import zip
+import pyBigWig
+import numpy as np
+from hicexplorer._version import __version__
+from hicexplorer.utilities import check_cooler
+from hicexplorer.utilities import check_chrom_str_bytes
+from hicexplorer.utilities import remove_non_ascii
+from hicexplorer.utilities import change_chrom_names
+from hicexplorer.utilities import enlarge_bins
+from hicexplorer.utilities import toString, toBytes
+from hicexplorer.utilities import writableFile
+from hicmatrix import HiCMatrix
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-from hicmatrix import HiCMatrix
-from hicexplorer.utilities import writableFile
-from hicexplorer.utilities import toString, toBytes
-from hicexplorer.utilities import enlarge_bins
-from hicexplorer.utilities import change_chrom_names
-from hicexplorer.utilities import remove_non_ascii
-from hicexplorer.utilities import check_chrom_str_bytes
-from hicexplorer.utilities import check_cooler
 
 
-from hicexplorer._version import __version__
-import numpy as np
-import pyBigWig
-from past.builtins import zip
-
-import argparse
-import matplotlib
 matplotlib.use('Agg')
-from matplotlib.colors import LogNorm
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.gridspec as gridspec
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from collections import OrderedDict
 
-import logging
 log = logging.getLogger(__name__)
 
 
@@ -142,12 +141,25 @@ def parse_arguments(args=None):
                            help='Scale the values of a bigwig file by the given factor.',
                            type=float,
                            default=1.0)
+    parserOpt.add_argument('--fontsize',
+                           help='Fontsize in the plot for x and y axis.',
+                           type=float,
+                           default=10)
+    parserOpt.add_argument('--rotationX',
+                           help='Rotation in degrees for the labels of x axis.',
+                           type=float,
+                           default=0)
+    parserOpt.add_argument('--rotationY',
+                           help='Rotation in degrees for the labels of y axis.',
+                           type=float,
+                           default=0)
     parserOpt.add_argument('--loops',
                            help='Bedgraph file to plot detected long range contacts '
                            'from hicDetectLoops.',
                            type=str,
                            default=None)
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
+    parserOpt.add_argument('--help', '-h', action='help',
+                           help='show this help message and exit')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -185,7 +197,8 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         # a small chromosome (eg. contig) is present.
         # Otherwise, pcolormesh will throw an error if the matrix size is 1.
         chr_names = " ".join([toString(x) for x in chrBinBoundaries.keys()])
-        log.info("Matrix for {} too small to plot. Matrix size: {}".format(chr_names, ma.shape))
+        log.info("Matrix for {} too small to plot. Matrix size: {}".format(
+            chr_names, ma.shape))
         return
     if pAxis is not None:
         axHeat2 = pAxis
@@ -200,18 +213,22 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
 
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
 
-    img3 = axHeat2.pcolormesh(xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
+    img3 = axHeat2.pcolormesh(
+        xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
     img3.set_rasterized(True)
 
     if args.region:
         xtick_lables = relabel_ticks(axHeat2.get_xticks())
         axHeat2.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
-        axHeat2.set_xticklabels(xtick_lables, size='small', rotation=45)
+        axHeat2.set_xticklabels(
+            xtick_lables, size='small', rotation=args.rotationX)
 
         ytick_lables = relabel_ticks(axHeat2.get_yticks())
         axHeat2.get_yaxis().set_tick_params(which='both', bottom='on', direction='out')
         axHeat2.set_yticklabels(ytick_lables, size='small')
         xticks = [xtick_lables]
+        log.debug("223")
+
         """
         axHeat2.set_xticks([0, ma.shape[0]])
         axHeat2.set_xticklabels([args.region[1], args.region[2]], size=4, rotation=90)
@@ -232,14 +249,21 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         xticks = [labels, ticks]
 
         if len(labels) > 20:
-            axHeat2.set_xticklabels(labels, size=4, rotation=90)
+            log.debug("243")
+
+            axHeat2.set_xticklabels(
+                labels, rotation=args.rotationX, fontsize=args.fontsize)
             # axHeat2.set_xticklabels(labels, size=4)
 
-            axHeat2.set_yticklabels(labels, size=4)
+            axHeat2.set_yticklabels(
+                labels, rotation=args.rotationY, fontsize=args.fontsize)
 
         else:
-            axHeat2.set_xticklabels(labels, size=8)
-            axHeat2.set_yticklabels(labels, size=8)
+            log.debug("249")
+            axHeat2.set_xticklabels(
+                labels, rotation=args.rotationX, fontsize=args.fontsize)
+            axHeat2.set_yticklabels(
+                labels, rotation=args.rotationY, fontsize=args.fontsize)
 
     if pBigwig is None:
         divider = make_axes_locatable(axHeat2)
@@ -249,22 +273,24 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
 
     cbar = fig.colorbar(img3, cax=cax)
 
-    cbar.solids.set_edgecolor("face")  # to avoid white lines in the color bar in pdf plots
+    # to avoid white lines in the color bar in pdf plots
+    cbar.solids.set_edgecolor("face")
     if args.scoreName:
         # cbar.ax.set_ylabel(args.scoreName, rotation=270, size=8)
         cbar.ax.set_ylabel(args.scoreName, size=8)
 
     if ylabel is not None:
         ylabel = toString(ylabel)
-        axHeat2.set_ylabel(ylabel)
+        axHeat2.set_ylabel(ylabel, fontsize=args.fontsize)
 
     if xlabel is not None:
         xlabel = toString(xlabel)
-        axHeat2.set_xlabel(xlabel)
+        axHeat2.set_xlabel(xlabel, fontsize=args.fontsize)
     if pLoops:
         log.debug('pLoops called')
 
-        plotLongRangeContacts(axHeat2, pLoops, pHiCMatrix, args.region, args.chromosomeOrder)
+        plotLongRangeContacts(axHeat2, pLoops, pHiCMatrix,
+                              args.region, args.chromosomeOrder)
         # pLongRangeContacts=None, pHiCMatrix=None
         # plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix)
     axHeat2.invert_yaxis()
@@ -295,7 +321,8 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                 log.debug('294')
 
                 plotBigwig(_axis, pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=chrBinBoundaries,
-                           pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=vertical_flip[i],
+                           pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=vertical_flip[
+                               i],
                            pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
 
 
@@ -358,7 +385,8 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
         row = idx // chrom_per_row
         col = idx % chrom_per_row
         if pBigwig:
-            bigwig_info = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': hic_matrix.nan_bins}
+            bigwig_info = {'args': args, 'axis': None,
+                           'axis_colorbar': None, 'nan_bins': hic_matrix.nan_bins}
 
             # inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07],
             #                                               subplot_spec=grids[row, col], wspace=0.1, hspace=0.1)
@@ -421,8 +449,10 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
 
             except Exception:
                 log.debug("Clearing of matrix failed.")
-            log.debug("any nanafter remove of nan: {}".format(np.isnan(matrix).any()))
-            log.debug("any inf after remove of inf: {}".format(np.isinf(matrix).any()))
+            log.debug("any nanafter remove of nan: {}".format(
+                np.isnan(matrix).any()))
+            log.debug("any inf after remove of inf: {}".format(
+                np.isinf(matrix).any()))
         if args.log1p:
             matrix += 1
             norm = LogNorm()
@@ -434,7 +464,8 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
         chr_bin_boundary[chrname] = hic_matrix.get_chromosome_sizes()[chrname]
 
         args.region = toString(chrname)
-        chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, hic_matrix)
+        chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(
+            args, hic_matrix)
         plotHeatmap(matrix, chr_bin_boundary, fig, None,
                     args, cmap, xlabel=chrname, ylabel=chrname,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pBigwig=bigwig_info)
@@ -459,7 +490,8 @@ def getRegion(args, ma):
         #     chrom = toBytes(chrom)
 
         if chrom not in list(ma.interval_trees):
-            exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
+            exit(
+                "Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 
     args.region = [chrom, region_start, region_end]
     is_cooler = check_cooler(args.matrix)
@@ -484,7 +516,8 @@ def getRegion(args, ma):
             # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
             #     chrom2 = toBytes(chrom)
             if chrom2 not in list(ma.interval_trees):
-                exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
+                exit(
+                    "Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
         if is_cooler:
             idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and  # noqa: W504
                                      ((x[1] >= region_start2 and x[2] < region_end2) or                           # noqa: W504
@@ -519,7 +552,8 @@ def main(args=None):
         exit(1)
 
     if args.bigwig is not None and len(args.bigwig) > 1 and args.bigwigAdditionalVerticalAxis:
-        log.error('Either multiple bigwig files on x axis or additional vertical axis are supported')
+        log.error(
+            'Either multiple bigwig files on x axis or additional vertical axis are supported')
     # if args.region and args.region2 and args.bigwig:
     #     log.error("Inter-chromosomal pca is not supported.")
     #     exit(1)
@@ -555,7 +589,8 @@ def main(args=None):
             ma.setCutIntervals(new_intervals)
 
         if args.region:
-            chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
+            chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(
+                args, ma)
 
         matrix = np.asarray(ma.matrix.todense().astype(float))
         matrix_length = len(matrix[0])
@@ -587,13 +622,16 @@ def main(args=None):
                             "the correct spelling of the chromosome names. \n")
                 log.warning("\n".join(invalid_chromosomes))
             ma.reorderChromosomes(valid_chromosomes)
-
-        log.info("min: {}, max: {}\n".format(ma.matrix.data.min(), ma.matrix.data.max()))
+            chrom = None
+        log.info("min: {}, max: {}\n".format(
+            ma.matrix.data.min(), ma.matrix.data.max()))
 
         if args.region:
-            chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(args, ma)
+            chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(
+                args, ma)
 
-            matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
+            matrix = np.asarray(
+                ma.matrix[idx1, :][:, idx2].todense().astype(float))
 
         else:
             log.debug("Else branch")
@@ -604,7 +642,8 @@ def main(args=None):
 
     for matrix_ in matrix:
         if not matrix_length == len(matrix_):
-            log.error("Matrices do not have the same length: {} , {}".format(matrix_length, len(matrix_)))
+            log.error("Matrices do not have the same length: {} , {}".format(
+                matrix_length, len(matrix_)))
 
     cmap = cm.get_cmap(args.colorMap)
     log.debug("Nan values set to black\n")
@@ -612,7 +651,8 @@ def main(args=None):
 
     bigwig_info = None
     if args.bigwig:
-        bigwig_info = {'args': args, 'axis': None, 'axis_colorbar': None, 'nan_bins': ma.nan_bins}
+        bigwig_info = {'args': args, 'axis': None,
+                       'axis_colorbar': None, 'nan_bins': ma.nan_bins}
 
     if args.perChromosome:
         log.debug('583')
@@ -626,7 +666,8 @@ def main(args=None):
             try:
                 matrix[mask] = np.nanmin(matrix[mask == False])
             except ValueError:
-                log.info('Matrix contains only 0. Set all values to {}'.format(np.finfo(float).tiny))
+                log.info('Matrix contains only 0. Set all values to {}'.format(
+                    np.finfo(float).tiny))
                 matrix[mask] = np.finfo(float).tiny
             if np.isnan(matrix).any() or np.isinf(matrix).any():
                 log.debug("any nan {}".format(np.isnan(matrix).any()))
@@ -636,8 +677,10 @@ def main(args=None):
                 matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
                 matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
 
-        log.debug("any nan after remove of nan: {}".format(np.isnan(matrix).any()))
-        log.debug("any inf after remove of inf: {}".format(np.isinf(matrix).any()))
+        log.debug("any nan after remove of nan: {}".format(
+            np.isnan(matrix).any()))
+        log.debug("any inf after remove of inf: {}".format(
+            np.isinf(matrix).any()))
         if args.log1p:
             matrix += 1
             norm = LogNorm()
@@ -667,7 +710,8 @@ def main(args=None):
                 bigwig_heights = [_ratio] * number_of_rows_plot
 
             if args.bigwigAdditionalVerticalAxis:
-                gs = gridspec.GridSpec(1 + len(args.bigwig), 3, height_ratios=[0.90, 0.1], width_ratios=[0.15, 0.82, 0.03])
+                gs = gridspec.GridSpec(
+                    1 + len(args.bigwig), 3, height_ratios=[0.90, 0.1], width_ratios=[0.15, 0.82, 0.03])
                 gs.update(hspace=0.05, wspace=0.05)
                 bigwig_vertical_axis = plt.subplot(gs[0, 0])
                 ax1 = plt.subplot(gs[0, 1])
@@ -679,7 +723,8 @@ def main(args=None):
                 bigwig_info['axis_vertical'] = bigwig_vertical_axis
             else:
                 # [0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
-                gs = gridspec.GridSpec(1 + len(args.bigwig), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *bigwig_heights], width_ratios=[0.97, 0.03])
+                gs = gridspec.GridSpec(1 + len(args.bigwig), 2, height_ratios=[0.95 - (
+                    0.07 * number_of_rows_plot), *bigwig_heights], width_ratios=[0.97, 0.03])
                 gs.update(hspace=0.05, wspace=0.05)
                 ax1 = plt.subplot(gs[0, 0])
                 ax2_list = []
@@ -697,6 +742,7 @@ def main(args=None):
             start_pos1 = make_start_pos_array(ma)
 
         position = [left_margin, bottom, width, height]
+        log.debug("chrom {} {}".format(chrom, chrom2))
         plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
@@ -777,7 +823,8 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 if chrom not in list(bw.chroms().keys()):
                     chrom = change_chrom_names(chrom)
                     if chrom not in list(bw.chroms().keys()):
-                        log.info("bigwig file has no chromosome named: {}.".format(chrom))
+                        log.info(
+                            "bigwig file has no chromosome named: {}.".format(chrom))
                         return
 
                 # the bigwig file may end before the region end, to avoid and error
@@ -787,9 +834,11 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 # TODO, this could be a parameters
                 num_bins = min(1000, int(bigwig_end - region_start) / 10)
 
-                scores_per_bin = np.array(bw.stats(chrom, region_start, bigwig_end, nBins=num_bins)).astype(float)
+                scores_per_bin = np.array(
+                    bw.stats(chrom, region_start, bigwig_end, nBins=num_bins)).astype(float)
                 if scores_per_bin is None:
-                    log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
+                    log.info(
+                        "Chromosome {} has no entries in bigwig file.".format(chrom))
                     return
 
                 _x_vals = np.linspace(region_start, region_end, num_bins)
@@ -807,20 +856,24 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                     chrom_ = check_chrom_str_bytes(bw.chroms(), chrom)
 
                     if chrom_ not in list(bw.chroms().keys()):
-                        log.info("bigwig file as no chromosome named: {}.".format(chrom))
+                        log.info(
+                            "bigwig file as no chromosome named: {}.".format(chrom))
                         return
                     # chrom = check_chrom_str_bytes(pChromosomeSizes, chrom)
                     # set the bin size to approximately 100kb
                     # or to the chromosome size if this happens to be less than 100kb
                     chunk_size = min(1e5, pChromosomeSizes[chrom])
                     num_bins = int(pChromosomeSizes[chrom] / chunk_size)
-                    scores_per_bin = np.array(bw.stats(chrom_, 0, pChromosomeSizes[chrom], nBins=num_bins)).astype(float)
+                    scores_per_bin = np.array(
+                        bw.stats(chrom_, 0, pChromosomeSizes[chrom], nBins=num_bins)).astype(float)
 
                     if scores_per_bin is None:
-                        log.info("Chromosome {} has no entries in bigwig file.".format(chrom))
+                        log.info(
+                            "Chromosome {} has no entries in bigwig file.".format(chrom))
                         return
 
-                    _x_vals = np.linspace(chrom_length_sum, chrom_length_sum + pChromosomeSizes[chrom], num_bins)
+                    _x_vals = np.linspace(
+                        chrom_length_sum, chrom_length_sum + pChromosomeSizes[chrom], num_bins)
                     assert len(_x_vals) == len(scores_per_bin)
                     x_values.extend(_x_vals)
                     bigwig_scores.extend(scores_per_bin)
@@ -844,9 +897,11 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
 
             if x_values is not None and bigwig_scores is not None:
                 if pVertical:
-                    pAxis[i].fill_between(np.flip(bigwig_scores, 0), x_values, edgecolor='none')
+                    pAxis[i].fill_between(
+                        np.flip(bigwig_scores, 0), x_values, edgecolor='none')
                 else:
-                    pAxis[i].fill_between(x_values, 0, bigwig_scores, edgecolor='none')
+                    pAxis[i].fill_between(
+                        x_values, 0, bigwig_scores, edgecolor='none')
 
 
 def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion, pChromosomeOrder):
@@ -878,4 +933,5 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
             pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
             pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
 
-        pAxis.plot(x_list, y_list, 's', lw=2, markerfacecolor='none', markeredgecolor='red')
+        pAxis.plot(x_list, y_list, 's', lw=2,
+                   markerfacecolor='none', markeredgecolor='red')
