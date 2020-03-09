@@ -1,6 +1,31 @@
 News and Developments
 =====================
 
+Release 3.4.2
+-------------
+**7 March 2020**
+
+- This release fixes the wrong name scheme which was used in the chicModules. The most .bed files are now .txt files.
+- hicDetectLoops got an inner chromosome parallelization to decrease the compute time.
+- hicPlotMatrix got three new parameters: rotationX, rotationY and fontSize to adjust the position and font size of the labels. We hope this can lead in certain cases to a a better readability
+- hicPlotMatrix: fixed a bug that occurred if the list of chromosomes was given and the last chromosome appeared as an additional label. 
+- Improving and updating the documentation.
+
+
+Preprint
+--------
+**6 March 2020*
+
+The preprint of the loop detection algorithm is online via biorXiv: `<https://www.biorxiv.org/content/10.1101/2020.03.05.979096v1>`_
+
+
+
+Release 3.4.1
+-------------
+**3 February 2020**
+
+- This release fixes a bug in chicViewpoint that caused a crash if the data to be averaged is less than the window size.
+
 Release 3.4
 -----------
 **28 January 2020**

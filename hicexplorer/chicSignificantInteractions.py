@@ -79,7 +79,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
     parserOpt.add_argument('--outFileNameSuffix', '-suffix',
                            help='File name suffix to save the results; prefix is the input file name.',
                            required=False,
-                           default='_significant_interactions.bed')
+                           default='_significant_interactions.txt')
 
     parserOpt.add_argument('--interactionFileFolder', '-iff',
                            help='Folder where the interaction files are stored. Applies only for batch mode.',
@@ -197,7 +197,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         target_list = [item for sublist in target_list for item in sublist]
         log.debug('interactionFile {}'.format(interactionFile))
         sample_name = '_'.join(interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:])
-        target_name = sample_prefix + sample_name + '_target.bed'
+        target_name = sample_prefix + sample_name + '_target.txt'
         target_outfile_names.append(target_name)
         target_name = pArgs.targetFolder + '/' + target_name
         writeTargetList(target_list, target_name, pArgs)

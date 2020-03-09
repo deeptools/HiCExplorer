@@ -28,12 +28,12 @@ chicPlotViewpoint plots one or many viewpoints with the average background model
 
 An example usage is:
 
-`$ chicPlotViewpoint --interactionFile viewpoint1.bed viewpoint2.bed --range 500000 500000  --backgroundModelFile background_model.bed --pValue --outFileName viewpoint1_2.png --dpi 300`
+`$ chicPlotViewpoint --interactionFile viewpoint1.txt viewpoint2.txt --range 500000 500000  --backgroundModelFile background_model.txt --pValue --outFileName viewpoint1_2.png --dpi 300`
 
 
 In batch mode the list of file names and the folders containing the files need to be given:
 
-`$ chicPlotViewpoint --interactionFile viewpoint_names.txt -interactionFileFolder viewpointFilesFolder --differentialTestResult rejected_H0.txt --differentialTestResultsFolder differentialFolder --range 500000 500000 --backgroundModelFile background_model.bed --pValue --outputFolder plotsFOlder --dpi 300 --threads 20`
+`$ chicPlotViewpoint --interactionFile viewpoint_names.txt -interactionFileFolder viewpointFilesFolder --differentialTestResult rejected_H0.txt --differentialTestResultsFolder differentialFolder --range 500000 500000 --backgroundModelFile background_model.txt --pValue --outputFolder plotsFOlder --dpi 300 --threads 20`
 
 """
                                      )

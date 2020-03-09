@@ -446,27 +446,24 @@ In following plot we will use the listed track file. Please store it as track.in
     depth = 2000000
     height = 7
     transform = log1p
-    x labels = yes
-    type = interaction
     file_type = hic_matrix
    
     [tads]
     file = TADs/marks_et-al_TADs_20kb-Bins_domains.bed
     file_type = domains
-    border color = black
+    border_color = black
     color = none
-    height = 5
-    line width = 1.5
-    overlay previous = share-y
-    show data range = no
+    line_width = 1.5
+    overlay_previous = share-y
+    show_data_range = no
 
     [x-axis]
-    fontsize=16
-    where=top
+    fontsize = 16
+    where = top
 
     [tad score]
     file = TADs/marks_et-al_TADs_20kb-Bins_score.bm
-    title = "TAD separation score"
+    title = TAD separation score
     height = 4
     file_type = bedgraph_matrix
 
@@ -475,8 +472,8 @@ In following plot we will use the listed track file. Please store it as track.in
     [gene track]
     file = mm10_genes_sorted.bed
     height = 10
-    title = "mm10 genes"
-    labels = off
+    title = mm10 genes
+    labels = false
   
 
 We used as a gene track `mm10 genes <https://github.com/lucapinello/Haystack/blob/master/gene_annotations/mm10_genes.bed>`__ and

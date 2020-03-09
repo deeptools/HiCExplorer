@@ -23,7 +23,7 @@ Description
 Usage example
 ^^^^^^^^^^^^^
 
-:doc:`hicPlotDistVsCounts` should be used on corrected matrices with large bins (e.g. at least 50kb bins), otherwise the curves will be very spiky and unstable at longer ranges because of the sparness of the contacts. The tool :doc:`hicMergeMatrixBins` can be used to merge matrix bins and the tool :doc:`hicCorrectMatrix` can be used for matrix correction before using :doc:`hicPlotDistVsCounts`.
+:doc:`hicPlotDistVsCounts` should be used on corrected matrices with large bins (e.g. at least 50kb bins), otherwise the curves will be very spiky and unstable at longer ranges because of the sparseness of the contacts. The tool :doc:`hicMergeMatrixBins` can be used to merge matrix bins and the tool :doc:`hicCorrectMatrix` can be used for matrix correction before using :doc:`hicPlotDistVsCounts`.
 
 .. code:: bash
 
@@ -39,4 +39,4 @@ Usage example
     
 .. image:: ../../images/counts_vs_dist_50_bins_merged.png
 
-Here, we see that the samples of the first condition are not so well correlated, but they follow the same tendancies and are distinct from the two samples of the second condition. The later are well correlated and display enriched long-range contacts compared to the samples of the first condition.
+Here, we see that the samples of the first condition are not so well correlated, but they follow the same tendencies and are distinct from the two samples of the second condition. The later are well correlated and display enriched long-range contacts compared to the samples of the first condition.

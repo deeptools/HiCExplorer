@@ -77,33 +77,31 @@ def main(args=None):
 
     matrix = matrix.toarray()
     matrix = np.triu(matrix)
-    matrix = rotate(matrix, 45)
+    matrix = rotate(matrix, 45, cval=np.nan)
     matrix_shapes = matrix.shape
     matrix = matrix[:matrix_shapes[0] // 2, :]
-    norm = None
-    if args.vMax is not None or args.vMin is not None:
-        matrix = matrix.clip(min=args.vMin, max=args.vMax)
-    if args.log1p or args.log:
-
-        mask = matrix == 0
-        mask_nan = np.isnan(matrix)
-        mask_inf = np.isinf(matrix)
-
-        try:
-            matrix[mask] = np.nanmin(matrix[mask == False])
-            matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
-            matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
-        except Exception:
-            log.warning('Clearing of matrix failed. Plotting can fail.')
-        if args.log1p:
-            matrix += 1
-            norm = LogNorm()
-
-        elif args.log:
-            norm = LogNorm()
+    if args.log1p:
+        matrix += 1
 
     fig = plt.figure()
     axis = plt.gca()
+    # Force the scale to correspond to vMin vMax even if these values
+    # are not in the range.
+    if args.log:
+        norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
+    elif args.log1p:
+        if args.vMin is not None:
+            vMin = args.vMin + 1
+        else:
+            vMin = None
+        if args.vMax is not None:
+            vMax = args.vMax + 1
+        else:
+            vMax = None
+        norm = LogNorm(vmin=vMin, vmax=vMax)
+    else:
+        norm = matplotlib.colors.Normalize(vmin=args.vMin, vmax=args.vMax)
+
     matrix_axis = axis.matshow(matrix, cmap=args.colorMap, norm=norm)
     divider = make_axes_locatable(axis)
     cax = divider.append_axes("right", size="5%", pad=0.05)

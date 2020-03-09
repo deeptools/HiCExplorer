@@ -66,7 +66,7 @@ The cool data format allows to use the following options:
 - correction_name: In case correction factors are not stored in 'weight' the correct column name can be defined using this parameter and the resulting matrix will store the values in 'weight'.
 - correction_division: Correction factors can be applied by a multiplication or a division. The default behaviour is to use the multiplication, in case the correction factors are inverted, set this parameter.
 - store_applied_correction: Set this parameter if correction factors should be applied on the data and should be written back to colum 'counts' in the corrected form and not as raw. Default: not set.
-- chromosomes: Define a list of chromosomes which should be included in the output matrix. All chromosomes which are not defined are not part of the new matrix. This parameter can speed up the processing especiallly if only one chromosome is used.
+- chromosomes: Define a list of chromosomes which should be included in the output matrix. All chromosomes which are not defined are not part of the new matrix. This parameter can speed up the processing especially if only one chromosome is used.
 - enforce_integer: Raw interaction data is stored as integers, after the correction is applied the data is a float. Set a this parameter to enforce integer values in the new matrix.
 - load_raw_values: Set this parameter if the interaction data should not be loaded with the correction factors.
 

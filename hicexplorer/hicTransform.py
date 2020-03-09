@@ -50,7 +50,7 @@ def parse_arguments(args=None):
                            'obs_exp_non_zero computes the expected matrix as '
                            'the sum per genomic distance j divided by sum of '
                            'non-zero contacts: sum(diagonal(j) / number of non-zero elements in diagonal(j)'
-                           'Optionaly, ``--ligation_factor` can be used for this '
+                           'Optionally, ``--ligation_factor` can be used for this '
                            'method as has been used by HOMER software. If --ligation_factor, '
                            'then exp_i,j = exp_i,j * sum(row(i)) * sum(row(j)) / sum(matrix)'
                            'pearson computes the Pearson correlation of '

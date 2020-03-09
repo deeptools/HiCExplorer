@@ -104,7 +104,8 @@ def adjustMatrix(pArgs):
                     if chrom in chromosomes_list:
                         genomic_regions.append((chrom, start, end))
                     else:
-                        log.warning('Chromosome not available in matrix, ignoring regions: {} {}'.format(pArgs.matrix, chrom))
+                        log.warning('Chromosome not available in matrix, '
+                                    'ignoring regions: {} {}'.format(pArgs.matrix, chrom))
         if len(genomic_regions) == 0:
             log.error('No valid chromosome given. Available: {}'.format(chromosomes_list))
             exit(1)

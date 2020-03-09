@@ -93,6 +93,12 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            default=4,
                            type=int
                            )
+    parserOpt.add_argument('--threadsPerChromosome', '-tpc',
+                           help='Number of threads to use per parallel thread processing a chromosome. E.g. --threads = 4 and --threadsPerChromosome = 4 makes 4 * 4 = 16 threads in total.',
+                           required=False,
+                           default=4,
+                           type=int
+                           )
     parserOpt.add_argument('--statisticalTest', '-st',
                            help='Which statistical test should be used.',
                            required=False,
@@ -128,10 +134,52 @@ def create_distance_distribution(pData, pDistances):
     return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value
 
 
+def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistributionsKeyList,
+                          pPValuePreselection, pMask, pGenomicDistanceDistributionPosition, pQueue):
+
+    # mask = [False] * len(pGenomicDistanceDistributionsKeyList)
+
+    if len(pGenomicDistanceDistributionsKeyList) == 0:
+        pQueue.put(pMask)
+        return
+
+    for i, key in enumerate(pGenomicDistanceDistributionsKeyList):
+        nbinom_parameters = fit_nbinom.fit(
+            np.array(pGenomicDistanceDistributions[key]))
+        nbinom_distance = nbinom(
+            nbinom_parameters['size'], nbinom_parameters['prob'])
+        less_than = np.array(
+            pGenomicDistanceDistributions[key]).astype(int) - 1
+        mask_less_than = less_than < 0
+        less_than[mask_less_than] = 1
+
+        if len(less_than) <= 0:
+            continue
+        max_element = np.max(less_than)
+        if max_element <= 0:
+            continue
+        max_element = np.max(less_than)
+        sum_of_densities = np.zeros(max_element)
+        for j in range(max_element):
+            if j >= 1:
+                sum_of_densities[j] += sum_of_densities[j - 1]
+            sum_of_densities[j] += nbinom_distance.pmf(j)
+        # if len(sum_of_densities) > less_than - 1:
+        p_value = 1 - sum_of_densities[less_than - 1]
+        mask_distance = p_value < pPValuePreselection
+        # else:
+        for j, value in enumerate(mask_distance):
+            if value:
+                pMask[pGenomicDistanceDistributionPosition[key][j]] = True
+
+    pQueue.put(pMask)
+    return
+
+
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                                 pMaximumInteractionPercentageThreshold, pPValue, pPeakWindowSize,
                                 pPValuePreselection, pStatisticalTest, pMinimumInteractionsThreshold,
-                                pMinLoopDistance, pMaxLoopDistance):
+                                pMinLoopDistance, pMaxLoopDistance, pThreads):
     """
         This function computes the loops by:
             - decreasing the search space by removing values with p-values > pPValuePreselection
@@ -154,42 +202,74 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             - A list of detected loops [(x,y)] and x, y are matrix index values
             - An associated list of p-values
     """
+
     instances, features = pHiCMatrix.matrix.nonzero()
     distance = np.absolute(instances - features)
     mask = [False] * len(distance)
+
     genomic_distance_distributions, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value = create_distance_distribution(
         pHiCMatrix.matrix.data, distance)
-    nbinom_parameters = {}
-    for i, key in enumerate(genomic_distance_distributions):
-        nbinom_parameters = fit_nbinom.fit(
-            np.array(genomic_distance_distributions[key]))
-        nbinom_distance = nbinom(
-            nbinom_parameters['size'], nbinom_parameters['prob'])
-        less_than = np.array(
-            genomic_distance_distributions[key]).astype(int) - 1
-        mask_less_than = less_than < 0
-        less_than[mask_less_than] = 1
-        if len(less_than) <= 0:
+
+    # nbinom_parameters = {}
+    genomic_distance_distributions_thread = len(genomic_distance_distributions) // pThreads
+
+    queue = [None] * pThreads
+    process = [None] * pThreads
+    mask_threads = [None] * pThreads
+    # for i, key in enumerate(genomic_distance_distributions):
+    # compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistributionsKeyList, pMask, pIndex, pPValuePreselection)
+    all_data_collected = False
+    thread_done = [False] * pThreads
+    genomic_keys_list = list(genomic_distance_distributions.keys())
+    # index_counter = 0
+    for i in range(pThreads):
+
+        if i < pThreads - 1:
+            genomic_distance_keys_thread = genomic_keys_list[i * genomic_distance_distributions_thread:(i + 1) * genomic_distance_distributions_thread]
+        else:
+            genomic_distance_keys_thread = genomic_keys_list[i * genomic_distance_distributions_thread:]
+        # index_pos = index_counter
+        # index_counter += len(genomic_distance_keys_thread)
+        if len(genomic_distance_keys_thread) == 0:
+
+            process[i] = None
+            queue[i] = None
+            thread_done[i] = True
+
+            mask_threads[i] = [False] * len(distance)
             continue
-        max_element = np.max(less_than)
-        if max_element <= 0:
-            continue
-        max_element = np.max(less_than)
-        sum_of_densities = np.zeros(max_element)
+        else:
+            queue[i] = Queue()
+            process[i] = Process(target=compute_p_values_mask, kwargs=dict(
+                pGenomicDistanceDistributions=genomic_distance_distributions,
+                pGenomicDistanceDistributionsKeyList=genomic_distance_keys_thread,
+                pPValuePreselection=pPValuePreselection,
+                pMask=mask,
+                pGenomicDistanceDistributionPosition=pGenomicDistanceDistributionPosition,
+                pQueue=queue[i]
+            )
+            )
 
-        for j in range(max_element):
-            if j >= 1:
-                sum_of_densities[j] += sum_of_densities[j - 1]
-            sum_of_densities[j] += nbinom_distance.pmf(j)
+            process[i].start()
 
-        # if len(sum_of_densities) > less_than - 1:
-        p_value = 1 - sum_of_densities[less_than - 1]
-        mask_distance = p_value < pPValuePreselection
-        # else:
+    while not all_data_collected:
+        for i in range(pThreads):
+            if queue[i] is not None and not queue[i].empty():
+                mask_threads[i] = queue[i].get()
+                queue[i] = None
+                process[i].join()
+                process[i].terminate()
+                process[i] = None
+                thread_done[i] = True
+                log.debug("276")
+        all_data_collected = True
+        for thread in thread_done:
+            if not thread:
+                all_data_collected = False
+        time.sleep(1)
 
-        for j, value in enumerate(mask_distance):
-            if value:
-                mask[pGenomicDistanceDistributionPosition[key][j]] = True
+    for mask_i in mask_threads:
+        mask = np.logical_or(mask, mask_i)
 
     peak_interaction_threshold_array = np.zeros(len(distance))
     for i, key in enumerate(distance):
@@ -198,12 +278,16 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     mask = np.logical_and(mask, mask_interactions)
 
+    mask_interactions_hard_threshold = pHiCMatrix.matrix.data > pMinimumInteractionsThreshold
+    mask = np.logical_and(mask, mask_interactions_hard_threshold)
+
     instances = instances[mask]
     features = features[mask]
 
     if len(features) == 0:
         return None, None
     candidates = np.array([*zip(instances, features)])
+    log.debug('compute of neigborhood clustering')
 
     # Clean neighborhood, results in one candidate per neighborhood
     number_of_candidates = 0
@@ -211,14 +295,15 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
         number_of_candidates = len(candidates)
 
         candidates, mask = neighborhood_merge(
-            candidates, pWindowSize, pHiCMatrix.matrix, pMinLoopDistance, pMaxLoopDistance)
+            candidates, pWindowSize, pHiCMatrix.matrix, pMinLoopDistance, pMaxLoopDistance, pThreads)
 
         if len(candidates) == 0:
             return None, None
+    log.debug('call of test')
 
     candidates, p_value_list = candidate_region_test(
         pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
-        pMinimumInteractionsThreshold, pPeakWindowSize, pStatisticalTest)
+        pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pStatisticalTest)
 
     # candidates, p_value_list = candidate_region_test(
     #     pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
@@ -252,26 +337,17 @@ def filter_duplicates(pCandidates):
     return mask
 
 
-def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLoopDistance, pMaxLoopDistance):
-    """
-        Clusters candidates together to one candidate if they share / overlap their neighborhood.
-        Implemented in an iterative way, the candidate with the highest interaction count is accepted as candidate for the neighborhood.
+def neighborhood_merge_thread(pCandidateList, pWindowSize, pInteractionCountMatrix, pMinLoopDistance, pMaxLoopDistance, pQueue):
 
-        Input:
-            - pCandidates: List of candidates
-            - pWindowSize: integer, neighborhood size (2*pWindowSize)^2
-            - pInteractionCountMatrix: csr_matrix: The interaction count matrix
-
-        Returns:
-            - Reduced list of candidates with no more overlapping neighborhoods
-    """
-    x_max = pInteractionCountMatrix.shape[0]
-    y_max = pInteractionCountMatrix.shape[1]
     new_candidate_list = []
 
-    for candidate in pCandidates:
+    if len(pCandidateList) == 0:
+        pQueue.put(new_candidate_list)
+        return
+    x_max = pInteractionCountMatrix.shape[0]
+    y_max = pInteractionCountMatrix.shape[1]
 
-        # get neighborhood out of pInteractionCountMatrix matrix
+    for candidate in pCandidateList:
         start_x = candidate[0] - \
             pWindowSize if candidate[0] - pWindowSize > 0 else 0
         end_x = candidate[0] + pWindowSize if candidate[0] + \
@@ -298,6 +374,110 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLo
         if np.absolute(candidate_x - candidate_y) < pMinLoopDistance or np.absolute(candidate_x - candidate_y) > pMaxLoopDistance:
             continue
         new_candidate_list.append([candidate_x, candidate_y])
+
+    pQueue.put(new_candidate_list)
+    return
+
+
+def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLoopDistance, pMaxLoopDistance, pThreads):
+    """
+        Clusters candidates together to one candidate if they share / overlap their neighborhood.
+        Implemented in an iterative way, the candidate with the highest interaction count is accepted as candidate for the neighborhood.
+
+        Input:
+            - pCandidates: List of candidates
+            - pWindowSize: integer, neighborhood size (2*pWindowSize)^2
+            - pInteractionCountMatrix: csr_matrix: The interaction count matrix
+
+        Returns:
+            - Reduced list of candidates with no more overlapping neighborhoods
+    """
+    # x_max = pInteractionCountMatrix.shape[0]
+    # y_max = pInteractionCountMatrix.shape[1]
+    new_candidate_list = []
+
+    new_candidate_list_threads = [None] * pThreads
+    interactionFilesPerThread = len(pCandidates) // pThreads
+    all_data_collected = False
+    queue = [None] * pThreads
+    process = [None] * pThreads
+    thread_done = [False] * pThreads
+    # length_of_threads = 0
+    for i in range(pThreads):
+
+        if i < pThreads - 1:
+            candidateThread = pCandidates[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
+        else:
+            candidateThread = pCandidates[i * interactionFilesPerThread:]
+        # length_of_threads += len(candidateThread)
+        queue[i] = Queue()
+        process[i] = Process(target=neighborhood_merge_thread, kwargs=dict(
+            pCandidateList=candidateThread,
+            pWindowSize=pWindowSize,
+            pInteractionCountMatrix=pInteractionCountMatrix,
+            pMinLoopDistance=pMinLoopDistance,
+            pMaxLoopDistance=pMaxLoopDistance,
+            pQueue=queue[i]
+        )
+        )
+        if len(candidateThread) == 0:
+            process[i] = None
+            queue[i] = None
+            thread_done[i] = True
+
+            new_candidate_list_threads[i] = []
+            continue
+        else:
+            process[i].start()
+    # log.debug('length_of_threads {}'.format(length_of_threads))
+    while not all_data_collected:
+        for i in range(pThreads):
+            if queue[i] is not None and not queue[i].empty():
+                new_candidate_list_threads[i] = queue[i].get()
+                # rejected_file_names[i] = background_data_thread
+                queue[i] = None
+                process[i].join()
+                process[i].terminate()
+                process[i] = None
+                thread_done[i] = True
+        all_data_collected = True
+        for thread in thread_done:
+            if not thread:
+                all_data_collected = False
+        time.sleep(1)
+
+    new_candidate_list = [item for sublist in new_candidate_list_threads for item in sublist]
+
+    # for candidate in pCandidates:
+
+    # get neighborhood out of pInteractionCountMatrix matrix
+    # start_x = candidate[0] - \
+    #     pWindowSize if candidate[0] - pWindowSize > 0 else 0
+    # end_x = candidate[0] + pWindowSize if candidate[0] + \
+    #     pWindowSize < x_max else x_max
+    # start_y = candidate[1] - \
+    #     pWindowSize if candidate[1] - pWindowSize > 0 else 0
+    # end_y = candidate[1] + pWindowSize if candidate[1] + \
+    #     pWindowSize < y_max else y_max
+
+    # neighborhood = pInteractionCountMatrix[start_x:end_x,
+    #                                        start_y:end_y].toarray().flatten()
+    # if len(neighborhood) == 0:
+    #     continue
+    # argmax = np.argmax(neighborhood)
+    # x = argmax // (pWindowSize * 2)
+    # y = argmax % (pWindowSize * 2)
+
+    # candidate_x = (candidate[0] - pWindowSize) + \
+    #     x if (candidate[0] - pWindowSize + x) < x_max else x_max - 1
+    # candidate_y = (candidate[1] - pWindowSize) + \
+    #     y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
+    # if candidate_x < 0 or candidate_y < 0:
+    #     continue
+    # if np.absolute(candidate_x - candidate_y) < pMinLoopDistance or np.absolute(candidate_x - candidate_y) > pMaxLoopDistance:
+    #     continue
+    # new_candidate_list.append([candidate_x, candidate_y])
+
     mask = filter_duplicates(new_candidate_list)
 
     if mask is not None and len(mask) == 0:
@@ -333,44 +513,15 @@ def get_test_data(pNeighborhood, pVertical):
     return return_list
 
 
-def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                          pMinimumInteractionsThreshold, pPeakWindowSize, pStatisticalTest=None):
-    """
-        Tests if a candidate is having a significant peak compared to its neighborhood.
-            - smoothes neighborhood in x an y orientation
-            - remove candidate if smoothed peak value < pMinimumInteractionsThreshold
-            - reject candidate if:
-                - mean(peak) < mean(background)
-                - max(peak) < max(background)
-            - Test background vs peak with Mann-Whitney rank test and reject H0 if pvalue < pPValue
-                - Size of background is: (2*pWindowSize)^2 - (2*pPeakWindowSize)^2
-            - Apply multi-test Bonferonni based on pPValue
-
-        Input:
-            - pHiCMatrix: csr_matrix, interaction matrix to extract candidate neighborhood
-            - pCandidates: list of candidates to test for enrichment
-            - pWindowSize: integer, size of neighborhood (2*pWindowSize)^2
-            - pPValue: float, significance level for Mann-Whitney rank test
-            - pMinimumInteractionsThreshold: integer, if smoothed candidate interaction count is less, it will be removed
-            - pPeakWindowSize: size of peak region (2*pPeakWindowSize)^2
-
-        Returns:
-            - List of accepted candidates
-            - List of associated p-values
-    """
-
+def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
+                                 pMinimumInteractionsThreshold, pPeakWindowSize, pQueue, pStatisticalTest=None):
     mask = []
     pvalues = []
+    if len(pCandidates) == 0:
+        pQueue.put([mask, pvalues])
+        return
     x_max = pHiCMatrix.shape[0]
     y_max = pHiCMatrix.shape[1]
-    log.debug('candidate_region_test initial: {}'.format(len(pCandidates)))
-
-    if len(pCandidates) == 0:
-        return None, None
-
-    pCandidates = np.array(pCandidates)
-
-    mask = []
     for i, candidate in enumerate(pCandidates):
 
         if (candidate[0] - pWindowSize) > 0:
@@ -484,6 +635,110 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                     continue
 
         mask.append(False)
+    # pvalues = []
+
+    pQueue.put([mask, pvalues])
+    return
+
+
+def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
+                          pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pStatisticalTest=None):
+    """
+        Tests if a candidate is having a significant peak compared to its neighborhood.
+            - smoothes neighborhood in x an y orientation
+            - remove candidate if smoothed peak value < pMinimumInteractionsThreshold
+            - reject candidate if:
+                - mean(peak) < mean(background)
+                - max(peak) < max(background)
+            - Test background vs peak with Mann-Whitney rank test and reject H0 if pvalue < pPValue
+                - Size of background is: (2*pWindowSize)^2 - (2*pPeakWindowSize)^2
+            - Apply multi-test Bonferonni based on pPValue
+
+        Input:
+            - pHiCMatrix: csr_matrix, interaction matrix to extract candidate neighborhood
+            - pCandidates: list of candidates to test for enrichment
+            - pWindowSize: integer, size of neighborhood (2*pWindowSize)^2
+            - pPValue: float, significance level for Mann-Whitney rank test
+            - pMinimumInteractionsThreshold: integer, if smoothed candidate interaction count is less, it will be removed
+            - pPeakWindowSize: size of peak region (2*pPeakWindowSize)^2
+
+        Returns:
+            - List of accepted candidates
+            - List of associated p-values
+    """
+
+    mask = []
+    pvalues = []
+    # x_max = pHiCMatrix.shape[0]
+    # y_max = pHiCMatrix.shape[1]
+    log.debug('candidate_region_test initial: {}'.format(len(pCandidates)))
+
+    if len(pCandidates) == 0:
+        return None, None
+
+    pCandidates = np.array(pCandidates)
+
+    mask = []
+
+    mask_thread = [None] * pThreads
+    pvalues_thread = [None] * pThreads
+
+    interactionFilesPerThread = len(pCandidates) // pThreads
+    all_data_collected = False
+    queue = [None] * pThreads
+    process = [None] * pThreads
+    thread_done = [False] * pThreads
+    # length_of_threads = 0
+    for i in range(pThreads):
+
+        if i < pThreads - 1:
+            candidateThread = pCandidates[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
+        else:
+            candidateThread = pCandidates[i * interactionFilesPerThread:]
+        # length_of_threads += len(candidateThread)
+        queue[i] = Queue()
+        process[i] = Process(target=candidate_region_test_thread, kwargs=dict(
+            pHiCMatrix=pHiCMatrix,
+            pCandidates=candidateThread,
+            pWindowSize=pWindowSize,
+            pPValue=pPValue,
+            pMinimumInteractionsThreshold=pMinimumInteractionsThreshold,
+            pPeakWindowSize=pPeakWindowSize,
+            pQueue=queue[i],
+            pStatisticalTest=pStatisticalTest
+        )
+        )
+# candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
+        #   pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pStatisticalTest
+        if len(candidateThread) == 0:
+            process[i] = None
+            queue[i] = None
+            thread_done[i] = True
+            pvalues_thread[i] = []
+            mask_thread[i] = []
+            continue
+        else:
+            process[i].start()
+    # log.debug('length_of_threads {}'.format(length_of_threads))
+    while not all_data_collected:
+        for i in range(pThreads):
+            if queue[i] is not None and not queue[i].empty():
+                result_thread = queue[i].get()
+                mask_thread[i], pvalues_thread[i] = result_thread
+                # rejected_file_names[i] = background_data_thread
+                queue[i] = None
+                process[i].join()
+                process[i].terminate()
+                process[i] = None
+                thread_done[i] = True
+        all_data_collected = True
+        for thread in thread_done:
+            if not thread:
+                all_data_collected = False
+        time.sleep(1)
+
+    mask = [item for sublist in mask_thread for item in sublist]
+    pvalues = [item for sublist in pvalues_thread for item in sublist]
 
     # if pStatisticalTest == 'anderson-darling':
     if mask is not None and len(mask) == 0:
@@ -554,7 +809,7 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
                 fh.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % loop_item)
 
 
-def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
+def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
     """
         Master function to compute the loops for one chromosome.
             - Removes all regions smaller minLoopSize, greater maxLoopSize
@@ -570,6 +825,18 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
     # log.debug('pRegion {}'.format(pRegion))
     # log.debug('pHiCMatrix.matrix {}'.format(pHiCMatrix.matrix))
     # log.debug('pHiCMatrix.shape {}'.format(pHiCMatrix.matrix.shape))
+
+    # if pIsCooler:
+    pHiCMatrix = hm.hiCMatrix(pMatrixFile=pArgs.matrix, pChrnameList=[pRegion])
+    if not pIsCooler:
+        # pHiCMatrix.setMatrix(
+        #     deepcopy(matrix), deepcopy(cut_intervals))
+        pHiCMatrix.keepOnlyTheseChr([pRegion])
+
+    if len(pHiCMatrix.matrix.data) == 0:
+        pQueue.put([None])
+        return
+
     if pHiCMatrix.matrix.shape[0] < 5 or pHiCMatrix.matrix.shape[1] < 5:
         log.info('Computed loops for {}: 0'.format(pRegion))
 
@@ -650,7 +917,8 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pQueue=None):
                                                          pArgs.statisticalTest,
                                                          pArgs.peakInteractionsThreshold,
                                                          min_loop_distance,
-                                                         max_loop_distance)
+                                                         max_loop_distance,
+                                                         pArgs.threadsPerChromosome)
 
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
@@ -717,6 +985,8 @@ def main(args=None):
     log.debug('args.matrix {}'.format(args.matrix))
     is_cooler = check_cooler(args.matrix)
     log.debug('is_cooler {}'.format(is_cooler))
+    if args.threadsPerChromosome < 1:
+        args.threadsPerChromosome = 1
     if args.region:
         chrom, region_start, region_end = translate_region(args.region)
 
@@ -748,6 +1018,8 @@ def main(args=None):
         else:
             chromosomes_list = args.chromosomes
 
+        if len(chromosomes_list) < args.threads:
+            args.threads = len(chromosomes_list)
         if len(chromosomes_list) == 1:
             single_core = True
         else:
@@ -763,7 +1035,7 @@ def main(args=None):
                         deepcopy(matrix), deepcopy(cut_intervals))
                     hic_matrix.keepOnlyTheseChr([chromosome])
                 hic_matrix.maskBins(hic_matrix.nan_bins)
-                loops = compute_loops(hic_matrix, chromosome, args)
+                loops = compute_loops(hic_matrix, chromosome, args, is_cooler)
                 if loops is not None:
                     mapped_loops.extend(loops)
         else:
@@ -781,27 +1053,21 @@ def main(args=None):
                             continue
                         queue[i] = Queue()
                         thread_done[i] = False
-                        if is_cooler:
-                            hic_matrix = hm.hiCMatrix(pMatrixFile=args.matrix, pChrnameList=[
-                                                      chromosomes_list[count_call_of_read_input]])
-                        else:
-                            hic_matrix.setMatrix(
-                                deepcopy(matrix), deepcopy(cut_intervals))
-                            hic_matrix.keepOnlyTheseChr(
-                                [chromosomes_list[count_call_of_read_input]])
-                        if len(hic_matrix.matrix.data) > 0:
 
-                            process[i] = Process(target=compute_loops, kwargs=dict(
-                                pHiCMatrix=hic_matrix,
-                                pRegion=chromosomes_list[count_call_of_read_input],
-                                pArgs=args,
-                                pQueue=queue[i]
-                            ))
-                            process[i].start()
+                        # if len(hic_matrix.matrix.data) > 0:
 
-                        else:
-                            queue[i] = None
-                            thread_done[i] = True
+                        process[i] = Process(target=compute_loops, kwargs=dict(
+                            pHiCMatrix=args.matrix,
+                            pRegion=chromosomes_list[count_call_of_read_input],
+                            pArgs=args,
+                            pIsCooler=is_cooler,
+                            pQueue=queue[i]
+                        ))
+                        process[i].start()
+
+                        # else:
+                        #     queue[i] = None
+                        #     thread_done[i] = True
                         if count_call_of_read_input < len(chromosomes_list):
                             count_call_of_read_input += 1
                         else:
