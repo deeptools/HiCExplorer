@@ -89,15 +89,35 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
 def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     sparsity_list = []
+    try:
+        chromosome_names = pViewpointObj.hicMatrix.getChrNames()
+        
+        for i, referencePoint in enumerate(pReferencePoints):
+            if referencePoint is not None and referencePoint[0] in chromosome_names:
 
-    for i, referencePoint in enumerate(pReferencePoints):
-        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
-            referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
-        data_list = pViewpointObj.computeViewpoint(
-            referencePoint, referencePoint[0], region_start, region_end)
-        sparsity = (np.count_nonzero(data_list) / len(data_list))
+                region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
+                    referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
+                # if region_start is None:
+                #     sparsity = 0.0
+                # else:
+                #     if referencePoint is None or referencePoint[0] is None:
+                #         log.debug('referencePoint: {}'.format(referencePoint))
+                #         sparsity = 0.0
+                #     else:
 
-        sparsity_list.append(sparsity)
+                log.debug('referencePoint: {}'.format(referencePoint))
+                try:
+                    data_list = pViewpointObj.computeViewpoint(
+                        referencePoint, referencePoint[0], region_start, region_end)
+                    sparsity = (np.count_nonzero(data_list) / len(data_list))
+                except TypeError:
+                    sparsity = 0.0
+                sparsity_list.append(sparsity)
+            else:
+                sparsity_list.append(0.0)
+    except Exception:
+        pQueue.put('Fail')
+        return
 
     pQueue.put(sparsity_list)
     return
@@ -116,7 +136,7 @@ def main(args=None):
     queue = [None] * args.threads
     process = [None] * args.threads
     sparsity = []
-
+    fail_flag = False
     for j, matrix in enumerate(args.matrices):
         sparsity_local = [None] * args.threads
         hic_ma = hm.hiCMatrix(matrix)
@@ -151,6 +171,8 @@ def main(args=None):
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
                     sparsity_ = queue[i].get()
+                    if sparsity_ == 'Fail':
+                        fail_flag = True
                     sparsity_local[i] = sparsity_
                     queue[i] = None
                     process[i].join()
@@ -167,9 +189,10 @@ def main(args=None):
         del viewpointObj.hicMatrix
 
         # merge sparsity data per matrix from each thread to one list
-
-        sparsity_local = [
-            item for sublist in sparsity_local for item in sublist]
+        if fail_flag:
+            log.error('An error happend.')
+            exit(1)
+        sparsity_local = [item for sublist in sparsity_local for item in sublist]
         sparsity.append(sparsity_local)
 
     # change sparsity to sparsity values per viewpoint per matrix: viewpoint = [matrix1, ..., matrix_n]

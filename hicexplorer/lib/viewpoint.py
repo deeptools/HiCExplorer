@@ -280,12 +280,15 @@ class Viewpoint():
             view_point_start, view_point_end = self.hicMatrix.getRegionBinRange(
                 pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[1]))
         elif len(pReferencePoint) == 3:
+            log.debug('pReferencePoint: {}'.format(pReferencePoint))
             view_point_start, view_point_end = self.hicMatrix.getRegionBinRange(
                 pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[2]))
         else:
             log.error("No valid reference point given. {}".format(
                 pReferencePoint))
             exit(1)
+        log.debug('view_point_start: {} view_point_end {}'.format(view_point_start, view_point_end))
+        
         return view_point_start, view_point_end
 
     def smoothInteractionValues(self, pData, pWindowSize):
@@ -337,8 +340,11 @@ class Viewpoint():
         This function computes the correct start and end position of a viewpoint given the viewpoint and the range.
         '''
 
+        chr_bin_range = self.hicMatrix.getChrBinRange(pViewpoint[0])
+        if chr_bin_range is None:
+            return None, None, None
         max_length = self.hicMatrix.getBinPos(
-            self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
+            chr_bin_range[1] - 1)[2]
         # log.debug('max_length {}'.format(max_length))
         bin_size = self.hicMatrix.getBinSize()
         _range = [pRange[0], pRange[1]]
