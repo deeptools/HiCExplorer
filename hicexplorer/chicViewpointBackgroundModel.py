@@ -76,36 +76,39 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     background_model_data = {}
     relative_positions = set()
+    try:
+        for i, referencePoint in enumerate(pReferencePoints):
 
-    for i, referencePoint in enumerate(pReferencePoints):
+            region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
+                referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
-        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
-            referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
+            data_list = pViewpointObj.computeViewpoint(
+                referencePoint, referencePoint[0], region_start, region_end)
 
-        data_list = pViewpointObj.computeViewpoint(
-            referencePoint, referencePoint[0], region_start, region_end)
+            # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
+            view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(
+                referencePoint)
+            view_point_range_start, view_point_range_end = \
+                pViewpointObj.getViewpointRangeAsMatrixIndices(
+                    referencePoint[0], region_start, region_end)
 
-        # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
-        view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(
-            referencePoint)
-        view_point_range_start, view_point_range_end = \
-            pViewpointObj.getViewpointRangeAsMatrixIndices(
-                referencePoint[0], region_start, region_end)
+            for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
+                relative_position = i - view_point_start
 
-        for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
-            relative_position = i - view_point_start
+            if pArgs.averageContactBin > 0:
+                data_list = pViewpointObj.smoothInteractionValues(
+                    data_list, pArgs.averageContactBin)
 
-        if pArgs.averageContactBin > 0:
-            data_list = pViewpointObj.smoothInteractionValues(
-                data_list, pArgs.averageContactBin)
-
-        for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
-            relative_position = i - view_point_start
-            if relative_position in background_model_data:
-                background_model_data[relative_position].append(data)
-            else:
-                background_model_data[relative_position] = [data]
-                relative_positions.add(relative_position)
+            for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
+                relative_position = i - view_point_start
+                if relative_position in background_model_data:
+                    background_model_data[relative_position].append(data)
+                else:
+                    background_model_data[relative_position] = [data]
+                    relative_positions.add(relative_position)
+    except Exception as exp:
+        pQueue.put('Fail: ' + str(exp))
+        return
     pQueue.put([background_model_data, relative_positions])
     return
 
@@ -131,6 +134,8 @@ def main(args=None):
     queue = [None] * args.threads
     process = [None] * args.threads
     background_model_data = None
+    fail_flag = False
+    fail_message = ''
 
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
@@ -161,6 +166,15 @@ def main(args=None):
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
                     background_data_thread = queue[i].get()
+                    if 'Fail:' in background_data_thread:
+                        fail_flag = True
+                        fail_message = background_data_thread[6:]
+                        queue[i] = None
+                        process[i].join()
+                        process[i].terminate()
+                        process[i] = None
+                        thread_done[i] = True
+                        continue
                     background_model_data_thread, relative_positions_thread = background_data_thread
                     if background_model_data is None:
                         background_model_data = background_model_data_thread
@@ -188,6 +202,11 @@ def main(args=None):
         del hic_ma
         del viewpointObj.hicMatrix
 
+    if fail_flag:
+        log.error('An error occurred caused by one or many faulty reference points.')
+        log.error('Please run chicQualityControl to remove these from your reference point file: {}'.format(args.referencePoints))
+        log.error(fail_message)
+        exit(1)
     # for models of all conditions:
     # - fit negative binomial for each relative distance
     relative_positions = sorted(relative_positions)
