@@ -134,85 +134,88 @@ def compute_x_fold(pDataList, pBackgroundList):
 def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions, pOutputFolder):
     file_list = []
 
-    for i, referencePoint in enumerate(pReferencePoints):
-        # range of viewpoint with reference point in the middle in genomic units
-        # get fixateRange for relative interaction computation denominator
-        region_start_fixed, region_end_fixed, range_fixed = pViewpointObj.calculateViewpointRange(
-            referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
+    try:
+        for i, referencePoint in enumerate(pReferencePoints):
+            # range of viewpoint with reference point in the middle in genomic units
+            # get fixateRange for relative interaction computation denominator
+            region_start_fixed, region_end_fixed, range_fixed = pViewpointObj.calculateViewpointRange(
+                referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
-        intermediate_viewpoint = pViewpointObj.computeViewpoint(
-            referencePoint, referencePoint[0], region_start_fixed, region_end_fixed)
-        denominator_relative_interactions = np.sum(intermediate_viewpoint)
+            intermediate_viewpoint = pViewpointObj.computeViewpoint(
+                referencePoint, referencePoint[0], region_start_fixed, region_end_fixed)
+            denominator_relative_interactions = np.sum(intermediate_viewpoint)
 
-        # viewpoint data uses full range
-        region_start, region_end, _range = pViewpointObj.calculateViewpointRange(
-            referencePoint, pArgs.range)
+            # viewpoint data uses full range
+            region_start, region_end, _range = pViewpointObj.calculateViewpointRange(
+                referencePoint, pArgs.range)
 
-        data_list = pViewpointObj.computeViewpoint(
-            referencePoint, referencePoint[0], region_start, region_end)
+            data_list = pViewpointObj.computeViewpoint(
+                referencePoint, referencePoint[0], region_start, region_end)
 
-        # background uses fixed range, handles fixate range implicitly by same range used in background computation
+            # background uses fixed range, handles fixate range implicitly by same range used in background computation
 
-        _backgroundModelNBinom = pViewpointObj.interactionBackgroundData(
-            pBackgroundModel, _range)
+            _backgroundModelNBinom = pViewpointObj.interactionBackgroundData(
+                pBackgroundModel, _range)
 
-        background_relative_interaction = pViewpointObj.interactionBackgroundData(
-            pBackgroundModelRelativeInteractions, _range).flatten()
+            background_relative_interaction = pViewpointObj.interactionBackgroundData(
+                pBackgroundModelRelativeInteractions, _range).flatten()
 
-        data_list_relative = data_list
-        if len(data_list) != len(_backgroundModelNBinom):
+            data_list_relative = data_list
+            if len(data_list) != len(_backgroundModelNBinom):
 
-            data_list, _backgroundModelNBinom, = adjustViewpointData(
-                pViewpointObj, data_list, _backgroundModelNBinom, referencePoint, region_start, region_end)
+                data_list, _backgroundModelNBinom, = adjustViewpointData(
+                    pViewpointObj, data_list, _backgroundModelNBinom, referencePoint, region_start, region_end)
 
-        if len(data_list) != len(background_relative_interaction):
-            _, background_relative_interaction = adjustViewpointData(
-                pViewpointObj, data_list_relative, background_relative_interaction, referencePoint, region_start, region_end)
+            if len(data_list) != len(background_relative_interaction):
+                _, background_relative_interaction = adjustViewpointData(
+                    pViewpointObj, data_list_relative, background_relative_interaction, referencePoint, region_start, region_end)
 
-        if pArgs.averageContactBin > 0 and len(data_list) >= pArgs.averageContactBin:
-            data_list = pViewpointObj.smoothInteractionValues(
-                data_list, pArgs.averageContactBin)
+            if pArgs.averageContactBin > 0 and len(data_list) >= pArgs.averageContactBin:
+                data_list = pViewpointObj.smoothInteractionValues(
+                    data_list, pArgs.averageContactBin)
 
-        data_list_raw = np.copy(data_list)
+            data_list_raw = np.copy(data_list)
 
-        data_list = pViewpointObj.computeRelativeValues(
-            data_list, denominator_relative_interactions)
+            data_list = pViewpointObj.computeRelativeValues(
+                data_list, denominator_relative_interactions)
 
-        x_fold_list = compute_x_fold(
-            data_list, background_relative_interaction)
-        p_value_list = pViewpointObj.pvalues(
-            _backgroundModelNBinom, data_list_raw)
+            x_fold_list = compute_x_fold(
+                data_list, background_relative_interaction)
+            p_value_list = pViewpointObj.pvalues(
+                _backgroundModelNBinom, data_list_raw)
 
-        # add values if range is larger than fixate range
+            # add values if range is larger than fixate range
 
-        region_start_range, region_end_range, _ = pViewpointObj.calculateViewpointRange(
-            referencePoint, (pArgs.range[0], pArgs.range[1]))
+            region_start_range, region_end_range, _ = pViewpointObj.calculateViewpointRange(
+                referencePoint, (pArgs.range[0], pArgs.range[1]))
 
-        interaction_data = pViewpointObj.createInteractionFileData(referencePoint, referencePoint[0],
-                                                                   region_start_range, region_end_range, data_list, data_list_raw,
-                                                                   pGeneList[i], denominator_relative_interactions)
+            interaction_data = pViewpointObj.createInteractionFileData(referencePoint, referencePoint[0],
+                                                                    region_start_range, region_end_range, data_list, data_list_raw,
+                                                                    pGeneList[i], denominator_relative_interactions)
 
-        referencePointString = '_'.join(str(j) for j in referencePoint)
+            referencePointString = '_'.join(str(j) for j in referencePoint)
 
-        region_start_in_units = utilities.in_units(region_start)
-        region_end_in_units = utilities.in_units(region_end)
-        denominator_relative_interactions_str = 'Sum of interactions in fixate range: '
-        denominator_relative_interactions_str += str(
-            denominator_relative_interactions)
-        header_information = '# Interaction file, created with HiCExplorer\'s chicViewpoint version ' + \
-            __version__ + '\n# '
-        header_information += '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(
-            region_end_in_units), pGeneList[i], denominator_relative_interactions_str])
-        header_information += '\n# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n#'
-        matrix_name = '.'.join(pMatrix.split('/')[-1].split('.')[:-1])
-        matrix_name = '_'.join(
-            [matrix_name, referencePointString, pGeneList[i]])
-        file_list.append(matrix_name + '.txt')
+            region_start_in_units = utilities.in_units(region_start)
+            region_end_in_units = utilities.in_units(region_end)
+            denominator_relative_interactions_str = 'Sum of interactions in fixate range: '
+            denominator_relative_interactions_str += str(
+                denominator_relative_interactions)
+            header_information = '# Interaction file, created with HiCExplorer\'s chicViewpoint version ' + \
+                __version__ + '\n# '
+            header_information += '\t'.join([pMatrix, referencePointString, str(region_start_in_units), str(
+                region_end_in_units), pGeneList[i], denominator_relative_interactions_str])
+            header_information += '\n# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n#'
+            matrix_name = '.'.join(pMatrix.split('/')[-1].split('.')[:-1])
+            matrix_name = '_'.join(
+                [matrix_name, referencePointString, pGeneList[i]])
+            file_list.append(matrix_name + '.txt')
 
-        matrix_name = pOutputFolder + '/' + matrix_name
-        pViewpointObj.writeInteractionFile(
-            matrix_name, interaction_data, header_information, p_value_list, x_fold_list)
-
+            matrix_name = pOutputFolder + '/' + matrix_name
+            pViewpointObj.writeInteractionFile(
+                matrix_name, interaction_data, header_information, p_value_list, x_fold_list)
+    except Exception as exp:
+        pQueue.put('Fail: ' + str(exp))
+        return
     pQueue.put(file_list)
     return
 
@@ -241,12 +244,16 @@ def main(args=None):
         except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
+    fail_flag = False
+    fail_message = ''
+
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
         file_list_sample = [None] * args.threads
         all_data_collected = False
 
+        
         for i in range(args.threads):
 
             if i < args.threads - 1:
@@ -281,6 +288,9 @@ def main(args=None):
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
                     file_list_ = queue[i].get()
+                    if 'Fail:' in file_list_:
+                        fail_flag = True
+                        fail_message = file_list_[6:]
                     file_list_sample[i] = file_list_
                     process[i].join()
                     process[i].terminate()
@@ -292,6 +302,11 @@ def main(args=None):
                 if process[i] is not None:
                     all_data_collected = False
             time.sleep(1)
+        
+        if fail_flag:
+            log.error(fail_message)
+            exit(1)
+
         file_list_sample = [item for sublist in file_list_sample for item in sublist]
         file_list.append(file_list_sample)
 
