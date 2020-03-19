@@ -150,59 +150,62 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
 def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities, pQueue=None):
     outfile_names = []
     target_outfile_names = []
-
-    for interactionFile in pInteractionFilesList:
-        target_list = []
-        sample_prefix = ''
-        for sample in interactionFile:
-            # header,
-            # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
-            if pArgs.interactionFileFolder != '.':
-                absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
-            else:
-                absolute_sample_path = sample
-            data = pViewpointObj.readInteractionFileForAggregateStatistics(absolute_sample_path)
-            sample_prefix += sample.split('/')[-1].split('_')[0]
-            sample_prefix += '_'
-            # filter by x-fold over background value or loose p-value
-            # and merge neighbors. Use center position to compute new p-value.
-            if pArgs.xFoldBackground is not None:
-                accepted_scores, merged_lines_dict = merge_neighbors_x_fold(
-                    pArgs.xFoldBackground, data, pViewpointObj, pResolution=pArgs.resolution)
-            else:
-                accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(
-                    pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution)
-
-            # compute new p-values
-            accepted_scores, target_lines = compute_new_p_values(
-                accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold)
-
-            # filter by new p-value
-            if len(accepted_scores) == 0:
-                if pArgs.batchMode:
-                    with open('errorLog.txt', 'a+') as errorlog:
-                        errorlog.write('Failed for: {} and {}.\n'.format(
-                            interactionFile[0], interactionFile[1]))
+    try:
+        for interactionFile in pInteractionFilesList:
+            target_list = []
+            sample_prefix = ''
+            for sample in interactionFile:
+                # header,
+                # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
+                if pArgs.interactionFileFolder != '.':
+                    absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
                 else:
-                    log.info('No target regions found')
-            outFileName = '.'.join(sample.split(
-                '/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
-            if pArgs.batchMode:
-                outfile_names.append(outFileName)
-            outFileName = pArgs.outputFolder + '/' + outFileName
-            # write only significant lines to file
-            write(outFileName, data[0], accepted_scores)
-            target_list.append(target_lines)
+                    absolute_sample_path = sample
+                data = pViewpointObj.readInteractionFileForAggregateStatistics(absolute_sample_path)
+                sample_prefix += sample.split('/')[-1].split('_')[0]
+                sample_prefix += '_'
+                # filter by x-fold over background value or loose p-value
+                # and merge neighbors. Use center position to compute new p-value.
+                if pArgs.xFoldBackground is not None:
+                    accepted_scores, merged_lines_dict = merge_neighbors_x_fold(
+                        pArgs.xFoldBackground, data, pViewpointObj, pResolution=pArgs.resolution)
+                else:
+                    accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(
+                        pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution)
 
-        target_list = [item for sublist in target_list for item in sublist]
-        log.debug('interactionFile {}'.format(interactionFile))
-        sample_name = '_'.join(interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:])
-        target_name = sample_prefix + sample_name + '_target.txt'
-        target_outfile_names.append(target_name)
-        target_name = pArgs.targetFolder + '/' + target_name
-        writeTargetList(target_list, target_name, pArgs)
-    if pQueue is None:
-        return target_outfile_names
+                # compute new p-values
+                accepted_scores, target_lines = compute_new_p_values(
+                    accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold)
+
+                # filter by new p-value
+                if len(accepted_scores) == 0:
+                    if pArgs.batchMode:
+                        with open('errorLog.txt', 'a+') as errorlog:
+                            errorlog.write('Failed for: {} and {}.\n'.format(
+                                interactionFile[0], interactionFile[1]))
+                    else:
+                        log.info('No target regions found')
+                outFileName = '.'.join(sample.split(
+                    '/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
+                if pArgs.batchMode:
+                    outfile_names.append(outFileName)
+                outFileName = pArgs.outputFolder + '/' + outFileName
+                # write only significant lines to file
+                write(outFileName, data[0], accepted_scores)
+                target_list.append(target_lines)
+
+            target_list = [item for sublist in target_list for item in sublist]
+            log.debug('interactionFile {}'.format(interactionFile))
+            sample_name = '_'.join(interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:])
+            target_name = sample_prefix + sample_name + '_target.txt'
+            target_outfile_names.append(target_name)
+            target_name = pArgs.targetFolder + '/' + target_name
+            writeTargetList(target_list, target_name, pArgs)
+        if pQueue is None:
+            return target_outfile_names
+    except Exception as exp:
+        pQueue.put('Fail: ' + str(exp))
+        return
     pQueue.put([outfile_names, target_outfile_names])
     return
 
@@ -292,6 +295,10 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
     queue = [None] * pArgs.threads
     process = [None] * pArgs.threads
     thread_done = [False] * pArgs.threads
+
+    fail_flag = False
+    fail_message = ''
+
     for i in range(pArgs.threads):
 
         if i < pArgs.threads - 1:
@@ -315,7 +322,11 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
         for i in range(pArgs.threads):
             if queue[i] is not None and not queue[i].empty():
                 background_data_thread = queue[i].get()
-                outfile_names[i], target_list_name[i] = background_data_thread
+                if 'Fail:' in background_data_thread:
+                    fail_flag = True
+                    fail_message = background_data_thread[6:]
+                else:
+                    outfile_names[i], target_list_name[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -326,6 +337,9 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
             if not thread:
                 all_data_collected = False
         time.sleep(1)
+    if fail_flag:
+        log.error(fail_message)
+        exit(1)
 
     outfile_names = [item for sublist in outfile_names for item in sublist]
     target_list_name = [

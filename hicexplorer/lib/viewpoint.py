@@ -288,7 +288,7 @@ class Viewpoint():
                 pReferencePoint))
             exit(1)
         log.debug('view_point_start: {} view_point_end {}'.format(view_point_start, view_point_end))
-        
+
         return view_point_start, view_point_end
 
     def smoothInteractionValues(self, pData, pWindowSize):
@@ -628,19 +628,19 @@ class Viewpoint():
 
     def pvalues(self, pBackgroundModelNBinomPValues, pDataList):
         p_value_list = []
-        for i, (pvalue_list, pDataList) in enumerate(zip(pBackgroundModelNBinomPValues, pDataList)):
-            if len(pvalue_list) == 0:
+        for i, (pvalue_list, data) in enumerate(zip(pBackgroundModelNBinomPValues, pDataList)):
+            if len(pvalue_list) == 0 or :
                 pvalue = 1
-            elif int(pDataList) - 1 < 0:
+            elif int(data)-1 < 0:
                 pvalue = pvalue_list[0]
             else:
                 try:
-                    pvalue = 1 - pvalue_list[int(pDataList) - 1]
+                    pvalue = 1 - pvalue_list[int(data) - 1]
 
                     # pvalue = pvalue_list[int(pDataList) - 1]
 
                 except Exception:
-                    log.debug('access to densities for element {} failed; value {}, len {}'.format(i, int(pDataList) - 1, len(pvalue_list)))
+                    log.debug('access to densities for element {} failed; value {}, len {}'.format(i, int(data) - 1, len(pvalue_list)))
                     pvalue = 1
             p_value_list.append(pvalue)
 

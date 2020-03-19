@@ -2,6 +2,7 @@ import argparse
 import math
 from multiprocessing import Process, Queue
 import time
+import os
 import logging
 log = logging.getLogger(__name__)
 
@@ -91,9 +92,9 @@ def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
     sparsity_list = []
     try:
         chromosome_names = pViewpointObj.hicMatrix.getChrNames()
-        
+
         for i, referencePoint in enumerate(pReferencePoints):
-            
+
             if referencePoint is not None and referencePoint[0] in chromosome_names:
 
                 region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
@@ -203,9 +204,12 @@ def main(args=None):
         with open(args.outFileName + '_raw_filter', 'w') as output_file_raw:
             output_file_raw.write('# Created with chicQualityControl version {}\n'.format(__version__))
             output_file_raw.write('# A sparsity of -1.0 indicates a faulty reference point e.g. no data for this reference point was in the matrix.\n')
-            output_file_raw.write('# Chromosome\tStart\tEnd\t')
+            output_file_raw.write('# Used Matrices ')
             for matrix in args.matrices:
-                output_file_raw.write('Sparsity {}\t'.format(matrix))
+                output_file_raw.write('{}\t'.format(matrix))
+            output_file_raw.write('\n# Chromosome\tStart\tEnd')
+            for matrix in args.matrices:
+                output_file_raw.write('\tSparsity {}'.format(os.path.basename(matrix)))
             output_file_raw.write('\n')
 
             with open(args.outFileName + '_failed_reference_points', 'w') as output_file_failed:
@@ -239,16 +243,13 @@ def main(args=None):
             output_file_report.write(matrix + ' ')
         output_file_report.write('\n')
         output_file_report.write('#Sparsity threshold for rejection: {} sparsity <= {} are rejected.\n'.format(args.sparsity, args.sparsity))
-        output_file_report.write('\nNumber of reference points: {}\n'.format(str(count_accepted+count_rejected+count_failure)))
+        output_file_report.write('\nNumber of reference points: {}\n'.format(str(count_accepted + count_rejected + count_failure)))
         output_file_report.write('Number of accepted reference points: {}\n'.format(str(count_accepted)))
         output_file_report.write('Number of rejected reference points: {}\n'.format(str(count_rejected)))
         output_file_report.write('Number of faulty reference points: {}\n'.format(str(count_failure)))
         output_file_report.write('\n\nA faulty reference point is caused by the non-presence of the chromosome in one of the given matrices.\n')
         output_file_report.write('It can also be caused by the non-presence of valid Hi-C reads in a region, especially at the chromosome ends.\n')
         output_file_report.write('Please check the results of hicInfo to validate this for your data.\n')
-
-
-
 
     # output plot of sparsity distribution per sample
     # remove fault reference points from statistics

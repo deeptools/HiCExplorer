@@ -208,77 +208,83 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pAlpha, pTest):
 
 def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
     rejected_names = []
-    for interactionFile in pInteractionFilesList:
+    try:
+        for interactionFile in pInteractionFilesList:
 
-        sample_prefix = interactionFile[0].split(
-            '/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
+            sample_prefix = interactionFile[0].split(
+                '/')[-1].split('_')[0] + '_' + interactionFile[1].split('/')[-1].split('_')[0]
 
-        region_prefix = '_'.join(
-            interactionFile[0].split('/')[-1].split('_')[1:6])
+            region_prefix = '_'.join(
+                interactionFile[0].split('/')[-1].split('_')[1:6])
 
-        outFileName = sample_prefix + '_' + region_prefix
-        rejected_name_output_file = outFileName + '_H0_rejected.txt'
+            outFileName = sample_prefix + '_' + region_prefix
+            rejected_name_output_file = outFileName + '_H0_rejected.txt'
 
-        if pArgs.outputFolder != '.':
-            outFileName_accepted = pArgs.outputFolder + \
-                '/' + outFileName + '_H0_accepted.txt'
-            outFileName_rejected = pArgs.outputFolder + \
-                '/' + outFileName + '_H0_rejected.txt'
-            outFileName = pArgs.outputFolder + '/' + outFileName + '_results.txt'
-        else:
-            outFileName_accepted = outFileName + '_H0_accepted.txt'
-            outFileName_rejected = outFileName + '_H0_rejected.txt'
-            outFileName = outFileName + '_results.txt'
+            if pArgs.outputFolder != '.':
+                outFileName_accepted = pArgs.outputFolder + \
+                    '/' + outFileName + '_H0_accepted.txt'
+                outFileName_rejected = pArgs.outputFolder + \
+                    '/' + outFileName + '_H0_rejected.txt'
+                outFileName = pArgs.outputFolder + '/' + outFileName + '_results.txt'
+            else:
+                outFileName_accepted = outFileName + '_H0_accepted.txt'
+                outFileName_rejected = outFileName + '_H0_rejected.txt'
+                outFileName = outFileName + '_results.txt'
 
-        if pArgs.interactionFileFolder != '.':
-            absolute_sample_path1 = pArgs.interactionFileFolder + '/' + interactionFile[0]
-            absolute_sample_path2 = pArgs.interactionFileFolder + '/' + interactionFile[1]
+            if pArgs.interactionFileFolder != '.':
+                absolute_sample_path1 = pArgs.interactionFileFolder + '/' + interactionFile[0]
+                absolute_sample_path2 = pArgs.interactionFileFolder + '/' + interactionFile[1]
 
-        else:
-            absolute_sample_path1 = interactionFile[0]
-            absolute_sample_path2 = interactionFile[1]
+            else:
+                absolute_sample_path1 = interactionFile[0]
+                absolute_sample_path2 = interactionFile[1]
 
-        header1, line_content1, data1 = readInteractionFile(absolute_sample_path1)
-        header2, line_content2, data2 = readInteractionFile(absolute_sample_path2)
+            header1, line_content1, data1 = readInteractionFile(absolute_sample_path1)
+            header2, line_content2, data2 = readInteractionFile(absolute_sample_path2)
 
-        if len(line_content1) == 0 or len(line_content2) == 0:
-            writeResult(outFileName, None, header1, header2,
+            if len(line_content1) == 0 or len(line_content2) == 0:
+                writeResult(outFileName, None, header1, header2,
+                            pArgs.alpha, pArgs.statisticTest)
+                writeResult(outFileName_accepted, None, header1, header2,
+                            pArgs.alpha, pArgs.statisticTest)
+                writeResult(outFileName_rejected, None, header1, header2,
+                            pArgs.alpha, pArgs.statisticTest)
+                rejected_names.append(rejected_name_output_file)
+                continue
+            if pArgs.statisticTest == 'chi2':
+                test_result, accepted, rejected = chisquare_test(
+                    data1, data2, pArgs.alpha)
+            elif pArgs.statisticTest == 'fisher':
+                test_result, accepted, rejected = fisher_exact_test(
+                    data1, data2, pArgs.alpha)
+
+            write_out_lines = []
+            for i, result in enumerate(test_result):
+                write_out_lines.append(
+                    [line_content1[i], line_content2[i], result, data1[i], data2[i]])
+
+            write_out_lines_accepted = []
+            for result in accepted:
+                write_out_lines_accepted.append(
+                    [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
+
+            write_out_lines_rejected = []
+            for result in rejected:
+                write_out_lines_rejected.append(
+                    [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
+
+            writeResult(outFileName, write_out_lines, header1, header2,
                         pArgs.alpha, pArgs.statisticTest)
-            writeResult(outFileName_accepted, None, header1, header2,
+            writeResult(outFileName_accepted, write_out_lines_accepted, header1, header2,
                         pArgs.alpha, pArgs.statisticTest)
-            writeResult(outFileName_rejected, None, header1, header2,
+            writeResult(outFileName_rejected, write_out_lines_rejected, header1, header2,
                         pArgs.alpha, pArgs.statisticTest)
             rejected_names.append(rejected_name_output_file)
-            continue
-        if pArgs.statisticTest == 'chi2':
-            test_result, accepted, rejected = chisquare_test(
-                data1, data2, pArgs.alpha)
-        elif pArgs.statisticTest == 'fisher':
-            test_result, accepted, rejected = fisher_exact_test(
-                data1, data2, pArgs.alpha)
 
-        write_out_lines = []
-        for i, result in enumerate(test_result):
-            write_out_lines.append(
-                [line_content1[i], line_content2[i], result, data1[i], data2[i]])
+    except Exception as exp:
+        pQueue.put('Fail: ' + str(exp))
+        return
 
-        write_out_lines_accepted = []
-        for result in accepted:
-            write_out_lines_accepted.append(
-                [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
-
-        write_out_lines_rejected = []
-        for result in rejected:
-            write_out_lines_rejected.append(
-                [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
-
-        writeResult(outFileName, write_out_lines, header1, header2,
-                    pArgs.alpha, pArgs.statisticTest)
-        writeResult(outFileName_accepted, write_out_lines_accepted, header1, header2,
-                    pArgs.alpha, pArgs.statisticTest)
-        writeResult(outFileName_rejected, write_out_lines_rejected, header1, header2,
-                    pArgs.alpha, pArgs.statisticTest)
-        rejected_names.append(rejected_name_output_file)
     if pQueue is None:
         return
     pQueue.put(rejected_names)
@@ -313,6 +319,8 @@ def main(args=None):
                     (args.interactionFile[i], args.interactionFile[i + 1]))
                 i += 2
 
+    fail_flag = False
+    fail_message = ''
     if args.batchMode:
         rejected_file_names = [None] * args.threads
         interactionFilesPerThread = len(interactionFileList) // args.threads
@@ -342,6 +350,9 @@ def main(args=None):
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
                     background_data_thread = queue[i].get()
+                    if 'Fail:' in background_data_thread:
+                        fail_flag = True
+                        fail_message = background_data_thread[6:]
                     rejected_file_names[i] = background_data_thread
                     queue[i] = None
                     process[i].join()
@@ -353,6 +364,9 @@ def main(args=None):
                 if not thread:
                     all_data_collected = False
             time.sleep(1)
+        if fail_flag:
+            log.error(fail_message)
+            exit(1)
     else:
         run_statistical_tests(interactionFileList, args)
 

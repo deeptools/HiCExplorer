@@ -190,8 +190,8 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
                 referencePoint, (pArgs.range[0], pArgs.range[1]))
 
             interaction_data = pViewpointObj.createInteractionFileData(referencePoint, referencePoint[0],
-                                                                    region_start_range, region_end_range, data_list, data_list_raw,
-                                                                    pGeneList[i], denominator_relative_interactions)
+                                                                       region_start_range, region_end_range, data_list, data_list_raw,
+                                                                       pGeneList[i], denominator_relative_interactions)
 
             referencePointString = '_'.join(str(j) for j in referencePoint)
 
@@ -253,7 +253,6 @@ def main(args=None):
         file_list_sample = [None] * args.threads
         all_data_collected = False
 
-        
         for i in range(args.threads):
 
             if i < args.threads - 1:
@@ -302,7 +301,7 @@ def main(args=None):
                 if process[i] is not None:
                     all_data_collected = False
             time.sleep(1)
-        
+
         if fail_flag:
             log.error(fail_message)
             exit(1)

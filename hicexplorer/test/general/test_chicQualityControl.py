@@ -52,8 +52,10 @@ def test_two_matrices():
     assert are_files_equal(
         ROOT + "chicQualityControl/new_referencepoints.bed", outfile.name)
     assert are_files_equal(
-        ROOT + "chicQualityControl/new_referencepoints.bed_raw_filter", outfile.name + '_raw_filter', skip=2)
+        ROOT + "chicQualityControl/new_referencepoints.bed_raw_filter", outfile.name + '_raw_filter', skip=4)
     assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_rejected_filter",
+                           outfile.name + '_rejected_filter', skip=2)
+    assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_report",
                            outfile.name + '_rejected_filter', skip=2)
 
     res = compare_images(
