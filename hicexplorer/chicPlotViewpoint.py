@@ -240,11 +240,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                                 if x < len(p_values):
                                     p_values[x] = location[2]
                     p_values.clip(pArgs.minPValue, pArgs.maxPValue, p_values)
-                # if pArgs.pValueSignificanceLevels:
 
                 if pArgs.pValue:
-                    middle_element = len(p_values) //2
-                    log.debug('p_values {}'.format(p_values[middle_element-20:middle_element+20]))
                     pViewpointObj.plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
                                              pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
                                              pFigure=fig, pValueSignificanceLevels=pArgs.pValueSignificanceLevels)

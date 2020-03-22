@@ -7,7 +7,7 @@ import copy
 import sys
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import nbinom
-from scipy.special import gamma
+from scipy.special import gammaln
 from scipy import special
 
 
@@ -824,14 +824,13 @@ class Viewpoint():
             return None, None
         return highlight_areas_list, p_values
 
-
     def pdf(self, pX, pR, pP):
         """
         PDF for a continuous generalization of NB distribution
         """
 
-        gamma_part = gammaln(pR+pX) - gammaln(pX+1) - gammaln(pR)
-        return exp(gamma_part + pR*log(pP) + special.xlog1py(pX, -pP))
+        gamma_part = gammaln(pR + pX) - gammaln(pX + 1) - gammaln(pR)
+        return np.exp(gamma_part + (pR * log(pP)) + special.xlog1py(pX, -pP))
 
     def cdf(self, pX, pR, pP):
         """
@@ -839,4 +838,4 @@ class Viewpoint():
         """
         # if pX == 0:
         # return 0
-        return special.betainc(pR, pX+1, pP)
+        return special.betainc(pR, pX + 1, pP)
