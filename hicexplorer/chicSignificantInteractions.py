@@ -52,7 +52,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                                 type=float,
                                 required=True)
     parserMutuallyExclusiveGroupFilter = parser.add_mutually_exclusive_group(
-        required=True)
+        required=False)
     parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
                                                     help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
                                                     'less significant interactions to a single peak with high significance. Used only for pValue option.',
@@ -115,12 +115,6 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            default=500000,
                            type=int
                            )
-    parserOpt.add_argument('--xFoldMaxValueNB', '-xfnb',
-                           help='x-fold factor to increase the number of precomputed p-values per relative genomic distance. If set to 1, the maximal distance is used. ',
-                           required=False,
-                           default=10,
-                           type=int
-                           )
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
                            default=5,
@@ -147,7 +141,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
     return parser
 
 
-def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities, pQueue=None):
+def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pQueue=None):
     outfile_names = []
     target_outfile_names = []
     try:
@@ -175,7 +169,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
 
                 # compute new p-values
                 accepted_scores, target_lines = compute_new_p_values(
-                    accepted_scores, pBackgroundSumOfDensities, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold)
+                    accepted_scores, pBackground, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold, pViewpointObj)
 
                 # filter by new p-value
                 if len(accepted_scores) == 0:
@@ -210,26 +204,12 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
     return
 
 
-def compute_new_p_values(pData, pBackgroundSumOfDensities, pPValue, pMergedLinesDict, pPeakInteractionsThreshold):
+def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPeakInteractionsThreshold, pViewpointObj):
     accepted = {}
     accepted_lines = []
     for key in pData:
-        if key in pBackgroundSumOfDensities:
-            if int(float(pData[key][-1])) - 1 < 0:
-                pData[key][-3] = pBackgroundSumOfDensities[key][0]
-            else:
-                try:
-                    if int(float(pData[key][-1])) < len(pBackgroundSumOfDensities[key]):
-                        pData[key][-3] = 1 - \
-                            pBackgroundSumOfDensities[key][int(
-                                float(pData[key][-1]))]
-                    else:
-                        pData[key][-3] = 1 - pBackgroundSumOfDensities[key][-1]
-
-                except Exception:
-                    pData[key][-3] = 1 - pBackgroundSumOfDensities[key][-1]
-                    log.error('Not enough p-values precomputed, using highest value instead. Please increase --xFoldMaxValueNB value. Value {}, max value {}'.format(
-                        int(float(pData[key][-1])), len(pData[key])))
+        if key in pBackgroundModel:
+            pData[key][-3] = 1 - pViewpointObj.cdf(pData[key][-1], pBackgroundModel[key][0], pBackgroundModel[key][1])
 
             if pData[key][-3] <= pPValue:
                 if float(pData[key][-1]) >= pPeakInteractionsThreshold:
@@ -287,7 +267,7 @@ def write(pOutFileName, pHeader, pInteractionLines):
             file.write(new_line)
 
 
-def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumOfDensities):
+def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground):
     outfile_names = [None] * pArgs.threads
     target_list_name = [None] * pArgs.threads
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
@@ -311,7 +291,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackgroundSumO
             pInteractionFilesList=interactionFileListThread,
             pArgs=pArgs,
             pViewpointObj=pViewpointObj,
-            pBackgroundSumOfDensities=pBackgroundSumOfDensities,
+            pBackground=pBackground,
             pQueue=queue[i]
         )
         )
@@ -403,9 +383,6 @@ def main(args=None):
 
     background_model = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range)
-    background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(
-        background_model, args, pXfoldMaxValue=args.xFoldMaxValueNB)
-
     if args.batchMode:
         with open(args.interactionFile[0], 'r') as interactionFile:
             file_ = True
@@ -419,7 +396,7 @@ def main(args=None):
                     interactionFileList.append(lines)
         log.debug('interactionFileList {}'.format(interactionFileList))
         outfile_names, target_list_name = call_multi_core(
-            interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
+            interactionFileList, args, viewpointObj, background_model)
 
     else:
         i = 0
@@ -432,7 +409,7 @@ def main(args=None):
             interactionFileList.append(lines)
 
         target_list_name = compute_interaction_file(
-            interactionFileList, args, viewpointObj, background_sum_of_densities_dict)
+            interactionFileList, args, viewpointObj, background_model)
 
     if args.batchMode:
         with open(args.writeFileNamesToFile, 'w') as nameListFile:
