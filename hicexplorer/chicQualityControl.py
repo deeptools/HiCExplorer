@@ -100,7 +100,7 @@ def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
                 region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
                     referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
                 try:
-                    data_list = pViewpointObj.computeViewpoint(
+                    data_list, _ = pViewpointObj.computeViewpoint(
                         referencePoint, referencePoint[0], region_start, region_end)
                     sparsity = (np.count_nonzero(data_list) / len(data_list))
                 except TypeError:
