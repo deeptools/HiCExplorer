@@ -109,11 +109,11 @@ In batch mode the list of file names and the folders containing the files need t
     parserOpt.add_argument('--maxPValue', '-map',
                            help='Maximal value for p-value. Values above this threshold are set to this value.',
                            type=float,
-                           default=None)
+                           default=0.1)
     parserOpt.add_argument('--minPValue', '-mp',
                            help='Minimal value for p-value. Values below this threshold are set to this value.',
                            type=float,
-                           default=None)
+                           default=0.0)
 
     parserOpt.add_argument('--pValue', '-p',
                            help='Plot p-values as a colorbar',
@@ -243,6 +243,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 # if pArgs.pValueSignificanceLevels:
 
                 if pArgs.pValue:
+                    middle_element = len(p_values) //2
+                    log.debug('p_values {}'.format(p_values[middle_element-20:middle_element+20]))
                     pViewpointObj.plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
                                              pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
                                              pFigure=fig, pValueSignificanceLevels=pArgs.pValueSignificanceLevels)
