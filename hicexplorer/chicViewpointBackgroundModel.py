@@ -48,6 +48,10 @@ $ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool
                            help='Average the contacts of n bins via a sliding window approach.',
                            type=int,
                            default=5)
+    parserOpt.add_argument('--truncateZeros', '-tz',
+                           help='Truncates the zeros before the distributions are fitted. Use it in case you observe an over dispersion.',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument('--outFileName', '-o',
                            help='The name of the background model file',
                            default='background_model.txt')
@@ -82,7 +86,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
             region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
                 referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
 
-            data_list = pViewpointObj.computeViewpoint(
+            data_list, _ = pViewpointObj.computeViewpoint(
                 referencePoint, referencePoint[0], region_start, region_end)
 
             # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
@@ -214,12 +218,19 @@ def main(args=None):
     max_value = {}
     mean_value = {}
     sum_all_values = 0
+    data_of_distribution = None
     for relative_position in relative_positions:
-        nbinom_parameters[relative_position] = fit_nbinom.fit(
-            np.array(background_model_data[relative_position]))
-        max_value[relative_position] = np.max(
-            background_model_data[relative_position])
-        average_value = np.average(background_model_data[relative_position])
+
+        if args.truncateZeros:
+            data_of_distribution = np.array(background_model_data[relative_position])
+            mask = data_of_distribution > 0.0
+            data_of_distribution = data_of_distribution[mask]
+        else:
+            data_of_distribution = np.array(background_model_data[relative_position])
+        nbinom_parameters[relative_position] = fit_nbinom.fit(data_of_distribution)
+
+        max_value[relative_position] = np.max(data_of_distribution)
+        average_value = np.average(data_of_distribution)
         mean_value[relative_position] = average_value
         sum_all_values += average_value
 
