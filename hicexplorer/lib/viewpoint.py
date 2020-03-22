@@ -8,6 +8,7 @@ import sys
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import nbinom
 from scipy.special import gamma
+from scipy import special
 
 
 class Viewpoint():
@@ -219,7 +220,7 @@ class Viewpoint():
         # elements after the viewpoint
         data_list_new[index_before_viewpoint + 1:] = data_list[index_before_viewpoint +
                                                                view_point_end - view_point_start + 1:]
-        return data_list_new
+        return data_list_new, index_before_viewpoint
 
     def createInteractionFileData(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionData, pInteractionDataRaw, pGene, pSumOfInteractions):
         '''
@@ -626,101 +627,103 @@ class Viewpoint():
             return None
         return highlight_areas_list
 
-    def pvalues(self, pBackgroundModelNBinomPValues, pDataList):
+    def pvalues(self, pBackgroundModel, pDataList, pIndexReferencePoint):
+        # cdf
         p_value_list = []
-        for i, (pvalue_list, data) in enumerate(zip(pBackgroundModelNBinomPValues, pDataList)):
-            if len(pvalue_list) == 0 or :
-                pvalue = 1
-            elif int(data)-1 < 0:
-                pvalue = pvalue_list[0]
+
+        for i, data_element in enumerate(pDataList):
+            relative_distance = i - pIndexReferencePoint
+            # check if relative distance is available.
+            # if not, use either min or max key for the distribution
+            if relative_distance not in pBackgroundModel:
+                if relative_distance < 0:
+                    relative_distance = min(pBackgroundModel.keys())
+                else:
+                    relative_distance = max(pBackgroundModel.keys())
+            if data_element == 0.0:
+                p_value_list.append(0.0)
             else:
-                try:
-                    pvalue = 1 - pvalue_list[int(data) - 1]
-
-                    # pvalue = pvalue_list[int(pDataList) - 1]
-
-                except Exception:
-                    log.debug('access to densities for element {} failed; value {}, len {}'.format(i, int(data) - 1, len(pvalue_list)))
-                    pvalue = 1
-            p_value_list.append(pvalue)
+                p_value_list.append(self.cdf(data_element, pBackgroundModel[relative_distance][0], pBackgroundModel[relative_distance][1]))
 
         # for reason I do not understand atm the values needs to be inverted again, it seems it is not enough to do this in try/catch region
-        p_value_list = np.array(p_value_list)
+        p_value_list = np.array(p_value_list, dtype=np.float64)
 
         p_value_list = 1 - p_value_list
 
         # remove possible occuring nan with a p-value of 1
         mask = np.isnan(p_value_list)
+        mask_inf = np.isinf(p_value_list)
         p_value_list = np.array(p_value_list)
+        mask = np.logical_or(mask, mask_inf)
         p_value_list[mask] = 1.0
         return p_value_list
 
-    def computeSumOfDensities(self, pBackgroundModel, pArgs, pXfoldMaxValue=None):
-        background_nbinom = {}
-        background_sum_of_densities_dict = {}
-        max_value = 0
+    # def computeSumOfDensities(self, pBackgroundModel, pArgs, pXfoldMaxValue=None):
+    #     background_nbinom = {}
+    #     background_sum_of_densities_dict = {}
+    #     max_value = 0
 
-        fixateRange = int(pArgs.fixateRange)
-        for distance in pBackgroundModel:
-            max_value_distance = int(pBackgroundModel[distance][2])
-            if max_value < int(pBackgroundModel[distance][2]):
-                max_value = int(pBackgroundModel[distance][2])
+    #     fixateRange = int(pArgs.fixateRange)
+    #     for distance in pBackgroundModel:
+    #         max_value_distance = int(pBackgroundModel[distance][2])
+    #         if max_value < int(pBackgroundModel[distance][2]):
+    #             max_value = int(pBackgroundModel[distance][2])
 
-            if pXfoldMaxValue is not None:
-                if max_value_distance == 0:
-                    max_value_distance = 1
-                if pXfoldMaxValue == 0:
-                    pXfoldMaxValue = 1
-                max_value_distance *= pXfoldMaxValue
+    #         if pXfoldMaxValue is not None:
+    #             if max_value_distance == 0:
+    #                 max_value_distance = 1
+    #             if pXfoldMaxValue == 0:
+    #                 pXfoldMaxValue = 1
+    #             max_value_distance *= pXfoldMaxValue
 
-            if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
-                # background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
-                background_nbinom[distance] = (pBackgroundModel[distance][0], pBackgroundModel[distance][1])
+    #         if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
+    #             # background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
+    #             background_nbinom[distance] = (pBackgroundModel[distance][0], pBackgroundModel[distance][1])
 
-                sum_of_densities = np.zeros(max_value_distance)
-                for j in range(max_value_distance):
-                    if j >= 1:
-                        sum_of_densities[j] += sum_of_densities[j - 1]
-                    # sum_of_densities[j] += background_nbinom[distance].pmf(j)
-                    sum_of_densities[j] += pmf(j, background_nbinom[distance][0], background_nbinom[distance][1])
+    #             sum_of_densities = np.zeros(max_value_distance)
+    #             for j in range(max_value_distance):
+    #                 if j >= 1:
+    #                     sum_of_densities[j] += sum_of_densities[j - 1]
+    #                 # sum_of_densities[j] += background_nbinom[distance].pmf(j)
+    #                 sum_of_densities[j] += pmf(j, background_nbinom[distance][0], background_nbinom[distance][1])
 
-                background_sum_of_densities_dict[distance] = sum_of_densities
+    #             background_sum_of_densities_dict[distance] = sum_of_densities
 
-        # background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
-        background_nbinom[fixateRange] = (pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
+    #     # background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
+    #     background_nbinom[fixateRange] = (pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
 
-        sum_of_densities = np.zeros(max_value)
-        for j in range(max_value):
-            if j >= 1:
-                sum_of_densities[j] += sum_of_densities[j - 1]
-            # sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
-            sum_of_densities[j] += pmf(j, background_nbinom[fixateRange][0], background_nbinom[fixateRange][1])
+    #     sum_of_densities = np.zeros(max_value)
+    #     for j in range(max_value):
+    #         if j >= 1:
+    #             sum_of_densities[j] += sum_of_densities[j - 1]
+    #         # sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
+    #         sum_of_densities[j] += pmf(j, background_nbinom[fixateRange][0], background_nbinom[fixateRange][1])
 
-        background_sum_of_densities_dict[fixateRange] = sum_of_densities
-        # background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
-        background_nbinom[-fixateRange] = (pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
+    #     background_sum_of_densities_dict[fixateRange] = sum_of_densities
+    #     # background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
+    #     background_nbinom[-fixateRange] = (pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
 
-        sum_of_densities = np.zeros(max_value)
-        for j in range(max_value):
-            if j >= 1:
-                sum_of_densities[j] += sum_of_densities[j - 1]
-            # sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
-            sum_of_densities[j] += pmf(j, background_nbinom[-fixateRange][0], background_nbinom[-fixateRange][1])
+    #     sum_of_densities = np.zeros(max_value)
+    #     for j in range(max_value):
+    #         if j >= 1:
+    #             sum_of_densities[j] += sum_of_densities[j - 1]
+    #         # sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
+    #         sum_of_densities[j] += pmf(j, background_nbinom[-fixateRange][0], background_nbinom[-fixateRange][1])
 
-        background_sum_of_densities_dict[-fixateRange] = sum_of_densities
+    #     background_sum_of_densities_dict[-fixateRange] = sum_of_densities
 
-        min_key = min(background_sum_of_densities_dict)
-        max_key = max(background_sum_of_densities_dict)
+    #     min_key = min(background_sum_of_densities_dict)
+    #     max_key = max(background_sum_of_densities_dict)
 
-        for key in pBackgroundModel.keys():
-            if key in background_sum_of_densities_dict:
-                continue
-            if key < min_key:
-                background_sum_of_densities_dict[key] = background_sum_of_densities_dict[min_key]
-            elif key > max_key:
-                background_sum_of_densities_dict[key] = background_sum_of_densities_dict[max_key]
+    #     for key in pBackgroundModel.keys():
+    #         if key in background_sum_of_densities_dict:
+    #             continue
+    #         if key < min_key:
+    #             background_sum_of_densities_dict[key] = background_sum_of_densities_dict[min_key]
+    #         elif key > max_key:
+    #             background_sum_of_densities_dict[key] = background_sum_of_densities_dict[max_key]
 
-        return background_sum_of_densities_dict
+    #     return background_sum_of_densities_dict
 
     def merge_neighbors(self, pScoresDictionary, pMergeThreshold=1000):
         if pScoresDictionary is None or len(pScoresDictionary) == 0:
@@ -822,12 +825,18 @@ class Viewpoint():
         return highlight_areas_list, p_values
 
 
-def pmf(pX, pR, pP):
-    """
-    PMF function for a continuous generalization of NB distribution
-    """
+    def pdf(self, pX, pR, pP):
+        """
+        PDF for a continuous generalization of NB distribution
+        """
 
-    gamma_part = (gamma(pX + pR) / (gamma(pX + 1) * gamma(pR)))
-    probability_part = np.power(pP, pX) * np.power((1 - pP), pR)
+        gamma_part = gammaln(pR+pX) - gammaln(pX+1) - gammaln(pR)
+        return exp(gamma_part + pR*log(pP) + special.xlog1py(pX, -pP))
 
-    return gamma_part * probability_part
+    def cdf(self, pX, pR, pP):
+        """
+        Cumulative density function of a continuous generalization of NB distribution
+        """
+        # if pX == 0:
+        # return 0
+        return special.betainc(pR, pX+1, pP)
