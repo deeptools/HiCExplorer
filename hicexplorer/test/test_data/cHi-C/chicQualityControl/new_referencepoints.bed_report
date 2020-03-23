@@ -1,0 +1,13 @@
+# Created with chicQualityControl version 3.4.3-dev
+# QC report for matrices: FL-E13-5_chr1.cool MB-E10-5_chr1.cool 
+#Sparsity threshold for rejection: sparsity <= 0.05 are rejected.
+
+Number of reference points: 45
+Number of accepted reference points: 35
+Number of rejected reference points: 8
+Number of faulty reference points: 2
+
+
+A faulty reference point is caused by the non-presence of the chromosome in one of the given matrices.
+It can also be caused by the non-presence of valid Hi-C reads in a region, especially at the chromosome ends.
+Please check the results of hicInfo to validate this for your data.

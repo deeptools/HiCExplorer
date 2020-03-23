@@ -125,6 +125,18 @@ def test_one_viewpoint_colormap_pvalue():
     assert res is None, res
 
 
+def test_one_viewpoint_colormap_pvalue_truncate_zeros():
+    outfile = NamedTemporaryFile(suffix='.png', delete=False)
+    outfile.close()
+    args = "-if {} --range {} {} --pValue --colorMapPvalue {} -o {} --pValue --colorMapPvalue plasma --maxPValue 0.5 --minPValue 0.1 -t {} --truncateZeroPvalues".format(
+        ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.txt', 200000, 200000, 'plasma', outfile.name, 1).split()
+    chicPlotViewpoint.main(args)
+
+    res = compare_images(
+        ROOT + 'chicPlotViewpoint/two_viewpoint_pvalue.png', outfile.name, tolerance)
+    assert res is None, res
+
+
 def test_one_viewpoint_per_file_batch_mode():
     output_folder = mkdtemp(prefix="output_")
 

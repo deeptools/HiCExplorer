@@ -1,5 +1,7 @@
-# Created with chicQualityControl version 3.2-dev
-# Chromosome	Start	End	Sparsity FL-E13-5_chr1.cool	Sparsity MB-E10-5_chr1.cool	
+# Created with chicQualityControl version 3.4.3-dev
+# A sparsity of -1.0 indicates a faulty reference point e.g. no data for this reference point was in the matrix.
+# Used Matrices FL-E13-5_chr1.cool	MB-E10-5_chr1.cool	
+# Chromosome	Start	End	Sparsity FL-E13-5_chr1.cool	Sparsity MB-E10-5_chr1.cool
 chr1	4487435	4487435	Sox17	0.14485514485514486	0.16083916083916083
 chr1	14300280	14300280	Eya1	0.14285714285714285	0.1938061938061938
 chr1	19093103	19093103	Tfap2d	0.1048951048951049	0.16683316683316685
@@ -43,3 +45,5 @@ chr1	182823250	182823250	Lefty2	0.27472527472527475	0.33266733266733267
 chr1	182865170	182865170	Lefty1	0.25674325674325676	0.3086913086913087
 chr1	188529871	188529871	Tgfb2	0.13486513486513488	0.16583416583416583
 chr1	194979306	194979306	Irf6	0.12987012987012986	0.15284715284715283
+chr1	794979306	794979306	Irf6_none	-1.0	-1.0
+chr2	194979306	194979306	Irf6_none	-1.0	-1.0

@@ -44,7 +44,7 @@ def test_two_matrices():
     outfile.close()
     args = "--matrices {} {} --referencePoints {} --sparsity {} --outFileName {} --outFileNameHistogram {} --outFileNameSparsity  {} -t {}".format(ROOT + 'FL-E13-5_chr1.cool',
                                                                                                                                                    ROOT + 'MB-E10-5_chr1.cool',
-                                                                                                                                                   ROOT + 'referencePoints.bed',
+                                                                                                                                                   ROOT + 'referencePoints_qc.bed',
                                                                                                                                                    0.05,
                                                                                                                                                    outfile.name, outfile_histogram.name, outfile_sparsity.name, 1).split()
     chicQualityControl.main(args)
@@ -52,9 +52,13 @@ def test_two_matrices():
     assert are_files_equal(
         ROOT + "chicQualityControl/new_referencepoints.bed", outfile.name)
     assert are_files_equal(
-        ROOT + "chicQualityControl/new_referencepoints.bed_raw_filter", outfile.name + '_raw_filter', skip=2)
+        ROOT + "chicQualityControl/new_referencepoints.bed_raw_filter", outfile.name + '_raw_filter', skip=4)
     assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_rejected_filter",
                            outfile.name + '_rejected_filter', skip=2)
+    assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_report",
+                           outfile.name + '_report', skip=2)
+    assert are_files_equal(ROOT + "chicQualityControl/new_referencepoints.bed_failed_reference_points",
+                           outfile.name + '_report', skip=2)
 
     res = compare_images(
         ROOT + "chicQualityControl/histogram.png", outfile_histogram.name, 50)

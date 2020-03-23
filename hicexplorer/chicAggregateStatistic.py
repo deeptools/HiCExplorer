@@ -169,49 +169,53 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
 def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pViewpointObj, pQueue=None):
     outfile_names = []
     target_regions_intervaltree = None
-    if pArgs.batchMode and len(pTargetList) == 1:
-        target_regions = utilities.readBed(pTargetList[0])
-        hicmatrix = hm.hiCMatrix()
-        target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
+    try:
+        if pArgs.batchMode and len(pTargetList) == 1:
+            target_regions = utilities.readBed(pTargetList[0])
+            hicmatrix = hm.hiCMatrix()
+            target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
 
-    for i, interactionFile in enumerate(pInteractionFilesList):
-        for sample in interactionFile:
-            if pArgs.interactionFileFolder != '.':
-                absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
-            else:
-                absolute_sample_path = sample
-            header, interaction_data, interaction_file_data = pViewpointObj.readInteractionFileForAggregateStatistics(
-                absolute_sample_path)
-            log.debug('len(pTargetList) {}'.format(len(pTargetList)))
-            if pArgs.batchMode and len(pTargetList) > 1:
-                if pArgs.targetFileFolder != '.':
-                    target_file = pArgs.targetFileFolder + '/' + pTargetList[i]
+        for i, interactionFile in enumerate(pInteractionFilesList):
+            for sample in interactionFile:
+                if pArgs.interactionFileFolder != '.':
+                    absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
+                else:
+                    absolute_sample_path = sample
+                header, interaction_data, interaction_file_data = pViewpointObj.readInteractionFileForAggregateStatistics(
+                    absolute_sample_path)
+                log.debug('len(pTargetList) {}'.format(len(pTargetList)))
+                if pArgs.batchMode and len(pTargetList) > 1:
+                    if pArgs.targetFileFolder != '.':
+                        target_file = pArgs.targetFileFolder + '/' + pTargetList[i]
+                    else:
+                        target_file = pTargetList[i]
+                elif pArgs.batchMode and len(pTargetList) == 1:
+                    target_file = None
                 else:
                     target_file = pTargetList[i]
-            elif pArgs.batchMode and len(pTargetList) == 1:
-                target_file = None
-            else:
-                target_file = pTargetList[i]
 
-            accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree)
+                accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree)
 
-            if len(accepted_scores) == 0:
-                # do not call 'break' or 'continue'
-                # with this an empty file is written and no track of 'no significant interactions' detected files needs to be recorded.
+                if len(accepted_scores) == 0:
+                    # do not call 'break' or 'continue'
+                    # with this an empty file is written and no track of 'no significant interactions' detected files needs to be recorded.
+                    if pArgs.batchMode:
+                        with open('errorLog.txt', 'a+') as errorlog:
+                            errorlog.write('Failed for: {} and {}.\n'.format(interactionFile[0], interactionFile[1]))
+                    else:
+                        log.info('No target regions found')
+                outFileName = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
+
                 if pArgs.batchMode:
-                    with open('errorLog.txt', 'a+') as errorlog:
-                        errorlog.write('Failed for: {} and {}.\n'.format(interactionFile[0], interactionFile[1]))
-                else:
-                    log.info('No target regions found')
-            outFileName = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
+                    outfile_names.append(outFileName)
+                if pArgs.outputFolder != '.':
+                    outFileName = pArgs.outputFolder + '/' + outFileName
 
-            if pArgs.batchMode:
-                outfile_names.append(outFileName)
-            if pArgs.outputFolder != '.':
-                outFileName = pArgs.outputFolder + '/' + outFileName
-
-            write(outFileName, header, accepted_scores,
-                  interaction_file_data)
+                write(outFileName, header, accepted_scores,
+                      interaction_file_data)
+    except Exception as exp:
+        pQueue.put('Fail: ' + str(exp))
+        return
     if pQueue is None:
         return
     pQueue.put(outfile_names)
@@ -225,6 +229,8 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
     queue = [None] * pArgs.threads
     process = [None] * pArgs.threads
     thread_done = [False] * pArgs.threads
+    fail_flag = False
+    fail_message = ''
     for i in range(pArgs.threads):
 
         if i < pArgs.threads - 1:
@@ -250,6 +256,9 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
         for i in range(pArgs.threads):
             if queue[i] is not None and not queue[i].empty():
                 background_data_thread = queue[i].get()
+                if 'Fail:' in background_data_thread:
+                    fail_flag = True
+                    fail_message = background_data_thread[6:]
                 outfile_names[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
@@ -261,7 +270,9 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
             if not thread:
                 all_data_collected = False
         time.sleep(1)
-
+    if fail_flag:
+        log.error(fail_message)
+        exit(1)
     outfile_names = [item for sublist in outfile_names for item in sublist]
     return outfile_names
 
