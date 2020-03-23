@@ -169,7 +169,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                         pArgs.xFoldBackground, data, pViewpointObj, pResolution=pArgs.resolution)
                 else:
                     accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(
-                        pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution)
+                        pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution, pTruncateZeroPvalues=pArgs.truncateZeroPvalues)
 
                 # compute new p-values
                 accepted_scores, target_lines = compute_new_p_values(
@@ -202,6 +202,8 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         if pQueue is None:
             return target_outfile_names
     except Exception as exp:
+        if pQueue is None:
+            return 'Fail: ' + str(exp)
         pQueue.put('Fail: ' + str(exp))
         return
     pQueue.put([outfile_names, target_outfile_names])
@@ -213,7 +215,7 @@ def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPe
     accepted_lines = []
     for key in pData:
         if key in pBackgroundModel:
-            pData[key][-3] = 1 - pViewpointObj.cdf(pData[key][-1], pBackgroundModel[key][0], pBackgroundModel[key][1])
+            pData[key][-3] = 1 - pViewpointObj.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
 
             if pData[key][-3] <= pPValue:
                 if float(pData[key][-1]) >= pPeakInteractionsThreshold:
@@ -417,6 +419,8 @@ def main(args=None):
 
         target_list_name = compute_interaction_file(
             interactionFileList, args, viewpointObj, background_model)
+        if 'Fail: ' in target_list_name:
+            log.error(target_list_name[6:])
 
     if args.batchMode:
         with open(args.writeFileNamesToFile, 'w') as nameListFile:

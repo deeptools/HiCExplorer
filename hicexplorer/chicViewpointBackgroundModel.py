@@ -229,10 +229,16 @@ def main(args=None):
             data_of_distribution = np.array(background_model_data[relative_position])
         nbinom_parameters[relative_position] = fit_nbinom.fit(data_of_distribution)
 
-        max_value[relative_position] = np.max(data_of_distribution)
-        average_value = np.average(data_of_distribution)
-        mean_value[relative_position] = average_value
-        sum_all_values += average_value
+        if len(data_of_distribution) > 0:
+            max_value[relative_position] = np.max(data_of_distribution)
+            average_value = np.average(data_of_distribution)
+            mean_value[relative_position] = average_value
+            sum_all_values += average_value
+        else:
+            max_value[relative_position] = 0.0
+            average_value = 0.0
+            mean_value[relative_position] = 0.0
+            sum_all_values += 0.0
 
     for relative_position in relative_positions:
         mean_value[relative_position] /= sum_all_values

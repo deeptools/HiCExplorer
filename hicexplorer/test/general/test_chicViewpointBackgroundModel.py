@@ -60,6 +60,17 @@ def test_compute_background_functional():
                            outfile.name, delta=700, skip=1)
 
 
+def test_compute_background_functional_truncate_zeros():
+    outfile = NamedTemporaryFile(suffix='.txt', delete=False)
+    outfile.close()
+    args = "--matrices {} {} --referencePoints {} -o {} -t {} --truncateZeros".format(ROOT + 'FL-E13-5_chr1.cool', ROOT + 'MB-E10-5_chr1.cool',
+                                                                                      ROOT + 'referencePoints.bed', outfile.name, 1).split()
+    chicViewpointBackgroundModel.main(args)
+
+    assert are_files_equal(ROOT + 'background_truncateZeros.txt',
+                           outfile.name, delta=700, skip=1)
+
+
 def test_compute_background_number_of_lines():
     outfile = NamedTemporaryFile(suffix='.txt', delete=False)
     outfile.close()
@@ -78,3 +89,15 @@ def test_compute_background_number_of_lines():
         length_background_outfile = len(file_content)
 
     assert np.abs(length_background - length_background_outfile) < 1
+
+
+@pytest.mark.xfail
+def test_compute_background_functional_fail():
+    outfile = NamedTemporaryFile(suffix='.txt', delete=False)
+    outfile.close()
+    args = "--matrices {} {} --referencePoints {} -o {} -t {} --truncateZeros".format(ROOT + 'FL-E13-5_chr1.cool', ROOT + 'MB-E10-5_chr1.cool',
+                                                                                      ROOT + 'referencePoints_qc.bed', outfile.name, 1).split()
+    chicViewpointBackgroundModel.main(args)
+
+    assert are_files_equal(ROOT + 'background.txt',
+                           outfile.name, delta=700, skip=1)

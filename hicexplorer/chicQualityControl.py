@@ -4,6 +4,7 @@ from multiprocessing import Process, Queue
 import time
 import os
 import logging
+logging.getLogger('hicmatrix').setLevel(logging.CRITICAL)
 log = logging.getLogger(__name__)
 
 import numpy as np
@@ -103,7 +104,7 @@ def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
                     data_list, _ = pViewpointObj.computeViewpoint(
                         referencePoint, referencePoint[0], region_start, region_end)
                     sparsity = (np.count_nonzero(data_list) / len(data_list))
-                except TypeError:
+                except (TypeError, IndexError):
                     sparsity = -1.0
                 sparsity_list.append(sparsity)
             else:
@@ -242,7 +243,7 @@ def main(args=None):
         for matrix in args.matrices:
             output_file_report.write(matrix + ' ')
         output_file_report.write('\n')
-        output_file_report.write('#Sparsity threshold for rejection: {} sparsity <= {} are rejected.\n'.format(args.sparsity, args.sparsity))
+        output_file_report.write('#Sparsity threshold for rejection: sparsity <= {} are rejected.\n'.format(args.sparsity))
         output_file_report.write('\nNumber of reference points: {}\n'.format(str(count_accepted + count_rejected + count_failure)))
         output_file_report.write('Number of accepted reference points: {}\n'.format(str(count_accepted)))
         output_file_report.write('Number of rejected reference points: {}\n'.format(str(count_rejected)))

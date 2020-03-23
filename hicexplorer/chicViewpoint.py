@@ -70,7 +70,7 @@ $ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoi
                            default=5)
     parserOpt.add_argument('--decimalPlaces',
                            help='Decimal places for all output floating numbers in the viewpoint files.',
-                           type=float,
+                           type=int,
                            default=12)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
                            help='Set this parameter to have a file with all file names of the viewpoint files (useful only in batch processing mode).')
