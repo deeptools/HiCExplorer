@@ -68,7 +68,7 @@ def test_compute_background_functional_truncate_zeros():
     chicViewpointBackgroundModel.main(args)
 
     assert are_files_equal(ROOT + 'background_truncateZeros.txt',
-                           outfile.name, delta=700, skip=1)
+                           outfile.name, delta=1000, skip=1)
 
 
 def test_compute_background_number_of_lines():
