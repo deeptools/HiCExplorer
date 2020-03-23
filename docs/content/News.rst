@@ -1,6 +1,18 @@
 News and Developments
 =====================
 
+Release 3.4.3
+-------------
+**23 March 2020**
+
+- Fixing the wrong p-value computation in for chicViewpoint. New method is more accurate for floating points.
+- Fixing a bug in chicViewpointBackgroundModel and chicQualityControl if an non-existing reference point was used.
+- Improving all chic* modules with a capturing of errors in sub-processes. It is now guaranteed that the computation will terminate. Either successfull or by error. 
+- Add option 'truncateZero' to chicViewpointBackgroundModel: This removes all zero values for the distributions before fitting to fight over dispersion.
+- Add option 'decimalPlaces' to chicViewpoint to adjust the decimal places in the output for all floating values. Helpful for really small p-values
+- Add option 'truncateZeroPvalues' to chicSignificantInteractions to set all p-values which are 0 to 1 and are therefore ignored.
+- Add option 'truncateZeroPvalues' to chicPlotViewpoint to set all p-values which are 0 to 1 and do not disturb the presentation of real p-values
+
 Release 3.4.2
 -------------
 **7 March 2020**
