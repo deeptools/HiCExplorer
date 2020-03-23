@@ -89,12 +89,12 @@ def test_two_matrices_writeFileName():
 
     output_folder = mkdtemp(prefix="output_")
     outfile.close()
-    args = "--matrices {} {} --referencePoints {} --backgroundModel {} --range {} {} -o {} -w {} -t {}".format(ROOT + 'FL-E13-5_chr1.cool',
-                                                                                                               ROOT + 'MB-E10-5_chr1.cool',
-                                                                                                               ROOT + 'referencePoints_chicViewpoint.bed',
-                                                                                                               ROOT + 'background.txt',
-                                                                                                               200000, 200000,
-                                                                                                               output_folder, outfile_name_list.name, 1).split()
+    args = "--matrices {} {} --referencePoints {} --backgroundModel {} --range {} {} -o {} -w {} -t {} --decimalPlaces {}".format(ROOT + 'FL-E13-5_chr1.cool',
+                                                                                                                                  ROOT + 'MB-E10-5_chr1.cool',
+                                                                                                                                  ROOT + 'referencePoints_chicViewpoint.bed',
+                                                                                                                                  ROOT + 'background.txt',
+                                                                                                                                  200000, 200000,
+                                                                                                                                  output_folder, outfile_name_list.name, 1, 5).split()
     chicViewpoint.main(args)
     assert are_files_equal(
         ROOT + "chicViewpoint/fileNames_two_matrices.txt", outfile_name_list.name)

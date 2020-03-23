@@ -109,6 +109,10 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            default=4,
                            type=int
                            )
+    parserOpt.add_argument('--truncateZeroPvalues', '-tzpv',
+                           help='Sets all p-values which are equal to zero to one. This has the effect that the associated positions are not part of the significance decision.',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument('--fixateRange', '-fs',
                            help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater than 500kb are set to the value of the 500kb bin.',
                            required=False,
@@ -236,13 +240,16 @@ def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
     return accepted_line, None
 
 
-def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolution):
+def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolution, pTruncateZeroPvalues):
     accepted = {}
     accepted_line = {}
     for key in pData[1]:
-
-        if pData[1][key][1] > pLoosePValue:
-            continue
+        if pTruncateZeroPvalues:
+            if pData[1][key][1] == 0 or pData[1][key][1] > pLoosePValue:
+                continue
+        else:
+            if pData[1][key][1] > pLoosePValue:
+                continue
         accepted[key] = pData[1][key]
         accepted_line[key] = pData[2][key]
     if accepted_line:

@@ -161,7 +161,7 @@ class Viewpoint():
                 distance[i] = distance[min_key]
         return distance
 
-    def writeInteractionFile(self, pBedFile, pData, pHeader, pPValueData, pXfold):
+    def writeInteractionFile(self, pBedFile, pData, pHeader, pPValueData, pXfold, pDecimalPlaces=12):
         '''
         Writes an interaction file for one viewpoint and one sample as a tab delimited file with one interaction per line.
         Header contains information about the interaction:
@@ -172,9 +172,9 @@ class Viewpoint():
         with open((pBedFile + '.txt').strip(), 'w') as fh:
             fh.write('{}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\n".
                          format(interaction[0], interaction[1],
-                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7]))
+                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7], decimal_places=pDecimalPlaces))
         return
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):

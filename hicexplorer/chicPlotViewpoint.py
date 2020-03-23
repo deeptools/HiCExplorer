@@ -128,7 +128,10 @@ In batch mode the list of file names and the folders containing the files need t
                            help='Plot x-fold region for the mean background.',
                            type=float,
                            default=None)
-
+    parserOpt.add_argument('--truncateZeroPvalues', '-tzpv',
+                           help='Sets all p-values which are equal to zero to one.',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument('--outFileName', '-o',
                            help='File name to save the image. Not used in batch mode.')
     parserOpt.add_argument('--batchMode', '-bm',
@@ -230,7 +233,10 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                     if background_data_plot is not None:
                         data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot, pXFold=pArgs.xFold)
                     background_plot = False
-
+                if pArgs.truncateZeroPvalues:
+                    p_values = np.array(p_values, dtype=np.float32)
+                    mask = p_values == 0.0
+                    p_values[mask] = 1.0
                 if pArgs.minPValue is not None or pArgs.maxPValue is not None:
 
                     p_values = np.array(p_values, dtype=np.float32)

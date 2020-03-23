@@ -68,6 +68,10 @@ $ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoi
                            help='Average the contacts of n bins via a sliding window approach to smooth the values and be less sensitive for outliers.',
                            type=int,
                            default=5)
+    parserOpt.add_argument('--decimalPlaces',
+                           help='Decimal places for all output floating numbers in the viewpoint files.',
+                           type=float,
+                           default=12)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
                            help='Set this parameter to have a file with all file names of the viewpoint files (useful only in batch processing mode).')
 
@@ -202,7 +206,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             log.debug('x_fold_list {}'.format(x_fold_list))
 
             pViewpointObj.writeInteractionFile(
-                matrix_name, interaction_data, header_information, p_value_list, x_fold_list)
+                matrix_name, interaction_data, header_information, p_value_list, x_fold_list, pArgs.decimalPlaces)
     except Exception as exp:
         log.debug('Error! {}'.format(str(exp)))
         pQueue.put('Fail: ' + str(exp))
