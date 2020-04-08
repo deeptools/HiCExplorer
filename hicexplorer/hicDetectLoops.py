@@ -261,7 +261,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                 process[i].terminate()
                 process[i] = None
                 thread_done[i] = True
-                log.debug("276")
+                # log.debug("276")
         all_data_collected = True
         for thread in thread_done:
             if not thread:
@@ -290,15 +290,15 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
     log.debug('compute of neigborhood clustering')
 
     # Clean neighborhood, results in one candidate per neighborhood
-    number_of_candidates = 0
-    while number_of_candidates != len(candidates):
-        number_of_candidates = len(candidates)
+    # number_of_candidates = 0
+    # while number_of_candidates != len(candidates):
+    #     number_of_candidates = len(candidates)
 
-        candidates, mask = neighborhood_merge(
-            candidates, pWindowSize, pHiCMatrix.matrix, pMinLoopDistance, pMaxLoopDistance, pThreads)
+    candidates, _ = neighborhood_merge(
+        candidates, pWindowSize, pHiCMatrix.matrix, pMinLoopDistance, pMaxLoopDistance, pThreads)
 
-        if len(candidates) == 0:
-            return None, None
+    if len(candidates) == 0:
+        return None, None
     log.debug('call of test')
 
     candidates, p_value_list = candidate_region_test(
@@ -348,6 +348,7 @@ def neighborhood_merge_thread(pCandidateList, pWindowSize, pInteractionCountMatr
     y_max = pInteractionCountMatrix.shape[1]
 
     for candidate in pCandidateList:
+
         start_x = candidate[0] - \
             pWindowSize if candidate[0] - pWindowSize > 0 else 0
         end_x = candidate[0] + pWindowSize if candidate[0] + \
@@ -359,21 +360,23 @@ def neighborhood_merge_thread(pCandidateList, pWindowSize, pInteractionCountMatr
 
         neighborhood = pInteractionCountMatrix[start_x:end_x,
                                                start_y:end_y].toarray().flatten()
-        if len(neighborhood) == 0:
-            continue
-        argmax = np.argmax(neighborhood)
-        x = argmax // (pWindowSize * 2)
-        y = argmax % (pWindowSize * 2)
+        if np.max(neighborhood) == pInteractionCountMatrix[candidate[0],candidate[1] ]:
+            new_candidate_list.append(candidate)
+        # if len(neighborhood) == 0:
+        #     continue
+        # argmax = np.argmax(neighborhood)
+        # x = argmax // (pWindowSize * 2)
+        # y = argmax % (pWindowSize * 2)
 
-        candidate_x = (candidate[0] - pWindowSize) + \
-            x if (candidate[0] - pWindowSize + x) < x_max else x_max - 1
-        candidate_y = (candidate[1] - pWindowSize) + \
-            y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
-        if candidate_x < 0 or candidate_y < 0:
-            continue
-        if np.absolute(candidate_x - candidate_y) < pMinLoopDistance or np.absolute(candidate_x - candidate_y) > pMaxLoopDistance:
-            continue
-        new_candidate_list.append([candidate_x, candidate_y])
+        # candidate_x = (candidate[0] - pWindowSize) + \
+        #     x if (candidate[0] - pWindowSize + x) < x_max else x_max - 1
+        # candidate_y = (candidate[1] - pWindowSize) + \
+        #     y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
+        # if candidate_x < 0 or candidate_y < 0:
+        #     continue
+        # if np.absolute(candidate_x - candidate_y) < pMinLoopDistance or np.absolute(candidate_x - candidate_y) > pMaxLoopDistance:
+        #     continue
+        # new_candidate_list.append([candidate_x, candidate_y])
 
     pQueue.put(new_candidate_list)
     return
@@ -394,6 +397,8 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLo
     """
     # x_max = pInteractionCountMatrix.shape[0]
     # y_max = pInteractionCountMatrix.shape[1]
+
+    log.debug('pCandidates {}'.format(pCandidates[:10]))
     new_candidate_list = []
 
     new_candidate_list_threads = [None] * pThreads
@@ -478,19 +483,19 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLo
     #     continue
     # new_candidate_list.append([candidate_x, candidate_y])
 
-    mask = filter_duplicates(new_candidate_list)
+    # mask = filter_duplicates(new_candidate_list)
 
-    if mask is not None and len(mask) == 0:
-        return [], []
-    if mask is None:
-        return [], []
-    mask = np.array(mask)
-    pCandidates = np.array(new_candidate_list)
-    # log.debug('type of mask: {}'.format(type(mask)))
-    # log.debug('mask: {}'.format(mask))
+    # if mask is not None and len(mask) == 0:
+    #     return [], []
+    # if mask is None:
+    #     return [], []
+    # mask = np.array(mask)
+    # pCandidates = np.array(new_candidate_list)
+    # # log.debug('type of mask: {}'.format(type(mask)))
+    # # log.debug('mask: {}'.format(mask))
 
-    pCandidates = pCandidates[mask]
-    return pCandidates, mask
+    # pCandidates = pCandidates[mask]
+    return new_candidate_list, True
 
 
 def get_test_data(pNeighborhood, pVertical):
@@ -975,6 +980,7 @@ def smoothInteractionValues(pData, pWindowSize):
 
 
 def main(args=None):
+    log.debug('Newc')
     args = parse_arguments().parse_args(args)
     log.info('peak interactions threshold set to {}'.format(
         args.peakInteractionsThreshold))
