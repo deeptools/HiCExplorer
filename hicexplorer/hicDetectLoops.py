@@ -17,7 +17,7 @@ from hicmatrix.lib import MatrixFileHandler
 from hicexplorer._version import __version__
 from hicexplorer.utilities import check_cooler
 from hicexplorer.hicPlotMatrix import translate_region
-
+from hicexplorer.lib import cnb
 from inspect import currentframe
 
 
@@ -128,7 +128,7 @@ def create_distance_distribution(pData, pDistances):
         mask = pDistances == distance
         pGenomicDistanceDistribution[distance] = pData[mask]
         pGenomicDistanceDistributionPosition[distance] = np.argwhere(mask == True).flatten()
-        pGenomicDistanceDistribution_max_value[distance] = pData[mask].max()
+        pGenomicDistanceDistribution_max_value[distance] = pGenomicDistanceDistribution[distance].max()
 
     return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value
 
@@ -145,26 +145,34 @@ def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistrib
     for i, key in enumerate(pGenomicDistanceDistributionsKeyList):
         nbinom_parameters = fit_nbinom.fit(
             np.array(pGenomicDistanceDistributions[key]))
-        nbinom_distance = nbinom(
-            nbinom_parameters['size'], nbinom_parameters['prob'])
-        less_than = np.array(
-            pGenomicDistanceDistributions[key]).astype(int) - 1
-        mask_less_than = less_than < 0
-        less_than[mask_less_than] = 1
+        # nbinom_distance = nbinom(
+        #     nbinom_parameters['size'], nbinom_parameters['prob'])
 
-        if len(less_than) <= 0:
-            continue
-        max_element = np.max(less_than)
-        if max_element <= 0:
-            continue
-        max_element = np.max(less_than)
-        sum_of_densities = np.zeros(max_element)
-        for j in range(max_element):
-            if j >= 1:
-                sum_of_densities[j] += sum_of_densities[j - 1]
-            sum_of_densities[j] += nbinom_distance.pmf(j)
-        # if len(sum_of_densities) > less_than - 1:
-        p_value = 1 - sum_of_densities[less_than - 1]
+        less_than = np.array(pGenomicDistanceDistributions[key])
+
+        p_value = np.zeros(len(less_than))
+
+        for i in range(len(p_value)):
+            p_value[i] = 1 - cnb.cdf(less_than[i], nbinom_parameters['size'], nbinom_parameters['prob'])
+        # less_than = np.array(
+        #     pGenomicDistanceDistributions[key]).astype(int) - 1
+        # mask_less_than = less_than < 0
+        # less_than[mask_less_than] = 1
+
+        # if len(less_than) <= 0:
+        #     continue
+        # max_element = np.max(less_than)
+        # if max_element <= 0:
+        #     continue
+        # max_element = np.max(less_than)
+        # sum_of_densities = np.zeros(max_element)
+
+        # for j in range(max_element):
+        #     if j >= 1:
+        #         sum_of_densities[j] += sum_of_densities[j - 1]
+        #     sum_of_densities[j] += nbinom_distance.pmf(j)
+        # # if len(sum_of_densities) > less_than - 1:
+        # p_value = 1 - sum_of_densities[less_than - 1]
         mask_distance = p_value < pPValuePreselection
         # else:
         for j, value in enumerate(mask_distance):

@@ -10,7 +10,7 @@ from scipy.stats import nbinom
 from scipy.special import gammaln
 from scipy import special
 
-
+from hicexplorer.lib import cnb
 class Viewpoint():
 
     def __init__(self, pHiCMatrix=None):
@@ -643,7 +643,7 @@ class Viewpoint():
             if data_element == 0.0:
                 p_value_list.append(0.0)
             else:
-                p_value_list.append(self.cdf(data_element, pBackgroundModel[relative_distance][0], pBackgroundModel[relative_distance][1]))
+                p_value_list.append(cnb.cdf(data_element, pBackgroundModel[relative_distance][0], pBackgroundModel[relative_distance][1]))
 
         # for reason I do not understand atm the values needs to be inverted again, it seems it is not enough to do this in try/catch region
         p_value_list = np.array(p_value_list, dtype=np.float64)
@@ -824,18 +824,4 @@ class Viewpoint():
             return None, None
         return highlight_areas_list, p_values
 
-    def pdf(self, pX, pR, pP):
-        """
-        PDF for a continuous generalization of NB distribution
-        """
 
-        gamma_part = gammaln(pR + pX) - gammaln(pX + 1) - gammaln(pR)
-        return np.exp(gamma_part + (pR * log(pP)) + special.xlog1py(pX, -pP))
-
-    def cdf(self, pX, pR, pP):
-        """
-        Cumulative density function of a continuous generalization of NB distribution
-        """
-        # if pX == 0:
-        # return 0
-        return special.betainc(pR, pX + 1, pP)
