@@ -120,17 +120,16 @@ def create_distance_distribution(pData, pDistances):
     pGenomicDistanceDistribution = {}
     pGenomicDistanceDistributionPosition = {}
     pGenomicDistanceDistribution_max_value = {}
-    for i, distance in enumerate(pDistances):
 
-        if distance in pGenomicDistanceDistribution:
-            pGenomicDistanceDistribution[distance].append(pData[i])
-            pGenomicDistanceDistributionPosition[distance].append(i)
-        else:
-            pGenomicDistanceDistribution[distance] = [pData[i]]
-            pGenomicDistanceDistributionPosition[distance] = [i]
+    min_distance = pDistances.min()
+    max_distance = pDistances.max()
 
-    for key in pGenomicDistanceDistribution:
-        pGenomicDistanceDistribution_max_value[key] = np.max(pGenomicDistanceDistribution[key])
+    for distance in range(min_distance, max_distance+1, 1):
+        mask = pDistances == distance
+        pGenomicDistanceDistribution[distance] = pData[mask]
+        pGenomicDistanceDistributionPosition[distance] = np.argwhere(mask == True).flatten()
+        pGenomicDistanceDistribution_max_value[distance] = pData[mask].max()
+
     return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value
 
 
