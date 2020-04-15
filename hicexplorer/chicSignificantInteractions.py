@@ -403,7 +403,7 @@ def read_threshold_file(pFile):
     with open(pFile, 'r') as file:
         file_ = True
         while file_:
-            line = interactionFile.readline().strip()
+            line = file.readline().strip()
             if line.startswith('#'):
                 continue
             if line == '':
