@@ -116,8 +116,10 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
     return parser
 
 
-def create_distance_distribution(pData, pDistances):
+def create_distance_distribution(pData, pDistances, pWindowSize):
     pGenomicDistanceDistribution = {}
+    pGenomicDistanceDistributionNeighborhoodWindow = {}
+
     pGenomicDistanceDistributionPosition = {}
     pGenomicDistanceDistribution_max_value = {}
 
@@ -130,10 +132,20 @@ def create_distance_distribution(pData, pDistances):
         pGenomicDistanceDistributionPosition[distance] = np.argwhere(mask == True).flatten()
         pGenomicDistanceDistribution_max_value[distance] = pGenomicDistanceDistribution[distance].max()
 
-    return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value
+        # mask_upper = pDistances <= distance + pWindowSize
+        # mask_lower = distance - pWindowSize < pDistances
+        # mask = np.logical_and(mask_lower, mask_upper)
+
+        # mask_truncate = 5 < pData 
+        # mask = np.logical_and(mask_truncate, mask)
+
+        pGenomicDistanceDistributionNeighborhoodWindow[distance] = pData[mask]
 
 
-def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistributionsKeyList,
+    return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value, pGenomicDistanceDistributionNeighborhoodWindow
+
+
+def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistributionsKeyList, pGenomicDistanceDistributionsNeighborhoodWindow,
                           pPValuePreselection, pMask, pGenomicDistanceDistributionPosition, pQueue):
 
     # mask = [False] * len(pGenomicDistanceDistributionsKeyList)
@@ -144,7 +156,7 @@ def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistrib
 
     for i, key in enumerate(pGenomicDistanceDistributionsKeyList):
         nbinom_parameters = fit_nbinom.fit(
-            np.array(pGenomicDistanceDistributions[key]))
+            np.array(pGenomicDistanceDistributionsNeighborhoodWindow[key]))
         # nbinom_distance = nbinom(
         #     nbinom_parameters['size'], nbinom_parameters['prob'])
 
@@ -214,8 +226,8 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
     distance = np.absolute(instances - features)
     mask = [False] * len(distance)
 
-    genomic_distance_distributions, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value = create_distance_distribution(
-        pHiCMatrix.matrix.data, distance)
+    genomic_distance_distributions, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value, genomicDistanceDistributionsNeighborhoodWindow = create_distance_distribution(
+        pHiCMatrix.matrix.data, distance, pWindowSize)
 
     # nbinom_parameters = {}
     genomic_distance_distributions_thread = len(genomic_distance_distributions) // pThreads
@@ -250,6 +262,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
             process[i] = Process(target=compute_p_values_mask, kwargs=dict(
                 pGenomicDistanceDistributions=genomic_distance_distributions,
                 pGenomicDistanceDistributionsKeyList=genomic_distance_keys_thread,
+                pGenomicDistanceDistributionsNeighborhoodWindow=genomicDistanceDistributionsNeighborhoodWindow,
                 pPValuePreselection=pPValuePreselection,
                 pMask=mask,
                 pGenomicDistanceDistributionPosition=pGenomicDistanceDistributionPosition,
@@ -527,6 +540,7 @@ def get_test_data(pNeighborhood, pVertical):
 
 def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                                  pMinimumInteractionsThreshold, pPeakWindowSize, pQueue, pStatisticalTest=None):
+    neighborhood_list = []
     mask = []
     pvalues = []
     if len(pCandidates) == 0:
@@ -558,7 +572,9 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
         neighborhood = pHiCMatrix[start_x:end_x,
                                   start_y:end_y].toarray()
-
+        neighborhood_mask = 1.0 >neighborhood
+        neighborhood = neighborhood[neighborhood_mask]
+        neighborhood_list.append(neighborhood.flatten())
         neighborhood_old = neighborhood
         for j in range(len(neighborhood)):
             neighborhood[j, :] = smoothInteractionValues(neighborhood[j, :], 5)
@@ -607,6 +623,8 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         if np.max(peak) < np.max(background):
             mask.append(False)
             continue
+        
+        
         # if np.min(background) * 5 > np.max(peak):
         #     mask.append(False)
         #     continue
@@ -648,6 +666,11 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
         mask.append(False)
     # pvalues = []
+    neighborhood_list = np.array(neighborhood_list)
+    np.save('neighborhood.npy', neighborhood_list)
+    np.save('mask.npy', mask)
+    np.save('candidates.npy', pCandidates)
+
 
     pQueue.put([mask, pvalues])
     return
