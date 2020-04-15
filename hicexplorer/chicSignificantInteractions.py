@@ -137,7 +137,15 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            required=False,
                            default=2,
                            type=int)
-
+    parserOpt.add_argument('--multipleTesting', '-mt',
+                            help='Multiple testing correction per relative distance with Bonferroni or FDR.'
+                            type=str,
+                            default="None",
+                            choices=['fdr', 'bonferroni', 'None'],
+                            )
+    parserOpt.add_argument('--thresholdMultipleTesting', '-tmt',
+                            help='Threshold for Bonferroni / FDR. Either a float value for all or a file with one threshold per relative distance.'
+                            )
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -172,10 +180,11 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                     accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(
                         pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution, pTruncateZeroPvalues=pArgs.truncateZeroPvalues)
 
-                # compute new p-values
+                # compute new p-values and filter by them
                 accepted_scores, target_lines = compute_new_p_values(
                     accepted_scores, pBackground, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold, pViewpointObj)
 
+                # 
                 # filter by new p-value
                 if len(accepted_scores) == 0:
                     if pArgs.batchMode:
