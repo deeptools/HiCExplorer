@@ -184,7 +184,6 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 accepted_scores, target_lines = compute_new_p_values(
                     accepted_scores, pBackground, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold, pViewpointObj)
 
-                # 
                 # filter by new p-value
                 if len(accepted_scores) == 0:
                     if pArgs.batchMode:
