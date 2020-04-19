@@ -79,7 +79,14 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            type=int,
                            default=100000,
                            help='Minimum genomic distance of a loop to be considered.')
-
+    parserOpt.add_argument('--maxVariance',
+                           type=float,
+                           default=0.1,
+                           help='Maximum variance in a normalized neighborhood of a candidate.')
+    parserOpt.add_argument('--minVariance',
+                           type=float,
+                           default=0.01,
+                           help='Minimum variance in a normalized neighborhood of a candidate.')
     parserOpt.add_argument('--chromosomes',
                            help='Chromosomes to include in the analysis. If not set, all chromosomes are included.',
                            nargs='+')
@@ -130,8 +137,10 @@ def create_distance_distribution(pData, pDistances, pWindowSize):
         mask = pDistances == distance
         pGenomicDistanceDistribution[distance] = pData[mask]
         pGenomicDistanceDistributionPosition[distance] = np.argwhere(mask == True).flatten()
-        pGenomicDistanceDistribution_max_value[distance] = pGenomicDistanceDistribution[distance].max()
-
+        if len(pGenomicDistanceDistributionPosition[distance]) > 0:
+            pGenomicDistanceDistribution_max_value[distance] = pGenomicDistanceDistribution[distance].max()
+        else:
+            pGenomicDistanceDistribution_max_value[distance]=0
         # mask_upper = pDistances <= distance + pWindowSize
         # mask_lower = distance - pWindowSize < pDistances
         # mask = np.logical_and(mask_lower, mask_upper)
@@ -198,7 +207,7 @@ def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistrib
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                                 pMaximumInteractionPercentageThreshold, pPValue, pPeakWindowSize,
                                 pPValuePreselection, pStatisticalTest, pMinimumInteractionsThreshold,
-                                pMinLoopDistance, pMaxLoopDistance, pThreads):
+                                pMinLoopDistance, pMaxLoopDistance, pThreads,  pMinVariance, pMaxVariance):
     """
         This function computes the loops by:
             - decreasing the search space by removing values with p-values > pPValuePreselection
@@ -323,7 +332,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     candidates, p_value_list = candidate_region_test(
         pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
-        pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pStatisticalTest)
+        pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pMinVariance, pMaxVariance, pStatisticalTest)
 
     # candidates, p_value_list = candidate_region_test(
     #     pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
@@ -539,7 +548,7 @@ def get_test_data(pNeighborhood, pVertical):
 
 
 def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                                 pMinimumInteractionsThreshold, pPeakWindowSize, pQueue, pStatisticalTest=None):
+                                 pMinimumInteractionsThreshold, pPeakWindowSize, pQueue, pMinVariance, pMaxVariance, pStatisticalTest=None, ):
     neighborhood_list = []
     mask = []
     pvalues = []
@@ -572,8 +581,8 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
         neighborhood = pHiCMatrix[start_x:end_x,
                                   start_y:end_y].toarray()
-        neighborhood_mask = 1.0 >neighborhood
-        neighborhood = neighborhood[neighborhood_mask]
+        # neighborhood_mask = 1.0 > neighborhood
+        # neighborhood = neighborhood[neighborhood_mask]
         neighborhood_list.append(neighborhood.flatten())
         neighborhood_old = neighborhood
         for j in range(len(neighborhood)):
@@ -624,7 +633,18 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             mask.append(False)
             continue
         
-        
+        min_value = np.min(neighborhood)
+        max_value = np.max(neighborhood)
+        min_max_difference = np.float64(max_value - min_value)
+
+        neighborhood -= min_value
+        neighborhood /= min_max_difference
+        variance = np.var(neighborhood)
+        # log.debug('np.var() {}'.format(variance))
+
+        if variance < pMinVariance or variance > pMaxVariance:
+            mask.append(False)
+            continue
         # if np.min(background) * 5 > np.max(peak):
         #     mask.append(False)
         #     continue
@@ -641,9 +661,12 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
                     statistic, significance_level = ranksums(sorted(peak), sorted(background))
                     mask.append(True)
+                    # log.debug('True')
                     pvalues.append(significance_level)
 
                     continue
+            # log.debug('False')
+            
             mask.append(False)
             continue
         else:
@@ -658,12 +681,15 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
                     _, _, significance_level = anderson_ksamp([sorted(peak), sorted(background)])
                     if significance_level <= pPValue:
+                        # log.debug('True')
                         mask.append(True)
                         pvalues.append(significance_level)
                         continue
+                    # log.debug('False')
+
                     mask.append(False)
                     continue
-
+        
         mask.append(False)
     # pvalues = []
     neighborhood_list = np.array(neighborhood_list)
@@ -677,7 +703,7 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
 
 def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                          pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pStatisticalTest=None):
+                          pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pMinVariance, pMaxVariance, pStatisticalTest=None):
     """
         Tests if a candidate is having a significant peak compared to its neighborhood.
             - smoothes neighborhood in x an y orientation
@@ -740,7 +766,10 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             pMinimumInteractionsThreshold=pMinimumInteractionsThreshold,
             pPeakWindowSize=pPeakWindowSize,
             pQueue=queue[i],
+            pMinVariance=pMinVariance, 
+            pMaxVariance=pMaxVariance,
             pStatisticalTest=pStatisticalTest
+
         )
         )
 # candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
@@ -953,7 +982,9 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
                                                          pArgs.peakInteractionsThreshold,
                                                          min_loop_distance,
                                                          max_loop_distance,
-                                                         pArgs.threadsPerChromosome)
+                                                         pArgs.threadsPerChromosome,
+                                                         pMinVariance=pArgs.minVariance,
+                                                         pMaxVariance=pArgs.maxVariance)
 
     if candidates is None:
         log.info('Computed loops for {}: 0'.format(pRegion))
