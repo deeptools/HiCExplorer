@@ -53,10 +53,10 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            help='The window size for the neighborhood region the peak is located in. All values from this region (exclude the values from the peak '
                            ' region) are tested against the peak region for significant difference. The square will have the size of (2 * windowSize)^2 bins')
     parserOpt.add_argument('--pValuePreselection', '-pp',
-                           type=float,
+                        #    type=float,
                            help='Only candidates with p-values less the given threshold will be considered as candidates. '
                                 'For each genomic distance a negative binomial distribution is fitted and for each pixel a p-value given by the cumulative density function is given. '
-                                'This does NOT influence the p-value for the neighborhood testing.',
+                                'This does NOT influence the p-value for the neighborhood testing. Can a single value or a threshold file created by hicCreateThresholdFile.',
                            default=0.05)
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=float,
@@ -69,7 +69,11 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
                            default=0.05,
-                           help='Rejection level for Anderson-Darling test for H0. H0 is peak region and background have the same distribution.')
+                           help='Rejection level for Anderson-Darling or Wilcoxon-rank sum test for H0. H0 is peak region and background have the same distribution.')
+    parserOpt.add_argument('--qValue', '-q',
+                           type=float,
+                           default=0.05,
+                           help='Level for FDR per chromosome.')
 
     parserOpt.add_argument('--maxLoopDistance',
                            type=int,
@@ -155,7 +159,7 @@ def create_distance_distribution(pData, pDistances, pWindowSize):
 
 
 def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistributionsKeyList, pGenomicDistanceDistributionsNeighborhoodWindow,
-                          pPValuePreselection, pMask, pGenomicDistanceDistributionPosition, pQueue):
+                          pPValuePreselection, pMask, pGenomicDistanceDistributionPosition, pResolution, pQueue):
 
     # mask = [False] * len(pGenomicDistanceDistributionsKeyList)
 
@@ -173,8 +177,8 @@ def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistrib
 
         p_value = np.zeros(len(less_than))
 
-        for i in range(len(p_value)):
-            p_value[i] = 1 - cnb.cdf(less_than[i], nbinom_parameters['size'], nbinom_parameters['prob'])
+        for j in range(len(p_value)):
+            p_value[j] = 1 - cnb.cdf(less_than[j], nbinom_parameters['size'], nbinom_parameters['prob'])
         # less_than = np.array(
         #     pGenomicDistanceDistributions[key]).astype(int) - 1
         # mask_less_than = less_than < 0
@@ -194,7 +198,17 @@ def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistrib
         #     sum_of_densities[j] += nbinom_distance.pmf(j)
         # # if len(sum_of_densities) > less_than - 1:
         # p_value = 1 - sum_of_densities[less_than - 1]
-        mask_distance = p_value < pPValuePreselection
+        # log.debug('key: {}'.format(key))
+        # log.debug('p_value len: {}'.format(len(p_value)))
+        # log.debug('less_than {}'.format(np.max(less_than)))
+
+        # log.debug('p_value: {}'.format(np.min(p_value)))
+
+        if isinstance(pPValuePreselection, float):
+            mask_distance = p_value < pPValuePreselection
+        elif isinstance(pPValuePreselection, dict):
+            key_genomic = int(key * pResolution)
+            mask_distance = p_value < pPValuePreselection[key_genomic]
         # else:
         for j, value in enumerate(mask_distance):
             if value:
@@ -205,7 +219,7 @@ def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistrib
 
 
 def compute_long_range_contacts(pHiCMatrix, pWindowSize,
-                                pMaximumInteractionPercentageThreshold, pPValue, pPeakWindowSize,
+                                pMaximumInteractionPercentageThreshold, pPValue, pQValue, pPeakWindowSize,
                                 pPValuePreselection, pStatisticalTest, pMinimumInteractionsThreshold,
                                 pMinLoopDistance, pMaxLoopDistance, pThreads,  pMinVariance, pMaxVariance):
     """
@@ -275,6 +289,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                 pPValuePreselection=pPValuePreselection,
                 pMask=mask,
                 pGenomicDistanceDistributionPosition=pGenomicDistanceDistributionPosition,
+                pResolution=pHiCMatrix.getBinSize(),
                 pQueue=queue[i]
             )
             )
@@ -298,6 +313,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
         time.sleep(1)
 
     for mask_i in mask_threads:
+        # log.debug('true for p-value mask_i: {}'.format(np.sum(mask_i)))
         mask = np.logical_or(mask, mask_i)
 
     peak_interaction_threshold_array = np.zeros(len(distance))
@@ -305,18 +321,21 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
         peak_interaction_threshold_array[i] = pGenomicDistanceDistribution_max_value[key] * pMaximumInteractionPercentageThreshold
     mask_interactions = pHiCMatrix.matrix.data > peak_interaction_threshold_array
 
+    # log.debug('true for p-value: {}'.format(np.sum(mask)))
+    # log.debug('true for interaction count  {}'.format(np.sum(mask_interactions)))
+
     mask = np.logical_and(mask, mask_interactions)
 
     mask_interactions_hard_threshold = pHiCMatrix.matrix.data > pMinimumInteractionsThreshold
     mask = np.logical_and(mask, mask_interactions_hard_threshold)
-
+    # log.debug('candidates; {}'.format(len(instances)))
     instances = instances[mask]
     features = features[mask]
 
     if len(features) == 0:
         return None, None
     candidates = np.array([*zip(instances, features)])
-    log.debug('compute of neigborhood clustering')
+    log.debug('compute of neigborhood clustering: {}'.format(len(candidates)))
 
     # Clean neighborhood, results in one candidate per neighborhood
     # number_of_candidates = 0
@@ -331,7 +350,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
     log.debug('call of test')
 
     candidates, p_value_list = candidate_region_test(
-        pHiCMatrix.matrix, candidates, pWindowSize, pPValue,
+        pHiCMatrix.matrix, candidates, pWindowSize, pPValue, pQValue,
         pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pMinVariance, pMaxVariance, pStatisticalTest)
 
     # candidates, p_value_list = candidate_region_test(
@@ -549,7 +568,7 @@ def get_test_data(pNeighborhood, pVertical):
 
 def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                                  pMinimumInteractionsThreshold, pPeakWindowSize, pQueue, pMinVariance, pMaxVariance, pStatisticalTest=None, ):
-    neighborhood_list = []
+    # neighborhood_list = []
     mask = []
     pvalues = []
     if len(pCandidates) == 0:
@@ -583,7 +602,7 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                                   start_y:end_y].toarray()
         # neighborhood_mask = 1.0 > neighborhood
         # neighborhood = neighborhood[neighborhood_mask]
-        neighborhood_list.append(neighborhood.flatten())
+        # neighborhood_list.append(neighborhood.flatten())
         neighborhood_old = neighborhood
         for j in range(len(neighborhood)):
             neighborhood[j, :] = smoothInteractionValues(neighborhood[j, :], 5)
@@ -610,15 +629,46 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                             peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize].flatten()
 
         background = []
+        # left to peak 
         background.extend(
             list(neighborhood[:peak_region[0] - pPeakWindowSize, :].flatten()))
+        # from peak to right
         background.extend(
             list(neighborhood[peak_region[0] + pPeakWindowSize:, :].flatten()))
+        
+        # top to peak
         background.extend(
             list(neighborhood[:, :peak_region[1] - pPeakWindowSize].flatten()))
+        # peak to bottom
         background.extend(
             list(neighborhood[:, peak_region[1] + pPeakWindowSize:].flatten()))
         background = np.array(background)
+
+        # donut_test_data = []
+        # # top middle
+        # donut_test_data.append(neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize, :peak_region[1] - pPeakWindowSize].flatten())
+        # # top left
+        # donut_test_data.append(neighborhood[:peak_region[0] - pPeakWindowSize, :peak_region[1] - pPeakWindowSize].flatten())
+
+        # # top right
+        # donut_test_data.append(neighborhood[peak_region[0] + pPeakWindowSize:, :peak_region[1] - pPeakWindowSize].flatten())
+
+        # # left middle
+        # donut_test_data.append(neighborhood[:peak_region[0] - pPeakWindowSize, peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize].flatten())
+
+        # # right middle
+        # donut_test_data.append(neighborhood[peak_region[0] + pPeakWindowSize:, peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize].flatten())
+
+        # # bottom left
+        # donut_test_data.append(neighborhood[:peak_region[0] - pPeakWindowSize, peak_region[1] + pPeakWindowSize:].flatten())
+
+        # # bottom right
+        # donut_test_data.append(neighborhood[peak_region[0] + pPeakWindowSize:, peak_region[1] + pPeakWindowSize:].flatten())
+
+        # # bottom middle
+        # donut_test_data.append(neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize, peak_region[1] + pPeakWindowSize:].flatten())
+
+
 
         if len(background) < pWindowSize:
             mask.append(False)
@@ -641,6 +691,8 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         neighborhood /= min_max_difference
         variance = np.var(neighborhood)
         # log.debug('np.var() {}'.format(variance))
+        neighborhood *= min_max_difference
+        neighborhood += min_value
 
         if variance < pMinVariance or variance > pMaxVariance:
             mask.append(False)
@@ -649,22 +701,43 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         #     mask.append(False)
         #     continue
         if pStatisticalTest == 'wilcoxon-rank-sum':
+
+            # accept_length = len(donut_test_data)
+            # accept_count = 0
+            # for data in donut_test_data:
+            #     statistic, significance_level_test1 = ranksums(sorted(peak), sorted(data))
+            #     if significance_level_test1 <= pPValue:
+            #         accept_count += 1
+            #     else:
+            #         mask.append(False)
+            #         break
+            # if accept_count == accept_length:
+            #     # mask.append(True)
+            #     statistic, significance_level = ranksums(sorted(peak), sorted(background))
+            #     if significance_level <= pPValue:
+            #         # log.debug('True')
+            #         mask.append(True)
+            #         pvalues.append(significance_level)
+            #         continue
+            #     else:
+            #         mask.append(False)
+            #         continue
             # test vertical
             test_list = get_test_data(neighborhood, pVertical=True)
             statistic, significance_level_test1 = ranksums(sorted(test_list[0]), sorted(test_list[1]))
             statistic, significance_level_test2 = ranksums(sorted(test_list[1]), sorted(test_list[2]))
-            if significance_level_test1 <= pPValue or significance_level_test2 <= significance_level_test2:
+            if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
                 test_list = get_test_data(neighborhood, pVertical=False)
                 statistic, significance_level_test1 = ranksums(sorted(test_list[0]), sorted(test_list[1]))
                 statistic, significance_level_test2 = ranksums(sorted(test_list[1]), sorted(test_list[2]))
-                if significance_level_test1 <= pPValue or significance_level_test2 <= significance_level_test2:
+                if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
 
                     statistic, significance_level = ranksums(sorted(peak), sorted(background))
-                    mask.append(True)
-                    # log.debug('True')
-                    pvalues.append(significance_level)
-
-                    continue
+                    if significance_level <= pPValue:
+                        # log.debug('True')
+                        mask.append(True)
+                        pvalues.append(significance_level)
+                        continue
             # log.debug('False')
             
             mask.append(False)
@@ -673,11 +746,11 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             test_list = get_test_data(neighborhood, pVertical=True)
             _, _, significance_level_test1 = anderson_ksamp([sorted(test_list[0]), sorted(test_list[1])])
             _, _, significance_level_test2 = anderson_ksamp([sorted(test_list[1]), sorted(test_list[2])])
-            if significance_level_test1 <= pPValue or significance_level_test2 <= significance_level_test2:
+            if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
                 test_list = get_test_data(neighborhood, pVertical=False)
                 _, _, significance_level_test1 = anderson_ksamp([sorted(test_list[0]), sorted(test_list[1])])
                 _, _, significance_level_test2 = anderson_ksamp([sorted(test_list[1]), sorted(test_list[2])])
-                if significance_level_test1 <= pPValue or significance_level_test2 <= significance_level_test2:
+                if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
 
                     _, _, significance_level = anderson_ksamp([sorted(peak), sorted(background)])
                     if significance_level <= pPValue:
@@ -687,22 +760,22 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                         continue
                     # log.debug('False')
 
-                    mask.append(False)
-                    continue
+            mask.append(False)
+            continue
         
-        mask.append(False)
+        # mask.append(False)
     # pvalues = []
-    neighborhood_list = np.array(neighborhood_list)
-    np.save('neighborhood.npy', neighborhood_list)
-    np.save('mask.npy', mask)
-    np.save('candidates.npy', pCandidates)
+    # neighborhood_list = np.array(neighborhood_list)
+    # np.save('neighborhood.npy', neighborhood_list)
+    # np.save('mask.npy', mask)
+    # np.save('candidates.npy', pCandidates)
 
 
     pQueue.put([mask, pvalues])
     return
 
 
-def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
+def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, pQValue,
                           pMinimumInteractionsThreshold, pPeakWindowSize, pThreads, pMinVariance, pMaxVariance, pStatisticalTest=None):
     """
         Tests if a candidate is having a significant peak compared to its neighborhood.
@@ -812,21 +885,21 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
     log.debug('candidate_region_test done: {}'.format(len(pCandidates)))
     pvalues = np.array(pvalues)
 
-    if pStatisticalTest == 'wilcoxon-rank-sum':
-        log.debug('len pCandidates: {}'.format(len(pCandidates)))
-        log.debug('len pvalues: {}'.format(len(pvalues)))
+    # if pStatisticalTest == 'wilcoxon-rank-sum':
+    log.debug('len pCandidates: {}'.format(len(pCandidates)))
+    log.debug('len pvalues: {}'.format(len(pvalues)))
 
-        log.debug('Apply fdr')
-        pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
-        pvalues_ = sorted(pvalues)
-        largest_p_i = 0
-        for i, p in enumerate(pvalues_):
-            if p <= (pPValue * (i + 1) / len(pvalues_)):
-                if p >= largest_p_i:
-                    largest_p_i = p
-        mask = pvalues < largest_p_i
-        pCandidates = pCandidates[mask]
-        pvalues = pvalues[mask]
+    log.debug('Apply fdr')
+    pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
+    pvalues_ = sorted(pvalues)
+    largest_p_i = 0
+    for i, p in enumerate(pvalues_):
+        if p <= (pQValue * (i + 1) / len(pvalues_)):
+            if p >= largest_p_i:
+                largest_p_i = p
+    mask = pvalues < largest_p_i
+    pCandidates = pCandidates[mask]
+    pvalues = pvalues[mask]
 
     if len(pCandidates) == 0:
         return None, None
@@ -972,10 +1045,18 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
     log.debug('candidates region {} min max boundary {}'.format(
         pRegion, len(pHiCMatrix.matrix.data)))
 
+
+    # handle pValuePreselection
+    try:
+        pArgs.pValuePreselection = float(pArgs.pValuePreselection)
+    except Exception:
+        pArgs.pValuePreselection= read_threshold_file(pArgs.pValuePreselection)
+
     candidates, pValueList = compute_long_range_contacts(pHiCMatrix,
                                                          pArgs.windowSize,
                                                          pArgs.maximumInteractionPercentageThreshold,
                                                          pArgs.pValue,
+                                                         pArgs.qValue,
                                                          pArgs.peakWidth,
                                                          pArgs.pValuePreselection,
                                                          pArgs.statisticalTest,
@@ -1039,6 +1120,19 @@ def smoothInteractionValues(pData, pWindowSize):
 
     return average_contacts
 
+def read_threshold_file(pFile):
+    distance_value_dict = {}
+    with open(pFile, 'r') as file:
+        file_ = True
+        while file_:
+            line = file.readline().strip()
+            if line.startswith('#'):
+                continue
+            if line == '':
+                break
+            relative_distance , value = line.split('\t')
+            distance_value_dict[int(relative_distance)] = float(value)
+    return distance_value_dict
 
 def main(args=None):
     log.debug('Newc')
