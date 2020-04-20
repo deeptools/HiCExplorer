@@ -644,29 +644,29 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             list(neighborhood[:, peak_region[1] + pPeakWindowSize:].flatten()))
         background = np.array(background)
 
-        # donut_test_data = []
-        # # top middle
-        # donut_test_data.append(neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize, :peak_region[1] - pPeakWindowSize].flatten())
-        # # top left
-        # donut_test_data.append(neighborhood[:peak_region[0] - pPeakWindowSize, :peak_region[1] - pPeakWindowSize].flatten())
+        donut_test_data = []
+        # top middle
+        donut_test_data.append(neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize, :peak_region[1] - pPeakWindowSize].flatten())
+        # top left
+        donut_test_data.append(neighborhood[:peak_region[0] - pPeakWindowSize, :peak_region[1] - pPeakWindowSize].flatten())
 
-        # # top right
-        # donut_test_data.append(neighborhood[peak_region[0] + pPeakWindowSize:, :peak_region[1] - pPeakWindowSize].flatten())
+        # top right
+        donut_test_data.append(neighborhood[peak_region[0] + pPeakWindowSize:, :peak_region[1] - pPeakWindowSize].flatten())
 
-        # # left middle
-        # donut_test_data.append(neighborhood[:peak_region[0] - pPeakWindowSize, peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize].flatten())
+        # left middle
+        donut_test_data.append(neighborhood[:peak_region[0] - pPeakWindowSize, peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize].flatten())
 
-        # # right middle
-        # donut_test_data.append(neighborhood[peak_region[0] + pPeakWindowSize:, peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize].flatten())
+        # right middle
+        donut_test_data.append(neighborhood[peak_region[0] + pPeakWindowSize:, peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize].flatten())
 
-        # # bottom left
-        # donut_test_data.append(neighborhood[:peak_region[0] - pPeakWindowSize, peak_region[1] + pPeakWindowSize:].flatten())
+        # bottom left
+        donut_test_data.append(neighborhood[:peak_region[0] - pPeakWindowSize, peak_region[1] + pPeakWindowSize:].flatten())
 
-        # # bottom right
-        # donut_test_data.append(neighborhood[peak_region[0] + pPeakWindowSize:, peak_region[1] + pPeakWindowSize:].flatten())
+        # bottom right
+        donut_test_data.append(neighborhood[peak_region[0] + pPeakWindowSize:, peak_region[1] + pPeakWindowSize:].flatten())
 
-        # # bottom middle
-        # donut_test_data.append(neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize, peak_region[1] + pPeakWindowSize:].flatten())
+        # bottom middle
+        donut_test_data.append(neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize, peak_region[1] + pPeakWindowSize:].flatten())
 
 
 
@@ -702,66 +702,87 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         #     continue
         if pStatisticalTest == 'wilcoxon-rank-sum':
 
-            # accept_length = len(donut_test_data)
-            # accept_count = 0
-            # for data in donut_test_data:
-            #     statistic, significance_level_test1 = ranksums(sorted(peak), sorted(data))
-            #     if significance_level_test1 <= pPValue:
-            #         accept_count += 1
-            #     else:
-            #         mask.append(False)
-            #         break
-            # if accept_count == accept_length:
-            #     # mask.append(True)
-            #     statistic, significance_level = ranksums(sorted(peak), sorted(background))
-            #     if significance_level <= pPValue:
-            #         # log.debug('True')
-            #         mask.append(True)
-            #         pvalues.append(significance_level)
-            #         continue
-            #     else:
-            #         mask.append(False)
-            #         continue
-            # test vertical
-            test_list = get_test_data(neighborhood, pVertical=True)
-            statistic, significance_level_test1 = ranksums(sorted(test_list[0]), sorted(test_list[1]))
-            statistic, significance_level_test2 = ranksums(sorted(test_list[1]), sorted(test_list[2]))
-            if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
-                test_list = get_test_data(neighborhood, pVertical=False)
-                statistic, significance_level_test1 = ranksums(sorted(test_list[0]), sorted(test_list[1]))
-                statistic, significance_level_test2 = ranksums(sorted(test_list[1]), sorted(test_list[2]))
-                if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
+            accept_length = len(donut_test_data)
+            accept_count = 0
+            for data in donut_test_data:
+                statistic, significance_level_test1 = ranksums(sorted(peak), sorted(data))
+                if significance_level_test1 <= pPValue:
+                    accept_count += 1
+                # else:
+                #     mask.append(False)
+                #     break
+            if accept_count >= 6:
+                # mask.append(True)
+                # statistic, significance_level = ranksums(sorted(peak), sorted(background))
+                # if significance_level <= pPValue:
+                #     # log.debug('True')
+                mask.append(True)
+                pvalues.append(significance_level_test1)
+                continue
+            else:
+                mask.append(False)
+                continue
 
-                    statistic, significance_level = ranksums(sorted(peak), sorted(background))
-                    if significance_level <= pPValue:
-                        # log.debug('True')
-                        mask.append(True)
-                        pvalues.append(significance_level)
-                        continue
+            # test vertical
+            # test_list = get_test_data(neighborhood, pVertical=True)
+            # statistic, significance_level_test1 = ranksums(sorted(test_list[0]), sorted(test_list[1]))
+            # statistic, significance_level_test2 = ranksums(sorted(test_list[1]), sorted(test_list[2]))
+            # if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
+            #     test_list = get_test_data(neighborhood, pVertical=False)
+            #     statistic, significance_level_test1 = ranksums(sorted(test_list[0]), sorted(test_list[1]))
+            #     statistic, significance_level_test2 = ranksums(sorted(test_list[1]), sorted(test_list[2]))
+            #     if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
+
+            #         statistic, significance_level = ranksums(sorted(peak), sorted(background))
+            #         if significance_level <= pPValue:
+            #             # log.debug('True')
+            #             mask.append(True)
+            #             pvalues.append(significance_level)
+            #             continue
             # log.debug('False')
             
-            mask.append(False)
-            continue
+            # mask.append(False)
+            # continue
         else:
-            test_list = get_test_data(neighborhood, pVertical=True)
-            _, _, significance_level_test1 = anderson_ksamp([sorted(test_list[0]), sorted(test_list[1])])
-            _, _, significance_level_test2 = anderson_ksamp([sorted(test_list[1]), sorted(test_list[2])])
-            if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
-                test_list = get_test_data(neighborhood, pVertical=False)
-                _, _, significance_level_test1 = anderson_ksamp([sorted(test_list[0]), sorted(test_list[1])])
-                _, _, significance_level_test2 = anderson_ksamp([sorted(test_list[1]), sorted(test_list[2])])
-                if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
+            # test_list = get_test_data(neighborhood, pVertical=True)
+            # _, _, significance_level_test1 = anderson_ksamp([sorted(test_list[0]), sorted(test_list[1])])
+            # _, _, significance_level_test2 = anderson_ksamp([sorted(test_list[1]), sorted(test_list[2])])
+            # if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
+            #     test_list = get_test_data(neighborhood, pVertical=False)
+            #     _, _, significance_level_test1 = anderson_ksamp([sorted(test_list[0]), sorted(test_list[1])])
+            #     _, _, significance_level_test2 = anderson_ksamp([sorted(test_list[1]), sorted(test_list[2])])
+            #     if significance_level_test1 <= pPValue or significance_level_test2 <= pPValue:
 
-                    _, _, significance_level = anderson_ksamp([sorted(peak), sorted(background)])
-                    if significance_level <= pPValue:
-                        # log.debug('True')
-                        mask.append(True)
-                        pvalues.append(significance_level)
-                        continue
-                    # log.debug('False')
+            #         _, _, significance_level = anderson_ksamp([sorted(peak), sorted(background)])
+            #         if significance_level <= pPValue:
+            #             # log.debug('True')
+            #             mask.append(True)
+            #             pvalues.append(significance_level)
+            #             continue
+            #         # log.debug('False')
 
-            mask.append(False)
-            continue
+            # mask.append(False)
+            # continue
+            accept_length = len(donut_test_data)
+            accept_count = 0
+            for data in donut_test_data:
+                statistic, significance_level_test1 = anderson_ksamp(sorted(peak), sorted(data))
+                if significance_level_test1 <= pPValue:
+                    accept_count += 1
+                # else:
+                #     mask.append(False)
+                #     break
+            if accept_count >= 6:
+                # mask.append(True)
+                # statistic, significance_level = ranksums(sorted(peak), sorted(background))
+                # if significance_level <= pPValue:
+                #     # log.debug('True')
+                mask.append(True)
+                pvalues.append(significance_level_test1)
+                continue
+            else:
+                mask.append(False)
+                continue
         
         # mask.append(False)
     # pvalues = []
@@ -886,20 +907,20 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, pQValue
     pvalues = np.array(pvalues)
 
     # if pStatisticalTest == 'wilcoxon-rank-sum':
-    log.debug('len pCandidates: {}'.format(len(pCandidates)))
-    log.debug('len pvalues: {}'.format(len(pvalues)))
+    # log.debug('len pCandidates: {}'.format(len(pCandidates)))
+    # log.debug('len pvalues: {}'.format(len(pvalues)))
 
-    log.debug('Apply fdr')
-    pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
-    pvalues_ = sorted(pvalues)
-    largest_p_i = 0
-    for i, p in enumerate(pvalues_):
-        if p <= (pQValue * (i + 1) / len(pvalues_)):
-            if p >= largest_p_i:
-                largest_p_i = p
-    mask = pvalues < largest_p_i
-    pCandidates = pCandidates[mask]
-    pvalues = pvalues[mask]
+    # log.debug('Apply fdr')
+    # pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
+    # pvalues_ = sorted(pvalues)
+    # largest_p_i = 0
+    # for i, p in enumerate(pvalues_):
+    #     if p <= (pQValue * (i + 1) / len(pvalues_)):
+    #         if p >= largest_p_i:
+    #             largest_p_i = p
+    # mask = pvalues < largest_p_i
+    # pCandidates = pCandidates[mask]
+    # pvalues = pvalues[mask]
 
     if len(pCandidates) == 0:
         return None, None
