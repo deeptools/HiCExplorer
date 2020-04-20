@@ -138,7 +138,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            default=2,
                            type=int)
     parserOpt.add_argument('--multipleTesting', '-mt',
-                            help='Multiple testing correction per relative distance with Bonferroni or FDR.'
+                            help='Multiple testing correction per relative distance with Bonferroni or FDR.',
                             type=str,
                             default="None",
                             choices=['fdr', 'bonferroni', 'None'],
