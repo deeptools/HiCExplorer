@@ -127,24 +127,34 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
     return parser
 
 
-def create_distance_distribution(pData, pDistances, pWindowSize):
+def create_distance_distribution(pData, pDistances, pWindowSize, pMinimumInteractionsThreshold, pMinDistance, pMaxDistance, pQueue):
+    log.debug('distance distribution')
     pGenomicDistanceDistribution = {}
     pGenomicDistanceDistributionNeighborhoodWindow = {}
 
     pGenomicDistanceDistributionPosition = {}
     pGenomicDistanceDistribution_max_value = {}
 
-    min_distance = pDistances.min()
-    max_distance = pDistances.max()
-
-    for distance in range(min_distance, max_distance+1, 1):
+    # min_distance = pDistances.min()
+    # max_distance = pDistances.max()
+    mask_interactions = pData >= pMinimumInteractionsThreshold
+    for distance in range(pMinDistance, pMaxDistance, 1):
         mask = pDistances == distance
+        data = pData[mask]
+        if len(data) > 0 and data.max() < pMinimumInteractionsThreshold:
+            # pGenomicDistanceDistributionPosition[distance] = []
+            # pGenomicDistanceDistribution[distance] = []
+            # pGenomicDistanceDistributionNeighborhoodWindow[distance] = []
+            pGenomicDistanceDistribution_max_value[distance] = 0
+            continue
+        pGenomicDistanceDistributionNeighborhoodWindow[distance] = data
+        mask = np.logical_and(mask, mask_interactions)
         pGenomicDistanceDistribution[distance] = pData[mask]
         pGenomicDistanceDistributionPosition[distance] = np.argwhere(mask == True).flatten()
         if len(pGenomicDistanceDistributionPosition[distance]) > 0:
             pGenomicDistanceDistribution_max_value[distance] = pGenomicDistanceDistribution[distance].max()
         else:
-            pGenomicDistanceDistribution_max_value[distance]=0
+            pGenomicDistanceDistribution_max_value[distance] = 0
         # mask_upper = pDistances <= distance + pWindowSize
         # mask_lower = distance - pWindowSize < pDistances
         # mask = np.logical_and(mask_lower, mask_upper)
@@ -152,57 +162,31 @@ def create_distance_distribution(pData, pDistances, pWindowSize):
         # mask_truncate = 5 < pData 
         # mask = np.logical_and(mask_truncate, mask)
 
-        pGenomicDistanceDistributionNeighborhoodWindow[distance] = pData[mask]
 
+    log.debug('distance distribution...DNE')
 
-    return pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value, pGenomicDistanceDistributionNeighborhoodWindow
+    pQueue.put([pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value, pGenomicDistanceDistributionNeighborhoodWindow])
+    return
 
 
 def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistributionsKeyList, pGenomicDistanceDistributionsNeighborhoodWindow,
-                          pPValuePreselection, pMask, pGenomicDistanceDistributionPosition, pResolution, pQueue):
+                          pPValuePreselection, pMask, pGenomicDistanceDistributionPosition, pResolution, pMinimumInteractionsThreshold, pQueue):
 
     # mask = [False] * len(pGenomicDistanceDistributionsKeyList)
+    log.debug('p-values...')
 
     if len(pGenomicDistanceDistributionsKeyList) == 0:
         pQueue.put(pMask)
         return
 
     for i, key in enumerate(pGenomicDistanceDistributionsKeyList):
+        if len(pGenomicDistanceDistributionsNeighborhoodWindow[key]) == 0:#.max() < pMinimumInteractionsThreshold:
+            continue
         nbinom_parameters = fit_nbinom.fit(
             np.array(pGenomicDistanceDistributionsNeighborhoodWindow[key]))
-        # nbinom_distance = nbinom(
-        #     nbinom_parameters['size'], nbinom_parameters['prob'])
 
         less_than = np.array(pGenomicDistanceDistributions[key])
-
-        p_value = np.zeros(len(less_than))
-
-        for j in range(len(p_value)):
-            p_value[j] = 1 - cnb.cdf(less_than[j], nbinom_parameters['size'], nbinom_parameters['prob'])
-        # less_than = np.array(
-        #     pGenomicDistanceDistributions[key]).astype(int) - 1
-        # mask_less_than = less_than < 0
-        # less_than[mask_less_than] = 1
-
-        # if len(less_than) <= 0:
-        #     continue
-        # max_element = np.max(less_than)
-        # if max_element <= 0:
-        #     continue
-        # max_element = np.max(less_than)
-        # sum_of_densities = np.zeros(max_element)
-
-        # for j in range(max_element):
-        #     if j >= 1:
-        #         sum_of_densities[j] += sum_of_densities[j - 1]
-        #     sum_of_densities[j] += nbinom_distance.pmf(j)
-        # # if len(sum_of_densities) > less_than - 1:
-        # p_value = 1 - sum_of_densities[less_than - 1]
-        # log.debug('key: {}'.format(key))
-        # log.debug('p_value len: {}'.format(len(p_value)))
-        # log.debug('less_than {}'.format(np.max(less_than)))
-
-        # log.debug('p_value: {}'.format(np.min(p_value)))
+        p_value = 1 - cnb.cdf(less_than, nbinom_parameters['size'], nbinom_parameters['prob'])
 
         if isinstance(pPValuePreselection, float):
             mask_distance = p_value < pPValuePreselection
@@ -213,6 +197,7 @@ def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistrib
         for j, value in enumerate(mask_distance):
             if value:
                 pMask[pGenomicDistanceDistributionPosition[key][j]] = True
+    log.debug('p-values...DONE')
 
     pQueue.put(pMask)
     return
@@ -247,12 +232,91 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
 
     instances, features = pHiCMatrix.matrix.nonzero()
     distance = np.absolute(instances - features)
-    mask = [False] * len(distance)
+    queue = [None] * pThreads
+    process = [None] * pThreads
+    genomic_distance_distributions_thread = [None] * pThreads
+    pGenomicDistanceDistributionPosition_thread = [None] * pThreads
+    pGenomicDistanceDistribution_max_value_thread = [None] * pThreads
+    genomicDistanceDistributionsNeighborhoodWindow_thread = [None] * pThreads
+    all_data_collected = False
+    thread_done = [False] * pThreads
+    min_distance = distance.min()
+    max_distance = distance.max()
 
-    genomic_distance_distributions, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value, genomicDistanceDistributionsNeighborhoodWindow = create_distance_distribution(
-        pHiCMatrix.matrix.data, distance, pWindowSize)
+    distances_per_threads = (max_distance - min_distance) // pThreads
+    for i in range(pThreads):
+
+        if i < pThreads - 1:
+            min_distance_thread = min_distance + (i * distances_per_threads)
+            max_distance_thread = min_distance + ((i+1) * distances_per_threads)
+            #  = genomic_keys_list[i * genomic_distance_distributions_thread:(i + 1) * genomic_distance_distributions_thread]
+        else:
+            # genomic_distance_keys_thread = genomic_keys_list[i * genomic_distance_distributions_thread:]
+            min_distance_thread = min_distance + (i * distances_per_threads)
+            max_distance_thread = max_distance + 1
+        # index_pos = index_counter
+        # index_counter += len(genomic_distance_keys_thread)
+        # if len(genomic_distance_keys_thread) == 0:
+
+        #     process[i] = None
+        #     queue[i] = None
+        #     thread_done[i] = True
+
+        #     mask_threads[i] = [False] * len(distance)
+        #     continue
+        # else:
+        queue[i] = Queue()
+        process[i] = Process(target=create_distance_distribution, kwargs=dict(
+            pData=pHiCMatrix.matrix.data,
+            pDistances=distance,
+            pWindowSize=pWindowSize, 
+            pMinimumInteractionsThreshold=pMinimumInteractionsThreshold, 
+            pMinDistance=min_distance_thread, 
+            pMaxDistance=max_distance_thread,
+            pQueue=queue[i]
+        )
+        )
+
+        process[i].start()
+
+    while not all_data_collected:
+        for i in range(pThreads):
+            if queue[i] is not None and not queue[i].empty():
+                genomic_distance_distributions_thread[i], pGenomicDistanceDistributionPosition_thread[i], \
+                    pGenomicDistanceDistribution_max_value_thread[i], genomicDistanceDistributionsNeighborhoodWindow_thread[i] = queue[i].get()
+                queue[i] = None
+                process[i].join()
+                process[i].terminate()
+                process[i] = None
+                thread_done[i] = True
+                # log.debug("276")
+        all_data_collected = True
+        for thread in thread_done:
+            if not thread:
+                all_data_collected = False
+        time.sleep(1)
+
+    genomic_distance_distributions = {}
+    pGenomicDistanceDistributionPosition = {}
+    pGenomicDistanceDistribution_max_value = {}
+    genomicDistanceDistributionsNeighborhoodWindow = {}
+    for thread_data in genomic_distance_distributions_thread:
+        genomic_distance_distributions = {**genomic_distance_distributions, **thread_data}
+
+    for thread_data in pGenomicDistanceDistributionPosition_thread:
+        pGenomicDistanceDistributionPosition = {**pGenomicDistanceDistributionPosition, **thread_data}
+    
+    for thread_data in pGenomicDistanceDistribution_max_value_thread:
+        pGenomicDistanceDistribution_max_value = {**pGenomicDistanceDistribution_max_value, **thread_data}
+    
+    for thread_data in genomicDistanceDistributionsNeighborhoodWindow_thread:
+        genomicDistanceDistributionsNeighborhoodWindow = {**genomicDistanceDistributionsNeighborhoodWindow, **thread_data}
+    # genomic_distance_distributions, pGenomicDistanceDistributionPosition, pGenomicDistanceDistribution_max_value, genomicDistanceDistributionsNeighborhoodWindow = create_distance_distribution(
+    #     pHiCMatrix.matrix.data, distance, pWindowSize, pMinimumInteractionsThreshold)
 
     # nbinom_parameters = {}
+    mask = [False] * len(distance)
+
     genomic_distance_distributions_thread = len(genomic_distance_distributions) // pThreads
 
     queue = [None] * pThreads
@@ -290,6 +354,7 @@ def compute_long_range_contacts(pHiCMatrix, pWindowSize,
                 pMask=mask,
                 pGenomicDistanceDistributionPosition=pGenomicDistanceDistributionPosition,
                 pResolution=pHiCMatrix.getBinSize(),
+                pMinimumInteractionsThreshold=pMinimumInteractionsThreshold,
                 pQueue=queue[i]
             )
             )
