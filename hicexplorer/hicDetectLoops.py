@@ -566,48 +566,6 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pMinLo
 
     new_candidate_list = [item for sublist in new_candidate_list_threads for item in sublist]
 
-    # for candidate in pCandidates:
-
-    # get neighborhood out of pInteractionCountMatrix matrix
-    # start_x = candidate[0] - \
-    #     pWindowSize if candidate[0] - pWindowSize > 0 else 0
-    # end_x = candidate[0] + pWindowSize if candidate[0] + \
-    #     pWindowSize < x_max else x_max
-    # start_y = candidate[1] - \
-    #     pWindowSize if candidate[1] - pWindowSize > 0 else 0
-    # end_y = candidate[1] + pWindowSize if candidate[1] + \
-    #     pWindowSize < y_max else y_max
-
-    # neighborhood = pInteractionCountMatrix[start_x:end_x,
-    #                                        start_y:end_y].toarray().flatten()
-    # if len(neighborhood) == 0:
-    #     continue
-    # argmax = np.argmax(neighborhood)
-    # x = argmax // (pWindowSize * 2)
-    # y = argmax % (pWindowSize * 2)
-
-    # candidate_x = (candidate[0] - pWindowSize) + \
-    #     x if (candidate[0] - pWindowSize + x) < x_max else x_max - 1
-    # candidate_y = (candidate[1] - pWindowSize) + \
-    #     y if (candidate[1] - pWindowSize + y) < y_max else y_max - 1
-    # if candidate_x < 0 or candidate_y < 0:
-    #     continue
-    # if np.absolute(candidate_x - candidate_y) < pMinLoopDistance or np.absolute(candidate_x - candidate_y) > pMaxLoopDistance:
-    #     continue
-    # new_candidate_list.append([candidate_x, candidate_y])
-
-    # mask = filter_duplicates(new_candidate_list)
-
-    # if mask is not None and len(mask) == 0:
-    #     return [], []
-    # if mask is None:
-    #     return [], []
-    # mask = np.array(mask)
-    # pCandidates = np.array(new_candidate_list)
-    # # log.debug('type of mask: {}'.format(type(mask)))
-    # # log.debug('mask: {}'.format(mask))
-
-    # pCandidates = pCandidates[mask]
     return new_candidate_list, True
 
 
@@ -1261,7 +1219,35 @@ def main(args=None):
             if not is_cooler:
                 chromosomes_list = list(hic_matrix.chrBinBoundaries)
             else:
-                chromosomes_list = cooler.Cooler(args.matrix).chromnames
+                # chromosomes_list = cooler.Cooler(args.matrix).chromnames
+                chromosome_sizes = cooler.Cooler(args.matrix).chromsizes
+                
+                # shuffle the processing order of chromosomes. 
+                # with this one large chromosome and 4 smalls are in a row
+                # peak memory is reduced and more chromosomes can be processed in parallel on low memory systems.
+                sorted_sizes_desc = chromosome_sizes.sort_values(ascending=False)
+
+                size= sorted_sizes_desc.size
+                chromosome_names_list = sorted_sizes_desc.index.tolist()
+                # threads = 5
+                chromosomes_list = []
+                i = 0
+                j = 5 - 1 # biggest + 4 smallest; 2nd biggest chr + 4 - 8 smallest
+                k = size - 1
+                while i < size:
+                    chromosomes_list.append(chromosome_names_list[i])
+                    while j > 0 and k > 0:
+                        if k == i:
+                            break
+                        chromosomes_list.append(chromosome_names_list[k])
+                        k -= 1
+                        j -= 1
+                    j = args.threads-1
+                    if i == k:
+                        break
+                    i += 1
+
+                
         else:
             chromosomes_list = args.chromosomes
 
