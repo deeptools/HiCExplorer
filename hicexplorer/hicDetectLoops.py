@@ -734,7 +734,7 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                 # else:
                 #     mask.append(False)
                 #     break
-            if accept_count >= 6:
+            if accept_count >= 4:
                 # mask.append(True)
                 # statistic, significance_level = ranksums(sorted(peak), sorted(background))
                 # if significance_level <= pPValue:
