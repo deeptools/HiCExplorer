@@ -8,6 +8,7 @@ from matplotlib import use as mplt_use
 mplt_use('Agg')
 from unidecode import unidecode
 import cooler
+from copy import deepcopy
 
 import logging
 log = logging.getLogger(__name__)
@@ -299,6 +300,12 @@ def expected_interactions(pSubmatrix):
     mask = np.isinf(expected_interactions)
     expected_interactions[mask] = 0
 
+    del row
+    del col
+    del distance
+    del occurrences
+    del mask
+
     return expected_interactions
 
 # def expected_interactions(pSubmatrix):
@@ -372,7 +379,7 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False):
     return pSubmatrix
 
 
-def obs_exp_matrix(pSubmatrix):
+def obs_exp_matrix(pSubmatrix, pInplace=True):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
@@ -385,15 +392,31 @@ def obs_exp_matrix(pSubmatrix):
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix)
     row, col = pSubmatrix.nonzero()
     distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
-
+    if not pInplace:
+        pSubmatrix_copy = deepcopy(pSubmatrix)
     if len(pSubmatrix.data) > 0:
         data_type = type(pSubmatrix.data[0])
 
         expected = expected_interactions_in_distance_[distance]
-        pSubmatrix.data = pSubmatrix.data.astype(np.float32)
-        pSubmatrix.data /= expected
-        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
-    return pSubmatrix
+        if pInplace:
+            pSubmatrix.data = pSubmatrix.data.astype(np.float32)
+            pSubmatrix.data /= expected
+            pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+        else:
+            pSubmatrix_copy.data = pSubmatrix.data.astype(np.float32)
+            pSubmatrix_copy.data /= expected
+            pSubmatrix_copy.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+        del expected
+
+    del expected_interactions_in_distance_
+    del row
+    del col
+    del distance
+    
+    if pInplace:
+        return pSubmatrix
+    else:
+        return pSubmatrix_copy
 
 
 def toString(s):
