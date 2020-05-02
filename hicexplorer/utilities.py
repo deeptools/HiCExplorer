@@ -80,14 +80,21 @@ def convertInfsToZeros(ma):
     return ma
 
 
-def convertInfsToZeros_ArrayFloat(pArray):
+def convertInfsToZeros_ArrayFloat(pArray, pToEpsilon=False):
     nan_elements = np.flatnonzero(np.isnan(pArray))
     if len(nan_elements) > 0:
-        pArray[nan_elements] = 0.0
+        if pToEpsilon:
+            pArray[nan_elements] = 0.000001
+        else:
+            pArray[nan_elements] = 0.0
+
 
     inf_elements = np.flatnonzero(np.isinf(pArray))
     if len(inf_elements) > 0:
-        pArray[inf_elements] = 0.0
+        if pToEpsilon:
+            pArray[inf_elements] = 0.000001
+        else:
+            pArray[inf_elements] = 0.0
     return pArray
 
 
@@ -379,7 +386,7 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False):
     return pSubmatrix
 
 
-def obs_exp_matrix(pSubmatrix, pInplace=True):
+def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
@@ -401,11 +408,11 @@ def obs_exp_matrix(pSubmatrix, pInplace=True):
         if pInplace:
             pSubmatrix.data = pSubmatrix.data.astype(np.float32)
             pSubmatrix.data /= expected
-            pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+            pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data, pToEpsilon).astype(data_type)
         else:
-            pSubmatrix_copy.data = pSubmatrix.data.astype(np.float32)
+            pSubmatrix_copy.data = pSubmatrix_copy.data.astype(np.float32)
             pSubmatrix_copy.data /= expected
-            pSubmatrix_copy.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+            pSubmatrix_copy.data = convertInfsToZeros_ArrayFloat(pSubmatrix_copy.data, pToEpsilon).astype(data_type)
         del expected
 
     del expected_interactions_in_distance_
