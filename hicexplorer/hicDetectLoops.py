@@ -1,10 +1,12 @@
 import argparse
 from multiprocessing import Process, Queue
+from multiprocessing.sharedctypes import Array, RawArray
 from copy import deepcopy
 import logging
 log = logging.getLogger(__name__)
 import time
-
+import gc
+from ctypes import c_bool
 import cooler
 import numpy as np
 from scipy.sparse import csr_matrix, triu
@@ -132,74 +134,89 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
     return parser
 
 
-def create_distance_distribution(pData, pDataObsExp, pDistances, pWindowSize, pMinDistance, pMaxDistance, pQueue):
-    pGenomicDistanceDistribution = {}
+def create_distance_distribution(pDataObsExp, pDistances, pWindowSize, pMinDistance, pMaxDistance, pQueue):
+    # pGenomicDistanceDistribution = {}
     pGenomicDistanceDistributionObsExp = {}
     pGenomicDistanceDistributionPosition = {}
-    log.debug('sum of pData {}'.format(np.sum(pData)))
-    log.debug('sum of pDataObsExp {}'.format(np.sum(pDataObsExp)))
+    # log.debug('sum of pData {}'.format(np.sum(pData)))
+    # log.debug('sum of pDataObsExp {}'.format(np.sum(pDataObsExp)))
 
     try:
         for distance in range(pMinDistance, pMaxDistance, 1):
             mask = pDistances == distance
 
-            pGenomicDistanceDistribution[distance] = pData[mask]
+            # pGenomicDistanceDistribution[distance] = pData[mask]
             pGenomicDistanceDistributionObsExp[distance]  = pDataObsExp[mask]
             pGenomicDistanceDistributionPosition[distance] = np.argwhere(mask == True).flatten()
+            # del mask
     except:
         pQueue.put([{}, {}, {}])
-    pQueue.put([pGenomicDistanceDistribution, pGenomicDistanceDistributionPosition, pGenomicDistanceDistributionObsExp])
+    pQueue.put([pGenomicDistanceDistributionPosition, pGenomicDistanceDistributionObsExp])
     return
 
 
-def compute_p_values_mask(pGenomicDistanceDistributions, pGenomicDistanceDistributionsObsExp, pGenomicDistanceDistributionsKeyList, 
-                          pPValuePreselection, pMask, pGenomicDistanceDistributionPosition, pResolution, 
+def compute_p_values_mask(pGenomicDistanceDistributionsObsExp, pGenomicDistanceDistributionsKeyList, 
+                          pPValuePreselection, pGenomicDistanceDistributionPosition, pResolution, 
                           pMinimumInteractionsThreshold, pObsExpThreshold, pQueue):
 
+    true_values = []
     if len(pGenomicDistanceDistributionsKeyList) == 0:
-        pQueue.put(pMask)
+        pQueue.put(true_values)
         return
 
+    float_dict = isinstance(pPValuePreselection, float)
     for i, key in enumerate(pGenomicDistanceDistributionsKeyList):
 
-        data = np.array(pGenomicDistanceDistributions[key])
+        # data = np.array(pGenomicDistanceDistributions[key])
         data_obs_exp = np.array(pGenomicDistanceDistributionsObsExp[key])
 
 
         # do not fit and not compute any p-value if all values on this distance are small than the pMinimumInteractionsThreshold
-        mask = data >= pMinimumInteractionsThreshold
-        mask_obs_exp = data_obs_exp >= pObsExpThreshold
-        # mask = data_obs_exp >= pObsExpThreshold
+        # mask = data >= pMinimumInteractionsThreshold
+        # mask_obs_exp = data_obs_exp >= pObsExpThreshold
+        mask = data_obs_exp >= pObsExpThreshold
+        # log.info('key: {}'.format(key))
+        # log.info('max: {}'.format(data.max()))
+        # log.info('max obs_exp: {}'.format(data_obs_exp.max()))
 
-        mask = np.logical_and(mask, mask_obs_exp)
-        if np.sum(mask) == 0:#.max() < pMinimumInteractionsThreshold:
-            continue
+        # mask = np.logical_and(mask, mask_obs_exp)
+        # if np.sum(mask) == 0:#.max() < pMinimumInteractionsThreshold:
+        #     log.info('no values will be computed')
+
+        #     # del mask
+        #     # del mask_obs_exp
+        #     continue
+        # time_start = time.time()
         nbinom_parameters = fit_nbinom.fit(data_obs_exp)
+        # log.info('time fit: {}'.format(time.time() - time_start))
+        # time_start = time.time()
 
         p_value = 1 - cnb.cdf(data_obs_exp[mask], nbinom_parameters['size'], nbinom_parameters['prob'])
+        # log.info('time p_values: {}'.format(time.time() - time_start))
 
-        if isinstance(pPValuePreselection, float):
-            mask_distance = p_value < pPValuePreselection
-        elif isinstance(pPValuePreselection, dict):
+        if float_dict:
+            mask_distance = p_value <= pPValuePreselection
+        else:
             key_genomic = int(key * pResolution)
-            mask_distance = p_value < pPValuePreselection[key_genomic]
+            mask_distance = p_value <= pPValuePreselection[key_genomic]
         j = 0
         for k, value in enumerate(mask):
             if value:
                 if mask_distance[j]:
-                    pMask[pGenomicDistanceDistributionPosition[key][k]] = True
+                    true_values.append(pGenomicDistanceDistributionPosition[key][k])
+                    # pMask[pGenomicDistanceDistributionPosition[key][k]] = True
                 j += 1
-
-    pQueue.put(pMask)
+        # del mask
+        # del mask_obs_exp
+        # del p_value
+        # del data
+        # del data_obs_exp
+        # del pGenomicDistanceDistributions[key]
+        # del pGenomicDistanceDistributionsObsExp[key]
+        # gc.collect()
+    pQueue.put(true_values)
     return
 
-def compute_long_range_contacts_threads(pHiCMatrix, pObsExpMatrix, pWindowSize,
-                                pPValue, pPeakWindowSize,
-                                pPValuePreselection, pStatisticalTest, 
-                                pMinimumInteractionsThreshold,
-                                pObsExpThreshold, pThreads, pQueue):
-    pass
-    
 
 def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
                                 pPValue, pPeakWindowSize,
@@ -231,21 +248,27 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
 
     instances, features = pObsExpMatrix.nonzero()
     distance = np.absolute(instances - features)
+    mask_interactions_hard_threshold = pHiCMatrix.matrix.data >= pMinimumInteractionsThreshold
+
 
     del instances
     del features
+    # pThreads_backup = pThreads
+    # pThreads=1
     queue = [None] * pThreads
     process = [None] * pThreads
-    genomic_distance_distributions_thread = [None] * pThreads
-    genomic_distance_distributions_obs_exp_thread = [None] * pThreads
+    genomic_distance_distributions_thread = None
+    genomic_distance_distributions_obs_exp_thread = None
 
-    pGenomicDistanceDistributionPosition_thread = [None] * pThreads
-    pGenomicDistanceDistribution_max_value_thread = [None] * pThreads
-    genomicDistanceDistributionsNeighborhoodWindow_thread = [None] * pThreads
+    pGenomicDistanceDistributionPosition_thread = None
+    # pGenomicDistanceDistribution_max_value_thread = [None] * pThreads
+    # genomicDistanceDistributionsNeighborhoodWindow_thread = [None] * pThreads
     all_data_collected = False
     thread_done = [False] * pThreads
     min_distance = distance.min()
     max_distance = distance.max()
+    len_distance = len(distance)
+    log.info('first parallel')
 
     distances_per_threads = (max_distance - min_distance) // pThreads
     for i in range(pThreads):
@@ -258,7 +281,7 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
             max_distance_thread = max_distance + 1
         queue[i] = Queue()
         process[i] = Process(target=create_distance_distribution, kwargs=dict(
-            pData=pHiCMatrix.matrix.data,
+            # pData=pHiCMatrix.matrix.data,
             pDataObsExp=pObsExpMatrix.data,
             pDistances=distance,
             pWindowSize=pWindowSize, 
@@ -269,12 +292,27 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
         )
 
         process[i].start()
-
+    
+    del pHiCMatrix.matrix
+    del distance
+    genomic_distance_distributions = {}
+    genomic_distance_distributions_obs_exp = {}
+    pGenomicDistanceDistributionPosition = {}
     while not all_data_collected:
         for i in range(pThreads):
             if queue[i] is not None and not queue[i].empty():
-                genomic_distance_distributions_thread[i], pGenomicDistanceDistributionPosition_thread[i], \
-                    genomic_distance_distributions_obs_exp_thread[i] = queue[i].get()
+                pGenomicDistanceDistributionPosition_thread, \
+                    genomic_distance_distributions_obs_exp_thread = queue[i].get()
+
+                # genomic_distance_distributions = {**genomic_distance_distributions, **genomic_distance_distributions_thread}
+                # del genomic_distance_distributions_thread
+                
+                pGenomicDistanceDistributionPosition = {**pGenomicDistanceDistributionPosition, **pGenomicDistanceDistributionPosition_thread}
+                del pGenomicDistanceDistributionPosition_thread
+
+                genomic_distance_distributions_obs_exp = {**genomic_distance_distributions_obs_exp, **genomic_distance_distributions_obs_exp_thread}
+                del genomic_distance_distributions_obs_exp_thread
+
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -286,31 +324,35 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
                 all_data_collected = False
         time.sleep(1)
 
-    genomic_distance_distributions = {}
-    genomic_distance_distributions_obs_exp = {}
-    pGenomicDistanceDistributionPosition = {}
-    for thread_data in genomic_distance_distributions_thread:
-        genomic_distance_distributions = {**genomic_distance_distributions, **thread_data}
-
-    for thread_data in pGenomicDistanceDistributionPosition_thread:
-        pGenomicDistanceDistributionPosition = {**pGenomicDistanceDistributionPosition, **thread_data}
     
-    for thread_data in genomic_distance_distributions_obs_exp_thread:
-        genomic_distance_distributions_obs_exp = {**genomic_distance_distributions_obs_exp, **thread_data}
+    # for thread_data in genomic_distance_distributions_thread:
+    #     genomic_distance_distributions = {**genomic_distance_distributions, **thread_data}
+    # del genomic_distance_distributions_thread
 
-    mask = [False] * len(distance)
+    # for thread_data in pGenomicDistanceDistributionPosition_thread:
+    #     pGenomicDistanceDistributionPosition = {**pGenomicDistanceDistributionPosition, **thread_data}
+    # del pGenomicDistanceDistributionPosition_thread
+    
+    # for thread_data in genomic_distance_distributions_obs_exp_thread:
+    #     genomic_distance_distributions_obs_exp = {**genomic_distance_distributions_obs_exp, **thread_data}
+
+    # del genomic_distance_distributions_obs_exp_thread
+    # mask = RawArray(c_bool, len_distance)
+    # pThreads = pThreads_backup
+    mask = [False] * len_distance
 
     # genomic_distance_distributions_thread = len(genomic_distance_distributions) // pThreads
-    genomic_distance_distributions_thread = len(genomic_distance_distributions_obs_exp) // pThreads
-
+    genomic_distance_distributions_thread = (len(genomic_distance_distributions_obs_exp) // pThreads) + 1
+    log.info('second parallel')
+    time_start = time.time()
 
     queue = [None] * pThreads
     process = [None] * pThreads
-    mask_threads = [None] * pThreads
+    # mask_threads = [None] * pThreads
     all_data_collected = False
     thread_done = [False] * pThreads
     # genomic_keys_list = list(genomic_distance_distributions.keys())
-    genomic_keys_list = list(genomic_distance_distributions_obs_exp.keys())
+    genomic_keys_list = sorted(list(genomic_distance_distributions_obs_exp.keys()))
 
     for i in range(pThreads):
 
@@ -324,33 +366,43 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
             queue[i] = None
             thread_done[i] = True
 
-            mask_threads[i] = [False] * len(distance)
+            mask_threads[i] = [False] * len_distance
             continue
         else:
+            # log.info('min key: {}, max key: {}'.format(np.min(genomic_distance_keys_thread), np.max(genomic_distance_keys_thread)))
+
             queue[i] = Queue()
             process[i] = Process(target=compute_p_values_mask, kwargs=dict(
-                pGenomicDistanceDistributions=genomic_distance_distributions,
-
+                # pGenomicDistanceDistributions=genomic_distance_distributions,
                 pGenomicDistanceDistributionsObsExp=genomic_distance_distributions_obs_exp,
-
                 pGenomicDistanceDistributionsKeyList=genomic_distance_keys_thread,
                 pPValuePreselection=pPValuePreselection,
-                pMask=mask,
+                # pMask=mask,
                 pGenomicDistanceDistributionPosition=pGenomicDistanceDistributionPosition,
                 pResolution=pHiCMatrix.getBinSize(),
                 pMinimumInteractionsThreshold=pMinimumInteractionsThreshold,
                 pObsExpThreshold=pObsExpThreshold,
-
                 pQueue=queue[i]
             )
             )
 
             process[i].start()
+            del genomic_distance_keys_thread
+    
+    # del genomic_distance_keys_thread
+    # del genomic_distance_distributions
+    del genomic_distance_distributions_obs_exp
+    del pGenomicDistanceDistributionPosition
+    del genomic_keys_list
 
     while not all_data_collected:
         for i in range(pThreads):
             if queue[i] is not None and not queue[i].empty():
-                mask_threads[i] = queue[i].get()
+                mask_threads = queue[i].get()
+                for index in mask_threads:
+                    mask[index] = True
+                # mask = np.logical_or(mask, mask_threads)
+                del mask_threads
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -362,16 +414,21 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
                 all_data_collected = False
         time.sleep(1)
 
-    for mask_i in mask_threads:
-        mask = np.logical_or(mask, mask_i)
+    # for mask_i in mask_threads:
+    #     mask = np.logical_or(mask, mask_i)
 
+    # log.info('second parallel...DONE')
+    log.info('second parallel...DONE {}'.format(time.time() - time_start))
+    
+    # del mask_threads
 
-    mask_interactions_hard_threshold = pHiCMatrix.matrix.data >= pMinimumInteractionsThreshold
-    mask_obs_exp = pObsExpMatrix.data >= pObsExpThreshold
+    # mask_obs_exp = pHiCMatrix.matrix.data >= pObsExpThreshold
     mask = np.logical_and(mask, mask_interactions_hard_threshold)
-    mask = np.logical_and(mask, mask_obs_exp)
+    # mask = np.logical_and(mask, mask_obs_exp)
 
-    instances, features = pHiCMatrix.matrix.nonzero()
+    # instances, features = pHiCMatrix.matrix.nonzero()
+    instances, features = pObsExpMatrix.nonzero()
+
     instances = instances[mask]
     features = features[mask]
 
@@ -381,8 +438,9 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
 
     del instances
     del features
-    del distance
+    # del distance
     del mask
+    log.info('third parallel')
 
     candidates, _ = neighborhood_merge(
         candidates, pWindowSize, pObsExpMatrix, pThreads)
@@ -390,6 +448,7 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
     if len(candidates) == 0:
         return None, None
     log.debug('call of test')
+    log.info('fourth parallel')
 
     log.info('candidates before testing: {}'.format(len(candidates)))
     candidates, p_value_list = candidate_region_test(
@@ -484,6 +543,8 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pThrea
             continue
         else:
             process[i].start()
+        del candidateThread
+    del pInteractionCountMatrix
     while not all_data_collected:
         for i in range(pThreads):
             if queue[i] is not None and not queue[i].empty():
@@ -500,7 +561,7 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pThrea
         time.sleep(1)
 
     new_candidate_list = [item for sublist in new_candidate_list_threads for item in sublist]
-
+    del new_candidate_list_threads
     return new_candidate_list, True
 
 
@@ -656,6 +717,8 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             else:
                 mask.append(False)
                 continue
+    del pHiCMatrix
+    del pCandidates
     pQueue.put([mask, pvalues])
     return
 
@@ -846,13 +909,15 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
     # log.debug('pRegion {}'.format(pRegion))
     # log.debug('pHiCMatrix.matrix {}'.format(pHiCMatrix.matrix))
     # log.debug('pHiCMatrix.shape {}'.format(pHiCMatrix.matrix.shape))
+    time_start = time.time()
 
     if pQueue is not None:
-        pHiCMatrix = hm.hiCMatrix(pMatrixFile=pArgs.matrix, pChrnameList=[pRegion], pDistance=pArgs.maxLoopDistance)
+        pHiCMatrix = hm.hiCMatrix(pMatrixFile=pArgs.matrix, pChrnameList=[pRegion], pDistance=pArgs.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=False)
     if not pIsCooler:
         # pHiCMatrix.setMatrix(
         #     deepcopy(matrix), deepcopy(cut_intervals))
         pHiCMatrix.keepOnlyTheseChr([pRegion])
+    log.info('load time: {}'.format(time.time() - time_start))
 
     if len(pHiCMatrix.matrix.data) == 0:
         pQueue.put([None])
@@ -882,8 +947,8 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
     if pArgs.peakWidth is None:
         pArgs.peakWidth = pArgs.windowSize - 3
     log.debug('Setting peak width to: {}'.format(pArgs.peakWidth))
-    pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
-    pHiCMatrix.matrix.eliminate_zeros()
+    # pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
+    # pHiCMatrix.matrix.eliminate_zeros()
     log.debug('candidates region {} {}'.format(
         pRegion, len(pHiCMatrix.matrix.data)))
     # s
@@ -903,8 +968,10 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
     # log.debug('isntances len: {}'.format(len(instances)))
     log.debug('candidates region {} min max boundary {}'.format(
         pRegion, len(pHiCMatrix.matrix.data)))
+    time_start = time.time()
 
-    obs_exp_csr_matrix = obs_exp_matrix(pHiCMatrix.matrix, pInplace=False, pToEpsilon=True)
+    obs_exp_csr_matrix = obs_exp_matrix(pHiCMatrix.matrix, pInplace=False, pToEpsilon=True, pThreads=pArgs.threadsPerChromosome)
+    log.info('obs/exp...DONE {}'.format(time.time() - time_start))
 
     log.debug('obs_exp: {}'.format(np.sum(obs_exp_csr_matrix.data)))
     log.debug('pHiCMatrix.matrix: {}'.format(np.sum(pHiCMatrix.matrix.data)))
@@ -991,7 +1058,7 @@ def main(args=None):
 
         if is_cooler:
             hic_matrix = hm.hiCMatrix(
-                pMatrixFile=args.matrix, pChrnameList=[args.region], pDistance=args.maxLoopDistance)
+                pMatrixFile=args.matrix, pChrnameList=[args.region], pDistance=args.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=True)
         else:
             hic_matrix = hm.hiCMatrix(args.matrix)
             hic_matrix.keepOnlyTheseChr([chrom])
@@ -1050,13 +1117,16 @@ def main(args=None):
         if single_core:
             for chromosome in chromosomes_list:
                 if is_cooler:
+                    time_start = time.time()
                     hic_matrix = hm.hiCMatrix(
-                        pMatrixFile=args.matrix, pChrnameList=[chromosome], pDistance=args.maxLoopDistance)
+                        pMatrixFile=args.matrix, pChrnameList=[chromosome], pDistance=args.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=False)
+                    log.info('matrix load: {}'.format(time.time() - time_start))
+
                 else:
                     hic_matrix.setMatrix(
                         deepcopy(matrix), deepcopy(cut_intervals))
                     hic_matrix.keepOnlyTheseChr([chromosome])
-                hic_matrix.maskBins(hic_matrix.nan_bins)
+                # hic_matrix.maskBins(hic_matrix.nan_bins)
                 loops = compute_loops(hic_matrix, chromosome, args, is_cooler)
                 if loops is not None:
                     mapped_loops.extend(loops)

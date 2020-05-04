@@ -9,7 +9,8 @@ mplt_use('Agg')
 from unidecode import unidecode
 import cooler
 from copy import deepcopy
-
+import time
+from multiprocessing import Process, Queue
 import logging
 log = logging.getLogger(__name__)
 
@@ -286,19 +287,80 @@ def expected_interactions_non_zero(pSubmatrix):
 
     return expected_interactions
 
-
-def expected_interactions(pSubmatrix):
+def expected_interactions_thread(pData, pDistances, pMinDistance, pMaxDistance, pSize, pQueue):
+    expected_interactions = np.zeros(pSize)
+    for i in range(pMinDistance, pMaxDistance, 1):
+        mask = pDistances == i
+        expected_interactions[i] = np.sum(pData[mask])
+    
+    pQueue.put(expected_interactions)
+    return
+  
+def expected_interactions(pSubmatrix, pThreads=None):
     """
         Computes the expected number of interactions per distance
     """
-
     expected_interactions = np.zeros(pSubmatrix.shape[0])
+
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
     occurrences = np.arange(pSubmatrix.shape[0] + 1, 1, -1)
     # occurences = np.zeros(pSubmatrix.shape[0])
-    for i, distance_ in enumerate(distance):
-        expected_interactions[distance_] += pSubmatrix.data[i]
+
+    min_distance = distance.min()
+    max_distance = distance.max()
+    time_start = time.time()
+    if pThreads is not None and pThreads:
+        queue = [None] * pThreads
+        process = [None] * pThreads
+        distances_per_threads = (max_distance - min_distance) // pThreads
+        all_data_collected = False
+        thread_done = [False] * pThreads
+
+        for i in range(pThreads):
+    
+            if i < pThreads - 1:
+                min_distance_thread = min_distance + (i * distances_per_threads)
+                max_distance_thread = min_distance + ((i+1) * distances_per_threads)
+            else:
+                min_distance_thread = min_distance + (i * distances_per_threads)
+                max_distance_thread = max_distance + 1
+            queue[i] = Queue()
+            process[i] = Process(target=expected_interactions_thread, kwargs=dict(
+                pData=pSubmatrix.data,
+                pDistances=distance,
+                pMinDistance=min_distance_thread, 
+                pMaxDistance=max_distance_thread,
+                pSize=pSubmatrix.shape[0],
+                pQueue=queue[i]
+            )
+            )
+
+            process[i].start()
+
+        while not all_data_collected:
+            for i in range(pThreads):
+                if queue[i] is not None and not queue[i].empty():
+                    expected_interactions_thread_ = queue[i].get()
+                    expected_interactions += expected_interactions_thread_
+                    queue[i] = None
+                    process[i].join()
+                    process[i].terminate()
+                    process[i] = None
+                    thread_done[i] = True
+            all_data_collected = True
+            for thread in thread_done:
+                if not thread:
+                    all_data_collected = False
+            time.sleep(1)
+    else:
+
+        for i in range(min_distance, max_distance+1, 1):
+            mask = distance == i
+            expected_interactions[i] = np.sum(pSubmatrix.data[mask])
+    log.info('exp inter: {}'.format(time.time() - time_start))
+    # for i, distance_ in enumerate(distance):
+    #     expected_interactions[distance_] += pSubmatrix.data[i]
         # occurences[distance_] += 1
     expected_interactions /= occurrences
 
@@ -386,7 +448,7 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False):
     return pSubmatrix
 
 
-def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False):
+def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
@@ -395,8 +457,11 @@ def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False):
         exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero
         interactions at abs(i-j)
     """
+    time_start = time.time()
+    expected_interactions_in_distance_ = expected_interactions(pSubmatrix, pThreads)
+    log.info('time exp: {}'.format(time.time() - time_start))
+    time_start = time.time()
 
-    expected_interactions_in_distance_ = expected_interactions(pSubmatrix)
     row, col = pSubmatrix.nonzero()
     distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
     if not pInplace:
@@ -419,6 +484,7 @@ def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False):
     del row
     del col
     del distance
+    log.info('test obs/exp: {}'.format(time.time() - time_start))
     
     if pInplace:
         return pSubmatrix
