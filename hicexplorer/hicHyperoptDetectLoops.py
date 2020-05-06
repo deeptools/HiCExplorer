@@ -71,22 +71,22 @@ def compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution):
             data_dict[line_split[0]] = float(line_split[1])
 
     if data_dict['Matched Loops']  > float(pMaximumNumberOfLoops):
-        return 1 - (data_dict['Loops match protein']+0.25)
+        return 1 - ((data_dict['Loops match protein']*2 + 1.0) / 3) 
     if data_dict['Matched Loops'] < 500:
         return 1 - (data_dict['Matched Loops'] / float(pMaximumNumberOfLoops))
-    return 1 - ((data_dict['Loops match protein'] + (data_dict['Matched Loops'] / float(pMaximumNumberOfLoops) / 2)) / 2)
+    return 1 - ((data_dict['Loops match protein']*2 + (data_dict['Matched Loops'] / float(pMaximumNumberOfLoops) / 2)) / 3)
 
 
 def objective(pArgs):
 
-    
+    if pArgs['windowSize'] <= pArgs['peakWidth']:
+        return 1
     outfile_loop = NamedTemporaryFile()
-    args = "--matrix {} -o {} -pit {} --windowSize {} -pp {} -p {} --minLoopDistance {} " \
-        "--maxLoopDistance {} -mip {} -st {} --minVariance {} --maxVariance {} -t 20 -tpc 20".format(
+    args = "--matrix {} -o {} -pit {} -oet {} --windowSize {} --peakWidth {} -pp {} -p {} " \
+        "--maxLoopDistance {} -st {} -t 10 -tpc 10".format(
             pArgs['matrixFile'], outfile_loop.name,
-            pArgs['pit'], pArgs['windowSize'], pArgs['pp'], pArgs['p'],
-            pArgs['minLoopDistance'], pArgs['maxLoopDistance'], pArgs['mip'], pArgs['st'],
-            pArgs['minVariance'], pArgs['maxVariance']).split()
+            pArgs['pit'], pArgs['oet'], pArgs['windowSize'], pArgs['peakWidth'],pArgs['pp'], pArgs['p'],
+            pArgs['maxLoopDistance'], pArgs['st']).split()
     hicDetectLoops.main(args)
 
     error_score = compute_score(outfile_loop.name, pArgs['proteinFile'], pArgs['maximumNumberOfLoops'], pArgs['resolution'])
@@ -100,16 +100,19 @@ def main(args=None):
     # print(compute_score(args.matrix, args.proteinFile, args.maximumNumberOfLoops, args.resolution))
     space = {
 
-        'pit': hp.uniform('pit', 1, 30),
-        'windowSize': hp.choice('windowSize', list(range(6, 16))),
-        'pp': hp.uniform('pp', 0.0000001, 0.5),
+        'pit': hp.uniform('pit', 1, 100),
+        'oet': hp.uniform('oet', 0, 5),
+        'peakWidth': hp.choice('peakWidth', list(range(1, 10))),
+
+        'windowSize': hp.choice('windowSize', list(range(4, 15))),
+        'pp': hp.uniform('pp', 0.0000001, 0.15),
         'p': hp.uniform('p', 0.0000001, 0.1),
-        'minLoopDistance': hp.choice('minLoopDistance', list(range(50000, 200000, 10000))),
-        'maxLoopDistance': hp.choice('maxLoopDistance', list(range(1000000, 8000000, 100000))),
-        'mip': hp.uniform('mip', 0.0, 0.5),
-        'st': hp.choice('st', ['wilcoxon-rank-sum']),#, 'anderson-darling']),
-        'minVariance': hp.uniform('minVariance', 0.000001, 0.09),
-        'maxVariance': hp.uniform('maxVariance', 0.1, 0.3),
+        # 'minLoopDistance': hp.choice('minLoopDistance', list(range(50000, 200000, 10000))),
+        'maxLoopDistance': hp.choice('maxLoopDistance', list(range(1000000, 3000000, 100000))),
+        # 'mip': hp.uniform('mip', 0.0, 0.5),
+        'st': 'wilcoxon-rank-sum',#, 'anderson-darling']),
+        # 'minVariance': hp.uniform('minVariance', 0.000001, 0.09),
+        # 'maxVariance': hp.uniform('maxVariance', 0.1, 0.3),
         'matrixFile': args.matrix,
         'proteinFile': args.proteinFile,
         'maximumNumberOfLoops': args.maximumNumberOfLoops,

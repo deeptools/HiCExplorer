@@ -11,6 +11,7 @@ import cooler
 from copy import deepcopy
 import time
 from multiprocessing import Process, Queue
+import traceback
 import logging
 log = logging.getLogger(__name__)
 
@@ -288,13 +289,18 @@ def expected_interactions_non_zero(pSubmatrix):
     return expected_interactions
 
 def expected_interactions_thread(pData, pDistances, pMinDistance, pMaxDistance, pSize, pQueue):
-    expected_interactions = np.zeros(pSize)
-    for i in range(pMinDistance, pMaxDistance, 1):
-        mask = pDistances == i
-        expected_interactions[i] = np.sum(pData[mask])
-    
-    pQueue.put(expected_interactions)
-    return
+    try:
+        expected_interactions = np.zeros(pSize)
+        
+        for i in range(pMinDistance, pMaxDistance, 1):
+            mask = pDistances == i
+            expected_interactions[i] = np.sum(pData[mask])
+        
+        pQueue.put(expected_interactions)
+        return
+    except Exception as exp:
+        pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
+        return
   
 def expected_interactions(pSubmatrix, pThreads=None):
     """
@@ -309,7 +315,7 @@ def expected_interactions(pSubmatrix, pThreads=None):
 
     min_distance = distance.min()
     max_distance = distance.max()
-    time_start = time.time()
+    # time_start = time.time()
     if pThreads is not None and pThreads:
         queue = [None] * pThreads
         process = [None] * pThreads
@@ -337,12 +343,17 @@ def expected_interactions(pSubmatrix, pThreads=None):
             )
 
             process[i].start()
-
+        fail_flag = False
+        fail_message = ''
         while not all_data_collected:
             for i in range(pThreads):
                 if queue[i] is not None and not queue[i].empty():
                     expected_interactions_thread_ = queue[i].get()
-                    expected_interactions += expected_interactions_thread_
+                    if 'Fail: ' in expected_interactions_thread_:
+                        fail_flag = True
+                        fail_message = expected_interactions_thread_
+                    else:
+                        expected_interactions += expected_interactions_thread_
                     queue[i] = None
                     process[i].join()
                     process[i].terminate()
@@ -353,12 +364,14 @@ def expected_interactions(pSubmatrix, pThreads=None):
                 if not thread:
                     all_data_collected = False
             time.sleep(1)
+        if fail_flag:
+            return fail_message
     else:
 
         for i in range(min_distance, max_distance+1, 1):
             mask = distance == i
             expected_interactions[i] = np.sum(pSubmatrix.data[mask])
-    log.info('exp inter: {}'.format(time.time() - time_start))
+    # log.info('exp inter: {}'.format(time.time() - time_start))
     # for i, distance_ in enumerate(distance):
     #     expected_interactions[distance_] += pSubmatrix.data[i]
         # occurences[distance_] += 1
@@ -457,10 +470,10 @@ def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None):
         exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero
         interactions at abs(i-j)
     """
-    time_start = time.time()
+    # time_start = time.time()
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix, pThreads)
-    log.info('time exp: {}'.format(time.time() - time_start))
-    time_start = time.time()
+    # log.info('time exp: {}'.format(time.time() - time_start))
+    # time_start = time.time()
 
     row, col = pSubmatrix.nonzero()
     distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
@@ -484,7 +497,7 @@ def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None):
     del row
     del col
     del distance
-    log.info('test obs/exp: {}'.format(time.time() - time_start))
+    # log.info('test obs/exp: {}'.format(time.time() - time_start))
     
     if pInplace:
         return pSubmatrix
