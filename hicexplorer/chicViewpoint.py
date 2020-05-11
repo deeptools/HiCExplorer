@@ -227,9 +227,9 @@ def main(args=None):
     process = [None] * args.threads
     file_list = []
     background_model = viewpointObj.readBackgroundDataFile(
-        args.backgroundModelFile, args.range)
+        args.backgroundModelFile, args.range, args.fixateRange)
     background_model_mean_values = viewpointObj.readBackgroundDataFile(
-        args.backgroundModelFile, args.range, pMean=True)
+        args.backgroundModelFile, args.range, args.fixateRange, pMean=True)
     # background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(
     #     background_model, args, pXfoldMaxValue=args.xFoldMaxValueNB)
 

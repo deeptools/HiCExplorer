@@ -128,10 +128,11 @@ class Viewpoint():
                 interaction_file_data[int(_line[-5])] = _line
         return header, interaction_data, interaction_file_data
 
-    def readBackgroundDataFile(self, pBedFile, pRange, pMean=False):
+    def readBackgroundDataFile(self, pBedFile, pRange, pFixateRange, pMean=False):
         '''
         Reads a background data file, containing per line a tab delimited content:
         Relative position to viewpoint, relative interaction count to total number of interactions of all viewpoints over all samples, SEM value of this data point.
+
         '''
         distance = {}
 
@@ -146,6 +147,15 @@ class Viewpoint():
 
         max_key = max(distance)
         min_key = min(distance)
+
+        # check if max is really pFixateRange or it needs to be changed
+        if max_key > pFixateRange:
+            max_key = pFixateRange
+        
+        if min_key < -pFixateRange:
+            min_key = -pFixateRange
+
+
         keys = list(distance.keys())
         inc = np.absolute(np.absolute(keys[0]) - np.absolute(keys[1]))
         if max_key < pRange[1]:

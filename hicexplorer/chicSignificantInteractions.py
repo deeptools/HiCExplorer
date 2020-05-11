@@ -15,6 +15,7 @@ import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
 from hicexplorer._version import __version__
 from .lib import Viewpoint
+from hicexplorer.lib import cnb
 
 
 def parse_arguments(args=None):
@@ -225,18 +226,24 @@ def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPe
     if isinstance(pPValue, float):
         for key in pData:
             if key in pBackgroundModel:
-                pData[key][-3] = 1 - pViewpointObj.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
-
+                log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
+                pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
+                log.debug('new {}\n\n'.format(pData[key][-3]))
                 if pData[key][-3] <= pPValue:
                     if float(pData[key][-1]) >= pPeakInteractionsThreshold:
                         accepted[key] = pData[key]
                         target_content = pMergedLinesDict[key][0][:3]
                         target_content[2] = pMergedLinesDict[key][-1][2]
                         accepted_lines.append(target_content)
+            else:
+                log.debug('key not in background')
     elif isinstance(pPValue, dict):
         for key in pData:
             if key in pBackgroundModel:
-                pData[key][-3] = 1 - pViewpointObj.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
+                log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
+
+                pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
+                log.debug('new {}\n\n'.format(pData[key][-3]))
 
                 if pData[key][-3] <= pPValue[key]:
                     if float(pData[key][-1]) >= pPeakInteractionsThreshold:
@@ -244,6 +251,8 @@ def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPe
                         target_content = pMergedLinesDict[key][0][:3]
                         target_content[2] = pMergedLinesDict[key][-1][2]
                         accepted_lines.append(target_content)
+            else:
+                log.debug('key not in background')
     return accepted, accepted_lines
 
 
@@ -463,7 +472,7 @@ def main(args=None):
     interactionFileList = []
 
     background_model = viewpointObj.readBackgroundDataFile(
-        args.backgroundModelFile, args.range)
+        args.backgroundModelFile, args.range, args.fixateRange)
     if args.batchMode:
         with open(args.interactionFile[0], 'r') as interactionFile:
             file_ = True
