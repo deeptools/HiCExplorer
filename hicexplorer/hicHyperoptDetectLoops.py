@@ -83,7 +83,7 @@ def objective(pArgs):
         return 1
     outfile_loop = NamedTemporaryFile()
     args = "--matrix {} -o {} -pit {} -oet {} --windowSize {} --peakWidth {} -pp {} -p {} " \
-        "--maxLoopDistance {} -st {} -t 10 -tpc 10".format(
+        "--maxLoopDistance {} -st {} -t 4 -tpc 4".format(
             pArgs['matrixFile'], outfile_loop.name,
             pArgs['pit'], pArgs['oet'], pArgs['windowSize'], pArgs['peakWidth'],pArgs['pp'], pArgs['p'],
             pArgs['maxLoopDistance'], pArgs['st']).split()
