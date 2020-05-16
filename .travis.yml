@@ -33,7 +33,7 @@ install:
   - conda install --yes -c conda-forge -c bioconda pytest
   - conda install --yes -c conda-forge -c bioconda nose
   - conda install --yes pathlib
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.7" ]]; then conda install --yes -c defaults -c conda-forge -c bioconda configparser ; fi
+  - conda install --yes -c defaults -c conda-forge -c bioconda configparser
   - python setup.py install
 # command to run tests
 script:
