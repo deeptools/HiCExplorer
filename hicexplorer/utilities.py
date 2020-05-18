@@ -426,7 +426,7 @@ def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     return pSubmatrix
 
 
-def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False):
+def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False, pInplace=True, pToEpsilon=False, pThreads=None):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
@@ -438,27 +438,36 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False):
         This factor has been used by Homer software to correct for the effect
         of proximity ligation
     """
+    if pInplace:
+        submatrix = pSubmatrix
+    else:
+        submatrix = deepcopy(pSubmatrix)
+    expected_interactions_in_distance = expected_interactions_non_zero(submatrix)
 
-    expected_interactions_in_distance = expected_interactions_non_zero(pSubmatrix)
+    row_sums = np.array(submatrix.sum(axis=1).T).flatten()
+    total_interactions = submatrix.sum()
 
-    row_sums = np.array(pSubmatrix.sum(axis=1).T).flatten()
-    total_interactions = pSubmatrix.sum()
-
-    row, col = pSubmatrix.nonzero()
-    pSubmatrix.data = pSubmatrix.data.astype(np.float32)
+    row, col = submatrix.nonzero()
+    
+    submatrix.data = submatrix.data.astype(np.float32)
+    
     for i in range(len(row)):
         expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
         if ligation_factor:
             expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
 
-        pSubmatrix.data[i] /= expected
+        submatrix.data[i] /= expected
 
-    mask = np.isnan(pSubmatrix.data)
-    pSubmatrix.data[mask] = 0
-    mask = np.isinf(pSubmatrix.data)
-    pSubmatrix.data[mask] = 0
-    pSubmatrix.eliminate_zeros()
-    return pSubmatrix
+    if pToEpsilon:
+        epsilon = 0.000000001
+    else:
+        epsilon = 0
+    mask = np.isnan(submatrix.data)
+    submatrix.data[mask] = epsilon
+    mask = np.isinf(submatrix.data)
+    submatrix.data[mask] = epsilon
+    submatrix.eliminate_zeros()
+    return submatrix
 
 
 def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None):

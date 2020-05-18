@@ -8,10 +8,11 @@ import logging
 log = logging.getLogger(__name__)
 from tempfile import NamedTemporaryFile, mkdtemp
 
-from hicexplorer import hicDetectLoops
+# from hicexplorer import hicDetectLoops
 from hicexplorer import hicValidateLocations
 from hicexplorer._version import __version__
 
+import subprocess
 # matrixFile = ''
 # proteinFile = ''
 # proteinMaximum = 10000
@@ -35,6 +36,9 @@ def parse_arguments(args=None):
                                 required=True)
     parserRequired.add_argument('--maximumNumberOfLoops', '-ml',
                                 help='The maximum number of loops that should be used for optimization computation.',
+                                required=True)
+    parserRequired.add_argument('--juicerPath', '-j',
+                                help='path to juicer.jar',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
 
@@ -72,51 +76,50 @@ def compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution):
 
     if data_dict['Matched Loops']  > float(pMaximumNumberOfLoops):
         return 1 - ((data_dict['Loops match protein']*2 + 1.0) / 3) 
-    if pMaximumNumberOfLoops > 500 and data_dict['Matched Loops'] < 500:
+    if data_dict['Matched Loops'] < 500:
         return 1 - (data_dict['Matched Loops'] / float(pMaximumNumberOfLoops))
     return 1 - ((data_dict['Loops match protein']*2 + (data_dict['Matched Loops'] / float(pMaximumNumberOfLoops) / 2)) / 3)
 
 
 def objective(pArgs):
-
-    if pArgs['windowSize'] <= pArgs['peakWidth']:
+    print('objective start')
+    if pArgs['i'] <= pArgs['p']:
         return 1
-    outfile_loop = NamedTemporaryFile()
-    args = "--matrix {} -o {} -pit {} -oet {} --windowSize {} --peakWidth {} -pp {} -p {} " \
-        "--maxLoopDistance {}  -t 10 -tpc 10".format(
-            pArgs['matrixFile'], outfile_loop.name,
-            pArgs['pit'], pArgs['oet'], pArgs['windowSize'], pArgs['peakWidth'],pArgs['pp'], pArgs['p'],
-            pArgs['maxLoopDistance']).split()
-    hicDetectLoops.main(args)
+    # outfile_loop = NamedTemporaryFile()
+    output_folder = mkdtemp(prefix="output_")
+    print('juicer')
+    bashCommand = "java -jar {} hiccups --restrict --threads 4 -k KR -p {} -i {} -f {} -r {} {} {}".format(pArgs['juicer'], pArgs['p'], pArgs['i'], 
+                                                                            pArgs['f'], pArgs['resolution'],
+                                                                            pArgs['matrixFile'], output_folder
+                                                                            )
+    subprocess.check_output(['bash','-c', bashCommand])
+    print('juicer done')
+    # log.info('{}'.format(output))
+    bashCommand = 'bedtools sort -i {}/merged_loops.bedpe > {}/merged_sorted.bedpe'.format(output_folder, output_folder)
+    subprocess.check_output(['bash','-c', bashCommand])
 
-    error_score = compute_score(outfile_loop.name, pArgs['proteinFile'], pArgs['maximumNumberOfLoops'], pArgs['resolution'])
+
+    error_score = compute_score(output_folder+'/merged_sorted.bedpe', pArgs['proteinFile'], pArgs['maximumNumberOfLoops'], pArgs['resolution'])
     print('Error score: {}'.format(error_score))
     return error_score
 
 def main(args=None):
-
+    print('foo')
     args = parse_arguments().parse_args(args)
 
     # print(compute_score(args.matrix, args.proteinFile, args.maximumNumberOfLoops, args.resolution))
     space = {
-
-        'pit': hp.uniform('pit', 1, 100),
-        'oet': hp.uniform('oet', 0, 5),
-        'peakWidth': hp.choice('peakWidth', list(range(1, 10))),
-
-        'windowSize': hp.choice('windowSize', list(range(4, 15))),
-        'pp': hp.uniform('pp', 0.0000001, 0.15),
-        'p': hp.uniform('p', 0.0000001, 0.1),
-        # 'minLoopDistance': hp.choice('minLoopDistance', list(range(50000, 200000, 10000))),
-        'maxLoopDistance': hp.choice('maxLoopDistance', list(range(1000000, 3000000, 100000))),
-        # 'mip': hp.uniform('mip', 0.0, 0.5),
-        # 'st': 'wilcoxon-rank-sum',#, 'anderson-darling']),
-        # 'minVariance': hp.uniform('minVariance', 0.000001, 0.09),
-        # 'maxVariance': hp.uniform('maxVariance', 0.1, 0.3),
+# [-p peak width] [-i window] [-t thresholds] 
+# 		[-d centroid distances]
+        'p': hp.choice('t', list(range(1, 10))),
+        'i': hp.choice('i', list(range(2, 15))),
+        'f': hp.uniform('f', 0.0000001, 0.5),
+        
         'matrixFile': args.matrix,
         'proteinFile': args.proteinFile,
         'maximumNumberOfLoops': args.maximumNumberOfLoops,
-        'resolution': args.resolution
+        'resolution': args.resolution,
+        'juicer' : args.juicerPath
 
     }
 
@@ -125,6 +128,7 @@ def main(args=None):
 
     # print('best {}'.format(best))
     trials = Trials()
+    print("goo")
     # print(space_eval(space, best))
     best = fmin(objective, space, algo=tpe.suggest, max_evals=100, trials=trials)
 
@@ -138,3 +142,6 @@ def main(args=None):
     # --minLoopDistance 100000 -mip 0.1 -st wilcoxon-rank-sum
     # -t 20 -tpc 20 -
     # -minVariance 0.04 --maxVariance 0.4 -q 0.01 --maxLoopDistance 2000000
+if __name__ == "__main__":
+    main()
+

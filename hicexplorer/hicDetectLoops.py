@@ -6,7 +6,6 @@ import logging
 log = logging.getLogger(__name__)
 import time
 import gc
-# from ctypes import c_bool
 import cooler
 import numpy as np
 from scipy.sparse import csr_matrix, triu
@@ -24,7 +23,7 @@ from inspect import currentframe
 import traceback
 
 
-from hicexplorer.utilities import obs_exp_matrix
+from hicexplorer.utilities import obs_exp_matrix, obs_exp_matrix_non_zero
 
 def get_linenumber():
     cf = currentframe()
@@ -51,11 +50,13 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--peakWidth', '-pw',
                            type=int,
-                           help='The width of the peak region in bins. The square around the peak will include (2 * peakWidth)^2 bins.')
+                           default=2,
+                           help='The width of the peak region in bins. Default is 2. The square around the peak will include (2 * peakWidth)^2 bins.')
 
     parserOpt.add_argument('--windowSize', '-w',
                            type=int,
-                           help='The window size for the neighborhood region the peak is located in. All values from this region (exclude the values from the peak '
+                           default=5,
+                           help='The window size for the neighborhood region the peak is located in. Default is 5. All values from this region (exclude the values from the peak '
                            ' region) are tested against the peak region for significant difference. The square will have the size of (2 * windowSize)^2 bins')
     parserOpt.add_argument('--pValuePreselection', '-pp',
                            help='Only candidates with p-values less the given threshold will be considered as candidates. '
@@ -65,10 +66,10 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=float,
                            help='The minimum number of interactions a detected peaks needs to have to be considered.',
-                           default=5)
+                           default=10)
     parserOpt.add_argument('--obsExpThreshold', '-oet',
                            type=float,
-                           help='The minimum number of obs/exp interactions a detected peaks needs to have to be considered.',
+                           help='The minimum number of obs/exp interactions a detected peaks needs to have to be considered. ',
                            default=1.0)
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
@@ -98,14 +99,13 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            default=4,
                            type=int
                            )
-    parserOpt.add_argument('--statisticalTest', '-st',
-                           help='Which statistical test should be used.',
+    parserOpt.add_argument('--expected', '-exp',
+                           help='Method to compute the expected value per distance: Either the mean, the mean of non-zero values or the mean of non-zero values with ligation factor correction.',
                            required=False,
                            type=str,
-                           default="wilcoxon-rank-sum",
-                           choices=['wilcoxon-rank-sum', 'anderson-darling']
+                           default="mean",
+                           choices=['mean', 'mean_nonzero', 'mean_nonzero_ligation']
                            )
-
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -171,7 +171,7 @@ def compute_p_values_mask(pGenomicDistanceDistributionsObsExp, pGenomicDistanceD
 
 def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
                                 pPValue, pPeakWindowSize,
-                                pPValuePreselection, pStatisticalTest, 
+                                pPValuePreselection, 
                                 pMinimumInteractionsThreshold,
                                 pObsExpThreshold, pThreads):
     """
@@ -189,7 +189,6 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
             - pMinimumInteractionsThreshold: float, remove candidates with less interactions
             - pPValue: float, test rejection level for H0 and FDR correction
             - pPValuePreselection: float, p-value for negative binomial
-            - pStatisticalTest: str, which statistical test should be used
             - pPeakWindowSize: integer, size of the peak region: (2*pPeakWindowSize)^2. Needs to be smaller than pWindowSize
 
         Returns:
@@ -364,7 +363,7 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
         return None, None
     candidates, p_value_list = candidate_region_test(
         pObsExpMatrix, candidates, pWindowSize, pPValue,
-        pPeakWindowSize, pThreads, pStatisticalTest)
+        pPeakWindowSize, pThreads)
 
     return candidates, p_value_list
 
@@ -487,7 +486,7 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pThrea
 
 
 def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                                pPeakWindowSize, pQueue, pStatisticalTest=None):
+                                pPeakWindowSize, pQueue):
     try:
         mask = []
         pvalues = []
@@ -595,35 +594,35 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             donut_test_data.append(vertical)
 
             del neighborhood
-            if pStatisticalTest == 'wilcoxon-rank-sum':
-
-                accept_length = len(donut_test_data)
-                accept_count = 0
-                for data in donut_test_data:
-                    statistic, significance_level_test1 = ranksums(sorted(peak), sorted(data))
-                    if significance_level_test1 <= pPValue:
-                        accept_count += 1
-                if accept_count >= 3:
-                    statistic, significance_level = ranksums(sorted(peak), sorted(background))
-                    if significance_level <= pPValue:
-                        mask.append(True)
-                        pvalues.append(significance_level)
-                        del peak
-                        del background
-                        del donut_test_data
-                        continue
-                    else:
-                        mask.append(False)
-                        del peak
-                        del background
-                        del donut_test_data
-                        continue
+            
+            # test vertical, horizontal, bottom left corner and neighborhood vs peak with wilcoxon-rank-sum test
+            accept_length = len(donut_test_data)
+            accept_count = 0
+            for data in donut_test_data:
+                statistic, significance_level_test1 = ranksums(sorted(peak), sorted(data))
+                if significance_level_test1 <= pPValue:
+                    accept_count += 1
+            if accept_count >= 3:
+                statistic, significance_level = ranksums(sorted(peak), sorted(background))
+                if significance_level <= pPValue:
+                    mask.append(True)
+                    pvalues.append(significance_level)
+                    del peak
+                    del background
+                    del donut_test_data
+                    continue
                 else:
                     mask.append(False)
                     del peak
                     del background
                     del donut_test_data
                     continue
+            else:
+                mask.append(False)
+                del peak
+                del background
+                del donut_test_data
+                continue
     except Exception as exp:
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
         return
@@ -634,7 +633,7 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
 
 
 def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                          pPeakWindowSize, pThreads, pStatisticalTest=None):
+                          pPeakWindowSize, pThreads):
     """
         Tests if a candidate is having a significant peak compared to its neighborhood.
             - smoothes neighborhood in x an y orientation
@@ -691,8 +690,7 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             pWindowSize=pWindowSize,
             pPValue=pPValue,
             pPeakWindowSize=pPeakWindowSize,
-            pQueue=queue[i],
-            pStatisticalTest=pStatisticalTest
+            pQueue=queue[i]
 
         )
         )
@@ -789,7 +787,7 @@ def write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None):
 def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
     """
         Master function to compute the loops for one chromosome.
-            - Removes all regions smaller minLoopSize, greater maxLoopSize
+            - Removes all regions greater maxLoopSize
             - Calls
             - Writes computed loops to a bedgraph file
 
@@ -797,6 +795,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
             - pHiCMatrix: Hi-C interaction matrix object
             - pRegion: Chromosome name
             - pArgs: Argparser object
+            - pIsCooler: True / False if matrix is stored in a .cool file
             - pQueue: Queue object for multiprocessing communication with parent process
     """
     try:
@@ -804,14 +803,21 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
         if pQueue is not None:
             pHiCMatrix = hm.hiCMatrix(pMatrixFile=pArgs.matrix, pChrnameList=[pRegion], pDistance=pArgs.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=False)
         if not pIsCooler:
+            # cooler files load only what is necessary.
             pHiCMatrix.keepOnlyTheseChr([pRegion])
+            min_loop_distance = pArgs.minLoopDistance / pHiCMatrix.getBinSize()
+            instances, features = pHiCMatrix.matrix.nonzero()
+            distances = np.absolute(instances - features)
+            mask = distances > min_loop_distance
+            pHiCMatrix.matrix.data[mask] = 0
+            pHiCMatrix.matrix.eliminate_zeros()
 
         if len(pHiCMatrix.matrix.data) == 0:
             pQueue.put([None])
             return
 
         if pHiCMatrix.matrix.shape[0] < 5 or pHiCMatrix.matrix.shape[1] < 5:
-            log.info('Computed loops for {}: 0'.format(pRegion))
+            log.debug('Computed loops for {}: 0'.format(pRegion))
 
             if pQueue is None:
                 return None
@@ -836,10 +842,10 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
         log.debug('Setting peak width to: {}'.format(pArgs.peakWidth))
         pHiCMatrix.matrix = triu(pHiCMatrix.matrix, format='csr')
         pHiCMatrix.matrix.eliminate_zeros()
-        log.debug('candidates region {} {}'.format(
-            pRegion, len(pHiCMatrix.matrix.data)))
-        max_loop_distance = 0
+        # log.debug('candidates region {} {}'.format(
+        #     pRegion, len(pHiCMatrix.matrix.data)))
 
+        # delete main diagonal
         instances, features = pHiCMatrix.matrix.nonzero()
         distances = np.absolute(instances - features)
         mask = distances == 0
@@ -851,7 +857,13 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
         del mask
         del distances
 
-        obs_exp_csr_matrix = obs_exp_matrix(pHiCMatrix.matrix, pInplace=False, pToEpsilon=True, pThreads=pArgs.threadsPerChromosome)
+        if pArgs.expected == 'mean':
+            obs_exp_csr_matrix = obs_exp_matrix(pHiCMatrix.matrix, pInplace=False, pToEpsilon=True, pThreads=pArgs.threadsPerChromosome)
+        elif pArgs.expected == 'mean_nonzero':
+            obs_exp_csr_matrix = obs_exp_matrix_non_zero(pHiCMatrix.matrix, ligation_factor=False, pInplace=False, pToEpsilon=True, pThreads=pArgs.threadsPerChromosome)
+
+        elif pArgs.expected == 'mean_nonzero_ligation':
+            obs_exp_csr_matrix = obs_exp_matrix_non_zero(pHiCMatrix.matrix, ligation_factor=True, pInplace=False, pToEpsilon=True, pThreads=pArgs.threadsPerChromosome)
 
         # handle pValuePreselection
         try:
@@ -865,7 +877,6 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
                                                             pArgs.pValue,
                                                             pArgs.peakWidth,
                                                             pArgs.pValuePreselection,
-                                                            pArgs.statisticalTest,
                                                             pArgs.peakInteractionsThreshold,
                                                             pArgs.obsExpThreshold,
                                                             pArgs.threadsPerChromosome)
@@ -886,7 +897,7 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
             pHiCMatrix, candidates, pValueList, pArgs.maxLoopDistance)
         del pHiCMatrix
         del candidates
-        log.info('Computed loops for {}: {}'.format(pRegion, len(mapped_loops)))
+        log.debug('Computed loops for {}: {}'.format(pRegion, len(mapped_loops)))
     except Exception as exp:
         if pQueue is not None:
             pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
@@ -1000,7 +1011,7 @@ def main(args=None):
                 if is_cooler:
                     time_start = time.time()
                     hic_matrix = hm.hiCMatrix(
-                        pMatrixFile=args.matrix, pChrnameList=[chromosome], pDistance=args.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=False)
+                        pMatrixFile=args.matrix, pChrnameList=[chromosome], pDistance=args.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=True)
                 else:
                     hic_matrix.setMatrix(
                         deepcopy(matrix), deepcopy(cut_intervals))
