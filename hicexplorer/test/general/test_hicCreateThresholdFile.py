@@ -43,7 +43,7 @@ def are_files_equal(file1, file2, delta=None):
 def test_main():
     outfile= NamedTemporaryFile(suffix='.txt', delete=True)
 
-    args = "--range {} {} -tv 0.5 -o thresholdFile_loose_pValue.txt".format(
+    args = "--range {} {} -tv {} -o {}".format(
             200000, 200000, 0.5, outfile.name).split()
     hicCreateThresholdFile.main(args)
     assert are_files_equal(

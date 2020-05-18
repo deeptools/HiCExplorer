@@ -11,6 +11,7 @@ import numpy as np
 from scipy.sparse import csr_matrix, triu
 from scipy.stats import anderson_ksamp, ranksums
 from scipy.stats import nbinom
+# import scipy.sparse
 import fit_nbinom
 
 from hicmatrix import HiCMatrix as hm
@@ -24,6 +25,7 @@ import traceback
 
 
 from hicexplorer.utilities import obs_exp_matrix, obs_exp_matrix_non_zero
+
 
 def get_linenumber():
     cf = currentframe()
@@ -62,7 +64,7 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            help='Only candidates with p-values less the given threshold will be considered as candidates. '
                                 'For each genomic distance a negative binomial distribution is fitted and for each pixel a p-value given by the cumulative density function is given. '
                                 'This does NOT influence the p-value for the neighborhood testing. Can a single value or a threshold file created by hicCreateThresholdFile.',
-                           default=0.075)
+                           default=0.1)
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=float,
                            help='The minimum number of interactions a detected peaks needs to have to be considered.',
@@ -70,7 +72,7 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
     parserOpt.add_argument('--obsExpThreshold', '-oet',
                            type=float,
                            help='The minimum number of obs/exp interactions a detected peaks needs to have to be considered. ',
-                           default=1.0)
+                           default=1.5)
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
                            default=0.025,
@@ -84,9 +86,6 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
                            help='Chromosomes to include in the analysis. If not set, all chromosomes are included.',
                            nargs='+')
 
-    parserOpt.add_argument('--region',
-                           help='The format is chr:start-end.',
-                           required=False)
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads to use, the parallelization is implemented per chromosome.',
                            required=False,
@@ -122,7 +121,7 @@ def create_distance_distribution(pDataObsExp, pDistances, pWindowSize, pMinDista
         for distance in range(pMinDistance, pMaxDistance, 1):
             mask = pDistances == distance
 
-            pGenomicDistanceDistributionObsExp[distance]  = pDataObsExp[mask]
+            pGenomicDistanceDistributionObsExp[distance] = pDataObsExp[mask]
             pGenomicDistanceDistributionPosition[distance] = np.argwhere(mask == True).flatten()
     except Exception as exp:
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
@@ -131,8 +130,8 @@ def create_distance_distribution(pDataObsExp, pDistances, pWindowSize, pMinDista
     return
 
 
-def compute_p_values_mask(pGenomicDistanceDistributionsObsExp, pGenomicDistanceDistributionsKeyList, 
-                          pPValuePreselection, pGenomicDistanceDistributionPosition, pResolution, 
+def compute_p_values_mask(pGenomicDistanceDistributionsObsExp, pGenomicDistanceDistributionsKeyList,
+                          pPValuePreselection, pGenomicDistanceDistributionPosition, pResolution,
                           pMinimumInteractionsThreshold, pObsExpThreshold, pQueue):
 
     try:
@@ -171,7 +170,7 @@ def compute_p_values_mask(pGenomicDistanceDistributionsObsExp, pGenomicDistanceD
 
 def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
                                 pPValue, pPeakWindowSize,
-                                pPValuePreselection, 
+                                pPValuePreselection,
                                 pMinimumInteractionsThreshold,
                                 pObsExpThreshold, pThreads):
     """
@@ -195,11 +194,11 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
             - A list of detected loops [(x,y)] and x, y are matrix index values
             - An associated list of p-values
     """
-
+    # pObsExpMatrix.eliminate_zeros()
+    # pHiCMatrix.matrix.eliminate_zeros()
     instances, features = pObsExpMatrix.nonzero()
     distance = np.absolute(instances - features)
     mask_interactions_hard_threshold = pHiCMatrix.matrix.data >= pMinimumInteractionsThreshold
-
 
     del instances
     del features
@@ -220,7 +219,7 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
 
         if i < pThreads - 1:
             min_distance_thread = min_distance + (i * distances_per_threads)
-            max_distance_thread = min_distance + ((i+1) * distances_per_threads)
+            max_distance_thread = min_distance + ((i + 1) * distances_per_threads)
         else:
             min_distance_thread = min_distance + (i * distances_per_threads)
             max_distance_thread = max_distance + 1
@@ -228,15 +227,15 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
         process[i] = Process(target=create_distance_distribution, kwargs=dict(
             pDataObsExp=pObsExpMatrix.data,
             pDistances=distance,
-            pWindowSize=pWindowSize, 
-            pMinDistance=min_distance_thread, 
+            pWindowSize=pWindowSize,
+            pMinDistance=min_distance_thread,
             pMaxDistance=max_distance_thread,
             pQueue=queue[i]
         )
         )
 
         process[i].start()
-    
+
     del pHiCMatrix.matrix
     del distance
     genomic_distance_distributions = {}
@@ -311,7 +310,7 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
 
             process[i].start()
             del genomic_distance_keys_thread
-    
+
     del genomic_distance_distributions_obs_exp
     del pGenomicDistanceDistributionPosition
     del genomic_keys_list
@@ -391,18 +390,18 @@ def neighborhood_merge_thread(pCandidateList, pWindowSize, pInteractionCountMatr
             else:
                 start_y = 0
 
-            end_x = candidate[0] + pWindowSize+1 if candidate[0] + \
-                pWindowSize+1 < x_max else x_max
+            end_x = candidate[0] + pWindowSize + 1 if candidate[0] + \
+                pWindowSize + 1 < x_max else x_max
 
-            end_y = candidate[1] + pWindowSize+1 if candidate[1] + \
-                pWindowSize+1 < y_max else y_max
+            end_y = candidate[1] + pWindowSize + 1 if candidate[1] + \
+                pWindowSize + 1 < y_max else y_max
 
             neighborhood = pInteractionCountMatrix[start_x:end_x,
-                                                start_y:end_y].toarray().flatten()
-            
-            if len(neighborhood) > 0 and np.max(neighborhood) == pInteractionCountMatrix[candidate[0],candidate[1]]:
+                                                   start_y:end_y].toarray().flatten()
+
+            if len(neighborhood) > 0 and np.max(neighborhood) == pInteractionCountMatrix[candidate[0], candidate[1]]:
                 new_candidate_list.append(candidate)
-            
+
             del neighborhood
         del pCandidateList
     except Exception as exp:
@@ -486,7 +485,7 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pThrea
 
 
 def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
-                                pPeakWindowSize, pQueue):
+                                 pPeakWindowSize, pQueue):
     try:
         mask = []
         pvalues = []
@@ -507,45 +506,43 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             else:
                 start_y = 0
 
-            end_x = candidate[0] + pWindowSize+1 if candidate[0] + \
-                pWindowSize+1 < x_max else x_max
+            end_x = candidate[0] + pWindowSize + 1 if candidate[0] + \
+                pWindowSize + 1 < x_max else x_max
 
-            end_y = candidate[1] + pWindowSize+1 if candidate[1] + \
-                pWindowSize+1 < y_max else y_max
-
-            
+            end_y = candidate[1] + pWindowSize + 1 if candidate[1] + \
+                pWindowSize + 1 < y_max else y_max
 
             neighborhood = pHiCMatrix[start_x:end_x,
-                                    start_y:end_y].toarray()
+                                      start_y:end_y].toarray()
             if len(neighborhood) == 0:
                 mask.append(False)
                 del neighborhood
                 continue
             # get index of original candidate
             peak_region = np.array(np.where(neighborhood == pHiCMatrix[candidate[0], candidate[1]])).flatten()
-            
+
             if pPeakWindowSize > pWindowSize:
                 log.warning('Neighborhood window size ({}) needs to be larger than peak width({}).'.format(
                     pWindowSize, pPeakWindowSize))
                 return None, None
 
-            peak = neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize+1,
-                                peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize+1].flatten()
+            peak = neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize + 1,
+                                peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize + 1].flatten()
 
             background = []
-            # top to peak 
+            # top to peak
             background.extend(
                 list(neighborhood[:peak_region[0] - pPeakWindowSize, :].flatten()))
             # from peak to bottom
             background.extend(
-                list(neighborhood[peak_region[0] + pPeakWindowSize+1:, :].flatten()))
-            
+                list(neighborhood[peak_region[0] + pPeakWindowSize + 1:, :].flatten()))
+
             # right middle
             background.extend(
-                list(neighborhood[peak_region[0]-pPeakWindowSize:peak_region[0]+pPeakWindowSize+1, peak_region[1]+pPeakWindowSize+1:].flatten()))
+                list(neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize + 1, peak_region[1] + pPeakWindowSize + 1:].flatten()))
             # left middle
             background.extend(
-                list(neighborhood[peak_region[0]-pPeakWindowSize:peak_region[0]+pPeakWindowSize+1, :peak_region[1]-pPeakWindowSize].flatten()))
+                list(neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize + 1, :peak_region[1] - pPeakWindowSize].flatten()))
             background = np.array(background)
 
             if len(background) < pWindowSize:
@@ -568,33 +565,33 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
                 del peak
                 del background
                 continue
-            
+
             donut_test_data = []
             horizontal = []
             # top middle
-            horizontal.extend(neighborhood[:peak_region[0]-pPeakWindowSize, peak_region[1]-pPeakWindowSize:peak_region[1]+pPeakWindowSize+1].flatten())
+            horizontal.extend(neighborhood[:peak_region[0] - pPeakWindowSize, peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize + 1].flatten())
             # bottom middle
-            horizontal.extend(neighborhood[peak_region[0]+pPeakWindowSize+1:, peak_region[1]-pPeakWindowSize:peak_region[1]+pPeakWindowSize+1].flatten())
+            horizontal.extend(neighborhood[peak_region[0] + pPeakWindowSize + 1:, peak_region[1] - pPeakWindowSize:peak_region[1] + pPeakWindowSize + 1].flatten())
             horizontal = np.array(horizontal).flatten()
 
             vertical = []
             # left
-            vertical.extend(neighborhood[peak_region[0]-pPeakWindowSize:peak_region[0]+pPeakWindowSize+1, :peak_region[1]-pPeakWindowSize].flatten())
+            vertical.extend(neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize + 1, :peak_region[1] - pPeakWindowSize].flatten())
             # right
-            vertical.extend(neighborhood[peak_region[0]-pPeakWindowSize:peak_region[0]+pPeakWindowSize+1, peak_region[1]+pPeakWindowSize+1:].flatten())
+            vertical.extend(neighborhood[peak_region[0] - pPeakWindowSize:peak_region[0] + pPeakWindowSize + 1, peak_region[1] + pPeakWindowSize + 1:].flatten())
             vertical = np.array(vertical).flatten()
 
             # bottom left
             bottom_left_corner = []
-            bottom_left_corner.extend(neighborhood[peak_region[0]:, :peak_region[1]-pPeakWindowSize].flatten())
-            bottom_left_corner.extend(neighborhood[peak_region[0]+pPeakWindowSize+1:, peak_region[1]-pPeakWindowSize:peak_region[1]+1].flatten())
+            bottom_left_corner.extend(neighborhood[peak_region[0]:, :peak_region[1] - pPeakWindowSize].flatten())
+            bottom_left_corner.extend(neighborhood[peak_region[0] + pPeakWindowSize + 1:, peak_region[1] - pPeakWindowSize:peak_region[1] + 1].flatten())
             # bottom_left_corner = np.array(bottom_left_corner).flatten()
             donut_test_data.append(bottom_left_corner)
             donut_test_data.append(horizontal)
             donut_test_data.append(vertical)
 
             del neighborhood
-            
+
             # test vertical, horizontal, bottom left corner and neighborhood vs peak with wilcoxon-rank-sum test
             accept_length = len(donut_test_data)
             accept_count = 0
@@ -703,8 +700,8 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             continue
         else:
             process[i].start()
-    
-    fail_flag=False
+
+    fail_flag = False
     fail_message = ''
     while not all_data_collected:
         for i in range(pThreads):
@@ -801,14 +798,18 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
     try:
 
         if pQueue is not None:
-            pHiCMatrix = hm.hiCMatrix(pMatrixFile=pArgs.matrix, pChrnameList=[pRegion], pDistance=pArgs.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=False)
+            if pIsCooler:
+                pHiCMatrix = hm.hiCMatrix(pMatrixFile=pArgs.matrix, pChrnameList=[pRegion], pDistance=pArgs.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=False)
+            else:
+                pHiCMatrix = hm.hiCMatrix(pMatrixFile=pArgs.matrix, pChrnameList=[pRegion], pDistance=pArgs.maxLoopDistance, pNoIntervalTree=False, pUpperTriangleOnly=False)
+
         if not pIsCooler:
             # cooler files load only what is necessary.
             pHiCMatrix.keepOnlyTheseChr([pRegion])
-            min_loop_distance = pArgs.minLoopDistance / pHiCMatrix.getBinSize()
+            max_loop_distance = pArgs.maxLoopDistance / pHiCMatrix.getBinSize()
             instances, features = pHiCMatrix.matrix.nonzero()
             distances = np.absolute(instances - features)
-            mask = distances > min_loop_distance
+            mask = distances > max_loop_distance
             pHiCMatrix.matrix.data[mask] = 0
             pHiCMatrix.matrix.eliminate_zeros()
 
@@ -865,21 +866,35 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
         elif pArgs.expected == 'mean_nonzero_ligation':
             obs_exp_csr_matrix = obs_exp_matrix_non_zero(pHiCMatrix.matrix, ligation_factor=True, pInplace=False, pToEpsilon=True, pThreads=pArgs.threadsPerChromosome)
 
+        if not isinstance(obs_exp_csr_matrix, csr_matrix):
+            if pQueue is None:
+                return None
+            else:
+                pQueue.put([None])
+                return
+        pHiCMatrix.matrix.eliminate_zeros()
+        obs_exp_csr_matrix.eliminate_zeros()
+        if len(pHiCMatrix.matrix.data) != len(obs_exp_csr_matrix.data):
+            if pQueue is None:
+                return None
+            else:
+                pQueue.put([None])
+                return
         # handle pValuePreselection
         try:
             pArgs.pValuePreselection = float(pArgs.pValuePreselection)
         except Exception:
-            pArgs.pValuePreselection= read_threshold_file(pArgs.pValuePreselection)
+            pArgs.pValuePreselection = read_threshold_file(pArgs.pValuePreselection)
 
         candidates, pValueList = compute_long_range_contacts(pHiCMatrix,
-                                                            obs_exp_csr_matrix,
-                                                            pArgs.windowSize,
-                                                            pArgs.pValue,
-                                                            pArgs.peakWidth,
-                                                            pArgs.pValuePreselection,
-                                                            pArgs.peakInteractionsThreshold,
-                                                            pArgs.obsExpThreshold,
-                                                            pArgs.threadsPerChromosome)
+                                                             obs_exp_csr_matrix,
+                                                             pArgs.windowSize,
+                                                             pArgs.pValue,
+                                                             pArgs.peakWidth,
+                                                             pArgs.pValuePreselection,
+                                                             pArgs.peakInteractionsThreshold,
+                                                             pArgs.obsExpThreshold,
+                                                             pArgs.threadsPerChromosome)
 
         if candidates is None:
             log.info('Computed loops for {}: 0'.format(pRegion))
@@ -921,165 +936,147 @@ def read_threshold_file(pFile):
                 continue
             if line == '':
                 break
-            relative_distance , value = line.split('\t')
+            relative_distance, value = line.split('\t')
             distance_value_dict[int(relative_distance)] = float(value)
     return distance_value_dict
 
+
 def main(args=None):
-    log.debug('Newc')
     args = parse_arguments().parse_args(args)
-    log.info('peak interactions threshold set to {}'.format(
-        args.peakInteractionsThreshold))
+
     if args.windowSize <= args.peakWidth:
         log.error('The window size ({}) must be larger than the peakWidth ({})'.format(args.windowSize, args.peakWidth))
         exit(1)
-    if args.region is not None and args.chromosomes is not None:
-        log.error('Please choose either --region or --chromosomes.')
-        exit(1)
-    log.debug('args.matrix {}'.format(args.matrix))
     is_cooler = check_cooler(args.matrix)
-    log.debug('is_cooler {}'.format(is_cooler))
     if args.threadsPerChromosome < 1:
         args.threadsPerChromosome = 1
-    if args.region:
-        chrom, region_start, region_end = translate_region(args.region)
 
-        if is_cooler:
-            hic_matrix = hm.hiCMatrix(
-                pMatrixFile=args.matrix, pChrnameList=[args.region], pDistance=args.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=True)
-        else:
-            hic_matrix = hm.hiCMatrix(args.matrix)
-            hic_matrix.keepOnlyTheseChr([chrom])
-        mapped_loops = compute_loops(hic_matrix, args.region, args)
+    mapped_loops = []
 
-        if 'Fail: ' in mapped_loops:
-            log.error(mapped_loops[6:])
-            exit(1)
-        write_bedgraph(mapped_loops, args.outFileName,
-                       region_start, region_end)
+    if not is_cooler:
+        hic_matrix = hm.hiCMatrix(args.matrix)
+        matrix = deepcopy(hic_matrix.matrix)
+        cut_intervals = deepcopy(hic_matrix.cut_intervals)
 
-    else:
-        mapped_loops = []
-
+    if args.chromosomes is None:
+        # get all chromosomes from cooler file
         if not is_cooler:
-            hic_matrix = hm.hiCMatrix(args.matrix)
-            matrix = deepcopy(hic_matrix.matrix)
-            cut_intervals = deepcopy(hic_matrix.cut_intervals)
+            chromosomes_list = list(hic_matrix.chrBinBoundaries)
+        else:
+            chromosome_sizes = cooler.Cooler(args.matrix).chromsizes
 
-        if args.chromosomes is None:
-            # get all chromosomes from cooler file
-            if not is_cooler:
-                chromosomes_list = list(hic_matrix.chrBinBoundaries)
-            else:
-                chromosome_sizes = cooler.Cooler(args.matrix).chromsizes
-                
-                # shuffle the processing order of chromosomes. 
-                # with this one large chromosome and 4 smalls are in a row
-                # peak memory is reduced and more chromosomes can be processed in parallel on low memory systems.
-                sorted_sizes_desc = chromosome_sizes.sort_values(ascending=False)
+            # shuffle the processing order of chromosomes.
+            # with this one large chromosome and 4 smalls are in a row
+            # peak memory is reduced and more chromosomes can be processed in parallel on low memory systems.
+            sorted_sizes_desc = chromosome_sizes.sort_values(ascending=False)
 
-                size = sorted_sizes_desc.size
-                chromosome_names_list = sorted_sizes_desc.index.tolist()
-                chromosomes_list = []
-                i = 0
-                j = args.threads # biggest + thread smallest; 2nd biggest chr + 4 - 8 smallest
-                k = size - 1
-                while i < size:
-                    chromosomes_list.append(chromosome_names_list[i])
-                    while j > 0 and k > 0:
-                        if k == i:
-                            break
-                        chromosomes_list.append(chromosome_names_list[k])
-                        k -= 1
-                        j -= 1
-                    j = args.threads-1
-                    if i == k:
+            size = sorted_sizes_desc.size
+            chromosome_names_list = sorted_sizes_desc.index.tolist()
+            chromosomes_list = []
+            i = 0
+            j = args.threads  # biggest + thread smallest; 2nd biggest chr + 4 - 8 smallest
+            k = size - 1
+            while i < size:
+                chromosomes_list.append(chromosome_names_list[i])
+                while j > 0 and k > 0:
+                    if k == i:
                         break
-                    i += 1
-        else:
-            chromosomes_list = args.chromosomes
+                    chromosomes_list.append(chromosome_names_list[k])
+                    k -= 1
+                    j -= 1
+                j = args.threads - 1
+                if i == k:
+                    break
+                i += 1
+    else:
+        chromosomes_list = args.chromosomes
 
-        if len(chromosomes_list) < args.threads:
-            args.threads = len(chromosomes_list)
-        if len(chromosomes_list) == 1:
-            single_core = True
-        else:
-            single_core = False
+    if len(chromosomes_list) < args.threads:
+        args.threads = len(chromosomes_list)
+    if len(chromosomes_list) == 1:
+        single_core = True
+    else:
+        single_core = False
 
-        if single_core:
-            for chromosome in chromosomes_list:
-                if is_cooler:
-                    time_start = time.time()
-                    hic_matrix = hm.hiCMatrix(
-                        pMatrixFile=args.matrix, pChrnameList=[chromosome], pDistance=args.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=True)
-                else:
-                    hic_matrix.setMatrix(
-                        deepcopy(matrix), deepcopy(cut_intervals))
-                    hic_matrix.keepOnlyTheseChr([chromosome])
-                loops = compute_loops(hic_matrix, chromosome, args, is_cooler)
-                if 'Fail: ' in loops:
-                    log.error(loops[6:])
-                    exit(1)
-                if loops is not None:
-                    mapped_loops.extend(loops)
-        else:
-            queue = [None] * args.threads
-            process = [None] * args.threads
-            all_data_processed = False
-            all_threads_done = False
-            thread_done = [False] * args.threads
-            count_call_of_read_input = 0
-            fail_flag = False
-            fail_message = ''
-            while not all_data_processed or not all_threads_done:
-                for i in range(args.threads):
-                    if queue[i] is None and not all_data_processed:
-                        if count_call_of_read_input >= len(chromosomes_list):
-                            all_data_processed = True
-                            continue
-                        queue[i] = Queue()
-                        thread_done[i] = False
-                        process[i] = Process(target=compute_loops, kwargs=dict(
-                            pHiCMatrix=args.matrix,
-                            pRegion=chromosomes_list[count_call_of_read_input],
-                            pArgs=args,
-                            pIsCooler=is_cooler,
-                            pQueue=queue[i]
-                        ))
-                        process[i].start()
+    if single_core:
+        for chromosome in chromosomes_list:
+            if is_cooler:
+                hic_matrix = hm.hiCMatrix(
+                    pMatrixFile=args.matrix, pChrnameList=[chromosome], pDistance=args.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=True)
+            else:
+                hic_matrix.setMatrix(
+                    deepcopy(matrix), deepcopy(cut_intervals))
+                hic_matrix.keepOnlyTheseChr([chromosome])
+            loops = compute_loops(hic_matrix, chromosome, args, is_cooler)
+            if loops is None:
+                log.error('No loops could be detected. Please change your input parameters, use a matrix with a better read coverage or contact the develops on https://github.com/deeptools/HiCExplorer/issues')
+                exit(1)
+            if 'Fail: ' in loops:
+                log.error(loops[6:])
+                exit(1)
+            if loops is not None:
+                mapped_loops.extend(loops)
+    else:
+        queue = [None] * args.threads
+        process = [None] * args.threads
+        all_data_processed = False
+        all_threads_done = False
+        thread_done = [False] * args.threads
+        count_call_of_read_input = 0
+        fail_flag = False
+        fail_message = ''
+        while not all_data_processed or not all_threads_done:
+            for i in range(args.threads):
+                if queue[i] is None and not all_data_processed:
+                    if count_call_of_read_input >= len(chromosomes_list):
+                        all_data_processed = True
+                        continue
+                    queue[i] = Queue()
+                    thread_done[i] = False
+                    process[i] = Process(target=compute_loops, kwargs=dict(
+                        pHiCMatrix=args.matrix,
+                        pRegion=chromosomes_list[count_call_of_read_input],
+                        pArgs=args,
+                        pIsCooler=is_cooler,
+                        pQueue=queue[i]
+                    ))
+                    process[i].start()
 
-                        if count_call_of_read_input < len(chromosomes_list):
-                            count_call_of_read_input += 1
-                        else:
-                            all_data_processed = True
-                    elif queue[i] is not None and not queue[i].empty():
-                        result = queue[i].get()
-                        if 'Fail: ' in result:
-                            fail_flag=True
-                            fail_message = result
-                        if result[0] is not None:
-                            mapped_loops.extend(result[0])
-
-                        queue[i] = None
-                        process[i].join()
-                        process[i].terminate()
-                        process[i] = None
-                        thread_done[i] = True
-                    elif all_data_processed and queue[i] is None:
-                        thread_done[i] = True
+                    if count_call_of_read_input < len(chromosomes_list):
+                        count_call_of_read_input += 1
                     else:
-                        time.sleep(1)
+                        all_data_processed = True
+                elif queue[i] is not None and not queue[i].empty():
+                    result = queue[i].get()
+                    if result is not None and 'Fail: ' in result:
+                        fail_flag = True
+                        fail_message = result
+                    if result[0] is not None:
+                        mapped_loops.extend(result[0])
 
-                if all_data_processed:
-                    all_threads_done = True
-                    for thread in thread_done:
-                        if not thread:
-                            all_threads_done = False
-        
-        if fail_flag:
+                    queue[i] = None
+                    process[i].join()
+                    process[i].terminate()
+                    process[i] = None
+                    thread_done[i] = True
+                elif all_data_processed and queue[i] is None:
+                    thread_done[i] = True
+                else:
+                    time.sleep(1)
+
+            if all_data_processed:
+                all_threads_done = True
+                for thread in thread_done:
+                    if not thread:
+                        all_threads_done = False
+
+    if fail_flag:
+        if fail_message is not None:
             log.error(fail_message[6:])
-            exit(1)
-        if len(mapped_loops) > 0:
-            write_bedgraph(mapped_loops, args.outFileName)
+        else:
+            log.error('An error occurred.')
+        exit(1)
+    if len(mapped_loops) > 0:
+        write_bedgraph(mapped_loops, args.outFileName)
     log.info("Number of detected loops for all regions: {}".format(
         len(mapped_loops)))
