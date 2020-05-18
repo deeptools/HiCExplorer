@@ -108,10 +108,11 @@ install_requires_py = ["numpy >= 1.18.*",
                        "pygenometracks >= 3.2",
                        "psutil >= 5.6.*",
                        "fit_nbinom >= 1.1",
-                       "hic2cool >= 0.7",
+                       "hic2cool >= 0.8.2",
                        "krbalancing >= 0.0.5",
                        "pybedtools >= 0.8",
-                       "future >= 0.17"
+                       "future >= 0.17",
+                       "tqdm >= 4.20"
                        ]
 
 
