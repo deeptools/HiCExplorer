@@ -72,7 +72,7 @@ def compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution):
 
     if data_dict['Matched Loops']  > float(pMaximumNumberOfLoops):
         return 1 - ((data_dict['Loops match protein']*2 + 1.0) / 3) 
-    if data_dict['Matched Loops'] < 500:
+    if pMaximumNumberOfLoops > 500 and data_dict['Matched Loops'] < 500:
         return 1 - (data_dict['Matched Loops'] / float(pMaximumNumberOfLoops))
     return 1 - ((data_dict['Loops match protein']*2 + (data_dict['Matched Loops'] / float(pMaximumNumberOfLoops) / 2)) / 3)
 
@@ -83,10 +83,10 @@ def objective(pArgs):
         return 1
     outfile_loop = NamedTemporaryFile()
     args = "--matrix {} -o {} -pit {} -oet {} --windowSize {} --peakWidth {} -pp {} -p {} " \
-        "--maxLoopDistance {} -st {} -t 10 -tpc 10".format(
+        "--maxLoopDistance {}  -t 10 -tpc 10".format(
             pArgs['matrixFile'], outfile_loop.name,
             pArgs['pit'], pArgs['oet'], pArgs['windowSize'], pArgs['peakWidth'],pArgs['pp'], pArgs['p'],
-            pArgs['maxLoopDistance'], pArgs['st']).split()
+            pArgs['maxLoopDistance']).split()
     hicDetectLoops.main(args)
 
     error_score = compute_score(outfile_loop.name, pArgs['proteinFile'], pArgs['maximumNumberOfLoops'], pArgs['resolution'])
@@ -110,7 +110,7 @@ def main(args=None):
         # 'minLoopDistance': hp.choice('minLoopDistance', list(range(50000, 200000, 10000))),
         'maxLoopDistance': hp.choice('maxLoopDistance', list(range(1000000, 3000000, 100000))),
         # 'mip': hp.uniform('mip', 0.0, 0.5),
-        'st': 'wilcoxon-rank-sum',#, 'anderson-darling']),
+        # 'st': 'wilcoxon-rank-sum',#, 'anderson-darling']),
         # 'minVariance': hp.uniform('minVariance', 0.000001, 0.09),
         # 'maxVariance': hp.uniform('maxVariance', 0.1, 0.3),
         'matrixFile': args.matrix,
