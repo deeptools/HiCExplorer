@@ -71,6 +71,7 @@ def test_regular_mode_threads():
     assert set(os.listdir(ROOT + "chicAggregateStatistic/regular_mode/")
                ) == set(os.listdir(output_folder))
 
+
 def test_batch_mode():
     outfile = NamedTemporaryFile(suffix='.txt', delete=False)
     output_folder = mkdtemp(prefix="output_")
@@ -105,6 +106,7 @@ def test_batch_mode():
 
     assert set(os.listdir(ROOT + "chicAggregateStatistic/batch_mode/")
                ) == set(os.listdir(output_folder))
+
 
 def test_batch_mode_too_many_threads():
     outfile = NamedTemporaryFile(suffix='.txt', delete=False)
@@ -141,6 +143,7 @@ def test_batch_mode_too_many_threads():
     assert set(os.listdir(ROOT + "chicAggregateStatistic/batch_mode/")
                ) == set(os.listdir(output_folder))
 
+
 def test_batch_mode_one_targetfile():
     outfile = NamedTemporaryFile(suffix='.txt', delete=False)
     output_folder = mkdtemp(prefix="output_")
@@ -148,11 +151,11 @@ def test_batch_mode_one_targetfile():
     outfile.close()
     args = "--interactionFile {} --targetFile {} --outFileNameSuffix {} \
         --outputFolder {} -iff {} -w {} -bm -t {}".format(ROOT + 'chicViewpoint/fileNames_two_matrices.txt',
-                                                                  ROOT + 'chicSignificantInteractions/output_5_target_regions.txt',
-                                                                  'aggregated.txt',
-                                                                  output_folder,
-                                                                  ROOT + 'chicViewpoint/output_1',
-                                                                  outfile.name, 3).split()
+                                                          ROOT + 'chicSignificantInteractions/output_5_target_regions.txt',
+                                                          'aggregated.txt',
+                                                          output_folder,
+                                                          ROOT + 'chicViewpoint/output_1',
+                                                          outfile.name, 3).split()
     chicAggregateStatistic.main(args)
     assert are_files_equal(
         ROOT + "chicAggregateStatistic/batch_mode_file_names.txt", outfile.name)
@@ -175,6 +178,7 @@ def test_batch_mode_one_targetfile():
     assert set(os.listdir(ROOT + "chicAggregateStatistic/batch_mode/")
                ) == set(os.listdir(output_folder))
 
+
 def test_batch_mode_one_targetfile_threads():
     outfile = NamedTemporaryFile(suffix='.txt', delete=False)
     output_folder = mkdtemp(prefix="output_")
@@ -182,11 +186,11 @@ def test_batch_mode_one_targetfile_threads():
     outfile.close()
     args = "--interactionFile {} --targetFile {} --outFileNameSuffix {} \
         --outputFolder {} -iff {} -w {} -bm -t {}".format(ROOT + 'chicViewpoint/fileNames_two_matrices.txt',
-                                                                  ROOT + 'chicSignificantInteractions/output_5_target_regions.txt',
-                                                                  'aggregated.txt',
-                                                                  output_folder,
-                                                                  ROOT + 'chicViewpoint/output_1',
-                                                                  outfile.name, 20).split()
+                                                          ROOT + 'chicSignificantInteractions/output_5_target_regions.txt',
+                                                          'aggregated.txt',
+                                                          output_folder,
+                                                          ROOT + 'chicViewpoint/output_1',
+                                                          outfile.name, 20).split()
     chicAggregateStatistic.main(args)
     assert are_files_equal(
         ROOT + "chicAggregateStatistic/batch_mode_file_names.txt", outfile.name)

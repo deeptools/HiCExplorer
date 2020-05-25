@@ -11,6 +11,8 @@ from scipy.special import gammaln
 from scipy import special
 
 from hicexplorer.lib import cnb
+
+
 class Viewpoint():
 
     def __init__(self, pHiCMatrix=None):
@@ -823,5 +825,3 @@ class Viewpoint():
         if len(highlight_areas_list) == 0:
             return None, None
         return highlight_areas_list, p_values
-
-

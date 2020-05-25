@@ -249,6 +249,7 @@ def test_batchMode_loose_pValue_csn_2_truncate_zeros():
     assert set(os.listdir(ROOT + "chicSignificantInteractions/output_5_target/")
                ) == set(os.listdir(output_folder_target))
 
+
 def test_xFold_one_interaction_file_threshold_file():
     outfile = NamedTemporaryFile(suffix='.txt', delete=False)
     output_folder = mkdtemp(prefix="output_")

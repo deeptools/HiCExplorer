@@ -645,7 +645,7 @@ def main(args=None):
         # compute and print some statistics
         pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
         ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%) "
-                            "out of".format(pct_outlier, ma.matrix.shape[0]),
+                            "out of {}".format(pct_outlier, ma.matrix.shape[0]),
                             restore_masked_bins=False)
 
         assert matrix_shape == ma.matrix.shape

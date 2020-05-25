@@ -238,7 +238,7 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
 
     del pHiCMatrix.matrix
     del distance
-    genomic_distance_distributions = {}
+    # genomic_distance_distributions = {}
     genomic_distance_distributions_obs_exp = {}
     pGenomicDistanceDistributionPosition = {}
     fail_flag = False
@@ -593,7 +593,6 @@ def candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue,
             del neighborhood
 
             # test vertical, horizontal, bottom left corner and neighborhood vs peak with wilcoxon-rank-sum test
-            accept_length = len(donut_test_data)
             accept_count = 0
             for data in donut_test_data:
                 statistic, significance_level_test1 = ranksums(sorted(peak), sorted(data))

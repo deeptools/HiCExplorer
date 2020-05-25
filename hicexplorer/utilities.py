@@ -624,7 +624,7 @@ def remove_non_ascii(pText):
 
 
 def check_cooler(pFileName):
-    if pFileName.endswith('.cool') or cooler.fileops.is_cooler(pFileName) or'.mcool' in pFileName:
+    if pFileName.endswith('.cool') or cooler.fileops.is_cooler(pFileName) or '.mcool' in pFileName:
         return True
     return False
 
