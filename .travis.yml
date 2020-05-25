@@ -36,7 +36,6 @@ install:
   - conda install --yes -c defaults -c conda-forge -c bioconda configparser
   - python setup.py install
   - conda install openjdk
-  - curl https://s3.amazonaws.com/hicfiles.tc4ga.com/public/juicer/juicer_tools_1.21.01.jar -o juicer_tools.jar
 # command to run tests
 script:
   - py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
