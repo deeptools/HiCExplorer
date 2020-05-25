@@ -112,7 +112,8 @@ install_requires_py = ["numpy >= 1.18.*",
                        "krbalancing >= 0.0.5",
                        "pybedtools >= 0.8",
                        "future >= 0.17",
-                       "tqdm >= 4.20"
+                       "tqdm >= 4.20",
+                       "graphviz >= 0.14"
                        ]
 
 

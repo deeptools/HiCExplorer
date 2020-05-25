@@ -51,6 +51,8 @@ def test_main():
 
     bashCommand = 'curl https://s3.amazonaws.com/hicfiles.tc4ga.com/public/juicer/juicer_tools_1.21.01.jar -o juicer.jar'
     subprocess.check_output(['bash', '-c', bashCommand])
+    # hic data from https://bcm.app.box.com/v/aidenlab/folder/53387673975
+    # Rutledge et al. | Nucleic Acids Research 2015
     args = "-j {} -m {} -p {} -ml {} -r {} --runs {} -o {}".format(
         'juicer.jar', ROOT + 'hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic', ROOT + 'hicHyperoptDetectLoopsHiCCUPS/ctcf_sorted.bed', 7, 10000, 2, outfile.name).split()
     hicHyperoptDetectLoopsHiCCUPS.main(args)

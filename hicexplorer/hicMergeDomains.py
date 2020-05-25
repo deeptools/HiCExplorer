@@ -1,10 +1,11 @@
-#!/usr/bin/env python
 import argparse
 from scipy.cluster.hierarchy import dendrogram, linkage
 import numpy as np
 from matplotlib import pyplot as plt
 from graphviz import Digraph
 import os
+import logging
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
@@ -18,26 +19,21 @@ def parse_arguments(args=None):
 
     parserRequired = parser.add_argument_group('Required arguments')
 
-    parserRequired.add_argument('--domain1', '-d',
+    parserRequired.add_argument('--domainFiles', '-d',
                                 help='The domains.bed file of the first matrix is required',
-                                required=True)
+                                required=True,
+                                nargs='+')
 
     parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument('--domainList', '-l',
-                                help='The second and all other Domain.bed files are required',
-                           nargs='+')
 
     parserOpt.add_argument('--ctcfFile', '-c',
                            help='In order to be able to better assess the relationship between TADs, the associated '
                                 'CTCF file can be included. The CTCF-file is required in broadpeak format')
-    
 
     parserOpt.add_argument('--minPeak', '-m',
                            help='Optional parameter to adjust the number of CTCF peaks when adapting the resolution to '
                                 'the domain files',
                            type=int, default=1)
-
 
     parserOpt.add_argument('--value', '-v',
                            help='Determine a value by how much the boundaries of two TADs must at least differ to view '
@@ -47,8 +43,24 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--percent', '-p',
                            help='For the relationship determination, a percentage is required from which area coverage '
                                 'the TADs are related to each other.'
-			   'For example, a relationship should be entered from 5 percent area coverage -p 0.05',
+                           'For example, a relationship should be entered from 5 percent area coverage -p 0.05',
                            type=float, default=0.5)
+    parserOpt.add_argument('--outputMergedList', '-om',
+                           help='File name for the merged domains list',
+                           default='mergedDomains.bed',
+                           required=False)
+    parserOpt.add_argument('--outputRelationList', '-or',
+                           help='File name for the relationship list of the TADs.',
+                           default='relationList.bed',
+                           required=False)
+    parserOpt.add_argument('--outputTreePlotPrefix', '-ot',
+                           help='File name prefix for the relationship tree of the TADs',
+                           default='relationship_tree_',
+                           required=False)
+    parserOpt.add_argument('--outputTreePlotFormat', '-of',
+                           help='File format of the relationship tree. Supported formats are listed on: https://www.graphviz.org/doc/info/output.html',
+                           default='pdf',
+                           required=False)
 
     return parser
 
@@ -70,8 +82,8 @@ def create_list_of_file(file, binSizeList):
             zeros, num = 0, x[1]
             while num[len(num) - 1:] == '0':
                 zeros += 1
-                num = num[0:(len(num)-1)]
-            num = num[len(num)-1:]
+                num = num[0:(len(num) - 1)]
+            num = num[len(num) - 1:]
             while zeros != 0:
                 num += '0'
                 zeros -= 1
@@ -80,7 +92,7 @@ def create_list_of_file(file, binSizeList):
     return splittedList, binSize
 
 
-def merge_list(d1, d2, pValue= 5000):
+def merge_list(d1, d2, pValue=5000):
     """Combine two lists into one, taking into account the value,
        with which one can decide whether two very similar TADs should
        be seen as one or as two """
@@ -97,7 +109,7 @@ def merge_list(d1, d2, pValue= 5000):
                 if (abs(int(d1[pos1][1]) - int(d2[pos2][1])) > pValue) or (
                         abs(int(d1[pos1][2]) - int(d2[pos2][2])) > pValue):
                     merged_list.append(d1[pos1])
-                if pos1+1 != len(d1):
+                if pos1 + 1 != len(d1):
                     pos1 += 1
                 else:
                     """ As long as List2 has not reached its end and still share the same chromosome, the remaining 
@@ -112,12 +124,12 @@ def merge_list(d1, d2, pValue= 5000):
                 if (abs(int(d1[pos1][1]) - int(d2[pos2][1])) > pValue) or (
                         abs(int(d1[pos1][2]) - int(d2[pos2][2])) > pValue):
                     merged_list.append(d2[pos2])
-                if pos2+1 != len(d2):
+                if pos2 + 1 != len(d2):
                     pos2 += 1
                 else:
                     """ As long as List1 has not reached its end and still share the same chromosome, the remaining 
                     TADs are added """
-                    while (pos1 < len(d1))and (d1[pos1][0] == d2[pos2][0]):
+                    while (pos1 < len(d1)) and (d1[pos1][0] == d2[pos2][0]):
                         merged_list.append(d1[pos1])
                         pos1 += 1
                     break
@@ -146,7 +158,7 @@ def merge_list(d1, d2, pValue= 5000):
             merged_list.append(d2[pos2])
         pos2 += 1
     return merged_list
-            
+
 
 def add_id(domainList):
     """Give each element of a list its individual number """
@@ -157,7 +169,7 @@ def add_id(domainList):
     return domainList
 
 
-def create_relationsship_list(domainList, pProzent = 0.5):
+def create_relationsship_list(domainList, pPercent=0.5):
     """Give each element of a list its individual number """
     relationList = []
     tad1, tad2 = 0, 1
@@ -169,7 +181,7 @@ def create_relationsship_list(domainList, pProzent = 0.5):
                 break
             """ The minimum area of TAD1 is calculated using the "percent" parameter in order 
             to detect overlapping TADs """
-            minArea = (float(domainList[tad1][2])-float(domainList[tad1][1]))*pProzent
+            minArea = (float(domainList[tad1][2]) - float(domainList[tad1][1])) * pPercent
             """ Checks whether the two TADs are overlapping TADs """
             if ((float(domainList[tad1][2]) - minArea) > float(domainList[tad2][1])) and \
                     ((float(domainList[tad1][2]) + minArea) <= float(domainList[tad2][2])):
@@ -177,7 +189,7 @@ def create_relationsship_list(domainList, pProzent = 0.5):
                         (float(domainList[tad2][2]) - int(domainList[tad2][1])):
                     add_relation_to_list(relationList, domainList[tad1][0], domainList[tad1][3], domainList[tad2][3])
                 else:
-                    add_relation_to_list(relationList, domainList[tad2][0], domainList[tad2][3], domainList[tad1][3])   
+                    add_relation_to_list(relationList, domainList[tad2][0], domainList[tad2][3], domainList[tad1][3])
                 """ Checks whether TAD1 is completely in TAD2 """
             elif ((not float(domainList[tad2][1]) < (float(domainList[tad1][1]))) and
                   (not int(domainList[tad2][2]) > float(domainList[tad1][2]))):
@@ -193,7 +205,7 @@ def add_relation_to_list(rList, chromosom, parent, child):
     if len(rList) == 0:
         rList.append([chromosom, parent, [child]])
         return rList
-    pos = len(rList)-1
+    pos = len(rList) - 1
     while True:
         if rList[pos][1] == parent:
             rList[pos][2].append(child)
@@ -203,40 +215,38 @@ def add_relation_to_list(rList, chromosom, parent, child):
             return rList
         else:
             pos -= 1
-        
 
-def write_in_file(l, name, relation = False):
+
+def write_in_file(l, name, relation=False):
     """ Create and save various lists in their individual files """
     filename = name
-    myfile = open(filename, 'w')
-    i = 0
-    if relation:
-        while i < len(l):
-            element = 0
-            while element < len(l[i][2]):
-                string = l[i][0] + '\t' + l[i][1] + '\t' + l[i][2][element] + '\n'
+    with open(filename, 'w') as myfile:
+        i = 0
+        if relation:
+            while i < len(l):
+                element = 0
+                while element < len(l[i][2]):
+                    string = l[i][0] + '\t' + l[i][1] + '\t' + l[i][2][element] + '\n'
+                    myfile.write(string)
+                    element += 1
+                i += 1
+        else:
+            while i < len(l):
+                element = 0
+                string = ""
+                while element < len(l[i]) - 1:
+                    string += l[i][element] + '\t'
+                    element += 1
+                string += l[i][element] + '\n'
                 myfile.write(string)
-                element += 1
-            i += 1
-        myfile.close()
-    else:
-        while i < len(l):
-            element = 0
-            string = ""
-            while element < len(l[i])-1:
-                string += l[i][element] + '\t'
-                element += 1
-            string += l[i][element] + '\n'
-            myfile.write(string)
-            i += 1
-        myfile.close()
+                i += 1
 
 
-def create_tree(rList, dList):
+def create_tree(rList, dList, pFileNameSuffix, pFormat):
     """ Create a tree diagram from a list and
        thus represent the relationships of individual TADs per chromosome """
-    name = "./trees/" + rList[0][0] + '_relations'
-    g = Digraph(filename=name, strict=True)
+    name = pFileNameSuffix + rList[0][0]
+    g = Digraph(filename=name, strict=True, format=pFormat)
     sList = create_small_list(dList)
     chrom = rList[0][0]
     posRList = 0
@@ -255,16 +265,14 @@ def create_tree(rList, dList):
                 if child in sList[posSList][1]:
                     sList[posSList][1].remove(child)
         else:
-            while len(sList[posSList][1])!= 0:
+            while len(sList[posSList][1]) != 0:
                 g.node(sList[posSList][1][0])
                 sList[posSList][1].remove(sList[posSList][1][0])
             print("Saved relation tree of " + chrom)
-            if not os.path.exists("trees"):
-                os.makedirs("trees")
             g.render(name)
             chrom = rList[posRList][0]
-            name = "./trees/" + chrom + '_relations'
-            g = Digraph(filename=name)
+            name = pFileNameSuffix + chrom
+            g = Digraph(filename=name, format=pFormat)
             posSList = 0
             while sList[posSList][0] != chrom:
                 posSList += 1
@@ -281,7 +289,7 @@ def create_small_list(dList):
     pos = 0
     while pos < len(dList):
         if dList[pos][0] == chrom:
-            sList[len(sList)-1][1].append(dList[pos][3])
+            sList[len(sList) - 1][1].append(dList[pos][3])
         else:
             chrom = dList[pos][0]
             sList.append([dList[pos][0], [dList[pos][3]]])
@@ -298,7 +306,7 @@ def read_ctcf(file):
     for line in newList:
         x = line.split("\t")
         if x[0] == actualChr:
-            splittedList[len(splittedList)-1].append(x[0:3])
+            splittedList[len(splittedList) - 1].append(x[0:3])
         else:
             actualChr = x[0]
             splittedList.append([x[0:3]])
@@ -320,13 +328,13 @@ def merge_ctcf(ctcfList, binSize, minPeak):
                 count += 1
             else:
                 if count >= minPeak:
-                    newCtcfList[len(newCtcfList)-1].append([peak[0], currentBoundaryLeft, currentBoundaryRight, count])
+                    newCtcfList[len(newCtcfList) - 1].append([peak[0], currentBoundaryLeft, currentBoundaryRight, count])
                 currentBoundaryLeft = currentBoundaryRight
                 currentBoundaryRight = currentBoundaryLeft + binSize
                 count = 0
                 if int(peak[1]) < currentBoundaryRight:
                     count += 1
-                else:    
+                else:
                     while int(peak[1]) > currentBoundaryLeft:
                         currentBoundaryLeft += binSize
                     currentBoundaryRight = currentBoundaryLeft + binSize
@@ -334,19 +342,20 @@ def merge_ctcf(ctcfList, binSize, minPeak):
     return newCtcfList
 
 
-def compare_boundaries_ctcf(bList, cList, paraScore = 0.2):
+def compare_boundaries_ctcf(bList, cList, paraScore=0.2):
     """ check the boundaries for a ctcf-peak """
     posTad = 0
     posPeak = 0
     chromPosition = 0
     removedTads = []
+
     while posTad < len(bList):
-        if bList[posTad][0] != cList[chromPosition][0][0]:
+        if posTad < len(bList) and chromPosition < len(cList) and bList[posTad][0] != cList[chromPosition][0][0]:
             chromPosition = 0
-            while bList[posTad][0] != cList[chromPosition][0][0]:
+            while posTad < len(bList) and chromPosition < len(cList) and bList[posTad][0] != cList[chromPosition][0][0]:
                 chromPosition += 1
             posPeak = 0
-        else:
+        elif posTad < len(bList) and chromPosition < len(cList):
             while ((posPeak + 1) < len(cList[chromPosition])) and \
                     (int(bList[posTad][1]) > int(cList[chromPosition][posPeak][2])):
                 posPeak += 1
@@ -356,12 +365,12 @@ def compare_boundaries_ctcf(bList, cList, paraScore = 0.2):
                             (abs(float(bList[posTad + 1][4]) - float(bList[posTad][4])) < paraScore):
                         removedTads.append(bList[posTad])
                         bList.remove(bList[posTad])
-                        
+
         posTad += 1
     return bList
 
 
-def create_list_with_ctcf(bList, minPeak, cList = None):
+def create_list_with_ctcf(bList, minPeak, cList=None):
     binSize = 0
     bList, binSize = create_list_of_file(bList, binSize)
     if cList is not None:
@@ -374,22 +383,20 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
     pValue = args.value
     listOfDomains = []
+    ctcfList = None
     if args.ctcfFile is not None:
+        log.debug('ctcf: true')
         ctcfList = read_ctcf(args.ctcfFile)
-        mergedList= create_list_with_ctcf(args.domain1, args.minPeak, ctcfList)
-        for domain in args.domainList:
-            listOfDomains.append(create_list_with_ctcf(domain, args.minPeak, ctcfList))
-    else:
-        mergedList= create_list_with_ctcf(args.domain1, args.minPeak)
-        for domain in args.domainList:
-            listOfDomains.append(create_list_with_ctcf(domain, args.minPeak))
+        log.debug('ctcfList {}'.format(ctcfList[:10]))
+
+    mergedList = create_list_with_ctcf(args.domainFiles[0], args.minPeak, ctcfList)
+    for domain in args.domainFiles[1:]:
+        listOfDomains.append(create_list_with_ctcf(domain, args.minPeak, ctcfList))
+
     for domain in listOfDomains:
         mergedList = merge_list(mergedList, domain, pValue)
     mergedListWithId = add_id(mergedList)
-    write_in_file(mergedListWithId, "mergedDomains.bed")
+    write_in_file(mergedListWithId, args.outputMergedList)
     relationList = create_relationsship_list(mergedListWithId, args.percent)
-    write_in_file(relationList, "relationList.bed", True)
-    create_tree(relationList, mergedListWithId)
-
-
-
+    write_in_file(relationList, args.outputRelationList, True)
+    create_tree(relationList, mergedListWithId, args.outputTreePlotPrefix, args.outputTreePlotFormat)
