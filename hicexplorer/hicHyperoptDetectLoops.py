@@ -39,7 +39,7 @@ def parse_arguments(args=None):
                                 type=int)
     parserRequired.add_argument('--outputFileName', '-o',
                                 help='File names for the result of the optimization.',
-                                default='hyperoptHiCCUPS_result.txt',
+                                default='hyperopt_result.txt',
                                 required=False)
     parserOpt = parser.add_argument_group('Optional arguments')
 

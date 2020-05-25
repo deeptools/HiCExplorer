@@ -85,7 +85,6 @@ def compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution):
             return 1
     outfile_statistics = NamedTemporaryFile()
     args = "--data {} --protein {} -cl --resolution {} --outFileName {}".format(pLoopFile, pProteinFile, pResolution, outfile_statistics.name).split()
-    print(args)
     hicValidateLocations.main(args)
     data_dict = {}
 
@@ -104,7 +103,6 @@ def compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution):
 
 
 def objective(pArgs):
-    print('objective start')
     if pArgs['i'] <= pArgs['p']:
         return 1
     output_folder = mkdtemp(prefix="output_")
@@ -122,7 +120,6 @@ def objective(pArgs):
 
 
 def main(args=None):
-    print('foo')
     args = parse_arguments().parse_args(args)
 
     space = {
@@ -142,13 +139,7 @@ def main(args=None):
 
     # minimize the objective over the space
     trials = Trials()
-    # print(space_eval(space, best))
     best = fmin(objective, space, algo=tpe.suggest, max_evals=args.runs, trials=trials)
-
-    # # print(best)
-    # print('best {}'.format(best))
-
-    print(space_eval(space, best))
 
     with open(args.outputFileName, 'w') as file:
         file.write("# Created by HiCExplorer hicHyperoptDetectLoopsHiCCUPS {}\n\n".format(__version__))

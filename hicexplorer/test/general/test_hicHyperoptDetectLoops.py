@@ -47,4 +47,4 @@ def test_main():
         ROOT + "hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
         ROOT + 'hicHyperoptDectedLoops/ctcf_sorted.bed', 3210, 10000, 2, outfile.name).split()
     hicHyperoptDetectLoops.main(args)
-    are_files_equal(outfile.name, ROOT + 'hicHyperoptDetectLoops/hyperoptHiCCUPS_result.txt', delta=2)
+    are_files_equal(outfile.name, ROOT + 'hicHyperoptDetectLoops/hyperopt_result.txt', delta=2)

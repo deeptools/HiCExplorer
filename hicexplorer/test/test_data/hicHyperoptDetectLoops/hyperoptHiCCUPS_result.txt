@@ -1,3 +1,0 @@
-# Created by HiCExplorer hicHyperoptDetectLoopsHiCCUPS 3.5-dev
-
-{'matrixFile': '../hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool', 'maxLoopDistance': 1100000, 'maximumNumberOfLoops': 3210, 'oet': 1.2930643419965704, 'p': 0.002517356429265557, 'peakWidth': 4, 'pit': 60.623077630079244, 'pp': 0.1480778870859551, 'proteinFile': 'ctcf_sorted.bed', 'resolution': 10000, 'threads': 4, 'windowSize': 9}
