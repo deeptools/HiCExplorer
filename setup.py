@@ -94,12 +94,12 @@ class install(_install):
 
 install_requires_py = ["numpy >= 1.18.*",
                        "scipy >= 1.3.*",
-                       "matplotlib == 3.1.*",
+                       "matplotlib-base == 3.1.*",
                        "pysam >= 0.15",
                        "intervaltree >= 3.0.*",
                        "biopython >= 1.74",
                        "tables >= 3.5.*",
-                       "pandas == 0.25.*",
+                       "pandas >= 0.25.*",
                        "pyBigWig >= 0.3.*",
                        "cooler >= 0.8.5",
                        "jinja2 >= 2.10.*",
@@ -130,7 +130,8 @@ setup(
              'bin/chicAggregateStatistic', 'bin/chicDifferentialTest', 'bin/chicQualityControl', 'bin/chicSignificantInteractions',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
              'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicMergeLoops',
-             'bin/hicCompartmentsPolarization', 'bin/hicMergeDomains', 'bin/hicQuickQC', 'bin/hicPlotSVL'
+             'bin/hicCompartmentalization', 'bin/hicQuickQC', 'bin/hicPlotSVL', 'bin/hicCreateThresholdFile', 'bin/hicHyperoptDetectLoops',
+             'bin/hicHyperoptDetectLoopsHiCCUPS', 'bin/hicMergeDomains'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
