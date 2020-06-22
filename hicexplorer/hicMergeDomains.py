@@ -15,32 +15,43 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         conflict_handler='resolve',
-        description="""""")
+        description="""
+hicMergeDomains takes as input multiple TAD domain files from hicFindTads. It merges TADs from different resolutions to one TAD domains file, 
+considers protein peaks from known TAD binding sites and computes a dependency graph of the TADs. 
+
+Two TADs are considered as one if they don't overlap at x bins given by `--value`; TAD borders need to match the protein peaks given by `--proteinFile`;
+a relation between two TADs is given by their overlap of area in percent, parameter `--percent`. The protein peaks are only considered if in one bin at least `--minPeak`.
+
+An example usage is:
+
+`$ hicMergeDomains --domainFiles 10kbtad_domains.bed 50kbtad_domains.bed --proteinFile ctcf_sorted.bed --outputMergedList two_files_ctcf --outputRelationList two_files_relation_ctcf --outputTreePlotPrefix two_files_plot_ctcf --outputTreePlotFormat pdf`
+                            
+""")
 
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--domainFiles', '-d',
-                                help='The domains.bed file of the first matrix is required',
+                                help='The domain files of the different resolutions is required',
                                 required=True,
                                 nargs='+')
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
-    parserOpt.add_argument('--ctcfFile', '-c',
+    parserOpt.add_argument('--proteinFile', '-p',
                            help='In order to be able to better assess the relationship between TADs, the associated '
-                                'CTCF file can be included. The CTCF-file is required in broadpeak format')
+                                'protein file (e.g. CTCF for mammals) can be included. The protein file is required in broadpeak format')
 
-    parserOpt.add_argument('--minPeak', '-m',
-                           help='Optional parameter to adjust the number of CTCF peaks when adapting the resolution to '
-                                'the domain files',
+    parserOpt.add_argument('--minimumNumberOfPeaks', '-m',
+                           help='Optional parameter to adjust the number of protein peaks when adapting the resolution to '
+                                'the domain files. At least minimumNumberOfPeaks of unique peaks must be in a bin to considered. Otherwise the bin is treated like it has no peaks.',
                            type=int, default=1)
 
     parserOpt.add_argument('--value', '-v',
-                           help='Determine a value by how much the boundaries of two TADs must at least differ to view '
+                           help='Determine a value by how much the boundaries of two TADs must at least differ to consider '
                                 'them as two separate TADs.',
                            type=int, default=5000)
 
-    parserOpt.add_argument('--percent', '-p',
+    parserOpt.add_argument('--percent', '-pe',
                            help='For the relationship determination, a percentage is required from which area coverage '
                                 'the TADs are related to each other.'
                            'For example, a relationship should be entered from 5 percent area coverage -p 0.05',
@@ -51,7 +62,7 @@ def parse_arguments(args=None):
                            required=False)
     parserOpt.add_argument('--outputRelationList', '-or',
                            help='File name for the relationship list of the TADs.',
-                           default='relationList.bed',
+                           default='relationList.txt',
                            required=False)
     parserOpt.add_argument('--outputTreePlotPrefix', '-ot',
                            help='File name prefix for the relationship tree of the TADs',
@@ -89,6 +100,7 @@ def create_list_of_file(file, binSizeList):
                 zeros -= 1
             if int(num) < binSize:
                 binSize = int(num)
+    log.debug('binSize {}'.format(binSize))
     return splittedList, binSize
 
 
@@ -245,7 +257,7 @@ def write_in_file(l, name, relation=False):
 def create_tree(rList, dList, pFileNameSuffix, pFormat):
     """ Create a tree diagram from a list and
        thus represent the relationships of individual TADs per chromosome """
-    name = pFileNameSuffix + rList[0][0]
+    name = pFileNameSuffix + '_' + rList[0][0]
     g = Digraph(filename=name, strict=True, format=pFormat)
     sList = create_small_list(dList)
     chrom = rList[0][0]
@@ -269,16 +281,16 @@ def create_tree(rList, dList, pFileNameSuffix, pFormat):
                 g.node(sList[posSList][1][0])
                 sList[posSList][1].remove(sList[posSList][1][0])
             print("Saved relation tree of " + chrom)
-            g.render(name)
+            g.render(name, cleanup=True)
             chrom = rList[posRList][0]
-            name = pFileNameSuffix + chrom
+            name = pFileNameSuffix + '_' + chrom
             g = Digraph(filename=name, format=pFormat)
             posSList = 0
             while sList[posSList][0] != chrom:
                 posSList += 1
         posRList += 1
     print("Saved relation tree of " + chrom)
-    g.render()
+    g.render(cleanup=True)
 
 
 def create_small_list(dList):
@@ -297,8 +309,8 @@ def create_small_list(dList):
     return sList
 
 
-def read_ctcf(file):
-    """ Reads a CTCF file and saves it in a list """
+def read_protein(file):
+    """ Reads a protein file and saves it in a list """
     with open(file) as f:
         newList = [line.rstrip() for line in f]
     splittedList = [[]]
@@ -313,13 +325,12 @@ def read_ctcf(file):
     return splittedList
 
 
-def merge_ctcf(ctcfList, binSize, minPeak):
-    """ Adapts the CTCF list to the corresponding BinSize, taking into
+def merge_protein(pProteinList, binSize, minPeak):
+    """ Adapts the protein list to the corresponding BinSize, taking into
        account the minimum number of peaks per section """
-    newCtcfList = []
-    for chromosome in ctcfList:
-        newCtcfList.append([])
-        deletedCtcf = []
+    newProteinList = []
+    for chromosome in pProteinList:
+        newProteinList.append([])
         currentBoundaryLeft = 0
         currentBoundaryRight = binSize
         count = 0
@@ -328,7 +339,7 @@ def merge_ctcf(ctcfList, binSize, minPeak):
                 count += 1
             else:
                 if count >= minPeak:
-                    newCtcfList[len(newCtcfList) - 1].append([peak[0], currentBoundaryLeft, currentBoundaryRight, count])
+                    newProteinList[len(newProteinList) - 1].append([peak[0], currentBoundaryLeft, currentBoundaryRight, count])
                 currentBoundaryLeft = currentBoundaryRight
                 currentBoundaryRight = currentBoundaryLeft + binSize
                 count = 0
@@ -339,11 +350,11 @@ def merge_ctcf(ctcfList, binSize, minPeak):
                         currentBoundaryLeft += binSize
                     currentBoundaryRight = currentBoundaryLeft + binSize
                     count = 1
-    return newCtcfList
+    return newProteinList
 
 
-def compare_boundaries_ctcf(bList, cList, paraScore=0.2):
-    """ check the boundaries for a ctcf-peak """
+def compare_boundaries_protein(bList, cList, paraScore=0.2):
+    """ check the boundaries for a protein-peak """
     posTad = 0
     posPeak = 0
     chromPosition = 0
@@ -370,12 +381,12 @@ def compare_boundaries_ctcf(bList, cList, paraScore=0.2):
     return bList
 
 
-def create_list_with_ctcf(bList, minPeak, cList=None):
+def create_list_with_protein(bList, minPeak, cList=None):
     binSize = 0
     bList, binSize = create_list_of_file(bList, binSize)
     if cList is not None:
-        cList = merge_ctcf(cList, binSize, minPeak)
-        bList = compare_boundaries_ctcf(bList, cList)
+        cList = merge_protein(cList, binSize, minPeak)
+        bList = compare_boundaries_protein(bList, cList)
     return bList
 
 
@@ -383,20 +394,25 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
     pValue = args.value
     listOfDomains = []
-    ctcfList = None
-    if args.ctcfFile is not None:
-        log.debug('ctcf: true')
-        ctcfList = read_ctcf(args.ctcfFile)
-        log.debug('ctcfList {}'.format(ctcfList[:10]))
+    proteinList = None
+    if len(args.domainFiles) == 1 and args.proteinFile is None:
+        log.error('Please use multiple or domain files or at least one domain file and one protein file.')
+        raise('')
+        exit(1)
+    if args.proteinFile is not None:
+        proteinList = read_protein(args.proteinFile)
 
-    mergedList = create_list_with_ctcf(args.domainFiles[0], args.minPeak, ctcfList)
-    for domain in args.domainFiles[1:]:
-        listOfDomains.append(create_list_with_ctcf(domain, args.minPeak, ctcfList))
+    mergedList = create_list_with_protein(args.domainFiles[0], args.minPeak, proteinList)
 
-    for domain in listOfDomains:
-        mergedList = merge_list(mergedList, domain, pValue)
+    if len(args.domainFiles) > 1:
+        for domain in args.domainFiles[1:]:
+            listOfDomains.append(create_list_with_protein(domain, args.minPeak, proteinList))
+        for domain in listOfDomains:
+            mergedList = merge_list(mergedList, domain, pValue)
+
     mergedListWithId = add_id(mergedList)
     write_in_file(mergedListWithId, args.outputMergedList)
-    relationList = create_relationsship_list(mergedListWithId, args.percent)
-    write_in_file(relationList, args.outputRelationList, True)
-    create_tree(relationList, mergedListWithId, args.outputTreePlotPrefix, args.outputTreePlotFormat)
+    if len(args.domainFiles) > 1:
+        relationList = create_relationsship_list(mergedListWithId, args.percent)
+        write_in_file(relationList, args.outputRelationList, True)
+        create_tree(relationList, mergedListWithId, args.outputTreePlotPrefix, args.outputTreePlotFormat)

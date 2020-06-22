@@ -33,6 +33,7 @@ tool                                description
 :ref:`hicDetectLoops`               Identifies enriched Hi-C contacts
 :ref:`hicCorrelate`                 Computes and visualizes the correlation of Hi-C matrices
 :ref:`hicFindTADs`                  Identifies Topologically Associating Domains (TADs)
+:ref:`hicMergeDomains`              Merges TADs of different resolutions
 :ref:`hicPCA`                       Computes for A / B compartments the eigenvectors
 :ref:`hicTransform`                 Computes a obs_exp matrix like Lieberman-Aiden (2009), a pearson correlation matrix and or a covariance matrix. These matrices can be used for plotting.
 :ref:`hicMergeMatrixBins`           Merges consecutive bins on a Hi-C matrix to reduce resolution

@@ -25,6 +25,9 @@ HiCExplorer tools
 |:ref:`hicFindTADs`                    | analysis         | hicMatrix object                  | bedGraph file (TAD score), a boundaries.bed | Identifies Topologically Associating Domains (TADs)                               |
 |                                      |                  |                                   | file, a domains.bed file (TADs)             |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicMergeDomains`                | analysis         | multiple TAD domain files         | tad domain file with merged tad locations   | Merges detect TADs locations of different resolutions; hierarchical relation      |
+|                                      |                  |                                   | multiple files with plotted TAD relations   | between TADs as multiple plots                                                    |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotMatrix`                  | visualization    | hicMatrix object                  | a heatmap of Hi-C contacts                  | Plots a Hi-C matrix as a heatmap                                                  |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotTADs`                    | visualization    | hicMatrix object, a config file   | Hi-C contacts on a given region, along with | Plots TADs as a track that can be combined with other tracks                      |
@@ -177,6 +180,8 @@ Tools for TADs processing
 
 :ref:`hicFindTADs`
 """"""""""""""""""
+:ref:`hicMergeDomains`
+""""""""""""""""""""""
 :ref:`hicMergeTADbins`
 """"""""""""""""""""""
 
