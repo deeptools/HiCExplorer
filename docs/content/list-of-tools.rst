@@ -65,6 +65,10 @@ HiCExplorer tools
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicMergeLoops`                  | analysis         | multiple loop files               | bedgraph file with merged loop locations    | Merges detect loop locations of different resolutions                             |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicHyperoptDetectLoops`         | analysis         | one Hi-C matrix, protein peaks    | best parameter setting                      | Search for best parameter setting for hicDetectLoops                              |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicHyperoptDetectLoopsHiCCUPS`  | analysis         | one Hi-C matrix, protein peaks    | best parameter setting                      | Search for best parameter setting for Juicer's HiCCUPS                            |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicCompartmentalization`        | visualization    | one Hi-C interaction matrix       | one image                                   | The global compartmentalization signal.                                           |
 |                                      |                  | one PCA bedgraph file             | polarization plot                           |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
@@ -170,6 +174,10 @@ Tools for Hi-C data analysis
 """""""""""""""""""""""""""
 :ref:`hicMergeLoops`
 """"""""""""""""""""
+:ref:`hicHyperoptDetectLoops`
+"""""""""""""""""""""""""""""
+:ref:`hicHyperoptDetectLoopsHiCCUPS`
+""""""""""""""""""""""""""""""""""""
 :ref:`hicCompartmentalization`
 """"""""""""""""""""""""""""""
 :ref:`hicPlotSVL`
