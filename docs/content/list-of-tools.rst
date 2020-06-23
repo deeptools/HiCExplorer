@@ -25,6 +25,9 @@ HiCExplorer tools
 |:ref:`hicFindTADs`                    | analysis         | hicMatrix object                  | bedGraph file (TAD score), a boundaries.bed | Identifies Topologically Associating Domains (TADs)                               |
 |                                      |                  |                                   | file, a domains.bed file (TADs)             |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicMergeDomains`                | analysis         | multiple TAD domain files         | tad domain file with merged tad locations   | Merges detect TADs locations of different resolutions; hierarchical relation      |
+|                                      |                  |                                   | multiple files with plotted TAD relations   | between TADs as multiple plots                                                    |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotMatrix`                  | visualization    | hicMatrix object                  | a heatmap of Hi-C contacts                  | Plots a Hi-C matrix as a heatmap                                                  |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotTADs`                    | visualization    | hicMatrix object, a config file   | Hi-C contacts on a given region, along with | Plots TADs as a track that can be combined with other tracks                      |
@@ -61,6 +64,10 @@ HiCExplorer tools
 |                                      |                  |                                   | one file with loop / protein statistics     |                                                                                   |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicMergeLoops`                  | analysis         | multiple loop files               | bedgraph file with merged loop locations    | Merges detect loop locations of different resolutions                             |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicHyperoptDetectLoops`         | analysis         | one Hi-C matrix, protein peaks    | best parameter setting                      | Search for best parameter setting for hicDetectLoops                              |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicHyperoptDetectLoopsHiCCUPS`  | analysis         | one Hi-C matrix, protein peaks    | best parameter setting                      | Search for best parameter setting for Juicer's HiCCUPS                            |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicCompartmentalization`        | visualization    | one Hi-C interaction matrix       | one image                                   | The global compartmentalization signal.                                           |
 |                                      |                  | one PCA bedgraph file             | polarization plot                           |                                                                                   |
@@ -167,6 +174,10 @@ Tools for Hi-C data analysis
 """""""""""""""""""""""""""
 :ref:`hicMergeLoops`
 """"""""""""""""""""
+:ref:`hicHyperoptDetectLoops`
+"""""""""""""""""""""""""""""
+:ref:`hicHyperoptDetectLoopsHiCCUPS`
+""""""""""""""""""""""""""""""""""""
 :ref:`hicCompartmentalization`
 """"""""""""""""""""""""""""""
 :ref:`hicPlotSVL`
@@ -177,6 +188,8 @@ Tools for TADs processing
 
 :ref:`hicFindTADs`
 """"""""""""""""""
+:ref:`hicMergeDomains`
+""""""""""""""""""""""
 :ref:`hicMergeTADbins`
 """"""""""""""""""""""
 

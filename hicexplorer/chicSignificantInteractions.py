@@ -139,14 +139,14 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            default=2,
                            type=int)
     parserOpt.add_argument('--multipleTesting', '-mt',
-                            help='Multiple testing correction per relative distance with Bonferroni or FDR.',
-                            type=str,
-                            default="None",
-                            choices=['fdr', 'bonferroni', 'None'],
-                            )
+                           help='Multiple testing correction per relative distance with Bonferroni or FDR.',
+                           type=str,
+                           default="None",
+                           choices=['fdr', 'bonferroni', 'None'],
+                           )
     parserOpt.add_argument('--thresholdMultipleTesting', '-tmt',
-                            help='Threshold for Bonferroni / FDR. Either a float value for all or a file with one threshold per relative distance.'
-                            )
+                           help='Threshold for Bonferroni / FDR. Either a float value for all or a file with one threshold per relative distance.'
+                           )
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -415,6 +415,7 @@ def writeTargetList(pTargetList, pOutFileName, pArgs):
     else:
         a.sort().merge(d=pArgs.resolution).saveas(pOutFileName, trackline=header)
 
+
 def read_threshold_file(pFile):
     distance_value_dict = {}
     with open(pFile, 'r') as file:
@@ -425,12 +426,12 @@ def read_threshold_file(pFile):
                 continue
             if line == '':
                 break
-            relative_distance , value = line.split('\t')
+            relative_distance, value = line.split('\t')
             distance_value_dict[int(relative_distance)] = float(value)
     return distance_value_dict
 
+
 def main(args=None):
-    
 
     args = parse_arguments().parse_args(args)
     # args.p_value_dict = None
@@ -453,7 +454,7 @@ def main(args=None):
         try:
             args.pValue = float(args.pValue)
         except Exception:
-            args.pValue= read_threshold_file(args.pValue)
+            args.pValue = read_threshold_file(args.pValue)
     if args.loosePValue:
         try:
             args.loosePValue = float(args.loosePValue)
@@ -464,7 +465,6 @@ def main(args=None):
             args.xFoldBackground = float(args.xFoldBackground)
         except Exception:
             args.xFoldBackground = read_threshold_file(args.xFoldBackground)
-    
 
     viewpointObj = Viewpoint()
     outfile_names = []

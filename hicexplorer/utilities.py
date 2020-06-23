@@ -8,7 +8,10 @@ from matplotlib import use as mplt_use
 mplt_use('Agg')
 from unidecode import unidecode
 import cooler
-
+from copy import deepcopy
+import time
+from multiprocessing import Process, Queue
+import traceback
 import logging
 log = logging.getLogger(__name__)
 
@@ -79,14 +82,20 @@ def convertInfsToZeros(ma):
     return ma
 
 
-def convertInfsToZeros_ArrayFloat(pArray):
+def convertInfsToZeros_ArrayFloat(pArray, pToEpsilon=False):
     nan_elements = np.flatnonzero(np.isnan(pArray))
     if len(nan_elements) > 0:
-        pArray[nan_elements] = 0.0
+        if pToEpsilon:
+            pArray[nan_elements] = 0.000001
+        else:
+            pArray[nan_elements] = 0.0
 
     inf_elements = np.flatnonzero(np.isinf(pArray))
     if len(inf_elements) > 0:
-        pArray[inf_elements] = 0.0
+        if pToEpsilon:
+            pArray[inf_elements] = 0.000001
+        else:
+            pArray[inf_elements] = 0.0
     return pArray
 
 
@@ -279,18 +288,95 @@ def expected_interactions_non_zero(pSubmatrix):
     return expected_interactions
 
 
-def expected_interactions(pSubmatrix):
+def expected_interactions_thread(pData, pDistances, pMinDistance, pMaxDistance, pSize, pQueue):
+    try:
+        expected_interactions = np.zeros(pSize)
+
+        for i in range(pMinDistance, pMaxDistance, 1):
+            mask = pDistances == i
+            expected_interactions[i] = np.sum(pData[mask])
+
+        pQueue.put(expected_interactions)
+        return
+    except Exception as exp:
+        pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
+        return
+
+
+def expected_interactions(pSubmatrix, pThreads=None):
     """
         Computes the expected number of interactions per distance
     """
-
     expected_interactions = np.zeros(pSubmatrix.shape[0])
+
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
     occurrences = np.arange(pSubmatrix.shape[0] + 1, 1, -1)
     # occurences = np.zeros(pSubmatrix.shape[0])
-    for i, distance_ in enumerate(distance):
-        expected_interactions[distance_] += pSubmatrix.data[i]
+
+    if len(distance) == 0:
+        return None
+    min_distance = distance.min()
+    max_distance = distance.max()
+    # time_start = time.time()
+    if pThreads is not None and pThreads:
+        queue = [None] * pThreads
+        process = [None] * pThreads
+        distances_per_threads = (max_distance - min_distance) // pThreads
+        all_data_collected = False
+        thread_done = [False] * pThreads
+
+        for i in range(pThreads):
+
+            if i < pThreads - 1:
+                min_distance_thread = min_distance + (i * distances_per_threads)
+                max_distance_thread = min_distance + ((i + 1) * distances_per_threads)
+            else:
+                min_distance_thread = min_distance + (i * distances_per_threads)
+                max_distance_thread = max_distance + 1
+            queue[i] = Queue()
+            process[i] = Process(target=expected_interactions_thread, kwargs=dict(
+                pData=pSubmatrix.data,
+                pDistances=distance,
+                pMinDistance=min_distance_thread,
+                pMaxDistance=max_distance_thread,
+                pSize=pSubmatrix.shape[0],
+                pQueue=queue[i]
+            )
+            )
+
+            process[i].start()
+        fail_flag = False
+        fail_message = ''
+        while not all_data_collected:
+            for i in range(pThreads):
+                if queue[i] is not None and not queue[i].empty():
+                    expected_interactions_thread_ = queue[i].get()
+                    if 'Fail: ' in expected_interactions_thread_:
+                        fail_flag = True
+                        fail_message = expected_interactions_thread_
+                    else:
+                        expected_interactions += expected_interactions_thread_
+                    queue[i] = None
+                    process[i].join()
+                    process[i].terminate()
+                    process[i] = None
+                    thread_done[i] = True
+            all_data_collected = True
+            for thread in thread_done:
+                if not thread:
+                    all_data_collected = False
+            time.sleep(1)
+        if fail_flag:
+            return fail_message
+    else:
+
+        for i in range(min_distance, max_distance + 1, 1):
+            mask = distance == i
+            expected_interactions[i] = np.sum(pSubmatrix.data[mask])
+    # log.info('exp inter: {}'.format(time.time() - time_start))
+    # for i, distance_ in enumerate(distance):
+    #     expected_interactions[distance_] += pSubmatrix.data[i]
         # occurences[distance_] += 1
     expected_interactions /= occurrences
 
@@ -298,6 +384,12 @@ def expected_interactions(pSubmatrix):
     expected_interactions[mask] = 0
     mask = np.isinf(expected_interactions)
     expected_interactions[mask] = 0
+
+    del row
+    del col
+    del distance
+    del occurrences
+    del mask
 
     return expected_interactions
 
@@ -337,7 +429,7 @@ def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     return pSubmatrix
 
 
-def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False):
+def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False, pInplace=True, pToEpsilon=False, pThreads=None):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
@@ -349,30 +441,39 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False):
         This factor has been used by Homer software to correct for the effect
         of proximity ligation
     """
+    if pInplace:
+        submatrix = pSubmatrix
+    else:
+        submatrix = deepcopy(pSubmatrix)
+    expected_interactions_in_distance = expected_interactions_non_zero(submatrix)
 
-    expected_interactions_in_distance = expected_interactions_non_zero(pSubmatrix)
+    row_sums = np.array(submatrix.sum(axis=1).T).flatten()
+    total_interactions = submatrix.sum()
 
-    row_sums = np.array(pSubmatrix.sum(axis=1).T).flatten()
-    total_interactions = pSubmatrix.sum()
+    row, col = submatrix.nonzero()
 
-    row, col = pSubmatrix.nonzero()
-    pSubmatrix.data = pSubmatrix.data.astype(np.float32)
+    submatrix.data = submatrix.data.astype(np.float32)
+
     for i in range(len(row)):
         expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
         if ligation_factor:
             expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
 
-        pSubmatrix.data[i] /= expected
+        submatrix.data[i] /= expected
 
-    mask = np.isnan(pSubmatrix.data)
-    pSubmatrix.data[mask] = 0
-    mask = np.isinf(pSubmatrix.data)
-    pSubmatrix.data[mask] = 0
-    pSubmatrix.eliminate_zeros()
-    return pSubmatrix
+    if pToEpsilon:
+        epsilon = 0.000000001
+    else:
+        epsilon = 0
+    mask = np.isnan(submatrix.data)
+    submatrix.data[mask] = epsilon
+    mask = np.isinf(submatrix.data)
+    submatrix.data[mask] = epsilon
+    submatrix.eliminate_zeros()
+    return submatrix
 
 
-def obs_exp_matrix(pSubmatrix):
+def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
@@ -381,19 +482,41 @@ def obs_exp_matrix(pSubmatrix):
         exp_i,j = sum(interactions at distance abs(i-j)) / number of non-zero
         interactions at abs(i-j)
     """
+    # time_start = time.time()
+    expected_interactions_in_distance_ = expected_interactions(pSubmatrix, pThreads)
+    if expected_interactions_in_distance_ is None:
+        return None
+    # log.info('time exp: {}'.format(time.time() - time_start))
+    # time_start = time.time()
 
-    expected_interactions_in_distance_ = expected_interactions(pSubmatrix)
     row, col = pSubmatrix.nonzero()
     distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
-
+    if not pInplace:
+        pSubmatrix_copy = deepcopy(pSubmatrix)
     if len(pSubmatrix.data) > 0:
         data_type = type(pSubmatrix.data[0])
 
         expected = expected_interactions_in_distance_[distance]
-        pSubmatrix.data = pSubmatrix.data.astype(np.float32)
-        pSubmatrix.data /= expected
-        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
-    return pSubmatrix
+        if pInplace:
+            pSubmatrix.data = pSubmatrix.data.astype(np.float32)
+            pSubmatrix.data /= expected
+            pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data, pToEpsilon).astype(data_type)
+        else:
+            pSubmatrix_copy.data = pSubmatrix_copy.data.astype(np.float32)
+            pSubmatrix_copy.data /= expected
+            pSubmatrix_copy.data = convertInfsToZeros_ArrayFloat(pSubmatrix_copy.data, pToEpsilon).astype(data_type)
+        del expected
+
+    del expected_interactions_in_distance_
+    del row
+    del col
+    del distance
+    # log.info('test obs/exp: {}'.format(time.time() - time_start))
+
+    if pInplace:
+        return pSubmatrix
+    else:
+        return pSubmatrix_copy
 
 
 def toString(s):
@@ -501,7 +624,7 @@ def remove_non_ascii(pText):
 
 
 def check_cooler(pFileName):
-    if pFileName.endswith('.cool') or cooler.fileops.is_cooler(pFileName) or'.mcool' in pFileName:
+    if pFileName.endswith('.cool') or cooler.fileops.is_cooler(pFileName) or '.mcool' in pFileName:
         return True
     return False
 

@@ -7,8 +7,8 @@ def parse_arguments(args=None):
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description="""
                                      """
-    )
-    
+                                     )
+
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--thresholdValue', '-tv',
@@ -22,20 +22,20 @@ def parse_arguments(args=None):
                                 type=int,
                                 nargs=2)
     parserRequired.add_argument('--resolution', '-r',
-                           help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.'
-                           'This value is used to merge neighboring bins.',
-                           type=int,
-                           default=1000,
-                           required=False)
+                                help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.'
+                                'This value is used to merge neighboring bins.',
+                                type=int,
+                                default=1000,
+                                required=False)
 
     parserRequired.add_argument('--outFileName', '-o',
                                 help='The name and path of the created threshold file.',
                                 required=True)
-        
+
     return parser
 
+
 def main(args=None):
-    
 
     args = parse_arguments().parse_args(args)
 
@@ -49,5 +49,5 @@ def main(args=None):
         if args.range[0] > 0:
             args.range[0] = -args.range[0]
 
-        for i in range(args.range[0], args.range[1]+args.resolution, args.resolution):
+        for i in range(args.range[0], args.range[1] + args.resolution, args.resolution):
             file.write('{}\t{}\n'.format(i, args.thresholdValue))

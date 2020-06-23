@@ -22,48 +22,50 @@ The following is the list of tools available in HiCExplorer
 -----------------------------------------------------------
 
 
-=================================== ==========================================================================================================================================================
-tool                                description
-=================================== ==========================================================================================================================================================
-:ref:`hicFindRestSite`              Identifies the genomic locations of restriction sites
-:ref:`hicBuildMatrix`               Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
-:ref:`hicQuickQC`                   Estimates the quality of Hi-C dataset
-:ref:`hicQC`                        Plots QC measures from the output of hicBuildMatrix
-:ref:`hicCorrectMatrix`             Uses iterative correction to remove biases from a Hi-C matrix
-:ref:`hicDetectLoops`               Identifies enriched Hi-C contacts
-:ref:`hicCorrelate`                 Computes and visualizes the correlation of Hi-C matrices
-:ref:`hicFindTADs`                  Identifies Topologically Associating Domains (TADs)
-:ref:`hicPCA`                       Computes for A / B compartments the eigenvectors
-:ref:`hicTransform`                 Computes a obs_exp matrix like Lieberman-Aiden (2009), a pearson correlation matrix and or a covariance matrix. These matrices can be used for plotting.
-:ref:`hicMergeMatrixBins`           Merges consecutive bins on a Hi-C matrix to reduce resolution
-:ref:`hicMergeTADbins`              Uses a BED file of domains or TAD boundaries to merge the bin counts of a Hi-C matrix.
-:ref:`hicPlotDistVsCounts`          Plot the decay in interaction frequency with distance
-:ref:`hicPlotMatrix`                Plots a Hi-C matrix as a heatmap
-:ref:`hicPlotTADs`                  Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
-:ref:`hicPlotViewpoint`             A plot with the interactions around a reference point or region.
-:ref:`hicAggregateContacts`         A tool that allows plotting of aggregated Hi-C sub-matrices of a specified list of positions.
-:ref:`hicSumMatrices`               Adds Hi-C matrices of the same size
-:ref:`hicPlotDistVsCounts`          Plots distance vs. Hi-C counts of corrected data
-:ref:`hicInfo`                      Shows information about a Hi-C matrix file (no. of bins, bin length, sum, max, min, etc)
-:ref:`hicCompareMatrices`           Computes difference or ratio between two matrices
-:ref:`hicAverageRegions`            Computes the average of multiple given regions, usually TAD regions
-:ref:`hicPlotAverageRegions`        visualization of hicAverageRegions
-:ref:`hicNormalize`                 Normalizes the given matrices to 0-1 range or the smallest read coverage
-:ref:`hicConvertFormat`             Converts between different Hi-C interaction matrices
-:ref:`hicAdjustMatrix`              Keeps, removes or masks regions in a Hi-C matrix
-:ref:`hicValidateLocations`         Compare the loops with known peak protein locations
-:ref:`hicMergeLoops`                Merges loops of different resolutions
-:ref:`hicCompartmentalization`      Compute the global compartmentalization signal
-:ref:`chicQualityControl`           Quality control for cHi-C data
-:ref:`chicViewpointBackgroundModel` Background model computation for cHi-C analysis
-:ref:`chicViewpoint`                Computation of all viewpoints based on background model for cHi-C analysis
-:ref:`chicSignificantInteractions`  Detection of significant interactions per viewpoint based on background model
-:ref:`chicAggregateStatistic`       Compiling of target regions for two samples as input for differential analysis
-:ref:`chicDifferentialTest`         Differential analysis of interactions of two samples
-:ref:`chicPlotViewpoint`            Plotting of viewpoint with background model and highlighting of significant and differential regions
-:ref:`hicPlotSVL`                   Computing short vs long range contacts and plotting the results
-=================================== ==========================================================================================================================================================
-
+==================================== ==========================================================================================================================================================
+tool                                 description
+==================================== ==========================================================================================================================================================
+:ref:`hicFindRestSite`               Identifies the genomic locations of restriction sites
+:ref:`hicBuildMatrix`                Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads
+:ref:`hicQuickQC`                    Estimates the quality of Hi-C dataset
+:ref:`hicQC`                         Plots QC measures from the output of hicBuildMatrix
+:ref:`hicCorrectMatrix`              Uses iterative correction to remove biases from a Hi-C matrix
+:ref:`hicDetectLoops`                Identifies enriched Hi-C contacts
+:ref:`hicCorrelate`                  Computes and visualizes the correlation of Hi-C matrices
+:ref:`hicFindTADs`                   Identifies Topologically Associating Domains (TADs)
+:ref:`hicMergeDomains`               Merges TADs of different resolutions
+:ref:`hicPCA`                        Computes for A / B compartments the eigenvectors
+:ref:`hicTransform`                  Computes a obs_exp matrix like Lieberman-Aiden (2009), a pearson correlation matrix and or a covariance matrix. These matrices can be used for plotting.
+:ref:`hicMergeMatrixBins`            Merges consecutive bins on a Hi-C matrix to reduce resolution
+:ref:`hicMergeTADbins`               Uses a BED file of domains or TAD boundaries to merge the bin counts of a Hi-C matrix.
+:ref:`hicPlotDistVsCounts`           Plot the decay in interaction frequency with distance
+:ref:`hicPlotMatrix`                 Plots a Hi-C matrix as a heatmap
+:ref:`hicPlotTADs`                   Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
+:ref:`hicPlotViewpoint`              A plot with the interactions around a reference point or region.
+:ref:`hicAggregateContacts`          A tool that allows plotting of aggregated Hi-C sub-matrices of a specified list of positions.
+:ref:`hicSumMatrices`                Adds Hi-C matrices of the same size
+:ref:`hicPlotDistVsCounts`           Plots distance vs. Hi-C counts of corrected data
+:ref:`hicInfo`                       Shows information about a Hi-C matrix file (no. of bins, bin length, sum, max, min, etc)
+:ref:`hicCompareMatrices`            Computes difference or ratio between two matrices
+:ref:`hicAverageRegions`             Computes the average of multiple given regions, usually TAD regions
+:ref:`hicPlotAverageRegions`         visualization of hicAverageRegions
+:ref:`hicNormalize`                  Normalizes the given matrices to 0-1 range or the smallest read coverage
+:ref:`hicConvertFormat`              Converts between different Hi-C interaction matrices
+:ref:`hicAdjustMatrix`               Keeps, removes or masks regions in a Hi-C matrix
+:ref:`hicValidateLocations`          Compare the loops with known peak protein locations
+:ref:`hicMergeLoops`                 Merges loops of different resolutions
+:ref:`hicCompartmentalization`       Compute the global compartmentalization signal
+:ref:`chicQualityControl`            Quality control for cHi-C data
+:ref:`chicViewpointBackgroundModel`  Background model computation for cHi-C analysis
+:ref:`chicViewpoint`                 Computation of all viewpoints based on background model for cHi-C analysis
+:ref:`chicSignificantInteractions`   Detection of significant interactions per viewpoint based on background model
+:ref:`chicAggregateStatistic`        Compiling of target regions for two samples as input for differential analysis
+:ref:`chicDifferentialTest`          Differential analysis of interactions of two samples
+:ref:`chicPlotViewpoint`             Plotting of viewpoint with background model and highlighting of significant and differential regions
+:ref:`hicPlotSVL`                    Computing short vs long range contacts and plotting the results
+:ref:`hicHyperoptDetectLoops`        Search for optimal hicDectectLoops parameters
+:ref:`hicHyperoptDetectLoopsHiCCUPS` Search for optimal Juicer HiCCUPS parameters
+==================================== ==========================================================================================================================================================
 
 Getting Help
 ------------
@@ -88,11 +90,15 @@ Citation
 
 Please cite HiCExplorer as follows:
 
-Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening,Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke.
-**"High-resolution TADs reveal DNA sequences underlying genome organization in flies". Nature Communications**, Volume 9, Article number: 189 (2018), doi: https://doi.org/10.1038/s41467-017-02525-w
+Joachim Wolff, Leily Rabbani, Ralf Gilsbach, Gautier Richard, Thomas Manke, Rolf Backofen, Björn A Grüning.
+**Galaxy HiCExplorer 3: a web server for reproducible Hi-C, capture Hi-C and single-cell Hi-C data analysis, quality control and visualization, Nucleic Acids Research**, https://doi.org/10.1093/nar/gkaa220
 
 Joachim Wolff, Vivek Bhardwaj, Stephan Nothjunge, Gautier Richard, Gina Renschler, Ralf Gilsbach, Thomas Manke, Rolf Backofen, Fidel Ramírez, Björn A Grüning. 
 **Galaxy HiCExplorer: a web server for reproducible Hi-C data analysis, quality control and visualization**, Nucleic Acids Research, Volume 46, Issue W1, 2 July 2018, Pages W11–W16, doi: https://doi.org/10.1093/nar/gky504
+
+Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening,Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke.
+**"High-resolution TADs reveal DNA sequences underlying genome organization in flies". Nature Communications**, Volume 9, Article number: 189 (2018), doi: https://doi.org/10.1038/s41467-017-02525-w
+
 
 .. image:: images/logo_mpi-ie.jpg
 

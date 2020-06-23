@@ -1,0 +1,3 @@
+# Created by HiCExplorer hicHyperoptDetectLoopsHiCCUPS 3.5-dev
+
+{'cpu': '', 'f': 0.07875916945373004, 'i': 13, 'juicer': 'juicer_tools_1.21.01.jar', 'matrixFile': 'SRR1791297_30.hic', 'maximumNumberOfLoops': 7, 'p': 3, 'proteinFile': '30qc/hmec/ctcf_sorted.bed', 'resolution': 10000, 'restricted': '', 'threads': 4}

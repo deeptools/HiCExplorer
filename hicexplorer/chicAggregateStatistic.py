@@ -174,7 +174,6 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
     log.debug('size: pTargetList: {} '.format(pTargetList))
     log.debug('pOneTarget: {} '.format(pOneTarget))
 
-
     try:
         if pArgs.batchMode and len(pTargetList) == 1 and pOneTarget == True:
             target_regions = utilities.readBed(pTargetList[0])
@@ -205,7 +204,6 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
                 else:
                     target_file = pTargetList[i]
                     log.debug('205')
-
 
                 accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree)
 
@@ -240,7 +238,6 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
         pArgs.threads = len(pInteractionFilesList)
     outfile_names = [None] * pArgs.threads
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
-    
 
     all_data_collected = False
     queue = [None] * pArgs.threads

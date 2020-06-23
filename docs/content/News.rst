@@ -1,13 +1,24 @@
 News and Developments
 =====================
 
+Release 3.5
+-----------
+**xx June 2020**
+
+- Major update for hicDetectLoops: Results are now closer to HiCCUPS, it is faster and needs less memory. 
+- hicHyperoptDetectLoops: New tool to compute the best parameter setting if the number of expected loops is given and a protein boundary file (e.g. CTCF on mammals) is provided
+- hicHyperoptDetectLoopsHiCCUPS: New tool to compute the best parameter setting for Juicers HiCCUPS. HiCCUPS and all its dependencies are not part of HiCExplorer and must be provided by the user. Number of expected loops and a protein boundary file (e.g. CTCF on mammals) must be provided.
+- hicMergeDomains: New tool to compute a merge of TADs computed on different resolutions. Moreover it provides a cleaning of the boundaries with the help of a protein peak file, and the hierarchical dependencies of TADs can be plotted. This tool is the result of the Bachelor thesis from Sarah Domogalla (@SarahMaria27). Thanks for your contribution!
+
+
+
 Release 3.4.3
 -------------
 **23 March 2020**
 
 - Fixing the wrong p-value computation in for chicViewpoint. New method is more accurate for floating points.
 - Fixing a bug in chicViewpointBackgroundModel and chicQualityControl if an non-existing reference point was used.
-- Improving all chic* modules with a capturing of errors in sub-processes. It is now guaranteed that the computation will terminate. Either successfull or by error. 
+- Improving all chic* modules with a capturing of errors in sub-processes. It is now guaranteed that the computation will terminate. Either successful or by error. 
 - Add option 'truncateZero' to chicViewpointBackgroundModel: This removes all zero values for the distributions before fitting to fight over dispersion.
 - Add option 'decimalPlaces' to chicViewpoint to adjust the decimal places in the output for all floating values. Helpful for really small p-values
 - Add option 'truncateZeroPvalues' to chicSignificantInteractions to set all p-values which are 0 to 1 and are therefore ignored.

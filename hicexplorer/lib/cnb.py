@@ -10,6 +10,7 @@ from scipy.stats import nbinom
 from scipy.special import gammaln
 from scipy import special
 
+
 def pdf(pX, pR, pP):
     """
     PDF for a continuous generalization of NB distribution
@@ -17,6 +18,7 @@ def pdf(pX, pR, pP):
 
     gamma_part = gammaln(pR + pX) - gammaln(pX + 1) - gammaln(pR)
     return np.exp(gamma_part + (pR * np.log(pP)) + special.xlog1py(pX, -pP))
+
 
 def cdf(pX, pR, pP):
     """
