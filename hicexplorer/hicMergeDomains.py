@@ -396,16 +396,16 @@ def main(args=None):
     proteinList = None
     if len(args.domainFiles) == 1 and args.proteinFile is None:
         log.error('Please use multiple or domain files or at least one domain file and one protein file.')
-        raise('')
+        # raise Exception(')
         exit(1)
     if args.proteinFile is not None:
         proteinList = read_protein(args.proteinFile)
 
-    mergedList = create_list_with_protein(args.domainFiles[0], args.minPeak, proteinList)
+    mergedList = create_list_with_protein(args.domainFiles[0], args.minimumNumberOfPeaks, proteinList)
 
     if len(args.domainFiles) > 1:
         for domain in args.domainFiles[1:]:
-            listOfDomains.append(create_list_with_protein(domain, args.minPeak, proteinList))
+            listOfDomains.append(create_list_with_protein(domain, args.minimumNumberOfPeaks, proteinList))
         for domain in listOfDomains:
             mergedList = merge_list(mergedList, domain, pValue)
 

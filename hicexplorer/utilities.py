@@ -67,6 +67,8 @@ def remove_outliers(data, max_deviation=3.5):
 
 
 def convertNansToZeros(ma):
+    if len(ma.data) == 0:
+        return ma
     nan_elements = np.flatnonzero(np.isnan(ma.data))
     # data_type = type(ma.data[0])
     if len(nan_elements) > 0:
@@ -76,6 +78,8 @@ def convertNansToZeros(ma):
 
 
 def convertInfsToZeros(ma):
+    if len(ma.data) == 0:
+        return ma
     inf_elements = np.flatnonzero(np.isinf(ma.data))
     if len(inf_elements) > 0:
         ma.data[inf_elements] = 0
@@ -83,6 +87,8 @@ def convertInfsToZeros(ma):
 
 
 def convertInfsToZeros_ArrayFloat(pArray, pToEpsilon=False):
+    if len(pArray) == 0:
+        return pArray
     nan_elements = np.flatnonzero(np.isnan(pArray))
     if len(nan_elements) > 0:
         if pToEpsilon:
@@ -100,6 +106,8 @@ def convertInfsToZeros_ArrayFloat(pArray, pToEpsilon=False):
 
 
 def convertNansToOnes(pArray):
+    if len(pArray) == 0:
+        return pArray
     nan_elements = np.flatnonzero(np.isnan(pArray))
     if len(nan_elements) > 0:
         pArray[nan_elements] = 1.0
