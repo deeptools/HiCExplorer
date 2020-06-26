@@ -153,10 +153,9 @@ class Viewpoint():
         # check if max is really pFixateRange or it needs to be changed
         if max_key > pFixateRange:
             max_key = pFixateRange
-        
+
         if min_key < -pFixateRange:
             min_key = -pFixateRange
-
 
         keys = list(distance.keys())
         inc = np.absolute(np.absolute(keys[0]) - np.absolute(keys[1]))

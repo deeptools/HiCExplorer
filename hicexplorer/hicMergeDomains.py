@@ -16,8 +16,8 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         conflict_handler='resolve',
         description="""
-hicMergeDomains takes as input multiple TAD domain files from hicFindTads. It merges TADs from different resolutions to one TAD domains file, 
-considers protein peaks from known TAD binding sites and computes a dependency graph of the TADs. 
+hicMergeDomains takes as input multiple TAD domain files from hicFindTads. It merges TADs from different resolutions to one TAD domains file,
+considers protein peaks from known TAD binding sites and computes a dependency graph of the TADs.
 
 Two TADs are considered as one if they don't overlap at x bins given by `--value`; TAD borders need to match the protein peaks given by `--proteinFile`;
 a relation between two TADs is given by their overlap of area in percent, parameter `--percent`. The protein peaks are only considered if in one bin at least `--minPeak`.
@@ -25,7 +25,7 @@ a relation between two TADs is given by their overlap of area in percent, parame
 An example usage is:
 
 `$ hicMergeDomains --domainFiles 10kbtad_domains.bed 50kbtad_domains.bed --proteinFile ctcf_sorted.bed --outputMergedList two_files_ctcf --outputRelationList two_files_relation_ctcf --outputTreePlotPrefix two_files_plot_ctcf --outputTreePlotFormat pdf`
-                            
+
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -110,27 +110,26 @@ def merge_list(d1, d2, pValue=5000):
        be seen as one or as two """
     pos1, pos2 = 0, 0
     merged_list = []
-    visited_chrom = []
     while True:
         if pos1 == len(d1):
             break
         while d1[pos1][0] == d2[pos2][0]:
-            """ Checks whether the left boundary of TAD1 is less than or equal to the left boundary of TAD2 """
+            """Checks whether the left boundary of TAD1 is less than or equal to the left boundary of TAD2"""
             if int(d1[pos1][1]) <= int(d2[pos2][1]):
-                """ Checks whether either the left or right border of the two TADs exceed the minimum distance value """
+                """ Checks whether either the left or right border of the two TADs exceed the minimum distance value"""
                 if (abs(int(d1[pos1][1]) - int(d2[pos2][1])) > pValue) or (
                         abs(int(d1[pos1][2]) - int(d2[pos2][2])) > pValue):
                     merged_list.append(d1[pos1])
                 if pos1 + 1 != len(d1):
                     pos1 += 1
                 else:
-                    """ As long as List2 has not reached its end and still share the same chromosome, the remaining 
+                    """As long as List2 has not reached its end and still share the same chromosome, the remaining
                     TADs are added """
                     while (pos2 < len(d2)) and (d1[pos1][0] == d2[pos2][0]):
                         merged_list.append(d2[pos2])
                         pos2 += 1
                     break
-                """ Checks whether the left boundary of TAD2 is less than or equal to the left boundary of TAD1 """
+                """Checks whether the left boundary of TAD2 is less than or equal to the left boundary of TAD1"""
             elif (int(d1[pos1][1]) > int(d2[pos2][1])):
                 """ Checks whether either the left or right border of the two TADs exceed the minimum distance value"""
                 if (abs(int(d1[pos1][1]) - int(d2[pos2][1])) > pValue) or (
@@ -139,8 +138,8 @@ def merge_list(d1, d2, pValue=5000):
                 if pos2 + 1 != len(d2):
                     pos2 += 1
                 else:
-                    """ As long as List1 has not reached its end and still share the same chromosome, the remaining 
-                    TADs are added """
+                    """As long as List1 has not reached its end and still share the same chromosome, the remaining
+                    TADs are added"""
                     while (pos1 < len(d1)) and (d1[pos1][0] == d2[pos2][0]):
                         merged_list.append(d1[pos1])
                         pos1 += 1
@@ -191,7 +190,7 @@ def create_relationsship_list(domainList, pPercent=0.5):
                 right of tad2 or if they are no longer on the same chromosome """
             if (int(domainList[tad1][2]) < int(domainList[tad2][1])) or (domainList[tad1][0] != domainList[tad2][0]):
                 break
-            """ The minimum area of TAD1 is calculated using the "percent" parameter in order 
+            """ The minimum area of TAD1 is calculated using the "percent" parameter in order
             to detect overlapping TADs """
             minArea = (float(domainList[tad1][2]) - float(domainList[tad1][1])) * pPercent
             """ Checks whether the two TADs are overlapping TADs """
@@ -229,27 +228,27 @@ def add_relation_to_list(rList, chromosom, parent, child):
             pos -= 1
 
 
-def write_in_file(l, name, relation=False):
+def write_in_file(pList, name, relation=False):
     """ Create and save various lists in their individual files """
     filename = name
     with open(filename, 'w') as myfile:
         i = 0
         if relation:
-            while i < len(l):
+            while i < len(pList):
                 element = 0
-                while element < len(l[i][2]):
-                    string = l[i][0] + '\t' + l[i][1] + '\t' + l[i][2][element] + '\n'
+                while element < len(pList[i][2]):
+                    string = pList[i][0] + '\t' + pList[i][1] + '\t' + pList[i][2][element] + '\n'
                     myfile.write(string)
                     element += 1
                 i += 1
         else:
-            while i < len(l):
+            while i < len(pList):
                 element = 0
                 string = ""
-                while element < len(l[i]) - 1:
-                    string += l[i][element] + '\t'
+                while element < len(pList[i]) - 1:
+                    string += pList[i][element] + '\t'
                     element += 1
-                string += l[i][element] + '\n'
+                string += pList[i][element] + '\n'
                 myfile.write(string)
                 i += 1
 

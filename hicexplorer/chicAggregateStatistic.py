@@ -155,12 +155,17 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
     with open(pOutFileName, 'w') as file:
         file.write('# Aggregated file, created with HiCExplorer\'s chicAggregateStatistic version {}\n'.format(__version__))
         file.write(pHeader)
+        # file.write(
+        #     '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRelative Interactions\tp-value\tx-fold\tRaw target')
         file.write(
             '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRaw target')
         file.write('\n')
 
         if pNeighborhoods is not None:
             for data in pNeighborhoods:
+                log.debug('pInteractionLines[data]: {}'.format(pInteractionLines[data]))
+                log.debug('pInteractionLines[data][:-6]: {}'.format(pInteractionLines[data][:6]))
+
                 new_line = '\t'.join(pInteractionLines[data][:6])
                 new_line += '\t' + format(pNeighborhoods[data][-1], '10.5f')
                 new_line += '\n'
