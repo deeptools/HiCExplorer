@@ -4,7 +4,7 @@ Captured Hi-C data analysis
 How we use HiCExplorer to analyse cHi-C data
 --------------------------------------------
 
-This How-to is based on the published dataset from `Andrey et al 2017 <https://doi.org/10.1101/gr.213066.116>`__. For the tutorial we use the samples FL-E13.5 and MB-E-10.5. 
+This How-to is based on the published dataset from `Andrey et al. 2017 <https://doi.org/10.1101/gr.213066.116>`__. For the tutorial, we use the samples FL-E13.5 and MB-E-10.5. 
 
 
 Download the raw data
@@ -28,7 +28,7 @@ Please download the raw data via the following links or via `NCBI GSE84795 <http
 Mapping
 -------
 
-Map the files with a mapper of your choice against the mm9 reference genome, as an example the mapping with bowtie2 is shown.
+Map the files with a mapper of your choice against the mm9 reference genome; as an example, the mapping with bowtie2 is shown.
 
 .. code:: bash
 
@@ -47,7 +47,7 @@ Map the files with a mapper of your choice against the mm9 reference genome, as 
 Create cHi-C matrices
 ---------------------
 
-To create a cHi-C matrix we use HiCExplorer's hicBuildMatrix for each replicate separately and merge the replicate to one matrix later. Like Andrey et al we use a resolution of 1kb and use the restriction enzyme DpnII.
+To create a cHi-C matrix we use HiCExplorer's hicBuildMatrix for each replicate separately and merge the replicates into a single matrix later. Like Andrey et al., we use a resolution of 1kb and use the restriction enzyme DpnII.
 
 .. code:: bash
 
@@ -63,68 +63,73 @@ To create a cHi-C matrix we use HiCExplorer's hicBuildMatrix for each replicate 
     hicSumMatrix --matrices SRR3950559.cool SRR3950560.cool --outFileName MB-E10-5.cool
 
 
+Terminology: Reference point vs viewpoint
+-----------------------------------------
 
+A reference point is one single genomic position i.e. chr1 500 510 is a reference point. A viewpoint is in contrast the region defined by the 
+reference point and the up and downstream range, i.e. range 100 and reference point chr1 50 70 leads to the viewpoint chr1 400 610.
 
 Creation of reference point file
 --------------------------------
 
-Andrey et al writes they used in total 460 reference points, but 24 were removed due to low sequence coverage or non correspondence to a promoter region, leading to 446 in total.
+Andrey et al. state that they used a total of 460 reference points, but that 24 were removed due to low sequence coverage or non-correspondence to a promoter region, leading to 446 in total.
 
-To reproduce this, we need all reference points which are published in Supplementary Table `S2 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S2.xlsx>`__ and `S8 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S8.xlsx>`__ .  
+To reproduce this, we need all reference points which are published in Supplementary Table `S2 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S2.xlsx>`__ and `S8 <https://genome.cshlp.org/content/suppl/2017/01/20/gr.213066.116.DC1/Supplemental_Table_S8.xlsx>`__.
 
-
-It is the easiest to create via Excel the reference point file in the following format and store it as a tab separated file:
+It is simplest to create the reference point file in the following format using Excel and store it as a tab separated file:
 
 .. code:: bash
 
     chr1	4487435	4487435 Sox17
 
-Or just `download <https://drive.google.com/open?id=14kNDI1xuEiP-8S5lssTbRm5d3s2eMNLU>`__ the prepared file. We will do the quality control on our own and compare to the results of Andrey.
+Otherwise, just `download <https://drive.google.com/open?id=14kNDI1xuEiP-8S5lssTbRm5d3s2eMNLU>`__ the prepared file. We will do the quality control on our own and compare with the results of Andrey et al.
 
 
 
 Quality control
 ^^^^^^^^^^^^^^^
 
-As a first step we compute the quality of each viewpoint by considering the sparsity. As soon as one viewpoint in one sample is less as the user-defined threshold (`--sparsity`), the reference point is not considered anymore.
+As a first step we compute the quality of each viewpoint by considering the sparsity. As soon as one viewpoint in one sample is less than the user-defined threshold (`--sparsity`), the reference point is no longer considered.
 
 .. code:: bash
 
     chicQualityControl -m FL-E13-5.cool MB-E10-5.cool -rp reference_points.bed --sparsity 0.025 --threads 20
 
-The quality control creates five files: Two plot showing the sparsity structure of the samples and three files containing the accepted reference points, the rejected ones and one file with all viewpoints and their sparsity level per sample.
+The quality control creates five files: two plots showing the sparsity structure of the samples and three files containing the accepted reference points, the rejected ones and one file with all viewpoints and their sparsity level per sample.
 
-In out example the create plots are:
+In our example the plots look like the following:
 
 .. image:: ../images/chic/sparsity.png 
 
 .. image:: ../images/chic/histogram.png
 
 
-The first plot shows the sparsity per sample for each viewpoint, the second one shows the sparsity distribution as a histogram. It can be quit clear seen that only a minority of the samples are really sparse and therefore removed. The red line indicates the chosen sparsity level.
+The first plot shows the sparsity per sample for each viewpoint, while the second one shows the sparsity distribution as a histogram. It can be seen quite clearly that only a minority of the samples are really sparse and therefore need to be removed. The red line indicates the chosen sparsity level.
 
-The reference point `Tdap2b` at `chr1 19198995` is considered with a sparsity of 0.018 in FL-E13-5 and 0.016 MB-E10-5 of bad quality. To have a confirmation of this result we plot the viewpoint:
+The reference point `Tdap2b` at `chr1 19198995`, which has a sparsity of 0.018 in FL-E13-5 and 0.016 in MB-E10-5, is considered to be of bad quality. To confirm this result we plot the viewpoint:
 
 .. image:: ../images/chic/Tfap2b_FL-E13-5_MB-E10-5_chr1_19198995_19198995.png
 
-The plot shows clearly more or less no interactions expect the reference point itself and is correctly removed from the data. 
+The plot shows there are effectively no interactions except with the reference point itself and confirm the point should be removed from the data.
 
-The result of the quality control rejected 71 reference points as too sparse, surprisingly the rejected viewpoints by Andrey are accepted. An explanation of this can be that we only consider two samples and not all samples used by Andrey, and therefore we missed the bad quality of some viewpoints.
+The result of the quality control rejected 71 reference points as too sparse, but surprisingly the viewpoints rejected by Andrey et al. are accepted. An explanation for this could be that we only consider two samples and not all samples used by Andrey, and therefore we missed the bad quality of some viewpoints.
 
-Download the data: `Filtered reference points <https://drive.google.com/open?id=1y3G1wJRBy0aZPQJ504N94jLE4jco2GAT>`__ , `Quality control raw data <https://drive.google.com/open?id=1E0Ii-5QdZDco8NkEXb-rMoBCcGjYUfJg>`__ and `rejected reference points <https://drive.google.com/open?id=1LGDIoT7etslvHfNSPajYszaQlSsQegBx>`__ .
+Please consider that this bad viewpoint was selected arbitrary out of the sample data and is only an example.
+
+Download the data: `Filtered reference points <https://drive.google.com/open?id=1y3G1wJRBy0aZPQJ504N94jLE4jco2GAT>`__, `Quality control raw data <https://drive.google.com/open?id=1E0Ii-5QdZDco8NkEXb-rMoBCcGjYUfJg>`__ and `rejected reference points <https://drive.google.com/open?id=1LGDIoT7etslvHfNSPajYszaQlSsQegBx>`__.
 
 Background model
 ^^^^^^^^^^^^^^^^
 
-The background model computes for both samples all viewpoints given by the reference points in a range defined by the parameter `fixateRange`. We recommend to set it to 500kb because real interactions above the range 
-are rarely observed and very low interaction numbers like 1 are already considered as significant. With this setting, only the interactions in a range 500kb up- and downstream of the reference point are considered for each viewpoint.
-Based on this data, two background models are computed, the first one simply computes the average per relative distance to the reference point, and second, a negative binomial distribution per relative distance to
-the reference point is fitted. This first one is used for filtering in the significant interaction evaluation by an x-fold factor and for plotting. The negative binomial model is more important, it is used to 
-compute per relative distance in each sample a p-value and based on it the decision if an interaction is considered as significant is made.
+The background model computes all viewpoints given by the reference points for both samples in a range defined by the parameter `fixateRange`. We recommend setting it to 500kb because real interactions above the range 
+are rarely observed and very low interaction numbers such as 1 are already considered to be significant. With this setting, only the interactions in a range 500kb up- and downstream of the reference point are considered for each viewpoint.
+Based on this data, two background models are computed; the first one computes the average per relative distance to the reference point, and secondly, a negative binomial distribution per relative distance to
+the reference point is fitted. This first model is used for filtering in the significant interaction evaluation by an x-fold factor and for plotting. The negative binomial model is more important; it is used to 
+compute a p-value per relative distance in each sample, which is used to make the decision if an interaction is considered as significant.
 
 .. code:: bash
 
-    chicViewpointBackgroundModel -m FL-E13-5.cool MB-E10-5.cool --fixateRange 500000 -t 20 -rp reference_points.bed -o background_model.bed
+    chicViewpointBackgroundModel -m FL-E13-5.cool MB-E10-5.cool --fixateRange 500000 -t 20 -rp reference_points.bed -o background_model.txt
 
 The background model looks like this:
 
@@ -143,17 +148,17 @@ You can `download <https://drive.google.com/open?id=1zblxEWa513LGwkjBknt83oZugg-
 Viewpoint computation
 ^^^^^^^^^^^^^^^^^^^^^
 
-In this step the viewpoints for each reference point listed in a `reference_points.bed`-file is computed, we use the quality controlled file created by `chicQualityControl`. The up- and downstream range can be given via `--range upstream downstream` and please use the same `--fixateRange` as in the background model computation.
-For each relative distance the x-fold over the average value of this relative distance is computed and each location gets a p-value based on the background negative binomial distribution for this relative distance.
+In this step the viewpoints for each reference point listed in a `reference_points.bed`-file is extracted from the interaction matrix, using the quality controlled file created by `chicQualityControl`. The up- and downstream range can be given via `--range upstream downstream`. Please use the same value for `--fixateRange` as in the background model computation.
+For each relative distance the x-fold over the average value of this relative distance is computed and each location is assigned a p-value based on the background negative binomial distribution for this relative distance.
 For each viewpoint one viewpoint file is created and stored in the folder given by the parameter `--outputFolder`. 
 
 .. code:: bash
 
-    chicViewpoint -m FL-E13-5.cool MB-E10-5.cool --averageContactBin 5 --range 1000000 1000000 -rp referencePoints.bed -bmf background_model.bed --writeFileNamesToFile interactionFiles.txt --outputFolder interactionFilesFolder --fixateRange 500000 --threads 20
+    chicViewpoint -m FL-E13-5.cool MB-E10-5.cool --averageContactBin 5 --range 1000000 1000000 -rp referencePoints.bed -bmf background_model.txt --writeFileNamesToFile interactionFiles.txt --outputFolder interactionFilesFolder --fixateRange 500000 --threads 20
 
 
 The name of each viewpoint file starts with its sample name (given by the name of the matrix), the
-exact location and the gene / promoter name. For example the viewpoint `chr1	4487435	4487435 Sox17` from `MB-E10-5.cool` matrix will be called `MB-E10-5_chr1_4487435_4487435_Sox17.bed` and looks as follows:
+exact location and the gene / promoter name. For example, the viewpoint `chr1	4487435	4487435 Sox17` from `MB-E10-5.cool` matrix will be called `MB-E10-5_chr1_4487435_4487435_Sox17.txt` and looks like the following:
 
 .. code:: text
 
@@ -173,19 +178,19 @@ exact location and the gene / promoter name. For example the viewpoint `chr1	448
     chr1    3496000 3497000 Sox17   978.0   -991000 0.000000000000  0.894286365313  0.000000000000  0.000000000000
 
 
-Each file contains a header with information about the used HiCExplorer version, the sample, the viewpoint and what the content of the different columns is. 
+Each file contains a header with information about the HiCExplorer version used, the sample, the viewpoint and the content of the different columns. 
 
-In case the parameter `--writeFileNamesToFile` is set, the viewpoint file names are written to a file which can be used for batch processing in the later steps. Each sample is combined with each other sample for each viewpoint to enable the batch processing
+If the parameter `--writeFileNamesToFile` is set, the viewpoint file names are written to a file which can be used for batch processing in the later steps. Each sample is combined with every other sample for each viewpoint to enable the batch processing
 for the differential analysis. Example: matrices `FL-E13-5.cool` and  `MB-E10-5.cool` with the three reference points:
 
 .. code:: bash
 
-    FL-E13-5_chr1_4487435_4487435_Sox17.bed
-    MB-E10-5_chr1_4487435_4487435_Sox17.bed
-    FL-E13-5_chr1_14300280_14300280_Eya1.bed
-    MB-E10-5_chr1_14300280_14300280_Eya1.bed
-    FL-E13-5_chr1_19093103_19093103_Tfap2d.bed
-    MB-E10-5_chr1_19093103_19093103_Tfap2d.bed
+    FL-E13-5_chr1_4487435_4487435_Sox17.txt
+    MB-E10-5_chr1_4487435_4487435_Sox17.txt
+    FL-E13-5_chr1_14300280_14300280_Eya1.txt
+    MB-E10-5_chr1_14300280_14300280_Eya1.txt
+    FL-E13-5_chr1_19093103_19093103_Tfap2d.txt
+    MB-E10-5_chr1_19093103_19093103_Tfap2d.txt
 
 
 
@@ -194,31 +199,31 @@ Significant interactions detection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-To detect significant interactions and to prepare a target file for each viewpoint which will be used for the differential analysis, the script `chicSignificantInteractions` is used. It offers two modi: Either the user can specify 
-a x-fold value or a loose p-value. The first one considers all interactions with a minimum x-fold over the average background for its relative distribution as a candidate or second, all interactions with a loose p-value or less are considered. 
-These are preselection steps to be able to detect wider peaks in the same way as sharp ones. All detected candidates are merged to one peak in the case they are direct neighbors and the sum of all interaction values of this neighborhood
-is used to compute a new p-value. The p-value is computed based the relative distance negative binomial distribution of the interaction with the original highest interaction value. All considered peaks are accepted as significant interactions if
-their p-value is small as the threshold `--pvalue`.
+To detect significant interactions and to prepare a target file for each viewpoint which will be used for the differential analysis, the script `chicSignificantInteractions` is used. It offers two modes: either the user can specify 
+an x-fold value or a loose p-value. The first one considers all interactions with a minimum x-fold over the average background for its relative distribution as a candidate or secondly, all interactions with a loose p-value or less are considered. 
+These are pre-selection steps to be able to detect wider peaks in the same way as sharp ones. All detected candidates are merged to one peak if they are direct neighbors, and the sum of all interaction values of this neighborhood
+is used to compute a new p-value. The p-value is computed based on the relative distance negative binomial distribution of the interaction with the original highest interaction value. All peaks considered are accepted as significant interactions if
+their p-value is as small as the threshold `--pvalue`.
 
-To exclude interactions with an interaction value smaller as desired the parameter `--peakInteractionsThreshold` can be set.
+To exclude interactions with an interaction value smaller than desired the parameter `--peakInteractionsThreshold` can be set.
 
 In this example we use the reference point Mstn at location chr1 53118507, a loose p-value of 0.1 and p-value of 0.01:
 
 .. code:: bash
 
-    chicSignificantInteractions --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.bed -bmf background_model.bed --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1
+    chicSignificantInteractions --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt -bmf background_model.txt --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1
 
 
 This creates two files: 
 
 .. code:: bash
 
-    FL-E13-5_chr1_53118507_53118507_Mstn_target.bed
-    FL-E13-5_chr1_53118507_53118507_Mstn__significant_interactions.bed
+    FL-E13-5_chr1_53118507_53118507_Mstn_target.txt
+    FL-E13-5_chr1_53118507_53118507_Mstn__significant_interactions.txt
 
-These file are stored in the folders given by the parameters `--targetFolder` and `--outputFolder`.
+These files are stored in the folders given by the parameters `--targetFolder` and `--outputFolder`.
 
-The significant interaction files looks as follows:
+The significant interaction files looks like the following:
 
 .. code:: bash
 
@@ -237,7 +242,7 @@ The target file looks like:
 .. code:: bash
 
     # Significant interactions result file of HiCExplorer's chicSignificantInteractions version 3.2-dev
-    # targetFolder/FL-E13-5_chr1_53118507_53118507_Mstn_target.bed
+    # targetFolder/FL-E13-5_chr1_53118507_53118507_Mstn_target.txt
     # Mode: loose p-value with 0.1
     # Used p-value: 0.01
     #
@@ -252,13 +257,13 @@ Batch mode
 ~~~~~~~~~~
 
 The batch mode supports the computation of many viewpoints at once and is able to create one target list for the same viewpoint and two (or n) samples. To do the batch computation the 
-parameter `--batchMode` needs to be added and the folder of the viewpoint files need to be defined. Additional, the list of viewpoints created by `chicViewpoint` with `--writeFileNamesToFile` needs to be 
+parameter `--batchMode` needs to be added and the folder of the viewpoint files needs to be defined. In addition, the list of viewpoints created by `chicViewpoint` with `--writeFileNamesToFile` needs to be 
 used as input. One target file is created for n consecutive lines and can be defined via the `--computeSampleNumber` parameter. However, for the differential test where the target file is needed, only 
 two samples and one target file is supported.
 
 .. code:: bash
 
-    chicSignificantInteractions --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder/  -bmf background_model.bed --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1 --batchMode
+    chicSignificantInteractions --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder/  -bmf background_model.txt --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1 --batchMode
 
 The output is: 
 
@@ -271,15 +276,15 @@ The output is:
 Aggregate data for differential test
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The process to aggregate data is only necessary if the differential test should be used. Either two files and one target list is used to generate the files for the differential test
-or the batch mode can be used. `chicAggregateStatistic` takes as input the created viewpoint files from `chicViewpoint` and either the target files per two samples created by `chicSignificantInteractions`
+The process to aggregate data is only necessary if the differential test is used. Either two files and one target list are used to generate the files for the differential test
+or the batch mode can be used. `chicAggregateStatistic` takes the created viewpoint files from `chicViewpoint` as input and either the target files per two samples created by `chicSignificantInteractions`
 or one target file which applies for all viewpoints. 
 
 .. code:: bash
 
-    chicAggregateStatistic --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.bed interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.bed --targetFile targetFolder/FL-E13-5_MB-E10-5_chr1_53118507_53118507_Mstn_target.bed
+    chicAggregateStatistic --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.txt --targetFile targetFolder/FL-E13-5_MB-E10-5_chr1_53118507_53118507_Mstn_target.txt
 
-It selects the original data based on the target locations and returns per sample one file which is used for the differential test.
+It selects the original data based on the target locations and returns one file per sample which is used for the differential test.
 
 Batch mode
 ~~~~~~~~~~
@@ -287,7 +292,7 @@ Batch mode
 In the batch mode the interaction file is the file containing the viewpoint file names, the folder needs to be defined by `--interactionFileFolder`, the same applies to the target file and folder.
 Two viewpoint files are match with one target file created by `chicSignificantInteractions` or one target file for all viewpoints. Please notice the output files are written to the folder name
 defined by `--outputFolder`, the default is `aggregatedFiles` and it is recommended to write the file names for further batch processing with `hicDifferentialTest` to `--writeFileNamesToFile`. All output files
-get the suffix defined by `--outFileNameSuffix`, default value is `_aggregate_target.bed`.
+get the suffix defined by `--outFileNameSuffix`, default value is `_aggregate_target.txt`.
 
 .. code:: bash
 
@@ -299,14 +304,14 @@ Differential test
 ^^^^^^^^^^^^^^^^^
 
 The differential test tests the interaction value of the reference point and the interaction value of the target of two samples for a differential expression. To achieve this,
-either fisher's test or chi-square can be used. H0 is defined as 'both locations are equal', therefore the differential expressed targets can be found in the H0 rejected file.
+either Fisher's test or the chi-squared test can be used. H0 is defined as 'both locations are equal', meaning the differential expressed targets can be found in the H0 rejected file.
 
 This can be computed per sample: 
 
 
 .. code:: bash
 
-    chicDifferentialTest --interactionFile aggregatedFiles/FL-E13-5_chr1_53118507_53118507_Mstn__aggregate_target.bed aggregatedFiles/MB-E10-5_chr1_53118507_53118507_Mstn__aggregate_target.bed --alpha 0.05 --statisticTest fisher
+    chicDifferentialTest --interactionFile aggregatedFiles/FL-E13-5_chr1_53118507_53118507_Mstn__aggregate_target.txt aggregatedFiles/MB-E10-5_chr1_53118507_53118507_Mstn__aggregate_target.txt --alpha 0.05 --statisticTest fisher
 
 Or via batch mode:
 
@@ -314,13 +319,13 @@ Or via batch mode:
 
     chicDifferentialTest --interactionFile aggregatedFilesBatch.txt --interactionFileFolder aggregatedFiles --alpha 0.05 --statisticTest fisher --batchMode --threads 20
 
-In both cases it is important to set the desired alpha value and the output is written to `--outputFolder`, default `differentialResults`. For each sample three files are created:
+In both cases it is important to set the desired alpha value and the output is written to `--outputFolder` (default `differentialResults`). For each sample three files are created:
 
 - H0 rejected targets 
 - H0 accepted targets 
 - one file containing both
 
-In the batch mode, the file `--rejectedFileNamesToFile` is written too and contains the file names of the rejected files. This can be used for the batch processing mode of `chicPlotViewpoint`.
+In the batch mode, the file `--rejectedFileNamesToFile` is also written and contains the file names of the rejected files. This can be used for the batch processing mode of `chicPlotViewpoint`.
 
 .. code:: bash
 
@@ -389,13 +394,13 @@ In the batch mode, the file `--rejectedFileNamesToFile` is written too and conta
 Plotting of Viewpoints
 ^^^^^^^^^^^^^^^^^^^^^^
 
-`chicPlotViewpoint` can plot `n` viewpoints in one plot, add the mean background, shows the p-value per relative distance per sample as an additional heatmap bar and highlight significant interactions or differential expressed regions.
+`chicPlotViewpoint` can plot `n` viewpoints in one plot, add the mean background, show the p-value per relative distance per sample as an additional heatmap bar and highlight significant interactions or differential expressed regions.
 
 One viewpoint:
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.bed --range 200000 200000 -o single_plot.png
+    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt --range 200000 200000 -o single_plot.png
 
 .. image:: ../images/chic/single_plot.png
 
@@ -403,7 +408,7 @@ Two viewpoints, background, differential expression and p-values:
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.bed interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.bed --range 300000 300000 --pValue --differentialTestResult differentialResults/FL-E13-5_MB-E10-5_chr1_53118507_53118507_Mstn__H0_rejected.bed --backgroundModelFile background_model.bed -o differential_background_pvalue.png
+    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.txt --range 300000 300000 --pValue --differentialTestResult differentialResults/FL-E13-5_MB-E10-5_chr1_53118507_53118507_Mstn__H0_rejected.txt --backgroundModelFile background_model.txt -o differential_background_pvalue.png
 
 
 .. image:: ../images/chic/differential_background_pvalue.png
@@ -412,7 +417,7 @@ Two viewpoints, background, significant interactions and p-values:
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.bed interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.bed --range 300000 300000 --pValue --significantInteractions significantFiles/FL-E13-5_chr1_53118507_53118507_Mstn__significant_interactions.bed significantFiles/MB-E10-5_chr1_53118507_53118507_Mstn__significant_interactions.bed --backgroundModelFile background_model.bed -o significant_background_pvalue.png
+    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.txt --range 300000 300000 --pValue --significantInteractions significantFiles/FL-E13-5_chr1_53118507_53118507_Mstn__significant_interactions.txt significantFiles/MB-E10-5_chr1_53118507_53118507_Mstn__significant_interactions.txt --backgroundModelFile background_model.txt -o significant_background_pvalue.png
 
 .. image:: ../images/chic/significant_background_pvalue.png
 
@@ -421,10 +426,10 @@ Batch mode
 ~~~~~~~~~~
 
 The batch mode is able to plot files under the same parameter setting for multiple viewpoints. These viewpoints are given by the file created by `chicViewpoint` with `--writeFileNamesToFile` parameter.
-Per `--plotSampleNumber` the number of consecutive lines can be defined which should be plotted to one image. If the differential expressed regions should be highlighted, it is recommended to set this parameter to 2.
+The number of consecutive lines which should be plotted to one image can be defined using `--plotSampleNumber`. If the differentially expressed regions should be highlighted, setting this parameter to 2 is recommended.
 
-For all modi the principle of a file containing the file names and a folder containing them is applying for the plotting too, and it is highlight recommended to use all cores available.
+For all modes the principle of a file containing the file names and a folder containing them applies for the plotting too, and using all cores available is highly recommended.
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder/ --range 300000 300000 --pValue --significantInteractions significantFilesBatch.txt --significantInteractionFileFolder significantFiles --backgroundModelFile background_model.bed --outputFolder plots --threads 20 --batchMode
+    chicPlotViewpoint --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder/ --range 300000 300000 --pValue --significantInteractions significantFilesBatch.txt --significantInteractionFileFolder significantFiles --backgroundModelFile background_model.txt --outputFolder plots --threads 20 --batchMode

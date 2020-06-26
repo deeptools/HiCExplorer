@@ -2,7 +2,9 @@ import argparse
 import math
 from multiprocessing import Process, Queue
 import time
+import os
 import logging
+logging.getLogger('hicmatrix').setLevel(logging.CRITICAL)
 log = logging.getLogger(__name__)
 
 import numpy as np
@@ -21,9 +23,9 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-Computes the sparsity of each viewpoint to determine the quality. A viewpoint is considered of bad quality if it is too sparse i.e. there are too many locations with no interactions recorded.
+Computes the sparsity of each viewpoint to determine the quality. A viewpoint is considered to be of bad quality if it is too sparse i.e. if there are too many locations with no interactions recorded.
 
-This script outputs three files: A plot with the sparsity distribution per matrix, a plot with the sparsity distribution as histograms and a filtered reference points file.
+This script creates three output files: a plot with the sparsity distribution per matrix, a plot with the sparsity distribution as histograms and a filtered reference points file.
 
 An example usage is:
 
@@ -39,11 +41,11 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
                                 required=True)
 
     parserRequired.add_argument('--referencePoints', '-rp',
-                                help='Bed file contains all reference points which are check for a sufficient number of interactions.',
+                                help='Bed file contains all reference points which are checked for a sufficient number of interactions.',
                                 type=str,
                                 required=True)
     parserRequired.add_argument('--sparsity', '-s',
-                                help='Viewpoints with a sparsity less than given are considered of bad quality. If multiple matrices are given, '
+                                help='Viewpoints with a sparsity less than the value given are considered of bad quality. If multiple matrices are given, '
                                 'the viewpoint is removed as soon as it is of bad quality in at least one matrix.',
                                 type=float,
                                 required=True)
@@ -51,7 +53,7 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outFileName', '-o',
-                           help='The output file name of the passed reference points. Is used as prefix for the plots too.',
+                           help='The output file name of the passed reference points. Used as prefix for the plots as well.',
                            default='new_referencepoints.bed')
     parserOpt.add_argument('--outFileNameHistogram', '-oh',
                            help='The output file for the histogram plot.',
@@ -66,13 +68,13 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
                            type=int
                            )
     parserOpt.add_argument('--fixateRange', '-fs',
-                           help='Fixate score of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
+                           help='Fixate score of background model starting at distance x. E.g. all values greater than 500kb are set to the value of the 500kb bin.',
                            required=False,
                            default=500000,
                            type=int
                            )
     parserOpt.add_argument('--dpi',
-                           help='Optional parameter: Resolution for the image in case the'
+                           help='Optional parameter: Resolution for the image if the'
                            'output is a raster graphics image (e.g png, jpg)',
                            type=int,
                            default=300,
@@ -89,15 +91,27 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
 def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
 
     sparsity_list = []
+    try:
+        chromosome_names = pViewpointObj.hicMatrix.getChrNames()
 
-    for i, referencePoint in enumerate(pReferencePoints):
-        region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
-            referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
-        data_list = pViewpointObj.computeViewpoint(
-            referencePoint, referencePoint[0], region_start, region_end)
-        sparsity = (np.count_nonzero(data_list) / len(data_list))
+        for i, referencePoint in enumerate(pReferencePoints):
 
-        sparsity_list.append(sparsity)
+            if referencePoint is not None and referencePoint[0] in chromosome_names:
+
+                region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
+                    referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
+                try:
+                    data_list, _ = pViewpointObj.computeViewpoint(
+                        referencePoint, referencePoint[0], region_start, region_end)
+                    sparsity = (np.count_nonzero(data_list) / len(data_list))
+                except (TypeError, IndexError):
+                    sparsity = -1.0
+                sparsity_list.append(sparsity)
+            else:
+                sparsity_list.append(-1.0)
+    except Exception as exp:
+        pQueue.put('Fail: ' + str(exp))
+        return
 
     pQueue.put(sparsity_list)
     return
@@ -116,7 +130,8 @@ def main(args=None):
     queue = [None] * args.threads
     process = [None] * args.threads
     sparsity = []
-
+    fail_flag = False
+    fail_message = ''
     for j, matrix in enumerate(args.matrices):
         sparsity_local = [None] * args.threads
         hic_ma = hm.hiCMatrix(matrix)
@@ -146,11 +161,16 @@ def main(args=None):
                 )
 
                 process[i].start()
+                log.debug('process started {}'.format(i))
 
         while not all_data_collected:
             for i in range(args.threads):
                 if queue[i] is not None and not queue[i].empty():
                     sparsity_ = queue[i].get()
+                    if 'Fail:' in sparsity_:
+                        fail_flag = True
+                        fail_message = sparsity_[6:]
+                    log.debug('process computed: {}'.format(i))
                     sparsity_local[i] = sparsity_
                     queue[i] = None
                     process[i].join()
@@ -167,45 +187,91 @@ def main(args=None):
         del viewpointObj.hicMatrix
 
         # merge sparsity data per matrix from each thread to one list
-
-        sparsity_local = [
-            item for sublist in sparsity_local for item in sublist]
+        if fail_flag:
+            log.error(fail_message)
+            exit(1)
+        sparsity_local = [item for sublist in sparsity_local for item in sublist]
         sparsity.append(sparsity_local)
+
+    # sparsity = np.array(sparsity)
+    # mask = sparsity == -1.0
 
     # change sparsity to sparsity values per viewpoint per matrix: viewpoint = [matrix1, ..., matrix_n]
     sparsity = np.array(sparsity).T
-
+    count_accepted = 0
+    count_rejected = 0
+    count_failure = 0
     with open(args.referencePoints, 'r') as reference_file_input:
         with open(args.outFileName + '_raw_filter', 'w') as output_file_raw:
             output_file_raw.write('# Created with chicQualityControl version {}\n'.format(__version__))
-            output_file_raw.write('# Chromosome\tStart\tEnd\t')
+            output_file_raw.write('# A sparsity of -1.0 indicates a faulty reference point e.g. no data for this reference point was in the matrix.\n')
+            output_file_raw.write('# Used Matrices ')
             for matrix in args.matrices:
-                output_file_raw.write('Sparsity {}\t'.format(matrix))
+                output_file_raw.write('{}\t'.format(matrix))
+            output_file_raw.write('\n# Chromosome\tStart\tEnd')
+            for matrix in args.matrices:
+                output_file_raw.write('\tSparsity {}'.format(os.path.basename(matrix)))
             output_file_raw.write('\n')
 
-            with open(args.outFileName + '_rejected_filter', 'w') as output_file_rejected:
-                with open(args.outFileName, 'w') as output_file:
-                    for i, line in enumerate(reference_file_input.readlines()):
-                        sparsity_str = '\t'.join(str(x) for x in sparsity[i])
-                        output_file_raw.write(
-                            line.strip() + '\t' + sparsity_str + '\n')
-                        count = 0
-                        for j in range(len(sparsity[i])):
-                            if sparsity[i][j] > args.sparsity:
-                                count += 1
-                        if count:
-                            output_file.write(line)
-                        else:
-                            output_file_rejected.write(line)
+            with open(args.outFileName + '_failed_reference_points', 'w') as output_file_failed:
+                with open(args.outFileName + '_rejected_filter', 'w') as output_file_rejected:
+                    with open(args.outFileName, 'w') as output_file:
+                        for i, line in enumerate(reference_file_input.readlines()):
+                            sparsity_str = '\t'.join(str(x) for x in sparsity[i])
+                            output_file_raw.write(
+                                line.strip() + '\t' + sparsity_str + '\n')
+                            count = 0
+                            count_negative = 0
+                            for j in range(len(sparsity[i])):
+                                if sparsity[i][j] == -1.0:
+                                    count_negative += 1
+                                elif sparsity[i][j] > args.sparsity:
+                                    count += 1
+                            if count_negative:
+                                output_file_failed.write(line)
+                                count_failure += 1
+                            elif count:
+                                output_file.write(line)
+                                count_accepted += 1
+                            else:
+                                output_file_rejected.write(line)
+                                count_rejected += 1
+
+    with open(args.outFileName + '_report', 'w') as output_file_report:
+        output_file_report.write('# Created with chicQualityControl version {}\n'.format(__version__))
+        output_file_report.write('# QC report for matrices: ')
+        for matrix in args.matrices:
+            output_file_report.write(matrix + ' ')
+        output_file_report.write('\n')
+        output_file_report.write('#Sparsity threshold for rejection: sparsity <= {} are rejected.\n'.format(args.sparsity))
+        output_file_report.write('\nNumber of reference points: {}\n'.format(str(count_accepted + count_rejected + count_failure)))
+        output_file_report.write('Number of accepted reference points: {}\n'.format(str(count_accepted)))
+        output_file_report.write('Number of rejected reference points: {}\n'.format(str(count_rejected)))
+        output_file_report.write('Number of faulty reference points: {}\n'.format(str(count_failure)))
+        output_file_report.write('\n\nA faulty reference point is caused by the non-presence of the chromosome in one of the given matrices.\n')
+        output_file_report.write('It can also be caused by the non-presence of valid Hi-C reads in a region, especially at the chromosome ends.\n')
+        output_file_report.write('Please check the results of hicInfo to validate this for your data.\n')
+
     # output plot of sparsity distribution per sample
-
-    # re-arange values again
-
+    # remove fault reference points from statistics
     x = [[]] * len(args.matrices)
     y = [[]] * len(args.matrices)
 
+    mask = [True] * len(sparsity)
+    for i in range(len(sparsity)):
+        delete_instance = False
+        for j in range(len(args.matrices)):
+            if sparsity[i][j] == -1.0:
+                delete_instance = True
+        if delete_instance:
+            mask[i] = False
+
+    mask = np.array(mask)
+    sparsity = sparsity[mask]
+
     for i in range(len(args.matrices)):
         y[i] = [i] * len(sparsity)
+
     sparsity = sparsity.T
 
     for i in range(len(args.matrices)):

@@ -92,9 +92,9 @@ class install(_install):
             sys.stderr.write("Error: {}".format(e))
 
 
-install_requires_py = ["numpy >= 1.17.*",
+install_requires_py = ["numpy >= 1.18.*",
                        "scipy >= 1.3.*",
-                       "matplotlib == 3.1.*",
+                       "matplotlib-base == 3.1.*",
                        "pysam >= 0.15",
                        "intervaltree >= 3.0.*",
                        "biopython >= 1.74",
@@ -104,25 +104,26 @@ install_requires_py = ["numpy >= 1.17.*",
                        "cooler >= 0.8.5",
                        "jinja2 >= 2.10.*",
                        "unidecode >= 1.1.*",
-                       "hicmatrix >= 11",
-                       "pygenometracks >= 3.0",
+                       "hicmatrix >= 12",
+                       "pygenometracks >= 3.2",
                        "psutil >= 5.6.*",
                        "fit_nbinom >= 1.1",
-                       "hic2cool >= 0.7",
+                       "hic2cool >= 0.8.2",
                        "krbalancing >= 0.0.5",
                        "pybedtools >= 0.8",
-                       "future >= 0.17"
+                       "future >= 0.17",
+                       "tqdm >= 4.20",
+                       "graphviz >= 0.14"
                        ]
 
 
 setup(
     name='HiCExplorer',
     version=get_version(),
-    author='Fidel Ramirez, Vivek Bhardwaj, Björn Grüning, Joachim Wolff, '
-           'Leily Rabbani',
+    author='Joachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez',
     author_email='deeptools@googlegroups.com',
     packages=find_packages(),
-    scripts=['bin/findRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
+    scripts=['bin/hicFindRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindTADs', 'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',
@@ -130,13 +131,14 @@ setup(
              'bin/chicAggregateStatistic', 'bin/chicDifferentialTest', 'bin/chicQualityControl', 'bin/chicSignificantInteractions',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
              'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicMergeLoops',
-             'bin/hicCompartmentsPolarization', 'bin/hicQuickQC', 'bin/hicDifferentialTAD'
+             'bin/hicCompartmentalization', 'bin/hicQuickQC', 'bin/hicPlotSVL', 'bin/hicCreateThresholdFile', 'bin/hicHyperoptDetectLoops',
+             'bin/hicHyperoptDetectLoopsHiCCUPS', 'bin/hicMergeDomains', 'bin/hicDifferentialTAD'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},
     package_data={'hicexplorer': ['qc_template.html']},
     url='http://hicexplorer.readthedocs.io',
-    license='LICENSE.txt',
+    license='LICENSE',
     description='Set of programs to process, analyze and visualize Hi-C data',
     long_description=open('README.rst').read(),
     classifiers=[

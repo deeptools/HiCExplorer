@@ -7,6 +7,10 @@ import copy
 import sys
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import nbinom
+from scipy.special import gammaln
+from scipy import special
+
+from hicexplorer.lib import cnb
 
 
 class Viewpoint():
@@ -62,18 +66,19 @@ class Viewpoint():
         start with '#'.
         Interactions files contain:
         Chromosome Viewpoint, Start, End, Gene, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
-        Relative number of interactions, z-score based on relative interactions.
+        Relative number of interactions, p-score based on relative interactions.
 
         This function returns:
         - header as  a string
         - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}
-        - rbz-score in relation to relative position as a dict (same format as interaction data)
+        - p-score in relation to relative position as a dict (same format as interaction data)
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
         # use header info to store reference point, and based matrix
         interaction_data = {}
-        z_score = {}
+        p_score = {}
         interaction_file_data = {}
+        genomic_coordinates = {}
         with open(pBedFile) as fh:
             fh.readline()
             header = fh.readline()
@@ -85,9 +90,11 @@ class Viewpoint():
                 _line = line.strip().split('\t')
                 # relative postion and relative interactions
                 interaction_data[int(_line[-5])] = float(_line[-4])
-                z_score[int(_line[-5])] = float(_line[-3])
+                p_score[int(_line[-5])] = float(_line[-3])
                 interaction_file_data[int(_line[-5])] = _line
-        return header, interaction_data, z_score, interaction_file_data
+                genomic_coordinates[int(_line[-5])] = [_line[0], _line[1], _line[2]]
+
+        return header, interaction_data, p_score, interaction_file_data, genomic_coordinates
 
     def readInteractionFileForAggregateStatistics(self, pBedFile):
         '''
@@ -123,10 +130,11 @@ class Viewpoint():
                 interaction_file_data[int(_line[-5])] = _line
         return header, interaction_data, interaction_file_data
 
-    def readBackgroundDataFile(self, pBedFile, pRange, pMean=False):
+    def readBackgroundDataFile(self, pBedFile, pRange, pFixateRange, pMean=False):
         '''
         Reads a background data file, containing per line a tab delimited content:
         Relative position to viewpoint, relative interaction count to total number of interactions of all viewpoints over all samples, SEM value of this data point.
+
         '''
         distance = {}
 
@@ -141,6 +149,14 @@ class Viewpoint():
 
         max_key = max(distance)
         min_key = min(distance)
+
+        # check if max is really pFixateRange or it needs to be changed
+        if max_key > pFixateRange:
+            max_key = pFixateRange
+
+        if min_key < -pFixateRange:
+            min_key = -pFixateRange
+
         keys = list(distance.keys())
         inc = np.absolute(np.absolute(keys[0]) - np.absolute(keys[1]))
         if max_key < pRange[1]:
@@ -156,7 +172,7 @@ class Viewpoint():
                 distance[i] = distance[min_key]
         return distance
 
-    def writeInteractionFile(self, pBedFile, pData, pHeader, pPValueData, pXfold):
+    def writeInteractionFile(self, pBedFile, pData, pHeader, pPValueData, pXfold, pDecimalPlaces=12):
         '''
         Writes an interaction file for one viewpoint and one sample as a tab delimited file with one interaction per line.
         Header contains information about the interaction:
@@ -164,12 +180,12 @@ class Viewpoint():
         Relative number of interactions, p-values based on negative binomial distribution per relative distance, raw interaction data
         '''
 
-        with open((pBedFile + '.bed').strip(), 'w') as fh:
+        with open((pBedFile + '.txt').strip(), 'w') as fh:
             fh.write('{}\n'.format(pHeader))
             for j, interaction in enumerate(pData):
-                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".
+                fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\n".
                          format(interaction[0], interaction[1],
-                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7]))
+                                interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7], decimal_places=pDecimalPlaces))
         return
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
@@ -215,7 +231,7 @@ class Viewpoint():
         # elements after the viewpoint
         data_list_new[index_before_viewpoint + 1:] = data_list[index_before_viewpoint +
                                                                view_point_end - view_point_start + 1:]
-        return data_list_new
+        return data_list_new, index_before_viewpoint
 
     def createInteractionFileData(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionData, pInteractionDataRaw, pGene, pSumOfInteractions):
         '''
@@ -276,12 +292,15 @@ class Viewpoint():
             view_point_start, view_point_end = self.hicMatrix.getRegionBinRange(
                 pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[1]))
         elif len(pReferencePoint) == 3:
+            log.debug('pReferencePoint: {}'.format(pReferencePoint))
             view_point_start, view_point_end = self.hicMatrix.getRegionBinRange(
                 pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[2]))
         else:
             log.error("No valid reference point given. {}".format(
                 pReferencePoint))
             exit(1)
+        log.debug('view_point_start: {} view_point_end {}'.format(view_point_start, view_point_end))
+
         return view_point_start, view_point_end
 
     def smoothInteractionValues(self, pData, pWindowSize):
@@ -312,6 +331,7 @@ class Viewpoint():
             average_contacts[i] = np.mean(pData[start:end])
             average_contacts[-(i + 1)] = np.mean(pData[-end:])
 
+        # average_contacts = average_contacts
         return average_contacts
 
     def computeRelativeValues(self, pData, pDenominator=None):
@@ -319,20 +339,24 @@ class Viewpoint():
         Computes the relative values of pData by adding all data points together and divding all data points by the result.
         pData[i] = pData[i] / sum(pData)
         '''
+        pOutput = np.array(pData, dtype=float)
         if pDenominator:
-            pData /= pDenominator
+            pOutput /= pDenominator
         else:
-            sumValue = np.sum(pData)
-            pData /= sumValue
-        return pData
+            sumValue = np.sum(pOutput)
+            pOutput /= sumValue
+        return pOutput
 
     def calculateViewpointRange(self, pViewpoint, pRange):
         '''
         This function computes the correct start and end position of a viewpoint given the viewpoint and the range.
         '''
 
+        chr_bin_range = self.hicMatrix.getChrBinRange(pViewpoint[0])
+        if chr_bin_range is None:
+            return None, None, None
         max_length = self.hicMatrix.getBinPos(
-            self.hicMatrix.getChrBinRange(pViewpoint[0])[1] - 1)[2]
+            chr_bin_range[1] - 1)[2]
         # log.debug('max_length {}'.format(max_length))
         bin_size = self.hicMatrix.getBinSize()
         _range = [pRange[0], pRange[1]]
@@ -348,13 +372,14 @@ class Viewpoint():
             _range[1] = (max_length - int(pViewpoint[2])) + bin_size
         return region_start, region_end, _range
 
-    def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel):
-        header, interaction_data, p_value_data, _interaction_file_data_raw = self.readInteractionFile(pInteractionFile)
+    def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel, pResolution):
+        header, interaction_data, p_value_data, _interaction_file_data_raw, genomic_coordinates = self.readInteractionFile(pInteractionFile)
         matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
 
         data = []
         p_value = []
         data_background = None
+        viewpoint_index_end = None
         if pRange:
 
             interaction_data_keys = copy.deepcopy(
@@ -373,29 +398,102 @@ class Viewpoint():
                 background_data_keys_sorted = sorted(pBackgroundModel)
 
         if pBackgroundModel:
-            viewpoint_index = background_data_keys_sorted.index(0)
+            # viewpoint_index = background_data_keys_sorted.index(0)
+            viewpoint_index_start = background_data_keys_sorted.index(0)
 
             data_background = []
 
             for key in background_data_keys_sorted:
+                # log.debug('key {}'.format(key))
                 if key in interaction_data:
-                    data.append(interaction_data[key])
+                    if key == 0:
+                        chromosome, start, end = genomic_coordinates[key]
+                        # log.debug('peak width {}'.format(np.abs(int(start) - int(end))))
+                        # log.debug('pResolution {}'.format(pResolution))
+
+                        if np.abs(int(start) - int(end)) > pResolution:
+
+                            peak_width = np.abs(int(start) - int(end)) // pResolution
+                            viewpoint_index_end = peak_width
+                            i = 0
+                            while i < peak_width:
+                                data.append(interaction_data[key])
+                                i += 1
+                    else:
+                        data.append(interaction_data[key])
 
                     if key in p_value_data:
-                        p_value.append(p_value_data[key])
+                        if key == 0:
+                            chromosome, start, end = genomic_coordinates[key]
+                            if np.abs(int(start) - int(end)) > pResolution:
+                                peak_width = np.abs(int(start) - int(end)) // pResolution
+                                i = 0
+                                while i < peak_width:
+                                    p_value.append(p_value_data[key])
+                                    i += 1
+                                # log.debug('peak width: {}'.format(peak_width))
+                        else:
+                            p_value.append(p_value_data[key])
+                    if key == 0:
+                        chromosome, start, end = genomic_coordinates[key]
+                        if np.abs(int(start) - int(end)) > pResolution:
+                            peak_width = np.abs(int(start) - int(end)) // pResolution
+                            i = 0
+                            while i < peak_width:
+                                data_background.append(pBackgroundModel[key][0])
+                                log.debug('pBackgroundModel[key][0] {}'.format(pBackgroundModel[key][0]))
+                                log.debug('peak_width {}'.format(peak_width))
+                                log.debug('data_background[-1] {}'.format(data_background[-1]))
 
-                    data_background.append(pBackgroundModel[key][0])
+                                i += 1
+                            # log.debug('peak width: {}'.format(peak_width))
+                    else:
+                        data_background.append(pBackgroundModel[key][0])
+
+            if viewpoint_index_end is None:
+                viewpoint_index_end = viewpoint_index_start
+            else:
+                viewpoint_index_end += viewpoint_index_start
 
         else:
             data = []
             interaction_key = sorted(interaction_data)
             for key in interaction_key:
-                data.append(interaction_data[key])
-                if key in p_value_data:
-                    p_value.append(p_value_data[key])
-            viewpoint_index = interaction_key.index(0)
+                # log.debug('key {}'.format(key))
+                if key == 0:
+                    chromosome, start, end = genomic_coordinates[key]
+                    # log.debug('peak width {}'.format(np.abs(int(start) - int(end))))
+                    # log.debug('pResolution {}'.format(pResolution))
 
-        return header, data, data_background, p_value, viewpoint_index
+                    if np.abs(int(start) - int(end)) > pResolution:
+
+                        peak_width = np.abs(int(start) - int(end)) // pResolution
+                        viewpoint_index_end = peak_width
+                        i = 0
+                        while i < peak_width:
+                            data.append(interaction_data[key])
+                            i += 1
+                else:
+                    data.append(interaction_data[key])
+                if key in p_value_data:
+                    if key == 0:
+                        chromosome, start, end = genomic_coordinates[key]
+                        if np.abs(int(start) - int(end)) > pResolution:
+                            peak_width = np.abs(int(start) - int(end)) // pResolution
+                            i = 0
+                            while i < peak_width:
+                                p_value.append(p_value_data[key])
+                                i += 1
+                            # log.debug('peak width: {}'.format(peak_width))
+                    else:
+                        p_value.append(p_value_data[key])
+
+            viewpoint_index_start = interaction_key.index(0)
+            if viewpoint_index_end is None:
+                viewpoint_index_end = viewpoint_index_start
+            else:
+                viewpoint_index_end += viewpoint_index_start
+        return header, data, data_background, p_value, viewpoint_index_start, viewpoint_index_end
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHighlightSignificantRegion=None):
         data_plot_label = pAxis.plot(
@@ -417,19 +515,30 @@ class Viewpoint():
             pAxis.fill_between(range(len(pBackgroundData)), upper_values, lower_values, facecolor='r', alpha=0.5)
         return data_plot_label
 
-    def plotPValue(self, pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure):
+    def plotPValue(self, pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure, pValueSignificanceLevels):
 
         _z_score = np.empty([2, len(pPValueData)])
         _z_score[:, :] = pPValueData
         pAxis.xaxis.set_visible(False)
         pAxis.yaxis.set_visible(False)
-        img = pAxis.contourf(_z_score, cmap=pCmap)
         divider = make_axes_locatable(pAxisLabel)
         cax = divider.append_axes("left", size="20%", pad=0.09)
-        colorbar = pFigure.colorbar(
-            img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
 
-        colorbar.ax.set_ylabel('p-value', size=6)
+        if pPValueData is not None:
+            # log.debug('pValueSignificanceLevels {}'.format(pValueSignificanceLevels))
+            img = pAxis.contourf(_z_score, cmap=pCmap)
+            colorbar = pFigure.colorbar(
+                img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
+            colorbar.ax.set_ylabel('p-value', size=6)
+
+        elif pValueSignificanceLevels:
+            pValueSignificanceLevels.insert(0, -1)
+            pValueSignificanceLevels.append(1)
+
+            img = pAxis.contourf(_z_score, levels=pValueSignificanceLevels, colors=['#CC0000', '#FFD43B', '#306998', '#FFFFFF'])
+            colorbar = pFigure.colorbar(img, cax=cax, ticks=[pValueSignificanceLevels[1], pValueSignificanceLevels[2], pValueSignificanceLevels[3]])
+            colorbar.ax.tick_params(labelsize=6)
+            colorbar.ax.set_ylabel('p-value', size=6)
 
         pAxisLabel.text(0.45, 0, pLabelText, size=7)
         pAxisLabel.xaxis.set_visible(False)
@@ -438,7 +547,7 @@ class Viewpoint():
 
     def writePlotData(self, pInteractionFileDataRaw, pFileName, pBackgroundModel):
         interaction_file_data_raw_sorted = sorted(pInteractionFileDataRaw)
-        with open(pFileName + '.bed', 'w') as output_file:
+        with open(pFileName + '.txt', 'w') as output_file:
             output_file.write(
                 '#ChrViewpoint\tStart\tEnd\tGene\tChrInteraction\tStart\tEnd\tRelative position\tRelative Interactions\trbz-score\tRaw')
 
@@ -485,7 +594,7 @@ class Viewpoint():
         _rbz_score[mask] = -1
         return _rbz_score
 
-    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndex, pResolution, pRange, pViewpoint):
+    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
         highlight_areas_list = []
@@ -508,8 +617,10 @@ class Viewpoint():
                     if int(_line[4]) < 0:
                         # reference_point_position = reference_point_start
                         relative_position_genomic_coordinates = start - int(reference_point_start)
+                        viewpointIndex = pViewpointIndexStart
                     else:
                         relative_position_genomic_coordinates = start - int(reference_point_end)
+                        viewpointIndex = pViewpointIndexEnd
 
                     log.debug('_line[4] {}'.format(_line[4]))
                     log.debug('relative_position_genomic_coordinates {}'.format(relative_position_genomic_coordinates))
@@ -519,7 +630,7 @@ class Viewpoint():
                     # start
 
                     # relative_position_genomic_coordinates  = reference_point_position
-                    relative_position = pViewpointIndex + \
+                    relative_position = viewpointIndex + \
                         (relative_position_genomic_coordinates / pResolution)
                     highlight_areas_list.append(
                         [relative_position, relative_position + width])
@@ -527,78 +638,103 @@ class Viewpoint():
             return None
         return highlight_areas_list
 
-    def pvalues(self, pBackgroundModelNBinomPValues, pDataList):
+    def pvalues(self, pBackgroundModel, pDataList, pIndexReferencePoint):
+        # cdf
         p_value_list = []
-        for i, (pvalue_list, pDataList) in enumerate(zip(pBackgroundModelNBinomPValues, pDataList)):
-            if len(pvalue_list) == 0:
-                pvalue = 1
-            elif int(pDataList) - 1 < 0:
-                pvalue = pvalue_list[0]
+
+        for i, data_element in enumerate(pDataList):
+            relative_distance = i - pIndexReferencePoint
+            # check if relative distance is available.
+            # if not, use either min or max key for the distribution
+            if relative_distance not in pBackgroundModel:
+                if relative_distance < 0:
+                    relative_distance = min(pBackgroundModel.keys())
+                else:
+                    relative_distance = max(pBackgroundModel.keys())
+            if data_element == 0.0:
+                p_value_list.append(0.0)
             else:
-                try:
-                    pvalue = 1 - pvalue_list[int(pDataList) - 1]
-                except Exception:
-                    log.debug('access to densities for element {} failed; value {}, len {}'.format(i, int(pDataList) - 1, len(pvalue_list)))
-                    pvalue = 1
-            p_value_list.append(pvalue)
+                p_value_list.append(cnb.cdf(data_element, pBackgroundModel[relative_distance][0], pBackgroundModel[relative_distance][1]))
+
+        # for reason I do not understand atm the values needs to be inverted again, it seems it is not enough to do this in try/catch region
+        p_value_list = np.array(p_value_list, dtype=np.float64)
+
+        p_value_list = 1 - p_value_list
+
+        # remove possible occuring nan with a p-value of 1
+        mask = np.isnan(p_value_list)
+        mask_inf = np.isinf(p_value_list)
+        p_value_list = np.array(p_value_list)
+        mask = np.logical_or(mask, mask_inf)
+        p_value_list[mask] = 1.0
         return p_value_list
 
-    def computeSumOfDensities(self, pBackgroundModel, pArgs, pXfoldMaxValue=None):
-        background_nbinom = {}
-        background_sum_of_densities_dict = {}
-        max_value = 0
+    # def computeSumOfDensities(self, pBackgroundModel, pArgs, pXfoldMaxValue=None):
+    #     background_nbinom = {}
+    #     background_sum_of_densities_dict = {}
+    #     max_value = 0
 
-        fixateRange = int(pArgs.fixateRange)
-        for distance in pBackgroundModel:
-            max_value_distance = int(pBackgroundModel[distance][2])
-            if max_value < int(pBackgroundModel[distance][2]):
-                max_value = int(pBackgroundModel[distance][2])
+    #     fixateRange = int(pArgs.fixateRange)
+    #     for distance in pBackgroundModel:
+    #         max_value_distance = int(pBackgroundModel[distance][2])
+    #         if max_value < int(pBackgroundModel[distance][2]):
+    #             max_value = int(pBackgroundModel[distance][2])
 
-            if pXfoldMaxValue is not None:
-                max_value_distance *= pXfoldMaxValue
+    #         if pXfoldMaxValue is not None:
+    #             if max_value_distance == 0:
+    #                 max_value_distance = 1
+    #             if pXfoldMaxValue == 0:
+    #                 pXfoldMaxValue = 1
+    #             max_value_distance *= pXfoldMaxValue
 
-            if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
-                background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
+    #         if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
+    #             # background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
+    #             background_nbinom[distance] = (pBackgroundModel[distance][0], pBackgroundModel[distance][1])
 
-                sum_of_densities = np.zeros(max_value_distance)
-                for j in range(max_value_distance):
-                    if j >= 1:
-                        sum_of_densities[j] += sum_of_densities[j - 1]
-                    sum_of_densities[j] += background_nbinom[distance].pmf(j)
+    #             sum_of_densities = np.zeros(max_value_distance)
+    #             for j in range(max_value_distance):
+    #                 if j >= 1:
+    #                     sum_of_densities[j] += sum_of_densities[j - 1]
+    #                 # sum_of_densities[j] += background_nbinom[distance].pmf(j)
+    #                 sum_of_densities[j] += pmf(j, background_nbinom[distance][0], background_nbinom[distance][1])
 
-                background_sum_of_densities_dict[distance] = sum_of_densities
+    #             background_sum_of_densities_dict[distance] = sum_of_densities
 
-        background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
+    #     # background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
+    #     background_nbinom[fixateRange] = (pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
 
-        sum_of_densities = np.zeros(max_value)
-        for j in range(max_value):
-            if j >= 1:
-                sum_of_densities[j] += sum_of_densities[j - 1]
-            sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
+    #     sum_of_densities = np.zeros(max_value)
+    #     for j in range(max_value):
+    #         if j >= 1:
+    #             sum_of_densities[j] += sum_of_densities[j - 1]
+    #         # sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
+    #         sum_of_densities[j] += pmf(j, background_nbinom[fixateRange][0], background_nbinom[fixateRange][1])
 
-        background_sum_of_densities_dict[fixateRange] = sum_of_densities
-        background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
+    #     background_sum_of_densities_dict[fixateRange] = sum_of_densities
+    #     # background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
+    #     background_nbinom[-fixateRange] = (pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
 
-        sum_of_densities = np.zeros(max_value)
-        for j in range(max_value):
-            if j >= 1:
-                sum_of_densities[j] += sum_of_densities[j - 1]
-            sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
+    #     sum_of_densities = np.zeros(max_value)
+    #     for j in range(max_value):
+    #         if j >= 1:
+    #             sum_of_densities[j] += sum_of_densities[j - 1]
+    #         # sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
+    #         sum_of_densities[j] += pmf(j, background_nbinom[-fixateRange][0], background_nbinom[-fixateRange][1])
 
-        background_sum_of_densities_dict[-fixateRange] = sum_of_densities
+    #     background_sum_of_densities_dict[-fixateRange] = sum_of_densities
 
-        min_key = min(background_sum_of_densities_dict)
-        max_key = max(background_sum_of_densities_dict)
+    #     min_key = min(background_sum_of_densities_dict)
+    #     max_key = max(background_sum_of_densities_dict)
 
-        for key in pBackgroundModel.keys():
-            if key in background_sum_of_densities_dict:
-                continue
-            if key < min_key:
-                background_sum_of_densities_dict[key] = background_sum_of_densities_dict[min_key]
-            elif key > max_key:
-                background_sum_of_densities_dict[key] = background_sum_of_densities_dict[max_key]
+    #     for key in pBackgroundModel.keys():
+    #         if key in background_sum_of_densities_dict:
+    #             continue
+    #         if key < min_key:
+    #             background_sum_of_densities_dict[key] = background_sum_of_densities_dict[min_key]
+    #         elif key > max_key:
+    #             background_sum_of_densities_dict[key] = background_sum_of_densities_dict[max_key]
 
-        return background_sum_of_densities_dict
+    #     return background_sum_of_densities_dict
 
     def merge_neighbors(self, pScoresDictionary, pMergeThreshold=1000):
         if pScoresDictionary is None or len(pScoresDictionary) == 0:
@@ -657,13 +793,17 @@ class Viewpoint():
 
         return scores_dict, merged_lines_dict
 
-    def readSignificantRegionsFile(self, pSignificantFile, pViewpointIndex, pResolution, pRange, pViewpoint):
+    def readSignificantRegionsFile(self, pSignificantFile, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
         highlight_areas_list = []
         p_values = []
-        _, reference_point_start, reference_point_end = pViewpoint.split('_')
-
+        viewpoint_split = pViewpoint.split('_')
+        if len(viewpoint_split) == 3:
+            _, reference_point_start, reference_point_end = viewpoint_split
+        else:
+            log.debug('viewpoint_split {}, file: {}'.format(viewpoint_split, pSignificantFile))
+            return None, None
         with open(pSignificantFile) as fh:
             # skip header
             for line in fh.readlines():
@@ -680,10 +820,12 @@ class Viewpoint():
                     if int(_line[5]) < 0:
                         # reference_point_position = reference_point_start
                         relative_position_genomic_coordinates = start - int(reference_point_start)
+                        viewpointIndex = pViewpointIndexStart
                     else:
                         relative_position_genomic_coordinates = start - int(reference_point_end)
+                        viewpointIndex = pViewpointIndexEnd
 
-                    relative_position = pViewpointIndex + \
+                    relative_position = viewpointIndex + \
                         (relative_position_genomic_coordinates / pResolution)
                     highlight_areas_list.append(
                         [relative_position, relative_position + width])

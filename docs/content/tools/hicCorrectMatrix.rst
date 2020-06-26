@@ -27,7 +27,7 @@ The iterative correction can be used via:
     $ hicCorrectMatrix correct --matrix matrix.cool --correctionMethod ICE --chromosomes chrUextra chr3LHet --iterNum 500  --outFileName corrected_ICE.cool --filterThreshold -1.5 5.0
 
 
-HiCExplorer version 3.1 changes the way data is transfered from Python to C++ for the KR correction algorithm. With these changes 
+HiCExplorer version 3.1 changes the way data is transferred from Python to C++ for the KR correction algorithm. With these changes 
 the following runtime and peak memory usage on Rao 2014 GM12878 primary + replicate data is possible:
 
 - KR on 25kb: 165 GB, 1:08 h 

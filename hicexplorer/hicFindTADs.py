@@ -57,7 +57,7 @@ of information at certain bins, and depending on the parameters used with this t
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrix', '-m',
-                                help='Corrected Hi-C matrix to use for the computations',
+                                help='Corrected Hi-C matrix to use for the computations.',
                                 required=True)
 
     parserRequired.add_argument('--outPrefix',
@@ -66,8 +66,8 @@ of information at certain bins, and depending on the parameters used with this t
                                 'We call this format a bedgraph matrix and can be plotted using '
                                 '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
                                 'a different window length starting from --minDepth to --maxDepth. '
-                                '2. <prefix>_zscore_matrix.h5, the zscore matrix used for the computation of '
-                                'the TAD-separation score.  3. < prefix > _boundaries.bed, which'
+                                '2. <prefix>_zscore_matrix.h5, the z-score matrix used for the computation of '
+                                'the TAD-separation score.  3. < prefix > _boundaries.bed, which '
                                 'contains the positions of boundaries. The genomic coordinates in this file '
                                 'correspond to the resolution used. Thus, for Hi-C bins of '
                                 '10.000bp the boundary position is 10.000bp long. For restriction fragment '
@@ -75,15 +75,15 @@ of information at certain bins, and depending on the parameters used with this t
                                 'at the boundary. 4. <prefix>_domains.bed '
                                 'contains the TADs positions. This is a non-overlapping set of genomic '
                                 'positions. 5. <prefix>_boundaries.gff Similar to the boundaries bed file '
-                                'but with extra information (pvalue, delta). 6. <prefix>_score.bedgraph file '
+                                'but with extra information (p-value, delta). 6. <prefix>_score.bedgraph file '
                                 'contains the TAD-separation score '
                                 'measured at each Hi-C bin coordinate. Is useful to visualize in a genome '
-                                'browser. The delta and pvalue settings are saved as part of the name.',
+                                'browser. The delta and p-value settings are saved as part of the name.',
                                 required=True)
 
     parserRequired.add_argument('--correctForMultipleTesting',
                                 help='Select the bonferroni or false discovery rate for a multiple comparison. Bonferroni '
-                                'controlls the familywise error rate (FWER) and needs a p-value. The false discovery rate '
+                                'controls the family-wise error rate (FWER) and needs a p-value. The false discovery rate '
                                 '(FDR) controls the likelyhood of type I errors and needs a q-value. As a third option '
                                 'it is possible to not use a multiple comparison method at all.',
                                 type=str,
@@ -108,9 +108,9 @@ of information at certain bins, and depending on the parameters used with this t
                            type=int)
 
     parserOpt.add_argument('--step',
-                           help='Step size when moving from --minDepth to --maxDepth. Note, the step size'
+                           help='Step size when moving from --minDepth to --maxDepth. Note, the step size '
                            'grows exponentially as '
-                           '`maxDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
+                           '`minDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
                            'reaches `maxDepth`. For example, selecting  step=10,000, minDepth=20,000 '
                            'and maxDepth=150,000 will compute TAD-scores for window sizes: '
                            '20,000, 30,000, 40,000, 70,000 and 100,000',
@@ -126,11 +126,11 @@ of information at certain bins, and depending on the parameters used with this t
                            required=False)
 
     parserOpt.add_argument('--thresholdComparisons',
-                           help='P-value threshold for the bonferroni correction / q-value for FDR. '
+                           help='P-value threshold for the Bonferroni correction / q-value for FDR. '
                            'The probability of a local minima to be a boundary '
                            'is estimated by comparing the distribution (Wilcoxon ranksum) of '
-                           'the  zscores between the left and right '
-                           'regions (diamond) at the local minimum with the matrix zscores for a '
+                           'the  z-scores between the left and right '
+                           'regions (diamond) at the local minimum with the matrix z-scores for a '
                            'diamond at --minDepth to the left and a diamond --minDepth to the right. '
                            'If --correctForMultipleTesting is \'None\' the threshold is applied on the '
                            'raw p-values without any multiple testing correction. Set it to \'1\' if no threshold should be used.',

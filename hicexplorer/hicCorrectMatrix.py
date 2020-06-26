@@ -39,15 +39,15 @@ This function provides 2 balancing methods which can be applied on a raw
 matrix.
 
 I. KR: It balances a matrix using a fast balancing algorithm introduced by
-Knight and Ruiz(2012).
+Knight and Ruiz (2012).
 
-II. ICE: Iterative correction for a Hi-C matrix (see Imakaev et al. 2012
-Nature Methods for details). For the method to work correctly, bins with
-zero reads assigned to them should be removed as they can not be corrected.
+II. ICE: Iterative correction of a Hi-C matrix (see Imakaev et al. 2012
+Nature Methods for details). For this method to work correctly, bins with
+zero reads assigned to them should be removed as they cannot be corrected.
 Also, bins with low number of reads should be removed,
 otherwise, during the correction step, the counts associated with
 those bins will be amplified (usually, zero and low coverage bins
-tend contain repetitive regions).  Bins with extremely high number
+tend to contain repetitive regions). Bins with extremely high number
 of reads can also be removed from the correction as they may represent
 copy number variations.
 
@@ -59,7 +59,7 @@ It is recommended to run hicCorrectMatrix as follows:
 
     $ hicCorrectMatrix diagnostic_plot --matrix hic_matrix.h5 -o plot_file.png
 
-Then, after revising the plot and deciding the threshold values:
+Then, after revising the plot and deciding on the threshold values:
 
     $ hicCorrectMatrix correct --correctionMethod ICE --matrix hic_matrix.h5 \r
     --filterThreshold <lower threshold> <upper threshold> -o corrected_matrix
@@ -68,6 +68,8 @@ For a more in-depth review of how to determine the threshold values,
 please visit:
 http://hicexplorer.readthedocs.io/en/latest/content/example_usage.html\
 #correction-of-hi-c-matrix
+
+We recommend to compute first the normalization (with hicNormalize) and correct the data (with hicCorrectMatrix) in a second step.
 """
     )
 
@@ -231,7 +233,7 @@ def correct_subparser():
                            action='store_true')
 
     parserOpt.add_argument('--verbose',
-                           help='Print processing status',
+                           help='Print processing status.',
                            action='store_true')
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -643,7 +645,7 @@ def main(args=None):
         # compute and print some statistics
         pct_outlier = 100 * float(len(outlier_regions)) / ma.matrix.shape[0]
         ma.printchrtoremove(outlier_regions, label="Bins that are MAD outliers ({:.2f}%) "
-                            "out of".format(pct_outlier, ma.matrix.shape[0]),
+                            "out of {}".format(pct_outlier, ma.matrix.shape[0]),
                             restore_masked_bins=False)
 
         assert matrix_shape == ma.matrix.shape

@@ -1,6 +1,108 @@
 News and Developments
 =====================
 
+Release 3.5
+-----------
+**xx June 2020**
+
+- Major update for hicDetectLoops: Results are now closer to HiCCUPS, it is faster and needs less memory. 
+- hicHyperoptDetectLoops: New tool to compute the best parameter setting if the number of expected loops is given and a protein boundary file (e.g. CTCF on mammals) is provided
+- hicHyperoptDetectLoopsHiCCUPS: New tool to compute the best parameter setting for Juicers HiCCUPS. HiCCUPS and all its dependencies are not part of HiCExplorer and must be provided by the user. Number of expected loops and a protein boundary file (e.g. CTCF on mammals) must be provided.
+- hicMergeDomains: New tool to compute a merge of TADs computed on different resolutions. Moreover it provides a cleaning of the boundaries with the help of a protein peak file, and the hierarchical dependencies of TADs can be plotted. This tool is the result of the Bachelor thesis from Sarah Domogalla (@SarahMaria27). Thanks for your contribution!
+
+
+
+Release 3.4.3
+-------------
+**23 March 2020**
+
+- Fixing the wrong p-value computation in for chicViewpoint. New method is more accurate for floating points.
+- Fixing a bug in chicViewpointBackgroundModel and chicQualityControl if an non-existing reference point was used.
+- Improving all chic* modules with a capturing of errors in sub-processes. It is now guaranteed that the computation will terminate. Either successful or by error. 
+- Add option 'truncateZero' to chicViewpointBackgroundModel: This removes all zero values for the distributions before fitting to fight over dispersion.
+- Add option 'decimalPlaces' to chicViewpoint to adjust the decimal places in the output for all floating values. Helpful for really small p-values
+- Add option 'truncateZeroPvalues' to chicSignificantInteractions to set all p-values which are 0 to 1 and are therefore ignored.
+- Add option 'truncateZeroPvalues' to chicPlotViewpoint to set all p-values which are 0 to 1 and do not disturb the presentation of real p-values
+
+Release 3.4.2
+-------------
+**7 March 2020**
+
+- This release fixes the wrong name scheme which was used in the chicModules. The most .bed files are now .txt files.
+- hicDetectLoops got an inner chromosome parallelization to decrease the compute time.
+- hicPlotMatrix got three new parameters: rotationX, rotationY and fontSize to adjust the position and font size of the labels. We hope this can lead in certain cases to a a better readability
+- hicPlotMatrix: fixed a bug that occurred if the list of chromosomes was given and the last chromosome appeared as an additional label. 
+- Improving and updating the documentation.
+
+
+Preprint
+--------
+**6 March 2020*
+
+The preprint of the loop detection algorithm is online via biorXiv: `<https://www.biorxiv.org/content/10.1101/2020.03.05.979096v1>`_
+
+
+
+Release 3.4.1
+-------------
+**3 February 2020**
+
+- This release fixes a bug in chicViewpoint that caused a crash if the data to be averaged is less than the window size.
+
+Release 3.4
+-----------
+**28 January 2020**
+
+- Fixing a bug in hicAdjustMatrix: `keep` option had a bug concerning the cutting before the end of a chromosome or the start position was not from the beginning of the chromosome 
+- hicCompartmentPolarization was renamed to hicCompartmentalization and got some bug fixes 
+- Extending the option on how the observed vs. Expected matrix is computed and adding the parameter `--ligation_factor` to achieve a rescale behaviour of the values as it is implemented in Homer. The same changes are applied to `hicTransform` 
+- Improved the documentation 
+- Adding an option in hicAverageRegions to select start, end, center or start_end as start index for up/downstream range. 
+- hicBuildMatrix: Removed default value of binSize to enable mutually exclusive group error if not one of them is set. Behaviour so far was that the binSize was taken. 
+- hicPlotSVL: adding xlegend to plot of SVL ratios to indicate the data points per boxplots are the chromosome ratios 
+- hicQuickQC: Removed binSize option of hicQuickQC because it does not matter for QC calculation and adding a sentence to recommend the usage of restriction enzyme and dangling end sequence. Fixing bug issue #464 
+- hicNormalize: Adding option in hicNormalize to remove values after the normalization if values are smaller than a given threshold 
+- Capture Hi-C modules: Change background model distribution assumption from negative binomial to continuous negative binomial by using Gamma functions as a replacement for the binomial coefficient. Source: https://stats.stackexchange.com/questions/310676/continuous-generalization-of-the-negative-binomial-distribution/311927 
+- hicInfo: Implementing feature request #456. The length of chromosomes is now show in the information too 
+
+
+Release 3.3.1
+-------------
+**15 November 2019**
+
+- Fixing a bug in the labeling of chicPlotViewpoints if the value range is counted in MB
+- Add an option to chicViewpoint to pre-compute a x-fold of p-value over the maximum value of the relative distance
+
+
+Release 3.3
+-----------
+**8 October 2019**
+
+- Fixing many bugs:
+   - A bug in hicDetectLoops if a sub-matrix was very small
+   - A bug in hicPlotMatrix if the region defined by --region was only a chromosome and loops should be plotted too
+   - A bug in hicPlotMatrix if a loop region should be plotted and chromosomeOrder argument was used too
+   - A bug in hicAggregateContacts (issue #405) if chromosomes were present in the matrix but not in the bed file
+   - A bug in hicAdjustMatrix concerning a bed file and consecutive regions, see issue #343
+   - A bug in hicAdjustMatrix if a chromosome is present in the matrix but not in the bed file, see issue #397
+   - A bug in hicCompartmentsPolarization concerning the arguments 'quantile' and 'outliers' were interpreted as strings but should be integers
+   - A bug in hicAdjustMatrix concerning the 'keep' option and how matrices are reordered internally. Thanks @LeilyR
+
+- Added features as requested:
+   - hicPCA ignores now masked bins, see issue #342
+   - chicPlotViewpoint: 
+      - Better legend handling on x-axis
+      - Peaks are now display with their fill width
+      - Add option `--pValueSignificantLevels` to categorize the p-values in x levels (e.g. 0.001 0.05 0.1)
+   - chicViewpoint:
+      - adding sorting via viewpoints and not by samples option (--allViewpointsList)
+   - Adding an option to hicNormalize to normalize via multiplication and a use defined value (see issues #385, #424)
+
+- Rearrange hicAdjustMatrix to have a better accessibility to its functions from outside of main
+- Improving the documentation and fixing grammar / spelling mistakes. Thanks @simonbray
+- New script: hicPlotSVL to investigate short range vs long range ratios.
+
+
 Release 3.2
 -----------
 ** 22 August 2019**

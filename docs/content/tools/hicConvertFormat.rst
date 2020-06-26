@@ -10,9 +10,9 @@ hicConvertFormat
 Background
 ^^^^^^^^^^
 
-To reproduce analysis and to compare and use different Hi-C analysis software the exchange of the interaction matrix is crucial.
-However, the most Hi-C software is supporting only their own data format which makes the exchange difficult. HiCExplorer supports a range of 
-interaction matrices, either to import or to export. 
+To reproduce analyses and to compare and use different Hi-C analysis software, conversion between interaction matrix file formats is crucial.
+However, most Hi-C softwares are only supporting their own data format which makes the exchange difficult. HiCExplorer supports a range of 
+interaction matrices, both for import and for export. 
 
 Import:
     - hic
@@ -38,14 +38,14 @@ hic2cool
 """"""""
 
 HiCExplorer uses the library hic2cool_  to convert **.hic** interaction matrix files to the cool format. Usually .hic files 
-have the three correction factors **KR**, **VC** or **VC_SQRT**; however these can not be applied nativly by HiCExplorer tools because 
+have the three correction factors **KR**, **VC** or **VC_SQRT**; however these cannot be applied nativly by HiCExplorer tools because 
 HiCExplorer expects the correction values to be stored in the column **weight**.
 To work with corrected data the correction factors need to applied separatly, see section cool to cool.
 
 .. _hic2cool: https://github.com/4dn-dcic/hic2cool
 
 The following example will convert a hic file which contains the resolution of 1000 to a cool file with 10kb resolution. The desired 
-resolution needs to be existing in the hic file. If no resolution parameter is defined a mcool file with all available resolutions is created.
+resolution needs to be existing in the hic file. If no resolution parameter is defined, a mcool file with all available resolutions is created.
 
 .. code:: bash
 
@@ -56,17 +56,17 @@ It is only possible to convert from hic to cool format, no other formats are sup
 cool to cool
 """"""""""""
 
-The cool file format is developed and maintained by the Mirny_ lab and allows to access interaction matrices in a easy to use data format.
+The cool file format is developed and maintained by the Mirny_ lab and allows to access interaction matrices in an easy to use data format.
 
 .. _Mirny: https://github.com/mirnylab/cooler
 
 
-Cool data format allows to use the following options:
+The cool data format allows to use the following options:
 
-- correction_name: In the case correction factors are not stored in 'weight' the correct column name can be defined with this parameter and the resulting matrix will store the values in 'weight'.
-- correction_division: Correction factors can be applied by a multiplication or a division. The default behaviour is to use the multiplication, in the case the correction factors are inverted, set this parameter.
+- correction_name: In case correction factors are not stored in 'weight' the correct column name can be defined using this parameter and the resulting matrix will store the values in 'weight'.
+- correction_division: Correction factors can be applied by a multiplication or a division. The default behaviour is to use the multiplication, in case the correction factors are inverted, set this parameter.
 - store_applied_correction: Set this parameter if correction factors should be applied on the data and should be written back to colum 'counts' in the corrected form and not as raw. Default: not set.
-- chromosomes: Define a list of chromosomes which should be included in the output matrix. All chromosomes which are not defined are not part of the new matrix. This parameter can speed up the processing especiallly if only one chromosome is used.
+- chromosomes: Define a list of chromosomes which should be included in the output matrix. All chromosomes which are not defined are not part of the new matrix. This parameter can speed up the processing especially if only one chromosome is used.
 - enforce_integer: Raw interaction data is stored as integers, after the correction is applied the data is a float. Set a this parameter to enforce integer values in the new matrix.
 - load_raw_values: Set this parameter if the interaction data should not be loaded with the correction factors.
 
@@ -80,8 +80,7 @@ Example usage
 Homer
 """""
 
-Homer_ is a software for 'motif discovery and next generation sequencing analysis' and supports Hi-C. HiCExplorer is able to read and write the used 
-interaction matrix of Homer. Homer stores the interaction matrix in a simple text file as a dense matrix, to write 
+Homer_ is a software for 'motif discovery and next generation sequencing analysis' and supports Hi-C. HiCExplorer is able to read and write the interaction matrix from Homer. Homer stores the interaction matrix in a simple text file as a dense matrix. To write 
 large matrices in Homer format needs a lot of space and can take a few ours to days. 
 
 .. _Homer: http://homer.ucsd.edu/homer/index.html
@@ -114,13 +113,13 @@ With HiCExplorer it is possible to create a multiple cool (mcool) file. These mc
 
 .. _HiGlass: http://higlass.io/
 
-To create a mcool file use as input either one matrix in one of the supported read formats and define the desired resolutions or define
-multiple input matrices. In the second case the matrices should all have different resolutions.
+To create an mcool file, use as input either one matrix in one of the supported read formats and define the desired resolutions or define
+multiple input matrices. In the second case, the matrices should all have different resolutions.
 
 Example usage
 -------------
 
-The resolutions need to be a multiple of the input matrix i.e. matrix with 10kb than 20kb and 30kb are possible but not 35kb.
+The resolutions need to be a multiple of the input matrix i.e. matrix with 10kb, 20kb and 30kb are possible but not 35kb.
 
 .. code:: bash
 

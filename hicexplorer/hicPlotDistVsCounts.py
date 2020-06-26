@@ -61,7 +61,7 @@ def parse_arguments(args=None):
                            action='store_true')
 
     parserOpt.add_argument('--maxdepth',
-                           help='Maximum distance from diagonal to use. In other words, distances up to maxDeph are '
+                           help='Maximum distance from diagonal to use. In other words, distances up to maxDepth are '
                            'computed. Default is 3 million bp.',
                            metavar='INT bp',
                            type=int,

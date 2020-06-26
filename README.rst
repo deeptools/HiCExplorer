@@ -6,14 +6,12 @@
    :target: https://anaconda.org/bioconda/hicexplorer
 .. image:: https://quay.io/repository/biocontainers/hicexplorer/status
    :target: https://quay.io/repository/biocontainers/hicexplorer
-.. image:: https://badge.fury.io/py/HiCExplorer.svg
-       :target: https://badge.fury.io/py/HiCExplorer
 
 HiCExplorer
 ===========
 
-Set of programs to process, analyze and visualize Hi-C data
------------------------------------------------------------
+Set of programs to process, analyze and visualize Hi-C and cHi-C data
+---------------------------------------------------------------------
 
 Sequencing techniques that probe the 3D organization of the genome generate large amounts of data whose processing,
 analysis and visualization is challenging. Here, we present HiCExplorer, a set of tools for the analysis and
@@ -24,17 +22,25 @@ multiple contact matrices along with other types of data like genes, compartment
 any type of genomic scores), long range contacts and the visualization of viewpoints.
 
 
+Single-cell Hi-C data
+---------------------
+
+We provide the scHiCExplorer to create, manipulate, analyse and visualize single-cell Hi-C data in its own software:
+The  `scHiCExplorer <https://github.com/joachimwolff/schicexplorer>`_.
+
 Citation:
 ^^^^^^^^^
 
-
-Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening, Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke.
-**"High-resolution TADs reveal DNA sequences underlying genome organization in flies". Nature Communications**, Volume 9, Article number: 189 (2018), doi: https://doi.org/10.1038/s41467-017-02525-w
+Joachim Wolff, Leily Rabbani, Ralf Gilsbach, Gautier Richard, Thomas Manke, Rolf Backofen, Björn A Grüning.
+**Galaxy HiCExplorer 3: a web server for reproducible Hi-C, capture Hi-C and single-cell Hi-C data analysis, quality control and visualization, Nucleic Acids Research**, , gkaa220, https://doi.org/10.1093/nar/gkaa220
 
 Joachim Wolff, Vivek Bhardwaj, Stephan Nothjunge, Gautier Richard, Gina Renschler, Ralf Gilsbach, Thomas Manke, Rolf Backofen, Fidel Ramírez, Björn A Grüning. 
 **"Galaxy HiCExplorer: a web server for reproducible Hi-C data analysis, quality control and visualization", Nucleic Acids Research**, Volume 46, Issue W1, 2 July 2018, Pages W11–W16, doi: https://doi.org/10.1093/nar/gky504
 
-.. image:: ./docs/images/hicex2.png
+Fidel Ramirez, Vivek Bhardwaj, Jose Villaveces, Laura Arrigoni, Bjoern A Gruening, Kin Chung Lam, Bianca Habermann, Asifa Akhtar, Thomas Manke.
+**"High-resolution TADs reveal DNA sequences underlying genome organization in flies". Nature Communications**, Volume 9, Article number: 189 (2018), doi: https://doi.org/10.1038/s41467-017-02525-w
+
+.. image:: ./docs/images/hicex3.png
 
 Availability
 ^^^^^^^^^^^^

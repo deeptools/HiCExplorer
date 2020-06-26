@@ -38,8 +38,8 @@ def test_main():
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
-    args = "-s {} {} -bs 5000 --QCfolder {} -seq {} --lines 1000".format(sam_R1, sam_R2,
-                                                                         qc_folder, 'GATC').split()
+    args = "-s {} {} --QCfolder {} -seq {} --lines 1000".format(sam_R1, sam_R2,
+                                                                qc_folder, 'GATC').split()
     hicQuickQC.main(args)
 
     print(set(os.listdir(ROOT + "hicQuickQC/")))

@@ -14,7 +14,7 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      add_help=False,
                                      description=('Adds Hi-C matrices of the same size. Format '
-                                                  'has to be hdf5 (.h5) or npz. In order to minimze the '
+                                                  'has to be hdf5 (.h5) or npz. In order to minimize the '
                                                   'the loss of information, it is recommended to '
                                                   'to sum uncorrected matrices (before hicCorrectMatrix).'))
 
@@ -28,8 +28,9 @@ def parse_arguments(args=None):
                                 required=True)
 
     parserRequired.add_argument('--outFileName', '-o',
-                                help='File name to save the resulting matrix. The output is '
-                                'also a .h5 file. Please, do not add the .h5 suffix.',
+                                help='File name to save the resulting matrix. The output is from the same file type '
+                                'as the input. Please add the file ending suffix (either .h5 or .cool), if it is not given, '
+                                'there will be no output.',
                                 required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')

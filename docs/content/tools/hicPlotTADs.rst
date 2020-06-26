@@ -9,15 +9,15 @@ hicPlotTADs
 Description
 ^^^^^^^^^^^
 
-For parameter options please see `pyGenomeTracks <https://github.com/deeptools/pyGenomeTracks>`_ documentation
+For parameter options please see the `pyGenomeTracks <https://github.com/deeptools/pyGenomeTracks>`_ documentation.
 
 
 Usage example
 ^^^^^^^^^^^^^
 
-hicPlotTADs output is similar to a genome browser screen-shot that besides the usual genes,
+The hicPlotTADs output is similar to a genome browser screenshot that besides the usual genes
 and score data (like bigwig or bedgraph files) also contains Hi-C data. The plot is composed of
-tracks that need to be specified in a configuration file. Once the tracks file is ready,
+tracks that need to be specified in a configuration file. Once the track file is ready,
 hicPlotTADs can be used as follows:
 
 .. code-block:: bash
@@ -32,7 +32,7 @@ Configuration file template
 
 The following is a template for the configuration file which is based on .ini configuration files. Each
 track is defined by a section header (for example `[hic track]`), followed by parameters specific to the
-section as `color`, `title`, etc. For details please see the documentation of pyGenomeTracks.
+section as `color`, `title`, etc. For details please see the documentation of `pyGenomeTracks <https://github.com/deeptools/pyGenomeTracks>`_.
 
 .. code:: bash
 
@@ -56,12 +56,12 @@ section as `color`, `title`, etc. For details please see the documentation of py
     [tads]
     file = domains.bed
     file_type = domains
-    border color = black
+    border_color = black
     color = none
     # the tads are overlay over the hic-matrix
     # the share-y options sets the y-axis to be shared
     # between the Hi-C matrix and the TADs. 
-    overlay previous = share-y
+    overlay_previous = share-y
 
     [spacer]
 
