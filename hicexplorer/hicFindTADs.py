@@ -1353,12 +1353,19 @@ def main(args=None):
                      p_correct_for_multiple_testing=args.correctForMultipleTesting, p_threshold_comparisons=args.thresholdComparisons,
                      pChromosomes=args.chromosomes)
 
+    matrix_ending = args.matrix.split('.')[-1]
+    if matrix_ending not in ['cool', 'h5']:
+        if 'mcool::' not in matrix_ending:
+            log.error("Could not determine file ending. Please use either .h5, .cool or .mcool::/path/to/matrix.")
+            log.error("used input: {}, ending {}".format(args.matrix, matrix_ending))
+
+            exit(1)
     tad_score_file = args.outPrefix + "_tad_score.bm"
-    zscore_matrix_file = args.outPrefix + "_zscore_matrix.h5"
+    zscore_matrix_file = args.outPrefix + "_zscore_matrix." + matrix_ending
 
     if args.TAD_sep_score_prefix is not None:
         tad_score_file = args.TAD_sep_score_prefix + "_tad_score.bm"
-        zscore_matrix_file = args.TAD_sep_score_prefix + "_zscore_matrix.h5"
+        zscore_matrix_file = args.TAD_sep_score_prefix + "_zscore_matrix." + matrix_ending
         # check that the given file exists
         if not os.path.isfile(tad_score_file):
             log.error("The given TAD_sep_score_prefix does not contain a valid TAD-separation score. Please check.\n"
@@ -1375,7 +1382,7 @@ def main(args=None):
     elif not os.path.isfile(tad_score_file):
         ft.compute_spectra_matrix()
         # save z-score matrix that is needed for find TADs algorithm
-        ft.hic_ma.save(args.outPrefix + "_zscore_matrix.h5")
+        ft.hic_ma.save(args.outPrefix + "_zscore_matrix." + matrix_ending)
         ft.save_bedgraph_matrix(tad_score_file)
     else:
         log.info("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
