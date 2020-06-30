@@ -107,14 +107,20 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
         # True --> middle thread: ignore first and last element in tad processing
         # False --> last thread: ignore first element, process last one
         if pThreadId == None:
+            log.debug('first thread')
             if i == len(pDomainList)-1:
                 continue
         elif pThreadId == True:
+            log.debug('middle thread')
+
             if i == 0 or i == len(pDomainList)-1:
                 continue
         elif pThreadId == False:
+            log.debug('last thread')
+
             if i == 0:
                 continue
+        
         if i - 1 >= 0:
             chromosom = pDomainList[i - 1][0]
             start = pDomainList[i - 1][1]
@@ -126,6 +132,7 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
         else:
             end = pDomainList[i][2]
         midpos = row[1] + ((row[2] - row[1]) / 2)
+        log.debug('tow {} hoe {}'.format(str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])  , str(chromosom) + ':' + str(start) + '-' + str(end) ))
 
         if pCoolOrH5:
 
@@ -142,8 +149,7 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
             hic_matrix_control_inter_tad = hm.hiCMatrix(
                 pMatrixFile=pMatrixControl, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
 
-            log.debug('tow {}'.format(str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])  ))
-            log.debug('hoe {}'.format(str(chromosom) + ':' + str(start) + '-' + str(end) ))
+            # log.debug('hoe {}'.format())
             # get intra-TAD data
             # hic_matrix_target = hm.hiCMatrix(
             #     pMatrixFile=pMatrixTarget, pChrnameList=[str(row[0])])
@@ -189,16 +195,25 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
             outer_right_boundary_index_target = -1
 
         else:
-            outer_left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
+            outer_left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[0] #####
             outer_left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
 
             outer_right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
             outer_right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
 
-        if i + 1 < len(pDomainList):
-            # get index position left tad with tad
-            right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+
+        if i + 1 < len(pDomainList) and not pCoolOrH5:
+        # get index position left tad with tad
+            right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0] #####
             right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+
+        log.debug('right: {}'.format(hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])))
+        log.debug('left: {}'.format(hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])))
+
+        log.debug('outer_left_boundary_index_target {}'.format(outer_left_boundary_index_target))
+        log.debug('left_boundary_index_target {}'.format(left_boundary_index_target))
+        log.debug('right_boundary_index_target {}'.format(right_boundary_index_target))
+        # log.debug('outer_left_boundary_index_target {}'.format(outer_left_boundary_index_target))
 
         if i - 1 >= 0 and i + 1 < len(pDomainList):
             intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:left_boundary_index_target, left_boundary_index_target:right_boundary_index_target].toarray()
@@ -219,7 +234,7 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
         statistic_left = None
         statistic_right = None
 
-        if i - 1 > 0 and i + 1 < len(pDomainList):
+        if i - 1 >= 0 and i + 1 < len(pDomainList):
             intertad_left_target = intertad_left_target.flatten()
             intertad_left_control = intertad_left_control.flatten()
             intertad_right_target = intertad_right_target.flatten()
@@ -227,13 +242,16 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
 
             statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
             statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
-        elif i - 1 <= 0 and i + 1 < len(pDomainList):
+        elif i - 1 < 0 and i + 1 < len(pDomainList):
             intertad_right_target = intertad_right_target.flatten()
             intertad_right_control = intertad_right_control.flatten()
             statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
         elif i - 1 > 0 and i + 1 >= len(pDomainList):
             intertad_left_target = intertad_left_target.flatten()
             intertad_left_control = intertad_left_control.flatten()
+            log.debug('intertad_left_target {}'.format(intertad_left_target))
+            log.debug('intertad_left_control {}'.format(intertad_left_control))
+
             statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
 
         # log.debug('matrix_target {}'.format(matrix_target))
@@ -266,7 +284,7 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
             accepted_inter_right.append(0)
             p_values.append(significance_level_right)
 
-        if significance_level_right is None or np.isnan(significance_level):
+        if significance_level is None or np.isnan(significance_level):
             accepted_intra.append(0)
             p_values.append(np.nan)
         elif significance_level <= pPValue:
@@ -325,7 +343,7 @@ def main(args=None):
     thread_id = None
     for i in range(args.threads):
 
-        if i  == 0:
+        if i == 0:
             domainListThread = domains[i * domainsPerThread:((i + 1) * domainsPerThread)+1]
             thread_id = None
         elif i < args.threads - 1:
@@ -336,7 +354,8 @@ def main(args=None):
             domainListThread = domains[(i * domainsPerThread)-1:]
             thread_id = False
 
-
+        if args.threads == 1:
+            thread_id = ''
         queue[i] = Queue()
         process[i] = Process(target=computeDifferentialTADs, kwargs=dict(
             pMatrixTarget=hic_matrix_target,
