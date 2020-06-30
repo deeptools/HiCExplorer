@@ -7,7 +7,7 @@ hicMergeDomains
    :ref: hicexplorer.hicMergeDomains.parse_arguments
    :prog: hicMergeDomains
 
-This tool is the result of the bachelor thesis from Sarah Domogalla at the Bioinformatics lab of the Albert-Ludwigs_University Freiburg. The thesis was written in winter semester 2019/2020.
+This tool is the result of the `bachelor thesis <http://www.bioinf.uni-freiburg.de/Lehre/Theses/BA_Sarah_Domogalla.pdf>`__ (in German) from Sarah Domogalla at the Bioinformatics lab of the Albert-Ludwigs-University Freiburg. The thesis was written in winter semester 2019/2020.
 
 
 The thesis covers the issue of differently detected TADs of the same data but on different resolutions. 

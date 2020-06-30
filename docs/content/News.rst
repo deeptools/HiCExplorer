@@ -9,8 +9,9 @@ Release 3.5
 - hicHyperoptDetectLoops: New tool to compute the best parameter setting if the number of expected loops is given and a protein boundary file (e.g. CTCF on mammals) is provided
 - hicHyperoptDetectLoopsHiCCUPS: New tool to compute the best parameter setting for Juicers HiCCUPS. HiCCUPS and all its dependencies are not part of HiCExplorer and must be provided by the user. Number of expected loops and a protein boundary file (e.g. CTCF on mammals) must be provided.
 - hicMergeDomains: New tool to compute a merge of TADs computed on different resolutions. Moreover it provides a cleaning of the boundaries with the help of a protein peak file, and the hierarchical dependencies of TADs can be plotted. This tool is the result of the Bachelor thesis from Sarah Domogalla (@SarahMaria27). Thanks for your contribution!
-
-
+- hicDifferentialTAD: New tool to compute differential TADs between two samples
+- Bug fix for hicFindTADs: The format of the intermediate z-score matrices are now depending on the format of the input Hi-C matrix
+- Bug fix for chic*-modules: Fixate range is now correct applied.
 
 Release 3.4.3
 -------------

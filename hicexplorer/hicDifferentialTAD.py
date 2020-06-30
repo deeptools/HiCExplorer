@@ -29,7 +29,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-Computes differential TADs by comparing the precomputed TAD regions of the target-matrix with the same regions of the control matrix. 
+Computes differential TADs by comparing the precomputed TAD regions of the target matrix with the same regions of the control matrix. 
 Please notice that the matrices need to have the same read coverage, this can be achieved with hicNormalize and the 'smallest'-mode.
 H0 is the assumption that two regions are identical, the rejected files contain therefore the as differential considered regions.""")
 
@@ -74,12 +74,12 @@ H0 is the assumption that two regions are identical, the rejected files contain 
 
 
 def readDomainBoundaries(pFile):
-    domains_df = pd.read_csv(pFile, sep='\t', header=None)[[0, 1, 2]]
+    domains_df = pd.read_csv(pFile, sep='\t', header=None)[[0, 1, 2, 3, 4, 5]]
 
     return domains_df
 
 
-def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH5, pPValue, pQueue):
+def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH5, pPValue, pThreadId, pQueue):
     accepted_inter_left = []
     accepted_inter_right = []
     accepted_intra = []
@@ -102,6 +102,19 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
 
         # log.debug('domain {} {} {}'.format(row[0], row[1], row[2]))
         # get inter-tad data
+
+        # None --> first thread, process first element in list, ignore last one
+        # True --> middle thread: ignore first and last element in tad processing
+        # False --> last thread: ignore first element, process last one
+        if pThreadId == None:
+            if i == len(pDomainList)-1:
+                continue
+        elif pThreadId == True:
+            if i == 0 or i == len(pDomainList)-1:
+                continue
+        elif pThreadId == False:
+            if i == 0:
+                continue
         if i - 1 >= 0:
             chromosom = pDomainList[i - 1][0]
             start = pDomainList[i - 1][1]
@@ -129,18 +142,20 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
             hic_matrix_control_inter_tad = hm.hiCMatrix(
                 pMatrixFile=pMatrixControl, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
 
+            log.debug('tow {}'.format(str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])  ))
+            log.debug('hoe {}'.format(str(chromosom) + ':' + str(start) + '-' + str(end) ))
             # get intra-TAD data
-            hic_matrix_target = hm.hiCMatrix(
-                pMatrixFile=pMatrixTarget, pChrnameList=[str(row[0])])
-            hic_matrix_control = hm.hiCMatrix(
-                pMatrixFile=pMatrixControl, pChrnameList=[str(row[0])])
-            matrix_target = hic_matrix_target.matrix.toarray()
-            matrix_control = hic_matrix_control.matrix.toarray()
+            # hic_matrix_target = hm.hiCMatrix(
+            #     pMatrixFile=pMatrixTarget, pChrnameList=[str(row[0])])
+            # hic_matrix_control = hm.hiCMatrix(
+            #     pMatrixFile=pMatrixControl, pChrnameList=[str(row[0])])
+            # matrix_target = hic_matrix_target.matrix.toarray()
+            # matrix_control = hic_matrix_control.matrix.toarray()
 
-            hic_matrix_target_inter_tad = hm.hiCMatrix(
-                pMatrixFile=pMatrixTarget, pChrnameList=[str(chromosom)])
-            hic_matrix_control_inter_tad = hm.hiCMatrix(
-                pMatrixFile=pMatrixControl, pChrnameList=[str(chromosom)])
+            # hic_matrix_target_inter_tad = hm.hiCMatrix(
+            #     pMatrixFile=pMatrixTarget, pChrnameList=[str(chromosom)])
+            # hic_matrix_control_inter_tad = hm.hiCMatrix(
+            #     pMatrixFile=pMatrixControl, pChrnameList=[str(chromosom)])
             matrix_target_inter_tad = hic_matrix_target_inter_tad.matrix
             matrix_control_inter_tad = hic_matrix_control_inter_tad.matrix
 
@@ -201,6 +216,9 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
 
         significance_level_left = None
         significance_level_right = None
+        statistic_left = None
+        statistic_right = None
+
         if i - 1 > 0 and i + 1 < len(pDomainList):
             intertad_left_target = intertad_left_target.flatten()
             intertad_left_control = intertad_left_control.flatten()
@@ -218,7 +236,14 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
             intertad_left_control = intertad_left_control.flatten()
             statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
 
+        # log.debug('matrix_target {}'.format(matrix_target))
+        # log.debug('matrix_control {}'.format(matrix_control))
+
         statistic, significance_level = ranksums(matrix_target, matrix_control)
+        log.debug('statistic {}, significance_level {}'.format(statistic, significance_level))
+        log.debug('right statistic {}, significance_level {}'.format(statistic_right, significance_level_right))
+        log.debug('left statistic {}, significance_level {}'.format(statistic_left, significance_level_left))
+
 
         p_values = []
         if significance_level_left is None or np.isnan(significance_level_left):
@@ -293,12 +318,24 @@ def main(args=None):
     queue = [None] * args.threads
     process = [None] * args.threads
     thread_done = [False] * args.threads
+
+    # None --> first thread, process first element in list, ignore last one
+    # True --> middle thread: ignore first and last element in tad processing
+    # False --> last thread: ignore first element, process last one
+    thread_id = None
     for i in range(args.threads):
 
-        if i < args.threads - 1:
-            domainListThread = domains[i * domainsPerThread:(i + 1) * domainsPerThread]
+        if i  == 0:
+            domainListThread = domains[i * domainsPerThread:((i + 1) * domainsPerThread)+1]
+            thread_id = None
+        elif i < args.threads - 1:
+            domainListThread = domains[(i * domainsPerThread)-1:((i + 1) * domainsPerThread)+1]
+            thread_id = True
+
         else:
-            domainListThread = domains[i * domainsPerThread:]
+            domainListThread = domains[(i * domainsPerThread)-1:]
+            thread_id = False
+
 
         queue[i] = Queue()
         process[i] = Process(target=computeDifferentialTADs, kwargs=dict(
@@ -307,6 +344,7 @@ def main(args=None):
             pDomainList=domainListThread,
             pCoolOrH5=is_cooler_control,
             pPValue=args.pValue,
+            pThreadId=thread_id,
             pQueue=queue[i]
         )
         )
@@ -375,10 +413,11 @@ def main(args=None):
     rejected_H0 = p_values_list[mask]
     accepted_rows = rows[~mask]
     rejected_rows = rows[mask]
-    with open(args.outFileNamePrefix + '_accepted.bed', 'w') as file:
+    with open(args.outFileNamePrefix + '_accepted.diff_tad', 'w') as file:
         header = '# Created with HiCExplorer\'s hicDifferentialTAD version ' + __version__ + '\n'
-        header += '# H0 accepted file to p-value: args.pValue with used mode: ' + args.mode + '\n'
-        header += '# Chromosome\tstart\tend\tp-value left-inter-TAD\tp-value right-inter-TAD\tp-value intra-TAD\n'
+        header += '# H0 \'regions are equal\' H0 is accepted for all p-value greater the user given p-value threshold; i.e. regions in this file are not considered as differential.\n'
+        header += '# Accepted regions with Wilcoxon rank-sum test to p-value: {}  with used mode: {} and modeReject: {} \n'.format(args.pValue, args.mode, args.modeReject )
+        header += '# Chromosome\tstart\tend\tname\tscore\tstrand\tp-value left-inter-TAD\tp-value right-inter-TAD\tp-value intra-TAD\n'
         file.write(header)
         for i, row in enumerate(accepted_rows):
             row_list = list(map(str, row))
@@ -388,10 +427,12 @@ def main(args=None):
             file.write('\t'.join(pvalue_list))
 
             file.write('\n')
-    with open(args.outFileNamePrefix + '_rejected.bed', 'w') as file:
+    with open(args.outFileNamePrefix + '_rejected.diff_tad', 'w') as file:
         header = '# Created with HiCExplorer\'s hicDifferentialTAD version ' + __version__ + '\n'
-        header += '# H0 rejected file to p-value: args.pValue with used mode: ' + args.mode + '\n'
-        header += '# Chromosome\tstart\tend\tp-value left-inter-TAD\tp-value right-inter-TAD\tp-value intra-TAD\n'
+        header += '# H0 \'regions are equal\' H0 is rejected for all p-value smaller or equal the user given p-value threshold; i.e. regions in this file are considered as differential.\n'
+        header += '# Rejected regions with Wilcoxon rank-sum test to p-value: {}  with used mode: {} and modeReject: {} \n'.format(args.pValue, args.mode, args.modeReject )
+        header += '# Chromosome\tstart\tend\tname\tscore\tstrand\tp-value left-inter-TAD\tp-value right-inter-TAD\tp-value intra-TAD\n'
+       
         file.write(header)
 
         for i, row in enumerate(rejected_rows):
