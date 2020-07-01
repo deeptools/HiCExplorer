@@ -7,7 +7,7 @@ from tempfile import NamedTemporaryFile, mkdtemp
 import shutil
 import os
 import numpy.testing as nt
-
+import pytest
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 sam_R1 = ROOT + "small_test_R1_unsorted.bam"
@@ -130,7 +130,7 @@ def test_build_matrix_cooler_metadata():
 
 
 def test_build_matrix_cooler_multiple():
-    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
+    outfile = NamedTemporaryFile(suffix='.mcool', delete=False)
     outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
     args = "-s {} {} --outFileName {} -bs 5000 10000 20000 -b /tmp/test.bam --QCfolder {} --threads 4".format(sam_R1, sam_R2,
@@ -138,9 +138,9 @@ def test_build_matrix_cooler_multiple():
                                                                                                               qc_folder).split()
     hicBuildMatrix.main(args)
 
-    test_5000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.cool::/resolutions/5000")
-    test_10000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.cool::/resolutions/10000")
-    test_20000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.cool::/resolutions/20000")
+    test_5000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.mcool::/resolutions/5000")
+    test_10000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.mcool::/resolutions/10000")
+    test_20000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.mcool::/resolutions/20000")
 
     new_5000 = hm.hiCMatrix(outfile.name + '::/resolutions/5000')
     new_10000 = hm.hiCMatrix(outfile.name + '::/resolutions/10000')
@@ -214,3 +214,14 @@ def test_build_matrix_rf():
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
+
+
+@pytest.mark.xfail
+def test_build_matrix_fail(capsys):
+    outfile = NamedTemporaryFile(suffix='', delete=False)
+    outfile.close()
+    qc_folder = mkdtemp(prefix="testQC_")
+    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4".format(sam_R1, sam_R2,
+                                                                                                  outfile.name,
+                                                                                                  qc_folder).split()
+    hicBuildMatrix.main(args)
