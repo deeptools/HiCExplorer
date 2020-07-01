@@ -1061,6 +1061,9 @@ def main(args=None):
 
     args = parse_arguments().parse_args(args)
 
+    if not args.outFileName.name.endswith('h5') or not args.outFileName.name.endswith('cool'):
+        if not '.mcool' in args.outFileName.name:
+            log.error('Please define the file extension. h5 and cool are supported, or the specializations of cool, mcool and scool if a internal path is given.')
     # for backwards compatibility
     if args.maxDistance is not None:
         args.maxLibraryInsertSize = args.maxDistance
@@ -1503,7 +1506,7 @@ Max library insert size\t{}\t\t
         hic_metadata['genome-assembly'] = np.string_(args.genomeAssembly)
 
     intermediate_qc_log.close()
-    if args.outFileName.name.endswith('.cool') and args.binSize is not None and len(args.binSize) > 2:
+    if args.outFileName.name.endswith('.mcool') and args.binSize is not None and len(args.binSize) > 2:
 
         matrixFileHandlerOutput = MatrixFileHandler(
             pFileType='cool', pHiCInfo=hic_metadata)
