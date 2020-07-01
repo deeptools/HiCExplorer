@@ -8,6 +8,9 @@ hicBuildMatrix
    :prog: hicBuildMatrix
 
 
+Please note that the file type extension for the output matrix (``--outFileName``) must be given! This can be **.h5**, **.cool** or the specializations of cool 
+**.mcool**, if the path is given! For **.scool** files please create one **.cool** file per cell and merge it together with scHiCExplorer's scHicMergeToSCool.
+
 Building multicooler matrices
 ------------------------------
 
