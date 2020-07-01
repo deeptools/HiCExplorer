@@ -22,7 +22,7 @@ LOW_MEMORY = 2
 MID_MEMORY = 7
 HIGH_MEMORY = 200
 
-REMOVE_OUTPUT = True
+REMOVE_OUTPUT = False
 # DIFF = 60
 
 
@@ -43,6 +43,25 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig():
 
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
+
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_region_region2_log1p_and_bigwig():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
+
+    args = "--matrix {0}/Li_cut.h5 --dpi 300 " \
+        "--outFileName  {1} --log1p --bigwig {2} ".format(ROOT, outfile.name,
+                                                                            ROOT + "bigwig_chrx_2e6_5e6.bw").split()
+    test_image_path = ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_log1p_clearmaskedbins.png'
+
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(test_image_path, outfile.name, tolerance)
+    assert res is None, res
+
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,
