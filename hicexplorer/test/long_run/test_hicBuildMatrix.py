@@ -15,7 +15,7 @@ sam_R2 = ROOT + "small_test_R2_unsorted.bam"
 dpnii_file = ROOT + "DpnII.bed"
 
 
-def are_files_equal(file1, file2, delta=None):
+def are_files_equal(file1, file2, delta=1):
     equal = True
     if delta:
         mismatches = 0
@@ -60,6 +60,56 @@ def test_build_matrix(capsys):
     shutil.rmtree(qc_folder)
     os.unlink("/tmp/test.bam")
 
+# def test_build_matrix_restriction_enzyme(capsys):
+#     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+#     outfile.close()
+#     qc_folder = mkdtemp(prefix="testQC_")
+#     args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4 --danglingSequence GATC --restrictionSequence GATC ".format(sam_R1, sam_R2,
+#                                                                                                   outfile.name,
+#                                                                                                   qc_folder).split()
+#     hicBuildMatrix.main(args)
+
+#     test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
+#     new = hm.hiCMatrix(outfile.name)
+#     nt.assert_equal(test.matrix.data, new.matrix.data)
+#     nt.assert_equal(test.cut_intervals, new.cut_intervals)
+#     # print("MATRIX NAME:", outfile.name)
+#     print(set(os.listdir(ROOT + "QC/")))
+#     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+#     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
+
+#     # accept delta of 60 kb, file size is around 4.5 MB
+#     assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize("/tmp/test.bam")) < 64000
+
+#     os.unlink(outfile.name)
+#     shutil.rmtree(qc_folder)
+#     os.unlink("/tmp/test.bam")
+
+
+def test_build_matrix_chromosome_sizes(capsys):
+    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+    outfile.close()
+    qc_folder = mkdtemp(prefix="testQC_")
+    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4 --chromosomeSizes {}".format(sam_R1, sam_R2,
+                                                                                                  outfile.name,
+                                                                                                  qc_folder, ROOT + 'hicBuildMatrix/dm3.chrom.sizes').split()
+    hicBuildMatrix.main(args)
+
+    test = hm.hiCMatrix(ROOT + "hicBuildMatrix/chromosome_sizes/small_test_chromosome_size.h5")
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_equal(test.matrix.data, new.matrix.data)
+    nt.assert_equal(test.cut_intervals, new.cut_intervals)
+    # print("MATRIX NAME:", outfile.name)
+    print(set(os.listdir(ROOT + "QC/")))
+    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+    assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
+
+    # accept delta of 60 kb, file size is around 4.5 MB
+    assert abs(os.path.getsize(ROOT + "hicBuildMatrix/chromosome_sizes/test.bam") - os.path.getsize("/tmp/test.bam")) < 64000
+
+    os.unlink(outfile.name)
+    shutil.rmtree(qc_folder)
+    os.unlink("/tmp/test.bam")
 
 def test_build_matrix_cooler():
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)

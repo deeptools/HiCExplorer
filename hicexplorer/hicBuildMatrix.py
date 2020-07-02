@@ -145,15 +145,18 @@ def parse_arguments(args=None):
                        nargs='+')
 
     group.add_argument('--restrictionCutFile', '-rs',
-                       help=('BED file with all restriction cut places '
+                       help=('BED file(s) with all restriction cut places '
                              '(output of "findRestSite" command). '
                              'Should contain only  mappable '
                              'restriction sites. If given, the bins are '
                              'set to match the restriction fragments (i.e. '
                              'the region between one restriction site and '
-                             'the next). Alternatively, a fixed binSize can be defined instead. However, either binSize or restrictionCutFile must be defined.'),
+                             'the next). Alternatively, a fixed binSize can be defined instead. '
+                             'However, either binSize or restrictionCutFile must be defined. '
+                             'To use more than one restriction enzyme, generate for each one a restrictionCutFile and list them space seperated.'),
                        type=argparse.FileType('r'),
-                       metavar='BED file')
+                       metavar='BED file',
+                       nargs='+')
 
     parserOpt.add_argument('--minDistance',
                            help='Minimum distance between restriction sites. '
@@ -181,13 +184,17 @@ def parse_arguments(args=None):
                            required=False)
 
     parserOpt.add_argument('--restrictionSequence', '-seq',
-                           help='Sequence of the restriction site.')
+                            help='Sequence of the restriction site, if multiple are used, please list them space seperated. If a dangling sequence '
+                            'is listed at the same time, please preserve the same order.',
+                            type=str,
+                            nargs='+')
 
     parserOpt.add_argument('--genomeAssembly', '-ga',
                            help='The genome the reads were mapped to. Used for metadata of cool file.')
 
     parserOpt.add_argument('--danglingSequence',
-                           help='Sequence left by the restriction enzyme after cutting. Each restriction enzyme '
+                           help='Sequence left by the restriction enzyme after cutting, if multiple are used, please list them space '
+                                'seperated and preserve the order. Each restriction enzyme '
                                 'recognizes a different DNA sequence and, after cutting, they leave behind a specific '
                                 '"sticky" end or dangling end sequence.  For example, for HindIII the restriction site '
                                 'is AAGCTT and the dangling end is AGCT. For DpnII, the restriction site and dangling '
@@ -195,7 +202,9 @@ def parse_arguments(args=None):
                                 'of the restriction enzyme. The dangling sequence is used to classify and report reads '
                                 'whose 5\' end starts with such sequence as dangling-end reads. A significant portion '
                                 'of dangling-end reads in a sample are indicative of a problem with the re-ligation '
-                                'step of the protocol.')
+                                'step of the protocol.',
+                            type=str,
+                            nargs='+')
 
     parserOpt.add_argument('--region', '-r',
                            help='Region of the genome to limit the operation to. '
@@ -284,7 +293,15 @@ def parse_arguments(args=None):
                            'get an estimation of the duplicated reads. ',
                            action='store_true'
                            )
-
+    parserOpt.add_argument('--chromosomeSizes', '-cs',
+                       help=('File with the chromosome sizes for your genome. A tab-delimited two column layout \"chr_name size\" is expected'
+                             'Usually the sizes can be determined from the SAM/BAM input files, however, '
+                             'for cHi-C or scHi-C it can be that at the start or end no data is present. '
+                             'Please consider that this option causes that only reads are considered which are on the listed chromosomes.'
+                             'Use this option to guarantee fixed sizes. An example file is available via UCSC: '
+                             'http://hgdownload.soe.ucsc.edu/goldenPath/dm3/bigZips/dm3.chrom.sizes'),
+                       type=argparse.FileType('r'),
+                       metavar='txt file')
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -771,7 +788,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     pMateBuffer2 : List of n reads of type 'pysam.libcalignedsegment.AlignedSegment' of sam input file 2
     pMinMappingQuality : integer, minimum mapping quality of a read
     pKeepSelfCircles : boolean, if self circles should be kept
-    pRestrictionSequence : String, the restriction sequence
+    pRestrictionSequence : List of String, the restriction sequence
     pRemoveSelfLigation : If self ligations should be removed
     pMatrixSize : integer, the size of the interaction matrix
     pRfPositions : intervalTree, only used if a restriction cut file and not a bin size was defined.
@@ -798,11 +815,17 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     pData : multiprocessing.sharedctype.RawArray of c_ushort, stores a 1 for each row - column pair. It is available for all processes and does not need to be copied.
     pMaxInsertSize : maximum illumina insert size
     """
-
+    log.debug('pRestrictionSequence {}'.format(pRestrictionSequence))
+    log.debug('pRfPositions {}'.format(pRfPositions))
+    
+    
     one_mate_unmapped = 0
     one_mate_low_quality = 0
     one_mate_not_unique = 0
-    dangling_end = 0
+    dangling_end = {}
+    if pRestrictionSequence is not None:
+        for restrictionSequence in pRestrictionSequence:
+            dangling_end[restrictionSequence] = 0
     self_circle = 0
     self_ligation = 0
     same_fragment = 0
@@ -926,36 +949,47 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
             # have a restriction sequence in between. The distance of < 25kb is
             # used to only check close outward pairs as far apart pairs can not be self-circles
             if abs(mate2.pos - mate1.pos) < 25000 and orientation == 'outward':
+                # has_rf = []
+
                 if pRfPositions and pRestrictionSequence:
+                    log.debug('Line 947')
                     # check if in between the two mate
                     # ends the restriction fragment is found.
+                    # check for multiple restriction sequences
+                    for restrictionSequence in pRestrictionSequence:
+                        # the interval used is:
+                        # start of fragment + length of restriction sequence
+                        # end of fragment - length of restriction sequence
+                        # the restriction sequence length is subtracted
+                        # such that only fragments internally containing
+                        # the restriction site are identified
+                        frag_start = min(mate1.pos, mate2.pos) + \
+                            len(restrictionSequence)
+                        frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(restrictionSequence)
+                        mate_ref = pRefId2name[mate1.rname]
+                        has_rf.extend(sorted(
+                            pRfPositions[mate_ref][frag_start: frag_end]))
 
-                    # the interval used is:
-                    # start of fragment + length of restriction sequence
-                    # end of fragment - length of restriction sequence
-                    # the restriction sequence length is subtracted
-                    # such that only fragments internally containing
-                    # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + \
-                        len(pRestrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
-                    mate_ref = pRefId2name[mate1.rname]
-                    has_rf = sorted(
-                        pRfPositions[mate_ref][frag_start: frag_end])
-
-                    if len(has_rf) == 0:
-                        self_circle += 1
-                        if not pKeepSelfCircles:
-                            continue
+                        if len(has_rf) == 0:
+                            self_circle += 1
+                            if not pKeepSelfCircles:
+                                continue
 
             if abs(mate2.pos - mate1.pos) < pMaxInsertSize and orientation == 'inward':
                 # check for dangling ends if the restriction sequence is known and if they look
                 # like 'same fragment'
                 if pRestrictionSequence:
                     if pDanglingSequences:
-                        if check_dangling_end(mate1, pDanglingSequences) or \
-                                check_dangling_end(mate2, pDanglingSequences):
-                            dangling_end += 1
+
+                        # check for dangling ends in sequence. Stop check with first match
+                        one_match = False
+                        for restrictionSequence in pRestrictionSequence:
+                            if check_dangling_end(mate1, pDanglingSequences[restrictionSequence]) or \
+                                    check_dangling_end(mate2, pDanglingSequences[restrictionSequence]):
+                                dangling_end[restrictionSequence] += 1
+                                one_match = True
+                                break
+                        if one_match:
                             continue
                 has_rf = []
 
@@ -969,12 +1003,14 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                     # the restriction sequence length is subtracted
                     # such that only fragments internally containing
                     # the restriction site are identified
-                    frag_start = min(mate1.pos, mate2.pos) + \
-                        len(pRestrictionSequence)
-                    frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(pRestrictionSequence)
-                    mate_ref = pRefId2name[mate1.rname]
-                    has_rf = sorted(
-                        pRfPositions[mate_ref][frag_start: frag_end])
+
+                    for restrictionSequence in pRestrictionSequence:
+                        frag_start = min(mate1.pos, mate2.pos) + \
+                            len(restrictionSequence)
+                        frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(restrictionSequence)
+                        mate_ref = pRefId2name[mate1.rname]
+                        has_rf.extend(sorted(
+                            pRfPositions[mate_ref][frag_start: frag_end]))
 
                 # case when there is no restriction fragment site between the
                 # mates
@@ -1060,10 +1096,12 @@ def main(args=None):
     """
 
     args = parse_arguments().parse_args(args)
-
-    if not args.outFileName.name.endswith('h5') or not args.outFileName.name.endswith('cool'):
+    # args.outFileName.name = args.outFileName.name.strip()
+    # log.debug('args.outFileName.name: {}'.format(args.outFileName.name.endswith('.h5')))
+    if not args.outFileName.name.endswith('.h5') and not args.outFileName.name.endswith('.cool'):
         if not '.mcool' in args.outFileName.name:
-            log.error('Please define the file extension. h5 and cool are supported, or the specializations of cool, mcool and scool if a internal path is given.')
+            log.error('Please define the file extension. h5 and cool are supported, or the specializations of cool, mcool. Given input {}'.format(args.outFileName.name))
+            exit(1)
     # for backwards compatibility
     if args.maxDistance is not None:
         args.maxLibraryInsertSize = args.maxDistance
@@ -1078,7 +1116,7 @@ def main(args=None):
             "\nAt least two threads need to be defined. Setting --threads = 2!s\n")
 
     if args.danglingSequence and not args.restrictionSequence:
-        exit("\nIf --danglingSequence is set, --restrictonSequence needs to be set too.\n")
+        exit("\nIf --danglingSequence is set, --restrictionSequence needs to be set too.\n")
 
     log.info("reading {} and {} to build hic_matrix\n".format(args.samFiles[0].name,
                                                               args.samFiles[1].name))
@@ -1092,14 +1130,29 @@ def main(args=None):
             args.outBam.close()
             out_bam_file = pysam.Samfile(args.outBam.name, 'wb', template=str1)
 
-    chrom_sizes = get_chrom_sizes(str1)
+    if args.chromosomeSizes is None:
+        chrom_sizes = get_chrom_sizes(str1)
+    else:
+        chrom_sizes = OrderedDict()
+        with open(args.chromosomeSizes.name, 'r') as file:
+            file_ = True
+            while file_:
+                file_ = file.readline().strip()
+                if file_ != '':
+                    line_split = file_.split('\t')
+                    chrom_sizes[line_split[0]] = int(line_split[1])
+        chrom_sizes = list(chrom_sizes.items())
 
+    log.debug('chrom_sizes {}'.format(chrom_sizes))
     read_pos_matrix = ReadPositionMatrix()
 
     # define bins
     rf_positions = None
     if args.restrictionCutFile:
-        rf_interval = bed2interval_list(args.restrictionCutFile)
+        rf_interval = []
+        for restrictionCutFile in args.restrictionCutFile:
+            rf_interval.extend(bed2interval_list(restrictionCutFile))
+        rf_interval = list(set(rf_interval))
         bin_intervals = get_rf_bins(rf_interval,
                                     min_distance=args.minDistance,
                                     max_distance=args.maxLibraryInsertSize)
@@ -1127,17 +1180,20 @@ def main(args=None):
         shared_array_list.extend(interval_list)
     shared_build_intval_tree = RawArray(C_Interval, shared_array_list)
     bin_intval_tree = None
-    dangling_sequences = dict()
+    dangling_sequences = {}
     if args.danglingSequence:
         # build a list of dangling sequences
-        args.restrictionSequence = args.restrictionSequence.upper()
-        args.danglingSequence = args.danglingSequence.upper()
-        dangling_sequences['pat_forw'] = args.danglingSequence
-        dangling_sequences['pat_rev'] = str(
-            Seq(args.danglingSequence, generic_dna).reverse_complement())
+        if args.restrictionSequence is not None:
+            for i in range(0, len(args.restrictionSequence)):
+                args.restrictionSequence[i] = args.restrictionSequence[i].upper()
+                args.danglingSequence[i] = args.danglingSequence[i].upper()
+                dangling_sequences[args.restrictionSequence[i]] = {}
+                dangling_sequences[args.restrictionSequence[i]]['pat_forw'] = args.danglingSequence[i]
+                dangling_sequences[args.restrictionSequence[i]]['pat_rev'] = str(
+                    Seq(args.danglingSequence[i], generic_dna).reverse_complement())
 
         log.info("dangling sequences to check "
-                 "are {}\n".format(dangling_sequences))
+                "are {}\n".format(dangling_sequences))
 
     # initialize coverage vectors that
     # save the number of reads that overlap
@@ -1179,7 +1235,11 @@ def main(args=None):
     one_mate_unmapped = 0
     one_mate_low_quality = 0
     one_mate_not_unique = 0
-    dangling_end = 0
+    dangling_end = {}
+    if args.restrictionSequence is not None:
+        for restrictionSequence in args.restrictionSequence:
+            dangling_end[restrictionSequence] = 0
+
     self_circle = 0
     self_ligation = 0
     same_fragment = 0
@@ -1283,7 +1343,8 @@ def main(args=None):
                         hic_matrix += coo_matrix(
                             (data[i][:elements], (row[i][:elements], col[i][:elements])), shape=(matrix_size, matrix_size))
 
-                    dangling_end += result[0][3]
+                    for sequence in result[0][3]:
+                        dangling_end[sequence] += result[0][3][sequence]
                     self_circle += result[0][4]
                     self_ligation += result[0][5]
                     same_fragment += result[0][6]
@@ -1443,9 +1504,13 @@ Max library insert size\t{}\t\t
     intermediate_qc_log.write(
         "\n#\tcount\t(percentage w.r.t. mappable, unique and high quality pairs)\n")
 
-    intermediate_qc_log.write("dangling end\t{}\t({:.2f})\n".
-                              format(dangling_end, 100 * float(dangling_end) / mappable_unique_high_quality_pairs))
-
+    if len(dangling_end) > 0:
+        for key in dangling_end:
+            intermediate_qc_log.write("dangling end {}\t{}\t({:.2f})\n".
+                                    format(key, dangling_end[key], 100 * float(dangling_end[key]) / mappable_unique_high_quality_pairs))
+    else:
+        intermediate_qc_log.write("dangling end\t{}\t({:.2f})\n".
+                                    format(0, 100 * float(0) / mappable_unique_high_quality_pairs))
     intermediate_qc_log.write("self ligation{}\t{}\t({:.2f})\n".
                               format(msg, self_ligation, 100 * float(self_ligation) / mappable_unique_high_quality_pairs))
 
