@@ -270,8 +270,8 @@ def test_build_matrix_rf_multi():
     outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
     args = "-s {} {} -rs {} {} --outFileName {}  --QCfolder {} " \
-           "--restrictionSequence GATC AAGCTT" \
-           "--danglingSequence GATC AGCT" \
+           "--restrictionSequence GATC AAGCTT " \
+           "--danglingSequence GATC AGCT " \
            "--minDistance 150 " \
            "--maxLibraryInsertSize 1500 --threads 4".format(sam_R1, sam_R2, dpnii_file, ROOT + 'hicFindRestSite/hindIII.bed',
                                                             outfile.name,
@@ -279,15 +279,15 @@ def test_build_matrix_rf_multi():
     # --danglingSequence GATC AGCT --restrictionSequence GATC AAGCTT
     hicBuildMatrix.main(args)
 
-    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix.h5")
+    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix_multiple.h5")
     new = hm.hiCMatrix(outfile.name)
 
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
-    print(set(os.listdir(ROOT + "QC_rc/")))
-    assert are_files_equal(ROOT + "QC_rc/QC.log", qc_folder + "/QC.log")
-    assert set(os.listdir(ROOT + "QC_rc/")) == set(os.listdir(qc_folder))
+    print(set(os.listdir(ROOT + "QC_rc_multiple/")))
+    assert are_files_equal(ROOT + "QC_rc_multiple/QC.log", qc_folder + "/QC.log")
+    assert set(os.listdir(ROOT + "QC_rc_multiple/")) == set(os.listdir(qc_folder))
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)

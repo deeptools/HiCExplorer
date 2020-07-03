@@ -1,0 +1,2 @@
+File	Read pair type: inward pairs	Read pair type: inward pairs %	Read pair type: outward pairs	Read pair type: outward pairs %	Read pair type: left pairs	Read pair type: left pairs %	Read pair type: right pairs	Read pair type: right pairs %
+/tmp/tmp_e45dpux.h5	7054	0.22929397997659604	9241	0.30038356520608506	7144	0.2322194773111429	7325	0.23810297750617604

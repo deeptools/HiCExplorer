@@ -1517,6 +1517,11 @@ Max library insert size\t{}\t\t
         "\n#\tcount\t(percentage w.r.t. mappable, unique and high quality pairs)\n")
 
     if len(dangling_end) > 0:
+        log.debug('dangling_sequences {}'.format(dangling_sequences.keys()))
+        log.debug('dangling_end {}'.format(dangling_end.keys()))
+        # log.debug('dangling_end {}'.format(res.keys()))
+
+
         for key in dangling_end:
             # dangling_sequences[args.restrictionSequence[i]]['pat_forw']
             intermediate_qc_log.write("dangling end {}\t{}\t({:.2f})\n".

@@ -133,6 +133,6 @@ def find_pattern(pattern, fasta_file, out_file):
     temp.close()
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=None):
+    args = parse_arguments().parse_args(args)
     find_pattern(args.searchPattern, args.fasta, args.outFile)

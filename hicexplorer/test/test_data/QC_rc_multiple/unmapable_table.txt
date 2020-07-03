@@ -1,0 +1,2 @@
+File	Hi-C contacts	Hi-C contacts_%	Low mapping quality	Low mapping quality_%	One mate not unique	One mate not unique_%	One mate unmapped	One mate unmapped_%
+/tmp/tmp_e45dpux.h5	36710	0.3671624176109939	34877	0.3488293009811668	3603	0.036036126141444046	8777	0.08778492343698428
