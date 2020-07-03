@@ -60,30 +60,30 @@ def test_build_matrix(capsys):
     shutil.rmtree(qc_folder)
     os.unlink("/tmp/test.bam")
 
-# def test_build_matrix_restriction_enzyme(capsys):
-#     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
-#     outfile.close()
-#     qc_folder = mkdtemp(prefix="testQC_")
-#     args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4 --danglingSequence GATC --restrictionSequence GATC ".format(sam_R1, sam_R2,
-#                                                                                                   outfile.name,
-#                                                                                                   qc_folder).split()
-#     hicBuildMatrix.main(args)
+def test_build_matrix_restriction_enzyme(capsys):
+    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+    outfile.close()
+    qc_folder = mkdtemp(prefix="testQC_")
+    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4 --danglingSequence GATC AGCT --restrictionSequence GATC AAGCTT ".format(sam_R1, sam_R2,
+                                                                                                  outfile.name,
+                                                                                                  qc_folder).split()
+    hicBuildMatrix.main(args)
 
-#     test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
-#     new = hm.hiCMatrix(outfile.name)
-#     nt.assert_equal(test.matrix.data, new.matrix.data)
-#     nt.assert_equal(test.cut_intervals, new.cut_intervals)
-#     # print("MATRIX NAME:", outfile.name)
-#     print(set(os.listdir(ROOT + "QC/")))
-#     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
-#     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
+    test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
+    new = hm.hiCMatrix(outfile.name)
+    nt.assert_equal(test.matrix.data, new.matrix.data)
+    nt.assert_equal(test.cut_intervals, new.cut_intervals)
+    # print("MATRIX NAME:", outfile.name)
+    print(set(os.listdir(ROOT + "QC_multi_restriction/")))
+    assert are_files_equal(ROOT + "QC_multi_restriction/QC.log", qc_folder + "/QC.log")
+    assert set(os.listdir(ROOT + "QC_multi_restriction/")) == set(os.listdir(qc_folder))
 
-#     # accept delta of 60 kb, file size is around 4.5 MB
-#     assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize("/tmp/test.bam")) < 64000
+    # accept delta of 60 kb, file size is around 4.5 MB
+    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize("/tmp/test.bam")) < 64000
 
-#     os.unlink(outfile.name)
-#     shutil.rmtree(qc_folder)
-#     os.unlink("/tmp/test.bam")
+    os.unlink(outfile.name)
+    shutil.rmtree(qc_folder)
+    os.unlink("/tmp/test.bam")
 
 
 def test_build_matrix_chromosome_sizes(capsys):
@@ -265,6 +265,32 @@ def test_build_matrix_rf():
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
 
+def test_build_matrix_rf_multi():
+    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+    outfile.close()
+    qc_folder = mkdtemp(prefix="testQC_")
+    args = "-s {} {} -rs {} {} --outFileName {}  --QCfolder {} " \
+           "--restrictionSequence GATC AAGCTT" \
+           "--danglingSequence GATC AGCT" \
+           "--minDistance 150 " \
+           "--maxLibraryInsertSize 1500 --threads 4".format(sam_R1, sam_R2, dpnii_file, ROOT + 'hicFindRestSite/hindIII.bed',
+                                                            outfile.name,
+                                                            qc_folder).split()
+    # --danglingSequence GATC AGCT --restrictionSequence GATC AAGCTT
+    hicBuildMatrix.main(args)
+
+    test = hm.hiCMatrix(ROOT + "small_test_rf_matrix.h5")
+    new = hm.hiCMatrix(outfile.name)
+
+    nt.assert_equal(test.matrix.data, new.matrix.data)
+    nt.assert_equal(test.cut_intervals, new.cut_intervals)
+
+    print(set(os.listdir(ROOT + "QC_rc/")))
+    assert are_files_equal(ROOT + "QC_rc/QC.log", qc_folder + "/QC.log")
+    assert set(os.listdir(ROOT + "QC_rc/")) == set(os.listdir(qc_folder))
+
+    os.unlink(outfile.name)
+    shutil.rmtree(qc_folder)
 
 @pytest.mark.xfail
 def test_build_matrix_fail(capsys):
