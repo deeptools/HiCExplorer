@@ -158,12 +158,12 @@ def make_figure_pairs_discarded(table, filename, dpi):
             column_names_out.append(name + ' %')
 
         else:
+            # if 'dangling end' in 
             for name_ in column_names_table:
                 if name in name_:
                     column_names.append(name_)
                     column_names_out.append(name_ + ' %')
 
-                    break
     log.debug('column_names {}'.format(column_names))
     prc_table = table[column_names].T / table['Pairs mappable, unique and high quality']
     # prc_table = table[['One mate not close to rest site', 'dangling end', 'duplicated pairs',
