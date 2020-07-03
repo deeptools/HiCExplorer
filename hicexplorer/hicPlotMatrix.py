@@ -687,14 +687,19 @@ def main(args=None):
         elif args.log:
             norm = LogNorm()
 
+        fig_height = 7
+        fig_width = 8
+
         if args.bigwig:
             # increase figure height to accommodate bigwig track
-            fig_height = 8.5
-        else:
-            fig_height = 7
+            for i in range(len(args.bigwig)):
+                fig_height += 0.5
+                if args.bigwigAdditionalVerticalAxis:
+                    fig_width += 1
+
+
         height = 4.8 / fig_height
 
-        fig_width = 8
         width = 5.0 / fig_width
         left_margin = (1.0 - width) * 0.5
 
@@ -702,16 +707,18 @@ def main(args=None):
 
         if args.bigwig:
             number_of_rows_plot = len(args.bigwig)
-            bigwig_heights = [0.07] * number_of_rows_plot
-            bigwig_height_ratio = 0.95 - (0.07 * number_of_rows_plot)
+            # 0.95 + x = 1
+            factor = list(np.arange(0.1, 0.01, -0.01))
+            bigwig_heights = [factor[number_of_rows_plot]] * number_of_rows_plot
+            bigwig_height_ratio = 0.95 - (factor[number_of_rows_plot] * number_of_rows_plot)
             if bigwig_height_ratio < 0.4:
                 bigwig_height_ratio = 0.4
-                _ratio = 0.6 / len(number_of_rows_plot)
+                _ratio = 0.6 / number_of_rows_plot
                 bigwig_heights = [_ratio] * number_of_rows_plot
 
             if args.bigwigAdditionalVerticalAxis:
                 gs = gridspec.GridSpec(
-                    1 + len(args.bigwig), 3, height_ratios=[0.90, 0.1], width_ratios=[0.15, 0.82, 0.03])
+                    1 + len(args.bigwig), 3, height_ratios=[0.90, 0.1], width_ratios=[factor, 0.82, 0.03])
                 gs.update(hspace=0.05, wspace=0.05)
                 bigwig_vertical_axis = plt.subplot(gs[0, 0])
                 ax1 = plt.subplot(gs[0, 1])
@@ -722,16 +729,32 @@ def main(args=None):
                 bigwig_info['axis_colorbar'] = ax3
                 bigwig_info['axis_vertical'] = bigwig_vertical_axis
             else:
-                # [0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
-                gs = gridspec.GridSpec(1 + len(args.bigwig), 2, height_ratios=[0.95 - (
-                    0.07 * number_of_rows_plot), *bigwig_heights], width_ratios=[0.97, 0.03])
-                gs.update(hspace=0.05, wspace=0.05)
-                ax1 = plt.subplot(gs[0, 0])
+                # # [0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
+                # # gs = gridspec.GridSpec(1 + len(args.bigwig), 2, height_ratios=[1 + (
+                # #     factor * number_of_rows_plot), *bigwig_heights], width_ratios=[0.97, 0.03])
+                # # gs = gridspec.GridSpec(1 + len(args.bigwig), 2, height_ratios=[0.95 - (
+                # #     factor[number_of_rows_plot] * number_of_rows_plot), *bigwig_heights], width_ratios=[0.97-(
+                # #     factor[number_of_rows_plot] * number_of_rows_plot), 0.03])
+                # # gs.update(hspace=0.05, wspace=0.05)
+                
+                # # ax1 = plt.subplot(gs[0, 0])
+                # ax1 = plt.subplot(3,3,1)
+                number_of_rows_plot = number_of_rows_plot *2
                 ax2_list = []
-                for i in range(len(args.bigwig)):
-                    ax2_list.append(plt.subplot(gs[1 + i, 0]))
-                # ax2 = plt.subplot(gs[1, 0])
-                ax3 = plt.subplot(gs[0, 1])
+                # for i in range(len(args.bigwig)):
+                #     # ax2_list.append(plt.subplot(gs[1 + i, 0]))
+                #     ax2_list.append(plt.subplot(3,2,3+len(args.bigwig)))
+
+                # # ax2 = plt.subplot(gs[1, 0])
+                # # ax3 = plt.subplot(gs[0, 1])
+                # ax3 = plt.subplot(3,2,3+10)
+                ax1 = plt.subplot2grid((10+number_of_rows_plot, 11), (0, 0), colspan=10, rowspan=10)
+                ax3 = plt.subplot2grid((10+number_of_rows_plot, 11), (0, 10), colspan=1, rowspan=10)
+                # ax1.plot(1)
+                # ax2.plot(2)
+                for i in range(0,  number_of_rows_plot, 2):
+                    ax2_list.append(plt.subplot2grid((10+number_of_rows_plot, 11), (10+i, 0), colspan=10, rowspan=2))
+                
                 bigwig_info['axis'] = ax2_list
                 bigwig_info['axis_colorbar'] = ax3
         else:
