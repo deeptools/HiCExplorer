@@ -153,6 +153,14 @@ def parse_arguments(args=None):
                            help='Rotation in degrees for the labels of y axis.',
                            type=float,
                            default=0)
+    parserOpt.add_argument('--increaseFigureWidth',
+                           help='Plotting additional bigwig tracks can cause compression in x or y direction of the heatmap. Set this factor to a value unequal to 0 to correct this.',
+                           type=float,
+                           default=0.5)
+    parserOpt.add_argument('--increaseFigureHeight',
+                           help='Plotting additional bigwig tracks can cause compression in x or y direction of the heatmap. Set this factor to a value unequal to 0 to correct this.',
+                           type=float,
+                           default=0.5)
     parserOpt.add_argument('--loops',
                            help='Bedgraph file to plot detected long range contacts '
                            'from hicDetectLoops.',
@@ -296,33 +304,29 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     axHeat2.invert_yaxis()
 
     if pBigwig:
+
         axHeat2.xaxis.set_label_position("top")
         axHeat2.xaxis.tick_top()
-        axis_bigwig = []
-        vertical_flip = []
-        if args.bigwigAdditionalVerticalAxis:
-            axis_bigwig.append([pBigwig['axis']])
-            # pBigwig['axis_vertical'].
-            axis_bigwig.append([pBigwig['axis_vertical']])
-            vertical_flip = [False, True]
 
+        if args.region:
+            plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pChromosomeSizes=pChromsomeStartEndDict,
+                       pRegion=pBigwig['args'].region, pXticks=xticks, pFlipBigwigSign=args.flipBigwigSign,
+                       pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=False,
+                       pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
         else:
-            axis_bigwig.append(pBigwig['axis'])
-            vertical_flip = [None, None]
-        # if len(pBigwig)
-        for i, _axis in enumerate(axis_bigwig):
+            plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=pChromsomeStartEndDict,
+                       pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=False,
+                       pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
+
+        if args.bigwigAdditionalVerticalAxis:
             if args.region:
-                log.debug('288')
-                plotBigwig(_axis, pBigwig['args'].bigwig, pChromosomeSizes=pChromsomeStartEndDict,
+                plotBigwig(pBigwig['axis_vertical'], pBigwig['args'].bigwig[::-1], pChromosomeSizes=pChromsomeStartEndDict,
                            pRegion=pBigwig['args'].region, pXticks=xticks, pFlipBigwigSign=args.flipBigwigSign,
-                           pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=vertical_flip[i],
+                           pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=True,
                            pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
             else:
-                log.debug('294')
-                log.debug('chrBinBoundaries {}'.format(chrBinBoundaries))
-                plotBigwig(_axis, pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=pChromsomeStartEndDict,
-                           pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=vertical_flip[
-                               i],
+                plotBigwig(pBigwig['axis_vertical'], pBigwig['args'].bigwig[::-1], pXticks=xticks, pChromosomeSizes=pChromsomeStartEndDict,
+                           pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=True,
                            pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
 
 
@@ -372,6 +376,11 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
 
     fig_height = 6 * num_rows
     fig_width = sum((np.array(width_ratios) + 0.05) * 6)
+    if pBigwig:
+        for i in range(len(args.bigwig)):
+            fig_height += args.increaseFigureHeight
+            # if args.bigwigAdditionalVerticalAxis:
+            fig_width += args.increaseFigureWidth
 
     fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
@@ -387,6 +396,10 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
         if pBigwig:
             bigwig_info = {'args': args, 'axis': None,
                            'axis_colorbar': None, 'nan_bins': hic_matrix.nan_bins}
+            # bigwig_info, axis = bigwig_axes_config(args, bigwig_info)
+            # bigwig_info['nan_bins'] = hic_matrix.nan_bins
+            # bigwig_info['args'] = args
+
 
             # inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07],
             #                                               subplot_spec=grids[row, col], wspace=0.1, hspace=0.1)
@@ -402,18 +415,42 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
                 bigwig_heights = [_ratio] * number_of_rows_plot
 
             if args.bigwigAdditionalVerticalAxis:
-                gs = gridspec.GridSpecFromSubplotSpec(1 + len(args.bigwig), 3, height_ratios=[0.90, 0.1], width_ratios=[0.15, 0.82, 0.03],
-                                                      subplot_spec=grids[row, col], wspace=0.1, hspace=0.1)
-                # gs = gridspec.GridSpec(1 + len(args.bigwig), 3, height_ratios=[0.90, 0.1], width_ratios=[0.15, 0.82, 0.03])
-                # gs.update(hspace=0.05, wspace=0.05)
-                bigwig_vertical_axis = plt.subplot(gs[0, 0])
-                axis = plt.subplot(gs[0, 1])
-                ax2 = plt.subplot(gs[1, 1])
-                ax3 = plt.subplot(gs[0, 2])
+                # gs = gridspec.GridSpecFromSubplotSpec(1 + len(args.bigwig), 3, height_ratios=[0.90, 0.1], width_ratios=[0.15, 0.82, 0.03],
+                #                                       subplot_spec=grids[row, col], wspace=0.1, hspace=0.1)
+                # # gs = gridspec.GridSpec(1 + len(args.bigwig), 3, height_ratios=[0.90, 0.1], width_ratios=[0.15, 0.82, 0.03])
+                # # gs.update(hspace=0.05, wspace=0.05)
+                # bigwig_vertical_axis = plt.subplot(gs[0, 0])
+                # axis = plt.subplot(gs[0, 1])
+                # ax2 = plt.subplot(gs[1, 1])
+                # ax3 = plt.subplot(gs[0, 2])
 
-                bigwig_info['axis'] = ax2
+                # bigwig_info['axis'] = ax2
+                # bigwig_info['axis_colorbar'] = ax3
+                # bigwig_info['axis_vertical'] = bigwig_vertical_axis
+
+
+
+                gs = gridspec.GridSpecFromSubplotSpec(1 + len(args.bigwig), 2 + len(args.bigwig), height_ratios=[0.95 - (0.07 * number_of_rows_plot), *bigwig_heights], width_ratios=[*bigwig_heights, 0.97- (0.07 * number_of_rows_plot), 0.03],
+                                                      subplot_spec=grids[row, col], wspace=0.1, hspace=0.1)
+                # gs.update(hspace=0.05, wspace=0.05)
+                # gs.update(hspace=0.05, wspace=0.05)
+                axis = plt.subplot(gs[0, len(args.bigwig)])
+                ax2_list = []
+                for i in range(len(args.bigwig)):
+                    ax2_list.append(plt.subplot(gs[1 + i, len(args.bigwig)]))
+
+                bigwig_vertical_axis_list = []
+                for i in range(len(args.bigwig)):
+                    bigwig_vertical_axis_list.append(plt.subplot(gs[0, i]))
+                # ax2 = plt.subplot(gs[1, 0])
+                ax3 = plt.subplot(gs[0, len(args.bigwig)+1])
+                bigwig_info['axis'] = ax2_list
                 bigwig_info['axis_colorbar'] = ax3
-                bigwig_info['axis_vertical'] = bigwig_vertical_axis
+                bigwig_info['axis_vertical'] = bigwig_vertical_axis_list
+
+
+
+
             else:
                 # [0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
                 gs = gridspec.GridSpecFromSubplotSpec(1 + len(args.bigwig), 2, height_ratios=[0.95 - (0.07 * number_of_rows_plot), *bigwig_heights], width_ratios=[0.97, 0.03],
@@ -533,6 +570,57 @@ def getRegion(args, ma):
 
     return chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2
 
+def bigwig_axes_config(pArgs, pBigWigInfo):
+
+    
+            # increase figure height to accommodate bigwig track
+            
+    # for i in range(len(pArgs.bigwig)):
+    #     pFigureHeight += pArgs.increaseFigureHeight
+    #     # if args.bigwigAdditionalVerticalAxis:
+    #     pFigureWidth += pArgs.increaseFigureWidth
+
+    number_of_rows_plot = len(pArgs.bigwig) * 2
+
+    if pArgs.bigwigAdditionalVerticalAxis:
+
+        number_of_columns = number_of_rows_plot + 11
+
+        # vertical bigwig plot axes
+        bigwig_vertical_axis = []
+        for i in range(0, number_of_rows_plot, 2):
+            bigwig_vertical_axis.append(plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (0, 0 + i), colspan=2, rowspan=8))
+
+        # heatmap axis
+        ax1 = plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (0, number_of_rows_plot), colspan=10, rowspan=8)
+        # colorbar for the heatmap axis
+        ax3 = plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (0, number_of_rows_plot + 10), colspan=1, rowspan=8)
+
+        # horizontal bigwig axes
+        ax2_list = []
+        for i in range(0, number_of_rows_plot, 2):
+            ax2_list.append(plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (10 + i, number_of_rows_plot), colspan=10, rowspan=2))
+
+        pBigWigInfo['axis'] = ax2_list
+        pBigWigInfo['axis_colorbar'] = ax3
+        pBigWigInfo['axis_vertical'] = bigwig_vertical_axis
+    else:
+
+        # number_of_rows_plot = number_of_rows_plot *2
+        ax2_list = []
+
+        # heatmap axis
+        ax1 = plt.subplot2grid((10 + number_of_rows_plot, 11), (0, 0), colspan=10, rowspan=10)
+        # colorbar for the heatmap axis
+        ax3 = plt.subplot2grid((10 + number_of_rows_plot, 11), (0, 10), colspan=1, rowspan=10)
+
+        for i in range(0, number_of_rows_plot, 2):
+            ax2_list.append(plt.subplot2grid((10 + number_of_rows_plot, 11), (10 + i, 0), colspan=10, rowspan=2))
+
+        pBigWigInfo['axis'] = ax2_list
+        pBigWigInfo['axis_colorbar'] = ax3
+
+    return pBigWigInfo, ax1
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
@@ -692,12 +780,11 @@ def main(args=None):
 
         if args.bigwig:
             # increase figure height to accommodate bigwig track
+            
             for i in range(len(args.bigwig)):
-                fig_height += 0.5
-                if args.bigwigAdditionalVerticalAxis:
-                    fig_width += 1
-
-
+                fig_height += args.increaseFigureHeight
+                # if args.bigwigAdditionalVerticalAxis:
+                fig_width += args.increaseFigureWidth
         height = 4.8 / fig_height
 
         width = 5.0 / fig_width
@@ -706,57 +793,46 @@ def main(args=None):
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
         if args.bigwig:
-            number_of_rows_plot = len(args.bigwig)
-            # 0.95 + x = 1
-            factor = list(np.arange(0.1, 0.01, -0.01))
-            bigwig_heights = [factor[number_of_rows_plot]] * number_of_rows_plot
-            bigwig_height_ratio = 0.95 - (factor[number_of_rows_plot] * number_of_rows_plot)
-            if bigwig_height_ratio < 0.4:
-                bigwig_height_ratio = 0.4
-                _ratio = 0.6 / number_of_rows_plot
-                bigwig_heights = [_ratio] * number_of_rows_plot
+            bigwig_info, ax1 = bigwig_axes_config(args, bigwig_info)
+            # number_of_rows_plot = len(args.bigwig) * 2
 
-            if args.bigwigAdditionalVerticalAxis:
-                gs = gridspec.GridSpec(
-                    1 + len(args.bigwig), 3, height_ratios=[0.90, 0.1], width_ratios=[factor, 0.82, 0.03])
-                gs.update(hspace=0.05, wspace=0.05)
-                bigwig_vertical_axis = plt.subplot(gs[0, 0])
-                ax1 = plt.subplot(gs[0, 1])
-                ax2 = plt.subplot(gs[1, 1])
-                ax3 = plt.subplot(gs[0, 2])
+            # if args.bigwigAdditionalVerticalAxis:
 
-                bigwig_info['axis'] = ax2
-                bigwig_info['axis_colorbar'] = ax3
-                bigwig_info['axis_vertical'] = bigwig_vertical_axis
-            else:
-                # # [0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
-                # # gs = gridspec.GridSpec(1 + len(args.bigwig), 2, height_ratios=[1 + (
-                # #     factor * number_of_rows_plot), *bigwig_heights], width_ratios=[0.97, 0.03])
-                # # gs = gridspec.GridSpec(1 + len(args.bigwig), 2, height_ratios=[0.95 - (
-                # #     factor[number_of_rows_plot] * number_of_rows_plot), *bigwig_heights], width_ratios=[0.97-(
-                # #     factor[number_of_rows_plot] * number_of_rows_plot), 0.03])
-                # # gs.update(hspace=0.05, wspace=0.05)
-                
-                # # ax1 = plt.subplot(gs[0, 0])
-                # ax1 = plt.subplot(3,3,1)
-                number_of_rows_plot = number_of_rows_plot *2
-                ax2_list = []
-                # for i in range(len(args.bigwig)):
-                #     # ax2_list.append(plt.subplot(gs[1 + i, 0]))
-                #     ax2_list.append(plt.subplot(3,2,3+len(args.bigwig)))
+            #     number_of_columns = number_of_rows_plot + 11
 
-                # # ax2 = plt.subplot(gs[1, 0])
-                # # ax3 = plt.subplot(gs[0, 1])
-                # ax3 = plt.subplot(3,2,3+10)
-                ax1 = plt.subplot2grid((10+number_of_rows_plot, 11), (0, 0), colspan=10, rowspan=10)
-                ax3 = plt.subplot2grid((10+number_of_rows_plot, 11), (0, 10), colspan=1, rowspan=10)
-                # ax1.plot(1)
-                # ax2.plot(2)
-                for i in range(0,  number_of_rows_plot, 2):
-                    ax2_list.append(plt.subplot2grid((10+number_of_rows_plot, 11), (10+i, 0), colspan=10, rowspan=2))
-                
-                bigwig_info['axis'] = ax2_list
-                bigwig_info['axis_colorbar'] = ax3
+            #     # vertical bigwig plot axes
+            #     bigwig_vertical_axis = []
+            #     for i in range(0, number_of_rows_plot, 2):
+            #         bigwig_vertical_axis.append(plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (0, 0 + i), colspan=2, rowspan=8))
+
+            #     # heatmap axis
+            #     ax1 = plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (0, number_of_rows_plot), colspan=10, rowspan=8)
+            #     # colorbar for the heatmap axis
+            #     ax3 = plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (0, number_of_rows_plot + 10), colspan=1, rowspan=8)
+
+            #     # horizontal bigwig axes
+            #     ax2_list = []
+            #     for i in range(0, number_of_rows_plot, 2):
+            #         ax2_list.append(plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (10 + i, number_of_rows_plot), colspan=10, rowspan=2))
+
+            #     bigwig_info['axis'] = ax2_list
+            #     bigwig_info['axis_colorbar'] = ax3
+            #     bigwig_info['axis_vertical'] = bigwig_vertical_axis
+            # else:
+
+            #     # number_of_rows_plot = number_of_rows_plot *2
+            #     ax2_list = []
+
+            #     # heatmap axis
+            #     ax1 = plt.subplot2grid((10 + number_of_rows_plot, 11), (0, 0), colspan=10, rowspan=10)
+            #     # colorbar for the heatmap axis
+            #     ax3 = plt.subplot2grid((10 + number_of_rows_plot, 11), (0, 10), colspan=1, rowspan=10)
+
+            #     for i in range(0, number_of_rows_plot, 2):
+            #         ax2_list.append(plt.subplot2grid((10 + number_of_rows_plot, 11), (10 + i, 0), colspan=10, rowspan=2))
+
+            #     bigwig_info['axis'] = ax2_list
+            #     bigwig_info['axis_colorbar'] = ax3
         else:
             ax1 = None
         bottom = 1.3 / fig_height
@@ -765,13 +841,7 @@ def main(args=None):
             start_pos1 = make_start_pos_array(ma)
 
         position = [left_margin, bottom, width, height]
-        # log.debug("chrom {} {}".format(chrom, chrom2))
-        # log.debug('chrom start end {}'.format())
-        # # log.debug('ma.cut_intervals {}'.format(ma.cut_intervals))
-        # # log.debug('ma.interval_trees {}'.format(ma.interval_trees))
-        # log.debug('ma.chrBinBoundaries {}'.format(ma.chrBinBoundaries))
 
-#  self.interval_trees, self.chrBinBoundaries
         plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
@@ -789,13 +859,16 @@ def main(args=None):
     plt.savefig(args.outFileName, dpi=args.dpi)
     plt.close(fig)
 
+
 def chromosome_start_end(pHiCMatrix):
     chromosome_start_end_dict = {}
-    
+
     for chromosome, (start_bin, end_bin) in pHiCMatrix.chrBinBoundaries.items():
-        chromosome_start_end_dict[chromosome] = (pHiCMatrix.cut_intervals[start_bin][1], pHiCMatrix.cut_intervals[end_bin-1][2])
+        chromosome_start_end_dict[chromosome] = (pHiCMatrix.cut_intervals[start_bin][1], pHiCMatrix.cut_intervals[end_bin - 1][2])
 
     return chromosome_start_end_dict
+
+
 def make_start_pos_array(ma):
     # makes an start_pos array that can be used
     # to plot the bins of the matrix using their real length
@@ -817,7 +890,7 @@ def make_start_pos_array(ma):
 
 def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None, pVertical=False,
                pValueMin=None, pValueMax=None):
-    log.debug('plotting eigenvector')
+    log.debug('plotting bigwig file')
 
     # pNameOfBigwigList is not a list, but to make room for future options
     # requiring more than one bigwig file I set this to a list intentionally.
@@ -900,8 +973,8 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                     # chrom = check_chrom_str_bytes(pChromosomeSizes, chrom)
                     # set the bin size to approximately 100kb
                     # or to the chromosome size if this happens to be less than 100kb
-                    chunk_size = min(1e6, pChromosomeSizes[chrom][1]-pChromosomeSizes[chrom][0])
-                    num_bins = int(pChromosomeSizes[chrom][1]-pChromosomeSizes[chrom][0] / chunk_size)
+                    chunk_size = min(1e6, pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0])
+                    num_bins = int(pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0] / chunk_size)
                     scores_per_bin = np.array(
                         bw.stats(chrom_, pChromosomeSizes[chrom][0], pChromosomeSizes[chrom][1], nBins=num_bins)).astype(float)
 
@@ -911,7 +984,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                         return
 
                     _x_vals = np.linspace(
-                        chrom_length_sum, chrom_length_sum + pChromosomeSizes[chrom][1]-pChromosomeSizes[chrom][0], num_bins)
+                        chrom_length_sum, chrom_length_sum + pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0], num_bins)
                     assert len(_x_vals) == len(scores_per_bin)
                     x_values.extend(_x_vals)
 
@@ -920,7 +993,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
 
                     log.debug('len bigwig score {}, x_values {}'.format(len(bigwig_scores), len(x_values)))
 
-                    chrom_length_sum += pChromosomeSizes[chrom][1]-pChromosomeSizes[chrom][0]
+                    chrom_length_sum += pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0]
                     if min_start == None:
                         min_start = pChromosomeSizes[chrom][0]
                     elif min_start > pChromosomeSizes[chrom][0]:
@@ -976,7 +1049,7 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
 
                 x = int(start_X)
                 y = int(start_Y)
-                log.debug('x {} y {}'.format(x,y))
+                log.debug('x {} y {}'.format(x, y))
                 if x >= int(pRegion[1]) and x <= int(pRegion[2]):
                     if y >= int(pRegion[1]) and y <= int(pRegion[2]):
                         x_list.append(x)

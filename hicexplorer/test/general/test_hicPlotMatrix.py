@@ -446,7 +446,7 @@ def test_hicPlotMatrix_perChr_pca1_bigwig_vertical():
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
     args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --perChr  --disable_tight_layout --bigwigAdditionalVerticalAxis " \
-           "--outFileName  {1} --bigwig {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
+           "--outFileName  {1} --bigwig {2} {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)
     assert res is None, res
