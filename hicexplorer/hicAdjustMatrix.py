@@ -96,11 +96,13 @@ def adjustMatrix(pArgs):
         with open(pArgs.regions, 'r') as file:
             for line in file.readlines():
                 _line = line.strip().split('\t')
+                log.debug('_line {}'.format(_line))
                 if len(line) < 3:
                     log.warning("An entry shorter than 3 columns has been found!")
                     continue
                 if len(_line) >= 3:
                     chrom, start, end = _line[0], int(_line[1]), int(_line[2])
+                    log.debug('chrom {}'.format(chrom))
                     if chrom in chromosomes_list:
                         genomic_regions.append((chrom, start, end))
                     else:
@@ -109,13 +111,15 @@ def adjustMatrix(pArgs):
         if len(genomic_regions) == 0:
             log.error('No valid chromosome given. Available: {}'.format(chromosomes_list))
             exit(1)
-        # log.debug('genomic_regions {}'.format(genomic_regions))
+        log.debug('genomic_regions {}'.format(genomic_regions))
         matrix_indices_regions = []
         for region in genomic_regions:
-            _regionBinRange = hic_matrix.getRegionBinRange(region[0], int(region[1]), int(region[2]))
+            log.debug('region {}'.format(region))
+            _regionBinRange = hic_matrix.getRegionBinRange(region[0], int(region[1]), int(region[2])-1)
             if _regionBinRange is not None:
                 start, end = _regionBinRange
                 matrix_indices_regions.extend(list(range(start, end)))
+        log.debug('foo {}'.format(matrix_indices_regions))
 
         # log.debug('matrix_indices_regions {}'.format(matrix_indices_regions))
         if pArgs.action == 'keep':
