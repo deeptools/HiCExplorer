@@ -198,7 +198,7 @@ def relabel_ticks(pXTicks):
 
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                 ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pBigwig=None,
-                pLoops=None, pHiCMatrix=None, pChromsomeStartEndDict=None):
+                pLoops=None, pHiCMatrix=None, pChromsomeStartEndDict=None, pResolution=None):
     log.debug("plotting heatmap")
     if ma.shape[0] < 5:
         # This happens when a tiny matrix wants to be plotted, or by using per chromosome and
@@ -312,22 +312,22 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
             plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pChromosomeSizes=pChromsomeStartEndDict,
                        pRegion=pBigwig['args'].region, pXticks=xticks, pFlipBigwigSign=args.flipBigwigSign,
                        pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=False,
-                       pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
+                       pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig, pResolution=pResolution)
         else:
             plotBigwig(pBigwig['axis'], pBigwig['args'].bigwig, pXticks=xticks, pChromosomeSizes=pChromsomeStartEndDict,
                        pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=False,
-                       pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
+                       pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig, pResolution=pResolution)
 
         if args.bigwigAdditionalVerticalAxis:
             if args.region:
                 plotBigwig(pBigwig['axis_vertical'], pBigwig['args'].bigwig[::-1], pChromosomeSizes=pChromsomeStartEndDict,
                            pRegion=pBigwig['args'].region, pXticks=xticks, pFlipBigwigSign=args.flipBigwigSign,
                            pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=True,
-                           pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
+                           pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig, pResolution=pResolution)
             else:
                 plotBigwig(pBigwig['axis_vertical'], pBigwig['args'].bigwig[::-1], pXticks=xticks, pChromosomeSizes=pChromsomeStartEndDict,
                            pFlipBigwigSign=args.flipBigwigSign, pScaleFactorBigwig=args.scaleFactorBigwig, pVertical=True,
-                           pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig)
+                           pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig, pResolution=pResolution)
 
 
 def translate_region(region_string):
@@ -359,7 +359,7 @@ def translate_region(region_string):
     return chrom, region_start, region_end
 
 
-def plotPerChr(hic_matrix, cmap, args, pBigwig):
+def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
     """
     plots each chromosome individually, one after the other
     in one row. scale bar is added at the end
@@ -400,7 +400,6 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
             # bigwig_info['nan_bins'] = hic_matrix.nan_bins
             # bigwig_info['args'] = args
 
-
             # inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, height_ratios=[0.85, 0.15], width_ratios=[0.93, 0.07],
             #                                               subplot_spec=grids[row, col], wspace=0.1, hspace=0.1)
             # axis = plt.subplot(inner_grid[0, 0])
@@ -428,9 +427,7 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
                 # bigwig_info['axis_colorbar'] = ax3
                 # bigwig_info['axis_vertical'] = bigwig_vertical_axis
 
-
-
-                gs = gridspec.GridSpecFromSubplotSpec(1 + len(args.bigwig), 2 + len(args.bigwig), height_ratios=[0.95 - (0.07 * number_of_rows_plot), *bigwig_heights], width_ratios=[*bigwig_heights, 0.97- (0.07 * number_of_rows_plot), 0.03],
+                gs = gridspec.GridSpecFromSubplotSpec(1 + len(args.bigwig), 2 + len(args.bigwig), height_ratios=[0.95 - (0.07 * number_of_rows_plot), *bigwig_heights], width_ratios=[*bigwig_heights, 0.97 - (0.07 * number_of_rows_plot), 0.03],
                                                       subplot_spec=grids[row, col], wspace=0.1, hspace=0.1)
                 # gs.update(hspace=0.05, wspace=0.05)
                 # gs.update(hspace=0.05, wspace=0.05)
@@ -443,13 +440,10 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
                 for i in range(len(args.bigwig)):
                     bigwig_vertical_axis_list.append(plt.subplot(gs[0, i]))
                 # ax2 = plt.subplot(gs[1, 0])
-                ax3 = plt.subplot(gs[0, len(args.bigwig)+1])
+                ax3 = plt.subplot(gs[0, len(args.bigwig) + 1])
                 bigwig_info['axis'] = ax2_list
                 bigwig_info['axis_colorbar'] = ax3
                 bigwig_info['axis_vertical'] = bigwig_vertical_axis_list
-
-
-
 
             else:
                 # [0.95 - (0.07 * number_of_rows_plot), *z_score_heights], width_ratios=[0.75, 0.25])
@@ -505,7 +499,7 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig):
             args, hic_matrix)
         plotHeatmap(matrix, chr_bin_boundary, fig, None,
                     args, cmap, xlabel=chrname, ylabel=chrname,
-                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pBigwig=bigwig_info, pChromsomeStartEndDict=chromosome_start_end(hic_matrix))
+                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pBigwig=bigwig_info, pChromsomeStartEndDict=chromosome_start_end(hic_matrix), pResolution=pResolution)
     return fig
 
 
@@ -570,11 +564,11 @@ def getRegion(args, ma):
 
     return chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2
 
+
 def bigwig_axes_config(pArgs, pBigWigInfo):
 
-    
-            # increase figure height to accommodate bigwig track
-            
+    # increase figure height to accommodate bigwig track
+
     # for i in range(len(pArgs.bigwig)):
     #     pFigureHeight += pArgs.increaseFigureHeight
     #     # if args.bigwigAdditionalVerticalAxis:
@@ -622,6 +616,7 @@ def bigwig_axes_config(pArgs, pBigWigInfo):
 
     return pBigWigInfo, ax1
 
+
 def main(args=None):
     args = parse_arguments().parse_args(args)
     if args.title:
@@ -638,7 +633,6 @@ def main(args=None):
                   'options at the same time are not '
                   'compatible.')
         exit(1)
-
     if args.bigwig is not None and len(args.bigwig) > 1 and args.bigwigAdditionalVerticalAxis:
         log.error(
             'Either multiple bigwig files on x axis or additional vertical axis are supported')
@@ -725,6 +719,8 @@ def main(args=None):
             log.debug("Else branch")
             matrix = np.asarray(ma.getMatrix().astype(float))
 
+    resolution = ma.getBinSize()
+
     matrix_length = len(matrix[0])
     log.debug("Number of data points matrix: {}".format(matrix_length))
 
@@ -744,7 +740,7 @@ def main(args=None):
 
     if args.perChromosome:
         log.debug('583')
-        fig = plotPerChr(ma, cmap, args, pBigwig=bigwig_info)
+        fig = plotPerChr(ma, cmap, args, pBigwig=bigwig_info, pResolution=resolution)
 
     else:
         norm = None
@@ -780,7 +776,7 @@ def main(args=None):
 
         if args.bigwig:
             # increase figure height to accommodate bigwig track
-            
+
             for i in range(len(args.bigwig)):
                 fig_height += args.increaseFigureHeight
                 # if args.bigwigAdditionalVerticalAxis:
@@ -794,45 +790,7 @@ def main(args=None):
 
         if args.bigwig:
             bigwig_info, ax1 = bigwig_axes_config(args, bigwig_info)
-            # number_of_rows_plot = len(args.bigwig) * 2
 
-            # if args.bigwigAdditionalVerticalAxis:
-
-            #     number_of_columns = number_of_rows_plot + 11
-
-            #     # vertical bigwig plot axes
-            #     bigwig_vertical_axis = []
-            #     for i in range(0, number_of_rows_plot, 2):
-            #         bigwig_vertical_axis.append(plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (0, 0 + i), colspan=2, rowspan=8))
-
-            #     # heatmap axis
-            #     ax1 = plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (0, number_of_rows_plot), colspan=10, rowspan=8)
-            #     # colorbar for the heatmap axis
-            #     ax3 = plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (0, number_of_rows_plot + 10), colspan=1, rowspan=8)
-
-            #     # horizontal bigwig axes
-            #     ax2_list = []
-            #     for i in range(0, number_of_rows_plot, 2):
-            #         ax2_list.append(plt.subplot2grid((10 + number_of_rows_plot, number_of_columns), (10 + i, number_of_rows_plot), colspan=10, rowspan=2))
-
-            #     bigwig_info['axis'] = ax2_list
-            #     bigwig_info['axis_colorbar'] = ax3
-            #     bigwig_info['axis_vertical'] = bigwig_vertical_axis
-            # else:
-
-            #     # number_of_rows_plot = number_of_rows_plot *2
-            #     ax2_list = []
-
-            #     # heatmap axis
-            #     ax1 = plt.subplot2grid((10 + number_of_rows_plot, 11), (0, 0), colspan=10, rowspan=10)
-            #     # colorbar for the heatmap axis
-            #     ax3 = plt.subplot2grid((10 + number_of_rows_plot, 11), (0, 10), colspan=1, rowspan=10)
-
-            #     for i in range(0, number_of_rows_plot, 2):
-            #         ax2_list.append(plt.subplot2grid((10 + number_of_rows_plot, 11), (10 + i, 0), colspan=10, rowspan=2))
-
-            #     bigwig_info['axis'] = ax2_list
-            #     bigwig_info['axis_colorbar'] = ax3
         else:
             ax1 = None
         bottom = 1.3 / fig_height
@@ -845,7 +803,7 @@ def main(args=None):
         plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
-                    pLoops=args.loops, pHiCMatrix=ma, pChromsomeStartEndDict=chromosome_start_end(ma))
+                    pLoops=args.loops, pHiCMatrix=ma, pChromsomeStartEndDict=chromosome_start_end(ma), pResolution=resolution)
 
     if not args.disable_tight_layout:
         if args.perChromosome or args.bigwig:
@@ -888,8 +846,9 @@ def make_start_pos_array(ma):
     return start_pos
 
 
-def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None, pVertical=False,
-               pValueMin=None, pValueMax=None):
+def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None,
+               pFlipBigwigSign=None, pScaleFactorBigwig=None, pVertical=False,
+               pValueMin=None, pValueMax=None, pResolution=None):
     log.debug('plotting bigwig file')
 
     # pNameOfBigwigList is not a list, but to make room for future options
@@ -940,8 +899,8 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 bigwig_end = min(bw.chroms()[chrom], region_end)
 
                 # TODO, this could be a parameter
-                num_bins = min(1000, int(bigwig_end - region_start) / 10)
-
+                num_bins = int(bigwig_end - region_start) // pResolution
+                log.debug('chrom {}, region_start {}, bigwig_end {}, num_bins {}'.format(chrom, region_start, bigwig_end, num_bins))
                 scores_per_bin = np.array(
                     bw.stats(chrom, region_start, bigwig_end, nBins=num_bins)).astype(float)
                 if scores_per_bin is None:
@@ -950,15 +909,19 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                     return
 
                 _x_vals = np.linspace(region_start, region_end, num_bins)
+                log.debug('_x_vals[:10] {}'.format(_x_vals[:10]))
                 assert len(_x_vals) == len(scores_per_bin)
                 x_values.extend(_x_vals)
                 bigwig_scores.extend(scores_per_bin)
                 if pVertical:
                     pAxis[i].set_ylim(region_start, region_end)
                 else:
+                    log.debug('limits region: {}, {}'.format(region_start, region_end))
+
                     pAxis[i].set_xlim(region_start, region_end)
 
             elif pChromosomeSizes:
+                log.debug('pChromosomeSizes: {}'.format(pChromosomeSizes))
                 chrom_length_sum = 0
                 min_start = None
                 for chrom in pChromosomeSizes:
@@ -973,10 +936,14 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                     # chrom = check_chrom_str_bytes(pChromosomeSizes, chrom)
                     # set the bin size to approximately 100kb
                     # or to the chromosome size if this happens to be less than 100kb
-                    chunk_size = min(1e6, pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0])
-                    num_bins = int(pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0] / chunk_size)
+                    # chunk_size = min(1e6, pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0])
+                    # num_bins = int(pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0] / chunk_size)
+                    bigwig_end = min(bw.chroms()[chrom_], pChromosomeSizes[chrom][1])
+                    num_bins = int(bigwig_end - pChromosomeSizes[chrom][0]) // pResolution
+                    log.debug('chrom {}, region_start {}, bigwig_end {}, num_bins {}'.format(chrom_, pChromosomeSizes[chrom][0], pChromosomeSizes[chrom][1], num_bins))
+
                     scores_per_bin = np.array(
-                        bw.stats(chrom_, pChromosomeSizes[chrom][0], pChromosomeSizes[chrom][1], nBins=num_bins)).astype(float)
+                        bw.stats(chrom_, pChromosomeSizes[chrom][0], bigwig_end, nBins=num_bins)).astype(float)
 
                     if scores_per_bin is None:
                         log.info(
@@ -984,7 +951,9 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                         return
 
                     _x_vals = np.linspace(
-                        chrom_length_sum, chrom_length_sum + pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0], num_bins)
+                        chrom_length_sum + pChromosomeSizes[chrom][0], chrom_length_sum + pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0], num_bins)
+                    log.debug('_x_vals[:10] {}'.format(_x_vals[:10]))
+
                     assert len(_x_vals) == len(scores_per_bin)
                     x_values.extend(_x_vals)
 
@@ -998,10 +967,11 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                         min_start = pChromosomeSizes[chrom][0]
                     elif min_start > pChromosomeSizes[chrom][0]:
                         min_start = pChromosomeSizes[chrom][0]
-
+                # min_start = 0
                 if pVertical:
                     pAxis[i].set_ylim(min_start, chrom_length_sum)
                 else:
+                    log.debug('limits: {}, {}'.format(min_start, chrom_length_sum))
                     pAxis[i].set_xlim(min_start, chrom_length_sum)
 
             log.debug("Number of data points: {}".format(len(bigwig_scores)))
