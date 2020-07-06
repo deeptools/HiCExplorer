@@ -1,2 +1,2 @@
 File	Read pair type: inward pairs	Read pair type: inward pairs %	Read pair type: outward pairs	Read pair type: outward pairs %	Read pair type: left pairs	Read pair type: left pairs %	Read pair type: right pairs	Read pair type: right pairs %
-/tmp/tmpxs1gdw50.h5	6936	0.229973474801061	8957	0.2969827586206897	7041	0.23345490716180373	7226	0.23958885941644562
+/tmp/tmpmnbm2xaf.h5	6936	0.22535577360452272	9575	0.311098836831503	7041	0.22876730131912404	7226	0.23477808824485022

@@ -118,6 +118,41 @@ def parse_arguments(args=None):
                                 'Hi-C libraries.',
                                 metavar='FOLDER',
                                 required=True)
+    parserRequired.add_argument('--restrictionCutFile', '-rs',
+                                help=('BED file(s) with all restriction cut places '
+                                      '(output of "findRestSite" command). '
+                                      'Should contain only  mappable '
+                                      'restriction sites. If given, the bins are '
+                                      'set to match the restriction fragments (i.e. '
+                                      'the region between one restriction site and '
+                                      'the next). Alternatively, a fixed binSize can be defined instead. '
+                                      'However, either binSize or restrictionCutFile must be defined. '
+                                      'To use more than one restriction enzyme, generate for each one a restrictionCutFile and list them space seperated.'),
+                                type=argparse.FileType('r'),
+                                metavar='BED file',
+                                nargs='+',
+                                required=True)
+    parserRequired.add_argument('--restrictionSequence', '-seq',
+                                help='Sequence of the restriction site, if multiple are used, please list them space seperated. If a dangling sequence '
+                                'is listed at the same time, please preserve the same order.',
+                                type=str,
+                                nargs='+',
+                                required=True)
+
+    parserRequired.add_argument('--danglingSequence',
+                                help='Sequence left by the restriction enzyme after cutting, if multiple are used, please list them space '
+                                'seperated and preserve the order. Each restriction enzyme '
+                                'recognizes a different DNA sequence and, after cutting, they leave behind a specific '
+                                '"sticky" end or dangling end sequence.  For example, for HindIII the restriction site '
+                                'is AAGCTT and the dangling end is AGCT. For DpnII, the restriction site and dangling '
+                                'end sequence are the same: GATC. This information is easily found on the description '
+                                'of the restriction enzyme. The dangling sequence is used to classify and report reads '
+                                'whose 5\' end starts with such sequence as dangling-end reads. A significant portion '
+                                'of dangling-end reads in a sample are indicative of a problem with the re-ligation '
+                                'step of the protocol.',
+                                type=str,
+                                nargs='+',
+                                required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
@@ -132,31 +167,17 @@ def parse_arguments(args=None):
                            type=argparse.FileType('w'),
                            required=False)
 
-    group = parserOpt.add_mutually_exclusive_group(required=True)
+    # group = parserOpt.add_mutually_exclusive_group(required=True)
 
-    group.add_argument('--binSize', '-bs',
-                       help='Size in bp for the bins. The bin size depends '
-                            'on the depth of sequencing. Use a larger bin size for '
-                            'libraries sequenced with lower depth. Alternatively, the location of '
-                            'the restriction sites can be given (see --restrictionCutFile). However, either binSize or restrictionCutFile must be defined.'
-                            'Optional for mcool file format: Define multiple resolutions which are all a multiple of the first value. '
-                            ' Example: --binSize 10000 20000 50000 will create a mcool file formate containing the three defined resolutions.',
-                       type=int,
-                       nargs='+')
-
-    group.add_argument('--restrictionCutFile', '-rs',
-                       help=('BED file(s) with all restriction cut places '
-                             '(output of "findRestSite" command). '
-                             'Should contain only  mappable '
-                             'restriction sites. If given, the bins are '
-                             'set to match the restriction fragments (i.e. '
-                             'the region between one restriction site and '
-                             'the next). Alternatively, a fixed binSize can be defined instead. '
-                             'However, either binSize or restrictionCutFile must be defined. '
-                             'To use more than one restriction enzyme, generate for each one a restrictionCutFile and list them space seperated.'),
-                       type=argparse.FileType('r'),
-                       metavar='BED file',
-                       nargs='+')
+    parserOpt.add_argument('--binSize', '-bs',
+                           help='Size in bp for the bins. The bin size depends '
+                           'on the depth of sequencing. Use a larger bin size for '
+                           'libraries sequenced with lower depth. Alternatively, the location of '
+                           'the restriction sites can be given (see --restrictionCutFile). However, either binSize or restrictionCutFile must be defined.'
+                           'Optional for mcool file format: Define multiple resolutions which are all a multiple of the first value. '
+                           ' Example: --binSize 10000 20000 50000 will create a mcool file formate containing the three defined resolutions.',
+                           type=int,
+                           nargs='+')
 
     parserOpt.add_argument('--minDistance',
                            help='Minimum distance between restriction sites. '
@@ -183,28 +204,8 @@ def parse_arguments(args=None):
                            default=1000,
                            required=False)
 
-    parserOpt.add_argument('--restrictionSequence', '-seq',
-                            help='Sequence of the restriction site, if multiple are used, please list them space seperated. If a dangling sequence '
-                            'is listed at the same time, please preserve the same order.',
-                            type=str,
-                            nargs='+')
-
     parserOpt.add_argument('--genomeAssembly', '-ga',
                            help='The genome the reads were mapped to. Used for metadata of cool file.')
-
-    parserOpt.add_argument('--danglingSequence',
-                           help='Sequence left by the restriction enzyme after cutting, if multiple are used, please list them space '
-                                'seperated and preserve the order. Each restriction enzyme '
-                                'recognizes a different DNA sequence and, after cutting, they leave behind a specific '
-                                '"sticky" end or dangling end sequence.  For example, for HindIII the restriction site '
-                                'is AAGCTT and the dangling end is AGCT. For DpnII, the restriction site and dangling '
-                                'end sequence are the same: GATC. This information is easily found on the description '
-                                'of the restriction enzyme. The dangling sequence is used to classify and report reads '
-                                'whose 5\' end starts with such sequence as dangling-end reads. A significant portion '
-                                'of dangling-end reads in a sample are indicative of a problem with the re-ligation '
-                                'step of the protocol.',
-                            type=str,
-                            nargs='+')
 
     parserOpt.add_argument('--region', '-r',
                            help='Region of the genome to limit the operation to. '
@@ -216,11 +217,10 @@ def parse_arguments(args=None):
                            )
     # currently not implemented
     parserOpt.add_argument('--removeSelfLigation',
-                           # help='If set, inward facing reads less than 1000 bp apart and having a restriction'
-                           #     'site in between are removed. Although this reads do not contribute to '
-                           #     'any distant contact, they are useful to account for bias in the data.',
-                           help=argparse.SUPPRESS,
-                           required=False,
+                           help='If set, inward facing reads less than 1000 bp apart and having a restriction'
+                           'site in between are removed. Although this reads do not contribute to '
+                           'any distant contact, they are useful to account for bias in the data.',
+                           #    help=argparse.SUPPRESS,
                            default=True
                            # action='store_true'
                            )
@@ -294,14 +294,14 @@ def parse_arguments(args=None):
                            action='store_true'
                            )
     parserOpt.add_argument('--chromosomeSizes', '-cs',
-                       help=('File with the chromosome sizes for your genome. A tab-delimited two column layout \"chr_name size\" is expected'
-                             'Usually the sizes can be determined from the SAM/BAM input files, however, '
-                             'for cHi-C or scHi-C it can be that at the start or end no data is present. '
-                             'Please consider that this option causes that only reads are considered which are on the listed chromosomes.'
-                             'Use this option to guarantee fixed sizes. An example file is available via UCSC: '
-                             'http://hgdownload.soe.ucsc.edu/goldenPath/dm3/bigZips/dm3.chrom.sizes'),
-                       type=argparse.FileType('r'),
-                       metavar='txt file')
+                           help=('File with the chromosome sizes for your genome. A tab-delimited two column layout \"chr_name size\" is expected'
+                                 'Usually the sizes can be determined from the SAM/BAM input files, however, '
+                                 'for cHi-C or scHi-C it can be that at the start or end no data is present. '
+                                 'Please consider that this option causes that only reads are considered which are on the listed chromosomes.'
+                                 'Use this option to guarantee fixed sizes. An example file is available via UCSC: '
+                                 'http://hgdownload.soe.ucsc.edu/goldenPath/dm3/bigZips/dm3.chrom.sizes'),
+                           type=argparse.FileType('r'),
+                           metavar='txt file')
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -816,7 +816,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     pMaxInsertSize : maximum illumina insert size
     """
     try:
-                
+
         one_mate_unmapped = 0
         one_mate_low_quality = 0
         one_mate_not_unique = 0
@@ -967,14 +967,10 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                             has_rf.extend(sorted(
                                 pRfPositions[mate_ref][frag_start: frag_end]))
 
-                            
-                    # elif pRestrictionSequence:
-
-
-                        if len(has_rf) == 0:
-                            self_circle += 1
-                            if not pKeepSelfCircles:
-                                continue
+                            if len(has_rf) == 0:
+                                self_circle += 1
+                                if not pKeepSelfCircles:
+                                    continue
                 if abs(mate2.pos - mate1.pos) < pMaxInsertSize and orientation == 'inward':
                     # check for dangling ends if the restriction sequence is known and if they look
                     # like 'same fragment'
@@ -1079,7 +1075,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                         count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter, out_bam_index_buffer]])
     except Exception as exp:
         pQueueOut.put('Fail: ' + str(exp))
-        return    
+        return
     return
 
 
@@ -1149,21 +1145,18 @@ def main(args=None):
     # log.debug('chrom_sizes {}'.format(chrom_sizes))
     read_pos_matrix = ReadPositionMatrix()
 
-    # define bins
-    rf_positions = None
-    if args.restrictionCutFile:
-        rf_interval = []
-        for restrictionCutFile in args.restrictionCutFile:
-            rf_interval.extend(bed2interval_list(restrictionCutFile))
-        
-        # rf_interval = list(set(rf_interval))
+    rf_interval = []
+    for restrictionCutFile in args.restrictionCutFile:
+        rf_interval.extend(bed2interval_list(restrictionCutFile))
+
+    rf_positions = intervalListToIntervalTree(rf_interval)
+
+    if args.binSize:
+        bin_intervals = get_bins(args.binSize[0], chrom_sizes, args.region)
+    else:
         bin_intervals = get_rf_bins(rf_interval,
                                     min_distance=args.minDistance,
                                     max_distance=args.maxLibraryInsertSize)
-
-        rf_positions = intervalListToIntervalTree(rf_interval)
-    else:
-        bin_intervals = get_bins(args.binSize[0], chrom_sizes, args.region)
 
     matrix_size = len(bin_intervals)
     bin_intval_tree = intervalListToIntervalTree(bin_intervals)
@@ -1197,7 +1190,7 @@ def main(args=None):
                     Seq(args.danglingSequence[i], generic_dna).reverse_complement())
 
         log.info("dangling sequences to check "
-                "are {}\n".format(dangling_sequences))
+                 "are {}\n".format(dangling_sequences))
 
     # initialize coverage vectors that
     # save the number of reads that overlap
@@ -1521,14 +1514,13 @@ Max library insert size\t{}\t\t
         log.debug('dangling_end {}'.format(dangling_end.keys()))
         # log.debug('dangling_end {}'.format(res.keys()))
 
-
         for key in dangling_end:
             # dangling_sequences[args.restrictionSequence[i]]['pat_forw']
             intermediate_qc_log.write("dangling end {}\t{}\t({:.2f})\n".
-                                    format(dangling_sequences[key]['pat_forw'], dangling_end[key], 100 * float(dangling_end[key]) / mappable_unique_high_quality_pairs))
+                                      format(dangling_sequences[key]['pat_forw'], dangling_end[key], 100 * float(dangling_end[key]) / mappable_unique_high_quality_pairs))
     else:
         intermediate_qc_log.write("dangling end\t{}\t({:.2f})\n".
-                                    format(0, 100 * float(0) / mappable_unique_high_quality_pairs))
+                                  format(0, 100 * float(0) / mappable_unique_high_quality_pairs))
     intermediate_qc_log.write("self ligation{}\t{}\t({:.2f})\n".
                               format(msg, self_ligation, 100 * float(self_ligation) / mappable_unique_high_quality_pairs))
 

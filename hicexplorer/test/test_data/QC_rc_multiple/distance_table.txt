@@ -1,2 +1,2 @@
 File	inter chromosomal	inter chromosomal %	Intra short range (< 20kb)	Intra short range (< 20kb) %	Intra long range (>= 20kb)	Intra long range (>= 20kb) %
-/tmp/tmp_e45dpux.h5	5946	0.16197221465540726	8287	0.22574230454916916	22477	0.6122854807954236
+/tmp/tmpt7y_82hx.h5	5946	0.15989888667778196	8763	0.23565320281826493	22477	0.6044479105039531

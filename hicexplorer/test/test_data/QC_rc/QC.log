@@ -1,18 +1,18 @@
 
-File	/tmp/tmpxs1gdw50.h5		
+File	/tmp/tmpmnbm2xaf.h5		
 Sequenced reads	99983		
 Min rest. site distance	150		
 Max library insert size	1500		
 
 #	count	(percentage w.r.t. total sequenced reads)
 Pairs mappable, unique and high quality	52726	(52.73)
-Hi-C contacts	36009	(36.02)
+Hi-C contacts	36627	(36.63)
 One mate unmapped	8777	(8.78)
 One mate not unique	3603	(3.60)
 Low mapping quality	34877	(34.88)
 
 #	count	(percentage w.r.t. mappable, unique and high quality pairs)
-dangling end	54	(0.10)
+dangling end GATC	54	(0.10)
 self ligation (removed)	5128	(9.73)
 One mate not close to rest site	751	(1.42)
 same fragment	10154	(19.26)
@@ -20,10 +20,10 @@ self circle	618	(1.17)
 duplicated pairs	12	(0.02)
 
 #	count	(percentage w.r.t. total valid pairs used)
-inter chromosomal	5849	(16.24)
-Intra short range (< 20kb)	8038	(22.32)
-Intra long range (>= 20kb)	22122	(61.43)
-Read pair type: inward pairs	6936	(19.26)
-Read pair type: outward pairs	8957	(24.87)
-Read pair type: left pairs	7041	(19.55)
-Read pair type: right pairs	7226	(20.07)
+inter chromosomal	5849	(15.97)
+Intra short range (< 20kb)	8656	(23.63)
+Intra long range (>= 20kb)	22122	(60.40)
+Read pair type: inward pairs	6936	(18.94)
+Read pair type: outward pairs	9575	(26.14)
+Read pair type: left pairs	7041	(19.22)
+Read pair type: right pairs	7226	(19.73)
