@@ -111,17 +111,14 @@ def adjustMatrix(pArgs):
         if len(genomic_regions) == 0:
             log.error('No valid chromosome given. Available: {}'.format(chromosomes_list))
             exit(1)
-        log.debug('genomic_regions {}'.format(genomic_regions))
         matrix_indices_regions = []
         for region in genomic_regions:
             log.debug('region {}'.format(region))
-            _regionBinRange = hic_matrix.getRegionBinRange(region[0], int(region[1]), int(region[2])-1)
+            _regionBinRange = hic_matrix.getRegionBinRange(region[0], int(region[1]), int(region[2]) - 1)
             if _regionBinRange is not None:
                 start, end = _regionBinRange
                 matrix_indices_regions.extend(list(range(start, end)))
-        log.debug('foo {}'.format(matrix_indices_regions))
 
-        # log.debug('matrix_indices_regions {}'.format(matrix_indices_regions))
         if pArgs.action == 'keep':
             hic_matrix.reorderBins(matrix_indices_regions)
 

@@ -1098,7 +1098,7 @@ def main(args=None):
     # args.outFileName.name = args.outFileName.name.strip()
     # log.debug('args.outFileName.name: {}'.format(args.outFileName.name.endswith('.h5')))
     if not args.outFileName.name.endswith('.h5') and not args.outFileName.name.endswith('.cool'):
-        if not '.mcool' in args.outFileName.name:
+        if '.mcool' not in args.outFileName.name:
             log.error('Please define the file extension. h5 and cool are supported, or the specializations of cool, mcool. Given input {}'.format(args.outFileName.name))
             exit(1)
     # for backwards compatibility

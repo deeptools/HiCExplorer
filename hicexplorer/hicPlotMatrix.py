@@ -963,7 +963,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                     log.debug('len bigwig score {}, x_values {}'.format(len(bigwig_scores), len(x_values)))
 
                     chrom_length_sum += pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0]
-                    if min_start == None:
+                    if min_start is None:
                         min_start = pChromosomeSizes[chrom][0]
                     elif min_start > pChromosomeSizes[chrom][0]:
                         min_start = pChromosomeSizes[chrom][0]

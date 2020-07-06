@@ -44,6 +44,7 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig():
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
 
+
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
 def test_hicPlotMatrix_region_region2_log1p_and_bigwig():
@@ -80,6 +81,7 @@ def test_hicPlotMatrix_region_region2_log1p_and_bigwig2():
 
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
+
 
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
@@ -498,8 +500,6 @@ def test_hicPlotMatrix_bigwig_multiple_chr():
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
-
-        hicPlotMatrix / start_end_cut2.h5
 
 
 @pytest.mark.skipif(LOW_MEMORY > memory,

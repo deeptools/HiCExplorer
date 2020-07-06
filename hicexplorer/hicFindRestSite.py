@@ -109,14 +109,14 @@ def find_pattern(pattern, fasta_file, out_file):
             # find all the occurrences of pattern
             for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
                 _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                            match.start(),
-                                                            match.end()))
+                                                              match.start(),
+                                                              match.end()))
             if rev_compl != pattern:
                 # search for the reverse complement only if the pattern is not palindromic
                 for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
                     _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
-                                                                match.start(),
-                                                                match.end()))
+                                                                  match.start(),
+                                                                  match.end()))
         log.info("Sorting file ...")
     tmpfile_name = temp.name
     temp.close()

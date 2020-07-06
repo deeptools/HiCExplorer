@@ -41,6 +41,7 @@ def test_fasta_gz():
     assert are_files_equal(ROOT + "hindIII_chrM.bed",
                            outfile.name, skip=0)
 
+
 def test_fasta():
     outfile = NamedTemporaryFile(suffix='.bed', delete=False)
     outfile.close()
