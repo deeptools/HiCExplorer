@@ -52,7 +52,7 @@ def test_hicPlotMatrix_region_region2_log1p_and_bigwig():
 
     args = "--matrix {0}/Li_cut.h5 --dpi 300 " \
         "--outFileName  {1} --log1p --bigwig {2} ".format(ROOT, outfile.name,
-                                                                            ROOT + "bigwig_chrx_2e6_5e6.bw").split()
+                                                          ROOT + "bigwig_chrx_2e6_5e6.bw").split()
     test_image_path = ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_log1p_clearmaskedbins.png'
 
     hicexplorer.hicPlotMatrix.main(args)
@@ -61,7 +61,6 @@ def test_hicPlotMatrix_region_region2_log1p_and_bigwig():
 
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
-
 
 
 @pytest.mark.skipif(MID_MEMORY > memory,
