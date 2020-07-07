@@ -16,6 +16,7 @@ Release 3.5
    - multiple bigwig tracks in the vertical setting are now supported
    - correct plot of bigwig if the given matrix does not start at the beginning of the chromosome
    - new parameters 'increaseFigureWidth' and 'increaseFigureHeight' to add more space to the plot if multiple bigwigs are plotted. Adjust this parameter to correct the plot of the heatmap which may be not quadratic anymore.
+   - restriction of the loop regions to the user given range. This effects especially SVGs that will now contain less objects as before.
 - New feature for hicBuildMatrix:
    - multiple restriction cut sequences, dangling ends and restriction cut sites files are now supported
    - restriction cut sequences, dangling ends and restriction cut sites files are now mandatory parameters. This is now enforced to guarantee a correct detection of self ligations and self circles
