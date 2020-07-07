@@ -22,6 +22,18 @@ Release 3.5
    - restriction cut sequences, dangling ends and restriction cut sites files are now mandatory parameters. This is now enforced to guarantee a correct detection of self ligations and self circles
 - hicPrepareQCreport: New support for multiple dangling ends
 - hicQuickQC: restriction cut sequences, dangling ends and restriction cut sites files are now mandatory parameters
+- hicFindRestSite: gz support for fasta file
+- Add fallback modes to multiple scripts if the parallelization fails.
+
+
+Publication
+-----------
+**02 July 2020** 
+
+Galaxy HiCExplorer 3: a web server for reproducible Hi-C, capture Hi-C and single-cell Hi-C data analysis, quality control and visualization 
+Joachim Wolff, Leily Rabbani, Ralf Gilsbach, Gautier Richard, Thomas Manke, Rolf Backofen, Björn A Grüning
+Nucleic Acids Research, Volume 48, Issue W1, 02 July 2020, Pages W177–W184
+
 
 Release 3.4.3
 -------------
