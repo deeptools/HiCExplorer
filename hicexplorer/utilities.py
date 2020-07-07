@@ -650,4 +650,3 @@ def in_units(pBasePosition):
         labels = "{:.2f} ".format((pBasePosition))
         labels += " bp"
     return labels
-
