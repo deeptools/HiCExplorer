@@ -101,6 +101,7 @@ def make_figure_pairs_used(table, filename, dpi):
     ax.set_ylabel("")
     plt.savefig(filename, bbox_extra_artists=(
         lgd,), bbox_inches='tight', dpi=dpi)
+    plt.close()
 
 
 def make_figure_umappable_non_unique_reads(table, filename, dpi):
@@ -118,6 +119,7 @@ def make_figure_umappable_non_unique_reads(table, filename, dpi):
     ax.set_ylabel("fraction w.r.t. pairs sequenced")
     plt.savefig(filename, bbox_extra_artists=(
         lgd,), bbox_inches='tight', dpi=dpi)
+    plt.close()
 
     # merge the counts table with the percentages table
     ret_table = table[['Hi-C contacts', 'Low mapping quality', 'One mate not unique',
@@ -164,6 +166,7 @@ def make_figure_pairs_discarded(table, filename, dpi):
     ax.set_ylabel("fraction w.r.t. mappable and unique pairs")
     plt.savefig(filename, bbox_extra_artists=(
         lgd,), bbox_inches='tight', dpi=dpi)
+    plt.close()
 
     # merge the counts table with the percentages table
     ret_table = table[column_names].join(prc_table.T, rsuffix=' %')
@@ -187,6 +190,7 @@ def make_figure_distance(table, filename):
 
     plt.savefig(filename, bbox_extra_artists=(
         lgd,), bbox_inches='tight', dpi=200)
+    plt.close()
 
     # merge the counts table with the percentages table
     ret_table = table[['inter chromosomal', 'Intra short range (< 20kb)', 'Intra long range (>= 20kb)']].join(
@@ -208,6 +212,7 @@ def make_figure_read_orientation(table, filename, dpi):
     ax.set_ylabel("fraction w.r.t. valid Hi-C contacts")
     plt.savefig(filename, bbox_extra_artists=(
         lgd,), bbox_inches='tight', dpi=dpi)
+    plt.close()
 
     # merge the counts table with the percentages table
     ret_table = table[[u'Read pair type: inward pairs', u'Read pair type: outward pairs',
