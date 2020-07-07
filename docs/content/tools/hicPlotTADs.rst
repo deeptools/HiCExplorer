@@ -32,7 +32,7 @@ Configuration file template
 
 The following is a template for the configuration file which is based on .ini configuration files. Each
 track is defined by a section header (for example `[hic track]`), followed by parameters specific to the
-section as `color`, `title`, etc. For details please see the documentation of `pyGenomeTracks <https://github.com/deeptools/pyGenomeTracks>`_.
+section as `color`, `title`, etc. For details please see the documentation of `pyGenomeTracks <https://pygenometracks.readthedocs.io/>`_.
 
 .. code:: bash
 
