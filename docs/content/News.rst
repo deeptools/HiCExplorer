@@ -3,7 +3,7 @@ News and Developments
 
 Release 3.5
 -----------
-**xx June 2020**
+**xx July 2020**
 
 - Major update for hicDetectLoops: Results are now closer to HiCCUPS, it is faster and needs less memory. 
 - hicHyperoptDetectLoops: New tool to compute the best parameter setting if the number of expected loops is given and a protein boundary file (e.g. CTCF on mammals) is provided
@@ -12,6 +12,15 @@ Release 3.5
 - hicDifferentialTAD: New tool to compute differential TADs between two samples
 - Bug fix for hicFindTADs: The format of the intermediate z-score matrices are now depending on the format of the input Hi-C matrix
 - Bug fix for chic*-modules: Fixate range is now correct applied.
+- Bug fix for hicPlotMatrix:
+   - multiple bigwig tracks in the vertical setting are now supported
+   - correct plot of bigwig if the given matrix does not start at the beginning of the chromosome
+   - new parameters 'increaseFigureWidth' and 'increaseFigureHeight' to add more space to the plot if multiple bigwigs are plotted. Adjust this parameter to correct the plot of the heatmap which may be not quadratic anymore.
+- New feature for hicBuildMatrix:
+   - multiple restriction cut sequences, dangling ends and restriction cut sites files are now supported
+   - restriction cut sequences, dangling ends and restriction cut sites files are now mandatory parameters. This is now enforced to guarantee a correct detection of self ligations and self circles
+- hicPrepareQCreport: New support for multiple dangling ends
+- hicQuickQC: restriction cut sequences, dangling ends and restriction cut sites files are now mandatory parameters
 
 Release 3.4.3
 -------------
