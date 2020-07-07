@@ -1,0 +1,2 @@
+File	Read pair type: inward pairs	Read pair type: inward pairs %	Read pair type: outward pairs	Read pair type: outward pairs %	Read pair type: left pairs	Read pair type: left pairs %	Read pair type: right pairs	Read pair type: right pairs %
+/tmp/tmpt7y_82hx.h5	7054	0.22580025608194623	9717	0.3110435339308579	7144	0.22868117797695262	7325	0.23447503201024328

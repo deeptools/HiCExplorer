@@ -22,7 +22,7 @@ LOW_MEMORY = 2
 MID_MEMORY = 7
 HIGH_MEMORY = 200
 
-REMOVE_OUTPUT = True
+REMOVE_OUTPUT = False
 # DIFF = 60
 
 
@@ -36,6 +36,44 @@ def test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig():
         "--outFileName  {1} --log1p --clearMaskedBins --bigwig {2} ".format(ROOT, outfile.name,
                                                                             ROOT + "bigwig_chrx_2e6_5e6.bw").split()
     test_image_path = ROOT + "hicPlotMatrix" + '/Li_chrX30-35-chrX31-36_log1p_clearmaskedbins.png'
+
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(test_image_path, outfile.name, tolerance)
+    assert res is None, res
+
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
+
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_region_region2_log1p_and_bigwig():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
+
+    args = "--matrix {0}/Li_cut.h5 --dpi 100 " \
+        "--outFileName  {1} --log1p --bigwig {2} ".format(ROOT, outfile.name,
+                                                          ROOT + "bigwig_chrx_2e6_5e6.bw").split()
+    test_image_path = ROOT + "hicPlotMatrix" + '/Li_cut_full_bigwig.png'
+
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(test_image_path, outfile.name, tolerance)
+    assert res is None, res
+
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
+
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_region_region2_log1p_and_bigwig2():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test_h5_', delete=False)
+
+    args = "--matrix {0}/Li_cut.h5 --dpi 100 --region chrX:3000000-3500000 " \
+        "--outFileName  {1} --log1p --bigwig {2} ".format(ROOT, outfile.name,
+                                                          ROOT + "bigwig_chrx_2e6_5e6.bw").split()
+    test_image_path = ROOT + "hicPlotMatrix" + '/Li_cut_bigwig_region.png'
 
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(test_image_path, outfile.name, tolerance)
@@ -392,30 +430,14 @@ def test_hicPlotMatrix_perChr_pca1_bigwig():
 
 @pytest.mark.skipif(LOW_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_perChr_pca1_bigwig_two_bigwig():
+def test_hicPlotMatrix_perChr_pca1_two_bigwig():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
     args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --perChr  --disable_tight_layout " \
            "--outFileName  {1} --bigwig {2} {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)
-    assert res is None, res
-    if REMOVE_OUTPUT:
-        os.remove(outfile.name)
-
-
-@pytest.mark.xfail
-@pytest.mark.skipif(LOW_MEMORY > memory,
-                    reason="Travis has too less memory to run it.")
-def test_hicPlotMatrix_perChr_pca1_bigwig_two_bigwig_fail():
-
-    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
-
-    args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --perChr  --disable_tight_layout  --bigwigAdditionalVerticalAxis " \
-           "--outFileName  {1} --bigwig {2} {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
-    hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot_two_bigwig.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -427,9 +449,9 @@ def test_hicPlotMatrix_perChr_pca1_bigwig_vertical():
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
     args = "--matrix {0}/hicTransform/pearson_perChromosome.h5 --perChr  --disable_tight_layout --bigwigAdditionalVerticalAxis " \
-           "--outFileName  {1} --bigwig {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
+           "--outFileName  {1} --bigwig {2} {2}".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
-    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot.png', outfile.name, tol=tolerance)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/small_matrix_50kb_pearson_pca1_plot_two_bigwig_vertical.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
@@ -460,6 +482,36 @@ def test_hicPlotMatrix_region_start_end_pca1_colormap_bigwig():
            "--outFileName  {1} --bigwig {2} --colorMap hot".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
     hicexplorer.hicPlotMatrix.main(args)
     res = compare_images(ROOT + "hicPlotMatrix" + '/small_test_50kb_pearson_pca1_plot_region__colormap_hot_chr2L_15mb-20mb_bw.png', outfile.name, tol=tolerance)
+    assert res is None, res
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
+
+@pytest.mark.skipif(LOW_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_bigwig_multiple_chr():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
+
+    args = "--matrix {0}/hicTransform/pearson_perChromosome.h5   --disable_tight_layout " \
+           "--outFileName  {1} --bigwig {2} --chromosomeOrder chr2L chr3L chr3R chr2R".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/bigwig_multiple_chr.png', outfile.name, tol=tolerance)
+    assert res is None, res
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
+
+
+@pytest.mark.skipif(LOW_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_bigwig_multiple_chr_matrix_pruned():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
+
+    args = "--matrix {0}/hicPlotMatrix/start_end_cut2.h5   --disable_tight_layout " \
+           "--outFileName  {1} --bigwig {2} ".format(ROOT, outfile.name, ROOT + "hicPCA/pca1.bw").split()
+    hicexplorer.hicPlotMatrix.main(args)
+    res = compare_images(ROOT + "hicPlotMatrix" + '/cut_multiple_chr_bigwig.png', outfile.name, tol=tolerance)
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
