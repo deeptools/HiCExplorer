@@ -261,7 +261,7 @@ def test_xFold_one_interaction_file_threshold_file():
                                                                                                                                                                       200000, 200000,
                                                                                                                                                                       'output_significant.txt',
                                                                                                                                                                       output_folder,
-                                                                                                                                                                      'thresholdFile_xfold.txt', 'thresholdFile_pValue.txt', output_folder_target, 1).split()
+                                                                                                                                                                      ROOT + 'thresholdFile_xfold.txt', ROOT + 'thresholdFile_pValue.txt', output_folder_target, 1).split()
     chicSignificantInteractions.main(args)
 
     assert are_files_equal(ROOT + "chicSignificantInteractions/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_output_significant.txt",
@@ -284,7 +284,7 @@ def test_loose_pValue_one_interaction_file_threshold_file():
                                                                                                                                                                   200000, 200000,
                                                                                                                                                                   'output_significant.txt',
                                                                                                                                                                   output_folder,
-                                                                                                                                                                  'thresholdFile_loose_pValue.txt', 'thresholdFile_pValue.txt', output_folder_target, 1).split()
+                                                                                                                                                                  ROOT + 'thresholdFile_loose_pValue.txt', ROOT + 'thresholdFile_pValue.txt', output_folder_target, 1).split()
     chicSignificantInteractions.main(args)
 
     assert are_files_equal(ROOT + "chicSignificantInteractions/output_2/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_output_significant.txt",
@@ -308,7 +308,7 @@ def test_loose_pValue_multiple_interaction_files_threshold_file():
                                                                                                                                                                                 200000, 200000,
                                                                                                                                                                                 'output_significant.txt',
                                                                                                                                                                                 output_folder,
-                                                                                                                                                                                'thresholdFile_xfold.txt', 'thresholdFile_pValue.txt', output_folder_target, 1).split()
+                                                                                                                                                                                ROOT + 'thresholdFile_xfold.txt', ROOT + 'thresholdFile_pValue.txt', output_folder_target, 1).split()
     chicSignificantInteractions.main(args)
 
     assert are_files_equal(ROOT + "chicSignificantInteractions/output_3/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_output_significant.txt",
@@ -339,7 +339,7 @@ def test_batchMode_xFold_csn_1_threshold_file():
                                                                                                                                                                200000, 200000,
                                                                                                                                                                'output_significant.txt',
                                                                                                                                                                output_folder,
-                                                                                                                                                               'thresholdFile_xfold.txt', 'thresholdFile_pValue.txt', output_folder_target,
+                                                                                                                                                               ROOT + 'thresholdFile_xfold.txt', ROOT + 'thresholdFile_pValue.txt', output_folder_target,
                                                                                                                                                                outfile_significant_files_list.name,
                                                                                                                                                                outfile_target_list.name, 1).split()
     chicSignificantInteractions.main(args)
@@ -379,7 +379,7 @@ def test_batchMode_loose_pValue_csn_2_threshold_file():
                                                                                                                                                            200000, 200000,
                                                                                                                                                            'output_significant.txt',
                                                                                                                                                            output_folder,
-                                                                                                                                                           'thresholdFile_loose_pValue.txt', 'thresholdFile_pValue.txt', output_folder_target,
+                                                                                                                                                           ROOT + 'thresholdFile_loose_pValue.txt', ROOT + 'thresholdFile_pValue.txt', output_folder_target,
                                                                                                                                                            outfile_significant_files_list.name,
                                                                                                                                                            outfile_target_list.name, 1).split()
     chicSignificantInteractions.main(args)
@@ -432,7 +432,7 @@ def test_batchMode_loose_pValue_csn_2_truncate_zeros_threshold_file():
                                                                                                                                                                                  200000, 200000,
                                                                                                                                                                                  'output_significant.txt',
                                                                                                                                                                                  output_folder,
-                                                                                                                                                                                 'thresholdFile_loose_pValue.txt', 'thresholdFile_pValue.txt', output_folder_target,
+                                                                                                                                                                                 ROOT + 'thresholdFile_loose_pValue.txt', ROOT + 'thresholdFile_pValue.txt', output_folder_target,
                                                                                                                                                                                  outfile_significant_files_list.name,
                                                                                                                                                                                  outfile_target_list.name, 1).split()
     chicSignificantInteractions.main(args)
