@@ -1,8 +1,0 @@
-# Created with HiCExplorer's hicDifferentialTAD version 3.5-dev
-# H0 'regions are equal' H0 is accepted for all p-value greater the user given p-value threshold; i.e. regions in this file are not considered as differential.
-# Accepted regions with Wilcoxon rank-sum test to p-value: 0.01  with used mode: all and modeReject: all 
-# Chromosome	start	end	name	score	strand	p-value left-inter-TAD	p-value right-inter-TAD	p-value intra-TAD
-chr1	4400000	6200000	ID_0.01_1	-0.5630275	.	nan	0.42772134044376386	0.0001942482956610518
-chr1	6200000	7300000	ID_0.01_2	-0.235798	.	nan	0.651801360704674	0.011174626122333891
-chr1	7300000	9500000	ID_0.01_3	-0.44334	.	0.7619708385959597	0.9408966423531526	4.668547072331386e-06
-chr1	9500000	10100000	ID_0.01_4	-1.021538	.	0.8706579826550646	0.10845845730738995	0.10011542876256041
