@@ -36,21 +36,43 @@ The tool hicQuickQC considers the first n lines of two bam/sam files to get a fi
                                 'Hi-C libraries.',
                                 metavar='FOLDER',
                                 required=True)
-    parserOpt = parser.add_argument_group('Optional arguments')
+    parserRequired.add_argument('--restrictionCutFile', '-rs',
+                                help=('BED file(s) with all restriction cut places '
+                                      '(output of "findRestSite" command). '
+                                      'Should contain only  mappable '
+                                      'restriction sites. If given, the bins are '
+                                      'set to match the restriction fragments (i.e. '
+                                      'the region between one restriction site and '
+                                      'the next). Alternatively, a fixed binSize can be defined instead. '
+                                      'However, either binSize or restrictionCutFile must be defined. '
+                                      'To use more than one restriction enzyme, generate for each one a restrictionCutFile and list them space seperated.'),
+                                type=argparse.FileType('r'),
+                                metavar='BED file',
+                                nargs='+',
+                                required=True)
+    parserRequired.add_argument('--restrictionSequence', '-seq',
+                                help='Sequence of the restriction site, if multiple are used, please list them space seperated. If a dangling sequence '
+                                'is listed at the same time, please preserve the same order.',
+                                type=str,
+                                nargs='+',
+                                required=True)
 
-    parserOpt.add_argument('--restrictionSequence', '-seq',
-                           help='Sequence of the restriction site. It is highly recommended to set this parameter to get a good quality report.')
-
-    parserOpt.add_argument('--danglingSequence',
-                           help='Sequence left by the restriction enzyme after cutting. Each restriction enzyme '
+    parserRequired.add_argument('--danglingSequence',
+                                help='Sequence left by the restriction enzyme after cutting, if multiple are used, please list them space '
+                                'seperated and preserve the order. Each restriction enzyme '
                                 'recognizes a different DNA sequence and, after cutting, they leave behind a specific '
-                                '"sticky" end or dangling end sequence. For example, for HindIII the restriction site '
+                                '"sticky" end or dangling end sequence.  For example, for HindIII the restriction site '
                                 'is AAGCTT and the dangling end is AGCT. For DpnII, the restriction site and dangling '
                                 'end sequence are the same: GATC. This information is easily found on the description '
                                 'of the restriction enzyme. The dangling sequence is used to classify and report reads '
                                 'whose 5\' end starts with such sequence as dangling-end reads. A significant portion '
                                 'of dangling-end reads in a sample are indicative of a problem with the re-ligation '
-                                'step of the protocol. It is highly recommended to set this parameter to get a good quality report.')
+                                'step of the protocol.',
+                                type=str,
+                                nargs='+',
+                                required=True)
+    parserOpt = parser.add_argument_group('Optional arguments')
+
     parserOpt.add_argument('--lines',
                            help='Number of lines to consider for the QC test run.',
                            required=False,
@@ -80,20 +102,24 @@ def main(args=None):
                                                                                                                                  args.QCfolder,
                                                                                                                                  str(args.lines)
                                                                                                                                  ).split()
-    # if args.binSize:
+
     args_hicBuildMatrix.append('--binSize')
     args_hicBuildMatrix.append(str(10000))
-    # if args.restrictionCutFile:
-    #     args_hicBuildMatrix.append('--restrictionCutFile')
-    #     args_hicBuildMatrix.append(args.restrictionCutFile)
 
     if args.restrictionSequence:
         args_hicBuildMatrix.append('--restrictionSequence')
-        args_hicBuildMatrix.append(args.restrictionSequence)
+        for restrictionSequence in args.restrictionSequence:
+            args_hicBuildMatrix.append(restrictionSequence)
 
     if args.danglingSequence:
         args_hicBuildMatrix.append('--danglingSequence')
-        args_hicBuildMatrix.append(args.danglingSequence)
+        for danglingSequence in args.danglingSequence:
+            args_hicBuildMatrix.append(danglingSequence)
+
+    if args.danglingSequence:
+        args_hicBuildMatrix.append('--restrictionCutFile')
+        for restrictionCutFile in args.restrictionCutFile:
+            args_hicBuildMatrix.append(restrictionCutFile.name)
 
     log.debug('args_hicBuildMatrix {}'.format(args_hicBuildMatrix))
 
