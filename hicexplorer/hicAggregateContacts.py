@@ -574,69 +574,68 @@ def main(args=None):
         if not args.row_wise:
             bed2_len = len(bed_intervals2[chrom])
             bed_intervals2[chrom] = bed_intervals2[chrom] * len(bed_intervals[chrom])
-            bed_intervals[chrom] =  [coord for coord in bed_intervals[chrom] for i in range(bed2_len)]
+            bed_intervals[chrom] = [coord for coord in bed_intervals[chrom] for i in range(bed2_len)]
 
+        for (start, end), (start2, end2) in zip(bed_intervals[chrom], bed_intervals2[chrom]):
+            # check all other regions that may interact with the
+            # current interval at the given depth range
+            if end > chrom_sizes[chrom]:
+                continue
+            bin_id = ma.getRegionBinRange(toString(chrom), start, end)
+            if bin_id is None:
+                continue
+            else:
+                bin_id = bin_id[0]
 
-        for (start,end), (start2,end2) in zip(bed_intervals[chrom],bed_intervals2[chrom]):
-                # check all other regions that may interact with the
-                # current interval at the given depth range
-                if end > chrom_sizes[chrom]:
+            counter += 1
+            if counter % 50000 == 0:
+                log.info("Number of contacts considered: {:,}".format(counter))
+
+            if end2 > chrom_sizes[chrom]:
+                continue
+            bin_id2 = ma.getRegionBinRange(toString(chrom), start2, end2)
+            if bin_id2 is None:
+                continue
+            else:
+                bin_id2 = bin_id2[0]
+            if bin_id2 in seen[chrom]:
+                continue
+            if bin_id == bin_id2:
+                continue
+            if min_dist_in_bins <= abs(bin_id2 - bin_id) <= max_dist_in_bins:
+                idx1, idx2 = sorted([bin_id, bin_id2])
+                if (idx1, idx2) in seen[chrom]:
                     continue
-                bin_id = ma.getRegionBinRange(toString(chrom), start, end)
-                if bin_id is None:
+                seen[chrom].add((idx1, idx2))
+                if idx1 - M_half < chrom_bin_range[0] or idx2 + 1 + M_half > chrom_bin_range[1]:
                     continue
-                else:
-                    bin_id = bin_id[0]
-
+                try:
+                    mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
+                except IndexError:
+                    log.info("index error for {} {}".format(idx1, idx2))
+                    continue
                 counter += 1
-                if counter % 50000 == 0:
-                    log.info("Number of contacts considered: {:,}".format(counter))
+                if counter % 1000 == 0:
+                    log.info("Number of contacts within range computed: {:,}".format(counter))
+                if mat_to_append.sum() == 0:
+                    empty_mat += 1
+                    continue
+                # to account for the fact that submatrices
+                # close to the diagonal have more counts thatn
+                # submatrices far from the diagonal
+                # the submatrices values are normalized using the
+                # total submatrix sum.
 
-                if end2 > chrom_sizes[chrom]:
-                    continue
-                bin_id2 = ma.getRegionBinRange(toString(chrom), start2, end2)
-                if bin_id2 is None:
-                    continue
-                else:
-                    bin_id2 = bin_id2[0]
-                if bin_id2 in seen[chrom]:
-                    continue
-                if bin_id == bin_id2:
-                    continue
-                if min_dist_in_bins <= abs(bin_id2 - bin_id) <= max_dist_in_bins:
-                    idx1, idx2 = sorted([bin_id, bin_id2])
-                    if (idx1, idx2) in seen[chrom]:
-                        continue
-                    seen[chrom].add((idx1, idx2))
-                    if idx1 - M_half < chrom_bin_range[0] or idx2 + 1 + M_half > chrom_bin_range[1]:
-                        continue
-                    try:
-                        mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
-                    except IndexError:
-                        log.info("index error for {} {}".format(idx1, idx2))
-                        continue
-                    counter += 1
-                    if counter % 1000 == 0:
-                        log.info("Number of contacts within range computed: {:,}".format(counter))
-                    if mat_to_append.sum() == 0:
-                        empty_mat += 1
-                        continue
-                    # to account for the fact that submatrices
-                    # close to the diagonal have more counts thatn
-                    # submatrices far from the diagonal
-                    # the submatrices values are normalized using the
-                    # total submatrix sum.
+                if args.transform == 'total_counts' and mat_to_append.sum() > 0:
+                    mat_to_append = mat_to_append / mat_to_append.sum()
 
-                    if args.transform == 'total_counts' and mat_to_append.sum() > 0:
-                        mat_to_append = mat_to_append / mat_to_append.sum()
-
-                    chrom_total[chrom] += 1
-                    chrom_matrix[chrom].append(mat_to_append)
-                    chrom_diagonals[chrom].append(mat_to_append.diagonal())
-                    center_values[chrom].append(ma.matrix[idx1, idx2])
-                    chrom_contact_position[chrom].append((start, end, start2, end2))
-                    if ma.matrix[idx1, idx2] > 1.5:
-                        over_1_5 += 1
+                chrom_total[chrom] += 1
+                chrom_matrix[chrom].append(mat_to_append)
+                chrom_diagonals[chrom].append(mat_to_append.diagonal())
+                center_values[chrom].append(ma.matrix[idx1, idx2])
+                chrom_contact_position[chrom].append((start, end, start2, end2))
+                if ma.matrix[idx1, idx2] > 1.5:
+                    over_1_5 += 1
 
         if len(chrom_matrix[chrom]) == 0:
             log.warn("No valid submatrices were found for chrom: {}".format(chrom))

@@ -185,7 +185,7 @@ def test_hicAggregateContacts_row_wise():
     outfile_aggregate_row_wise = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_row_wise', delete=False)
 
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/bed1_row-wise.bed " \
-           "--BED2 {root}/hicAggregateContacts/bed2_row-wise.bed "
+           "--BED2 {root}/hicAggregateContacts/bed2_row-wise.bed "\
            "--outFileName {out_agg} --numberOfBins 30 --row_wise "\
            "--range 50000:6000000 --dpi 100 ".format(root=ROOT, out_agg=outfile_aggregate_row_wise.name)
 
