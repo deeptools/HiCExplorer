@@ -106,6 +106,12 @@ def parse_arguments(args=None):
                            type=argparse.FileType('w'),
                            required=False)
 
+    parserOut.add_argument('--row_wise',
+                           help='If given,the insteractions between each row of the BED file and its '
+                           'corresponding row of the BED2 file are computed.',
+                           action='store_true',
+                           required=False)
+
     parserClust = parser.add_argument_group('Clustering options')
 
     parserClust.add_argument('--kmeans',
@@ -549,6 +555,7 @@ def main(args=None):
     chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
 
     for chrom in chrom_list:
+        print(chrom)
         if chrom not in bed_intervals or chrom not in bed_intervals2:
             continue
 
@@ -565,18 +572,23 @@ def main(args=None):
         log.info("processing {}".format(chrom))
 
         counter = 0
-        for start, end in bed_intervals[chrom]:
-            # check all other regions that may interact with the
-            # current interval at the given depth range
-            if end > chrom_sizes[chrom]:
-                continue
-            bin_id = ma.getRegionBinRange(toString(chrom), start, end)
-            if bin_id is None:
-                continue
-            else:
-                bin_id = bin_id[0]
+        if not args.row_wise:
+            bed2_len = len(bed_intervals2[chrom])
+            bed_intervals2[chrom] = bed_intervals2[chrom] * len(bed_intervals[chrom])
+            bed_intervals[chrom] =  [coord for coord in bed_intervals[chrom] for i in range(bed2_len)]
 
-            for start2, end2 in bed_intervals2[chrom]:
+
+        for (start,end), (start2,end2) in zip(bed_intervals[chrom],bed_intervals2[chrom]):
+                # check all other regions that may interact with the
+                # current interval at the given depth range
+                if end > chrom_sizes[chrom]:
+                    continue
+                bin_id = ma.getRegionBinRange(toString(chrom), start, end)
+                if bin_id is None:
+                    continue
+                else:
+                    bin_id = bin_id[0]
+
                 counter += 1
                 if counter % 50000 == 0:
                     log.info("Number of contacts considered: {:,}".format(counter))
