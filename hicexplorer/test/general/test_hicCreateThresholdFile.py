@@ -47,4 +47,4 @@ def test_main():
         200000, 200000, 0.5, outfile.name).split()
     hicCreateThresholdFile.main(args)
     assert are_files_equal(
-        ROOT + "hicCreateThresholdFile/thresholdFile_loose_pValue.txt", outfile.name, delta=0)
+        ROOT + "hicCreateThresholdFile/thresholdFile_loose_pValue.txt", outfile.name, delta=1)
