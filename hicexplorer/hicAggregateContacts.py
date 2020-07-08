@@ -555,7 +555,6 @@ def main(args=None):
     chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
 
     for chrom in chrom_list:
-        print(chrom)
         if chrom not in bed_intervals or chrom not in bed_intervals2:
             continue
 
