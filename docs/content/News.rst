@@ -3,7 +3,7 @@ News and Developments
 
 Release 3.5
 -----------
-**07 July 2020**
+**08 July 2020**
 
 - Major update for hicDetectLoops: Results are now closer to HiCCUPS, it is faster and needs less memory. 
 - hicHyperoptDetectLoops: New tool to compute the best parameter setting if the number of expected loops is given and a protein boundary file (e.g. CTCF on mammals) is provided
