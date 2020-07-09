@@ -17,8 +17,8 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-
-""")
+                    This tool adjusts hic matrices by keeping or removing a give list of regions.
+                    """)
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -40,7 +40,10 @@ def parse_arguments(args=None):
     parserMutuallyExclusive.add_argument('--maskBadRegions', '-mbr',
                                          help='Bad regions are identified and masked.')
     parserOpt.add_argument('--action',
-                           help='Keep, remove or mask the list of specified chromosomes / regions. ',
+                           help='Keep, remove or mask the list of specified chromosomes / regions.'
+                           'keep/remove: These options keep/remove bins of matrix by deleting them. '
+                           'This may cause issue plotting if several parts of a single chromosome '
+                           'are going to be deleted. In that case, one may consider using the mask option.',
                            default='keep',
                            choices=['keep', 'remove', 'mask']
                            )
