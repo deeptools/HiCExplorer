@@ -583,7 +583,6 @@ def main(args=None):
             updated_bed1 = bed_intervals[chrom]
             updated_bed2 = bed_intervals2[chrom]
 
-
         for (start, end), (start2, end2) in zip(updated_bed1, updated_bed2):
             # check all other regions that may interact with the
             # current interval at the given depth range
@@ -644,7 +643,6 @@ def main(args=None):
                 chrom_contact_position[chrom].append((start, end, start2, end2))
                 if ma.matrix[idx1, idx2] > 1.5:
                     over_1_5 += 1
-
 
         if len(chrom_matrix[chrom]) == 0:
             log.warn("No valid submatrices were found for chrom: {}".format(chrom))
