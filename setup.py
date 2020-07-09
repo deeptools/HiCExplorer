@@ -114,6 +114,7 @@ install_requires_py = ["numpy >= 1.18.*",
                        "pybedtools >= 0.8",
                        "future >= 0.17",
                        "tqdm >= 4.20",
+                       "hyperopt >= 0.2.4",
                        "graphviz >= 0.14"
                        ]
 
