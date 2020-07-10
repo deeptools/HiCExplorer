@@ -192,3 +192,24 @@ def test_hicAggregateContacts_3d_cooler():
     assert res is None, res
 
     os.remove(outfile_aggregate_3d.name)
+
+
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicAggregateContacts_row_wise():
+
+    outfile_aggregate_row_wise = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_row_wise', delete=False)
+
+    args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/bed1_row-wise.bed " \
+           "--BED2 {root}/hicAggregateContacts/bed2_row-wise.bed "\
+           "--outFileName {out_agg} --numberOfBins 30 --row_wise "\
+           "--range 50000:6000000 --dpi 100 ".format(root=ROOT, out_agg=outfile_aggregate_row_wise.name)
+
+    test_image_agg_row_wise = ROOT + 'hicAggregateContacts/master_aggregate_row_wise.png'
+
+    hicexplorer.hicAggregateContacts.main(args.split())
+
+    res = compare_images(test_image_agg_row_wise, outfile_aggregate_row_wise.name, tolerance)
+    assert res is None, res
+
+    os.remove(outfile_aggregate_row_wise.name)
