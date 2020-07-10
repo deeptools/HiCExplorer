@@ -17,7 +17,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
-                    This tool adjusts hic matrices by keeping or removing a give list of regions.
+                    This tool adjusts hic matrices by keeping, removing or masking a given list of regions or chromosmes.
                     """)
 
     parserRequired = parser.add_argument_group('Required arguments')
@@ -118,10 +118,10 @@ def adjustMatrix(pArgs):
         matrix_indices_regions = []
         for region in genomic_regions:
             log.debug('region {}'.format(region))
-            _regionBinRange = hic_matrix.getRegionBinRange(region[0], int(region[1]), int(region[2])) #check the behaviour in keep and mask (removed -1)
+            _regionBinRange = hic_matrix.getRegionBinRange(region[0], int(region[1]), int(region[2]))
             if _regionBinRange is not None:
                 start, end = _regionBinRange
-                matrix_indices_regions.extend(list(range(start, end+1))) #range end needs is inclusive, so +1
+                matrix_indices_regions.extend(list(range(start, end+1))) #end is inclusive, so +1
                 if pArgs.action == 'remove':
                     chr_start, chr_end = hic_matrix.getChrBinRange(chrom)
                     if (start > chr_start) and (end < chr_end-1):
