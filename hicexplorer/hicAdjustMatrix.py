@@ -86,7 +86,6 @@ def adjustMatrix(pArgs):
         if pArgs.action == 'keep':
             hic_matrix.reorderChromosomes(chromosomes_list_to_operate_on)
         elif pArgs.action == 'remove':
-            # chromosomes = list(hic_matrix.chrBinBoundaries)
             for chromosome in chromosomes_list:
                 if chromosome in chromosomes_list_to_operate_on:
                     chromosomes_list.remove(chromosome)
@@ -122,37 +121,24 @@ def adjustMatrix(pArgs):
             _regionBinRange = hic_matrix.getRegionBinRange(region[0], int(region[1]), int(region[2])) #check the behaviour in keep and mask (removed -1)
             if _regionBinRange is not None:
                 start, end = _regionBinRange
-                if pArgs.action == 'keep' or pArgs.action == 'mask':
-                    matrix_indices_regions.extend(list(range(start, end+1))) #range end needs is inclusive, so +1
-                else:
+                matrix_indices_regions.extend(list(range(start, end+1))) #range end needs is inclusive, so +1
+                if pArgs.action == 'remove':
                     chr_start, chr_end = hic_matrix.getChrBinRange(chrom)
                     if (start > chr_start) and (end < chr_end-1):
-                        log.warning("{}:{}-{} entry generates several discounted regions on a chromosome,"
-                                    " so will be ignored. Use `mask` action to deal with it.".format(chrom, start, end))
-                    elif start > chr_start:
-                        print("here", list(range(chr_start, start)))
-                        matrix_indices_regions.extend(list(range(chr_start, start)))
-                    elif end < chr_end-1:
-                        print("there", list(range(end+1, chr_end)))
-                        matrix_indices_regions.extend(list(range(end+1, chr_end))) #end is exclusive, so +1
+                        log.warning("{}:{}-{} entry may generate discounted regions on a chromosome."
+                                    "Please consider using `mask` action to deal with that.".format(chrom, start, end))
+
         if pArgs.action == 'keep':
-            print(matrix_indices_regions)
             hic_matrix.reorderBins(matrix_indices_regions)
 
         elif pArgs.action == 'mask':
             hic_matrix.maskBins(matrix_indices_regions)
 
         elif pArgs.action == 'remove':
-            print(matrix_indices_regions)
-            hic_matrix.reorderBins(matrix_indices_regions)
-            # full_matrix_range = np.array(range(0, max(hic_matrix.matrix.shape[0], hic_matrix.matrix.shape[1])))
-            # matrix_indices_regions = np.array(matrix_indices_regions)
-            # print(matrix_indices_regions)
-            # full_matrix_range[matrix_indices_regions] = -1
-            # mask = full_matrix_range != -1
-            # full_matrix_range = full_matrix_range[mask]
-            #
-            # hic_matrix.reorderBins(full_matrix_range)
+            hic_matrix.maskBins(matrix_indices_regions)
+            hic_matrix.orig_bin_ids = []
+            hic_matrix.nan_bins = []
+
     elif pArgs.maskBadRegions:
         if check_cooler(pArgs.matrix) and len(pArgs.chromosomes) == 1 and pArgs.action == 'keep':
             hic_matrix = hm.hiCMatrix(pArgs.matrix, pChrnameList=pArgs.chromosomes)
