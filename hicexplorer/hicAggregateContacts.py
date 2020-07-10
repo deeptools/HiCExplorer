@@ -76,6 +76,11 @@ def parse_arguments(args=None):
                            choices=['mean', 'median'],
                            default='median')
 
+    parserOpt.add_argument('--genome',
+                           help='Averages the submatrices aggregation over all given chromosomes.',
+                           action='store_true',
+                           required=False),
+
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -554,6 +559,21 @@ def main(args=None):
 
     chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
 
+    if args.genome:
+            genome_matrix = OrderedDict()
+            genome_total = {}
+            genome_diagonals = OrderedDict()
+            genome_contact_position = {}
+            genome_seen = {}
+            genome_center_values= {}
+            genome_matrix["genome"]=[]
+            genome_total["genome"]= 1
+            genome_diagonals["genome"]=[]
+            genome_contact_position["genome"]=[]
+            genome_center_values["genome"]=[]
+            genome_seen["genome"] = set()
+            log.info("`--genome` is set, submatrices collected for each chromosome will be averaged all together")
+
     for chrom in chrom_list:
         if chrom not in bed_intervals or chrom not in bed_intervals2:
             continue
@@ -627,22 +647,46 @@ def main(args=None):
                 if mat_to_append.sum() == 0:
                     empty_mat += 1
                     continue
-                # to account for the fact that submatrices
-                # close to the diagonal have more counts thatn
-                # submatrices far from the diagonal
-                # the submatrices values are normalized using the
-                # total submatrix sum.
 
-                if args.transform == 'total_counts' and mat_to_append.sum() > 0:
-                    mat_to_append = mat_to_append / mat_to_append.sum()
+                if min_dist_in_bins <= abs(bin_id2 - bin_id) <= max_dist_in_bins:
+                    idx1, idx2 = sorted([bin_id, bin_id2])
+                    if (idx1, idx2) in seen[chrom]:
+                        continue
+                    seen[chrom].add((idx1, idx2))
+                    if idx1 - M_half < chrom_bin_range[0] or idx2 + 1 + M_half > chrom_bin_range[1]:
+                        continue
+                    try:
+                        mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
+                    except IndexError:
+                        log.info("index error for {} {}".format(idx1, idx2))
+                        continue
+                    counter += 1
+                    if counter % 1000 == 0:
+                        log.info("Number of contacts within range computed: {:,}".format(counter))
+                    if mat_to_append.sum() == 0:
+                        empty_mat += 1
+                        continue
+                    # to account for the fact that submatrices
+                    # close to the diagonal have more counts thatn
+                    # submatrices far from the diagonal
+                    # the submatrices values are normalized using the
+                    # total submatrix sum.
 
-                chrom_total[chrom] += 1
-                chrom_matrix[chrom].append(mat_to_append)
-                chrom_diagonals[chrom].append(mat_to_append.diagonal())
-                center_values[chrom].append(ma.matrix[idx1, idx2])
-                chrom_contact_position[chrom].append((start, end, start2, end2))
-                if ma.matrix[idx1, idx2] > 1.5:
-                    over_1_5 += 1
+                    if args.transform == 'total_counts' and mat_to_append.sum() > 0:
+                        mat_to_append = mat_to_append / mat_to_append.sum()
+
+                    chrom_total[chrom] += 1
+                    chrom_matrix[chrom].append(mat_to_append)
+                    chrom_diagonals[chrom].append(mat_to_append.diagonal())
+                    center_values[chrom].append(ma.matrix[idx1, idx2])
+                    chrom_contact_position[chrom].append((start, end, start2, end2))
+                    if ma.matrix[idx1, idx2] > 1.5:
+                        over_1_5 += 1
+                    if args.genome:
+                        genome_matrix["genome"].append(mat_to_append)
+                        genome_diagonals["genome"].append(mat_to_append.diagonal())
+                        genome_center_values["genome"].append(ma.matrix[idx1, idx2])
+                        genome_contact_position["genome"].append((start, end, start2, end2))
 
         if len(chrom_matrix[chrom]) == 0:
             log.warn("No valid submatrices were found for chrom: {}".format(chrom))
@@ -657,12 +701,19 @@ def main(args=None):
     if args.kmeans is not None:
         cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
         num_clusters = args.kmeans
+        if args.genome:
+            genome_cluster_ids = cluster_matrices(genome_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
+            genome_num_clusters = args.kmeans
     elif args.hclust is not None:
         log.info("Performing hierarchical clustering."
                  "Please note that it might be very slow for large datasets.\n")
         cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical',
                                        how=args.howToCluster)
         num_clusters = args.hclust
+        if args.genome:
+            genome_cluster_ids = cluster_matrices(genome_matrix, args.hclust, method='hierarchical',
+                                                  how=args.howToCluster)
+            genome_num_clusters = args.hclust
     else:
         # make a 'fake' clustering to generalize the plotting of the submatrices
         cluster_ids = {}
@@ -671,24 +722,44 @@ def main(args=None):
             if chrom not in bed_intervals or chrom not in bed_intervals2:
                 continue
             cluster_ids[chrom] = [range(len(chrom_matrix[chrom]))]
+        if args.genome:
+            genome_cluster_ids = {}
+            genome_num_clusters = 1
+            genome_cluster_ids["genome"] = [range(len(genome_matrix["genome"]))]
 
-    plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, num_clusters, M_half, args)
+    if args.genome:
+        plot_aggregated_contacts(genome_matrix, genome_contact_position, genome_cluster_ids, genome_num_clusters, M_half, args)
+    else:
+        plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, num_clusters, M_half, args)
 
     if args.outFileContactPairs:
-        for idx, chrom in enumerate(chrom_matrix):
-            if chrom not in bed_intervals or chrom not in bed_intervals2:
-                continue
-            for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
-                center_values_to_order = np.array(center_values[chrom])[cluster_indices]
+        if args.genome:
+            for cluster_number, cluster_indices in enumerate(genome_cluster_ids["genome"]):
+                center_values_to_order = np.array(genome_center_values["genome"])[cluster_indices]
                 center_values_order = np.argsort(center_values_to_order)[::-1]
 
                 output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs,
-                                                                       chrom=chrom, id=cluster_number + 1)
+                                                                       chrom="genome", id=cluster_number + 1)
                 with open(output_name, 'w') as fh:
                     for cl_idx in center_values_order:
                         value = center_values_to_order[cl_idx]
                         start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
                         fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2, value))
+        else:
+            for idx, chrom in enumerate(chrom_matrix):
+                if chrom not in bed_intervals or chrom not in bed_intervals2:
+                    continue
+                for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
+                    center_values_to_order = np.array(center_values[chrom])[cluster_indices]
+                    center_values_order = np.argsort(center_values_to_order)[::-1]
+
+                    output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs,
+                                                                       chrom=chrom, id=cluster_number + 1)
+                    with open(output_name, 'w') as fh:
+                        for cl_idx in center_values_order:
+                            value = center_values_to_order[cl_idx]
+                            start, end, start2, end2 = genome_contact_position["genome"][cl_idx]
+                            fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2, value))
 
     # plot the diagonals
     # the diagonals plot is useful to see individual cases and if they had a contact in the center
