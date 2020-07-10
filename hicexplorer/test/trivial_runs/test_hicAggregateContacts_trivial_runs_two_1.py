@@ -39,7 +39,7 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("ran", ['50000:900000'])  # required
 @pytest.mark.parametrize("BED2", [BED2])
 @pytest.mark.parametrize("numberOfBins", [30])
-@pytest.mark.parametrize("transform", sorted(['total-counts']))
+@pytest.mark.parametrize("transform", sorted(['z-score']))
 @pytest.mark.parametrize("avgType", sorted(['mean', 'median']))
 @pytest.mark.parametrize("outFilePrefixMatrix", ['outFilePrefix'])
 @pytest.mark.parametrize("outFileContactPairs", ['outFileContactPairs'])

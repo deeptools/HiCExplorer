@@ -39,8 +39,8 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("ran", ['50000:900000'])  # required
 @pytest.mark.parametrize("BED2", [BED2])
 @pytest.mark.parametrize("numberOfBins", [30])
-@pytest.mark.parametrize("transform", sorted(['total-counts']))
-@pytest.mark.parametrize("avgType", sorted(['mean', 'median']))
+@pytest.mark.parametrize("transform", sorted(['none']))
+@pytest.mark.parametrize("avgType", ['mean', 'median'])
 @pytest.mark.parametrize("outFilePrefixMatrix", ['outFilePrefix'])
 @pytest.mark.parametrize("outFileContactPairs", ['outFileContactPairs'])
 @pytest.mark.parametrize("diagnosticHeatmapFile", [diagnosticHeatmapFile])
@@ -52,22 +52,24 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("plotType", sorted(['2d', '3d']))
 @pytest.mark.parametrize("vMin", [0.01])
 @pytest.mark.parametrize("vMax", [1.0])
-def test_aggregate_contacts_two(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins,
-                                transform, avgType, outFilePrefixMatrix,
-                                outFileContactPairs, diagnosticHeatmapFile, kmeans,
-                                hclust, howToCluster, chromosomes, colorMap, plotType,
-                                vMin, vMax):
-    # test outFileContactPairs^
+def test_aggregate_contacts(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins, transform,
+                            avgType, outFilePrefixMatrix, outFileContactPairs,
+                            diagnosticHeatmapFile, kmeans, hclust, howToCluster,
+                            chromosomes, colorMap, plotType, vMin, vMax):
+    """
+        Test will run all configurations defined by the parametrized option.
+    """
+    # test outFilePrefixMatrix
     args = "--matrix {} --outFileName {} --BED {} --range {} --BED2 {} " \
-           "--numberOfBins {} --transform {} --avgType {} --outFileContactPairs {} " \
+           "--numberOfBins {} --transform {} --avgType {} --outFilePrefixMatrix {} " \
            "--kmeans {} --hclust {} " \
            "--howToCluster {} --chromosomes {} --colorMap {} --plotType {} --vMin {} " \
            "--vMax {} --disable_bbox_tight".format(matrix, outFileName.name, BED, ran,
                                                    BED2, numberOfBins, transform, avgType,
-                                                   outFileContactPairs,
+                                                   outFilePrefixMatrix,
                                                    kmeans, hclust,
                                                    howToCluster, chromosomes, colorMap,
                                                    plotType, vMin, vMax).split()
-#     hicexplorer.hicAggregateContacts.main(args)
+    hicexplorer.hicAggregateContacts.main(args)
     compute(hicexplorer.hicAggregateContacts.main, args, 5)
     os.remove(outFileName.name)
