@@ -37,12 +37,11 @@ jobs:
   - script: |
       source activate hicexplorer
       py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
-      py.test hicexplorer/test/general --doctest-modules --capture=sys
       py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
     displayName: doc_test_and_number_of_cases
   - script: |
       source activate hicexplorer
-      py.test hicexplorer/test/general/ -n 4
+      py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4
     displayName: pytest
 
 - job: 'OSX'
@@ -79,10 +78,9 @@ jobs:
   - script: |
       source activate hicexplorer
       py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
-      py.test hicexplorer/test/general --doctest-modules --capture=sys
       py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
     displayName: doc_test_and_number_of_cases
   - script: |
       source activate hicexplorer
-      py.test hicexplorer/test/general/ -n 4 
+      py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 
     displayName: pytest
