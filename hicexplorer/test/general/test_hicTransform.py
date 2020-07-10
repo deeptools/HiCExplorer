@@ -7,6 +7,7 @@ import numpy.testing as nt
 
 from tempfile import NamedTemporaryFile
 import os
+from hicexplorer.test.test_compute_function import compute
 
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
@@ -22,8 +23,8 @@ def test_hic_transfer_obs_exp():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method obs_exp".format(original_matrix_cool, outfile.name).split()
-    hicTransform.main(args)
-
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp.cool")
 
     new = hm.hiCMatrix(outfile.name)
@@ -37,7 +38,8 @@ def test_hic_transfer_obs_exp_perChromosome():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method obs_exp --perChromosome".format(original_matrix_cool, outfile.name).split()
-    hicTransform.main(args)
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_per_chromosome.cool")
 
@@ -52,7 +54,8 @@ def test_hic_transfer_obs_exp_non_zero():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method obs_exp_non_zero".format(original_matrix_cool, outfile.name).split()
-    hicTransform.main(args)
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_non_zero.cool")
 
@@ -67,7 +70,8 @@ def test_hic_transfer_obs_exp_non_zero_perChromosome():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method obs_exp_non_zero --perChromosome".format(original_matrix_cool, outfile.name).split()
-    hicTransform.main(args)
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_non_zero_per_chromosome.cool")
 
@@ -81,7 +85,8 @@ def test_hic_transfer_obs_exp_lieberman():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method obs_exp_lieberman".format(original_matrix, outfile.name).split()
-    hicTransform.main(args)
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_lieberman.h5")
 
@@ -95,7 +100,8 @@ def test_hic_transfer_obs_exp_non_zero_with_ligation_factor():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method obs_exp_non_zero --ligation_factor".format(original_matrix, outfile.name).split()
-    hicTransform.main(args)
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_norm.h5")
 
@@ -110,7 +116,8 @@ def test_hic_transfer_obs_exp_non_zero_with_ligation_factor_perChromosome():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method obs_exp_non_zero --ligation_factor --perChromosome".format(original_matrix, outfile.name).split()
-    hicTransform.main(args)
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_norm_perChromosome.h5")
 
@@ -124,7 +131,8 @@ def test_hic_transfer_pearson():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method pearson".format(original_matrix, outfile.name).split()
-    hicTransform.main(args)
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/pearson.h5")
 
@@ -138,7 +146,8 @@ def test_hic_transfer_pearson_perChromosome():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method pearson --perChromosome".format(original_matrix, outfile.name).split()
-    hicTransform.main(args)
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/pearson_perChromosome.h5")
 
@@ -152,7 +161,8 @@ def test_hic_transfer_covariance():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method covariance".format(original_matrix, outfile.name).split()
-    hicTransform.main(args)
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
     test = hm.hiCMatrix(ROOT + "hicTransform/covariance.h5")
 
     new = hm.hiCMatrix(outfile.name)
@@ -165,7 +175,8 @@ def test_hic_transfer_covariance_perChromosome():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method covariance --perChromosome".format(original_matrix, outfile.name).split()
-    hicTransform.main(args)
+    # hicTransform.main(args)
+    compute(hicTransform.main, args, 5)
     test = hm.hiCMatrix(ROOT + "hicTransform/covariance_perChromosome.h5")
 
     new = hm.hiCMatrix(outfile.name)

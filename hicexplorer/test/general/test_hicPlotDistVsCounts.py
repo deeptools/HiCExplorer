@@ -4,6 +4,7 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 from hicexplorer import hicPlotDistVsCounts
 from tempfile import NamedTemporaryFile
 import os
+from hicexplorer.test.test_compute_function import compute
 
 import matplotlib as mpl
 mpl.use('agg')
@@ -60,4 +61,5 @@ def test_trivial_run(matrices, plotFile, labels, plotsize1, plotsize2, perchr, o
         chromosomeExclude,
     ).split()
 
-    hicPlotDistVsCounts.main(args)
+    # hicPlotDistVsCounts.main(args)
+    compute(hicPlotDistVsCounts.main, args, 5)

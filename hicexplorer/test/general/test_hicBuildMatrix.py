@@ -8,6 +8,7 @@ import shutil
 import os
 import numpy.testing as nt
 import pytest
+from hicexplorer.test.test_compute_function import compute
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 sam_R1 = ROOT + "small_test_R1_unsorted.bam"
@@ -38,13 +39,15 @@ def are_files_equal(file1, file2, delta=1):
 def test_build_matrix(capsys):
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()
+    outfile_bam = NamedTemporaryFile(suffix='.bam', delete=False)
+    outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
-    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4 \
+    args = "-s {} {} --outFileName {} -bs 5000 -b {} --QCfolder {} --threads 4 \
             --restrictionSequence GATC --danglingSequence GATC -rs {}".format(sam_R1, sam_R2,
-                                                                              outfile.name,
+                                                                              outfile.name, outfile_bam.name,
                                                                               qc_folder, dpnii_file).split()
-    hicBuildMatrix.main(args)
-
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
     test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel_one_rc.h5")
     new = hm.hiCMatrix(outfile.name)
     nt.assert_equal(test.matrix.data, new.matrix.data)
@@ -55,21 +58,24 @@ def test_build_matrix(capsys):
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
     # accept delta of 60 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize("/tmp/test.bam")) < 64000
+    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize(outfile_bam.name)) < 64000
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
-    os.unlink("/tmp/test.bam")
+    # os.unlink("/tmp/test.bam")
 
 
 def test_build_matrix_restriction_enzyme(capsys):
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()
+    outfile_bam = NamedTemporaryFile(suffix='.bam', delete=False)
+    outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
-    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4 --danglingSequence GATC AGCT --restrictionSequence GATC AAGCTT -rs {} {}".format(sam_R1, sam_R2,
-                                                                                                                                                                           outfile.name,
-                                                                                                                                                                           qc_folder, dpnii_file, ROOT + 'hicFindRestSite/hindIII.bed').split()
-    hicBuildMatrix.main(args)
+    args = "-s {} {} --outFileName {} -bs 5000 -b {} --QCfolder {} --threads 4 --danglingSequence GATC AGCT --restrictionSequence GATC AAGCTT -rs {} {}".format(sam_R1, sam_R2,
+                                                                                                                                                                outfile.name, outfile_bam.name,
+                                                                                                                                                                qc_folder, dpnii_file, ROOT + 'hicFindRestSite/hindIII.bed').split()
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel_two_rc.h5")
     new = hm.hiCMatrix(outfile.name)
@@ -81,22 +87,25 @@ def test_build_matrix_restriction_enzyme(capsys):
     assert set(os.listdir(ROOT + "QC_multi_restriction/")) == set(os.listdir(qc_folder))
 
     # accept delta of 60 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize("/tmp/test.bam")) < 64000
+    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize(outfile_bam.name)) < 64000
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
-    os.unlink("/tmp/test.bam")
+    # os.unlink("/tmp/test.bam")
 
 
 def test_build_matrix_chromosome_sizes(capsys):
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()
+    outfile_bam = NamedTemporaryFile(suffix='.bam', delete=False)
+    outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
-    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4 --chromosomeSizes {}  \
+    args = "-s {} {} --outFileName {} -bs 5000 -b {} --QCfolder {} --threads 4 --chromosomeSizes {}  \
             --restrictionSequence GATC --danglingSequence GATC -rs {}".format(sam_R1, sam_R2,
-                                                                              outfile.name,
+                                                                              outfile.name, outfile_bam.name,
                                                                               qc_folder, ROOT + 'hicBuildMatrix/dm3.chrom.sizes', dpnii_file).split()
-    hicBuildMatrix.main(args)
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "hicBuildMatrix/chromosome_sizes/small_test_chromosome_size.h5")
     new = hm.hiCMatrix(outfile.name)
@@ -108,22 +117,25 @@ def test_build_matrix_chromosome_sizes(capsys):
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
     # accept delta of 60 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "hicBuildMatrix/chromosome_sizes/test.bam") - os.path.getsize("/tmp/test.bam")) < 64000
+    assert abs(os.path.getsize(ROOT + "hicBuildMatrix/chromosome_sizes/test.bam") - os.path.getsize(outfile_bam.name)) < 64000
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
-    os.unlink("/tmp/test.bam")
+    # os.unlink("/tmp/test.bam")
 
 
 def test_build_matrix_cooler():
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
+    outfile_bam = NamedTemporaryFile(suffix='.bam', delete=False)
+    outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
-    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4  \
+    args = "-s {} {} --outFileName {} -bs 5000 -b {} --QCfolder {} --threads 4  \
             --restrictionSequence GATC --danglingSequence GATC -rs {}".format(sam_R1, sam_R2,
-                                                                              outfile.name,
+                                                                              outfile.name, outfile_bam.name,
                                                                               qc_folder, dpnii_file).split()
-    hicBuildMatrix.main(args)
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
     new = hm.hiCMatrix(outfile.name)
@@ -150,12 +162,15 @@ def test_build_matrix_cooler():
 def test_build_matrix_cooler_metadata():
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
+    outfile_bam = NamedTemporaryFile(suffix='.bam', delete=False)
+    outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
-    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4 --genomeAssembly dm3  \
+    args = "-s {} {} --outFileName {} -bs 5000 -b {} --QCfolder {} --threads 4 --genomeAssembly dm3  \
             --restrictionSequence GATC --danglingSequence GATC -rs {}".format(sam_R1, sam_R2,
-                                                                              outfile.name,
+                                                                              outfile.name, outfile_bam.name,
                                                                               qc_folder, dpnii_file).split()
-    hicBuildMatrix.main(args)
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel.h5")
     new = hm.hiCMatrix(outfile.name)
@@ -188,12 +203,15 @@ def test_build_matrix_cooler_metadata():
 def test_build_matrix_cooler_multiple():
     outfile = NamedTemporaryFile(suffix='.mcool', delete=False)
     outfile.close()
+    outfile_bam = NamedTemporaryFile(suffix='.bam', delete=False)
+    outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
-    args = "-s {} {} --outFileName {} -bs 5000 10000 20000 -b /tmp/test.bam --QCfolder {} --threads 4  \
+    args = "-s {} {} --outFileName {} -bs 5000 10000 20000 -b {} --QCfolder {} --threads 4  \
             --restrictionSequence GATC --danglingSequence GATC -rs {}".format(sam_R1, sam_R2,
-                                                                              outfile.name,
+                                                                              outfile.name, outfile_bam.name,
                                                                               qc_folder, dpnii_file).split()
-    hicBuildMatrix.main(args)
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
 
     test_5000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.mcool::/resolutions/5000")
     test_10000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.mcool::/resolutions/10000")
@@ -257,7 +275,8 @@ def test_build_matrix_rf():
            "--maxLibraryInsertSize 1500 --threads 4".format(sam_R1, sam_R2, dpnii_file,
                                                             outfile.name,
                                                             qc_folder).split()
-    hicBuildMatrix.main(args)
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "small_test_rf_matrix.h5")
     new = hm.hiCMatrix(outfile.name)
@@ -285,7 +304,8 @@ def test_build_matrix_rf_multi():
                                                             outfile.name,
                                                             qc_folder).split()
     # --danglingSequence GATC AGCT --restrictionSequence GATC AAGCTT
-    hicBuildMatrix.main(args)
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "small_test_rf_matrix_multiple.h5")
     new = hm.hiCMatrix(outfile.name)
@@ -305,8 +325,11 @@ def test_build_matrix_rf_multi():
 def test_build_matrix_fail(capsys):
     outfile = NamedTemporaryFile(suffix='', delete=False)
     outfile.close()
+    outfile_bam = NamedTemporaryFile(suffix='.bam', delete=False)
+    outfile.close()
     qc_folder = mkdtemp(prefix="testQC_")
-    args = "-s {} {} --outFileName {} -bs 5000 -b /tmp/test.bam --QCfolder {} --threads 4 ".format(sam_R1, sam_R2,
-                                                                                                   outfile.name,
-                                                                                                   qc_folder).split()
-    hicBuildMatrix.main(args)
+    args = "-s {} {} --outFileName {} -bs 5000 -b {} --QCfolder {} --threads 4 ".format(sam_R1, sam_R2, outfile_bam.name,
+                                                                                        outfile.name,
+                                                                                        qc_folder).split()
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)

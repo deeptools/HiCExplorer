@@ -8,6 +8,8 @@ from tempfile import NamedTemporaryFile
 import os
 import numpy.testing as nt
 import numpy as np
+from hicexplorer.test.test_compute_function import compute
+
 # import pyBigWig
 from matplotlib.testing.compare import compare_images
 
@@ -52,7 +54,8 @@ def test_plotSVL():
 
     args = "--matrices {} {} --plotFileName {} --outFileName {} --outFileNameData {} --dpi 300"\
         .format(matrix, matrix2, plot.name, outputFileName.name, outputFileNameData.name).split()
-    hicPlotSVL.main(args)
+    # hicPlotSVL.main(args)
+    compute(hicPlotSVL.main, args, 5)
 
     log.debug('--plotFileName {} --outFileName {} --outFileNameData {} '.format(plot.name, outputFileName.name, outputFileNameData.name))
     log.debug('matrix {} {}'.format(matrix, matrix2))

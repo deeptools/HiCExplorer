@@ -24,7 +24,7 @@ jobs:
       conda info -a
       conda create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
       source activate hicexplorer
-      conda install --yes -c conda-forge -c bioconda pytest flake8
+      conda install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
       conda install --yes -c conda-forge -c bioconda nose
       conda install --yes pathlib
       conda install --yes -c defaults -c conda-forge -c bioconda configparser
@@ -32,12 +32,12 @@ jobs:
     displayName: installing dependencies
   - script: |
       source activate hicexplorer
-      py.test hicexplorer/test
-    displayName: pytest
-  - script: |
-      source activate hicexplorer
       flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
     displayName: linting
+  - script: |
+      source activate hicexplorer
+      py.test hicexplorer/test/general/ -n 4
+    displayName: pytest
 
 - job: 'OSX'
   timeoutInMinutes: 0
@@ -60,7 +60,7 @@ jobs:
       conda info -a
       conda create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
       source activate hicexplorer
-      conda install --yes -c conda-forge -c bioconda pytest flake8
+      conda install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
       conda install --yes -c conda-forge -c bioconda nose
       conda install --yes pathlib
       conda install --yes -c defaults -c conda-forge -c bioconda configparser
@@ -68,10 +68,77 @@ jobs:
     displayName: installing dependencies
   - script: |
       source activate hicexplorer
-      py.test hicexplorer/test
+      flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
+    displayName: linting
+  - script: |
+      source activate hicexplorer
+      py.test hicexplorer/test/general/ -n 4 
     displayName: pytest
+  
+- job: 'Linux_trivial_test_cases'
+  timeoutInMinutes: 0
+  pool:
+    vmImage: 'ubuntu-latest'
+  strategy:
+    matrix:
+      Python36:
+        python.version: '3.6'
+      Python37:
+        python.version: '3.7'
+
+  steps:
+  - bash: |
+      echo "##vso[task.prependpath]$CONDA/bin"
+      hash -r
+    displayName: Add conda to PATH
+  - bash: |
+      conda config --set always_yes yes --set changeps1 no
+      conda info -a
+      conda create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
+      source activate hicexplorer
+      conda install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
+      conda install --yes -c conda-forge -c bioconda nose
+      conda install --yes pathlib
+      conda install --yes -c defaults -c conda-forge -c bioconda configparser
+      python setup.py install
+    displayName: installing dependencies
+  - script: |
+      source activate hicexplorer
+      py.test hicexplorer/test/trivial_runs/
+    displayName: pytest trivial test cases
+
+- job: 'OSX_trivial_test_cases'
+  timeoutInMinutes: 0
+  pool:
+    vmImage: 'macOS-10.14'
+  strategy:
+    matrix:
+      Python36:
+        python.version: '3.6'
+      Python37:
+        python.version: '3.7'
+
+  steps:
+  - bash: |
+      echo "##vso[task.prependpath]$CONDA/bin"
+      hash -r
+    displayName: Add conda to PATH
+  - bash: |
+      conda config --set always_yes yes --set changeps1 no
+      conda info -a
+      conda create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
+      source activate hicexplorer
+      conda install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
+      conda install --yes -c conda-forge -c bioconda nose
+      conda install --yes pathlib
+      conda install --yes -c defaults -c conda-forge -c bioconda configparser
+      python setup.py install
+    displayName: installing dependencies
   - script: |
       source activate hicexplorer
       flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
     displayName: linting
-  
+  - script: |
+      source activate hicexplorer
+      py.test hicexplorer/test/trivial_runs/
+    displayName: pytest trivial test cases
