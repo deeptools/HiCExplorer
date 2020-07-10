@@ -1,2 +1,2 @@
 File	Read pair type: inward pairs	Read pair type: inward pairs %	Read pair type: outward pairs	Read pair type: outward pairs %	Read pair type: left pairs	Read pair type: left pairs %	Read pair type: right pairs	Read pair type: right pairs %
-/tmp/tmpi4gm4e58.h5	136	0.2270450751252087	201	0.335559265442404	126	0.21035058430717862	136	0.2270450751252087
+/tmp/tmpriojfa68.h5	136	0.2270450751252087	201	0.335559265442404	126	0.21035058430717862	136	0.2270450751252087

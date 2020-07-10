@@ -94,12 +94,13 @@ class install(_install):
 
 install_requires_py = ["numpy >= 1.18.*",
                        "scipy >= 1.3.*",
-                       "matplotlib == 3.1.*",
+                       "matplotlib-base == 3.1.*",
+                       "ipykernel >= 5.3.0",
                        "pysam >= 0.15",
                        "intervaltree >= 3.0.*",
                        "biopython >= 1.74",
                        "tables >= 3.5.*",
-                       "pandas == 0.25.*",
+                       "pandas >= 0.25.*",
                        "pyBigWig >= 0.3.*",
                        "cooler >= 0.8.5",
                        "jinja2 >= 2.10.*",
@@ -112,7 +113,9 @@ install_requires_py = ["numpy >= 1.18.*",
                        "krbalancing >= 0.0.5",
                        "pybedtools >= 0.8",
                        "future >= 0.17",
-                       "tqdm >= 4.20"
+                       "tqdm >= 4.20",
+                       "hyperopt >= 0.2.4",
+                       "graphviz >= 0.14"
                        ]
 
 
@@ -130,7 +133,8 @@ setup(
              'bin/chicAggregateStatistic', 'bin/chicDifferentialTest', 'bin/chicQualityControl', 'bin/chicSignificantInteractions',
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
              'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicMergeLoops',
-             'bin/hicCompartmentalization', 'bin/hicQuickQC', 'bin/hicPlotSVL'
+             'bin/hicCompartmentalization', 'bin/hicQuickQC', 'bin/hicPlotSVL', 'bin/hicCreateThresholdFile', 'bin/hicHyperoptDetectLoops',
+             'bin/hicHyperoptDetectLoopsHiCCUPS', 'bin/hicMergeDomains', 'bin/hicDifferentialTAD'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},

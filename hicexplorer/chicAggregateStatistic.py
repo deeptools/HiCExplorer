@@ -5,6 +5,7 @@ import os
 import math
 from multiprocessing import Process, Queue
 import time
+import traceback
 import logging
 log = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetInterv
         target_regions_intervaltree = pTargetIntervalTree
     else:
         log.error('No target list given.')
-        exit(1)
+        raise Exception('No target list given.')
     for key in pScoresDictionary:
         # try:
         chromosome = pScoresDictionary[key][0]
@@ -154,23 +155,32 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
     with open(pOutFileName, 'w') as file:
         file.write('# Aggregated file, created with HiCExplorer\'s chicAggregateStatistic version {}\n'.format(__version__))
         file.write(pHeader)
+        # file.write(
+        #     '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRelative Interactions\tp-value\tx-fold\tRaw target')
         file.write(
             '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRaw target')
         file.write('\n')
 
         if pNeighborhoods is not None:
             for data in pNeighborhoods:
+                log.debug('pInteractionLines[data]: {}'.format(pInteractionLines[data]))
+                log.debug('pInteractionLines[data][:-6]: {}'.format(pInteractionLines[data][:6]))
+
                 new_line = '\t'.join(pInteractionLines[data][:6])
                 new_line += '\t' + format(pNeighborhoods[data][-1], '10.5f')
                 new_line += '\n'
                 file.write(new_line)
 
 
-def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pViewpointObj, pQueue=None):
+def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pViewpointObj, pQueue=None, pOneTarget=False):
     outfile_names = []
     target_regions_intervaltree = None
+    log.debug('size: interactionFileList: {} '.format(pInteractionFilesList))
+    log.debug('size: pTargetList: {} '.format(pTargetList))
+    log.debug('pOneTarget: {} '.format(pOneTarget))
+
     try:
-        if pArgs.batchMode and len(pTargetList) == 1:
+        if pArgs.batchMode and len(pTargetList) == 1 and pOneTarget == True:
             target_regions = utilities.readBed(pTargetList[0])
             hicmatrix = hm.hiCMatrix()
             target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
@@ -184,15 +194,21 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
                 header, interaction_data, interaction_file_data = pViewpointObj.readInteractionFileForAggregateStatistics(
                     absolute_sample_path)
                 log.debug('len(pTargetList) {}'.format(len(pTargetList)))
-                if pArgs.batchMode and len(pTargetList) > 1:
+                if pArgs.batchMode and len(pTargetList) >= 1 and pOneTarget == False:
                     if pArgs.targetFileFolder != '.':
                         target_file = pArgs.targetFileFolder + '/' + pTargetList[i]
+                        log.debug('194')
                     else:
                         target_file = pTargetList[i]
-                elif pArgs.batchMode and len(pTargetList) == 1:
+                        log.debug('197')
+
+                elif pArgs.batchMode and len(pTargetList) == 1 and pOneTarget == True:
                     target_file = None
+                    log.debug('201')
+
                 else:
                     target_file = pTargetList[i]
+                    log.debug('205')
 
                 accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree)
 
@@ -214,7 +230,7 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
                 write(outFileName, header, accepted_scores,
                       interaction_file_data)
     except Exception as exp:
-        pQueue.put('Fail: ' + str(exp))
+        pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
         return
     if pQueue is None:
         return
@@ -223,22 +239,32 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
 
 
 def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs, pViewpointObj):
+    if len(pInteractionFilesList) < pArgs.threads:
+        pArgs.threads = len(pInteractionFilesList)
     outfile_names = [None] * pArgs.threads
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
+
     all_data_collected = False
     queue = [None] * pArgs.threads
     process = [None] * pArgs.threads
     thread_done = [False] * pArgs.threads
+    one_target = True if len(pTargetFileList) == 1 else False
     fail_flag = False
     fail_message = ''
     for i in range(pArgs.threads):
 
         if i < pArgs.threads - 1:
             interactionFileListThread = pInteractionFilesList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
-            targetFileListThread = pTargetFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
+            if len(pTargetFileList) == 1:
+                targetFileListThread = pTargetFileList
+            else:
+                targetFileListThread = pTargetFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
         else:
             interactionFileListThread = pInteractionFilesList[i * interactionFilesPerThread:]
-            targetFileListThread = pTargetFileList[i * interactionFilesPerThread:]
+            if len(pTargetFileList) == 1:
+                targetFileListThread = pTargetFileList
+            else:
+                targetFileListThread = pTargetFileList[i * interactionFilesPerThread:]
 
         queue[i] = Queue()
         process[i] = Process(target=pFunctionName, kwargs=dict(
@@ -246,7 +272,8 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
             pTargetList=targetFileListThread,
             pArgs=pArgs,
             pViewpointObj=pViewpointObj,
-            pQueue=queue[i]
+            pQueue=queue[i],
+            pOneTarget=one_target
         )
         )
 

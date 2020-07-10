@@ -1,2 +1,2 @@
 File	inter chromosomal	inter chromosomal %	Intra short range (< 20kb)	Intra short range (< 20kb) %	Intra long range (>= 20kb)	Intra long range (>= 20kb) %
-/tmp/tmpxs1gdw50.h5	5849	0.16243161431864256	8038	0.2232219722847066	22122	0.6143464133966509
+/tmp/tmpmnbm2xaf.h5	5849	0.1596909383787916	8656	0.2363283916236656	22122	0.6039806699975429

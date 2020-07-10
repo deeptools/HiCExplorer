@@ -350,7 +350,7 @@ def main(args=None):
                 log.error('--pValueSignificanceLevels levels need to increase: {}'.format(args.pValueSignificanceLevels))
                 exit(1)
     if args.backgroundModelFile:
-        background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, pMean=True)
+        background_data = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, args.range[1], pMean=True)
 
     interactionFileList = []
     highlightDifferentialRegionsFileList = []

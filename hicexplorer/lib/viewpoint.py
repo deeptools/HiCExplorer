@@ -10,6 +10,8 @@ from scipy.stats import nbinom
 from scipy.special import gammaln
 from scipy import special
 
+from hicexplorer.lib import cnb
+
 
 class Viewpoint():
 
@@ -128,10 +130,11 @@ class Viewpoint():
                 interaction_file_data[int(_line[-5])] = _line
         return header, interaction_data, interaction_file_data
 
-    def readBackgroundDataFile(self, pBedFile, pRange, pMean=False):
+    def readBackgroundDataFile(self, pBedFile, pRange, pFixateRange, pMean=False):
         '''
         Reads a background data file, containing per line a tab delimited content:
         Relative position to viewpoint, relative interaction count to total number of interactions of all viewpoints over all samples, SEM value of this data point.
+
         '''
         distance = {}
 
@@ -146,6 +149,14 @@ class Viewpoint():
 
         max_key = max(distance)
         min_key = min(distance)
+
+        # check if max is really pFixateRange or it needs to be changed
+        if max_key > pFixateRange:
+            max_key = pFixateRange
+
+        if min_key < -pFixateRange:
+            min_key = -pFixateRange
+
         keys = list(distance.keys())
         inc = np.absolute(np.absolute(keys[0]) - np.absolute(keys[1]))
         if max_key < pRange[1]:
@@ -643,7 +654,7 @@ class Viewpoint():
             if data_element == 0.0:
                 p_value_list.append(0.0)
             else:
-                p_value_list.append(self.cdf(data_element, pBackgroundModel[relative_distance][0], pBackgroundModel[relative_distance][1]))
+                p_value_list.append(cnb.cdf(data_element, pBackgroundModel[relative_distance][0], pBackgroundModel[relative_distance][1]))
 
         # for reason I do not understand atm the values needs to be inverted again, it seems it is not enough to do this in try/catch region
         p_value_list = np.array(p_value_list, dtype=np.float64)
@@ -823,19 +834,3 @@ class Viewpoint():
         if len(highlight_areas_list) == 0:
             return None, None
         return highlight_areas_list, p_values
-
-    def pdf(self, pX, pR, pP):
-        """
-        PDF for a continuous generalization of NB distribution
-        """
-
-        gamma_part = gammaln(pR + pX) - gammaln(pX + 1) - gammaln(pR)
-        return np.exp(gamma_part + (pR * log(pP)) + special.xlog1py(pX, -pP))
-
-    def cdf(self, pX, pR, pP):
-        """
-        Cumulative density function of a continuous generalization of NB distribution
-        """
-        # if pX == 0:
-        # return 0
-        return special.betainc(pR, pX + 1, pP)

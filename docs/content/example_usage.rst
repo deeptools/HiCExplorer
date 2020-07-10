@@ -69,9 +69,9 @@ extra information required is the `binSize` used for the matrix. Is it best
 to enter a low number like 10.000 because lower
 resolution matrices (larger bins) can be easily constructed using :ref:`hicMergeMatrixBins`. Matrices
 at restriction fragment resolution can be created by providing a file
-containing the restriction sites, this file can be created with the tool :ref:`findRestSite`
+containing the restriction sites, this file can be created with the tool :ref:`hicFindRestSite`
 
-:ref:`findRestSite`
+:ref:`hicFindRestSite`
 that is part of HiCExplorer.
 
 
@@ -83,10 +83,12 @@ that is part of HiCExplorer.
    $ hicBuildMatrix --samFiles mate_R1.bam mate_R2.bam \
                     --binSize 10000 \
                     --restrictionSequence GATC \
-                    --threads 4
-                    --inputBufferSize 100000
+                    --danglingSequence GATC \
+                    --restrictionCutFile cut_sites.bed \
+                    --threads 4 \
+                    --inputBufferSize 100000 \
                     --outBam hic.bam \
-                    -o hic_matrix.h5
+                    -o hic_matrix.h5 \
                     --QCfolder ./hicQC
 
 

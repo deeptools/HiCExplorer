@@ -6,6 +6,9 @@ import re
 from tempfile import NamedTemporaryFile
 import subprocess
 
+import gzip
+from mimetypes import guess_type
+from functools import partial
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
@@ -97,19 +100,28 @@ def find_pattern(pattern, fasta_file, out_file):
     rev_compl = str(Seq(pattern, generic_dna).reverse_complement())
 
     temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='wt')
-    for record in SeqIO.parse(fasta_file, 'fasta', generic_dna):
-        # find all the occurrences of pattern
-        for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
-            _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                          match.start(),
-                                                          match.end()))
-        if rev_compl != pattern:
-            # search for the reverse complement only if the pattern is not palindromic
-            for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
-                _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
+    try:
+        fasta_file_name = fasta_file.name
+    except AttributeError:
+        fasta_file_name = fasta_file
+
+    encoding = guess_type(fasta_file_name)[1]  # uses file extension
+    _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
+
+    with _open(fasta_file_name) as f:
+        for record in SeqIO.parse(f, 'fasta', generic_dna):
+            # find all the occurrences of pattern
+            for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
+                _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
                                                               match.start(),
                                                               match.end()))
-    log.info("Sorting file ...")
+            if rev_compl != pattern:
+                # search for the reverse complement only if the pattern is not palindromic
+                for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
+                    _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
+                                                                  match.start(),
+                                                                  match.end()))
+        log.info("Sorting file ...")
     tmpfile_name = temp.name
     temp.close()
     subprocess.check_output(["cat", tmpfile_name])
@@ -125,6 +137,6 @@ def find_pattern(pattern, fasta_file, out_file):
     temp.close()
 
 
-def main():
-    args = parse_arguments().parse_args()
+def main(args=None):
+    args = parse_arguments().parse_args(args)
     find_pattern(args.searchPattern, args.fasta, args.outFile)

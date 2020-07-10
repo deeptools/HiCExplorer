@@ -15,6 +15,7 @@ import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
 from hicexplorer._version import __version__
 from .lib import Viewpoint
+from hicexplorer.lib import cnb
 
 
 def parse_arguments(args=None):
@@ -49,21 +50,22 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
 
     parserRequired.add_argument('--pValue', '-p',
                                 help='p-value threshold to filter target regions for inclusion in differential analysis.',
-                                type=float,
+                                # type=float,
                                 required=True)
     parserMutuallyExclusiveGroupFilter = parser.add_mutually_exclusive_group(
         required=False)
     parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
                                                     help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
-                                                    'less significant interactions to a single peak with high significance. Used only for pValue option.',
-                                                    type=float
+                                                    'less significant interactions to a single peak with high significance. Used only for pValue option.'
+                                                    # type=float
 
                                                     )
     parserMutuallyExclusiveGroupFilter.add_argument('--loosePValue', '-lp',
                                                     help='loose p-value threshold to filter target regions in a first round. '
                                                     'Used to merge neighboring bins with a broader peak but less significant interactions to a single peak with high significance.'
-                                                    ' Used only for pValue option.',
-                                                    type=float)
+                                                    ' Used only for pValue option.'
+                                                    # type=float
+                                                    )
     parserRequired.add_argument('--backgroundModelFile', '-bmf',
                                 help='path to the background file which is necessary to compute the rbz-score',
                                 required=True)
@@ -136,7 +138,15 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            required=False,
                            default=2,
                            type=int)
-
+    parserOpt.add_argument('--multipleTesting', '-mt',
+                           help='Multiple testing correction per relative distance with Bonferroni or FDR.',
+                           type=str,
+                           default="None",
+                           choices=['fdr', 'bonferroni', 'None'],
+                           )
+    parserOpt.add_argument('--thresholdMultipleTesting', '-tmt',
+                           help='Threshold for Bonferroni / FDR. Either a float value for all or a file with one threshold per relative distance.'
+                           )
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -171,7 +181,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                     accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(
                         pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution, pTruncateZeroPvalues=pArgs.truncateZeroPvalues)
 
-                # compute new p-values
+                # compute new p-values and filter by them
                 accepted_scores, target_lines = compute_new_p_values(
                     accepted_scores, pBackground, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold, pViewpointObj)
 
@@ -213,30 +223,55 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
 def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPeakInteractionsThreshold, pViewpointObj):
     accepted = {}
     accepted_lines = []
-    for key in pData:
-        if key in pBackgroundModel:
-            pData[key][-3] = 1 - pViewpointObj.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
+    if isinstance(pPValue, float):
+        for key in pData:
+            if key in pBackgroundModel:
+                log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
+                pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
+                log.debug('new {}\n\n'.format(pData[key][-3]))
+                if pData[key][-3] <= pPValue:
+                    if float(pData[key][-1]) >= pPeakInteractionsThreshold:
+                        accepted[key] = pData[key]
+                        target_content = pMergedLinesDict[key][0][:3]
+                        target_content[2] = pMergedLinesDict[key][-1][2]
+                        accepted_lines.append(target_content)
+            else:
+                log.debug('key not in background')
+    elif isinstance(pPValue, dict):
+        for key in pData:
+            if key in pBackgroundModel:
+                log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
 
-            if pData[key][-3] <= pPValue:
-                if float(pData[key][-1]) >= pPeakInteractionsThreshold:
-                    accepted[key] = pData[key]
-                    target_content = pMergedLinesDict[key][0][:3]
-                    target_content[2] = pMergedLinesDict[key][-1][2]
-                    accepted_lines.append(target_content)
+                pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
+                log.debug('new {}\n\n'.format(pData[key][-3]))
 
+                if pData[key][-3] <= pPValue[key]:
+                    if float(pData[key][-1]) >= pPeakInteractionsThreshold:
+                        accepted[key] = pData[key]
+                        target_content = pMergedLinesDict[key][0][:3]
+                        target_content[2] = pMergedLinesDict[key][-1][2]
+                        accepted_lines.append(target_content)
+            else:
+                log.debug('key not in background')
     return accepted, accepted_lines
 
 
 def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
     accepted = {}
     accepted_line = {}
-    for key in pData[1]:
+    if isinstance(pXfold, float):
+        for key in pData[1]:
 
-        if pData[1][key][-1] < pXfold:
-            continue
-        accepted[key] = pData[1][key]
-        accepted_line[key] = pData[2][key]
-
+            if pData[1][key][-1] < pXfold:
+                continue
+            accepted[key] = pData[1][key]
+            accepted_line[key] = pData[2][key]
+    elif isinstance(pXfold, dict):
+        for key in pData[1]:
+            if pData[1][key][-1] < pXfold[key]:
+                continue
+            accepted[key] = pData[1][key]
+            accepted_line[key] = pData[2][key]
     if accepted_line:
         return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
     return accepted_line, None
@@ -245,15 +280,26 @@ def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
 def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolution, pTruncateZeroPvalues):
     accepted = {}
     accepted_line = {}
-    for key in pData[1]:
-        if pTruncateZeroPvalues:
-            if pData[1][key][1] == 0 or pData[1][key][1] > pLoosePValue:
-                continue
-        else:
-            if pData[1][key][1] > pLoosePValue:
-                continue
-        accepted[key] = pData[1][key]
-        accepted_line[key] = pData[2][key]
+    if isinstance(pLoosePValue, float):
+        for key in pData[1]:
+            if pTruncateZeroPvalues:
+                if pData[1][key][1] == 0 or pData[1][key][1] > pLoosePValue:
+                    continue
+            else:
+                if pData[1][key][1] > pLoosePValue:
+                    continue
+            accepted[key] = pData[1][key]
+            accepted_line[key] = pData[2][key]
+    elif isinstance(pLoosePValue, dict):
+        for key in pData[1]:
+            if pTruncateZeroPvalues:
+                if pData[1][key][1] == 0 or pData[1][key][1] > pLoosePValue[key]:
+                    continue
+            else:
+                if pData[1][key][1] > pLoosePValue[key]:
+                    continue
+            accepted[key] = pData[1][key]
+            accepted_line[key] = pData[2][key]
     if accepted_line:
         return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
     return accepted_line, None
@@ -370,8 +416,27 @@ def writeTargetList(pTargetList, pOutFileName, pArgs):
         a.sort().merge(d=pArgs.resolution).saveas(pOutFileName, trackline=header)
 
 
+def read_threshold_file(pFile):
+    distance_value_dict = {}
+    with open(pFile, 'r') as file:
+        file_ = True
+        while file_:
+            line = file.readline().strip()
+            if line.startswith('#'):
+                continue
+            if line == '':
+                break
+            relative_distance, value = line.split('\t')
+            distance_value_dict[int(relative_distance)] = float(value)
+    return distance_value_dict
+
+
 def main(args=None):
+
     args = parse_arguments().parse_args(args)
+    # args.p_value_dict = None
+    # args.p_loose_value_dict = None
+    # args.x_fold_dict = None
     if not os.path.exists(args.outputFolder):
         try:
             os.makedirs(args.outputFolder)
@@ -385,13 +450,29 @@ def main(args=None):
             if exc.errno != errno.EEXIST:
                 raise
 
+    if args.pValue:
+        try:
+            args.pValue = float(args.pValue)
+        except Exception:
+            args.pValue = read_threshold_file(args.pValue)
+    if args.loosePValue:
+        try:
+            args.loosePValue = float(args.loosePValue)
+        except Exception:
+            args.loosePValue = read_threshold_file(args.loosePValue)
+    if args.xFoldBackground:
+        try:
+            args.xFoldBackground = float(args.xFoldBackground)
+        except Exception:
+            args.xFoldBackground = read_threshold_file(args.xFoldBackground)
+
     viewpointObj = Viewpoint()
     outfile_names = []
 
     interactionFileList = []
 
     background_model = viewpointObj.readBackgroundDataFile(
-        args.backgroundModelFile, args.range)
+        args.backgroundModelFile, args.range, args.fixateRange)
     if args.batchMode:
         with open(args.interactionFile[0], 'r') as interactionFile:
             file_ = True

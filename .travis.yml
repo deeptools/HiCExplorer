@@ -2,13 +2,10 @@ language: c
 sudo: true
 
 env:
-  - TRAVIS_PYTHON_VERSION=3.6
   - TRAVIS_PYTHON_VERSION=3.7
 os:
   - linux
-  - osx
 stages:
-  - lint
   - test
 
 # Setup anaconda
@@ -17,7 +14,6 @@ before_install:
   - export PYTHONWARNINGS="ignore"
   - echo $HIC_TEST_DATA_DIR
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then curl -L https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then curl -L https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh ; fi
   - bash miniconda.sh -b -p $HOME/miniconda
   - PATH_WITHOUT_CONDA="$PATH"
   - export PATH="$HOME/miniconda/bin:$PATH"
@@ -36,155 +32,138 @@ install:
   - conda install --yes -c defaults -c conda-forge -c bioconda configparser
   - python setup.py install
 # command to run tests
+
 script:
-  - py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
-  - py.test hicexplorer/test/general --doctest-modules --capture=sys
-  - py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
+  - hicFindRestSite --version
+  - hicAggregateContacts --version
+  - hicBuildMatrix --version
+  - hicCorrectMatrix --version
+  - hicCorrelate --version
+  - hicDetectLoops --version
+  - hicFindTADs --version
+  - hicMergeMatrixBins --version
+  - hicPlotMatrix --version
+  - hicPlotDistVsCounts --version
+  - hicPlotTADs --version
+  - hicSumMatrices --version
+  - hicInfo --version
+  - hicConvertFormat --version
+  - hicAdjustMatrix --version
+  - hicNormalize --version
+  - hicAverageRegions --version
+  - hicPlotAverageRegions --version
+  - hicMergeLoops --version
+  - hicValidateLocations --version
+  - hicCompartmentalization --version
+  - chicQualityControl --version
+  - chicViewpointBackgroundModel --version
+  - chicViewpoint --version
+  - chicSignificantInteractions --version
+  - chicAggregateStatistic --version
+  - chicDifferentialTest --version
+  - chicPlotViewpoint --version
+  - hicPlotSVL --version
+  - hicQuickQC --version
+  - hicCompareMatrices --version
+  - hicPCA --version
+  - hicTransform --version
+  - hicPlotViewpoint --version
+  - hicCreateThresholdFile --version
+  - hicHyperoptDetectLoops --version
+  - hicHyperoptDetectLoopsHiCCUPS --version
+  - hicMergeDomains --version
+  - hicDifferentialTAD --version
+  - hicFindRestSite --help
+  - hicAggregateContacts --help
+  - hicBuildMatrix --help
+  - hicCorrectMatrix --help
+  - hicCorrelate --help
+  - hicDetectLoops --help
+  - hicFindTADs --help
+  - hicMergeMatrixBins --help
+  - hicPlotMatrix --help
+  - hicPlotDistVsCounts --help
+  - hicPlotTADs --help
+  - hicSumMatrices --help
+  - hicInfo --help
+  - hicConvertFormat --help
+  - hicAdjustMatrix --help
+  - hicNormalize --help
+  - hicAverageRegions --help
+  - hicPlotAverageRegions --help
+  - hicMergeLoops --help
+  - hicValidateLocations --help
+  - hicCompartmentalization --help
+  - chicQualityControl --help
+  - chicViewpointBackgroundModel --help
+  - chicViewpoint --help
+  - chicSignificantInteractions --help
+  - chicAggregateStatistic --help
+  - chicDifferentialTest --help
+  - chicPlotViewpoint --help
+  - hicPlotSVL --help
+  - hicQuickQC --help
+  - hicCompareMatrices --help
+  - hicPCA --help
+  - hicTransform --help
+  - hicPlotViewpoint --help
+  - hicCreateThresholdFile --help
+  - hicHyperoptDetectLoops --help
+  - hicHyperoptDetectLoopsHiCCUPS --help
+  - hicMergeDomains --help
+  - hicDifferentialTAD --help
+
 jobs:
-  include:
-    - stage: lint
-      env:
-        - LINT=1
-      before_install:
-        - curl -L https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh
-        - bash miniconda.sh -b -p $HOME/miniconda
-        - PATH_WITHOUT_CONDA="$PATH"
-        - export PATH="$HOME/miniconda/bin:$PATH"
-        - export PYTHONWARNINGS="ignore"
-        - hash -r
-        - conda config --set always_yes yes --set changeps1 no
-        - conda update -q conda
-      install:
-        - conda install --yes python=3.7 flake8
-        - conda install --yes pathlib
-      script:
-        - if [[ "$LINT" == "1" ]]; then flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504 ; fi
-    
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs_2.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs_2.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: travis_wait 40 py.test hicexplorer/test/long_run/test_hicConvertFormat_trivial_runs.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: travis_wait 40 py.test hicexplorer/test/long_run/test_hicConvertFormat_trivial_runs.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: travis_wait 40 py.test hicexplorer/test/long_run/test_hicConvertFormat_trivial_runs_cool.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: travis_wait 40 py.test hicexplorer/test/long_run/test_hicConvertFormat_trivial_runs_cool.py
+  include:  
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs.py
+      script: py.test hicexplorer/test/trivial_runs/test_hicBuildMatrix_trivial_runs.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs_2.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix_trivial_runs_2.py
+      script: py.test hicexplorer/test/trivial_runs/test_hicBuildMatrix_trivial_runs_2.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicBuildMatrix.py
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs.py
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_two.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_two.py
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_two_1.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.7
-      script: py.test hicexplorer/test/long_run/test_hicAggregateContacts_trivial_runs_three.py
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_two_2.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
-      script: travis_wait 40 py.test hicexplorer/test/long_run/test_hicConvertFormat_trivial_runs.py
-    - stage: test
-      os: osx
-      env: TRAVIS_PYTHON_VERSION=3.7
-      script: travis_wait 40 py.test hicexplorer/test/long_run/test_hicConvertFormat_trivial_runs.py
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_two_3.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
-      script: travis_wait 40 py.test hicexplorer/test/long_run/test_hicConvertFormat_trivial_runs_cool.py
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_three.py
     - stage: test
-      os: osx
+      os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
-      script: travis_wait 40 py.test hicexplorer/test/long_run/test_hicConvertFormat_trivial_runs_cool.py
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_four.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.7
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_five.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.7
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_six.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.7
+      script: travis_wait 40 py.test hicexplorer/test/trivial_runs/test_hicConvertFormat_trivial_runs.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.7
+      script: travis_wait 40 py.test hicexplorer/test/trivial_runs/test_hicConvertFormat_trivial_runs_cool.py

@@ -38,9 +38,9 @@ hic2cool
 """"""""
 
 HiCExplorer uses the library hic2cool_  to convert **.hic** interaction matrix files to the cool format. Usually .hic files 
-have the three correction factors **KR**, **VC** or **VC_SQRT**; however these cannot be applied nativly by HiCExplorer tools because 
+have the three correction factors **KR**, **VC** or **VC_SQRT**; however these cannot be applied natively by HiCExplorer tools because 
 HiCExplorer expects the correction values to be stored in the column **weight**.
-To work with corrected data the correction factors need to applied separatly, see section cool to cool.
+To work with corrected data the correction factors need to applied separately, see section cool to cool.
 
 .. _hic2cool: https://github.com/4dn-dcic/hic2cool
 

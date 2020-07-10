@@ -93,31 +93,39 @@ def _obs_exp_lieberman(pSubmatrix, pLengthChromosome, pChromosomeCount):
 
     obs_exp_matrix_ = obs_exp_matrix_lieberman(pSubmatrix, pLengthChromosome, pChromosomeCount)
     obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
-    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
-    return obs_exp_matrix_
+    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_))
+    # if len(obs_exp_matrix_.data) == 0:
+    #     return np.array()
+    return obs_exp_matrix_  # .todense()
 
 
 def _pearson(pSubmatrix):
     pearson_correlation_matrix = np.corrcoef(pSubmatrix)
     pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix))
-    pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
-    return pearson_correlation_matrix
+    pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix))
+    # if len(pearson_correlation_matrix.data) == 0:
+    # return np.array([[]])
+    return pearson_correlation_matrix  # .todense()
 
 
 def _obs_exp(pSubmatrix):
 
     obs_exp_matrix_ = obs_exp_matrix(pSubmatrix)
     obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
-    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
-    return obs_exp_matrix_
+    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_))
+    # if len(obs_exp_matrix_.data) == 0:
+    # return np.array([[]])
+    return obs_exp_matrix_  # .todense()
 
 
 def _obs_exp_non_zero(pSubmatrix, ligation_factor):
 
     obs_exp_matrix_ = obs_exp_matrix_non_zero(pSubmatrix, ligation_factor)
     obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
-    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_)).todense()
-    return obs_exp_matrix_
+    obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_))
+    # if len(obs_exp_matrix_.data) == 0:
+    # return np.array([[]])
+    return obs_exp_matrix_  # .todense()
 
 
 def main(args=None):

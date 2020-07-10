@@ -24,13 +24,13 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 # import mock
 
 MOCK_MODULES = ['numpy', 'numpy.core', 'numpy.core.multiarray', 'numpy.distutils.core', 'pandas', 'pysam', 'intervaltree',
-                'scipy', 'scipy.sparse', 'scipy.stats', 'scipy.ndimage', 'scipy.special',
+                'scipy', 'scipy.sparse', 'scipy.stats', 'scipy.ndimage', 'scipy.special', 'scipy.cluster', 'scipy.cluster.hierarchy',
                 'matplotlib', 'matplotlib.pyplot', 'matplotlib.gridspec', 'matplotlib.ticker',
                 'matplotlib.textpath', 'matplotlib.patches', 'matplotlib.colors', 'matplotlib.cm',
                 'mpl_toolkits', 'mpl_toolkits.axisartist', 'mpl_toolkits.mplot3d', 'mpl_toolkits.axes_grid1',
                 'Bio', 'Bio.Seq', 'Bio.Alphabet', 'pyBigWig', 'tables', 'pytables', 'future', 'past', 'past.builtins',
                 'future.utils', 'cooler', 'logging', 'unidecode', 'hic2cool', 'hicmatrix', 'hicmatrix.HiCMatrix',
-                'hicmatrix.lib', 'krbalancing', 'fit_nbinom', 'pybedtools']
+                'hicmatrix.lib', 'krbalancing', 'fit_nbinom', 'pybedtools', 'graphviz', 'hyperopt']
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = Mock()

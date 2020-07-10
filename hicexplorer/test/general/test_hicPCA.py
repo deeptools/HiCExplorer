@@ -10,6 +10,7 @@ import numpy.testing as nt
 import numpy as np
 import pyBigWig
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
+from hicexplorer.test.test_compute_function import compute
 
 import logging
 log = logging.getLogger(__name__)
@@ -75,8 +76,8 @@ def test_pca_bedgraph_lieberman():
     matrix = ROOT + "small_test_matrix_50kb_res.h5"
     args = "--matrix {} --outputFileName {} {} -f bedgraph -noe 2 --method lieberman"\
         .format(matrix, pca1.name, pca2.name).split()
-    hicPCA.main(args)
-
+    # hicPCA.main(args)
+    compute(hicPCA.main, args, 5)
     assert are_files_equal(ROOT + "hicPCA/pca1.bedgraph", pca1.name)
     assert are_files_equal(ROOT + "hicPCA/pca2.bedgraph", pca2.name)
 
@@ -93,7 +94,8 @@ def test_pca_bedgraph_lieberman_ignore_masked_bins():
     matrix = ROOT + "small_test_matrix_50kb_res.h5"
     args = "--matrix {} --outputFileName {} {} -f bedgraph -noe 2 \
            --ignoreMaskedBins --method lieberman".format(matrix, pca1.name, pca2.name).split()
-    hicPCA.main(args)
+    # hicPCA.main(args)
+    compute(hicPCA.main, args, 5)
 
     assert are_files_equal(ROOT + "hicPCA/pca1_ignoredMaskedBins.bedgraph", pca1.name)
     assert are_files_equal(ROOT + "hicPCA/pca2_ignoredMaskedBins.bedgraph", pca2.name)
@@ -111,7 +113,8 @@ def test_pca_bigwig_lieberman():
     matrix = ROOT + "small_test_matrix_50kb_res.h5"
     args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --method lieberman"\
         .format(matrix, pca1.name, pca2.name).split()
-    hicPCA.main(args)
+    # hicPCA.main(args)
+    compute(hicPCA.main, args, 5)
 
     chrom_list = ['chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr2RHet',
                   'chr3RHet', 'chr2LHet', 'chr4', 'chrU', 'chrX',
@@ -137,7 +140,8 @@ def test_pca_bedgraph_lieberman_gene_density():
     args = "--matrix {} --outputFileName {} {} -f bedgraph -noe 2 --method lieberman \
     --extraTrack {} --chromosomes {}"\
     .format(matrix, pca1.name, pca2.name, gene_track, chromosomes).split()
-    hicPCA.main(args)
+    # hicPCA.main(args)
+    compute(hicPCA.main, args, 5)
 
     assert are_files_equal(ROOT + "hicPCA/pca1_gene_track.bedgraph", pca1.name)
     assert are_files_equal(ROOT + "hicPCA/pca2_gene_track.bedgraph", pca2.name)
@@ -158,7 +162,8 @@ def test_pca_bigwig_lieberman_gene_density():
     args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --method lieberman \
     --extraTrack {} --chromosomes {}"\
     .format(matrix, pca1.name, pca2.name, gene_track, chromosomes).split()
-    hicPCA.main(args)
+    # hicPCA.main(args)
+    compute(hicPCA.main, args, 5)
 
     chrom_list = ['chrX', 'chrXHet']
     assert are_files_equal_bigwig(ROOT + "hicPCA/pca1_gene_track.bw",
@@ -186,7 +191,8 @@ def test_pca_bigwig_lieberman_gene_density_intermediate_matrices():
     --extraTrack {} --chromosomes {} --pearsonMatrix {} --obsexpMatrix {}"\
     .format(matrix, pca1.name, pca2.name, gene_track, chromosomes,
             pearson_matrix.name, obs_exp_matrix.name).split()
-    hicPCA.main(args)
+    # hicPCA.main(args)
+    compute(hicPCA.main, args, 5)
 
     chrom_list = ['chrX', 'chrXHet']
     assert are_files_equal_bigwig(ROOT + "hicPCA/pca1_gene_track.bw",
@@ -234,7 +240,8 @@ def test_pca_bigwig_gene_density_intermediate_matrices_norm():
     --method dist_norm --ligation_factor"\
     .format(matrix, pca1.name, pca2.name, gene_track, chromosomes,
             pearson_matrix.name, obs_exp_matrix.name).split()
-    hicPCA.main(args)
+    # hicPCA.main(args)
+    compute(hicPCA.main, args, 5)
 
     chrom_list = ['chrX', 'chrXHet']
     assert are_files_equal_bigwig(ROOT + "hicPCA/pca1_gene_track.bw",
@@ -287,7 +294,8 @@ def test_pca_bigwig_lieberman_histoneMark_track():
     args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --method lieberman \
     --extraTrack {} --chromosomes {}"\
     .format(matrix, pca1.name, pca2.name, extra_track, chromosomes).split()
-    hicPCA.main(args)
+    # hicPCA.main(args)
+    compute(hicPCA.main, args, 5)
     chrom_list = ['chrX']
     assert are_files_equal_bigwig(ROOT + "hicPCA/pca1_chip_track.bw",
                                   pca1.name, chrom_list)
@@ -310,7 +318,8 @@ def test_pca_bedgraph_lieberman_histoneMark_track():
     args = "--matrix {} --outputFileName {} {} -f bedgraph -noe 2 --method lieberman \
     --extraTrack {} --chromosomes {}"\
     .format(matrix, pca1.name, pca2.name, extra_track, chromosomes).split()
-    hicPCA.main(args)
+    # hicPCA.main(args)
+    compute(hicPCA.main, args, 5)
     assert are_files_equal(ROOT + "hicPCA/pca1_chip_track.bedgraph",
                            pca1.name)
     assert are_files_equal(ROOT + "hicPCA/pca2_chip_track.bedgraph",

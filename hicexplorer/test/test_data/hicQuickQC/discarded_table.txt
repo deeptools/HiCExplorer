@@ -1,2 +1,2 @@
-File	One mate not close to rest site	One mate not close to rest site %	dangling end	dangling end %	duplicated pairs	duplicated pairs %	same fragment	same fragment %	self circle	self circle %	self ligation (removed)	self ligation (removed) %
-/tmp/tmpi4gm4e58.h5	0	0.0	0	0.0	0	0.0	303	0.303	0	0.0	0	0.0
+File	One mate not close to rest site	One mate not close to rest site %	dangling end GATC %	duplicated pairs	duplicated pairs %	same fragment	same fragment %	self circle	self circle %	self ligation (removed)	self ligation (removed) %
+/tmp/tmpriojfa68.h5	0	0.0	0.001	0	0.0	198	0.198	19	0.019	104	0.104

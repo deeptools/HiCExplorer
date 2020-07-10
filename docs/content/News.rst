@@ -1,13 +1,53 @@
 News and Developments
 =====================
 
+Release 3.5
+-----------
+**10 July 2020**
+
+- Major update for hicDetectLoops: Results are now closer to HiCCUPS, it is faster and needs less memory. 
+- hicHyperoptDetectLoops: New tool to compute the best parameter setting if the number of expected loops is given and a protein boundary file (e.g. CTCF on mammals) is provided
+- hicHyperoptDetectLoopsHiCCUPS: New tool to compute the best parameter setting for Juicers HiCCUPS. HiCCUPS and all its dependencies are not part of HiCExplorer and must be provided by the user. Number of expected loops and a protein boundary file (e.g. CTCF on mammals) must be provided.
+- hicMergeDomains: New tool to compute a merge of TADs computed on different resolutions. Moreover it provides a cleaning of the boundaries with the help of a protein peak file, and the hierarchical dependencies of TADs can be plotted. This tool is the result of the Bachelor thesis from Sarah Domogalla (@SarahMaria27). Thanks for your contribution!
+- hicDifferentialTAD: New tool to compute differential TADs between two samples
+- Bug fix for hicFindTADs: The format of the intermediate z-score matrices are now depending on the format of the input Hi-C matrix
+- Bug fix for chic*-modules: Fixate range is now correct applied.
+- chicSignificantInteractions, hicDetectLoops: Option to use a per relative position p-value with a p-value threshold file
+- Adding hicCreateThresholdFile: A script to generate a per position p-value threshold for hicDetectLoops and chicSignificantInteractions 
+- Bug fix for hicPlotMatrix:
+   - multiple bigwig tracks in the vertical setting are now supported
+   - correct plot of bigwig if the given matrix does not start at the beginning of the chromosome
+   - new parameters 'increaseFigureWidth' and 'increaseFigureHeight' to add more space to the plot if multiple bigwigs are plotted. Adjust this parameter to correct the plot of the heatmap which may be not quadratic anymore.
+   - restriction of the loop regions to the user given range. This effects especially SVGs that will now contain less objects as before.
+- New feature for hicBuildMatrix:
+   - multiple restriction cut sequences, dangling ends and restriction cut sites files are now supported
+   - restriction cut sequences, dangling ends and restriction cut sites files are now mandatory parameters. This is now enforced to guarantee a correct detection of self ligations and self circles
+- hicPrepareQCreport: New support for multiple dangling ends
+- hicQuickQC: restriction cut sequences, dangling ends and restriction cut sites files are now mandatory parameters
+- hicFindRestSite: gz support for fasta file
+- Add fallback modes to multiple scripts if the parallelization fails.
+- hicAggregate: interactions between two bed files by comparing every row in the first bed file with its corresponding row in the second file. (issue #390)
+- hicAdjustMatrix:  fix #341, 454
+   - fixed --action remove:  it actually remove the part from the matrix previously was masking it
+   - the case where the end of the chromosome need to be removed.
+- New Azure testing for the general test cases, the trivial ones run on travis
+
+Publication
+-----------
+**02 July 2020** 
+
+Galaxy HiCExplorer 3: a web server for reproducible Hi-C, capture Hi-C and single-cell Hi-C data analysis, quality control and visualization 
+Joachim Wolff, Leily Rabbani, Ralf Gilsbach, Gautier Richard, Thomas Manke, Rolf Backofen, Björn A Grüning
+Nucleic Acids Research, Volume 48, Issue W1, 02 July 2020, Pages W177–W184
+
+
 Release 3.4.3
 -------------
 **23 March 2020**
 
 - Fixing the wrong p-value computation in for chicViewpoint. New method is more accurate for floating points.
 - Fixing a bug in chicViewpointBackgroundModel and chicQualityControl if an non-existing reference point was used.
-- Improving all chic* modules with a capturing of errors in sub-processes. It is now guaranteed that the computation will terminate. Either successfull or by error. 
+- Improving all chic* modules with a capturing of errors in sub-processes. It is now guaranteed that the computation will terminate. Either successful or by error. 
 - Add option 'truncateZero' to chicViewpointBackgroundModel: This removes all zero values for the distributions before fitting to fight over dispersion.
 - Add option 'decimalPlaces' to chicViewpoint to adjust the decimal places in the output for all floating values. Helpful for really small p-values
 - Add option 'truncateZeroPvalues' to chicSignificantInteractions to set all p-values which are 0 to 1 and are therefore ignored.

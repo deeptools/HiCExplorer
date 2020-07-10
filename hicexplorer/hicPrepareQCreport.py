@@ -71,11 +71,7 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
     html_content = html_content.replace("%%TABLE_ORIENTATION%%", orientation_table.style
                                         .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
 
-    all_table = all_table[['Sequenced reads', 'Pairs mappable, unique and high quality', 'Hi-C contacts',
-                           'One mate unmapped', 'One mate not unique', 'Low mapping quality', 'dangling end',
-                           'self ligation (removed)', 'One mate not close to rest site', 'same fragment',
-                           'self circle', 'duplicated pairs', 'inter chromosomal', 'Intra short range (< 20kb)',
-                           'Intra long range (>= 20kb)', 'Read pair type: inward pairs', 'Read pair type: outward pairs', 'Read pair type: left pairs', 'Read pair type: right pairs']]
+    all_table = all_table.drop(['Min rest. site distance', 'Max library insert size'], axis=1)
 
     html_content = html_content.replace("%%TABLE%%", all_table.style.render())
     with open(filename, 'w') as fh:
@@ -105,6 +101,7 @@ def make_figure_pairs_used(table, filename, dpi):
     ax.set_ylabel("")
     plt.savefig(filename, bbox_extra_artists=(
         lgd,), bbox_inches='tight', dpi=dpi)
+    plt.close()
 
 
 def make_figure_umappable_non_unique_reads(table, filename, dpi):
@@ -122,6 +119,7 @@ def make_figure_umappable_non_unique_reads(table, filename, dpi):
     ax.set_ylabel("fraction w.r.t. pairs sequenced")
     plt.savefig(filename, bbox_extra_artists=(
         lgd,), bbox_inches='tight', dpi=dpi)
+    plt.close()
 
     # merge the counts table with the percentages table
     ret_table = table[['Hi-C contacts', 'Low mapping quality', 'One mate not unique',
@@ -134,9 +132,28 @@ def make_figure_umappable_non_unique_reads(table, filename, dpi):
 
 
 def make_figure_pairs_discarded(table, filename, dpi):
-    prc_table = table[['One mate not close to rest site', 'dangling end', 'duplicated pairs',
-                       'same fragment', 'self circle',
-                       'self ligation (removed)']].T / table['Pairs mappable, unique and high quality']
+    column_names_prefix = ['One mate not close to rest site', 'dangling end', 'duplicated pairs',
+                           'same fragment', 'self circle',
+                           'self ligation (removed)']
+    column_names = []
+    column_names_out = []
+
+    column_names_table = list(table.columns)
+    for name in column_names_prefix:
+        if name in column_names_table:
+            column_names.append(name)
+            column_names_out.append(name)
+            column_names_out.append(name + ' %')
+
+        else:
+            # if 'dangling end' in
+            for name_ in column_names_table:
+                if name in name_:
+                    column_names.append(name_)
+                    column_names_out.append(name_ + ' %')
+
+    log.debug('column_names {}'.format(column_names))
+    prc_table = table[column_names].T / table['Pairs mappable, unique and high quality']
 
     fig = plt.figure(figsize=(7, 5))
     ax = fig.add_subplot(111)
@@ -149,16 +166,12 @@ def make_figure_pairs_discarded(table, filename, dpi):
     ax.set_ylabel("fraction w.r.t. mappable and unique pairs")
     plt.savefig(filename, bbox_extra_artists=(
         lgd,), bbox_inches='tight', dpi=dpi)
+    plt.close()
 
     # merge the counts table with the percentages table
-    ret_table = table[['One mate not close to rest site', 'dangling end', 'duplicated pairs',
-                       'same fragment', 'self circle',
-                       'self ligation (removed)']].join(prc_table.T, rsuffix=' %')
+    ret_table = table[column_names].join(prc_table.T, rsuffix=' %')
 
-    return ret_table[['One mate not close to rest site', 'One mate not close to rest site %',
-                      'dangling end', 'dangling end %', 'duplicated pairs', 'duplicated pairs %',
-                      'same fragment', 'same fragment %',
-                      'self circle', 'self circle %', 'self ligation (removed)', 'self ligation (removed) %']]
+    return ret_table[column_names_out]
 
 
 def make_figure_distance(table, filename):
@@ -177,6 +190,7 @@ def make_figure_distance(table, filename):
 
     plt.savefig(filename, bbox_extra_artists=(
         lgd,), bbox_inches='tight', dpi=200)
+    plt.close()
 
     # merge the counts table with the percentages table
     ret_table = table[['inter chromosomal', 'Intra short range (< 20kb)', 'Intra long range (>= 20kb)']].join(
@@ -198,6 +212,7 @@ def make_figure_read_orientation(table, filename, dpi):
     ax.set_ylabel("fraction w.r.t. valid Hi-C contacts")
     plt.savefig(filename, bbox_extra_artists=(
         lgd,), bbox_inches='tight', dpi=dpi)
+    plt.close()
 
     # merge the counts table with the percentages table
     ret_table = table[[u'Read pair type: inward pairs', u'Read pair type: outward pairs',
@@ -293,12 +308,15 @@ def main(args=None):
     unmap_table = make_figure_umappable_non_unique_reads(table, args.outputFolder + "/unmappable_and_non_unique.png",
                                                          args.dpi)
 
+    # log.debug('table {}'.format(list(table.columns)))
     discarded_table = make_figure_pairs_discarded(
         table, args.outputFolder + "/pairs_discarded.png", args.dpi)
     distance_table = make_figure_distance(
         table, args.outputFolder + "/distance.png")
     read_orientation_table = make_figure_read_orientation(
         table, args.outputFolder + "/read_orientation.png", args.dpi)
+
+    log.debug('table {}'.format(list(table.columns)))
 
     save_html(args.outputFolder + "/hicQC.html", unmap_table, discarded_table, distance_table,
               read_orientation_table, table)
