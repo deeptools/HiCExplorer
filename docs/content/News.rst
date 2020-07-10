@@ -3,7 +3,7 @@ News and Developments
 
 Release 3.5
 -----------
-**07 July 2020**
+**08 July 2020**
 
 - Major update for hicDetectLoops: Results are now closer to HiCCUPS, it is faster and needs less memory. 
 - hicHyperoptDetectLoops: New tool to compute the best parameter setting if the number of expected loops is given and a protein boundary file (e.g. CTCF on mammals) is provided
@@ -12,6 +12,8 @@ Release 3.5
 - hicDifferentialTAD: New tool to compute differential TADs between two samples
 - Bug fix for hicFindTADs: The format of the intermediate z-score matrices are now depending on the format of the input Hi-C matrix
 - Bug fix for chic*-modules: Fixate range is now correct applied.
+- chicSignificantInteractions, hicDetectLoops: Option to use a per relative position p-value with a p-value threshold file
+- Adding hicCreateThresholdFile: A script to generate a per position p-value threshold for hicDetectLoops and chicSignificantInteractions 
 - Bug fix for hicPlotMatrix:
    - multiple bigwig tracks in the vertical setting are now supported
    - correct plot of bigwig if the given matrix does not start at the beginning of the chromosome

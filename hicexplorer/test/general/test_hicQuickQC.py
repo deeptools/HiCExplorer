@@ -6,6 +6,7 @@ import logging
 log = logging.getLogger(__name__)
 
 from hicexplorer import hicQuickQC
+from hicexplorer.test.test_compute_function import compute
 
 ROOT = os.path.join(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))), "test_data/")
@@ -40,7 +41,8 @@ def test_main():
     qc_folder = mkdtemp(prefix="testQC_")
     args = "-s {} {} --QCfolder {} -seq {} --danglingSequence {} --restrictionCutFile {} --lines 1000".format(sam_R1, sam_R2,
                                                                                                               qc_folder, 'GATC', 'GATC', ROOT + "DpnII.bed").split()
-    hicQuickQC.main(args)
+    # hicQuickQC.main(args)
+    compute(hicQuickQC.main, args, 5)
 
     # print(set(os.listdir(ROOT + "hicQuickQC/")))
     assert are_files_equal(ROOT + "hicQuickQC/QC.log", qc_folder + "/QC.log")

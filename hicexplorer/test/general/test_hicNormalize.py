@@ -9,6 +9,7 @@ from tempfile import NamedTemporaryFile
 import os
 import numpy.testing as nt
 
+from hicexplorer.test.test_compute_function import compute
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/hicNormalize")
 
@@ -28,8 +29,8 @@ def test_normalize_smallest(capsys):
 
     args = "--matrices {} {} --normalize smallest -o {} {}".format(matrix_one_h5, matrix_two_h5,
                                                                    outfile_one.name, outfile_two.name).split()
-    hicNormalize.main(args)
-
+    # hicNormalize.main(args)
+    compute(hicNormalize.main, args, 5)
     test_one = hm.hiCMatrix(ROOT + "/smallest_one.h5")
     test_two = hm.hiCMatrix(ROOT + "/smallest_two.h5")
 
@@ -55,7 +56,8 @@ def test_normalize_smallest_h5(capsys):
 
     args = "--matrices {} {} --normalize smallest -o {} {}".format(matrix_one_h5, matrix_two_h5,
                                                                    outfile_one.name, outfile_two.name).split()
-    hicNormalize.main(args)
+    # hicNormalize.main(args)
+    compute(hicNormalize.main, args, 5)
 
     test_one = hm.hiCMatrix(ROOT + "/smallest_one.h5")
     test_two = hm.hiCMatrix(ROOT + "/smallest_two.h5")
@@ -82,7 +84,8 @@ def test_normalize_smallest_cool(capsys):
 
     args = "--matrices {} {} --normalize smallest -o {} {}".format(matrix_one_cool, matrix_two_cool,
                                                                    outfile_one.name, outfile_two.name).split()
-    hicNormalize.main(args)
+    # hicNormalize.main(args)
+    compute(hicNormalize.main, args, 5)
 
     test_one = hm.hiCMatrix(ROOT + "/smallest_one.cool")
     test_two = hm.hiCMatrix(ROOT + "/smallest_two.cool")
@@ -109,7 +112,8 @@ def test_normalize_norm_range(capsys):
 
     args = "--matrices {} {} --normalize norm_range -o {} {}".format(matrix_one_h5, matrix_two_h5,
                                                                      outfile_one.name, outfile_two.name).split()
-    hicNormalize.main(args)
+    # hicNormalize.main(args)
+    compute(hicNormalize.main, args, 5)
 
     test_one = hm.hiCMatrix(ROOT + "/norm_range_one.h5")
     test_two = hm.hiCMatrix(ROOT + "/norm_range_two.h5")
@@ -136,7 +140,8 @@ def test_normalize_norm_range_cool(capsys):
 
     args = "--matrices {} {} --normalize norm_range -o {} {}".format(matrix_one_cool, matrix_two_cool,
                                                                      outfile_one.name, outfile_two.name).split()
-    hicNormalize.main(args)
+    # hicNormalize.main(args)
+    compute(hicNormalize.main, args, 5)
 
     test_one = hm.hiCMatrix(ROOT + "/norm_range_one.cool")
     test_two = hm.hiCMatrix(ROOT + "/norm_range_two.cool")
@@ -163,11 +168,13 @@ def test_normalize_norm_range_h5_cool_equal(capsys):
 
     args = "--matrices {} --normalize norm_range -o {}".format(matrix_one_cool,
                                                                outfile_one.name).split()
-    hicNormalize.main(args)
+    # hicNormalize.main(args)
+    compute(hicNormalize.main, args, 5)
 
     args = "--matrices {} --normalize norm_range -o {}".format(matrix_one_h5,
                                                                outfile_two.name).split()
-    hicNormalize.main(args)
+    # hicNormalize.main(args)
+    compute(hicNormalize.main, args, 5)
 
     test_one = hm.hiCMatrix(ROOT + "/norm_range_one.cool")
     test_two = hm.hiCMatrix(ROOT + "/norm_range_one.h5")
@@ -202,11 +209,13 @@ def test_normalize_smallest_h5_cool_equal(capsys):
 
     args = "--matrices {} {} --normalize smallest -o {} {}".format(matrix_one_cool, matrix_two_cool,
                                                                    outfile_one.name, outfile_one_cool.name).split()
-    hicNormalize.main(args)
+    # hicNormalize.main(args)
+    compute(hicNormalize.main, args, 5)
 
     args = "--matrices {} {} --normalize smallest -o {} {}".format(matrix_one_h5, matrix_two_h5,
                                                                    outfile_two.name, outfile_two_h5.name).split()
-    hicNormalize.main(args)
+    # hicNormalize.main(args)
+    compute(hicNormalize.main, args, 5)
 
     test_one = hm.hiCMatrix(ROOT + "/smallest_one.cool")
     test_two = hm.hiCMatrix(ROOT + "/smallest_one.h5")
@@ -233,7 +242,8 @@ def test_normalize_multiplicative_h5_cool(capsys):
 
     args = "--matrices {} --normalize multiplicative --multiplicativeValue {} -o {}".format(matrix_one_cool, 2,
                                                                                             outfile_one.name).split()
-    hicNormalize.main(args)
+    # hicNormalize.main(args)
+    compute(hicNormalize.main, args, 5)
 
     test_one = hm.hiCMatrix(ROOT + "/small_test_matrix_scaled_by_2.cool")
 
