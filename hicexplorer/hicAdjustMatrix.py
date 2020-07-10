@@ -121,10 +121,10 @@ def adjustMatrix(pArgs):
             _regionBinRange = hic_matrix.getRegionBinRange(region[0], int(region[1]), int(region[2]))
             if _regionBinRange is not None:
                 start, end = _regionBinRange
-                matrix_indices_regions.extend(list(range(start, end+1))) #end is inclusive, so +1
+                matrix_indices_regions.extend(list(range(start, end + 1)))  # end is inclusive, so +1
                 if pArgs.action == 'remove':
                     chr_start, chr_end = hic_matrix.getChrBinRange(chrom)
-                    if (start > chr_start) and (end < chr_end-1):
+                    if (start > chr_start) and (end < chr_end - 1):
                         log.warning("{}:{}-{} entry may generate discounted regions on a chromosome."
                                     "Please consider using `mask` action to deal with that.".format(chrom, start, end))
 
