@@ -92,6 +92,7 @@ def test_trivial_run_xfail_multichromosomes(matrix, outFileName, chromosomes, ac
 @pytest.mark.parametrize("outFileName", [outfile])  # required
 @pytest.mark.parametrize("action", ['keep', 'remove', 'mask'])  # optional
 @pytest.mark.parametrize("regions", [bed_file_xfail])  # optional
+@pytest.mark.xfail
 def test_trivial_run_xfail_regions(matrix, outFileName, action, regions):
     """
         Test checks if all commandline args work in general.
@@ -136,7 +137,7 @@ def test_remove():
     args = "--matrix {} --outFileName {} --regions {} --action {}".format(
         ROOT + 'small_test_matrix_50kb_res.h5',
         outfile.name,
-        ROOT + 'hicAdjustMatrix/remove_region.bed',
+        ROOT + 'hicAdjustMatrix/remove.bed',
         "remove").split()
 
     compute(hicAdjustMatrix.main, args, 5)
