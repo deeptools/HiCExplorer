@@ -75,7 +75,7 @@ jobs:
       py.test hicexplorer/test/general/ -n 4 
     displayName: pytest
   
-- job: 'Linux trivial test cases'
+- job: 'Linux_trivial_test_cases'
   timeoutInMinutes: 0
   pool:
     vmImage: 'ubuntu-latest'
@@ -107,7 +107,7 @@ jobs:
       py.test hicexplorer/test/trivial_runs/
     displayName: pytest trivial test cases
 
-- job: 'OSX trivial test cases'
+- job: 'OSX_trivial_test_cases'
   timeoutInMinutes: 0
   pool:
     vmImage: 'macOS-10.14'
