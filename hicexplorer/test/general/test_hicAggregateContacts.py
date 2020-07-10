@@ -14,8 +14,8 @@ memory = mem.total / 2 ** 30
 
 # memory in GB the test computer needs to have to run the test case
 LOW_MEMORY = 2
-MID_MEMORY = 7
-HIGH_MEMORY = 200
+MID_MEMORY = 4
+HIGH_MEMORY = 120
 
 REMOVE_OUTPUT = True
 # DIFF = 60

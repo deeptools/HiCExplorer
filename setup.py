@@ -95,6 +95,7 @@ class install(_install):
 install_requires_py = ["numpy >= 1.18.*",
                        "scipy >= 1.3.*",
                        "matplotlib-base == 3.1.*",
+                       "ipykernel >= 5.3.0",
                        "pysam >= 0.15",
                        "intervaltree >= 3.0.*",
                        "biopython >= 1.74",
@@ -113,6 +114,7 @@ install_requires_py = ["numpy >= 1.18.*",
                        "pybedtools >= 0.8",
                        "future >= 0.17",
                        "tqdm >= 4.20",
+                       "hyperopt >= 0.2.4",
                        "graphviz >= 0.14"
                        ]
 

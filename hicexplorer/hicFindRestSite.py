@@ -100,11 +100,15 @@ def find_pattern(pattern, fasta_file, out_file):
     rev_compl = str(Seq(pattern, generic_dna).reverse_complement())
 
     temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='wt')
+    try:
+        fasta_file_name = fasta_file.name
+    except AttributeError:
+        fasta_file_name = fasta_file
 
-    encoding = guess_type(fasta_file.name)[1]  # uses file extension
+    encoding = guess_type(fasta_file_name)[1]  # uses file extension
     _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
 
-    with _open(fasta_file.name) as f:
+    with _open(fasta_file_name) as f:
         for record in SeqIO.parse(f, 'fasta', generic_dna):
             # find all the occurrences of pattern
             for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):

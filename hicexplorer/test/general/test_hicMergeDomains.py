@@ -1,4 +1,5 @@
 import os
+import sys
 from tempfile import NamedTemporaryFile
 from tempfile import mkdtemp
 from psutil import virtual_memory
@@ -18,8 +19,8 @@ memory = mem.total / 2**30
 
 # memory in GB the test computer needs to have to run the test case
 LOW_MEMORY = 2
-MID_MEMORY = 7
-HIGH_MEMORY = 200
+MID_MEMORY = 4
+HIGH_MEMORY = 120
 
 REMOVE_OUTPUT = True
 
@@ -66,6 +67,7 @@ def test_main_one_file_protein():
     are_files_equal(outfile_domains.name, ROOT + 'hicMergeDomains/one_file', delta=2)
 
 
+@pytest.mark.xfail(sys.platform == "darwin", reason='Matplotlib plots for reasons a different image size.')
 def test_main_two_file_protein():
     outfile_domains = NamedTemporaryFile(suffix='.txt', delete=True)
     outfile_ctcf_relation = NamedTemporaryFile(suffix='.txt', delete=True)
@@ -86,6 +88,7 @@ def test_main_two_file_protein():
         assert res is None, res
 
 
+@pytest.mark.xfail(sys.platform == "darwin", reason='Matplotlib plots for reasons a different image size.')
 def test_main_two_file_no_protein():
     outfile_domains = NamedTemporaryFile(suffix='.txt', delete=True)
     outfile_ctcf_relation = NamedTemporaryFile(suffix='.txt', delete=True)
@@ -104,3 +107,31 @@ def test_main_two_file_no_protein():
     for i in list_data:
         res = compare_images(ROOT + '/hicMergeDomains/no_ctcf_plot/two_files_plot_' + i + '.png', plot_folder + '/two_files_plot_' + i + '.png', tol=40)
         assert res is None, res
+
+
+@pytest.mark.skipif(sys.platform == "linux", reason='Already tested')
+def test_main_two_file_protein_no_image():
+    outfile_domains = NamedTemporaryFile(suffix='.txt', delete=True)
+    outfile_ctcf_relation = NamedTemporaryFile(suffix='.txt', delete=True)
+    plot_folder = mkdtemp(prefix="plot_relations")
+
+    args = "-d {} {} -om {} -or {} -ot {} -of {} -p {} ".format(
+        ROOT + 'hicMergeDomains/10kbtad_domains.bed', ROOT + 'hicMergeDomains/50kbtad_domains.bed',
+        outfile_domains.name, outfile_ctcf_relation.name, plot_folder + '/two_files_plot_ctcf', 'png', ROOT + 'hicMergeDomains/ctcf_sorted.bed').split()
+    hicMergeDomains.main(args)
+    are_files_equal(outfile_domains.name, ROOT + 'hicMergeDomains/two_files_ctcf.bed', delta=2)
+    are_files_equal(outfile_ctcf_relation.name, ROOT + 'hicMergeDomains/two_files_relation_ctcf.txt', delta=2)
+
+
+@pytest.mark.skipif(sys.platform == "linux", reason='Already tested')
+def test_main_two_file_no_protein_no_image():
+    outfile_domains = NamedTemporaryFile(suffix='.txt', delete=True)
+    outfile_ctcf_relation = NamedTemporaryFile(suffix='.txt', delete=True)
+    plot_folder = mkdtemp(prefix="plot_relations")
+
+    args = "-d {} {} -om {} -or {} -ot {} -of {}".format(
+        ROOT + 'hicMergeDomains/10kbtad_domains.bed', ROOT + 'hicMergeDomains/50kbtad_domains.bed',
+        outfile_domains.name, outfile_ctcf_relation.name, plot_folder + '/two_files_plot', 'png').split()
+    hicMergeDomains.main(args)
+    are_files_equal(outfile_domains.name, ROOT + 'hicMergeDomains/two_files.bed', delta=2)
+    are_files_equal(outfile_ctcf_relation.name, ROOT + 'hicMergeDomains/two_files_relation.txt', delta=2)
