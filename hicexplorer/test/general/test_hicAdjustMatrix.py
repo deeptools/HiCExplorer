@@ -5,6 +5,8 @@ from tempfile import NamedTemporaryFile
 from hicmatrix import HiCMatrix as hm
 from hicexplorer import hicAdjustMatrix
 import numpy.testing as np
+from hicexplorer.test.test_compute_function import compute
+
 
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -42,7 +44,8 @@ def test_trivial_run(matrix, outFileName, chromosomes, action, regions):
             action,
         ).split()
 
-    hicAdjustMatrix.main(args)
+    # hicAdjustMatrix.main(args)
+    compute(hicAdjustMatrix.main, args, 5)
 
 
 @pytest.mark.parametrize("matrix", [matrix])  # required
@@ -61,7 +64,8 @@ def test_trivial_run_xfail(matrix, outFileName, chromosomes, action):
         action,
     ).split()
 
-    hicAdjustMatrix.main(args)
+    # hicAdjustMatrix.main(args)
+    compute(hicAdjustMatrix.main, args, 5)
 
 
 @pytest.mark.parametrize("matrix", [matrix])  # required
@@ -80,7 +84,8 @@ def test_trivial_run_xfail_multichromosomes(matrix, outFileName, chromosomes, ac
         action,
     ).split()
 
-    hicAdjustMatrix.main(args)
+    # hicAdjustMatrix.main(args)
+    compute(hicAdjustMatrix.main, args, 5)
 
 
 @pytest.mark.parametrize("matrix", [matrix])  # required
@@ -100,7 +105,8 @@ def test_trivial_run_xfail_regions(matrix, outFileName, action, regions):
             action,
         ).split()
 
-    hicAdjustMatrix.main(args)
+    # hicAdjustMatrix.main(args)
+    compute(hicAdjustMatrix.main, args, 5)
 
 
 def test_keep():
@@ -112,7 +118,8 @@ def test_keep():
         outfile.name,
         ROOT + 'hicAdjustMatrix/keep_region.bed',
         "keep").split()
-    hicAdjustMatrix.main(args)
+    # hicAdjustMatrix.main(args)
+    compute(hicAdjustMatrix.main, args, 5)
     test = hm.hiCMatrix(
         ROOT + "hicAdjustMatrix/small_test_matrix_50kb_res_keep.h5")
     new = hm.hiCMatrix(outfile.name)

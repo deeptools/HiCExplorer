@@ -7,6 +7,7 @@ from tempfile import mkdtemp
 import shutil
 import os
 import numpy.testing as nt
+from hicexplorer.test.test_compute_function import compute
 
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
@@ -34,8 +35,8 @@ def test_find_TADs_fdr():
     --outPrefix {}/test_multiFDR --minBoundaryDistance 20000 \
     --correctForMultipleTesting fdr --thresholdComparisons 0.1".format(matrix, tad_folder).split()
 
-    hicFindTADs.main(args)
-
+    # hicFindTADs.main(args)
+    compute(hicFindTADs.main, args, 5)
     new = hm.hiCMatrix(tad_folder + "/test_multiFDR_zscore_matrix.h5")
     test = hm.hiCMatrix(ROOT + 'find_TADs/FDR/multiFDR_zscore_matrix.h5')
     nt.assert_equal(test.matrix.data, new.matrix.data)
@@ -60,7 +61,8 @@ def test_find_TADs_fdr_chromosomes():
     --outPrefix {}/test_multiFDR_chromosomes --minBoundaryDistance 20000 \
     --correctForMultipleTesting fdr --thresholdComparisons 0.5 --chromosomes chr2L chr3R".format(matrix, tad_folder).split()
 
-    hicFindTADs.main(args)
+    # hicFindTADs.main(args)
+    compute(hicFindTADs.main, args, 5)
 
     new = hm.hiCMatrix(tad_folder + "/test_multiFDR_chromosomes_zscore_matrix.h5")
     test = hm.hiCMatrix(ROOT + 'find_TADs/FDR_chromosomes/multiFDR_zscore_matrix.h5')
@@ -88,7 +90,8 @@ def test_find_TADs_bonferroni():
     --outPrefix {}/test_multiBonferroni --minBoundaryDistance 20000 \
     --correctForMultipleTesting bonferroni --thresholdComparisons 0.1".format(matrix, tad_folder).split()
 
-    hicFindTADs.main(args)
+    # hicFindTADs.main(args)
+    compute(hicFindTADs.main, args, 5)
 
     print(tad_folder + "/test_multiBonferroni_boundaries.bed")
     assert are_files_equal(ROOT + "find_TADs/bonferroni/multiBonferroni_boundaries.bed", tad_folder + "/test_multiBonferroni_boundaries.bed", pDifference=10)
@@ -109,7 +112,8 @@ def test_find_TADs_none():
     --outPrefix {}/test_multiNone --minBoundaryDistance 20000 \
     --correctForMultipleTesting None --thresholdComparisons 1.0".format(matrix, tad_folder).split()
 
-    hicFindTADs.main(args)
+    # hicFindTADs.main(args)
+    compute(hicFindTADs.main, args, 5)
 
     assert are_files_equal(ROOT + "find_TADs/None/multiNone_boundaries.bed", tad_folder + "/test_multiNone_boundaries.bed")
     assert are_files_equal(ROOT + "find_TADs/None/multiNone_domains.bed", tad_folder + "/test_multiNone_domains.bed")

@@ -6,6 +6,8 @@ from tempfile import NamedTemporaryFile
 from hicexplorer import hicConvertFormat
 import pytest
 from hicmatrix import HiCMatrix as hm
+from hicexplorer.test.test_compute_function import compute
+
 import numpy.testing as nt
 
 REMOVE_OUTPUT = True
@@ -18,8 +20,8 @@ original_matrix_h5 = ROOT + "/small_test_matrix.h5"
 original_matrix_cool = ROOT + "/small_test_matrix.cool"
 
 
-@pytest.mark.parametrize("matrices", [original_matrix_h5, original_matrix_cool])  # , original_matrix_cool, original_matrix_hic])  # required
-@pytest.mark.parametrize("outputFormat", ['cool', 'h5', 'ginteractions', 'mcool'])
+@pytest.mark.parametrize("matrices", sorted([original_matrix_h5, original_matrix_cool]))  # , original_matrix_cool, original_matrix_hic])  # required
+@pytest.mark.parametrize("outputFormat", sorted(['cool', 'h5', 'ginteractions', 'mcool']))
 @pytest.mark.parametrize("resolutions", [''])  # TODO: check for possible resolutions
 def test_trivial_run(
     matrices,
@@ -44,11 +46,12 @@ def test_trivial_run(
         resolutions,
     ).split()
 
-    hicConvertFormat.main(args)
+    # hicConvertFormat.main(args)
+    compute(hicConvertFormat.main, args, 5)
 
 
-@pytest.mark.parametrize("matrices", [original_matrix_h5, original_matrix_cool])  # required
-@pytest.mark.parametrize("outputFormat", ['cool', 'h5'])  # , 'homer', 'ginteractions', 'mcool'])
+@pytest.mark.parametrize("matrices", sorted([original_matrix_h5, original_matrix_cool]))  # required
+@pytest.mark.parametrize("outputFormat", sorted(['cool', 'h5']))  # , 'homer', 'ginteractions', 'mcool'])
 @pytest.mark.parametrize("resolutions", [''])  # TODO: Check for resolutions
 def test_trivial_functionality(
     matrices,
@@ -74,7 +77,8 @@ def test_trivial_functionality(
         resolutions,
     ).split()
 
-    hicConvertFormat.main(args)
+    # hicConvertFormat.main(args)
+    compute(hicConvertFormat.main, args, 5)
 
     test = hm.hiCMatrix(matrices)
 

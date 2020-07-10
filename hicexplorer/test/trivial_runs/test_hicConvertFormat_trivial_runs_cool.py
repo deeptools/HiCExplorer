@@ -4,6 +4,8 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import os.path
 from tempfile import NamedTemporaryFile
 from hicexplorer import hicConvertFormat
+from hicexplorer.test.test_compute_function import compute
+
 import pytest
 
 REMOVE_OUTPUT = True
@@ -18,13 +20,13 @@ original_matrix_h5_li = ROOT + "/small_test_matrix.h5"
 
 
 @pytest.mark.parametrize("matrices", [original_matrix_cool])  # required
-@pytest.mark.parametrize("outputFormat", ['cool', 'h5', 'homer', 'ginteractions', 'mcool'])
+@pytest.mark.parametrize("outputFormat", sorted(['cool', 'h5', 'homer', 'ginteractions', 'mcool']))
 @pytest.mark.parametrize("correction_name", ['weight'])  # need to check hicInfo for more names
-@pytest.mark.parametrize("correction_division", ['', '--correction_division'])
-@pytest.mark.parametrize("store_applied_correction", ['', '--store_applied_correction'])
+@pytest.mark.parametrize("correction_division", sorted(['', '--correction_division']))
+@pytest.mark.parametrize("store_applied_correction", sorted(['', '--store_applied_correction']))
 @pytest.mark.parametrize("chromosome", ['chrX'])
-@pytest.mark.parametrize("enforce_integer", ['', '--enforce_integer'])
-@pytest.mark.parametrize("load_raw_values", ['', '--load_raw_values'])
+@pytest.mark.parametrize("enforce_integer", sorted(['', '--enforce_integer']))
+@pytest.mark.parametrize("load_raw_values", sorted(['', '--load_raw_values']))
 def test_cool_specific_trivial_run(
     matrices,
     outputFormat,
@@ -59,4 +61,5 @@ def test_cool_specific_trivial_run(
         load_raw_values,
     ).split()
 
-    hicConvertFormat.main(args)
+    # hicConvertFormat.main(args)
+    compute(hicConvertFormat.main, args, 5)

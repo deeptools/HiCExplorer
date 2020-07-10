@@ -14,7 +14,9 @@ import os
 import shutil
 from psutil import virtual_memory
 
+from hicexplorer.utilities import genomicRegion
 from hicexplorer import hicBuildMatrix as hicBuildMatrix
+from hicexplorer.test.test_compute_function import compute
 
 mem = virtual_memory()
 memory = mem.total / 2**30
@@ -56,73 +58,30 @@ qc_folder = mkdtemp(prefix="testQC_")
 @pytest.mark.parametrize("minMappingQuality", [15])
 @pytest.mark.parametrize("threads", [4])
 @pytest.mark.parametrize("inputBufferSize", [400000])
-def test_build_matrix_restrictionCutFile_five(sam1, sam2, outFile, qcFolder, outBam, binSize,
-                                              restrictionCutFile, minDistance, maxDistance,
-                                              maxLibraryInsertSize, restrictionSequence,
-                                              danglingSequence, region, removeSelfLigation,
-                                              minMappingQuality, threads, inputBufferSize):
-    # added minMappingQuality
-    args = "-s {} {} --restrictionCutFile {} --outFileName {} --QCfolder {} " \
-           "--restrictionSequence {} " \
-           "--danglingSequence {} " \
-           "--minDistance {} " \
-           "--maxLibraryInsertSize {} --threads {} " \
-           "--removeSelfLigation {} --keepSelfCircles " \
-           "--minMappingQuality {} ".format(bam_R1, bam_R2,
-                                            restrictionCutFile, outFile.name, qcFolder,
-                                            restrictionSequence, danglingSequence,
-                                            minDistance, maxLibraryInsertSize, threads,
-                                            removeSelfLigation, minMappingQuality).split()
-
-    hicBuildMatrix.main(args)
-
-    os.unlink(outFile.name)
-    shutil.rmtree(qcFolder)
-    # os.unlink("/tmp/test.bam")
-
-
-@pytest.mark.parametrize("sam1", [bam_R1])  # required
-@pytest.mark.parametrize("sam2", [bam_R2])  # required
-@pytest.mark.parametrize("outFile", [outFile])  # required
-@pytest.mark.parametrize("qcFolder", [qc_folder])  # required
-@pytest.mark.parametrize("outBam", ['/tmp/test.bam'])
-@pytest.mark.parametrize("binSize", [100000])  # required | restrictionCutFile
-@pytest.mark.parametrize("restrictionCutFile", [dpnii_file])  # required | binSize
-@pytest.mark.parametrize("minDistance", [150])
-@pytest.mark.parametrize("maxDistance", [1500])
-@pytest.mark.parametrize("maxLibraryInsertSize", [1500])
-@pytest.mark.parametrize("restrictionSequence", ['GATC'])
-@pytest.mark.parametrize("danglingSequence", ['GATC'])
-@pytest.mark.parametrize("region", ["ChrX"])  # region does not work!!
-@pytest.mark.parametrize("removeSelfLigation", [True])
-@pytest.mark.parametrize("minMappingQuality", [15])
-@pytest.mark.parametrize("threads", [4])
-@pytest.mark.parametrize("inputBufferSize", [400000])
-def test_build_matrix_restrictionCutFile_six(sam1, sam2, outFile, qcFolder, outBam, binSize,
+def test_build_matrix_restrictionCutFile_two(sam1, sam2, outFile, qcFolder, outBam, binSize,
                                              restrictionCutFile, minDistance, maxDistance,
                                              maxLibraryInsertSize, restrictionSequence,
                                              danglingSequence, region, removeSelfLigation,
                                              minMappingQuality, threads, inputBufferSize):
-    # added inputBufferSize
+    # test more args for restrictionCutFile option
+    region = genomicRegion(region)
+
     args = "-s {} {} --restrictionCutFile {} --outFileName {} --QCfolder {} " \
            "--restrictionSequence {} " \
            "--danglingSequence {} " \
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
-           "--removeSelfLigation {} --keepSelfCircles " \
-           "--minMappingQuality {} --inputBufferSize {} ".format(bam_R1, bam_R2,
-                                                                 restrictionCutFile,
-                                                                 outFile.name, qcFolder,
-                                                                 restrictionSequence,
-                                                                 danglingSequence,
-                                                                 minDistance,
-                                                                 maxLibraryInsertSize,
-                                                                 threads,
-                                                                 removeSelfLigation,
-                                                                 minMappingQuality,
-                                                                 inputBufferSize).split()
-
-    hicBuildMatrix.main(args)
+           "--region {} --removeSelfLigation {} ".format(bam_R1, bam_R2,
+                                                         restrictionCutFile, outFile.name,
+                                                         qcFolder,
+                                                         restrictionSequence,
+                                                         danglingSequence,
+                                                         minDistance,
+                                                         maxLibraryInsertSize,
+                                                         threads, region,
+                                                         removeSelfLigation).split()
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
 
     os.unlink(outFile.name)
     shutil.rmtree(qcFolder)
@@ -146,29 +105,27 @@ def test_build_matrix_restrictionCutFile_six(sam1, sam2, outFile, qcFolder, outB
 @pytest.mark.parametrize("minMappingQuality", [15])
 @pytest.mark.parametrize("threads", [4])
 @pytest.mark.parametrize("inputBufferSize", [400000])
-def test_build_matrix_restrictionCutFile_seven(sam1, sam2, outFile, qcFolder, outBam, binSize,
+def test_build_matrix_restrictionCutFile_three(sam1, sam2, outFile, qcFolder, outBam, binSize,
                                                restrictionCutFile, minDistance, maxDistance,
                                                maxLibraryInsertSize, restrictionSequence,
                                                danglingSequence, region, removeSelfLigation,
                                                minMappingQuality, threads, inputBufferSize):
-    # added doTestRun
+    # test more params with restrictionCutFile (now without region param)
     args = "-s {} {} --restrictionCutFile {} --outFileName {} --QCfolder {} " \
            "--restrictionSequence {} " \
            "--danglingSequence {} " \
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
-           "--removeSelfLigation {} --keepSelfCircles " \
-           "--minMappingQuality {} --inputBufferSize {} " \
-           "--doTestRun ".format(bam_R1, bam_R2,
-                                 restrictionCutFile, outFile.name, qcFolder,
-                                 restrictionSequence, danglingSequence,
-                                 minDistance, maxLibraryInsertSize, threads,
-                                 removeSelfLigation, minMappingQuality,
-                                 inputBufferSize).split()
+           "--removeSelfLigation {} ".format(bam_R1, bam_R2,
+                                             restrictionCutFile, outFile.name, qcFolder,
+                                             restrictionSequence, danglingSequence,
+                                             minDistance, maxLibraryInsertSize, threads,
+                                             removeSelfLigation).split()
 
-    hicBuildMatrix.main(args)
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
 
-    # os.unlink(outFile.name)
+    os.unlink(outFile.name)
     shutil.rmtree(qcFolder)
     # os.unlink("/tmp/test.bam")
 
@@ -190,30 +147,30 @@ def test_build_matrix_restrictionCutFile_seven(sam1, sam2, outFile, qcFolder, ou
 @pytest.mark.parametrize("minMappingQuality", [15])
 @pytest.mark.parametrize("threads", [4])
 @pytest.mark.parametrize("inputBufferSize", [400000])
-def test_build_matrix_restrictionCutFile_eight(sam1, sam2, outFile, qcFolder, outBam, binSize,
-                                               restrictionCutFile, minDistance, maxDistance,
-                                               maxLibraryInsertSize, restrictionSequence,
-                                               danglingSequence, region, removeSelfLigation,
-                                               minMappingQuality, threads, inputBufferSize):
-    # added skipDuplicationCheck
+def test_build_matrix_restrictionCutFile_four(sam1, sam2, outFile, qcFolder, outBam, binSize,
+                                              restrictionCutFile, minDistance, maxDistance,
+                                              maxLibraryInsertSize, restrictionSequence,
+                                              danglingSequence, region, removeSelfLigation,
+                                              minMappingQuality, threads, inputBufferSize):
+    # test more params with restrictionCutFile (now without region param)
     args = "-s {} {} --restrictionCutFile {} --outFileName {} --QCfolder {} " \
            "--restrictionSequence {} " \
            "--danglingSequence {} " \
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
-           "--removeSelfLigation {} --keepSelfCircles " \
-           "--minMappingQuality {} --inputBufferSize {} " \
-           "--doTestRun --skipDuplicationCheck ".format(bam_R1, bam_R2,
-                                                        restrictionCutFile, outFile.name,
-                                                        qcFolder, restrictionSequence,
-                                                        danglingSequence, minDistance,
-                                                        maxLibraryInsertSize, threads,
-                                                        removeSelfLigation,
-                                                        minMappingQuality,
-                                                        inputBufferSize).split()
+           "--removeSelfLigation {} --keepSelfCircles ".format(bam_R1, bam_R2,
+                                                               restrictionCutFile,
+                                                               outFile.name, qcFolder,
+                                                               restrictionSequence,
+                                                               danglingSequence,
+                                                               minDistance,
+                                                               maxLibraryInsertSize,
+                                                               threads,
+                                                               removeSelfLigation).split()
 
-    hicBuildMatrix.main(args)
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
 
-    # os.unlink(outFile.name)
+    os.unlink(outFile.name)
     shutil.rmtree(qcFolder)
     # os.unlink("/tmp/test.bam")

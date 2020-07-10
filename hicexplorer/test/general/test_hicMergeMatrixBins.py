@@ -6,6 +6,7 @@ from hicmatrix import HiCMatrix as hm
 from tempfile import NamedTemporaryFile
 import os
 import numpy.testing as nt
+from hicexplorer.test.test_compute_function import compute
 
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
@@ -18,8 +19,8 @@ def test_correct_matrix():
     args = "--matrix {} --numBins 5 " \
         " --outFileName {}".format(ROOT + "small_test_matrix.h5",
                                    outfile.name).split()
-    hicMergeMatrixBins.main(args)
-
+    # hicMergeMatrixBins.main(args)
+    compute(hicMergeMatrixBins.main, args, 5)
     test = hm.hiCMatrix(ROOT + "hicMergeMatrixBins/result.h5")
     new = hm.hiCMatrix(outfile.name)
     nt.assert_equal(test.matrix.data, new.matrix.data)
