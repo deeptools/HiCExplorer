@@ -559,7 +559,8 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
             args, hic_matrix)
         plotHeatmap(matrix, chr_bin_boundary, fig, None,
                     args, cmap, xlabel=chrname, ylabel=chrname,
-                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pBigwig=bigwig_info, pChromsomeStartEndDict=chromosome_start_end(hic_matrix), pResolution=pResolution)
+                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pBigwig=bigwig_info,
+                    pChromsomeStartEndDict=chromosome_start_end(hic_matrix), pResolution=pResolution)
     return fig
 
 
@@ -780,7 +781,6 @@ def main(args=None):
             matrix = np.asarray(ma.getMatrix().astype(float))
 
     resolution = ma.getBinSize()
-
     matrix_length = len(matrix[0])
     log.debug("Number of data points matrix: {}".format(matrix_length))
 
@@ -959,6 +959,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 bigwig_end = min(bw.chroms()[chrom], region_end)
 
                 # TODO, this could be a parameter
+                print(pResolution)
                 num_bins = int(bigwig_end - region_start) // pResolution
                 log.debug('chrom {}, region_start {}, bigwig_end {}, num_bins {}'.format(chrom, region_start, bigwig_end, num_bins))
                 scores_per_bin = np.array(
