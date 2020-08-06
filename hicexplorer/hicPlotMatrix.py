@@ -406,6 +406,15 @@ def translate_region(region_string, ma):
 
     fields = region_string.split(":")
     chrom = fields[0]
+
+    chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
+    if chrom not in list(ma.interval_trees):
+        chrom = change_chrom_names(chrom)
+        chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
+        if chrom not in list(ma.interval_trees):
+            exit(
+                "Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
+
     first_bin, last_bin = ma.getChrBinRange(chrom)
     try:
         region_start = int(fields[1])
@@ -567,23 +576,6 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
 def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
     chrom, region_start, region_end = translate_region(args.region, ma)
-
-    chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-    # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-    #     chrom = toBytes(chrom)
-
-    if chrom not in list(ma.interval_trees):
-
-        chrom = change_chrom_names(chrom)
-
-        chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-
-        # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-        #     chrom = toBytes(chrom)
-
-        if chrom not in list(ma.interval_trees):
-            exit(
-                "Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
 
     args.region = [chrom, region_start, region_end]
     is_cooler = check_cooler(args.matrix)
