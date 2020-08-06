@@ -390,7 +390,7 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                            pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig, pResolution=pResolution)
 
 
-def translate_region(region_string,ma):
+def translate_region(region_string, ma):
     """
     Takes an string and returns a list
     of chrom, start, end.
@@ -414,7 +414,7 @@ def translate_region(region_string,ma):
     try:
         region_end = int(fields[2])
     except IndexError:
-        region_end = ma.getBinPos(last_bin-1)[2]
+        region_end = ma.getBinPos(last_bin - 1)[2]
 
     return chrom, region_start, region_end
 
