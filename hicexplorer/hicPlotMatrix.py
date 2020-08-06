@@ -576,9 +576,7 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
 def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
     chrom, region_start, region_end = translate_region(args.region, ma)
-    print(chrom,region_start, region_end)
-    # for idx, x in enumerate(ma.cut_intervals):
-    #     print(idx,x)
+
     args.region = [chrom, region_start, region_end]
     is_cooler = check_cooler(args.matrix)
     if is_cooler:
