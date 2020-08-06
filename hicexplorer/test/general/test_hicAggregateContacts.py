@@ -25,7 +25,7 @@ REMOVE_OUTPUT = True
 
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
-tolerance = 13  # default matplotlib pixed difference tolerance
+tolerance = 50  # default matplotlib pixed difference tolerance
 
 
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
