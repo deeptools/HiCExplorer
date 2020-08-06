@@ -576,17 +576,19 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
 def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
     chrom, region_start, region_end = translate_region(args.region, ma)
-
+    print(chrom,region_start, region_end)
+    # for idx, x in enumerate(ma.cut_intervals):
+    #     print(idx,x)
     args.region = [chrom, region_start, region_end]
     is_cooler = check_cooler(args.matrix)
     if is_cooler:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
-                                 ((x[1] >= region_start and x[2] < region_end) or                            # noqa: W504
+                                 ((x[1] >= region_start and x[2] <= region_end) or                            # noqa: W504
                                   (x[1] < region_end and x[2] < region_end and x[2] > region_start) or       # noqa: W504
                                   (x[1] > region_start and x[1] < region_end))])
     else:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
-                                 x[1] >= region_start and x[2] < region_end])
+                                 x[1] >= region_start and x[2] <= region_end])
     if hasattr(args, 'region2') and args.region2:
         chrom2, region_start2, region_end2 = translate_region(args.region2, ma)
         chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
@@ -769,6 +771,7 @@ def main(args=None):
                 ma.matrix[idx1, :][:, idx2].todense().astype(float))
 
         else:
+            print("ELSE!!")
             log.debug("Else branch")
             matrix = np.asarray(ma.getMatrix().astype(float))
 
