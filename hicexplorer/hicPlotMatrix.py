@@ -959,7 +959,6 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                 bigwig_end = min(bw.chroms()[chrom], region_end)
 
                 # TODO, this could be a parameter
-                print(pResolution)
                 num_bins = int(bigwig_end - region_start) // pResolution
                 log.debug('chrom {}, region_start {}, bigwig_end {}, num_bins {}'.format(chrom, region_start, bigwig_end, num_bins))
                 scores_per_bin = np.array(
