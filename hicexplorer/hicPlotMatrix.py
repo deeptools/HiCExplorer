@@ -802,7 +802,7 @@ def main(args=None):
         log.debug('583')
         fig = plotPerChr(ma, cmap, args, pBigwig=bigwig_info, pResolution=resolution)
 
-    else: #TODO
+    else:
         norm = None
 
         if args.log or args.log1p:
