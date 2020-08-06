@@ -390,15 +390,14 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                            pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig, pResolution=pResolution)
 
 
-def translate_region(region_string):
+def translate_region(region_string, ma):
     """
     Takes an string and returns a list
     of chrom, start, end.
     If the region string only contains
     the chrom, then start and end
-    are set to a 0 and 1e15
+    are set to matrix start and end on this chromosome
     """
-
     # region_string = toBytes(region_string)
     region_string = region_string.replace(",", "")
     region_string = region_string.replace(";", "")
@@ -407,14 +406,24 @@ def translate_region(region_string):
 
     fields = region_string.split(":")
     chrom = fields[0]
+
+    chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
+    if chrom not in list(ma.interval_trees):
+        chrom = change_chrom_names(chrom)
+        chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
+        if chrom not in list(ma.interval_trees):
+            exit(
+                "Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
+
+    first_bin, last_bin = ma.getChrBinRange(chrom)
     try:
         region_start = int(fields[1])
     except IndexError:
-        region_start = 0
+        region_start = ma.getBinPos(first_bin)[1]
     try:
         region_end = int(fields[2])
     except IndexError:
-        region_end = 1e15  # vert large number
+        region_end = ma.getBinPos(last_bin - 1)[2]
 
     return chrom, region_start, region_end
 
@@ -566,37 +575,20 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
 
 def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
-    chrom, region_start, region_end = translate_region(args.region)
-
-    chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-    # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-    #     chrom = toBytes(chrom)
-
-    if chrom not in list(ma.interval_trees):
-
-        chrom = change_chrom_names(chrom)
-
-        chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-
-        # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-        #     chrom = toBytes(chrom)
-
-        if chrom not in list(ma.interval_trees):
-            exit(
-                "Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
+    chrom, region_start, region_end = translate_region(args.region, ma)
 
     args.region = [chrom, region_start, region_end]
     is_cooler = check_cooler(args.matrix)
     if is_cooler:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
-                                 ((x[1] >= region_start and x[2] < region_end) or                            # noqa: W504
+                                 ((x[1] >= region_start and x[2] <= region_end) or                            # noqa: W504
                                   (x[1] < region_end and x[2] < region_end and x[2] > region_start) or       # noqa: W504
                                   (x[1] > region_start and x[1] < region_end))])
     else:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
-                                 x[1] >= region_start and x[2] < region_end])
+                                 x[1] >= region_start and x[2] <= region_end])
     if hasattr(args, 'region2') and args.region2:
-        chrom2, region_start2, region_end2 = translate_region(args.region2)
+        chrom2, region_start2, region_end2 = translate_region(args.region2, ma)
         chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
 
         # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
@@ -777,6 +769,7 @@ def main(args=None):
                 ma.matrix[idx1, :][:, idx2].todense().astype(float))
 
         else:
+            print("ELSE!!")
             log.debug("Else branch")
             matrix = np.asarray(ma.getMatrix().astype(float))
 
