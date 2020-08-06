@@ -139,7 +139,6 @@ def adjustMatrix(pArgs):
             hic_matrix.orig_bin_ids = []
             hic_matrix.orig_cut_intervals = []
             hic_matrix.nan_bins = []
-            hic_matrix.orig_cut_intervals = []
 
     elif pArgs.maskBadRegions:
         if check_cooler(pArgs.matrix) and len(pArgs.chromosomes) == 1 and pArgs.action == 'keep':
