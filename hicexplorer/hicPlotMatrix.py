@@ -769,7 +769,6 @@ def main(args=None):
                 ma.matrix[idx1, :][:, idx2].todense().astype(float))
 
         else:
-            print("ELSE!!")
             log.debug("Else branch")
             matrix = np.asarray(ma.getMatrix().astype(float))
 
