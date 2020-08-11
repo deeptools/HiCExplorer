@@ -8,6 +8,7 @@ import logging
 log = logging.getLogger(__name__)
 from hicexplorer._version import __version__
 
+
 def parse_arguments(args=None):
     """
     get command line arguments
