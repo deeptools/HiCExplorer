@@ -6,7 +6,7 @@ from graphviz import Digraph
 import os
 import logging
 log = logging.getLogger(__name__)
-
+from hicexplorer._version import __version__
 
 def parse_arguments(args=None):
     """
@@ -72,6 +72,9 @@ An example usage is:
                            help='File format of the relationship tree. Supported formats are listed on: https://www.graphviz.org/doc/info/output.html',
                            default='pdf',
                            required=False)
+    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+
+    parserOpt.add_argument('--version', action='version', version='%(prog)s {}'.format(__version__))
 
     return parser
 
