@@ -119,21 +119,19 @@ def parse_arguments(args=None):
                                 metavar='FOLDER',
                                 required=True)
     parserRequired.add_argument('--restrictionCutFile', '-rs',
-                                help=('BED file(s) with all restriction cut places '
-                                      '(output of "findRestSite" command). '
-                                      'Should contain only  mappable '
-                                      'restriction sites. If given, the bins are '
-                                      'set to match the restriction fragments (i.e. '
-                                      'the region between one restriction site and '
-                                      'the next). Alternatively, a fixed binSize can be defined instead. '
-                                      'However, either binSize or restrictionCutFile must be defined. '
-                                      'To use more than one restriction enzyme, generate for each one a restrictionCutFile and list them space seperated.'),
+                                help='BED file(s) with all restriction cut sites '
+                                '(output of "hicFindRestSite" command). '
+                                'Should only contain the restriction sites of the same genome which has been used '
+                                'to generate the input sam files. Using regions of a different genome version can '
+                                'generate false results! To use more than one restriction enzyme, generate '
+                                'a restrictionCutFile for each enzyne and list them space seperated.',
                                 type=argparse.FileType('r'),
                                 metavar='BED file',
                                 nargs='+',
                                 required=True)
     parserRequired.add_argument('--restrictionSequence', '-seq',
-                                help='Sequence of the restriction site, if multiple are used, please list them space seperated. If a dangling sequence '
+                                help='Sequence of the restriction site, if multiple are used, '
+                                'please list them space seperated. If a dangling sequence '
                                 'is listed at the same time, please preserve the same order.',
                                 type=str,
                                 nargs='+',
@@ -172,9 +170,8 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--binSize', '-bs',
                            help='Size in bp for the bins. The bin size depends '
                            'on the depth of sequencing. Use a larger bin size for '
-                           'libraries sequenced with lower depth. Alternatively, the location of '
-                           'the restriction sites can be given (see --restrictionCutFile). However, either binSize or restrictionCutFile must be defined.'
-                           'Optional for mcool file format: Define multiple resolutions which are all a multiple of the first value. '
+                           'libraries sequenced with lower depth. If not given, matrices of restriction site resolution will be built. '
+                           'Optionally for mcool file format: Define multiple resolutions which are all a multiple of the first value. '
                            ' Example: --binSize 10000 20000 50000 will create a mcool file formate containing the three defined resolutions.',
                            type=int,
                            nargs='+')

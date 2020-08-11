@@ -22,8 +22,8 @@ def test_correlate():
         "--outFileNameHeatmap {} --outFileNameScatter {}".format(ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
                                                                  ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
                                                                  outfile_heatmap.name, outfile_scatter.name).split()
-    # hicCorrelate.main(args)
-    compute(hicCorrelate.main, args, 5)
+    hicCorrelate.main(args)
+    # compute(hicCorrelate.main, args, 5)
     res = compare_images(ROOT + "hicCorrelate" + '/heatmap.png', outfile_heatmap.name, tol=40)
     assert res is None, res
 
@@ -44,8 +44,8 @@ def test_correlate_chromosomes():
         "--chromosomes chrUextra chr3LHet".format(ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
                                                   ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
                                                   outfile_heatmap.name, outfile_scatter.name).split()
-    # hicCorrelate.main(args)
-    compute(hicCorrelate.main, args, 5)
+    hicCorrelate.main(args)
+    # compute(hicCorrelate.main, args, 5)
 
     res = compare_images(ROOT + "hicCorrelate" + '/heatmap_chrom.png', outfile_heatmap.name, tol=40)
     assert res is None, res

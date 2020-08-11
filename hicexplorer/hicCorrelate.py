@@ -325,7 +325,7 @@ def main(args=None):
         hic_mat_list.append(_mat)
 
     # remove nan bins
-    rows_keep = cols_keep = np.delete(list(range(all_mat.shape[1])), all_nan)
+    rows_keep = cols_keep = np.delete(list(range(all_mat.shape[1])), all_nan.astype('int'))
     all_mat = all_mat[rows_keep, :][:, cols_keep]
 
     # make large matrix to correlate by

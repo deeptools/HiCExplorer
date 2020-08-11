@@ -137,6 +137,7 @@ def adjustMatrix(pArgs):
         elif pArgs.action == 'remove':
             hic_matrix.maskBins(matrix_indices_regions)
             hic_matrix.orig_bin_ids = []
+            hic_matrix.orig_cut_intervals = []
             hic_matrix.nan_bins = []
 
     elif pArgs.maskBadRegions:
