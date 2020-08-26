@@ -119,11 +119,12 @@ def parse_arguments(args=None):
                                 metavar='FOLDER',
                                 required=True)
     parserRequired.add_argument('--restrictionCutFile', '-rs',
-                                help=('BED file(s) with all restriction cut places '
-                                '(output of "findRestSite" command). '
-                                'Should contain only  mappable restriction sites. '
-                                'To use more than one restriction enzyme, generate '
-                                'for each one a restrictionCutFile and list them space seperated.'),
+                                help='BED file(s) with all restriction cut sites '
+                                '(output of "hicFindRestSite" command). '
+                                'Should only contain the restriction sites of the same genome which has been used '
+                                'to generate the input sam files. Using regions of a different genome version can '
+                                'generate false results! To use more than one restriction enzyme, generate '
+                                'a restrictionCutFile for each enzyne and list them space seperated.',
                                 type=argparse.FileType('r'),
                                 metavar='BED file',
                                 nargs='+',
