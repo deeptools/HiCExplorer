@@ -280,11 +280,10 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         start_pos2 = start_pos
 
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-    print( np.allclose(ma, ma.T, atol = 1))
     img3 = axHeat2.pcolormesh(
         xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
     img3.set_rasterized(True)
-    print(ma.shape)
+
     if args.region:
         xtick_lables = relabel_ticks(axHeat2.get_xticks())
         axHeat2.get_xaxis().set_tick_params(which='both', bottom='on', direction='out')
@@ -310,7 +309,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         for index, (k, v) in enumerate(pChromsomeStartEndDict.items()):
             ticks.append(pos)
             pos += v[1] - v[0]
-            print(pos)
 
         labels = list(chrBinBoundaries)
         axHeat2.set_xticks(ticks)
@@ -568,7 +566,6 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
         args.region = toString(chrname)
         chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(
             args, hic_matrix)
-        print("nan? ", np.isnan(matrix).any())
         plotHeatmap(matrix, chr_bin_boundary, fig, None,
                     args, cmap, xlabel=chrname, ylabel=chrname,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pBigwig=bigwig_info,
@@ -774,8 +771,6 @@ def main(args=None):
         else:
             log.debug("Else branch")
             matrix = np.asarray(ma.getMatrix().astype(float))
-            print( np.allclose(matrix, matrix.T, atol = 0.01))
-            print(matrix.shape)
 
     resolution = ma.getBinSize()
     matrix_length = len(matrix[0])
@@ -822,7 +817,6 @@ def main(args=None):
             np.isnan(matrix).any()))
         log.debug("any inf after remove of inf: {}".format(
             np.isinf(matrix).any()))
-        print("nan: ", np.isnan(matrix).any())
         if args.log1p:
             matrix += 1
             norm = LogNorm()
@@ -857,7 +851,6 @@ def main(args=None):
             start_pos1 = make_start_pos_array(ma)
 
         position = [left_margin, bottom, width, height]
-        print(norm)
         plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
@@ -910,9 +903,10 @@ def make_start_pos_array(ma):
             prev_chrom = chrom
             if start != 0: # shift all the other chrosmomes also back to be started just after the previous chromosome
                 shift = start
+            else:
+                shift = 0
 
         start_pos.append(start - shift + prev_chroms_sum)
-    print(start_pos[0],start_pos[-1], len(start_pos))
     return start_pos
 
 
