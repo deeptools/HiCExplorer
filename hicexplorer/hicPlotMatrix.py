@@ -893,7 +893,7 @@ def make_start_pos_array(ma):
     prev_chroms_sum = 0
     start_pos = []
     shift = 0
-    for index, (chrom, start, end, _) in enumerate(ma.cut_intervals): # Shifts all the coords to start from 0
+    for index, (chrom, start, end, _) in enumerate(ma.cut_intervals):  # Shifts all the coords to start from 0
         if index == 0:
             if start != 0:
                 shift = start
@@ -901,7 +901,7 @@ def make_start_pos_array(ma):
         if chrom != prev_chrom:
             prev_chroms_sum += chrom_sizes[prev_chrom]
             prev_chrom = chrom
-            if start != 0: # shift all the other chrosmomes also back to be started just after the previous chromosome
+            if start != 0:  # shift all the other chrosmomes also back to be started just after the previous chromosome
                 shift = start
             else:
                 shift = 0
