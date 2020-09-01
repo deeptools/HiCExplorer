@@ -280,7 +280,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         start_pos2 = start_pos
 
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-
     img3 = axHeat2.pcolormesh(
         xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
     img3.set_rasterized(True)
@@ -306,10 +305,11 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
 
         pos = 0
         ticks = []
-        for chr_size in chrBinBoundaries.values():
+
+        for index, (k, v) in enumerate(pChromsomeStartEndDict.items()):
             ticks.append(pos)
-            pos += chr_size
-        # ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
+            pos += v[1] - v[0]
+
         labels = list(chrBinBoundaries)
         axHeat2.set_xticks(ticks)
         axHeat2.set_yticks(ticks)
@@ -851,7 +851,6 @@ def main(args=None):
             start_pos1 = make_start_pos_array(ma)
 
         position = [left_margin, bottom, width, height]
-
         plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
@@ -885,16 +884,29 @@ def make_start_pos_array(ma):
     # When the whole matrix wants to be plotted, the start_pos needs to be modified
     # such that at each chromosome start, the start_pos does not go back to zero and instead
     # is added
-
-    chrom_sizes = ma.get_chromosome_sizes()
+    chrom_sizes = dict()
+    for chr, v in chromosome_start_end(ma).items():
+        start, end = v
+        chrom_sizes[chr] = end - start
+    # chrom_sizes = ma.get_chromosome_sizes() ## TODO this is incorrect!!
     prev_chrom = ma.cut_intervals[0][0]
     prev_chroms_sum = 0
     start_pos = []
-    for (chrom, start, end, _) in ma.cut_intervals:
+    shift = 0
+    for index, (chrom, start, end, _) in enumerate(ma.cut_intervals):  # Shifts all the coords to start from 0
+        if index == 0:
+            if start != 0:
+                shift = start
+
         if chrom != prev_chrom:
             prev_chroms_sum += chrom_sizes[prev_chrom]
             prev_chrom = chrom
-        start_pos.append(start + prev_chroms_sum)
+            if start != 0:  # shift all the other chrosmomes also back to be started just after the previous chromosome
+                shift = start
+            else:
+                shift = 0
+
+        start_pos.append(start - shift + prev_chroms_sum)
     return start_pos
 
 
