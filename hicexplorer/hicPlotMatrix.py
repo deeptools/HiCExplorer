@@ -280,7 +280,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         start_pos2 = start_pos
 
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-
     img3 = axHeat2.pcolormesh(
         xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
     img3.set_rasterized(True)
@@ -306,10 +305,11 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
 
         pos = 0
         ticks = []
-        for chr_size in chrBinBoundaries.values():
+
+        for index, (k, v) in enumerate(pChromsomeStartEndDict.items()):
             ticks.append(pos)
-            pos += chr_size
-        # ticks = [int(pos[0] + (pos[1] - pos[0]) / 2) for pos in itervalues(chrBinBoundaries)]
+            pos += v[1] - v[0]
+
         labels = list(chrBinBoundaries)
         axHeat2.set_xticks(ticks)
         axHeat2.set_yticks(ticks)
@@ -390,15 +390,14 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                            pValueMin=args.vMinBigwig, pValueMax=args.vMaxBigwig, pResolution=pResolution)
 
 
-def translate_region(region_string):
+def translate_region(region_string, ma):
     """
     Takes an string and returns a list
     of chrom, start, end.
     If the region string only contains
     the chrom, then start and end
-    are set to a 0 and 1e15
+    are set to matrix start and end on this chromosome
     """
-
     # region_string = toBytes(region_string)
     region_string = region_string.replace(",", "")
     region_string = region_string.replace(";", "")
@@ -407,14 +406,24 @@ def translate_region(region_string):
 
     fields = region_string.split(":")
     chrom = fields[0]
+
+    chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
+    if chrom not in list(ma.interval_trees):
+        chrom = change_chrom_names(chrom)
+        chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
+        if chrom not in list(ma.interval_trees):
+            exit(
+                "Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
+
+    first_bin, last_bin = ma.getChrBinRange(chrom)
     try:
         region_start = int(fields[1])
     except IndexError:
-        region_start = 0
+        region_start = ma.getBinPos(first_bin)[1]
     try:
         region_end = int(fields[2])
     except IndexError:
-        region_end = 1e15  # vert large number
+        region_end = ma.getBinPos(last_bin - 1)[2]
 
     return chrom, region_start, region_end
 
@@ -559,43 +568,27 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
             args, hic_matrix)
         plotHeatmap(matrix, chr_bin_boundary, fig, None,
                     args, cmap, xlabel=chrname, ylabel=chrname,
-                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pBigwig=bigwig_info, pChromsomeStartEndDict=chromosome_start_end(hic_matrix), pResolution=pResolution)
+                    start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pBigwig=bigwig_info,
+                    pChromsomeStartEndDict=chromosome_start_end(hic_matrix), pResolution=pResolution)
     return fig
 
 
 def getRegion(args, ma):
     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
-    chrom, region_start, region_end = translate_region(args.region)
-
-    chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-    # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-    #     chrom = toBytes(chrom)
-
-    if chrom not in list(ma.interval_trees):
-
-        chrom = change_chrom_names(chrom)
-
-        chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-
-        # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-        #     chrom = toBytes(chrom)
-
-        if chrom not in list(ma.interval_trees):
-            exit(
-                "Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
+    chrom, region_start, region_end = translate_region(args.region, ma)
 
     args.region = [chrom, region_start, region_end]
     is_cooler = check_cooler(args.matrix)
     if is_cooler:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
-                                 ((x[1] >= region_start and x[2] < region_end) or                            # noqa: W504
+                                 ((x[1] >= region_start and x[2] <= region_end) or                            # noqa: W504
                                   (x[1] < region_end and x[2] < region_end and x[2] > region_start) or       # noqa: W504
                                   (x[1] > region_start and x[1] < region_end))])
     else:
         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
-                                 x[1] >= region_start and x[2] < region_end])
+                                 x[1] >= region_start and x[2] <= region_end])
     if hasattr(args, 'region2') and args.region2:
-        chrom2, region_start2, region_end2 = translate_region(args.region2)
+        chrom2, region_start2, region_end2 = translate_region(args.region2, ma)
         chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
 
         # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
@@ -780,7 +773,6 @@ def main(args=None):
             matrix = np.asarray(ma.getMatrix().astype(float))
 
     resolution = ma.getBinSize()
-
     matrix_length = len(matrix[0])
     log.debug("Number of data points matrix: {}".format(matrix_length))
 
@@ -859,7 +851,6 @@ def main(args=None):
             start_pos1 = make_start_pos_array(ma)
 
         position = [left_margin, bottom, width, height]
-
         plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
@@ -893,16 +884,29 @@ def make_start_pos_array(ma):
     # When the whole matrix wants to be plotted, the start_pos needs to be modified
     # such that at each chromosome start, the start_pos does not go back to zero and instead
     # is added
-
-    chrom_sizes = ma.get_chromosome_sizes()
+    chrom_sizes = dict()
+    for chr, v in chromosome_start_end(ma).items():
+        start, end = v
+        chrom_sizes[chr] = end - start
+    # chrom_sizes = ma.get_chromosome_sizes() ## TODO this is incorrect!!
     prev_chrom = ma.cut_intervals[0][0]
     prev_chroms_sum = 0
     start_pos = []
-    for (chrom, start, end, _) in ma.cut_intervals:
+    shift = 0
+    for index, (chrom, start, end, _) in enumerate(ma.cut_intervals):  # Shifts all the coords to start from 0
+        if index == 0:
+            if start != 0:
+                shift = start
+
         if chrom != prev_chrom:
             prev_chroms_sum += chrom_sizes[prev_chrom]
             prev_chrom = chrom
-        start_pos.append(start + prev_chroms_sum)
+            if start != 0:  # shift all the other chrosmomes also back to be started just after the previous chromosome
+                shift = start
+            else:
+                shift = 0
+
+        start_pos.append(start - shift + prev_chroms_sum)
     return start_pos
 
 

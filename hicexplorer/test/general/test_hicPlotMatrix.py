@@ -440,7 +440,7 @@ def test_hicPlotMatrix_cool_perChr_log1p():
 
     outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
 
-    args = "--matrix {0}/small_test_matrix_50kb_res.h5 --perChr  --disable_tight_layout " \
+    args = "--matrix {0}/small_test_matrix_50kb_res.cool --perChr  --disable_tight_layout " \
            "--outFileName  {1} --log1 --vMax 10 ".format(ROOT, outfile.name).split()
     # hicexplorer.hicPlotMatrix.main(args)
     compute(hicexplorer.hicPlotMatrix.main, args, 5)

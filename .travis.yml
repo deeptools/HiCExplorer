@@ -2,7 +2,6 @@ language: c
 sudo: true
 
 env:
-  - TRAVIS_PYTHON_VERSION=3.6
   - TRAVIS_PYTHON_VERSION=3.7
 os:
   - linux
@@ -34,38 +33,90 @@ install:
   - python setup.py install
 # command to run tests
 
+script:
+  - hicFindRestSite --version
+  - hicAggregateContacts --version
+  - hicBuildMatrix --version
+  - hicCorrectMatrix --version
+  - hicCorrelate --version
+  - hicDetectLoops --version
+  - hicFindTADs --version
+  - hicMergeMatrixBins --version
+  - hicPlotMatrix --version
+  - hicPlotDistVsCounts --version
+  - hicPlotTADs --version
+  - hicSumMatrices --version
+  - hicInfo --version
+  - hicConvertFormat --version
+  - hicAdjustMatrix --version
+  - hicNormalize --version
+  - hicAverageRegions --version
+  - hicPlotAverageRegions --version
+  - hicMergeLoops --version
+  - hicValidateLocations --version
+  - hicCompartmentalization --version
+  - chicQualityControl --version
+  - chicViewpointBackgroundModel --version
+  - chicViewpoint --version
+  - chicSignificantInteractions --version
+  - chicAggregateStatistic --version
+  - chicDifferentialTest --version
+  - chicPlotViewpoint --version
+  - hicPlotSVL --version
+  - hicQuickQC --version
+  - hicCompareMatrices --version
+  - hicPCA --version
+  - hicTransform --version
+  - hicPlotViewpoint --version
+  - hicCreateThresholdFile --version
+  - hicHyperoptDetectLoops --version
+  - hicHyperoptDetectLoopsHiCCUPS --version
+  - hicMergeDomains --version
+  - hicDifferentialTAD --version
+  - hicFindRestSite --help
+  - hicAggregateContacts --help
+  - hicBuildMatrix --help
+  - hicCorrectMatrix --help
+  - hicCorrelate --help
+  - hicDetectLoops --help
+  - hicFindTADs --help
+  - hicMergeMatrixBins --help
+  - hicPlotMatrix --help
+  - hicPlotDistVsCounts --help
+  - hicPlotTADs --help
+  - hicSumMatrices --help
+  - hicInfo --help
+  - hicConvertFormat --help
+  - hicAdjustMatrix --help
+  - hicNormalize --help
+  - hicAverageRegions --help
+  - hicPlotAverageRegions --help
+  - hicMergeLoops --help
+  - hicValidateLocations --help
+  - hicCompartmentalization --help
+  - chicQualityControl --help
+  - chicViewpointBackgroundModel --help
+  - chicViewpoint --help
+  - chicSignificantInteractions --help
+  - chicAggregateStatistic --help
+  - chicDifferentialTest --help
+  - chicPlotViewpoint --help
+  - hicPlotSVL --help
+  - hicQuickQC --help
+  - hicCompareMatrices --help
+  - hicPCA --help
+  - hicTransform --help
+  - hicPlotViewpoint --help
+  - hicCreateThresholdFile --help
+  - hicHyperoptDetectLoops --help
+  - hicHyperoptDetectLoopsHiCCUPS --help
+  - hicMergeDomains --help
+  - hicDifferentialTAD --help
+
 jobs:
   include:  
     - stage: test
       os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/trivial_runs/test_hicBuildMatrix_trivial_runs.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/trivial_runs/test_hicBuildMatrix_trivial_runs_2.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_two.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_three.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: travis_wait 40 py.test hicexplorer/test/trivial_runs/test_hicConvertFormat_trivial_runs.py
-    - stage: test
-      os: linux
-      env: TRAVIS_PYTHON_VERSION=3.6
-      script: travis_wait 40 py.test hicexplorer/test/trivial_runs/test_hicConvertFormat_trivial_runs_cool.py
-    - stage: test
-      os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
       script: py.test hicexplorer/test/trivial_runs/test_hicBuildMatrix_trivial_runs.py
     - stage: test
@@ -83,7 +134,31 @@ jobs:
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.7
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_two_1.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.7
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_two_2.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.7
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_two_3.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.7
       script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_three.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.7
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_four.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.7
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_five.py
+    - stage: test
+      os: linux
+      env: TRAVIS_PYTHON_VERSION=3.7
+      script: py.test hicexplorer/test/trivial_runs/test_hicAggregateContacts_trivial_runs_six.py
     - stage: test
       os: linux
       env: TRAVIS_PYTHON_VERSION=3.7

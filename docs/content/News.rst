@@ -3,7 +3,7 @@ News and Developments
 
 Release 3.5
 -----------
-**08 July 2020**
+**10 July 2020**
 
 - Major update for hicDetectLoops: Results are now closer to HiCCUPS, it is faster and needs less memory. 
 - hicHyperoptDetectLoops: New tool to compute the best parameter setting if the number of expected loops is given and a protein boundary file (e.g. CTCF on mammals) is provided
@@ -26,7 +26,11 @@ Release 3.5
 - hicQuickQC: restriction cut sequences, dangling ends and restriction cut sites files are now mandatory parameters
 - hicFindRestSite: gz support for fasta file
 - Add fallback modes to multiple scripts if the parallelization fails.
-
+- hicAggregate: interactions between two bed files by comparing every row in the first bed file with its corresponding row in the second file. (issue #390)
+- hicAdjustMatrix:  fix #341, 454
+   - fixed --action remove:  it actually remove the part from the matrix previously was masking it
+   - the case where the end of the chromosome need to be removed.
+- New Azure testing for the general test cases, the trivial ones run on travis
 
 Publication
 -----------
