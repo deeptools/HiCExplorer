@@ -682,33 +682,36 @@ def main(args=None):
                      format(empty_mat, float(empty_mat) / counter_range))
 
     if args.kmeans is not None:
-        cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
-        num_clusters = args.kmeans
         if args.genome:
             genome_cluster_ids = cluster_matrices(genome_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
             genome_num_clusters = args.kmeans
+        else:
+            cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
+            num_clusters = args.kmeans
     elif args.hclust is not None:
         log.info("Performing hierarchical clustering."
                  "Please note that it might be very slow for large datasets.\n")
-        cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical',
-                                       how=args.howToCluster)
-        num_clusters = args.hclust
         if args.genome:
             genome_cluster_ids = cluster_matrices(genome_matrix, args.hclust, method='hierarchical',
                                                   how=args.howToCluster)
             genome_num_clusters = args.hclust
+        else:
+            cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical',
+                                        how=args.howToCluster)
+            num_clusters = args.hclust
     else:
         # make a 'fake' clustering to generalize the plotting of the submatrices
-        cluster_ids = {}
-        num_clusters = 1
-        for chrom in chrom_matrix:
-            if chrom not in bed_intervals or chrom not in bed_intervals2:
-                continue
-            cluster_ids[chrom] = [range(len(chrom_matrix[chrom]))]
         if args.genome:
             genome_cluster_ids = {}
             genome_num_clusters = 1
             genome_cluster_ids["genome"] = [range(len(genome_matrix["genome"]))]
+        else:
+            cluster_ids = {}
+            num_clusters = 1
+            for chrom in chrom_list:
+                if chrom not in chrom_matrix:
+                    continue
+                cluster_ids[chrom] = [range(len(chrom_matrix[chrom]))]
 
     if args.genome:
         plot_aggregated_contacts(genome_matrix, genome_contact_position, genome_cluster_ids, genome_num_clusters, M_half, args)
