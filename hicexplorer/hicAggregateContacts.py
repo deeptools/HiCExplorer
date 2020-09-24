@@ -590,7 +590,8 @@ def main(args=None):
 
         log.info("processing {}".format(chrom))
 
-        counter = 0
+        counter_global = 0
+        counter_range = 0
         if not args.row_wise:
 
             bed2_len = len(bed_intervals2[chrom])
@@ -614,9 +615,9 @@ def main(args=None):
             else:
                 bin_id = bin_id[0]
 
-            counter += 1
-            if counter % 50000 == 0:
-                log.info("Number of contacts considered: {:,}".format(counter))
+            counter_global += 1
+            if counter_global % 50000 == 0:
+                log.info("Number of contacts considered: {:,}".format(counter_global))
 
             if end2 > chrom_sizes[chrom]:
                 continue
@@ -641,9 +642,9 @@ def main(args=None):
                 except IndexError:
                     log.info("index error for {} {}".format(idx1, idx2))
                     continue
-                counter += 1
-                if counter % 1000 == 0:
-                    log.info("Number of contacts within range computed: {:,}".format(counter))
+                counter_range += 1
+                if counter_range % 1000 == 0:
+                    log.info("Number of contacts within range computed: {:,}".format(counter_range))
                 if mat_to_append.sum() == 0:
                     empty_mat += 1
                     continue
@@ -678,7 +679,7 @@ def main(args=None):
                  format(over_1_5, float(over_1_5) / len(chrom_matrix[chrom])))
 
         log.info("Number of discarded empty submatrices  {} ({:.2f})".
-                 format(empty_mat, float(empty_mat) / counter))
+                 format(empty_mat, float(empty_mat) / counter_range))
 
     if args.kmeans is not None:
         cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
