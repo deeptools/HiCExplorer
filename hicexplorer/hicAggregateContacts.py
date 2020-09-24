@@ -729,7 +729,7 @@ def main(args=None):
                 with open(output_name, 'w') as fh:
                     for cl_idx in center_values_order:
                         value = center_values_to_order[cl_idx]
-                        start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
+                        start, end, start2, end2 = genome_contact_position["genome"][cl_idx]
                         fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2, value))
         else:
             for chrom in chrom_matrix:
@@ -744,7 +744,7 @@ def main(args=None):
                     with open(output_name, 'w') as fh:
                         for cl_idx in center_values_order:
                             value = center_values_to_order[cl_idx]
-                            start, end, start2, end2 = genome_contact_position["genome"][cl_idx]
+                            start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
                             fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2, value))
 
     # plot the diagonals
