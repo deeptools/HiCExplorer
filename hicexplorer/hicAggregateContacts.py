@@ -560,19 +560,19 @@ def main(args=None):
     chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
 
     if args.genome:
-            genome_matrix = OrderedDict()
-            genome_total = {}
-            genome_diagonals = OrderedDict()
-            genome_contact_position = {}
-            genome_seen = {}
-            genome_center_values= {}
-            genome_matrix["genome"]=[]
-            genome_total["genome"]= 1
-            genome_diagonals["genome"]=[]
-            genome_contact_position["genome"]=[]
-            genome_center_values["genome"]=[]
-            genome_seen["genome"] = set()
-            log.info("`--genome` is set, submatrices collected for each chromosome will be averaged all together")
+        genome_matrix = OrderedDict()
+        genome_total = {}
+        genome_diagonals = OrderedDict()
+        genome_contact_position = {}
+        genome_seen = {}
+        genome_center_values = {}
+        genome_matrix["genome"] = []
+        genome_total["genome"] = 1
+        genome_diagonals["genome"] = []
+        genome_contact_position["genome"] = []
+        genome_center_values["genome"] = []
+        genome_seen["genome"] = set()
+        log.info("`--genome` is set, submatrices collected for each chromosome will be averaged all together")
 
     for chrom in chrom_list:
         if chrom not in bed_intervals or chrom not in bed_intervals2:
@@ -697,7 +697,7 @@ def main(args=None):
             genome_num_clusters = args.hclust
         else:
             cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical',
-                                        how=args.howToCluster)
+                                           how=args.howToCluster)
             num_clusters = args.hclust
     else:
         # make a 'fake' clustering to generalize the plotting of the submatrices
@@ -732,7 +732,7 @@ def main(args=None):
                         start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
                         fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2, value))
         else:
-            for idx, chrom in enumerate(chrom_matrix):
+            for chrom in chrom_matrix:
                 if chrom not in bed_intervals or chrom not in bed_intervals2:
                     continue
                 for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
@@ -740,7 +740,7 @@ def main(args=None):
                     center_values_order = np.argsort(center_values_to_order)[::-1]
 
                     output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs,
-                                                                       chrom=chrom, id=cluster_number + 1)
+                                                                           chrom=chrom, id=cluster_number + 1)
                     with open(output_name, 'w') as fh:
                         for cl_idx in center_values_order:
                             value = center_values_to_order[cl_idx]
