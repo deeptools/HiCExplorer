@@ -674,12 +674,12 @@ def main(args=None):
         if len(chrom_matrix[chrom]) == 0:
             log.warn("No valid submatrices were found for chrom: {}".format(chrom))
             chrom_matrix.pop(chrom, None)
+        else:
+            log.info("Number of matrices with ratio over 1.5 at center {}, fraction w.r.t. non empty submatrices: ({:.2f})".
+                     format(over_1_5, float(over_1_5) / len(chrom_matrix[chrom])))
 
-        log.info("Number of matrices with ratio over 1.5 at center {}, fraction w.r.t. non empty submatrices: ({:.2f})".
-                 format(over_1_5, float(over_1_5) / len(chrom_matrix[chrom])))
-
-        log.info("Number of discarded empty submatrices  {} ({:.2f})".
-                 format(empty_mat, float(empty_mat) / counter_range))
+            log.info("Number of discarded empty submatrices  {} ({:.2f})".
+                     format(empty_mat, float(empty_mat) / counter_range))
 
     if args.kmeans is not None:
         cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
@@ -701,7 +701,7 @@ def main(args=None):
         # make a 'fake' clustering to generalize the plotting of the submatrices
         cluster_ids = {}
         num_clusters = 1
-        for chrom in chrom_list:
+        for chrom in chrom_matrix:
             if chrom not in bed_intervals or chrom not in bed_intervals2:
                 continue
             cluster_ids[chrom] = [range(len(chrom_matrix[chrom]))]
