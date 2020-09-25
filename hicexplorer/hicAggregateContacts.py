@@ -626,8 +626,6 @@ def main(args=None):
                 continue
             else:
                 bin_id2 = bin_id2[0]
-            if bin_id2 in seen[chrom]:
-                continue
             if bin_id == bin_id2:
                 continue
             if min_dist_in_bins <= abs(bin_id2 - bin_id) <= max_dist_in_bins:
