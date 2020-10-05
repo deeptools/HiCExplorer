@@ -4,7 +4,7 @@ from scipy.stats import ranksums
 import argparse
 from multiprocessing import Process, Queue
 import time
-
+import traceback
 import logging
 log = logging.getLogger(__name__)
 from hicmatrix import HiCMatrix as hm
@@ -70,184 +70,209 @@ def readDomainBoundaries(pFile):
 
 
 def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH5, pPValue, pThreadId, pQueue):
-    accepted_inter_left = []
-    accepted_inter_right = []
-    accepted_intra = []
-    p_values_list = []
-    rows = []
+    try:
+        accepted_inter_left = []
+        accepted_inter_right = []
+        accepted_intra = []
+        p_values_list = []
+        rows = []
+        
+        old_chromosome = None
 
-    for i, row in enumerate(pDomainList):
+        tads_per_chromosome = []
+        
+        for j in enumerate(pDomainList):
+            if old_chromosome is None:
+                old_chromosome = pDomainList[j][0]
+                per_chromosome = []
+                per_chromosome.append(pDomainList[j])
 
-        if pThreadId is None:
-            log.debug('first thread')
-            if i == len(pDomainList) - 1:
+            elif old_chromosome == pDomainList[j][0]:
+                per_chromosome.append(pDomainList[j])
                 continue
-        elif pThreadId == True:
-            log.debug('middle thread')
+            else:
+                tads_per_chromosome.append(per_chromosome)
+                per_chromosome = []
+                old_chromosome = pDomainList[j][0]
+        tads_per_chromosome.append(per_chromosome)
 
-            if i == 0 or i == len(pDomainList) - 1:
-                continue
-        elif pThreadId == False:
-            log.debug('last thread')
+        for chromosome_list in tads_per_chromosome:
 
-            if i == 0:
-                continue
+            for i, row in enumerate(chromosome_list):
 
-        if i - 1 >= 0:
-            chromosom = pDomainList[i - 1][0]
-            start = pDomainList[i - 1][1]
-        else:
-            chromosom = pDomainList[i][0]
-            start = pDomainList[i][1]
-        if i + 1 < len(pDomainList):
-            end = pDomainList[i + 1][2]
-        else:
-            end = pDomainList[i][2]
-        # midpos = row[1] + ((row[2] - row[1]) / 2)
+                if pThreadId is None:
+                    log.debug('first thread')
+                    if i == len(chromosome_list) - 1:
+                        continue
+                elif pThreadId == True:
+                    log.debug('middle thread')
 
-        if pCoolOrH5:
+                    if i == 0 or i == len(chromosome_list) - 1:
+                        continue
+                elif pThreadId == False:
+                    log.debug('last thread')
 
-            # # get intra-TAD data
-            hic_matrix_target = hm.hiCMatrix(
-                pMatrixFile=pMatrixTarget, pChrnameList=[str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])])
-            hic_matrix_control = hm.hiCMatrix(
-                pMatrixFile=pMatrixControl, pChrnameList=[str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])])
-            matrix_target = hic_matrix_target.matrix.toarray()
-            matrix_control = hic_matrix_control.matrix.toarray()
+                    if i == 0:
+                        continue
 
-            hic_matrix_target_inter_tad = hm.hiCMatrix(
-                pMatrixFile=pMatrixTarget, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
-            hic_matrix_control_inter_tad = hm.hiCMatrix(
-                pMatrixFile=pMatrixControl, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
+                if i - 1 >= 0:
+                    chromosom = chromosome_list[i - 1][0]
+                    start = chromosome_list[i - 1][1]
+                else:
+                    chromosom = chromosome_list[i][0]
+                    start = chromosome_list[i][1]
+                if i + 1 < len(chromosome_list):
+                    end = chromosome_list[i + 1][2]
+                else:
+                    end = chromosome_list[i][2]
+                # midpos = row[1] + ((row[2] - row[1]) / 2)
 
-            matrix_target_inter_tad = hic_matrix_target_inter_tad.matrix
-            matrix_control_inter_tad = hic_matrix_control_inter_tad.matrix
+                if pCoolOrH5:
 
-        else:
-            # in case of h5 pMatrixTarget is already a HiCMatrix object
-            hic_matrix_target = pMatrixTarget
-            hic_matrix_control = pMatrixControl
-            hic_matrix_target_inter_tad = pMatrixTarget
-            hic_matrix_control_inter_tad = pMatrixControl
-            indices_target = hic_matrix_target.getRegionBinRange(str(row[0]), row[1], row[2])
-            indices_control = hic_matrix_control.getRegionBinRange(str(row[0]), row[1], row[2])
+                    # # get intra-TAD data
+                    hic_matrix_target = hm.hiCMatrix(
+                        pMatrixFile=pMatrixTarget, pChrnameList=[str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])])
+                    hic_matrix_control = hm.hiCMatrix(
+                        pMatrixFile=pMatrixControl, pChrnameList=[str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])])
+                    matrix_target = hic_matrix_target.matrix.toarray()
+                    matrix_control = hic_matrix_control.matrix.toarray()
 
-            matrix_target = hic_matrix_target.matrix[indices_target[0]:indices_target[1], indices_target[0]:indices_target[1]].toarray()
-            matrix_control = hic_matrix_control.matrix[indices_control[0]:indices_control[1], indices_control[0]:indices_control[1]].toarray()
-            matrix_target_inter_tad = pMatrixTarget.matrix
-            matrix_control_inter_tad = pMatrixControl.matrix
+                    hic_matrix_target_inter_tad = hm.hiCMatrix(
+                        pMatrixFile=pMatrixTarget, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
+                    hic_matrix_control_inter_tad = hm.hiCMatrix(
+                        pMatrixFile=pMatrixControl, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
 
-        matrix_target = matrix_target.flatten()
-        matrix_control = matrix_control.flatten()
-        # tad_midpoint = hic_matrix_target_inter_tad.getRegionBinRange(str(row[0]), midpos, midpos)[0]
+                    matrix_target_inter_tad = hic_matrix_target_inter_tad.matrix
+                    matrix_control_inter_tad = hic_matrix_control_inter_tad.matrix
 
-        # if i - 1 >= 0:
-        # get index position left tad with tad
-        left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
-        left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
-        if pCoolOrH5:
-            outer_left_boundary_index_target = 0
-            outer_left_boundary_index_control = 0
+                else:
+                    # in case of h5 pMatrixTarget is already a HiCMatrix object
+                    hic_matrix_target = pMatrixTarget
+                    hic_matrix_control = pMatrixControl
+                    hic_matrix_target_inter_tad = pMatrixTarget
+                    hic_matrix_control_inter_tad = pMatrixControl
+                    indices_target = hic_matrix_target.getRegionBinRange(str(row[0]), row[1], row[2])
+                    indices_control = hic_matrix_control.getRegionBinRange(str(row[0]), row[1], row[2])
 
-            outer_right_boundary_index_control = -1
-            outer_right_boundary_index_target = -1
+                    matrix_target = hic_matrix_target.matrix[indices_target[0]:indices_target[1], indices_target[0]:indices_target[1]].toarray()
+                    matrix_control = hic_matrix_control.matrix[indices_control[0]:indices_control[1], indices_control[0]:indices_control[1]].toarray()
+                    matrix_target_inter_tad = pMatrixTarget.matrix
+                    matrix_control_inter_tad = pMatrixControl.matrix
 
-        else:
-            outer_left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
-            outer_left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
+                matrix_target = matrix_target.flatten()
+                matrix_control = matrix_control.flatten()
+                # tad_midpoint = hic_matrix_target_inter_tad.getRegionBinRange(str(row[0]), midpos, midpos)[0]
 
-            outer_right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
-            outer_right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
+                # if i - 1 >= 0:
+                # get index position left tad with tad
+                left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
+                left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
+                if pCoolOrH5:
+                    outer_left_boundary_index_target = 0
+                    outer_left_boundary_index_control = 0
 
-        if i + 1 < len(pDomainList) and not pCoolOrH5:
-            # get index position left tad with tad
-            right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
-            right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
-        elif i + 1 < len(pDomainList) - 1:
-            right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
-            right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+                    outer_right_boundary_index_control = -1
+                    outer_right_boundary_index_target = -1
 
-        if i - 1 >= 0 and i + 1 < len(pDomainList):
-            intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:left_boundary_index_target, left_boundary_index_target:right_boundary_index_target].toarray()
-            intertad_right_target = matrix_target_inter_tad[left_boundary_index_target:right_boundary_index_target, right_boundary_index_target:outer_right_boundary_index_target].toarray()
-            intertad_left_control = matrix_control_inter_tad[outer_left_boundary_index_control:left_boundary_index_control, left_boundary_index_control:right_boundary_index_control].toarray()
-            intertad_right_control = matrix_control_inter_tad[left_boundary_index_control:right_boundary_index_control, right_boundary_index_control:outer_right_boundary_index_control].toarray()
+                else:
+                    outer_left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
+                    outer_left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
 
-        elif i - 1 < 0 and i + 1 < len(pDomainList):
-            intertad_right_target = matrix_target_inter_tad[left_boundary_index_target:right_boundary_index_target, right_boundary_index_target:outer_right_boundary_index_target].toarray()
-            intertad_right_control = matrix_control_inter_tad[left_boundary_index_control:right_boundary_index_control, right_boundary_index_control:outer_right_boundary_index_control].toarray()
+                    outer_right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
+                    outer_right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
 
-        elif i - 1 > 0 and i + 1 >= len(pDomainList):
-            intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:left_boundary_index_target, left_boundary_index_target:right_boundary_index_target].toarray()
-            intertad_left_control = matrix_control_inter_tad[outer_left_boundary_index_control:left_boundary_index_control, left_boundary_index_control:right_boundary_index_control].toarray()
+                if i + 1 < len(chromosome_list) and not pCoolOrH5:
+                    # get index position left tad with tad
+                    right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+                    right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+                elif i + 1 < len(chromosome_list) - 1:
+                    right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+                    right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
 
-        significance_level_left = None
-        significance_level_right = None
-        statistic_left = None
-        statistic_right = None
+                if i - 1 >= 0 and i + 1 < len(chromosome_list):
+                    intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:left_boundary_index_target, left_boundary_index_target:right_boundary_index_target].toarray()
+                    intertad_right_target = matrix_target_inter_tad[left_boundary_index_target:right_boundary_index_target, right_boundary_index_target:outer_right_boundary_index_target].toarray()
+                    intertad_left_control = matrix_control_inter_tad[outer_left_boundary_index_control:left_boundary_index_control, left_boundary_index_control:right_boundary_index_control].toarray()
+                    intertad_right_control = matrix_control_inter_tad[left_boundary_index_control:right_boundary_index_control, right_boundary_index_control:outer_right_boundary_index_control].toarray()
 
-        if i - 1 >= 0 and i + 1 < len(pDomainList):
-            intertad_left_target = intertad_left_target.flatten()
-            intertad_left_control = intertad_left_control.flatten()
-            intertad_right_target = intertad_right_target.flatten()
-            intertad_right_control = intertad_right_control.flatten()
+                elif i - 1 < 0 and i + 1 < len(chromosome_list):
+                    intertad_right_target = matrix_target_inter_tad[left_boundary_index_target:right_boundary_index_target, right_boundary_index_target:outer_right_boundary_index_target].toarray()
+                    intertad_right_control = matrix_control_inter_tad[left_boundary_index_control:right_boundary_index_control, right_boundary_index_control:outer_right_boundary_index_control].toarray()
 
-            statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
-            statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
-        elif i - 1 < 0 and i + 1 < len(pDomainList):
-            intertad_right_target = intertad_right_target.flatten()
-            intertad_right_control = intertad_right_control.flatten()
-            statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
-        elif i - 1 > 0 and i + 1 >= len(pDomainList):
-            intertad_left_target = intertad_left_target.flatten()
-            intertad_left_control = intertad_left_control.flatten()
-            log.debug('intertad_left_target {}'.format(intertad_left_target))
-            log.debug('intertad_left_control {}'.format(intertad_left_control))
+                elif i - 1 > 0 and i + 1 >= len(chromosome_list):
+                    intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:left_boundary_index_target, left_boundary_index_target:right_boundary_index_target].toarray()
+                    intertad_left_control = matrix_control_inter_tad[outer_left_boundary_index_control:left_boundary_index_control, left_boundary_index_control:right_boundary_index_control].toarray()
 
-            statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
+                significance_level_left = None
+                significance_level_right = None
+                statistic_left = None
+                statistic_right = None
 
-        # log.debug('matrix_target {}'.format(matrix_target))
-        # log.debug('matrix_control {}'.format(matrix_control))
+                if i - 1 >= 0 and i + 1 < len(chromosome_list):
+                    intertad_left_target = intertad_left_target.flatten()
+                    intertad_left_control = intertad_left_control.flatten()
+                    intertad_right_target = intertad_right_target.flatten()
+                    intertad_right_control = intertad_right_control.flatten()
 
-        statistic, significance_level = ranksums(matrix_target, matrix_control)
-        log.debug('statistic {}, significance_level {}'.format(statistic, significance_level))
-        log.debug('right statistic {}, significance_level {}'.format(statistic_right, significance_level_right))
-        log.debug('left statistic {}, significance_level {}'.format(statistic_left, significance_level_left))
+                    statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
+                    statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
+                elif i - 1 < 0 and i + 1 < len(chromosome_list):
+                    intertad_right_target = intertad_right_target.flatten()
+                    intertad_right_control = intertad_right_control.flatten()
+                    statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
+                elif i - 1 > 0 and i + 1 >= len(chromosome_list):
+                    intertad_left_target = intertad_left_target.flatten()
+                    intertad_left_control = intertad_left_control.flatten()
+                    log.debug('intertad_left_target {}'.format(intertad_left_target))
+                    log.debug('intertad_left_control {}'.format(intertad_left_control))
 
-        p_values = []
-        if significance_level_left is None or np.isnan(significance_level_left):
-            accepted_inter_left.append(0)
-            p_values.append(np.nan)
-        elif significance_level_left <= pPValue:
-            accepted_inter_left.append(1)
-            p_values.append(significance_level_left)
-        else:
-            accepted_inter_left.append(0)
-            p_values.append(significance_level_left)
+                    statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
 
-        if significance_level_right is None or np.isnan(significance_level_right):
-            accepted_inter_right.append(0)
-            p_values.append(np.nan)
-        elif significance_level_right <= pPValue:
-            accepted_inter_right.append(1)
-            p_values.append(significance_level_right)
-        else:
-            accepted_inter_right.append(0)
-            p_values.append(significance_level_right)
+                # log.debug('matrix_target {}'.format(matrix_target))
+                # log.debug('matrix_control {}'.format(matrix_control))
 
-        if significance_level is None or np.isnan(significance_level):
-            accepted_intra.append(0)
-            p_values.append(np.nan)
-        elif significance_level <= pPValue:
-            accepted_intra.append(1)
-            p_values.append(significance_level)
-        else:
-            accepted_intra.append(0)
-            p_values.append(significance_level)
+                statistic, significance_level = ranksums(matrix_target, matrix_control)
+                log.debug('statistic {}, significance_level {}'.format(statistic, significance_level))
+                log.debug('right statistic {}, significance_level {}'.format(statistic_right, significance_level_right))
+                log.debug('left statistic {}, significance_level {}'.format(statistic_left, significance_level_left))
 
-        p_values_list.append(p_values)
+                p_values = []
+                if significance_level_left is None or np.isnan(significance_level_left):
+                    accepted_inter_left.append(0)
+                    p_values.append(np.nan)
+                elif significance_level_left <= pPValue:
+                    accepted_inter_left.append(1)
+                    p_values.append(significance_level_left)
+                else:
+                    accepted_inter_left.append(0)
+                    p_values.append(significance_level_left)
 
-        rows.append(row)
+                if significance_level_right is None or np.isnan(significance_level_right):
+                    accepted_inter_right.append(0)
+                    p_values.append(np.nan)
+                elif significance_level_right <= pPValue:
+                    accepted_inter_right.append(1)
+                    p_values.append(significance_level_right)
+                else:
+                    accepted_inter_right.append(0)
+                    p_values.append(significance_level_right)
+
+                if significance_level is None or np.isnan(significance_level):
+                    accepted_intra.append(0)
+                    p_values.append(np.nan)
+                elif significance_level <= pPValue:
+                    accepted_intra.append(1)
+                    p_values.append(significance_level)
+                else:
+                    accepted_intra.append(0)
+                    p_values.append(significance_level)
+
+                p_values_list.append(p_values)
+
+                rows.append(row)
+    except Exception as exp:
+        pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
+        return
     # hic_matrix_target_inter_tad.save('manipulated_target.cool')
     # hic_matrix_control_inter_tad.save('manipulated_control.cool')
     pQueue.put([p_values_list, accepted_inter_left, accepted_inter_right, accepted_intra, rows])
@@ -320,13 +345,20 @@ def main(args=None):
         )
 
         process[i].start()
-
+    fail_flag = False
+    fail_message = ''
     while not all_data_collected:
         for i in range(args.threads):
+            
             if queue[i] is not None and not queue[i].empty():
-                p_values_threads[i], accepted_left_inter_threads[i], \
-                    accepted_right_inter_threads[i], \
-                    accepted_intra_threads[i], rows_threads[i] = queue[i].get()
+                queue_data = queue[i].get()
+                if 'Fail:' in queue_data:
+                    fail_flag = True
+                    fail_message = queue_data
+                else:
+                    p_values_threads[i], accepted_left_inter_threads[i], \
+                        accepted_right_inter_threads[i], \
+                        accepted_intra_threads[i], rows_threads[i] = queue_data
 
                 queue[i] = None
                 process[i].join()
@@ -342,6 +374,9 @@ def main(args=None):
     # outfile_names = [item for sublist in outfile_names for item in sublist]
     # target_list_name = [
     #     item for sublist in target_list_name for item in sublist]
+    if fail_flag:
+        log.error(fail_message[6:])
+        exit(1)
 
     p_values_list = [item for sublist in p_values_threads for item in sublist]
     accepted_inter_left = [item for sublist in accepted_left_inter_threads for item in sublist]
