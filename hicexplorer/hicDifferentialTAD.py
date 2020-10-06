@@ -76,12 +76,12 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
         accepted_intra = []
         p_values_list = []
         rows = []
-        
+
         old_chromosome = None
 
         tads_per_chromosome = []
-        
-        for j in enumerate(pDomainList):
+
+        for j in range(len(pDomainList)):
             if old_chromosome is None:
                 old_chromosome = pDomainList[j][0]
                 per_chromosome = []
@@ -95,7 +95,7 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
                 per_chromosome = []
                 old_chromosome = pDomainList[j][0]
         tads_per_chromosome.append(per_chromosome)
-
+        log.debug('tads_per_chromosome {}'.format(len(tads_per_chromosome)))
         for chromosome_list in tads_per_chromosome:
 
             for i, row in enumerate(chromosome_list):
@@ -349,7 +349,7 @@ def main(args=None):
     fail_message = ''
     while not all_data_collected:
         for i in range(args.threads):
-            
+
             if queue[i] is not None and not queue[i].empty():
                 queue_data = queue[i].get()
                 if 'Fail:' in queue_data:
