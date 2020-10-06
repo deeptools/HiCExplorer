@@ -1,6 +1,29 @@
 News and Developments
 =====================
 
+
+Release 3.5.2
+-------------
+**06 October 2020**
+
+- Bug fix release: 
+  - enforcing version 15 of HiCMatrix. Version 14 had a bug concerning the application of the correction factors of cool files. See issue #595
+  - Fixing a bug in hicDetectLoops in single-core mode. Thanks @alecw
+  - Fixing a bug in hicDifferentialTAD concerning multiple chromosomes in the bed file. See issue #587
+  - Updating dependencies to newest versions, except biopython. Forcing here <1.77 because their API change is breaking our source code. See issue #609
+  - Fixing #596
+- Changing internal structure of the docs. Navigation should be better now.
+
+
+Release 3.5.1
+--------------
+**11 August 2020**
+
+- patch hicCorrelate
+- hicBuildMatrix: Better help text
+- patch for hicPlotMatrix if matrix does not start at 0 and --region is used
+- bug fix for remove option in hicAdjustMatrix
+
 Release 3.5
 -----------
 **10 July 2020**
