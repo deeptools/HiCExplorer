@@ -997,6 +997,8 @@ def main(args=None):
     else:
         single_core = False
 
+    fail_flag = False
+    fail_message = ''
     if single_core:
         for chromosome in chromosomes_list:
             if is_cooler:
@@ -1022,8 +1024,6 @@ def main(args=None):
         all_threads_done = False
         thread_done = [False] * args.threads
         count_call_of_read_input = 0
-        fail_flag = False
-        fail_message = ''
         while not all_data_processed or not all_threads_done:
             for i in range(args.threads):
                 if queue[i] is None and not all_data_processed:
