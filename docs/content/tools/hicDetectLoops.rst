@@ -1,7 +1,7 @@
 .. _hicDetectLoops:
 
 hicDetectLoops
-===============
+==============
 
 hicDetectLoops can detect enriched interaction regions (peaks / loops) based on a strict candidate selection, negative binomial distributions 
 and Wilcoxon rank-sum tests. 

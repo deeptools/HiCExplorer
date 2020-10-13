@@ -83,8 +83,8 @@ Capture Hi-C analysis
     tools/chicDifferentialTest
     tools/chicPlotViewpoint
 
-.. contents::
-    :local:
+
+For single-cell Hi-C data analysis please use `scHiCExplorer <https://schicexplorer.readthedocs.io/>`__ .
 
 
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+

@@ -1,6 +1,14 @@
 News and Developments
 =====================
 
+Release 3.5.3
+-------------
+**13 October 2020**
+
+- Bug fix release: 
+   - Reads from scaffolds without any restriction enzym cut site are considered as 'same fragment'. An appearance of such a read will not lead to a crash anymore
+- Minor documentation improvements
+
 
 Release 3.5.2
 -------------

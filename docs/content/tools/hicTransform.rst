@@ -9,7 +9,7 @@ hicTransform
 
 
 Background
-===========
+----------
 
 hicTransform transforms a given input matrix into a new matrix using one of the following methods:
 
