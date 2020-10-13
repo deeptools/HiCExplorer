@@ -5,6 +5,7 @@ import time
 from os import unlink
 import os
 from io import StringIO
+import traceback
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -1002,8 +1003,9 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                                 len(restrictionSequence)
                             frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(restrictionSequence)
                             mate_ref = pRefId2name[mate1.rname]
-                            has_rf.extend(sorted(
-                                pRfPositions[mate_ref][frag_start: frag_end]))
+                            if mate_ref in pRfPositions:
+                                has_rf.extend(sorted(
+                                    pRfPositions[mate_ref][frag_start: frag_end]))
 
                     # case when there is no restriction fragment site between the
                     # mates
@@ -1071,7 +1073,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                         mate_not_close_to_rf, count_inward, count_outward,
                         count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter, out_bam_index_buffer]])
     except Exception as exp:
-        pQueueOut.put('Fail: ' + str(exp))
+        pQueueOut.put('Fail: ' + str(exp) + traceback.format_exc())
         return
     return
 
@@ -1147,7 +1149,7 @@ def main(args=None):
         rf_interval.extend(bed2interval_list(restrictionCutFile))
 
     rf_positions = intervalListToIntervalTree(rf_interval)
-
+    log.debug('rf_positions {}'.format(rf_positions.keys()))
     if args.binSize:
         bin_intervals = get_bins(args.binSize[0], chrom_sizes, args.region)
     else:
