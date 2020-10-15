@@ -42,13 +42,20 @@ def parse_arguments(args=None):
                                 type=argparse.FileType('r'),
                                 required=True)
 
-    parserRequired.add_argument('--range',
-                                help='Range of contacts that will be considered for plotting the aggregate contacts '
-                                'in bp with the format low_range:high_range for example 1000000:20000000. The range '
-                                'should start at contacts larger than TAD size to reduce background interactions.',
+    parserRequired.add_argument('--mode',
+                                choices=['inter-chr', 'intra-chr', 'all']
                                 required=True)
 
+
+
     parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument('--range',
+                                help='Range of contacts that will be considered for plotting the aggregate contacts '
+                                'in bp with the format low_range:high_range for example 1000000:20000000. The range '
+                                'should start at contacts larger than TAD size to reduce background interactions. '
+                                'This will be ignored if inter-chromosomal contacts are of interest.',
+                                default='1000000:20000000')
 
     parserOpt.add_argument('--BED2',
                            help='Optional second BED file. Interactions between regions in first '
@@ -75,6 +82,12 @@ def parse_arguments(args=None):
                            help='Type of average used in the output matrix. Options are mean and median. Default is median.',
                            choices=['mean', 'median'],
                            default='median')
+
+    parserOpt.add_argument('--perChr',
+                           help='if set, it generates a plot per chromosome. It only affects if '
+                           'intera-chromosomal contacts are of interest.',
+                           action='store_true',
+                           required=False)
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
     parserOpt.add_argument('--version', action='version',
@@ -108,9 +121,17 @@ def parse_arguments(args=None):
 
     parserOut.add_argument('--row_wise',
                            help='If given,the insteractions between each row of the BED file and its '
-                           'corresponding row of the BED2 file are computed.',
+                           'corresponding row of the BED2 file are computed. If intera-chromosomal '
+                           'contacts are computed, the rows with different chromosomes are ignored. '
+                           'If inter-chromosomal, the rows with same chromosomes are ignored. '
+                           'It keeps all the rows if `all`.',
                            action='store_true',
                            required=False)
+
+    parserOut.add_argument('--genome',
+                           help='Averages the submatrices aggregation over all given regions of a bed file. ',
+                           action='store_true',
+                           required=False),
 
     parserClust = parser.add_argument_group('Clustering options')
 
@@ -194,6 +215,146 @@ def read_bed_per_chrom(fh):
 
     return interval
 
+def count_aggregate_contacts_per_row(bed1, bed2, ma):
+    for coord1, coord2 in zip(bed1, bed2):
+        print(coord1, coord2)
+    return chrom_matrix
+def count_aggregate_contacts_per_chr(bed1, bed2, ma, M_half, chrom_list, dist, genomeWide=False):
+    """
+
+    """
+    chrom_sizes = ma.get_chromosome_sizes()
+
+    bin_size = ma.getBinSize()
+    min_dist, max_dist = dist.split(":")
+    min_dist_in_bins = int(min_dist) // bin_size
+    max_dist_in_bins = int(max_dist) // bin_size
+    if genomeWide:
+        genome_matrix = OrderedDict()
+        genome_total = {}
+        genome_diagonals = OrderedDict()
+        genome_contact_position = {}
+        genome_seen = {}
+        genome_center_values= {}
+        genome_matrix["genome"]=[]
+        genome_total["genome"]= 1
+        genome_diagonals["genome"]=[]
+        genome_contact_position["genome"]=[]
+        genome_center_values["genome"]=[]
+        genome_seen["genome"] = set()
+        log.info("`--genome` is set, submatrices collected for each chromosome will be averaged all together")
+
+    # make a new matrix for each chromosome.
+    chrom_matrix = OrderedDict()
+    chrom_total = {}
+    chrom_diagonals = OrderedDict()
+    chrom_contact_position = {}
+    seen = {}
+
+    center_values = {}
+
+    for chrom in chrom_list:
+        if chrom not in bed1.keys() or chrom not in bed2.keys():
+            continue
+
+        chrom_matrix[chrom] = []
+        chrom_total[chrom] = 1
+        chrom_diagonals[chrom] = []
+        chrom_contact_position[chrom] = []
+        center_values[chrom] = []
+        seen[chrom] = set()
+        over_1_5 = 0
+        empty_mat = 0
+        chrom_bin_range = ma.getChrBinRange(toString(chrom))
+
+        log.info("processing {}".format(chrom))
+
+        counter = 0
+        for start, end in bed1[chrom]:
+            # check all other regions that may interact with the
+            # current interval at the given depth range
+            if end > chrom_sizes[chrom]:
+                continue
+            bin_id = ma.getRegionBinRange(toString(chrom), start, end)
+            if bin_id is None:
+                continue
+            else:
+                bin_id = bin_id[0]
+
+            for start2, end2 in bed2[chrom]:
+                counter += 1
+                if counter % 50000 == 0:
+                    log.info("Number of contacts considered: {:,}".format(counter))
+
+                if end2 > chrom_sizes[chrom]:
+                    continue
+                bin_id2 = ma.getRegionBinRange(toString(chrom), start2, end2)
+                print(bin_id2)
+                if bin_id2 is None:
+                    continue
+                else:
+                    bin_id2 = bin_id2[0] # TODO always get the first bin only?!!
+                if bin_id2 in seen[chrom]:
+                    continue
+                if bin_id == bin_id2:
+                    continue
+                print(min_dist_in_bins, abs(bin_id2 - bin_id),max_dist_in_bins)
+                if min_dist_in_bins <= abs(bin_id2 - bin_id) <= max_dist_in_bins:
+                    idx1, idx2 = sorted([bin_id, bin_id2])
+                    if (idx1, idx2) in seen[chrom]:
+                        continue
+                    seen[chrom].add((idx1, idx2))
+                    print(idx1 - M_half , chrom_bin_range[0])
+                    print(idx2 + 1 + M_half , chrom_bin_range[1])
+                    print("-------------")
+                    if idx1 - M_half < chrom_bin_range[0] or idx2 + 1 + M_half > chrom_bin_range[1]:
+                        continue
+                    try:
+                        mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
+                    except IndexError:
+                        log.info("index error for {} {}".format(idx1, idx2))
+                        continue
+                    counter += 1
+                    if counter % 1000 == 0:
+                        log.info("Number of contacts within range computed: {:,}".format(counter))
+                    if mat_to_append.sum() == 0:
+                        empty_mat += 1
+                        continue
+                    # to account for the fact that submatrices
+                    # close to the diagonal have more counts thatn
+                    # submatrices far from the diagonal
+                    # the submatrices values are normalized using the
+                    # total submatrix sum.
+
+                    if args.transform == 'total_counts' and mat_to_append.sum() > 0:
+                        mat_to_append = mat_to_append / mat_to_append.sum()
+
+                    chrom_total[chrom] += 1
+                    chrom_matrix[chrom].append(mat_to_append)
+                    chrom_diagonals[chrom].append(mat_to_append.diagonal())
+                    center_values[chrom].append(ma.matrix[idx1, idx2])
+                    chrom_contact_position[chrom].append((start, end, start2, end2))
+                    if ma.matrix[idx1, idx2] > 1.5:
+                        over_1_5 += 1
+                    if genomeWide:
+                        genome_matrix["genome"].append(mat_to_append)
+                        genome_diagonals["genome"].append(mat_to_append.diagonal())
+                        genome_center_values["genome"].append(ma.matrix[idx1, idx2])
+                        genome_contact_position["genome"].append((start, end, start2, end2))
+
+        if len(chrom_matrix[chrom]) == 0:
+            log.warn("No valid submatrices were found for chrom: {}".format(chrom))
+            chrom_matrix.pop(chrom)
+        else:
+            log.info("Number of matrices with ratio over 1.5 at center {}, fraction w.r.t. non empty submatrices: ({:.2f})".
+                     format(over_1_5, float(over_1_5) / len(chrom_matrix[chrom])))
+
+        log.info("Number of discarded empty submatrices  {} ({:.2f})".
+                 format(empty_mat, float(empty_mat) / counter))
+
+    if genomeWide:
+        return center_values, genome_contact_position, genome_diagonals, genome_matrix
+    return center_values, chrom_contact_position, chrom_diagonals, chrom_matrix
 
 def get_outlier_indices(data, max_deviation=200):
     """
@@ -505,8 +666,6 @@ def main(args=None):
     ma = hm.hiCMatrix(args.matrix)
     ma.maskBins(ma.nan_bins)
     ma.matrix.data[np.isnan(ma.matrix.data)] = 0
-
-    bin_size = ma.getBinSize()
     ma.maskBins(ma.nan_bins)
     ma.matrix.data = ma.matrix.data
     new_intervals = hicexplorer.utilities.enlarge_bins(ma.cut_intervals)
@@ -518,9 +677,8 @@ def main(args=None):
     chrom_sizes = ma.get_chromosome_sizes()
     chrom_list = chrom_sizes.keys()
     log.info("checking range {}-{}".format(min_dist, max_dist))
-    min_dist = int(min_dist)
-    max_dist = int(max_dist)
-    assert min_dist < max_dist, "Error lower range larger than upper range"
+
+    assert int(min_dist) < int(max_dist), "Error lower range larger than upper range"
 
     if args.transform == "z-score":
         # use zscore matrix
@@ -531,9 +689,6 @@ def main(args=None):
         log.info("Computing observed vs. expected matrix. This may take a while.\n")
         ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
 
-    min_dist_in_bins = int(min_dist) // bin_size
-    max_dist_in_bins = int(max_dist) // bin_size
-
     # read and sort bedgraph.
     bed_intervals = read_bed_per_chrom(args.BED)
     if args.BED2:
@@ -543,116 +698,91 @@ def main(args=None):
 
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
     M_half = int((M - 1) // 2)
-    # make a new matrix for each chromosome.
-    chrom_matrix = OrderedDict()
-    chrom_total = {}
-    chrom_diagonals = OrderedDict()
-    chrom_contact_position = {}
-    seen = {}
-
-    center_values = {}
 
     chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
+    if args.row_wise:
+        if args.genome:
+            exit("--genome mode is not compatible with --row_wise. It is getting ignored.")
+        chrom_matrix = count_aggregate_contacts_per_row(bed_intervals, bed_intervals2, ma)
 
-    for chrom in chrom_list:
-        if chrom not in bed_intervals or chrom not in bed_intervals2:
-            continue
+    else:
+        center_values, \
+        chrom_contact_position, \
+        chrom_diagonals, \
+        chrom_matrix = count_aggregate_contacts_per_chr(bed_intervals, bed_intervals2, ma, M_half, chrom_list, args.range, genomeWide=args.genome)
 
-        chrom_matrix[chrom] = []
-        chrom_total[chrom] = 1
-        chrom_diagonals[chrom] = []
-        chrom_contact_position[chrom] = []
-        center_values[chrom] = []
-        seen[chrom] = set()
-        over_1_5 = 0
-        empty_mat = 0
-        chrom_bin_range = ma.getChrBinRange(toString(chrom))
 
-        log.info("processing {}".format(chrom))
 
-        counter = 0
-        if not args.row_wise:
-
-            bed2_len = len(bed_intervals2[chrom])
-            updated_bed2 = bed_intervals2[chrom] * len(bed_intervals[chrom])
-            updated_bed1 = [coord for coord in bed_intervals[chrom] for i in range(bed2_len)]
-            bed_intervals[chrom] = updated_bed1
-            bed_intervals2[chrom] = updated_bed2
-
-        else:
-            updated_bed1 = bed_intervals[chrom]
-            updated_bed2 = bed_intervals2[chrom]
-
-        for (start, end), (start2, end2) in zip(updated_bed1, updated_bed2):
-            # check all other regions that may interact with the
-            # current interval at the given depth range
-            if end > chrom_sizes[chrom]:
-                continue
-            bin_id = ma.getRegionBinRange(toString(chrom), start, end)
-            if bin_id is None:
-                continue
-            else:
-                bin_id = bin_id[0]
-
-            counter += 1
-            if counter % 50000 == 0:
-                log.info("Number of contacts considered: {:,}".format(counter))
-
-            if end2 > chrom_sizes[chrom]:
-                continue
-            bin_id2 = ma.getRegionBinRange(toString(chrom), start2, end2)
-            if bin_id2 is None:
-                continue
-            else:
-                bin_id2 = bin_id2[0]
-            if bin_id2 in seen[chrom]:
-                continue
-            if bin_id == bin_id2:
-                continue
-            if min_dist_in_bins <= abs(bin_id2 - bin_id) <= max_dist_in_bins:
-                idx1, idx2 = sorted([bin_id, bin_id2])
-                if (idx1, idx2) in seen[chrom]:
-                    continue
-                seen[chrom].add((idx1, idx2))
-                if idx1 - M_half < chrom_bin_range[0] or idx2 + 1 + M_half > chrom_bin_range[1]:
-                    continue
-                try:
-                    mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
-                except IndexError:
-                    log.info("index error for {} {}".format(idx1, idx2))
-                    continue
-                counter += 1
-                if counter % 1000 == 0:
-                    log.info("Number of contacts within range computed: {:,}".format(counter))
-                if mat_to_append.sum() == 0:
-                    empty_mat += 1
-                    continue
-                # to account for the fact that submatrices
-                # close to the diagonal have more counts thatn
-                # submatrices far from the diagonal
-                # the submatrices values are normalized using the
-                # total submatrix sum.
-
-                if args.transform == 'total_counts' and mat_to_append.sum() > 0:
-                    mat_to_append = mat_to_append / mat_to_append.sum()
-
-                chrom_total[chrom] += 1
-                chrom_matrix[chrom].append(mat_to_append)
-                chrom_diagonals[chrom].append(mat_to_append.diagonal())
-                center_values[chrom].append(ma.matrix[idx1, idx2])
-                chrom_contact_position[chrom].append((start, end, start2, end2))
-                if ma.matrix[idx1, idx2] > 1.5:
-                    over_1_5 += 1
-
-        if len(chrom_matrix[chrom]) == 0:
-            log.warn("No valid submatrices were found for chrom: {}".format(chrom))
-            chrom_matrix.pop(chrom, None)
-
-        log.info("Number of matrices with ratio over 1.5 at center {}, fraction w.r.t. non empty submatrices: ({:.2f})".
-                 format(over_1_5, float(over_1_5) / len(chrom_matrix[chrom])))
-
-        log.info("Number of discarded empty submatrices  {} ({:.2f})".
-                 format(empty_mat, float(empty_mat) / counter))
+        # for (start, end), (start2, end2) in zip(updated_bed1, updated_bed2):
+        #     # check all other regions that may interact with the
+        #     # current interval at the given depth range
+        #     if end > chrom_sizes[chrom]:
+        #         continue
+        #     bin_id = ma.getRegionBinRange(toString(chrom), start, end)
+        #     if bin_id is None:
+        #         continue
+        #     else:
+        #         bin_id = bin_id[0]
+        #
+        #     counter += 1
+        #     if counter % 50000 == 0:
+        #         log.info("Number of contacts considered: {:,}".format(counter))
+        #
+        #     if end2 > chrom_sizes[chrom]:
+        #         continue
+        #     bin_id2 = ma.getRegionBinRange(toString(chrom), start2, end2)
+        #     if bin_id2 is None:
+        #         continue
+        #     else:
+        #         bin_id2 = bin_id2[0]
+        #     if bin_id2 in seen[chrom]:
+        #         continue
+        #     if bin_id == bin_id2:
+        #         continue
+        #     if min_dist_in_bins <= abs(bin_id2 - bin_id) <= max_dist_in_bins:
+        #         idx1, idx2 = sorted([bin_id, bin_id2])
+        #         if (idx1, idx2) in seen[chrom]:
+        #             continue
+        #         seen[chrom].add((idx1, idx2))
+        #         if idx1 - M_half < chrom_bin_range[0] or idx2 + 1 + M_half > chrom_bin_range[1]:
+        #             continue
+        #         try:
+        #             mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
+        #         except IndexError:
+        #             log.info("index error for {} {}".format(idx1, idx2))
+        #             continue
+        #         counter += 1
+        #         if counter % 1000 == 0:
+        #             log.info("Number of contacts within range computed: {:,}".format(counter))
+        #         if mat_to_append.sum() == 0:
+        #             empty_mat += 1
+        #             continue
+        #         # to account for the fact that submatrices
+        #         # close to the diagonal have more counts thatn
+        #         # submatrices far from the diagonal
+        #         # the submatrices values are normalized using the
+        #         # total submatrix sum.
+        #
+        #         if args.transform == 'total_counts' and mat_to_append.sum() > 0:
+        #             mat_to_append = mat_to_append / mat_to_append.sum()
+        #
+        #         chrom_total[chrom] += 1
+        #         chrom_matrix[chrom].append(mat_to_append)
+        #         chrom_diagonals[chrom].append(mat_to_append.diagonal())
+        #         center_values[chrom].append(ma.matrix[idx1, idx2])
+        #         chrom_contact_position[chrom].append((start, end, start2, end2))
+        #         if ma.matrix[idx1, idx2] > 1.5:
+        #             over_1_5 += 1
+        #
+        # if len(chrom_matrix[chrom]) == 0:
+        #     log.warn("No valid submatrices were found for chrom: {}".format(chrom))
+        #     chrom_matrix.pop(chrom, None)
+        #
+        # log.info("Number of matrices with ratio over 1.5 at center {}, fraction w.r.t. non empty submatrices: ({:.2f})".
+        #          format(over_1_5, float(over_1_5) / len(chrom_matrix[chrom])))
+        #
+        # log.info("Number of discarded empty submatrices  {} ({:.2f})".
+        #          format(empty_mat, float(empty_mat) / counter))
 
     if args.kmeans is not None:
         cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
@@ -663,7 +793,7 @@ def main(args=None):
         cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical',
                                        how=args.howToCluster)
         num_clusters = args.hclust
-    else:
+    else: # TODO!!
         # make a 'fake' clustering to generalize the plotting of the submatrices
         cluster_ids = {}
         num_clusters = 1
