@@ -43,7 +43,7 @@ def parse_arguments(args=None):
                                 required=True)
 
     parserRequired.add_argument('--mode',
-                                choices=['inter-chr', 'intra-chr', 'all']
+                                choices=['inter-chr', 'intra-chr', 'all'],
                                 required=True)
 
 
@@ -55,7 +55,7 @@ def parse_arguments(args=None):
                                 'in bp with the format low_range:high_range for example 1000000:20000000. The range '
                                 'should start at contacts larger than TAD size to reduce background interactions. '
                                 'This will be ignored if inter-chromosomal contacts are of interest.',
-                                default='1000000:20000000')
+                                default=None)
 
     parserOpt.add_argument('--BED2',
                            help='Optional second BED file. Interactions between regions in first '
@@ -212,14 +212,130 @@ def read_bed_per_chrom(fh):
             interval[fields[0]] = []
 
         interval[fields[0]].append((int(fields[1]), int(fields[2])))
-
+    print(interval)
     return interval
 
-def count_aggregate_contacts_per_row(bed1, bed2, ma):
-    for coord1, coord2 in zip(bed1, bed2):
-        print(coord1, coord2)
+def aggregate_contacts_per_row(bed1, bed2, ma, M_half, genomeWide, range = None, transform = None,  mode=''):
+    intervals = []
+    for line1, line2 in zip(bed1, bed2):
+        line1 = line1.strip().split()
+        line2 = line2.strip().split()
+        if mode == 'inter-chr': # skip the lines with same chrom
+            if line1[0] == line2[0]:
+                continue
+        elif mode == 'intra-chr': # skip the lines with different chrom
+            if line1[0]!=line2[0]:
+                continue
+
+        intervals.append((line1[0:3], line2[0:3]))
+    print("intervals", intervals)
+    agg_ma = count_per_row(intervals, ma, M_half, genomeWide, mode, range, transform)
+
+    return agg_ma
+def count_per_row(intervals, ma, M_half, genomeWide, mode, range = None, transform = None):
+    chrom_coord = dict()
+    chrom_list = ma.getChrNames()
+    for chrom in chrom_list:
+        first, last = ma.getChrBinRange(chrom)
+        first = ma.getBinPos(first)
+        last = ma.getBinPos(last-1)
+        chrom_coord[chrom] = (first[1],last[2]) # to get only the begin and the end coordinates of a chr
+    seen =[]
+
+    # These are only needed if per-chr:
+    chrom_matrix = OrderedDict()
+    chrom_total = {}
+    chrom_diagonals = OrderedDict()
+    chrom_contact_position = {}
+    center_values = {}
+
+    counter = 0
+    for interval in intervals:
+        chrom1, start1, end1 = interval[0]
+        chrom2, start2, end2 = interval[1]
+        if chrom1 not in chrom_total:
+            chrom_total[chrom1] = 1
+            chrom_matrix[chrom1] = []
+            chrom_diagonals[chrom1] = []
+            chrom_contact_position[chrom1] = []
+            center_values[chrom1] = []
+
+        if (chrom1 not in chrom_list) or (chrom2 not in chrom_list):
+            continue
+        if (int(end1) > chrom_coord[chrom1][1]) or (int(end2) > chrom_coord[chrom2][1]): # TODO these intervals may still partially be overlapped, shall we keep them?
+                continue
+        if (int(start1) < chrom_coord[chrom1][0]) or (int(start2) < chrom_coord[chrom2][0]):
+                continue
+
+        bin_id1 = ma.getRegionBinRange(toString(chrom1), start1, end1)
+        bin_id2 = ma.getRegionBinRange(toString(chrom2), start2, end2)
+        # if bin_id == bin_id2: # TODO uncomment it after tests
+        #     continue
+        if (bin_id1 is None) or (bin_id2 is None):
+            continue
+        else: # TODO for now only first bin it is kept, this can also be improved. We can add average, center & end.
+            bin_id1 = bin_id1[0]
+            bin_id2 = bin_id2[0]
+            print("bin_ids", bin_id1, bin_id2)
+        counter += 1
+        if counter % 50000 == 0:
+            log.info("Number of contacts considered: {:,}".format(counter))
+        if mode == "intra-chr":
+            bin_size = ma.getBinSize()
+            chrom_bin_range = ma.getChrBinRange(toString(chrom1))
+            print("range", range)
+            default_range = '1000000:20000000'
+            if range == 'none':
+                log.warning("You have not set any range. This is by default set to {} for intra-chr.".format(default_range))
+            else:
+                default_range = range
+            print(default_range)
+            min_dist, max_dist = default_range.split(":")
+            min_dist_in_bins = int(min_dist) // bin_size
+            max_dist_in_bins = int(max_dist) // bin_size
+            if min_dist_in_bins <= abs(bin_id2 - bin_id1) <= max_dist_in_bins:
+                idx1, idx2 = sorted([bin_id1, bin_id2])
+                if (chrom1, idx1, idx2) in seen:
+                    continue
+                seen.append((chrom1, idx1, idx2))
+                if idx1 - M_half < chrom_bin_range[0] or idx2 + 1 + M_half > chrom_bin_range[1]:
+                    continue
+                try:
+                    mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
+                except IndexError:
+                    log.info("index error for {} {}".format(idx1, idx2))
+                    continue
+                counter += 1
+                if counter % 1000 == 0:
+                    log.info("Number of contacts within range computed: {:,}".format(counter))
+                if mat_to_append.sum() == 0:
+                    empty_mat += 1
+                    continue
+                # to account for the fact that submatrices close to the diagonal have more counts than
+                # submatrices far from the diagonal submatrices values are normalized using the
+                # total submatrix sum.
+                if transform == 'total-counts' and mat_to_append.sum() > 0:
+                    mat_to_append = mat_to_append / mat_to_append.sum()
+
+                print(mat_to_append)
+
+                chrom_total[chrom1] += 1
+                chrom_matrix[chrom1].append(mat_to_append) # TODO sum it up
+                chrom_diagonals[chrom1].append(mat_to_append.diagonal())
+                center_values[chrom1].append(ma.matrix[idx1, idx2])
+                chrom_contact_position[chrom1].append((start1, end1, start2, end2))
+
+                if genomeWide:
+                    genome_matrix["genome"].append(mat_to_append)
+                    genome_diagonals["genome"].append(mat_to_append.diagonal())
+                    genome_center_values["genome"].append(ma.matrix[idx1, idx2])
+                    genome_contact_position["genome"].append((start, end, start2, end2))
+    print(chrom_matrix)
     return chrom_matrix
-def count_aggregate_contacts_per_chr(bed1, bed2, ma, M_half, chrom_list, dist, genomeWide=False):
+
+
+
+def count_aggregate_contacts_intra(bed1, bed2, ma, M_half, chrom_list, dist, genomeWide=False):
     """
 
     """
@@ -670,17 +786,17 @@ def main(args=None):
     ma.matrix.data = ma.matrix.data
     new_intervals = hicexplorer.utilities.enlarge_bins(ma.cut_intervals)
     ma.setCutIntervals(new_intervals)
-    min_dist, max_dist = args.range.split(":")
+    #min_dist, max_dist = args.range.split(":")
 
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
-    chrom_sizes = ma.get_chromosome_sizes()
-    chrom_list = chrom_sizes.keys()
-    log.info("checking range {}-{}".format(min_dist, max_dist))
+    # chrom_sizes = ma.get_chromosome_sizes() # TODO this better be changed to the coordinate , as it stands now, it canot handle the adjusted matrices
+    # chrom_list = chrom_sizes.keys()
+    # log.info("checking range {}-{}".format(min_dist, max_dist))
 
-    assert int(min_dist) < int(max_dist), "Error lower range larger than upper range"
+    # assert int(min_dist) < int(max_dist), "Error lower range larger than upper range"
 
-    if args.transform == "z-score":
+    if args.transform == "z-score": # TODO how to deal with these in intr-chr??
         # use zscore matrix
         log.info("Computing z-score matrix. This may take a while.\n")
         ma.convert_to_zscore_matrix(maxdepth=max_dist * 2.5, perchr=True)
@@ -689,27 +805,36 @@ def main(args=None):
         log.info("Computing observed vs. expected matrix. This may take a while.\n")
         ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
 
-    # read and sort bedgraph.
-    bed_intervals = read_bed_per_chrom(args.BED)
-    if args.BED2:
-        bed_intervals2 = read_bed_per_chrom(args.BED2)
-    else:
-        bed_intervals2 = bed_intervals
 
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
     M_half = int((M - 1) // 2)
 
-    chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
+    # chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
+    print(args.mode)
     if args.row_wise:
+        # read bed files
+        bed_intervals = args.BED.readlines()
+        if args.BED2:
+            bed_intervals2 = args.BED2.readlines()
+        else:
+            log.error("Error computing row-wise contacts requires two bed files!")
+            exit("Error computing row-wise contacts requires two bed files!")
+        chrom_matrix = aggregate_contacts_per_row(bed_intervals, bed_intervals2, ma, M_half, args.range, args.transform, mode = args.mode)
+    else:
+        # read and sort bedgraph.
+        bed_intervals = read_bed_per_chrom(args.BED)
+        if args.BED2:
+            bed_intervals2 = read_bed_per_chrom(args.BED2)
+        else:
+            bed_intervals2 = bed_intervals
         if args.genome:
             exit("--genome mode is not compatible with --row_wise. It is getting ignored.")
-        chrom_matrix = count_aggregate_contacts_per_row(bed_intervals, bed_intervals2, ma)
 
-    else:
-        center_values, \
-        chrom_contact_position, \
-        chrom_diagonals, \
-        chrom_matrix = count_aggregate_contacts_per_chr(bed_intervals, bed_intervals2, ma, M_half, chrom_list, args.range, genomeWide=args.genome)
+        else:
+            center_values, \
+            chrom_contact_position, \
+            chrom_diagonals, \
+            chrom_matrix = count_aggregate_contacts_intra(bed_intervals, bed_intervals2, ma, M_half, chrom_list, args.range, genomeWide=args.genome)
 
 
 
