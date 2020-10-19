@@ -287,6 +287,8 @@ def count_contacts(interval, ma, M_half, mode, agg_info, range = None, transform
         else:
             default_range = range
         min_dist, max_dist = default_range.split(":")
+        log.info("checking range {}-{}".format(min_dist, max_dist))
+        assert int(min_dist) < int(max_dist), "Error lower range larger than upper range"
         min_dist_in_bins = int(min_dist) // bin_size
         max_dist_in_bins = int(max_dist) // bin_size
         if (min_dist_in_bins > abs(bin_id2 - bin_id1)) or (abs(bin_id2 - bin_id1) > max_dist_in_bins):
@@ -706,21 +708,15 @@ def main(args=None):
     ma.matrix.data = ma.matrix.data
     new_intervals = hicexplorer.utilities.enlarge_bins(ma.cut_intervals)
     ma.setCutIntervals(new_intervals)
-    #min_dist, max_dist = args.range.split(":")
 
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
-    # chrom_sizes = ma.get_chromosome_sizes() # TODO this better be changed to the coordinate , as it stands now, it canot handle the adjusted matrices
-    # chrom_list = chrom_sizes.keys()
-    # log.info("checking range {}-{}".format(min_dist, max_dist))
 
-    # assert int(min_dist) < int(max_dist), "Error lower range larger than upper range"
-
-    if args.transform == "z-score": # TODO how to deal with these in intr-chr??
+    if args.transform == "z-score": # TODO how to deal with these in inter-chr??
         # use zscore matrix
         log.info("Computing z-score matrix. This may take a while.\n")
-        ma.convert_to_zscore_matrix(maxdepth=max_dist * 2.5, perchr=True)
-    elif args.transform == "obs/exp":
+        ma.convert_to_zscore_matrix(maxdepth=max_dist * 2.5, perchr=True)  # TODO inter??
+    elif args.transform == "obs/exp": # TODO inter?
         # use zscore matrix
         log.info("Computing observed vs. expected matrix. This may take a while.\n")
         ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
@@ -729,8 +725,6 @@ def main(args=None):
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
     M_half = int((M - 1) // 2)
 
-    # chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
-    print(args.mode)
     if args.row_wise:
         # read bed files
         bed_intervals = args.BED.readlines()
@@ -739,8 +733,8 @@ def main(args=None):
         else:
             log.error("Error computing row-wise contacts requires two bed files!")
             exit("Error computing row-wise contacts requires two bed files!")
+        # agg_matrix could be per chromosome or genome wide
         agg_matrix = aggregate_contacts_per_row(bed_intervals, bed_intervals2, ma, M_half, args.range, args.transform, mode = args.mode, perChr=args.perChr)
-        # agg_matrix could be per chromosome or not
     else: # not row-wise
         # read and sort bedgraph.
         print("not row-wise")
@@ -749,6 +743,7 @@ def main(args=None):
             bed_intervals2 = read_bed_per_chrom(args.BED2)
         else:
             bed_intervals2 = bed_intervals
+        # agg_matrix could be per chromosome or genome wide
         agg_matrix = aggregate_contacts(bed_intervals, bed_intervals2, ma, M_half, args.range, args.transform, mode = args.mode, perChr=args.perChr)
 
 
