@@ -210,28 +210,10 @@ def read_bed_per_chrom(fh):
         interval[fields[0]].append((int(fields[1]), int(fields[2])))
     return interval
 
-def aggregate_contacts(bed1, bed2, ma, M_half, range = None, transform = None,  mode='', perChr = False):
+def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, range = None, transform = None,  mode='', perChr = False):
     """
 
     """
-    chrom_coord = dict()
-    chrom_list = ma.getChrNames()
-    for chrom in chrom_list:
-        first, last = ma.getChrBinRange(chrom)
-        first = ma.getBinPos(first)
-        last = ma.getBinPos(last-1)
-        chrom_coord[chrom] = (first[1],last[2])
-
-    agg_info = dict()
-    agg_info["chrom_coord"] = chrom_coord
-    agg_info["seen"] =[]
-    agg_info["agg_matrix"] = OrderedDict()
-    agg_info["agg_total"] = {}
-    agg_info["agg_diagonals"] = OrderedDict()
-    agg_info["agg_contact_position"] = {}
-    agg_info["agg_center_values"] = {}
-    agg_info["counter"] = 0
-    agg_info["empty_mat"] = 0
 
     for k1, v1 in bed1.items():
         for k2, v2 in bed2.items():
@@ -245,7 +227,7 @@ def aggregate_contacts(bed1, bed2, ma, M_half, range = None, transform = None,  
                 for coord2 in v2:
                     interval = [(k1, coord1[0], coord1[1]), (k2, coord2[0], coord2[1])]
                     print(interval)
-                    agg_info = count_contacts(interval, ma, M_half, mode, agg_info, range, transform, perChr)
+                    count_contacts(interval, ma, M_half, mode, agg_info, range, transform, perChr)
 
     # over_1_5 = 0
     #
@@ -260,10 +242,8 @@ def aggregate_contacts(bed1, bed2, ma, M_half, range = None, transform = None,  
         # log.info("Number of discarded empty submatrices  {} ({:.2f})".
         #          format(empty_mat, float(empty_mat) / counter))
 
-    return agg_info
 
-
-def aggregate_contacts_per_row(bed1, bed2, ma, M_half, range = None, transform = None,  mode='', perChr = False):
+def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, range = None, transform = None,  mode='', perChr = False):
     intervals = []
     for line1, line2 in zip(bed1, bed2):
         line1 = line1.strip().split()
@@ -276,45 +256,26 @@ def aggregate_contacts_per_row(bed1, bed2, ma, M_half, range = None, transform =
                 continue
         intervals.append((line1[0:3], line2[0:3]))
 
-    chrom_coord = dict()
-    chrom_list = ma.getChrNames()
-    for chrom in chrom_list:
-        first, last = ma.getChrBinRange(chrom)
-        first = ma.getBinPos(first)
-        last = ma.getBinPos(last-1)
-        chrom_coord[chrom] = (first[1],last[2]) # to get only the begin and the end coordinates of a chr
-
-    agg_info = dict()
-    agg_info["chrom_coord"] = chrom_coord
-    agg_info["seen"] =[]
-    agg_info["agg_matrix"] = OrderedDict()
-    agg_info["agg_total"] = {}
-    agg_info["agg_diagonals"] = OrderedDict()
-    agg_info["agg_contact_position"] = {}
-    agg_info["agg_center_values"] = {}
-    agg_info["counter"] = 0
-    agg_info["empty_mat"] = 0
     for interval in intervals:
-        agg_info = count_contacts(interval, ma, M_half, mode, agg_info, range, transform, perChr)
-    return agg_info
+        count_contacts(interval, ma, M_half, mode, agg_info, range, transform, perChr)
 
 
 def count_contacts(interval, ma, M_half, mode, agg_info, range = None, transform = None, perChr = False):
     chrom1, start1, end1 = interval[0]
     chrom2, start2, end2 = interval[1]
     if (chrom1 not in agg_info["chrom_coord"]) or (chrom2 not in agg_info["chrom_coord"]):
-        return agg_info
+        return
     if (int(end1) > agg_info["chrom_coord"][chrom1][1]) or (int(end2) > agg_info["chrom_coord"][chrom2][1]): # TODO these intervals may still partially be overlapped, shall we keep them?
-        return agg_info
+        return
     if (int(start1) < agg_info["chrom_coord"][chrom1][0]) or (int(start2) < agg_info["chrom_coord"][chrom2][0]):
-        return agg_info
+        return
 
     bin_id1 = ma.getRegionBinRange(toString(chrom1), start1, end1)
     bin_id2 = ma.getRegionBinRange(toString(chrom2), start2, end2)
     if bin_id1 == bin_id2:
-        return agg_info
+        return
     if (bin_id1 is None) or (bin_id2 is None):
-        return agg_info
+        return
     else: # TODO for now only first bin it is kept, this can also be improved. We can add average, center & end.
         bin_id1 = bin_id1[0]
         bin_id2 = bin_id2[0]
@@ -346,25 +307,25 @@ def count_contacts(interval, ma, M_half, mode, agg_info, range = None, transform
         min_dist_in_bins = int(min_dist) // bin_size
         max_dist_in_bins = int(max_dist) // bin_size
         if (min_dist_in_bins > abs(bin_id2 - bin_id1)) or (abs(bin_id2 - bin_id1) > max_dist_in_bins):
-            return agg_info
+            return
 
     idx1, idx2 = sorted([bin_id1, bin_id2])
     if ((chrom1,chrom2), idx1, idx2) in agg_info["seen"]:
-        return agg_info
+        return
     agg_info["seen"].append(((chrom1, chrom2), idx1, idx2))
     if idx1 - M_half < chrom1_bin_range[0] or idx2 + 1 + M_half > chrom2_bin_range[1]:
-        return agg_info
+        return
     try:
         mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
     except IndexError:
         log.info("index error for {} {}".format(idx1, idx2))
-        return agg_info
+        return
     agg_info["counter"] += 1
     if agg_info["counter"] % 1000 == 0:
         log.info("Number of contacts within range computed: {:,}".format(counter))
     if mat_to_append.sum() == 0: # TODO
         agg_info["empty_mat"] += 1
-        return agg_info
+        return
     # to account for the fact that submatrices close to the diagonal have more counts than
     # submatrices far from the diagonal submatrices values are normalized using the
     # total submatrix sum.
@@ -394,8 +355,6 @@ def count_contacts(interval, ma, M_half, mode, agg_info, range = None, transform
         agg_info["agg_diagonals"]["genome"].append(mat_to_append.diagonal())
         agg_info["agg_center_values"]["genome"].append(ma.matrix[idx1, idx2])
         agg_info["agg_contact_position"]["genome"].append((start1, end1, start2, end2))
-
-    return agg_info
 
 
 def get_outlier_indices(data, max_deviation=200):
@@ -729,6 +688,25 @@ def main(args=None):
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
     M_half = int((M - 1) // 2)
 
+    chrom_coord = dict()
+    chrom_list = ma.getChrNames()
+    for chrom in chrom_list:
+        first, last = ma.getChrBinRange(chrom)
+        first = ma.getBinPos(first)
+        last = ma.getBinPos(last-1)
+        chrom_coord[chrom] = (first[1],last[2])
+
+    agg_info = dict()
+    agg_info["chrom_coord"] = chrom_coord
+    agg_info["seen"] =[]
+    agg_info["agg_matrix"] = OrderedDict()
+    agg_info["agg_total"] = {}
+    agg_info["agg_diagonals"] = OrderedDict()
+    agg_info["agg_contact_position"] = {}
+    agg_info["agg_center_values"] = {}
+    agg_info["counter"] = 0
+    agg_info["empty_mat"] = 0
+
     if args.row_wise:
         # read bed files
         bed_intervals = args.BED.readlines()
@@ -738,7 +716,7 @@ def main(args=None):
             log.error("Error computing row-wise contacts requires two bed files!")
             exit("Error computing row-wise contacts requires two bed files!")
         # agg_matrix could be per chromosome or genome wide
-        agg_info = aggregate_contacts_per_row(bed_intervals, bed_intervals2, ma, M_half, args.range, args.transform, mode = args.mode, perChr=args.perChr)
+        aggregate_contacts_per_row(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.range, args.transform, mode = args.mode, perChr=args.perChr)
     else: # not row-wise
         # read and sort bedgraph.
         print("not row-wise")
@@ -748,7 +726,7 @@ def main(args=None):
         else:
             bed_intervals2 = bed_intervals
         # agg_matrix could be per chromosome or genome wide
-        agg_info = aggregate_contacts(bed_intervals, bed_intervals2, ma, M_half, args.range, args.transform, mode = args.mode, perChr=args.perChr)
+        aggregate_contacts(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.range, args.transform, mode = args.mode, perChr=args.perChr)
 
 
     if args.kmeans is not None:
