@@ -9,6 +9,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
+from mpl_toolkits.mplot3d import Axes3D
+# from scipy.cluster.vq import vq, kmeans
+# from scipy.cluster.hierarchy import fcluster, linkage
+import sklearn.cluster import sk_clust
 from hicmatrix import HiCMatrix as hm
 import hicexplorer.utilities
 from .utilities import toString
@@ -93,10 +97,19 @@ def parse_arguments(args=None):
                            default='median')
 
     parserOpt.add_argument('--perChr',
-                           help='if set, it generates a plot per chromosome. It only affects if '
+                           help='if set, it generates a plot per chromosome. It is only affected if '
                            'intera-chromosomal contacts are of interest.',
                            action='store_true',
                            required=False)
+
+    parserOpt.add_argument('--largeRegionsOperation',
+                           help='If a given coordinate in the bed file is larger than '
+                           'a bin of the inpt matrix, by default only the first bin is taken into account. '
+                           'However there are more posibilities to handel such a case. User can '
+                           'ask for the last bin, sum of the bins, mean or median of the bins which cover '
+                           'this region.',
+                           choices=['first', 'last', 'sum', 'mean', 'median'],
+                           default='first')
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
     parserOpt.add_argument('--version', action='version',
@@ -143,6 +156,12 @@ def parse_arguments(args=None):
                              'using the hierarchical clustering algorithm, using "ward linkage". '
                              ' --hclust could be very slow if you have '
                              '>1000 submatrices per chromosome. In those cases, you might prefer --kmeans',
+                             type=int)
+
+    parserClust.add_argument('--spectral',
+                             help='Number of clusters to compute (per chromosome). When this '
+                             'option is set, the matrix is split into clusters '
+                             'using the spectral clustering algorithm.',
                              type=int)
 
     parserClust.add_argument('--howToCluster',
@@ -210,7 +229,7 @@ def read_bed_per_chrom(fh):
         interval[fields[0]].append((int(fields[1]), int(fields[2])))
     return interval
 
-def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, range = None, transform = None,  mode='', perChr = False):
+def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range = None, transform = None,  mode='', perChr = False):
     """
 
     """
@@ -225,9 +244,11 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, range = None, transform
             print("v2: ", v2)
             for coord1 in v1:
                 for coord2 in v2:
+                    if (k1 == k2) and (coord1 == coord2):
+                        continue
                     interval = [(k1, coord1[0], coord1[1]), (k2, coord2[0], coord2[1])]
                     print(interval)
-                    count_contacts(interval, ma, M_half, mode, agg_info, range, transform, perChr)
+                    count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range, transform, perChr)
 
     # over_1_5 = 0
     #
@@ -243,7 +264,7 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, range = None, transform
         #          format(empty_mat, float(empty_mat) / counter))
 
 
-def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, range = None, transform = None,  mode='', perChr = False):
+def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range = None, transform = None,  mode='', perChr = False):
     intervals = []
     for line1, line2 in zip(bed1, bed2):
         line1 = line1.strip().split()
@@ -257,10 +278,10 @@ def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, range = None, t
         intervals.append((line1[0:3], line2[0:3]))
 
     for interval in intervals:
-        count_contacts(interval, ma, M_half, mode, agg_info, range, transform, perChr)
+        count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range, transform, perChr)
 
 
-def count_contacts(interval, ma, M_half, mode, agg_info, range = None, transform = None, perChr = False):
+def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range = None, transform = None, perChr = False):
     chrom1, start1, end1 = interval[0]
     chrom2, start2, end2 = interval[1]
     if (chrom1 not in agg_info["chrom_coord"]) or (chrom2 not in agg_info["chrom_coord"]):
@@ -276,9 +297,35 @@ def count_contacts(interval, ma, M_half, mode, agg_info, range = None, transform
         return
     if (bin_id1 is None) or (bin_id2 is None):
         return
-    else: # TODO for now only first bin it is kept, this can also be improved. We can add average, center & end.
+    else: # If the regions size is bigger than a bin then:
         bin_id1 = bin_id1[0]
         bin_id2 = bin_id2[0]
+        if largeRegionsOperation == 'last':
+            bin_id1 = bin_id1[-1]
+            bin_id2 = bin_id2[-1]
+        elif largeRegionsOperation == 'center':
+            bin_id1 = bin_id1[floor(len(bin_id1)/2)]
+            bin_id2 = bin_id2[floor(len(bin_id2)/2)]
+        elif largeRegionsOperation == 'sum':
+            bin_id1 = np.sum(bin_id1)
+            bin_id2 = np.sum(bin_id2)
+        elif largeRegionsOperation == 'mean':
+            bin_id1 = np.mean(bin_id1)
+            bin_id2 = np.mean(bin_id2)
+        elif largeRegionsOperation == 'median':
+            bin_id1 = np.median(bin_id1)
+            bin_id2 = np.median(bin_id2)
+
+    print("bin ids:", bin_id1, bin_id2)
+    if bin_id1 > bin_id2:
+        if chrom1 == chrom2 :
+            bin_id1, bin_id2 = sorted(bin_id1, bin_id2)
+        else:
+            chr1, str1, en1, bin1 = chrom1, start1, end1, bin_id1
+            chrom1, start1, end1, bin_id1 = chrom2, start2, end2, bin_id2
+            chrom2, start2, end2, bin_id2 = chr1, str1, en1, bin1
+
+
     agg_info["counter"] += 1
     if agg_info["counter"] % 50000 == 0:
         log.info("Number of contacts considered: {:,}".format(agg_info["counter"]))
@@ -287,43 +334,40 @@ def count_contacts(interval, ma, M_half, mode, agg_info, range = None, transform
     chrom1_bin_range = ma.getChrBinRange(toString(chrom1))
     chrom2_bin_range = ma.getChrBinRange(toString(chrom2))
 
-    if mode == "intra-chr": # chrom1 == chrom2
-        if (chrom1 not in agg_info["agg_total"]) and (perChr == True):
+    if chrom1 == chrom2: # chrom1 == chrom2 can happen in intra or all
+        if (chrom1 not in agg_info["agg_total"]) and (mode == "intra-chr") and (perChr == True):
             agg_info["agg_total"][chrom1] = 0
-            # agg_info["agg_matrix"][chrom1] = np.zeros((M_half*2+1,M_half*2+1))
             agg_info["agg_matrix"][chrom1] = []
             agg_info["agg_diagonals"][chrom1] = []
             agg_info["agg_contact_position"][chrom1] = []
             agg_info["agg_center_values"][chrom1] = []
 
-        default_range = '1000000:20000000'
-        if range == None:
-            log.warning("You have not set any range. This is by default set to {} for intra-chr.".format(default_range))
-        else:
-            default_range = range
-        min_dist, max_dist = default_range.split(":")
+        min_dist, max_dist = range.split(":")
         log.info("checking range {}-{}".format(min_dist, max_dist))
         assert int(min_dist) < int(max_dist), "Error lower range larger than upper range"
         min_dist_in_bins = int(min_dist) // bin_size
         max_dist_in_bins = int(max_dist) // bin_size
         if (min_dist_in_bins > abs(bin_id2 - bin_id1)) or (abs(bin_id2 - bin_id1) > max_dist_in_bins):
+            print(min_dist_in_bins, max_dist_in_bins)
             return
-
-    idx1, idx2 = sorted([bin_id1, bin_id2])
-    if ((chrom1,chrom2), idx1, idx2) in agg_info["seen"]:
+    print("sort:")
+    if (bin_id1, bin_id2) in agg_info["seen"]:
+        print("seen")
         return
-    agg_info["seen"].append(((chrom1, chrom2), idx1, idx2))
-    if idx1 - M_half < chrom1_bin_range[0] or idx2 + 1 + M_half > chrom2_bin_range[1]:
+    agg_info["seen"].append((bin_id1, bin_id2))
+    if bin_id1 - M_half < chrom1_bin_range[0] or bin_id2 + 1 + M_half > chrom2_bin_range[1]:
+        print("exceeds chr range")
         return
     try:
-        mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
+        print("append!")
+        mat_to_append = ma.matrix[bin_id1 - M_half:bin_id1 + M_half + 1, :][:, bin_id2 - M_half:bin_id2 + M_half + 1].todense().astype(float)
     except IndexError:
-        log.info("index error for {} {}".format(idx1, idx2))
+        log.info("index error for {} {}".format(bin_id1, bin_id2))
         return
     agg_info["counter"] += 1
     if agg_info["counter"] % 1000 == 0:
         log.info("Number of contacts within range computed: {:,}".format(counter))
-    if mat_to_append.sum() == 0: # TODO
+    if mat_to_append.sum() == 0:
         agg_info["empty_mat"] += 1
         return
     # to account for the fact that submatrices close to the diagonal have more counts than
@@ -334,26 +378,23 @@ def count_contacts(interval, ma, M_half, mode, agg_info, range = None, transform
 
     if (mode == "intra-chr") and (perChr == True): # chrom1 == chrom2
         agg_info["agg_total"][chrom1] += 1
-        # agg_info["agg_matrix"][chrom1] = agg_info["agg_matrix"][chrom1] + mat_to_append
         agg_info["agg_matrix"][chrom1].append(mat_to_append)
         agg_info["agg_diagonals"][chrom1].append(mat_to_append.diagonal())
-        agg_info["agg_center_values"][chrom1].append(ma.matrix[idx1, idx2])
+        agg_info["agg_center_values"][chrom1].append(ma.matrix[bin_id1, bin_id2])
         agg_info["agg_contact_position"][chrom1].append((start1, end1, start2, end2))
 
-    if (perChr == False) or (mode == 'inter-chr'):
+    else:
         if 'genome' not in agg_info["agg_total"]:
             agg_info["agg_total"]["genome"] = 0
-            # agg_info["agg_matrix"]["genome"] = np.zeros((M_half*2+1,M_half*2+1))
             agg_info["agg_matrix"]["genome"] = []
             agg_info["agg_diagonals"]["genome"] = []
             agg_info["agg_contact_position"]["genome"] = []
             agg_info["agg_center_values"]["genome"] = []
 
         agg_info["agg_total"]["genome"] += 1
-        # agg_info["agg_matrix"]["genome"] = agg_info["agg_matrix"]["genome"] + mat_to_append
         agg_info["agg_matrix"]["genome"].append(mat_to_append)
         agg_info["agg_diagonals"]["genome"].append(mat_to_append.diagonal())
-        agg_info["agg_center_values"]["genome"].append(ma.matrix[idx1, idx2])
+        agg_info["agg_center_values"]["genome"].append(ma.matrix[bin_id1, bin_id2])
         agg_info["agg_contact_position"]["genome"].append((start1, end1, start2, end2))
 
 
@@ -451,22 +492,14 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', how='full'):
             matrix[np.isnan(matrix)] = 0
 
         if method == 'kmeans':
-            from scipy.cluster.vq import vq, kmeans
-
-            centroids, _ = kmeans(matrix, k)
-            # order the centroids in an attempt to
-            # get the same cluster order
-            cluster_labels, _ = vq(matrix, centroids)
-
+            clustering =  KMeans(n_clusters=k, random_state=0).fit(matrix)
+            cluster_labels = clustering.labels_
         if method == 'hierarchical':
-            # normally too slow for large data sets
-            from scipy.cluster.hierarchy import fcluster, linkage
-            Z = linkage(matrix, method='ward', metric='euclidean')
-            cluster_labels = fcluster(Z, k, criterion='maxclust')
-            # hierarchical clustering labels from 1 .. k
-            # while k-means labels 0 .. k -1
-            # Thus, for consistency, we subtract 1
-            cluster_labels -= 1
+            clustering = AgglomerativeClustering(n_clusters=k).fit(matrix)
+            cluster_labels = clustering.labels_
+        if method == 'spectral':
+            clustering = SpectralClustering(n_clusters=k, assign_labels="discretize",random_state=0).fit(matrix)
+            cluster_labels = clustering.labels_
 
         # sort clusters
         clustered_dict[chrom] = []
@@ -546,7 +579,6 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
                                 cmap=cmap,
                                 extent=[-M_half, M_half + 1, -M_half, M_half + 1])
             else:
-                from mpl_toolkits.mplot3d import Axes3D
                 # Axes3D is required for projection='3d' to work
                 # but since is imported but not used, flake8 will complain
                 # thus I add this dummy variable to avoid the error
@@ -675,14 +707,24 @@ def main(args=None):
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
 
-    if args.transform == "z-score": # TODO how to deal with these in inter-chr??
-        # use zscore matrix
+    default_range = '1000000:20000000'
+    if args.range == None:
+        log.warning("You have not set any range. This is by default set to {} for intra-chr.".format(default_range))
+        args.range = default_range
+    min_dist, max_dist = args.range.split(":")
+
+    if args.transform == "z-score": # use zscore matrix
         log.info("Computing z-score matrix. This may take a while.\n")
-        ma.convert_to_zscore_matrix(maxdepth=max_dist * 2.5, perchr=True)  # TODO inter??
-    elif args.transform == "obs/exp": # TODO inter?
-        # use zscore matrix
+        if args.mode == 'intra-chr':
+            ma.convert_to_zscore_matrix(maxdepth = max_dist * 2.5, perchr = True)
+        else:
+            ma.convert_to_zscore_matrix(maxdepth = None, perchr = True)
+    elif args.transform == "obs/exp": # use obs/exp matrix
         log.info("Computing observed vs. expected matrix. This may take a while.\n")
-        ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
+        if args.mode == 'intra-chr':
+            ma.convert_to_obs_exp_matrix(maxdepth = max_dist * 2.5, perchr=True)
+        else:
+            ma.convert_to_obs_exp_matrix(maxdepth = None, perchr=True)
 
 
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
@@ -715,8 +757,8 @@ def main(args=None):
         else:
             log.error("Error computing row-wise contacts requires two bed files!")
             exit("Error computing row-wise contacts requires two bed files!")
-        # agg_matrix could be per chromosome or genome wide
-        aggregate_contacts_per_row(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.range, args.transform, mode = args.mode, perChr=args.perChr)
+        # agg_matrix could be either per chromosome or genome wide
+        aggregate_contacts_per_row(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.largeRegionsOperation, args.range, args.transform, mode = args.mode, perChr=args.perChr)
     else: # not row-wise
         # read and sort bedgraph.
         print("not row-wise")
@@ -725,8 +767,8 @@ def main(args=None):
             bed_intervals2 = read_bed_per_chrom(args.BED2)
         else:
             bed_intervals2 = bed_intervals
-        # agg_matrix could be per chromosome or genome wide
-        aggregate_contacts(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.range, args.transform, mode = args.mode, perChr=args.perChr)
+        # agg_matrix could be either per chromosome or genome wide
+        aggregate_contacts(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.largeRegionsOperation, args.range, args.transform, mode = args.mode, perChr=args.perChr)
 
 
     if args.kmeans is not None:
@@ -749,7 +791,7 @@ def main(args=None):
 
     plot_aggregated_contacts(agg_info["agg_matrix"], agg_info["agg_contact_position"], cluster_ids, num_clusters, M_half, args)
 
-    if args.outFileContactPairs: # TODO
+    if args.outFileContactPairs:
         for idx, chrom in enumerate(chrom_matrix):
             if chrom not in bed_intervals or chrom not in bed_intervals2:
                 continue
@@ -767,5 +809,5 @@ def main(args=None):
 
     # plot the diagonals
     # the diagonals plot is useful to see individual cases and if they had a contact in the center
-    if args.diagnosticHeatmapFile: # TODO
-        plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args)
+    if args.diagnosticHeatmapFile:
+        plot_diagnostic_heatmaps(agg_info["agg_diagonals"], cluster_ids, M_half, args)
