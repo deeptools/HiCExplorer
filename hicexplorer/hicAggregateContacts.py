@@ -12,7 +12,7 @@ import matplotlib.cm as cm
 from mpl_toolkits.mplot3d import Axes3D
 # from scipy.cluster.vq import vq, kmeans
 # from scipy.cluster.hierarchy import fcluster, linkage
-import sklearn.cluster import sk_clust
+import sklearn.cluster as skclust
 from hicmatrix import HiCMatrix as hm
 import hicexplorer.utilities
 from .utilities import toString
@@ -492,13 +492,13 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', how='full'):
             matrix[np.isnan(matrix)] = 0
 
         if method == 'kmeans':
-            clustering =  KMeans(n_clusters=k, random_state=0).fit(matrix)
+            clustering =  skclust.KMeans(n_clusters=k, random_state=0).fit(matrix)
             cluster_labels = clustering.labels_
         if method == 'hierarchical':
-            clustering = AgglomerativeClustering(n_clusters=k).fit(matrix)
+            clustering = skclust.AgglomerativeClustering(n_clusters=k).fit(matrix)
             cluster_labels = clustering.labels_
         if method == 'spectral':
-            clustering = SpectralClustering(n_clusters=k, assign_labels="discretize",random_state=0).fit(matrix)
+            clustering = skclust.SpectralClustering(n_clusters=k, assign_labels="discretize",random_state=0).fit(matrix)
             cluster_labels = clustering.labels_
 
         # sort clusters
