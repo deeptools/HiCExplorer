@@ -57,6 +57,15 @@ def parse_arguments(args=None):
                                 'This will be ignored if inter-chromosomal contacts are of interest.',
                                 default=None)
 
+    parserOpt.add_argument('--row_wise',
+                               help='If given,the insteractions between each row of the BED file and its '
+                               'corresponding row of the BED2 file are computed. If intera-chromosomal '
+                               'contacts are computed, the rows with different chromosomes are ignored. '
+                               'If inter-chromosomal, the rows with same chromosomes are ignored. '
+                               'It keeps all the rows if `all`.',
+                               action='store_true',
+                               required=False)
+
     parserOpt.add_argument('--BED2',
                            help='Optional second BED file. Interactions between regions in first '
                            'and second BED file are plotted.',
@@ -119,14 +128,6 @@ def parse_arguments(args=None):
                            type=argparse.FileType('w'),
                            required=False)
 
-    parserOut.add_argument('--row_wise',
-                           help='If given,the insteractions between each row of the BED file and its '
-                           'corresponding row of the BED2 file are computed. If intera-chromosomal '
-                           'contacts are computed, the rows with different chromosomes are ignored. '
-                           'If inter-chromosomal, the rows with same chromosomes are ignored. '
-                           'It keeps all the rows if `all`.',
-                           action='store_true',
-                           required=False)
 
     parserClust = parser.add_argument_group('Clustering options')
 
