@@ -36,7 +36,8 @@ def test_hicAggregateContacts():
     outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
 
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
-           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100".\
+           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100 "\
+           "--mode intra-chr --perChr".\
         format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'
@@ -57,7 +58,8 @@ def test_hicAggregateContacts_chromosome_not_given():
     outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
 
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions_region_not_given.bed " \
-           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100".\
+           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100 "\
+           "--mode intra-chr --perChr ".\
         format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
     # test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'
@@ -74,7 +76,8 @@ def test_hicAggregateContacts_cooler():
     outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
 
     args = "--matrix {root}/Li_et_al_2015.cool --BED {root}/hicAggregateContacts/test_regions.bed " \
-           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100".\
+           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100 "\
+           "--mode intra-chr --perChr ".\
         format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'  # noqa: F841
@@ -99,7 +102,7 @@ def test_hicAggregateContacts_clustering():
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 4 " \
            "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight --dpi 100 " \
-           "--BED2 {root}/hicAggregateContacts/test_regions.bed".format(root=ROOT, out_agg=outfile_aggregate_plots.name,
+           "--BED2 {root}/hicAggregateContacts/test_regions.bed --mode intra-chr --perChr".format(root=ROOT, out_agg=outfile_aggregate_plots.name,
                                                                         out_heat=outfile_heatmaps.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_hclust4.png'
@@ -129,7 +132,7 @@ def test_hicAggregateContacts_clustering_cool():
     args = "--matrix {root}/Li_et_al_2015.cool --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 4 " \
            "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight --dpi 100 " \
-           "--BED2 {root}/hicAggregateContacts/test_regions.bed".format(root=ROOT, out_agg=outfile_aggregate_plots.name,
+           "--BED2 {root}/hicAggregateContacts/test_regions.bed  --mode intra-chr --perChr".format(root=ROOT, out_agg=outfile_aggregate_plots.name,
                                                                         out_heat=outfile_heatmaps.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_hclust4.png'
@@ -158,7 +161,7 @@ def test_hicAggregateContacts_3d():
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 2 --dpi 100 " \
            "--plotType 3d --disable_bbox_tight " \
-           "--BED2 {root}/hicAggregateContacts/test_regions.bed".format(root=ROOT, out_agg=outfile_aggregate_3d.name)
+           "--BED2 {root}/hicAggregateContacts/test_regions.bed  --mode intra-chr --perChr".format(root=ROOT, out_agg=outfile_aggregate_3d.name)
 
     test_image_agg_3d = ROOT + 'hicAggregateContacts/master_aggregate_3d.png'
 
@@ -180,7 +183,7 @@ def test_hicAggregateContacts_3d_cooler():
 
     args = "--matrix {root}/Li_et_al_2015.cool --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 2 --dpi 100 " \
-           "--plotType 3d --disable_bbox_tight " \
+           "--plotType 3d --disable_bbox_tight  --mode intra-chr --perChr " \
            "--BED2 {root}/hicAggregateContacts/test_regions.bed".format(root=ROOT, out_agg=outfile_aggregate_3d.name)
 
     test_image_agg_3d = ROOT + 'hicAggregateContacts/master_aggregate_3d.png'
