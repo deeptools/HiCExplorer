@@ -38,7 +38,8 @@ def parse_arguments(args=None):
                                 help='path to juicer.jar',
                                 required=True)
     parserRequired.add_argument('--outputFileName', '-o',
-                                help='File names for the result of the optimization.',
+                                help='File names for the result of the optimization'
+                                ' (Default: %(default)s).',
                                 default='hyperoptHiCCUPS_result.txt',
                                 required=False)
     parserOpt = parser.add_argument_group('Optional arguments')
@@ -46,20 +47,21 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--resolution', '-r',
                            type=int,
                            default=10000,
-                           help='Resolution of matrix')
+                           help='Resolution of matrix'
+                           ' (Default: %(default)s).')
     parserOpt.add_argument('--runs',
                            type=int,
                            default=100,
                            help='Number of runs of hyperopt.')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module). ',
+                           help='Number of threads (uses the python multiprocessing module)'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int
                            )
     parserOpt.add_argument('--normalization', '-k',
-                           help='Normalization table name.',
-                           default='KR',
+                           help='Normalization table name',
                            required=True)
     parserOpt.add_argument('--cpu',
                            help='use the CPU version',

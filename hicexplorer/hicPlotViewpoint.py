@@ -50,7 +50,8 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
-                           'ouput is a raster graphics image (e.g png, jpg).',
+                           'ouput is a raster graphics image (e.g png, jpg)'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=300)
     parserOpt.add_argument('--version', action='version',

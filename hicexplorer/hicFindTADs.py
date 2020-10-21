@@ -85,7 +85,8 @@ of information at certain bins, and depending on the parameters used with this t
                                 help='Select the bonferroni or false discovery rate for a multiple comparison. Bonferroni '
                                 'controls the family-wise error rate (FWER) and needs a p-value. The false discovery rate '
                                 '(FDR) controls the likelyhood of type I errors and needs a q-value. As a third option '
-                                'it is possible to not use a multiple comparison method at all.',
+                                'it is possible to not use a multiple comparison method at all'
+                                ' (Default: %(default)s).',
                                 type=str,
                                 default="fdr",
                                 choices=['fdr', 'bonferroni', 'None'],
@@ -133,7 +134,8 @@ of information at certain bins, and depending on the parameters used with this t
                            'regions (diamond) at the local minimum with the matrix z-scores for a '
                            'diamond at --minDepth to the left and a diamond --minDepth to the right. '
                            'If --correctForMultipleTesting is \'None\' the threshold is applied on the '
-                           'raw p-values without any multiple testing correction. Set it to \'1\' if no threshold should be used.',
+                           'raw p-values without any multiple testing correction. Set it to \'1\' if no threshold should be used'
+                           ' (Default: %(default)s).',
                            type=float,
                            default=0.01)
 
@@ -142,8 +144,8 @@ of information at certain bins, and depending on the parameters used with this t
                            'putative boundary and the mean of the TAD-sep. score of surrounding bins. '
                            'The delta value reduces spurious boundaries that are shallow, which usually '
                            'occur at the center of large TADs when the TAD-sep. score is flat. Higher '
-                           'delta threshold values produce more conservative boundary estimations. By '
-                           'default a value of 0.01 is used.',
+                           'delta threshold values produce more conservative boundary estimations'
+                           ' (Default: %(default)s).',
                            type=float,
                            default=0.01)
 
@@ -159,7 +161,8 @@ of information at certain bins, and depending on the parameters used with this t
                            nargs='+')
 
     parserOpt.add_argument('--numberOfProcessors', '-p',
-                           help='Number of processors to use ',
+                           help='Number of processors to use '
+                           ' (Default: %(default)s).',
                            type=int,
                            default=1)
 

@@ -44,33 +44,40 @@ An example usage is:
 
     parserOpt.add_argument('--minimumNumberOfPeaks', '-m',
                            help='Optional parameter to adjust the number of protein peaks when adapting the resolution to '
-                                'the domain files. At least minimumNumberOfPeaks of unique peaks must be in a bin to considered. Otherwise the bin is treated like it has no peaks.',
+                                'the domain files. At least minimumNumberOfPeaks of unique peaks must be in a bin to considered. Otherwise the bin is treated like it has no peaks'
+                                ' (Default: %(default)s).',
                            type=int, default=1)
 
     parserOpt.add_argument('--value', '-v',
                            help='Determine a value by how much the boundaries of two TADs must at least differ to consider '
-                                'them as two separate TADs.',
+                                'them as two separate TADs'
+                                ' (Default: %(default)s).',
                            type=int, default=5000)
 
     parserOpt.add_argument('--percent', '-pe',
                            help='For the relationship determination, a percentage is required from which area coverage '
                                 'the TADs are related to each other.'
-                           'For example, a relationship should be entered from 5 percent area coverage -p 0.05',
+                           'For example, a relationship should be entered from 5 percent area coverage -p 0.05'
+                           ' (Default: %(default)s).',
                            type=float, default=0.5)
     parserOpt.add_argument('--outputMergedList', '-om',
-                           help='File name for the merged domains list',
+                           help='File name for the merged domains list'
+                           ' (Default: %(default)s).',
                            default='mergedDomains.bed',
                            required=False)
     parserOpt.add_argument('--outputRelationList', '-or',
-                           help='File name for the relationship list of the TADs.',
+                           help='File name for the relationship list of the TADs'
+                           ' (Default: %(default)s).',
                            default='relationList.txt',
                            required=False)
     parserOpt.add_argument('--outputTreePlotPrefix', '-ot',
-                           help='File name prefix for the relationship tree of the TADs',
+                           help='File name prefix for the relationship tree of the TADs'
+                           ' (Default: %(default)s).',
                            default='relationship_tree_',
                            required=False)
     parserOpt.add_argument('--outputTreePlotFormat', '-of',
-                           help='File format of the relationship tree. Supported formats are listed on: https://www.graphviz.org/doc/info/output.html',
+                           help='File format of the relationship tree. Supported formats are listed on: https://www.graphviz.org/doc/info/output.html'
+                           ' (Default: %(default)s).',
                            default='pdf',
                            required=False)
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
