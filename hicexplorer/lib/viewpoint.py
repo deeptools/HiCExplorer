@@ -188,6 +188,38 @@ class Viewpoint():
                                 interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7], decimal_places=pDecimalPlaces))
         return
 
+    def writeInteractionFileHDF5(self, pInteractionFileGroupH5Object, pFileName, pData, pHeader):
+        '''
+        Writes an interaction file for one viewpoint and one sample as a tab delimited file with one interaction per line.
+        Header contains information about the interaction:
+        Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
+        Relative number of interactions, p-values based on negative binomial distribution per relative distance, raw interaction data
+        '''
+
+        # chrom, start_list, end_list, gene, sum_of_interactions, relative_position_list, interaction_data_list, pPValueList, xFoldList, raw_data_list
+        groupObject = pInteractionFileGroupH5Object.create_group(pFileName)
+        groupObject.create_dataset("header", data=pHeader)
+        # groupObject.create_dataset("chromosome", data=pData[0].decode("utf-8"))
+        groupObject["chromosome"]=str(pData[0])
+
+        groupObject.create_dataset("start_list", data=pData[1])
+        groupObject.create_dataset("end_list", data=pData[2])
+        groupObject.create_dataset("gene", data=pData[3])
+        groupObject.create_dataset("sum_of_interactions", data=pData[4])
+        groupObject.create_dataset("relative_position_list", data=pData[5])
+        groupObject.create_dataset("interaction_data_list", data=pData[6])
+        groupObject.create_dataset("pvalue", data=pData[7])
+        groupObject.create_dataset("xfold", data=pData[8])
+        groupObject.create_dataset("raw", data=pData[9])
+
+        # with open((pBedFile + '.txt').strip(), 'w') as fh:
+        #     fh.write('{}\n'.format(pHeader))
+        #     for j, interaction in enumerate(pData):
+        #         fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\n".
+        #                  format(interaction[0], interaction[1],
+        #                         interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7], decimal_places=pDecimalPlaces))
+        return
+
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
         '''
         This function computes a viewpoint for a given sample and a given pReferencePoint within the
@@ -273,6 +305,69 @@ class Viewpoint():
                 log.error('Failed to get bin position of index {}'.format(idx))
                 exit(1)
         return interactions_list
+
+    def createInteractionFileDataHDF5(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionData, pInteractionDataRaw, pGene, pSumOfInteractions, pPValueList, xFoldList):
+        '''
+        Creates out of internal information a list of tuples which can be written to an interaction file.
+        Tuple contains:
+        Chromosome viewpoint, start, end, chromosome interaction, start, end, relative_position, interaction data
+        '''
+        chrom = ''
+        start_list = []
+        end_list = []
+        gene = pGene
+        # sum_of_interactions_list = pSumOfInteractions
+        relative_position_list = []
+        interaction_data_list = []
+        raw_data_list = []
+        # p_value_list = []
+        # x_fold_list = []
+
+        view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(
+            pReferencePoint)
+        view_point_range = self.getViewpointRangeAsMatrixIndices(
+            pChromViewpoint, pRegion_start, pRegion_end)
+        view_point_range = list(view_point_range)
+        view_point_range[1] += 1
+        # elements_of_viewpoint = view_point_range[1] - view_point_range[0] - (
+        #     view_point_end - view_point_start) + 1
+
+        interactions_list = []
+        chrom, start, _, _ = self.hicMatrix.getBinPos(view_point_start)
+        _, _, end, _ = self.hicMatrix.getBinPos(view_point_end)
+        interaction_positions = list(
+            range(view_point_range[0], view_point_start, 1))
+        interaction_positions.extend([view_point_start])
+        interaction_positions.extend(
+            list(range(view_point_end + 1, view_point_range[1], 1)))
+        relative_position = -1
+        for j, idx in zip(range(len(pInteractionData)), interaction_positions):
+            try:
+
+                chrom_second, start_second, end_second, _ = self.hicMatrix.getBinPos(
+                    idx)
+                if relative_position < 0:
+                    relative_position = int(start_second) - int(start)
+                else:
+                    relative_position = int(end_second) - int(end)
+
+                # interactions_list.append((chrom_second, start_second, end_second, pGene, str(
+                #     pSumOfInteractions), relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
+
+                chrom = chrom_second
+                start_list.append(start_second)
+                end_list.append(end_second)
+                relative_position_list.append(relative_position)
+                interaction_data_list.append(float(pInteractionData[j]))
+                raw_data_list.append(float(pInteractionDataRaw[j]))
+                # p_value_list.append(pPValueList[j])
+                # x_fold_list.append(xFoldList[])
+
+
+            except Exception:
+                log.error('Failed to get bin position of index {}'.format(idx))
+                exit(1)
+        return [chrom, start_list, end_list, gene, pSumOfInteractions, relative_position_list, interaction_data_list, pPValueList, xFoldList, raw_data_list]
 
     def getViewpointRangeAsMatrixIndices(self, pChromViewpoint, pRegion_start, pRegion_end):
         '''

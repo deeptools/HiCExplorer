@@ -16,6 +16,7 @@ from hicexplorer import utilities
 from hicexplorer._version import __version__
 from .lib import Viewpoint
 from hicexplorer.lib import cnb
+import h5py
 
 
 def parse_arguments(args=None):
@@ -45,8 +46,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
 
     parserRequired.add_argument('--interactionFile', '-if',
                                 help='path to the interaction files which should be used for aggregation of the statistics.',
-                                required=True,
-                                nargs='+')
+                                required=True)
 
     parserRequired.add_argument('--pValue', '-p',
                                 help='p-value threshold to filter target regions for inclusion in differential analysis.',
@@ -162,7 +162,10 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         for interactionFile in pInteractionFilesList:
             target_list = []
             sample_prefix = ''
+            log.debug('interactionFile {}'.format(interactionFile))
             for sample in interactionFile:
+                log.debug('sample {}'.format(sample))
+
                 # header,
                 # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
                 if pArgs.interactionFileFolder != '.':
@@ -437,18 +440,18 @@ def main(args=None):
     # args.p_value_dict = None
     # args.p_loose_value_dict = None
     # args.x_fold_dict = None
-    if not os.path.exists(args.outputFolder):
-        try:
-            os.makedirs(args.outputFolder)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
-    if not os.path.exists(args.targetFolder):
-        try:
-            os.makedirs(args.targetFolder)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
+    # if not os.path.exists(args.outputFolder):
+    #     try:
+    #         os.makedirs(args.outputFolder)
+    #     except OSError as exc:  # Guard against race condition
+    #         if exc.errno != errno.EEXIST:
+    #             raise
+    # if not os.path.exists(args.targetFolder):
+    #     try:
+    #         os.makedirs(args.targetFolder)
+    #     except OSError as exc:  # Guard against race condition
+    #         if exc.errno != errno.EEXIST:
+    #             raise
 
     if args.pValue:
         try:
@@ -473,7 +476,38 @@ def main(args=None):
 
     background_model = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range, args.fixateRange)
+    
+    ### read hdf file
+    interactionFileHDF5Object = h5py.File(args.interactionFile, 'r')
+    keys_interactionFile = list(interactionFileHDF5Object.keys()) 
+    if 'interactionFiles' not in keys_interactionFile or 'matrices' not in keys_interactionFile or 'referencePoints' not in keys_interactionFile:
+        log.error('Given interaction file has the wrong structure! Please use an interaction file created with HiCExplorer 3.6, earlier version are not supported!')
+        exit(1)
+
+    log.debug('list(interactionFileHDF5Object.keys()) {}'.format(list(interactionFileHDF5Object.keys()) ))
+    # log.debug('list(interactionFileHDF5Object[keys_interactionFile[0]].keys()) {}'.format(list(interactionFileHDF5Object[keys_interactionFile[0]].keys()) ))
+    # log.debug('list(interactionFileHDF5Object[keys_interactionFile[1]].keys()) {}'.format(list(interactionFileHDF5Object[keys_interactionFile[1]].keys()) ))
+
+    interaction_file_keys = interactionFileHDF5Object[keys_interactionFile[0]].keys()
+    matrices_keys = list(interactionFileHDF5Object[keys_interactionFile[1]].keys())
+    referencePoints_keys = interactionFileHDF5Object.get(keys_interactionFile[2]).values
+    log.debug(referencePoints_keys)
+    log.debug('interactionFileHDF5Object[keys_interactionFile[1]][i] {}'.format(interactionFileHDF5Object[keys_interactionFile[1]][matrices_keys[0]]))
+# ['mydataset']
+
+
     if args.batchMode:
+        if len(list(matrices_keys)) <= args.computeSampleNumber:
+            for referencePoint in referencePoints_keys:
+                lines = []
+                for i in range(0, args.computeSampleNumber):
+                    lines.append(interactionFileHDF5Object[keys_interactionFile[1]][i])
+                    for j in range(i, args.computeSampleNumber):
+                        lines.append()
+        else:
+            log.error('{} samples are requested to considered together, but only {} different samples are available.'.format(args.computeSampleNumber, len(list(matrices_keys))))
+            exit(1)
+
         with open(args.interactionFile[0], 'r') as interactionFile:
             file_ = True
             while file_:

@@ -8,6 +8,7 @@ import math
 import logging
 log = logging.getLogger(__name__)
 
+import h5py
 import numpy as np
 
 import hicmatrix.HiCMatrix as hm
@@ -29,11 +30,11 @@ If multiple reference points are used and the processing downstream should be au
 
 An example usage is:
 
-$ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.txt --range 20000 40000 --outputFolder interactionFilesFolder
+$ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.txt --range 20000 40000 --outputFolder interactionFilesFolder -bmf background_model.txt
 
 An example usage for batch mode is:
 
-$ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.txt --range 20000 40000 --outputFolder interactionFilesFolder --writeFileNamesToFile interactionFile.txt
+$ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.txt --range 20000 40000 --outputFolder interactionFilesFolder --writeFileNamesToFile interactionFile.txt -bmf background_model.txt
 
 """)
 
@@ -58,6 +59,10 @@ $ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoi
     parserRequired.add_argument('--backgroundModelFile', '-bmf',
                                 help='path to the background file computed by chicViewpointBackgroundModel',
                                 required=True)
+    parserRequired.add_argument('--outFileName', '-o',
+                           help='This hdf5 file contains all created viewpoint files.',
+                           required=False,
+                           default='chic_files.hdf5')
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module).',
@@ -85,10 +90,10 @@ $ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoi
                            help='Writes a file where all viewpoints all samples are sorted by the viewpoints.',
                            required=False,
                            action='store_true')
-    parserOpt.add_argument('--outputFolder', '-o',
-                           help='This folder contains all created viewpoint files.',
-                           required=False,
-                           default='interactionFiles')
+    # parserOpt.add_argument('--outputFolder', '-o',
+    #                        help='This folder contains all created viewpoint files.',
+    #                        required=False,
+    #                        default='interactionFiles')
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -129,8 +134,9 @@ def compute_x_fold(pDataList, pBackgroundList):
     return pDataList / pBackgroundList
 
 
-def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions, pOutputFolder):
+def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions, pInteractionFileGroupH5Object):
     file_list = []
+    interaction_data_list = []
 
     try:
         for i, referencePoint in enumerate(pReferencePoints):
@@ -178,9 +184,12 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             region_start_range, region_end_range, _ = pViewpointObj.calculateViewpointRange(
                 referencePoint, (pArgs.range[0], pArgs.range[1]))
 
-            interaction_data = pViewpointObj.createInteractionFileData(referencePoint, referencePoint[0],
+            # interaction_data = pViewpointObj.createInteractionFileData(referencePoint, referencePoint[0],
+            #                                                            region_start_range, region_end_range, data_list, data_list_raw,
+            #                                                            pGeneList[i], denominator_relative_interactions)
+            interaction_data = pViewpointObj.createInteractionFileDataHDF5(referencePoint, referencePoint[0],
                                                                        region_start_range, region_end_range, data_list, data_list_raw,
-                                                                       pGeneList[i], denominator_relative_interactions)
+                                                                       pGeneList[i], denominator_relative_interactions, p_value_list, x_fold_list)
 
             referencePointString = '_'.join(str(j) for j in referencePoint)
 
@@ -199,19 +208,22 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
                 [matrix_name, referencePointString, pGeneList[i]])
             file_list.append(matrix_name + '.txt')
 
-            matrix_name = pOutputFolder + '/' + matrix_name
-            log.debug('type(p_value_list) {}'.format(type(p_value_list)))
-            log.debug('type(x_fold_list) {}'.format(type(x_fold_list)))
-            log.debug('p_value_list {}'.format(p_value_list))
-            log.debug('x_fold_list {}'.format(x_fold_list))
-
-            pViewpointObj.writeInteractionFile(
-                matrix_name, interaction_data, header_information, p_value_list, x_fold_list, pArgs.decimalPlaces)
+            # matrix_name = pOutputFolder + '/' + matrix_name
+            # log.debug('type(p_value_list) {}'.format(type(p_value_list)))
+            # log.debug('type(x_fold_list) {}'.format(type(x_fold_list)))
+            # log.debug('p_value_list {}'.format(p_value_list))
+            # log.debug('x_fold_list {}'.format(x_fold_list))
+            referencePointGenename = '_'.join([referencePointString, pGeneList[i]])
+            referencePointGenename = str(referencePointGenename)
+            log.debug('referencePointGenename {}'.format(referencePointGenename))
+            interaction_data_list.append([matrix_name, interaction_data, header_information, referencePointGenename])
+            # pViewpointObj.writeInteractionFileHDF5(
+            #     pInteractionFileGroupH5Object, matrix_name, interaction_data, header_information, p_value_list, x_fold_list, pArgs.decimalPlaces)
     except Exception as exp:
         log.debug('Error! {}'.format(str(exp)))
         pQueue.put('Fail: ' + str(exp))
         return
-    pQueue.put(file_list)
+    pQueue.put([file_list, interaction_data_list])
     return
 
 
@@ -233,12 +245,23 @@ def main(args=None):
     # background_sum_of_densities_dict = viewpointObj.computeSumOfDensities(
     #     background_model, args, pXfoldMaxValue=args.xFoldMaxValueNB)
 
-    if not os.path.exists(args.outputFolder):
-        try:
-            os.makedirs(args.outputFolder)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
+    # if not os.path.exists(args.outputFilename):
+    #     try:
+    #         os.makedirs(args.outputFilename)
+    #     except OSError as exc:  # Guard against race condition
+    #         if exc.errno != errno.EEXIST:
+    #             raise
+
+    # create hdf5 output file
+    interactionFileH5Object = h5py.File(args.outFileName, 'w')
+    interactionFileGroup = interactionFileH5Object.create_group("interactionFiles")
+    matricesGroup = interactionFileH5Object.create_group("matrices")
+
+    for i, matrix in enumerate(args.matrices):
+        matricesGroup[str(i)] = str('.'.join(matrix.split('/')[-1].split('.')[:-1]))
+    # interactionFileH5Object.create_dataset('matrices', data=args.matrices)
+
+
     fail_flag = False
     fail_message = ''
 
@@ -246,6 +269,8 @@ def main(args=None):
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
         file_list_sample = [None] * args.threads
+        interaction_data_list_sample = [None] * args.threads
+
         all_data_collected = False
 
         for i in range(args.threads):
@@ -272,7 +297,7 @@ def main(args=None):
                 pMatrix=matrix,
                 pBackgroundModel=background_model,
                 pBackgroundModelRelativeInteractions=background_model_mean_values,
-                pOutputFolder=args.outputFolder
+                pInteractionFileGroupH5Object=interactionFileGroup
             )
             )
 
@@ -285,7 +310,7 @@ def main(args=None):
                     if 'Fail:' in file_list_:
                         fail_flag = True
                         fail_message = file_list_[6:]
-                    file_list_sample[i] = file_list_
+                    file_list_sample[i], interaction_data_list_sample[i] = file_list_
                     process[i].join()
                     process[i].terminate()
                     process[i] = None
@@ -301,10 +326,20 @@ def main(args=None):
             log.error(fail_message)
             exit(1)
 
-        file_list_sample = [item for sublist in file_list_sample for item in sublist]
+        file_list_sample= [item for sublist in file_list_sample for item in sublist]
+        interaction_data_list = [item for sublist in interaction_data_list_sample for item in sublist]
         file_list.append(file_list_sample)
 
-    log.debug('file_list {}'.format(file_list))
+    for interaction_data in interaction_data_list:
+         viewpointObj.writeInteractionFileHDF5(
+                interactionFileGroup, interaction_data[0], interaction_data[1], interaction_data[2])
+
+    # log.debug('file_list {}'.format(file_list))
+
+    log.debug('interaction_data[3] {}'.format(interaction_data_list[3]))
+    # write reference point and gene name
+    interactionFileH5Object.create_dataset("referencePoints", data=interaction_data_list[3])
+
     if args.writeFileNamesToFile:
         with open(args.writeFileNamesToFile, 'w') as file:
             log.debug('len(file_list) {}'.format(len(file_list)))
