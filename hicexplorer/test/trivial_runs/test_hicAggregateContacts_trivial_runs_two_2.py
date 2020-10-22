@@ -36,6 +36,7 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("matrix", [matrix])  # required
 @pytest.mark.parametrize("outFileName", [outfile_aggregate_plots])  # required
 @pytest.mark.parametrize("BED", [BED])  # required
+@pytest.mark.parametrize("mode", ["intra-chr"])  # required
 @pytest.mark.parametrize("ran", ['50000:900000'])  # required
 @pytest.mark.parametrize("BED2", [BED2])
 @pytest.mark.parametrize("numberOfBins", [30])
@@ -52,13 +53,13 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("plotType", sorted(['2d', '3d']))
 @pytest.mark.parametrize("vMin", [0.01])
 @pytest.mark.parametrize("vMax", [1.0])
-def test_aggregate_contacts_two(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins,
+def test_aggregate_contacts_two(capsys, matrix, outFileName, BED, mode, ran, BED2, numberOfBins,
                                 transform, avgType, outFilePrefixMatrix,
                                 outFileContactPairs, diagnosticHeatmapFile, kmeans,
                                 hclust, howToCluster, chromosomes, colorMap, plotType,
                                 vMin, vMax):
     # test outFileContactPairs^
-    args = "--matrix {} --outFileName {} --BED {} --range {} --BED2 {} " \
+    args = "--matrix {} --outFileName {} --BED {} --mode {} --range {} --BED2 {} " \
            "--numberOfBins {} --transform {} --avgType {} --outFileContactPairs {} " \
            "--kmeans {} --hclust {} " \
            "--howToCluster {} --chromosomes {} --colorMap {} --plotType {} --vMin {} " \
