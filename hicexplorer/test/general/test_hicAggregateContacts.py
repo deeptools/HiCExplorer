@@ -31,7 +31,7 @@ tolerance = 50  # default matplotlib pixed difference tolerance
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
-def test_hicAggregateContacts():
+def test_hicAggregateContacts_intra_perChr():
 
     outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
 
@@ -40,7 +40,50 @@ def test_hicAggregateContacts():
            "--mode intra-chr --perChr".\
         format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
-    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'
+    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_intra_perChr.png'
+
+    # hicexplorer.hicAggregateContacts.main(args.split())
+    compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
+    res = compare_images(test_image_agg, outfile_aggregate_plots.name, tolerance)
+    assert res is None, res
+
+    os.remove(outfile_aggregate_plots.name)
+
+
+@pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicAggregateContacts_intra():
+
+    outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
+
+    args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
+           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100 "\
+           "--mode intra-chr".\
+        format(root=ROOT, out_agg=outfile_aggregate_plots.name)
+
+    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_intra.png'
+
+    # hicexplorer.hicAggregateContacts.main(args.split())
+    compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
+    res = compare_images(test_image_agg, outfile_aggregate_plots.name, tolerance)
+    assert res is None, res
+
+    os.remove(outfile_aggregate_plots.name)
+
+
+@pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicAggregateContacts_inter():
+
+    outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
+
+    args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
+           "--outFileName {out_agg} --numberOfBins 30 --disable_bbox_tight --dpi 100 "\
+           "--mode inter-chr".format(root=ROOT, out_agg=outfile_aggregate_plots.name)
+
+    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_inter.png'
 
     # hicexplorer.hicAggregateContacts.main(args.split())
     compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
@@ -59,8 +102,7 @@ def test_hicAggregateContacts_chromosome_not_given():
 
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions_region_not_given.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100 "\
-           "--mode intra-chr --perChr ".\
-        format(root=ROOT, out_agg=outfile_aggregate_plots.name)
+           "--mode intra-chr --perChr ".format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
     # test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'
 
@@ -77,8 +119,7 @@ def test_hicAggregateContacts_cooler():
 
     args = "--matrix {root}/Li_et_al_2015.cool --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100 "\
-           "--mode intra-chr --perChr ".\
-        format(root=ROOT, out_agg=outfile_aggregate_plots.name)
+           "--mode intra-chr --perChr ".format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'  # noqa: F841
 
@@ -102,8 +143,8 @@ def test_hicAggregateContacts_clustering():
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 4 " \
            "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight --dpi 100 " \
-           "--BED2 {root}/hicAggregateContacts/test_regions.bed --mode intra-chr --perChr".format(root=ROOT, out_agg=outfile_aggregate_plots.name,
-                                                                        out_heat=outfile_heatmaps.name)
+           "--BED2 {root}/hicAggregateContacts/test_regions.bed --mode intra-chr --perChr".\
+           format(root=ROOT, out_agg=outfile_aggregate_plots.name, out_heat=outfile_heatmaps.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_hclust4.png'
     test_image_heatmap = ROOT + 'hicAggregateContacts/master_heatmap.png'
@@ -132,8 +173,8 @@ def test_hicAggregateContacts_clustering_cool():
     args = "--matrix {root}/Li_et_al_2015.cool --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 4 " \
            "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight --dpi 100 " \
-           "--BED2 {root}/hicAggregateContacts/test_regions.bed  --mode intra-chr --perChr".format(root=ROOT, out_agg=outfile_aggregate_plots.name,
-                                                                        out_heat=outfile_heatmaps.name)
+           "--BED2 {root}/hicAggregateContacts/test_regions.bed  --mode intra-chr --perChr".\
+           format(root=ROOT, out_agg=outfile_aggregate_plots.name, out_heat=outfile_heatmaps.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_hclust4.png'
     test_image_heatmap = ROOT + 'hicAggregateContacts/master_heatmap.png'
@@ -161,7 +202,8 @@ def test_hicAggregateContacts_3d():
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 2 --dpi 100 " \
            "--plotType 3d --disable_bbox_tight " \
-           "--BED2 {root}/hicAggregateContacts/test_regions.bed  --mode intra-chr --perChr".format(root=ROOT, out_agg=outfile_aggregate_3d.name)
+           "--BED2 {root}/hicAggregateContacts/test_regions.bed  --mode intra-chr --perChr".\
+           format(root=ROOT, out_agg=outfile_aggregate_3d.name)
 
     test_image_agg_3d = ROOT + 'hicAggregateContacts/master_aggregate_3d.png'
 
@@ -207,7 +249,8 @@ def test_hicAggregateContacts_row_wise():
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/bed1_row-wise.bed " \
            "--BED2 {root}/hicAggregateContacts/bed2_row-wise.bed "\
            "--outFileName {out_agg} --numberOfBins 30 --row_wise "\
-           "--range 50000:6000000 --dpi 100 ".format(root=ROOT, out_agg=outfile_aggregate_row_wise.name)
+           "--range 50000:6000000 --dpi 100 --mode intra-chr --perChr ".\
+           format(root=ROOT, out_agg=outfile_aggregate_row_wise.name)
 
     test_image_agg_row_wise = ROOT + 'hicAggregateContacts/master_aggregate_row_wise.png'
 

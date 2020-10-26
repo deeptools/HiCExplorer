@@ -15,8 +15,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import sklearn.cluster as skclust
 from hicmatrix import HiCMatrix as hm
 import hicexplorer.utilities
-from .utilities import toString
-from .utilities import check_chrom_str_bytes
+from .utilities import check_chrom_str_bytes, change_chrom_names, toString
 from hicexplorer._version import __version__
 
 import logging
@@ -212,7 +211,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def read_bed_per_chrom(fh):
+def read_bed_per_chrom(fh, chrom_list):
     """
     Reads the given BED file returning
     a dictionary that contains, per each chromosome
@@ -223,13 +222,17 @@ def read_bed_per_chrom(fh):
         if line[0] == "#":
             continue
         fields = line.strip().split()
+        if fields[0] not in chrom_list:
+            if change_chrom_names(fields[0]) in chrom_list:
+                fields[0] = change_chrom_names(fields[0])
+            else:
+                continue
         if fields[0] not in interval:
             interval[fields[0]] = []
-
         interval[fields[0]].append((int(fields[1]), int(fields[2])))
     return interval
 
-def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range = None, transform = None,  mode='', perChr = False):
+def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
     """
     To aggregate the contacts of desired sumatrices.
     """
@@ -237,7 +240,10 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, 
     for k1, v1 in bed1.items():
         for k2, v2 in bed2.items():
             if (mode == 'inter-chr') & (k1 == k2):
-                continue
+                if (len(bed1) == 1) and (len(bed2) == 1):
+                    exit("Error: 'inter-chr' mode needs at least a pair of coordinates with different chromoses to be available in the bed files.")
+                else:
+                    continue
             if (mode == 'intra-chr') & (k1 != k2):
                 continue
             for coord1 in v1:
@@ -246,7 +252,6 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, 
                         continue
                     interval = [(k1, coord1[0], coord1[1]), (k2, coord2[0], coord2[1])]
                     count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range, transform, perChr)
-
     # over_1_5 = 0
     #
 
@@ -261,7 +266,7 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, 
         #          format(empty_mat, float(empty_mat) / counter))
 
 
-def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range = None, transform = None,  mode='', perChr = False):
+def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
     """
     To aggregate the contacts of the desired submatrices , if row-wise.
     """
@@ -269,11 +274,11 @@ def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, largeRegionsOpe
     for line1, line2 in zip(bed1, bed2):
         line1 = line1.strip().split()
         line2 = line2.strip().split()
-        if mode == 'inter-chr': # skip the lines with same chrom
+        if mode == 'inter-chr':  # skip the lines with same chrom
             if line1[0] == line2[0]:
                 continue
-        elif mode == 'intra-chr': # skip the lines with different chrom
-            if line1[0]!=line2[0]:
+        elif mode == 'intra-chr':  # skip the lines with different chrom
+            if line1[0] != line2[0]:
                 continue
         intervals.append((line1[0:3], line2[0:3]))
 
@@ -281,15 +286,18 @@ def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, largeRegionsOpe
         count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range, transform, perChr)
 
 
-def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range = None, transform = None, perChr = False):
+def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range=None, transform=None, perChr=False):
     """
     To count the number of contacts for a given pair of intervals
     """
+
     chrom1, start1, end1 = interval[0]
     chrom2, start2, end2 = interval[1]
-    if (chrom1 not in agg_info["chrom_coord"]) or (chrom2 not in agg_info["chrom_coord"]):
+    if chrom1 not in agg_info["chrom_coord"]:
         return
-    if (int(end1) > agg_info["chrom_coord"][chrom1][1]) or (int(end2) > agg_info["chrom_coord"][chrom2][1]): # TODO these intervals may still partially be overlapped, shall we keep them?
+    if chrom2 not in agg_info["chrom_coord"]:
+        return
+    if (int(end1) > agg_info["chrom_coord"][chrom1][1]) or (int(end2) > agg_info["chrom_coord"][chrom2][1]):  # TODO these intervals may still partially be overlapped, shall we keep them?
         return
     if (int(start1) < agg_info["chrom_coord"][chrom1][0]) or (int(start2) < agg_info["chrom_coord"][chrom2][0]):
         return
@@ -300,15 +308,15 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         return
     if (bin_id1 is None) or (bin_id2 is None):
         return
-    else: # If the regions size is bigger than a bin then:
+    else:  # If the regions size is bigger than a bin then:
         bin_id1 = bin_id1[0]
         bin_id2 = bin_id2[0]
         if largeRegionsOperation == 'last':
             bin_id1 = bin_id1[-1]
             bin_id2 = bin_id2[-1]
         elif largeRegionsOperation == 'center':
-            bin_id1 = bin_id1[floor(len(bin_id1)/2)]
-            bin_id2 = bin_id2[floor(len(bin_id2)/2)]
+            bin_id1 = bin_id1[np.floor(len(bin_id1) / 2)]
+            bin_id2 = bin_id2[np.floor(len(bin_id2) / 2)]
         elif largeRegionsOperation == 'sum':
             bin_id1 = np.sum(bin_id1)
             bin_id2 = np.sum(bin_id2)
@@ -318,16 +326,13 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         elif largeRegionsOperation == 'median':
             bin_id1 = np.median(bin_id1)
             bin_id2 = np.median(bin_id2)
-
     if bin_id1 > bin_id2:
-        if chrom1 == chrom2 :
+        if chrom1 == chrom2:
             bin_id1, bin_id2 = sorted([bin_id1, bin_id2])
         else:
             chr1, str1, en1, bin1 = chrom1, start1, end1, bin_id1
             chrom1, start1, end1, bin_id1 = chrom2, start2, end2, bin_id2
             chrom2, start2, end2, bin_id2 = chr1, str1, en1, bin1
-
-
     agg_info["counter"] += 1
     if agg_info["counter"] % 50000 == 0:
         log.info("Number of contacts considered: {:,}".format(agg_info["counter"]))
@@ -336,7 +341,7 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
     chrom1_bin_range = ma.getChrBinRange(toString(chrom1))
     chrom2_bin_range = ma.getChrBinRange(toString(chrom2))
 
-    if chrom1 == chrom2: # chrom1 == chrom2 can happen in intra or all
+    if chrom1 == chrom2:  # chrom1 == chrom2 can happen in intra or all
         if (chrom1 not in agg_info["agg_total"]) and (mode == "intra-chr") and (perChr == True):
             agg_info["agg_total"][chrom1] = 0
             agg_info["agg_matrix"][chrom1] = []
@@ -374,7 +379,7 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
     if transform == 'total-counts' and mat_to_append.sum() > 0:
         mat_to_append = mat_to_append / mat_to_append.sum()
 
-    if (mode == "intra-chr") and (perChr == True): # chrom1 == chrom2
+    if (mode == "intra-chr") and (perChr == True):  # chrom1 == chrom2
         agg_info["agg_total"][chrom1] += 1
         agg_info["agg_matrix"][chrom1].append(mat_to_append)
         agg_info["agg_diagonals"][chrom1].append(mat_to_append.diagonal())
@@ -493,13 +498,13 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', how='full'):
             matrix[np.isnan(matrix)] = 0
 
         if method == 'kmeans':
-            clustering =  skclust.KMeans(n_clusters=k, random_state=0).fit(matrix)
+            clustering = skclust.KMeans(n_clusters=k, random_state=0).fit(matrix)
             cluster_labels = clustering.labels_
         if method == 'hierarchical':
             clustering = skclust.AgglomerativeClustering(n_clusters=k).fit(matrix)
             cluster_labels = clustering.labels_
         if method == 'spectral':
-            clustering = skclust.SpectralClustering(n_clusters=k, assign_labels="discretize",random_state=0).fit(matrix)
+            clustering = skclust.SpectralClustering(n_clusters=k, assign_labels="discretize", random_state=0).fit(matrix)
             cluster_labels = clustering.labels_
 
         # sort clusters
@@ -709,24 +714,24 @@ def main(args=None):
         ma.keepOnlyTheseChr(args.chromosomes)
 
     default_range = '1000000:20000000'
-    if args.range == None:
-        log.warning("You have not set any range. This is by default set to {} for intra-chr.".format(default_range))
+    if args.range is None:
+        if args.mode == "intra-chr":
+            log.warning("You have not set any range. This is by default set to {} for intra-chr.".format(default_range))
         args.range = default_range
     min_dist, max_dist = args.range.split(":")
 
-    if args.transform == "z-score": # use zscore matrix
+    if args.transform == "z-score":  # use zscore matrix
         log.info("Computing z-score matrix. This may take a while.\n")
         if args.mode == 'intra-chr':
-            ma.convert_to_zscore_matrix(maxdepth = max_dist * 2.5, perchr = True)
+            ma.convert_to_zscore_matrix(maxdepth=max_dist * 2.5, perchr=True)
         else:
-            ma.convert_to_zscore_matrix(maxdepth = None, perchr = True)
-    elif args.transform == "obs/exp": # use obs/exp matrix
+            ma.convert_to_zscore_matrix(maxdepth=None, perchr=True)
+    elif args.transform == "obs/exp":  # use obs/exp matrix
         log.info("Computing observed vs. expected matrix. This may take a while.\n")
         if args.mode == 'intra-chr':
-            ma.convert_to_obs_exp_matrix(maxdepth = max_dist * 2.5, perchr=True)
+            ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
         else:
-            ma.convert_to_obs_exp_matrix(maxdepth = None, perchr=True)
-
+            ma.convert_to_obs_exp_matrix(maxdepth=None, perchr=True)
 
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
     M_half = int((M - 1) // 2)
@@ -736,12 +741,12 @@ def main(args=None):
     for chrom in chrom_list:
         first, last = ma.getChrBinRange(chrom)
         first = ma.getBinPos(first)
-        last = ma.getBinPos(last-1)
-        chrom_coord[chrom] = (first[1],last[2])
+        last = ma.getBinPos(last - 1)
+        chrom_coord[chrom] = (first[1], last[2])
 
     agg_info = dict()
     agg_info["chrom_coord"] = chrom_coord
-    agg_info["seen"] =[]
+    agg_info["seen"] = []
     agg_info["agg_matrix"] = OrderedDict()
     agg_info["agg_total"] = {}
     agg_info["agg_diagonals"] = OrderedDict()
@@ -749,7 +754,8 @@ def main(args=None):
     agg_info["agg_center_values"] = {}
     agg_info["counter"] = 0
     agg_info["empty_mat"] = 0
-
+    if (args.mode == 'inter-chr') and (len(agg_info["chrom_coord"]) ==1):
+        exit("Error: 'inter-chr' mode can not be applied on matrices of only one chromosme.")
     if args.row_wise:
         # read bed files
         bed_intervals = args.BED.readlines()
@@ -759,17 +765,16 @@ def main(args=None):
             log.error("Error computing row-wise contacts requires two bed files!")
             exit("Error computing row-wise contacts requires two bed files!")
         # agg_matrix could be either per chromosome or genome wide
-        aggregate_contacts_per_row(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.largeRegionsOperation, args.range, args.transform, mode = args.mode, perChr=args.perChr)
-    else: # not row-wise
+        aggregate_contacts_per_row(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.largeRegionsOperation, args.range, args.transform, mode=args.mode, perChr=args.perChr)
+    else:  # not row-wise
         # read and sort bedgraph.
-        bed_intervals = read_bed_per_chrom(args.BED)
+        bed_intervals = read_bed_per_chrom(args.BED, chrom_list)
         if args.BED2:
-            bed_intervals2 = read_bed_per_chrom(args.BED2)
+            bed_intervals2 = read_bed_per_chrom(args.BED2, chrom_list)
         else:
             bed_intervals2 = bed_intervals
         # agg_matrix could be either per chromosome or genome wide
-        aggregate_contacts(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.largeRegionsOperation, args.range, args.transform, mode = args.mode, perChr=args.perChr)
-
+        aggregate_contacts(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.largeRegionsOperation, args.range, args.transform, mode=args.mode, perChr=args.perChr)
 
     if args.kmeans is not None:
         cluster_ids = cluster_matrices(agg_info["agg_matrix"], args.kmeans, method='kmeans', how=args.howToCluster)
@@ -786,10 +791,11 @@ def main(args=None):
         num_clusters = 1
         for k in agg_info["agg_matrix"].keys():
             cluster_ids[k] = [range(len(agg_info["agg_matrix"][k]))]
-
+    if len(agg_info["agg_matrix"]) == 0:
+        exit("No susbmatrix found to be aggregated.")
     plot_aggregated_contacts(agg_info["agg_matrix"], agg_info["agg_contact_position"], cluster_ids, num_clusters, M_half, args)
 
-    if args.outFileContactPairs:
+    if args.outFileContactPairs:  #TODO
         for idx, chrom in enumerate(chrom_matrix):
             if chrom not in bed_intervals or chrom not in bed_intervals2:
                 continue
