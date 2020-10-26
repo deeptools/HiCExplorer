@@ -63,7 +63,7 @@ def test_aggregate_contacts_two(capsys, matrix, outFileName, BED, mode, ran, BED
            "--numberOfBins {} --transform {} --avgType {} --outFileContactPairs {} " \
            "--kmeans {} --hclust {} " \
            "--howToCluster {} --chromosomes {} --colorMap {} --plotType {} --vMin {} " \
-           "--vMax {} --disable_bbox_tight".format(matrix, outFileName.name, BED, ran,
+           "--vMax {} --disable_bbox_tight".format(matrix, outFileName.name, BED, mode, ran,
                                                    BED2, numberOfBins, transform, avgType,
                                                    outFileContactPairs,
                                                    kmeans, hclust,

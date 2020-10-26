@@ -53,7 +53,7 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("plotType", sorted(['2d', '3d']))
 @pytest.mark.parametrize("vMin", [0.01])
 @pytest.mark.parametrize("vMax", [1.0])
-def test_aggregate_contacts(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins, transform,
+def test_aggregate_contacts(capsys, matrix, outFileName, BED, mode, ran, BED2, numberOfBins, transform,
                             avgType, outFilePrefixMatrix, outFileContactPairs,
                             diagnosticHeatmapFile, kmeans, hclust, howToCluster,
                             chromosomes, colorMap, plotType, vMin, vMax):

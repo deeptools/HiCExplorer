@@ -90,6 +90,7 @@ def test_hicAggregateContacts_inter():
 
     os.remove(outfile_aggregate_plots.name)
 
+
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
