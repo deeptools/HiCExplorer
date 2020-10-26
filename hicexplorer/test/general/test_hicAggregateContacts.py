@@ -100,7 +100,7 @@ def test_hicAggregateContacts_all():
 
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --disable_bbox_tight --dpi 100 "\
-           "--mode all".format(root=ROOT, out_agg=outfile_aggregate_plots.name)
+           "--mode all --range 50000:900000 ".format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_all.png'
 
