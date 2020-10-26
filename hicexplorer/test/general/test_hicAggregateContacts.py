@@ -64,7 +64,6 @@ def test_hicAggregateContacts_intra():
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_intra.png'
 
-    # hicexplorer.hicAggregateContacts.main(args.split())
     compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
     res = compare_images(test_image_agg, outfile_aggregate_plots.name, tolerance)
     assert res is None, res
@@ -79,13 +78,31 @@ def test_hicAggregateContacts_inter():
 
     outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
 
-    args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
+    args = "--matrix {root}/small_test_matrix.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --disable_bbox_tight --dpi 100 "\
            "--mode inter-chr".format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_inter.png'
 
-    # hicexplorer.hicAggregateContacts.main(args.split())
+    compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
+    res = compare_images(test_image_agg, outfile_aggregate_plots.name, tolerance)
+    assert res is None, res
+
+    os.remove(outfile_aggregate_plots.name)
+
+@pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicAggregateContacts_all():
+
+    outfile_aggregate_plots = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_', delete=False)
+
+    args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
+           "--outFileName {out_agg} --numberOfBins 30 --disable_bbox_tight --dpi 100 "\
+           "--mode all".format(root=ROOT, out_agg=outfile_aggregate_plots.name)
+
+    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_all.png'
+
     compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
     res = compare_images(test_image_agg, outfile_aggregate_plots.name, tolerance)
     assert res is None, res
@@ -242,7 +259,7 @@ def test_hicAggregateContacts_3d_cooler():
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
-def test_hicAggregateContacts_row_wise():
+def test_hicAggregateContacts_row_wise_intra_perChr():
 
     outfile_aggregate_row_wise = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_row_wise', delete=False)
 
@@ -254,8 +271,6 @@ def test_hicAggregateContacts_row_wise():
 
     test_image_agg_row_wise = ROOT + 'hicAggregateContacts/master_aggregate_row_wise.png'
 
-    # hicexplorer.hicAggregateContacts.main(args.split())
-    # hicexplorer.hicAggregateContacts.main(args.split())
     compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
     res = compare_images(test_image_agg_row_wise, outfile_aggregate_row_wise.name, tolerance)
     assert res is None, res

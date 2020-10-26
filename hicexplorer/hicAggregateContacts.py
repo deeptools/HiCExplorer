@@ -27,10 +27,9 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      description='Takes a list of positions in the Hi-C matrix and '
                                                  'makes a pooled image.')
-
+    # define the arguments
     parserRequired = parser.add_argument_group('Required arguments')
 
-    # define the arguments
     parserRequired.add_argument('--matrix', '-m',
                                 help='Path of the Hi-C matrix to plot.',
                                 required=True)
@@ -49,25 +48,23 @@ def parse_arguments(args=None):
                                 choices=['inter-chr', 'intra-chr', 'all'],
                                 required=True)
 
-
-
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--range',
-                            help='Range of contacts that will be considered for plotting the aggregate contacts '
-                            'in bp with the format low_range:high_range for example 1000000:20000000. The range '
-                            'should start at contacts larger than TAD size to reduce background interactions. '
-                            'This will be ignored if inter-chromosomal contacts are of interest.',
-                            default=None)
+                           help='Range of contacts that will be considered for plotting the aggregate contacts '
+                           'in bp with the format low_range:high_range for example 1000000:20000000. The range '
+                           'should start at contacts larger than TAD size to reduce background interactions. '
+                           'This will be ignored if inter-chromosomal contacts are of interest.',
+                           default=None)
 
     parserOpt.add_argument('--row_wise',
-                            help='If given,the insteractions between each row of the BED file and its '
-                            'corresponding row of the BED2 file are computed. If intera-chromosomal '
-                            'contacts are computed, the rows with different chromosomes are ignored. '
-                            'If inter-chromosomal, the rows with same chromosomes are ignored. '
-                            'It keeps all the rows if `all`.',
-                            action='store_true',
-                            required=False)
+                           help='If given,the insteractions between each row of the BED file and its '
+                           'corresponding row of the BED2 file are computed. If intera-chromosomal '
+                           'contacts are computed, the rows with different chromosomes are ignored. '
+                           'If inter-chromosomal, the rows with same chromosomes are ignored. '
+                           'It keeps all the rows if `all`.',
+                           action='store_true',
+                           required=False)
 
     parserOpt.add_argument('--BED2',
                            help='Optional second BED file. Interactions between regions in first '
@@ -139,7 +136,6 @@ def parse_arguments(args=None):
                            'center.',
                            type=argparse.FileType('w'),
                            required=False)
-
 
     parserClust = parser.add_argument_group('Clustering options')
 
@@ -232,11 +228,11 @@ def read_bed_per_chrom(fh, chrom_list):
         interval[fields[0]].append((int(fields[1]), int(fields[2])))
     return interval
 
+
 def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
     """
     To aggregate the contacts of desired sumatrices.
     """
-
     for k1, v1 in bed1.items():
         for k2, v2 in bed2.items():
             if (mode == 'inter-chr') & (k1 == k2):
@@ -354,7 +350,9 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         assert int(min_dist) < int(max_dist), "Error lower range larger than upper range"
         min_dist_in_bins = int(min_dist) // bin_size
         max_dist_in_bins = int(max_dist) // bin_size
+        print(min_dist_in_bins, abs(bin_id2 - bin_id1), max_dist_in_bins)
         if (min_dist_in_bins > abs(bin_id2 - bin_id1)) or (abs(bin_id2 - bin_id1) > max_dist_in_bins):
+            print("skip!")
             return
     if (bin_id1, bin_id2) in agg_info["seen"]:
         return
@@ -364,6 +362,7 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         return
     try:
         mat_to_append = ma.matrix[bin_id1 - M_half:bin_id1 + M_half + 1, :][:, bin_id2 - M_half:bin_id2 + M_half + 1].todense().astype(float)
+        print(mat_to_append)
     except IndexError:
         log.info("index error for {} {}".format(bin_id1, bin_id2))
         return
@@ -754,7 +753,7 @@ def main(args=None):
     agg_info["agg_center_values"] = {}
     agg_info["counter"] = 0
     agg_info["empty_mat"] = 0
-    if (args.mode == 'inter-chr') and (len(agg_info["chrom_coord"]) ==1):
+    if (args.mode == 'inter-chr') and (len(agg_info["chrom_coord"]) == 1):
         exit("Error: 'inter-chr' mode can not be applied on matrices of only one chromosme.")
     if args.row_wise:
         # read bed files
@@ -795,12 +794,12 @@ def main(args=None):
         exit("No susbmatrix found to be aggregated.")
     plot_aggregated_contacts(agg_info["agg_matrix"], agg_info["agg_contact_position"], cluster_ids, num_clusters, M_half, args)
 
-    if args.outFileContactPairs:  #TODO
-        for idx, chrom in enumerate(chrom_matrix):
+    if args.outFileContactPairs:
+        for idx, chrom in enumerate(agg_info["agg_matrix"]):
             if chrom not in bed_intervals or chrom not in bed_intervals2:
                 continue
             for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
-                center_values_to_order = np.array(center_values[chrom])[cluster_indices]
+                center_values_to_order = np.array(agg_info["agg_center_values"][chrom])[cluster_indices]
                 center_values_order = np.argsort(center_values_to_order)[::-1]
 
                 output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs,
@@ -808,7 +807,7 @@ def main(args=None):
                 with open(output_name, 'w') as fh:
                     for cl_idx in center_values_order:
                         value = center_values_to_order[cl_idx]
-                        start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
+                        start, end, start2, end2 = agg_info["agg_contact_position"][chrom][cl_idx]
                         fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2, value))
 
     # plot the diagonals
