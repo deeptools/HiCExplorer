@@ -262,7 +262,7 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, 
         #          format(empty_mat, float(empty_mat) / counter))
 
 
-def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
+def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
     """
     To aggregate the contacts of the desired submatrices , if row-wise.
     """
@@ -270,6 +270,14 @@ def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, largeRegionsOpe
     for line1, line2 in zip(bed1, bed2):
         line1 = line1.strip().split()
         line2 = line2.strip().split()
+        if line1[0] not in chrom_list:
+            line1[0] = change_chrom_names(line1[0])
+            if line1[0] not in chrom_list:
+                continue
+        if line2[0] not in chrom_list:
+            line2[0] = change_chrom_names(line2[0])
+            if line2[0] not in chrom_list:
+                continue
         if mode == 'inter-chr':  # skip the lines with same chrom
             if line1[0] == line2[0]:
                 continue
@@ -277,7 +285,6 @@ def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, M_half, largeRegionsOpe
             if line1[0] != line2[0]:
                 continue
         intervals.append((line1[0:3], line2[0:3]))
-
     for interval in intervals:
         count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range, transform, perChr)
 
@@ -350,9 +357,7 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         assert int(min_dist) < int(max_dist), "Error lower range larger than upper range"
         min_dist_in_bins = int(min_dist) // bin_size
         max_dist_in_bins = int(max_dist) // bin_size
-        print(min_dist_in_bins, abs(bin_id2 - bin_id1), max_dist_in_bins)
         if (min_dist_in_bins > abs(bin_id2 - bin_id1)) or (abs(bin_id2 - bin_id1) > max_dist_in_bins):
-            print("skip!")
             return
     if (bin_id1, bin_id2) in agg_info["seen"]:
         return
@@ -362,7 +367,6 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         return
     try:
         mat_to_append = ma.matrix[bin_id1 - M_half:bin_id1 + M_half + 1, :][:, bin_id2 - M_half:bin_id2 + M_half + 1].todense().astype(float)
-        print(mat_to_append)
     except IndexError:
         log.info("index error for {} {}".format(bin_id1, bin_id2))
         return
@@ -386,6 +390,7 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         agg_info["agg_contact_position"][chrom1].append((start1, end1, start2, end2))
 
     else:
+
         if 'genome' not in agg_info["agg_total"]:
             agg_info["agg_total"]["genome"] = 0
             agg_info["agg_matrix"]["genome"] = []
@@ -764,7 +769,7 @@ def main(args=None):
             log.error("Error computing row-wise contacts requires two bed files!")
             exit("Error computing row-wise contacts requires two bed files!")
         # agg_matrix could be either per chromosome or genome wide
-        aggregate_contacts_per_row(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.largeRegionsOperation, args.range, args.transform, mode=args.mode, perChr=args.perChr)
+        aggregate_contacts_per_row(bed_intervals, bed_intervals2, agg_info, ma, chrom_list, M_half, args.largeRegionsOperation, args.range, args.transform, mode=args.mode, perChr=args.perChr)
     else:  # not row-wise
         # read and sort bedgraph.
         bed_intervals = read_bed_per_chrom(args.BED, chrom_list)
