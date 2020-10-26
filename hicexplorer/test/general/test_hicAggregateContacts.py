@@ -122,7 +122,6 @@ def test_hicAggregateContacts_chromosome_not_given():
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100 "\
            "--mode intra-chr --perChr ".format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
-    # test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'
 
     # hicexplorer.hicAggregateContacts.main(args.split())
     compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
@@ -139,7 +138,7 @@ def test_hicAggregateContacts_cooler():
            "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --disable_bbox_tight --dpi 100 "\
            "--mode intra-chr --perChr ".format(root=ROOT, out_agg=outfile_aggregate_plots.name)
 
-    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate.png'  # noqa: F841
+    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_intra_perChr.png'  # noqa: F841
 
     # hicexplorer.hicAggregateContacts.main(args.split())
     compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
