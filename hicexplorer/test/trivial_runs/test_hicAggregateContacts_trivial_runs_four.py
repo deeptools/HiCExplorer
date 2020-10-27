@@ -41,7 +41,7 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("BED2", [BED2])
 @pytest.mark.parametrize("numberOfBins", [30])
 @pytest.mark.parametrize("transform", sorted(['obs/exp']))
-@pytest.mark.parametrize("avgType", ['mean', 'median'])
+@pytest.mark.parametrize("operationType", ['sum', 'mean', 'median'])
 @pytest.mark.parametrize("outFilePrefixMatrix", ['outFilePrefix'])
 @pytest.mark.parametrize("outFileContactPairs", ['outFileContactPairs'])
 @pytest.mark.parametrize("diagnosticHeatmapFile", [diagnosticHeatmapFile])
@@ -54,7 +54,7 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("vMin", [0.01])
 @pytest.mark.parametrize("vMax", [1.0])
 def test_aggregate_contacts(capsys, matrix, outFileName, BED, mode, ran, BED2, numberOfBins, transform,
-                            avgType, outFilePrefixMatrix, outFileContactPairs,
+                            operationType, outFilePrefixMatrix, outFileContactPairs,
                             diagnosticHeatmapFile, kmeans, hclust, howToCluster,
                             chromosomes, colorMap, plotType, vMin, vMax):
     """
@@ -62,11 +62,11 @@ def test_aggregate_contacts(capsys, matrix, outFileName, BED, mode, ran, BED2, n
     """
     # test outFilePrefixMatrix
     args = "--matrix {} --outFileName {} --BED {} --mode {} --range {} --BED2 {} " \
-           "--numberOfBins {} --transform {} --avgType {} --outFilePrefixMatrix {} " \
+           "--numberOfBins {} --transform {} --operationType {} --outFilePrefixMatrix {} " \
            "--kmeans {} --hclust {} " \
            "--howToCluster {} --chromosomes {} --colorMap {} --plotType {} --vMin {} " \
            "--vMax {} --disable_bbox_tight".format(matrix, outFileName.name, BED, mode, ran,
-                                                   BED2, numberOfBins, transform, avgType,
+                                                   BED2, numberOfBins, transform, operationType,
                                                    outFilePrefixMatrix,
                                                    kmeans, hclust,
                                                    howToCluster, chromosomes, colorMap,

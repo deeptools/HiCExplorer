@@ -42,7 +42,7 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("BED2", [BED2])
 @pytest.mark.parametrize("numberOfBins", [30])
 @pytest.mark.parametrize("transform", sorted(['total-counts', 'z-score', 'obs/exp', 'none']))
-@pytest.mark.parametrize("avgType", sorted(['mean', 'median']))
+@pytest.mark.parametrize("operationType", sorted(['sum', 'mean', 'median']))
 @pytest.mark.parametrize("outFilePrefixMatrix", ['outFilePrefix'])
 @pytest.mark.parametrize("outFileContactPairs", ['outFileContactPairs'])
 @pytest.mark.parametrize("diagnosticHeatmapFile", [diagnosticHeatmapFile])
@@ -55,7 +55,7 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("vMin", [0.01])
 @pytest.mark.parametrize("vMax", [1.0])
 def test_aggregate_contacts_three(capsys, matrix, outFileName, BED, mode, ran, BED2, numberOfBins,
-                                  transform, avgType, outFilePrefixMatrix,
+                                  transform, operationType, outFilePrefixMatrix,
                                   outFileContactPairs, diagnosticHeatmapFile, kmeans,
                                   hclust, howToCluster, chromosomes, colorMap, plotType,
                                   vMin, vMax):

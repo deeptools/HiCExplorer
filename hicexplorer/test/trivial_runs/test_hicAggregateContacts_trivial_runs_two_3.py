@@ -41,7 +41,7 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("BED2", [BED2])
 @pytest.mark.parametrize("numberOfBins", [30])
 @pytest.mark.parametrize("transform", sorted(['none']))
-@pytest.mark.parametrize("avgType", sorted(['mean', 'median']))
+@pytest.mark.parametrize("operationType", sorted(['sum', 'mean', 'median']))
 @pytest.mark.parametrize("outFilePrefixMatrix", ['outFilePrefix'])
 @pytest.mark.parametrize("outFileContactPairs", ['outFileContactPairs'])
 @pytest.mark.parametrize("diagnosticHeatmapFile", [diagnosticHeatmapFile])
@@ -54,17 +54,17 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("vMin", [0.01])
 @pytest.mark.parametrize("vMax", [1.0])
 def test_aggregate_contacts_two(capsys, matrix, outFileName, BED, mode, ran, BED2, numberOfBins,
-                                transform, avgType, outFilePrefixMatrix,
+                                transform, operationType, outFilePrefixMatrix,
                                 outFileContactPairs, diagnosticHeatmapFile, kmeans,
                                 hclust, howToCluster, chromosomes, colorMap, plotType,
                                 vMin, vMax):
     # test outFileContactPairs^
     args = "--matrix {} --outFileName {} --BED {} --mode {} --range {} --BED2 {} " \
-           "--numberOfBins {} --transform {} --avgType {} --outFileContactPairs {} " \
+           "--numberOfBins {} --transform {} --operationType {} --outFileContactPairs {} " \
            "--kmeans {} --hclust {} " \
            "--howToCluster {} --chromosomes {} --colorMap {} --plotType {} --vMin {} " \
            "--vMax {} --disable_bbox_tight".format(matrix, outFileName.name, BED, mode, ran,
-                                                   BED2, numberOfBins, transform, avgType,
+                                                   BED2, numberOfBins, transform, operationType,
                                                    outFileContactPairs,
                                                    kmeans, hclust,
                                                    howToCluster, chromosomes, colorMap,

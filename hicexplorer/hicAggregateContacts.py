@@ -88,7 +88,9 @@ def parse_arguments(args=None):
                            default='none')
 
     parserOpt.add_argument('--operationType',
-                           help='Type of the operation to be applied to the output matrix. Options are mean and median. Default is median.',
+                           help='Type of the operation to be applied to summerize '
+                           'the submatrices into a single matrix. Options are sum, '
+                           'mean and median. Default is median.',
                            choices=['sum', 'mean', 'median'],
                            default='median')
 
@@ -100,10 +102,14 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--largeRegionsOperation',
                            help='If a given coordinate in the bed file is larger than '
-                           'a bin of the inpt matrix, by default only the first bin is taken into account. '
-                           'However there are more posibilities to handel such a case. User can '
-                           'ask for the last bin, sum of the bins, mean or median of the bins which cover '
-                           'this region.',
+                           'a bin of the input matrix, by default only the first bin '
+                           'is taken into account. However there are more posibilities '
+                           'to handel such a case. Users can ask for the last '
+                           'bin, sum of the bins and mean or median of the bins which cover '
+                           'this region. As an example if a region falls into bins [4,5,6] '
+                           'and `--numberOfBins = 2` then if ifrst, bins [3,4,7] are kept. '
+                           'If last: [3,6,7], if center: [3,5,7] and finally if '
+                           'mean/median/sum: [3,mean/median/sum(4,5,6),7]',
                            choices=['first', 'last', 'sum', 'mean', 'median'],
                            default='first')
 
@@ -266,7 +272,6 @@ def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, lar
     """
     To aggregate the contacts of the desired submatrices , if row-wise.
     """
-    intervals = []
     for line1, line2 in zip(bed1, bed2):
         line1 = line1.strip().split()
         line2 = line2.strip().split()
@@ -284,8 +289,7 @@ def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, lar
         elif mode == 'intra-chr':  # skip the lines with different chrom
             if line1[0] != line2[0]:
                 continue
-        intervals.append((line1[0:3], line2[0:3]))
-    for interval in intervals:
+        interval = (line1[0:3], line2[0:3])
         count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range, transform, perChr)
 
 
@@ -362,20 +366,26 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
     if (bin_id1, bin_id2) in agg_info["seen"]:
         return
     agg_info["seen"].append((bin_id1, bin_id2))
-    if bin_id1 - M_half < chrom1_bin_range[0] or bin_id2 + 1 + M_half > chrom2_bin_range[1]:
-        log.info("The given interval exceeds the chromosome range. It is skipped.")
+    if bin_id1 - M_half < chrom1_bin_range[0] or bin_id1 + M_half >= chrom1_bin_range[1]:
+        log.info("The given interval exceeds the chromosome range on {}. It is skipped.".format(chrom1))
+        return
+
+    if bin_id2 - M_half < chrom2_bin_range[0] or bin_id2 + M_half >= chrom2_bin_range[1]:
+        log.info("The given interval exceeds the chromosome range on {}. It is skipped.".format(chrom2))
         return
     try:
         mat_to_append = ma.matrix[bin_id1 - M_half:bin_id1 + M_half + 1, :][:, bin_id2 - M_half:bin_id2 + M_half + 1].todense().astype(float)
     except IndexError:
         log.info("index error for {} {}".format(bin_id1, bin_id2))
         return
-    agg_info["counter"] += 1
-    if agg_info["counter"] % 1000 == 0:
-        log.info("Number of contacts within range computed: {:,}".format(agg_info["counter"]))
+
     if mat_to_append.sum() == 0:
         agg_info["empty_mat"] += 1
         return
+    
+    agg_info["counter"] += 1
+    if agg_info["counter"] % 1000 == 0:
+        log.info("Number of contacts within range computed: {:,}".format(agg_info["counter"]))
     # to account for the fact that submatrices close to the diagonal have more counts than
     # submatrices far from the diagonal submatrices values are normalized using the
     # total submatrix sum.
@@ -771,7 +781,7 @@ def main(args=None):
         # agg_matrix could be either per chromosome or genome wide
         aggregate_contacts_per_row(bed_intervals, bed_intervals2, agg_info, ma, chrom_list, M_half, args.largeRegionsOperation, args.range, args.transform, mode=args.mode, perChr=args.perChr)
     else:  # not row-wise
-        # read and sort bedgraph.
+        # read and sort bed files.
         bed_intervals = read_bed_per_chrom(args.BED, chrom_list)
         if args.BED2:
             bed_intervals2 = read_bed_per_chrom(args.BED2, chrom_list)
