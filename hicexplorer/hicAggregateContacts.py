@@ -382,7 +382,7 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
     if mat_to_append.sum() == 0:
         agg_info["empty_mat"] += 1
         return
-    
+
     agg_info["counter"] += 1
     if agg_info["counter"] % 1000 == 0:
         log.info("Number of contacts within range computed: {:,}".format(agg_info["counter"]))
