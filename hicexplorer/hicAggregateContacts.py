@@ -737,13 +737,13 @@ def main(args=None):
     if args.transform == "z-score":  # use zscore matrix
         log.info("Computing z-score matrix. This may take a while.\n")
         if args.mode == 'intra-chr':
-            ma.convert_to_zscore_matrix(maxdepth=max_dist * 2.5, perchr=True)
+            ma.convert_to_zscore_matrix(maxdepth=int(max_dist) * 2.5, perchr=True)
         else:
             ma.convert_to_zscore_matrix(maxdepth=None, perchr=True)
     elif args.transform == "obs/exp":  # use obs/exp matrix
         log.info("Computing observed vs. expected matrix. This may take a while.\n")
         if args.mode == 'intra-chr':
-            ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
+            ma.convert_to_obs_exp_matrix(maxdepth=int(max_dist) * 2.5, perchr=True)
         else:
             ma.convert_to_obs_exp_matrix(maxdepth=None, perchr=True)
 
