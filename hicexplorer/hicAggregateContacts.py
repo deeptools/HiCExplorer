@@ -357,8 +357,6 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
             agg_info["agg_center_values"][chrom1] = []
 
         min_dist, max_dist = range.split(":")
-        log.info("checking range {}-{}".format(min_dist, max_dist))
-        assert int(min_dist) < int(max_dist), "Error lower range larger than upper range"
         min_dist_in_bins = int(min_dist) // bin_size
         max_dist_in_bins = int(max_dist) // bin_size
         if (min_dist_in_bins > abs(bin_id2 - bin_id1)) or (abs(bin_id2 - bin_id1) > max_dist_in_bins):
@@ -733,7 +731,8 @@ def main(args=None):
             log.warning("You have not set any range. This is by default set to {} for intra-chr.".format(default_range))
         args.range = default_range
     min_dist, max_dist = args.range.split(":")
-
+    log.info("checking range {}-{}".format(min_dist, max_dist))
+    assert int(min_dist) < int(max_dist), "Error lower range is larger than upper range!"
     if args.transform == "z-score":  # use zscore matrix
         log.info("Computing z-score matrix. This may take a while.\n")
         if args.mode == 'intra-chr':
