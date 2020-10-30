@@ -14,6 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 # from scipy.cluster.hierarchy import fcluster, linkage
 import sklearn.cluster as skclust
 from hicmatrix import HiCMatrix as hm
+from hicmatrix.lib import MatrixFileHandler
 import hicexplorer.utilities
 from .utilities import check_chrom_str_bytes, change_chrom_names, toString
 from hicexplorer._version import __version__
@@ -132,6 +133,10 @@ def parse_arguments(args=None):
                            'the submatrix. The data is saved per chromosome and per '
                            'cluster separately (one file each). The format is {prefix}_{chrom}_{cluster_id}.tab. '
                            'If no clusters were computed, then only one file per chromosome is produced.',
+                           required=False)
+
+    parserOut.add_argument('--outFileObsExp',
+                           help='writes the obs/exp matrix to a file, if --transform=obs/exp.',
                            required=False)
 
     parserOut.add_argument('--diagnosticHeatmapFile',
@@ -382,8 +387,8 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         return
 
     agg_info["counter"] += 1
-    if agg_info["counter"] % 1000 == 0:
-        log.info("Number of contacts within range computed: {:,}".format(agg_info["counter"]))
+    if agg_info["counter"] % 50000 == 0:
+        log.info("Number of used contacts within the given range: {:,}".format(agg_info["counter"]))
     # to account for the fact that submatrices close to the diagonal have more counts than
     # submatrices far from the diagonal submatrices values are normalized using the
     # total submatrix sum.
@@ -745,6 +750,17 @@ def main(args=None):
             ma.convert_to_obs_exp_matrix(maxdepth=int(max_dist) * 2.5, perchr=True)
         else:
             ma.convert_to_obs_exp_matrix(maxdepth=None, perchr=True)
+        if args.outFileObsExp:
+            file_type = 'cool'
+            if args.outFileObsExp.endswith('.h5'):
+                file_type = 'h5'
+            matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
+            matrixFileHandlerOutput.set_matrix_variables(ma.matrix,
+                                                     ma.cut_intervals,
+                                                     ma.nan_bins,
+                                                     ma.correction_factors,
+                                                     ma.distance_counts)
+            matrixFileHandlerOutput.save(args.outFileObsExp, pSymmetric=True, pApplyCorrection=False)
 
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
     M_half = int((M - 1) // 2)

@@ -37,7 +37,7 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("outFileName", [outfile_aggregate_plots])  # required
 @pytest.mark.parametrize("BED", [BED])  # required
 @pytest.mark.parametrize("mode", ["mode"])  # required
-@pytest.mark.parametrize("ran", ['50000:900000'])
+@pytest.mark.parametrize("range", ['50000:900000'])
 @pytest.mark.parametrize("BED2", [BED2])
 @pytest.mark.parametrize("numberOfBins", [30])
 @pytest.mark.parametrize("transform", sorted(['none']))
