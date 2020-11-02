@@ -758,10 +758,10 @@ def main(args=None):
                 file_type = 'h5'
             matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
             matrixFileHandlerOutput.set_matrix_variables(ma.matrix,
-                                                     ma.cut_intervals,
-                                                     ma.nan_bins,
-                                                     ma.correction_factors,
-                                                     ma.distance_counts)
+                                                         ma.cut_intervals,
+                                                         ma.nan_bins,
+                                                         ma.correction_factors,
+                                                         ma.distance_counts)
             matrixFileHandlerOutput.save(args.outFileObsExp, pSymmetric=True, pApplyCorrection=False)
 
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
