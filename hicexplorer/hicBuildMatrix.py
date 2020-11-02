@@ -962,8 +962,9 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                                 len(restrictionSequence)
                             frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(restrictionSequence)
                             mate_ref = pRefId2name[mate1.rname]
-                            has_rf.extend(sorted(
-                                pRfPositions[mate_ref][frag_start: frag_end]))
+                            if mate_ref in pRfPositions:
+                                has_rf.extend(sorted(
+                                    pRfPositions[mate_ref][frag_start: frag_end]))
 
                             if len(has_rf) == 0:
                                 self_circle += 1
