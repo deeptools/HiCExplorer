@@ -60,7 +60,7 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--row_wise',
                            help='If given,the insteractions between each row of the BED file and its '
-                           'corresponding row of the BED2 file are computed. If intera-chromosomal '
+                           'corresponding row of the BED2 file are computed. If intra-chromosomal '
                            'contacts are computed, the rows with different chromosomes are ignored. '
                            'If inter-chromosomal, the rows with same chromosomes are ignored. '
                            'It keeps all the rows if `all`.',
@@ -108,7 +108,7 @@ def parse_arguments(args=None):
                            'to handel such a case. Users can ask for the last '
                            'bin, sum of the bins and mean or median of the bins which cover '
                            'this region. As an example if a region falls into bins [4,5,6] '
-                           'and `--numberOfBins = 2` then if ifrst, bins [3,4,7] are kept. '
+                           'and `--numberOfBins = 2` then if first, bins [3,4,7] are kept. '
                            'If last: [3,6,7], if center: [3,5,7] and finally if '
                            'mean/median/sum: [3,mean/median/sum(4,5,6),7]',
                            choices=['first', 'last', 'sum', 'mean', 'median'],
@@ -569,8 +569,10 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
                         log.info("Apparently no matrices could be computed. All are "
                                  "zeros or nans.")
                 chrom_avg[chrom].append(_median)
-            else:
+            elif args.operationType == 'mean':
                 chrom_avg[chrom].append(np.mean(submatrices, axis=0))
+            else:
+                chrom_avg[chrom].append(np.sum(submatrices, axis=0))
 
             log.info("Mean aggregate matrix values: {}".format(chrom_avg[chrom][cluster_number].mean()))
 
