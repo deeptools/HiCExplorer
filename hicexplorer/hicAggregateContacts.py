@@ -107,8 +107,8 @@ def parse_arguments(args=None):
                            'is taken into account. However there are more posibilities '
                            'to handel such a case. Users can ask for the last bin or '
                            'for center of the region. As an example if a region falls into bins [4,5,6] '
-                           'and `--numberOfBins = 2` then if first, bins [3,4,7] are kept. '
-                           'If last: [3,6,7] and if center: [3,5,7].',
+                           'and `--numberOfBins = 2` then if first, bins [3,4,5] are kept. '
+                           'If last: [5,6,7] and if center: [4,5,6].',
                            choices=['first', 'last', 'center'],
                            default='first')
 
