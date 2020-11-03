@@ -105,17 +105,18 @@ install_requires_py = ["numpy >= 1.18.*",
                        "cooler >= 0.8.5",
                        "jinja2 >= 2.10.*",
                        "unidecode >= 1.1.*",
-                       "hicmatrix >= 12",
+                       "hicmatrix >= 14",
                        "pygenometracks >= 3.2",
                        "psutil >= 5.6.*",
                        "fit_nbinom >= 1.1",
-                       "hic2cool >= 0.8.2",
+                       "hic2cool >= 0.8.3",
                        "krbalancing >= 0.0.5",
                        "pybedtools >= 0.8",
                        "future >= 0.17",
                        "tqdm >= 4.20",
                        "hyperopt >= 0.2.4",
-                       "graphviz >= 0.14"
+                       "graphviz >= 0.14",
+		       "scikit-learn=0.23.2"
                        ]
 
 
