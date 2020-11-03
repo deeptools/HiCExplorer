@@ -105,13 +105,11 @@ def parse_arguments(args=None):
                            help='If a given coordinate in the bed file is larger than '
                            'a bin of the input matrix, by default only the first bin '
                            'is taken into account. However there are more posibilities '
-                           'to handel such a case. Users can ask for the last '
-                           'bin, sum of the bins and mean or median of the bins which cover '
-                           'this region. As an example if a region falls into bins [4,5,6] '
+                           'to handel such a case. Users can ask for the last bin or '
+                           'for center of the region. As an example if a region falls into bins [4,5,6] '
                            'and `--numberOfBins = 2` then if first, bins [3,4,7] are kept. '
-                           'If last: [3,6,7], if center: [3,5,7] and finally if '
-                           'mean/median/sum: [3,mean/median/sum(4,5,6),7]',
-                           choices=['first', 'last', 'sum', 'mean', 'median'],
+                           'If last: [3,6,7] and if center: [3,5,7].',
+                           choices=['first', 'last', 'center'],
                            default='first')
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
@@ -321,23 +319,15 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
     if (bin_id1 is None) or (bin_id2 is None):
         return
     else:  # If the regions size is bigger than a bin then:
-        bin_id1 = bin_id1[0]
-        bin_id2 = bin_id2[0]
-        if largeRegionsOperation == 'last':
+        if largeRegionsOperation == 'first':
+            bin_id1 = bin_id1[0]
+            bin_id2 = bin_id2[0]
+        elif largeRegionsOperation == 'last':
             bin_id1 = bin_id1[-1]
             bin_id2 = bin_id2[-1]
         elif largeRegionsOperation == 'center':
-            bin_id1 = bin_id1[np.floor(len(bin_id1) / 2)]
-            bin_id2 = bin_id2[np.floor(len(bin_id2) / 2)]
-        elif largeRegionsOperation == 'sum':
-            bin_id1 = np.sum(bin_id1)
-            bin_id2 = np.sum(bin_id2)
-        elif largeRegionsOperation == 'mean':
-            bin_id1 = np.mean(bin_id1)
-            bin_id2 = np.mean(bin_id2)
-        elif largeRegionsOperation == 'median':
-            bin_id1 = np.median(bin_id1)
-            bin_id2 = np.median(bin_id2)
+            bin_id1 = int(np.floor(np.mean(bin_id1)))
+            bin_id2 = int(np.floor(np.mean(bin_id2)))
     if bin_id1 > bin_id2:
         if chrom1 == chrom2:
             bin_id1, bin_id2 = sorted([bin_id1, bin_id2])
