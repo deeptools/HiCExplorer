@@ -376,9 +376,9 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         agg_info["empty_mat"] += 1
         return
 
-    agg_info["counter"] += 1
-    if agg_info["counter"] % 50000 == 0:
-        log.info("Number of used contacts within the given range: {:,}".format(agg_info["counter"]))
+    agg_info["used_counter"] += 1
+    if agg_info["used_counter"] % 50000 == 0:
+        log.info("Number of used contacts within the given range: {:,}".format(agg_info["used_counter"]))
     # to account for the fact that submatrices close to the diagonal have more counts than
     # submatrices far from the diagonal submatrices values are normalized using the
     # total submatrix sum.
@@ -774,6 +774,7 @@ def main(args=None):
     agg_info["agg_contact_position"] = {}
     agg_info["agg_center_values"] = {}
     agg_info["counter"] = 0
+    agg_info["used_counter"] = 0
     agg_info["empty_mat"] = 0
     if (args.mode == 'inter-chr') and (len(agg_info["chrom_coord"]) == 1):
         exit("Error: 'inter-chr' mode can not be applied on matrices of only one chromosme.")
