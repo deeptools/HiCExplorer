@@ -275,23 +275,24 @@ def test_hicAggregateContacts_row_wise_intra_perChr():
 
     os.remove(outfile_aggregate_row_wise.name)
 
-    @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
-    @pytest.mark.skipif(MID_MEMORY > memory,
-                        reason="Travis has too less memory to run it.")
-    def test_hicAggregateContacts_row_wise_inter():
 
-        outfile_aggregate_row_wise = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_row_wise', delete=False)
+@pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
+@pytest.mark.skipif(MID_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicAggregateContacts_row_wise_inter():
 
-        args = "--matrix {root}/small_test_matrix_50kb_res.h5 --BED {root}/hicAggregateContacts/bed1_row-wise.bed " \
-               "--BED2 {root}/hicAggregateContacts/bed2_row-wise.bed "\
-               "--outFileName {out_agg} --numberOfBins 30 --row_wise "\
-               "--dpi 100 --mode inter-chr ".\
-               format(root=ROOT, out_agg=outfile_aggregate_row_wise.name)
+    outfile_aggregate_row_wise = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_test_row_wise', delete=False)
 
-        test_image_agg_row_wise = ROOT + 'hicAggregateContacts/master_aggregate_row_wise_inter.png'
+    args = "--matrix {root}/small_test_matrix_50kb_res.h5 --BED {root}/hicAggregateContacts/bed1_row-wise.bed " \
+        "--BED2 {root}/hicAggregateContacts/bed2_row-wise.bed "\
+        "--outFileName {out_agg} --numberOfBins 30 --row_wise "\
+        "--dpi 100 --mode inter-chr ".\
+        format(root=ROOT, out_agg=outfile_aggregate_row_wise.name)
 
-        compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
-        res = compare_images(test_image_agg_row_wise, outfile_aggregate_row_wise.name, tolerance)
-        assert res is None, res
+    test_image_agg_row_wise = ROOT + 'hicAggregateContacts/master_aggregate_row_wise_inter.png'
 
-        os.remove(outfile_aggregate_row_wise.name)
+    compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
+    res = compare_images(test_image_agg_row_wise, outfile_aggregate_row_wise.name, tolerance)
+    assert res is None, res
+
+    os.remove(outfile_aggregate_row_wise.name)
