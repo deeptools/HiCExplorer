@@ -49,20 +49,21 @@ Computes PCA eigenvectors for a Hi-C matrix.
                                 'must match the number of computed '
                                 'eigenvectors.',
                                 nargs='+',
-                                default=['pca1', 'pca2'],
                                 required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--numberOfEigenvectors', '-noe',
                            help='The number of eigenvectors that the PCA '
-                           'should compute.',
+                           'should compute'
+                           ' (Default: %(default)s).',
                            default=2,
                            type=int,
                            required=False)
 
     parserOpt.add_argument('--format', '-f',
-                           help='Output format. Either bedgraph or bigwig.',
+                           help='Output format. Either bedgraph or bigwig'
+                           ' (Default: %(default)s).',
                            choices=['bedgraph', 'bigwig'],
                            default='bigwig',
                            required=False)
@@ -75,7 +76,8 @@ Computes PCA eigenvectors for a Hi-C matrix.
 
     parserOpt.add_argument('--method',
                            help='possible methods which can be used to build '
-                           'the obs-exp matrix.',
+                           'the obs-exp matrix are dist_norm and lieberman'
+                           ' (Default: %(default)s).',
                            choices=['dist_norm', 'lieberman'],
                            default='dist_norm',
                            required=False)
@@ -99,7 +101,8 @@ Computes PCA eigenvectors for a Hi-C matrix.
     parserOpt.add_argument('--histonMarkType',
                            help='Set it to active or inactive. This is only '
                            'necessary if a histon mark coverage file is given '
-                           'as an extraTrack.',
+                           'as an extraTrack'
+                           ' (Default: %(default)s).',
                            default='active')
 
     parserOpt.add_argument('--pearsonMatrix', '-pm',

@@ -58,7 +58,8 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--numberOfBins',
                            help='Number of  bins to include in the submatrix. The bed regions will be centered between '
-                           'half number of bins and the other half number of bins.',
+                           'half number of bins and the other half number of bins'
+                           ' (Default: %(default)s).',
                            default='51',
                            type=int)
 
@@ -67,12 +68,14 @@ def parse_arguments(args=None):
                            '"total-counts", "z-score" and "obs/exp". If total counts are selected, '
                            'the sub-matrix values are divided by the total counts for normalization. '
                            'If z-score or obs/exp are selected, the Hi-C matrix is converted into a '
-                           'z-score or observed / expected matrix.',
+                           'z-score or observed / expected matrix'
+                           ' (Default: %(default)s).',
                            choices=['total-counts', 'z-score', 'obs/exp', 'none'],
                            default='none')
 
     parserOpt.add_argument('--avgType',
-                           help='Type of average used in the output matrix. Options are mean and median. Default is median.',
+                           help='Type of average used in the output matrix. Options are mean and median'
+                           ' (Default: %(default)s).',
                            choices=['mean', 'median'],
                            default='median')
 
@@ -129,11 +132,12 @@ def parse_arguments(args=None):
                              type=int)
 
     parserClust.add_argument('--howToCluster',
-                             help='Options are "full", "center" and "diagonal". The full clustering is the default and '
+                             help='Options are "full", "center" and "diagonal". The full clustering '
                              'takes all values of each submatrix for clustering. "center", takes only a square of '
                              'length 3x3 from each submatrix and uses only  this values for clustering. With the '
                              '"diagonal" option the clustering is only carried out based on the submatrix diagonal '
-                             '(representing values at the same distance to each other.)',
+                             '(representing values at the same distance to each other)'
+                             ' (Default: %(default)s).',
                              choices=['full', 'center', 'diagonal'],
                              default='full')
 
@@ -146,11 +150,13 @@ def parse_arguments(args=None):
     parserPlot.add_argument('--colorMap',
                             help='Color map to use for the heatmap. Available '
                             'values can be seen here: '
-                            'http://matplotlib.org/examples/color/colormaps_reference.html',
+                            'http://matplotlib.org/examples/color/colormaps_reference.html'
+                            ' (Default: %(default)s).',
                             default='RdYlBu_r')
 
     parserPlot.add_argument('--plotType',
-                            help='Plot type.',
+                            help='Plot type'
+                            ' (Default: %(default)s).',
                             choices=['2d', '3d'],
                             default='2d')
 
@@ -170,7 +176,8 @@ def parse_arguments(args=None):
                             action='store_true')
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
-                           'output is a raster graphics image (e.g png, jpg).',
+                           'output is a raster graphics image (e.g png, jpg)'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=300)
     return parser

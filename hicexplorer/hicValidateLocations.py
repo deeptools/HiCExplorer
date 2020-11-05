@@ -44,7 +44,8 @@ The value of the protein is not considered, only match or non-match.
                                 help='The protein peak file. Can be narrowPeak or broadPeak',
                                 required=True)
     parserRequired.add_argument('--method', '-m',  # loop or domain
-                                help='The loop file',
+                                help='The method used (for the moment only loop is possible)'
+                                ' (Default: %(default)s).',
                                 choices=['loops'],
                                 default='loops')
     parserRequired.add_argument('--resolution', '-r',  # loop or domain

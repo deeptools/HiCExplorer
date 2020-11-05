@@ -44,7 +44,8 @@ def parse_arguments(args=None):
                            help='Keep, remove or mask the list of specified chromosomes/regions. '
                            'keep/remove: These options keep/remove bins of matrix by deleting them. '
                            'This may cause issue plotting the matrix if several parts of a single chromosome '
-                           'are going to be deleted. In that case, one may consider using the mask option.',
+                           'are going to be deleted. In that case, one may consider using the mask option'
+                           ' (Default: %(default)s).',
                            default='keep',
                            choices=['keep', 'remove', 'mask']
                            )

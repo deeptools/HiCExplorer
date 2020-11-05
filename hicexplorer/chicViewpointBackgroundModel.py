@@ -45,7 +45,8 @@ $ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool
 
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--averageContactBin',
-                           help='Average the contacts of n bins via a sliding window approach.',
+                           help='Average the contacts of n bins via a sliding window approach'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=5)
     parserOpt.add_argument('--truncateZeros', '-tz',
@@ -53,16 +54,19 @@ $ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--outFileName', '-o',
-                           help='The name of the background model file',
+                           help='The name of the background model file'
+                           ' (Default: %(default)s).',
                            default='background_model.txt')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module). ',
+                           help='Number of threads (uses the python multiprocessing module)'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int
                            )
     parserOpt.add_argument('--fixateRange', '-fs',
-                           help='Fixate score of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
+                           help='Fixate score of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=500000,
                            type=int

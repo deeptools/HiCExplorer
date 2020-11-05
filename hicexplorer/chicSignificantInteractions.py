@@ -79,34 +79,40 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outFileNameSuffix', '-suffix',
-                           help='File name suffix to save the results; prefix is the input file name.',
+                           help='File name suffix to save the results; prefix is the input file name'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='_significant_interactions.txt')
 
     parserOpt.add_argument('--interactionFileFolder', '-iff',
-                           help='Folder where the interaction files are stored. Applies only for batch mode.',
+                           help='Folder where the interaction files are stored. Applies only for batch mode'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='.')
     parserOpt.add_argument('--targetFolder', '-tf',
-                           help='Folder where the target files are stored.',
+                           help='Folder where the target files are stored'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='targetFolder')
     parserOpt.add_argument('--outputFolder', '-o',
-                           help='Output folder of the significant interaction files.',
+                           help='Output folder of the significant interaction files'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='significantFiles')
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
-                           help='',
+                           help='(Default: %(default)s).',
                            default='significantFilesBatch.txt')
     parserOpt.add_argument('--targetFileList', '-tl',
-                           help='The file to store the target file names.',
+                           help='The file to store the target file names'
+                           ' (Default: %(default)s).',
                            default='targetList.txt')
     parserOpt.add_argument('--batchMode', '-bm',
                            help='Turn on batch mode. The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module). ',
+                           help='Number of threads (uses the python multiprocessing module)'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int
@@ -116,7 +122,8 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--fixateRange', '-fs',
-                           help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater than 500kb are set to the value of the 500kb bin.',
+                           help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater than 500kb are set to the value of the 500kb bin'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=500000,
                            type=int
@@ -124,22 +131,26 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
                            default=5,
-                           help='The minimum number of interactions a detected peak needs to have to be considered.')
+                           help='The minimum number of interactions a detected peak needs to have to be considered'
+                           ' (Default: %(default)s).')
 
     parserOpt.add_argument('--resolution', '-r',
                            help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.'
-                           'This value is used to merge neighboring bins.',
+                           'This value is used to merge neighboring bins'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=1000,
                            required=False)
 
     parserOpt.add_argument('--computeSampleNumber', '-csn',
-                           help='Number of samples to compute together. Applies only in batch mode.',
+                           help='Number of samples to compute together. Applies only in batch mode'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=2,
                            type=int)
     parserOpt.add_argument('--multipleTesting', '-mt',
-                           help='Multiple testing correction per relative distance with Bonferroni or FDR.',
+                           help='Multiple testing correction per relative distance with Bonferroni or FDR'
+                           ' (Default: %(default)s).',
                            type=str,
                            default="None",
                            choices=['fdr', 'bonferroni', 'None'],
