@@ -34,7 +34,8 @@ def parse_arguments(args=None):
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--operation',
-                           help='Operation to apply to the matrices.',
+                           help='Operation to apply to the matrices'
+                           ' (Default: %(default)s).',
                            choices=['diff', 'ratio', 'log2ratio'],
                            default='log2ratio')
 

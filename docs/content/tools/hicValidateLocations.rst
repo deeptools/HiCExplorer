@@ -1,7 +1,7 @@
 .. _hicValidateLocations:
 
 hicValidateLocations
-=====================
+====================
 
 hicValidateLoops is a tool to compare the detect loops from hicDetectLoops (or from any other software as long as the data format is followed, see below) 
 with known peak protein locations to validate if the computed loops do have the expected anchor points. For example, loops in mammals are usually bound by CTCF or Cohesin, 
@@ -13,7 +13,7 @@ therefore it is important to know if the detect loops have protein peaks at thei
 
 
 Data format
-===========
+-----------
 
 The data format of hicDetectLoops output is:
 

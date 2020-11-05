@@ -28,3 +28,10 @@ Introducing with version 3.5 we support multiple restriction and dangling end se
 Hi-C protocols that use multiple restriction cut enzymes benefit from this and get now an improved QC report.
 Version 3.5 adds also the support for a chromosome size file which can help to get interaction matrices with a predefined size. Capture Hi-C or 
 single-cell Hi-C data, where it is not guaranteed that reads from all areas of the chromosome are present benefit from this latest improvement.
+
+
+Missing scaffolds or contigs in the Hi-C matrix
+-----------------------------------------------
+
+Restriction enzymes cut the DNA at their specific restriction cut site sequences. It can occur for scaffolds or contigs (less likely it happens for chromosomes) that it does not contain any of these cut sites.
+In this case, the reads from this scaffold or contig are considered as invalid and are part of the 'same restriction fragment'-statistics in the QC report.

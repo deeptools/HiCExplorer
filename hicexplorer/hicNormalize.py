@@ -31,7 +31,8 @@ We recommend to compute first the normalization (with hicNormalize) and correct 
                                 required=True)
 
     parserRequired.add_argument('--normalize', '-n',
-                                help='Normalize to a) 0 to 1 range, b) all matrices to the lowest read count of the given matrices.',
+                                help='Normalize to a) 0 to 1 range, b) all matrices to the lowest read count of the given matrices'
+                                ' (Default: %(default)s).',
                                 choices=['norm_range', 'smallest', 'multiplicative'],
                                 default='smallest',
                                 required=True)
@@ -42,7 +43,8 @@ We recommend to compute first the normalization (with hicNormalize) and correct 
                                 nargs='+',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--multiplicativeValue', '-mv', default=1,
+    parserOpt.add_argument('--multiplicativeValue'
+                           ' (Default: %(default)s).', '-mv', default=1,
                            type=float,
                            help='show this help message and exit')
     parserOpt.add_argument('--setToZeroThreshold', '-sz', default=0.0,

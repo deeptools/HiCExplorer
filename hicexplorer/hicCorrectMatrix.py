@@ -163,10 +163,12 @@ def correct_subparser():
 
     parserOpt.add_argument('--correctionMethod',
                            help='Method to be used for matrix correction. It'
-                           ' can be set to KR or ICE.',
+                           ' can be set to KR or ICE'
+                           ' (Default: %(default)s).',
                            type=str,
                            metavar='STR',
-                           default='KR')
+                           default='KR',
+                           choices=['KR', 'ICE'])
 
     parserOpt.add_argument('--filterThreshold', '-t',
                            help='Removes bins of low or large coverage. '
@@ -185,7 +187,8 @@ def correct_subparser():
 
     parserOpt.add_argument('--iterNum', '-n',
                            help='Number of iterations to compute.'
-                           'only for ICE!',
+                           'only for ICE!'
+                           ' (Default: %(default)s).',
                            type=int,
                            metavar='INT',
                            default=500)
@@ -511,7 +514,8 @@ def plot_total_contact_dist(hic_ma, args):
 
             # high remove outliers
             row_sum = row_sum[modified_z_score < 5]
-
+            if len(row_sum) == 0:
+                log.error('No data for chromosome {}. Continue with next chromosome.'.format(chrname))
             col = plot_num % num_cols
             row = plot_num // num_cols
             ax[chrname] = fig.add_subplot(grids[row, col])
@@ -527,6 +531,9 @@ def plot_total_contact_dist(hic_ma, args):
 
         # high remove outliers
         row_sum = row_sum[modified_z_score < 5]
+        if len(row_sum) == 0:
+            log.error('No data available, exit.')
+            exit(1)
         ax = fig.add_subplot(111)
         plot_histogram(row_sum, mad, ax)
 

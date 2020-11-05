@@ -7,27 +7,31 @@ Installation
 Requirements
 -------------
 
-* Python 3.6
-* numpy >= 1.17
-* scipy >= 1.3
-* matplotlib == 3.1
-* pysam >= 0.15
-* intervaltree >= 3.0
-* biopython >= 1.74
-* pytables >= 3.5
-* pyBigWig >= 0.3
-* future >= 0.17
-* jinja2 >= 2.10
-* pandas >= 0.25
-* unidecode >= 1.1
-* hicmatrix = 11
-* pygenometracks >= 3.0
-* psutil >= 5.6
-* hic2cool >= 0.7
-* cooler >= 0.8.5
-* krbalancing >= 0.0.5 (Needs the library eigen; openmp is recommended for linux users. No openmp support on macOS.)
+* python >= 3.6
+* numpy >= 1.19.*
+* scipy >= 1.5.*
+* matplotlib-base >= 3.1.*
+* ipykernel >= 5.3.0
+* pysam >= 0.16.*
+* intervaltree >= 3.1.*
+* biopython < 1.77
+* pytables >= 3.6.*
+* pandas >= 1.1.*
+* pybigwig >= 0.3.*
+* jinja2 >= 2.11
+* unidecode >= 1.1.*
+* hicmatrix >= 15
+* hic2cool >= 0.8.3
+* psutil >= 5.7.*
+* pygenometracks >= 3.5
 * fit_nbinom >= 1.1
-* pybedtools >= 0.8
+* cooler >= 0.8.10
+* krbalancing >= 0.0.5 (Needs the library eigen; openmp is recommended for linux users. No openmp support on macOS.)
+* pybedtools >= 0.8.*
+* future >= 0.18
+* tqdm >= 4.50
+* hyperopt >= 0.2.4
+* python-graphviz >= 0.14
 
 
 **Warning:** Python 2.7 support is discontinued. Moreover, the support for pip is discontinued too. 
@@ -36,7 +40,7 @@ Requirements
 Command line installation using ``conda``
 -----------------------------------------
 
-The fastet way to obtain **Python 3.6 together with numpy and scipy** is
+The fastet way to obtain **Python 3.6 or 3.7 together with numpy and scipy** is
 via the `Anaconda Scientific Python
 Distribution <https://store.continuum.io/cshop/anaconda/>`_.
 Just download the version that's suitable for your operating system and

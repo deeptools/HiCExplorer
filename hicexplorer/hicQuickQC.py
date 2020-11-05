@@ -74,7 +74,8 @@ The tool hicQuickQC considers the first n lines of two bam/sam files to get a fi
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--lines',
-                           help='Number of lines to consider for the QC test run.',
+                           help='Number of lines to consider for the QC test run'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=1000000,
                            type=int

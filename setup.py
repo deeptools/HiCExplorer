@@ -92,31 +92,31 @@ class install(_install):
             sys.stderr.write("Error: {}".format(e))
 
 
-install_requires_py = ["numpy >= 1.18.*",
-                       "scipy >= 1.3.*",
-                       "matplotlib-base == 3.1.*",
+install_requires_py = ["numpy >= 1.19.*",
+                       "scipy >= 1.5.*",
+                       "matplotlib-base >= 3.1.*",
                        "ipykernel >= 5.3.0",
-                       "pysam >= 0.15",
-                       "intervaltree >= 3.0.*",
-                       "biopython >= 1.74",
-                       "tables >= 3.5.*",
-                       "pandas >= 0.25.*",
+                       "pysam >= 0.16",
+                       "intervaltree >= 3.1.*",
+                       "biopython < 1.77",
+                       "tables >= 3.6.*",
+                       "pandas >= 1.1.*",
                        "pyBigWig >= 0.3.*",
-                       "cooler >= 0.8.5",
-                       "jinja2 >= 2.10.*",
+                       "cooler >= 0.8.10",
+                       "jinja2 >= 2.11.*",
                        "unidecode >= 1.1.*",
-                       "hicmatrix >= 14",
-                       "pygenometracks >= 3.2",
-                       "psutil >= 5.6.*",
+                       "hicmatrix >= 15",
+                       "pygenometracks >= 3.5",
+                       "psutil >= 5.7.*",
                        "fit_nbinom >= 1.1",
                        "hic2cool >= 0.8.3",
                        "krbalancing >= 0.0.5",
                        "pybedtools >= 0.8",
-                       "future >= 0.17",
-                       "tqdm >= 4.20",
+                       "future >= 0.18",
+                       "tqdm >= 4.50",
                        "hyperopt >= 0.2.4",
                        "graphviz >= 0.14",
-                       "scikit-learn == 0.23.2"
+                       "scikit-learn >= 0.23.2"
                        ]
 
 

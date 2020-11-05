@@ -1,8 +1,90 @@
 HiCExplorer tools
 =================
 
-.. contents::
-    :local:
+Tools for Hi-C data pre-processing
+----------------------------------
+.. toctree::
+    :maxdepth: 1
+
+    tools/hicFindRestSite
+    tools/hicBuildMatrix
+    tools/hicSumMatrices
+    tools/hicMergeMatrixBins
+    tools/hicCorrectMatrix
+    tools/hicNormalize
+
+Tools for Hi-C QC
+-----------------
+.. toctree::
+    :maxdepth: 1  
+
+    tools/hicQuickQC
+    tools/hicQC
+    tools/hicCorrelate
+    tools/hicPlotDistVsCounts
+    tools/hicInfo
+
+Tools for Hi-C data analysis
+----------------------------
+.. toctree::
+    :maxdepth: 1  
+
+    tools/hicCompareMatrices
+    tools/hicPCA
+    tools/hicTransform
+    tools/hicAverageRegions
+    tools/hicDetectLoops
+    tools/hicValidateLocations
+    tools/hicMergeLoops
+    tools/hicHyperoptDetectLoops
+    tools/hicHyperoptDetectLoopsHiCCUPS
+    tools/hicCompartmentalization
+    tools/hicPlotSVL
+
+Tools for TADs processing
+-------------------------
+.. toctree::
+    :maxdepth: 1  
+
+    tools/hicFindTADs
+    tools/hicMergeDomains
+    tools/hicDifferentialTAD
+    tools/hicMergeTADbins
+
+Tools for Hi-C and TADs visualization
+-------------------------------------
+.. toctree::
+    :maxdepth: 1  
+
+    tools/hicPlotMatrix
+    tools/hicPlotTADs
+    tools/hicPlotViewpoint
+    tools/hicAggregateContacts
+    tools/hicPlotAverageRegions
+
+Hi-C contact matrix handling
+----------------------------
+.. toctree::
+    :maxdepth: 1  
+
+    tools/hicConvertFormat
+    tools/hicAdjustMatrix
+
+Capture Hi-C analysis
+---------------------
+.. toctree::
+    :maxdepth: 1  
+
+    tools/chicQualityControl
+    tools/chicViewpointBackgroundModel
+    tools/chicViewpoint
+    tools/chicSignificantInteractions
+    tools/chicAggregateStatistic
+    tools/chicDifferentialTest
+    tools/chicPlotViewpoint
+
+
+For single-cell Hi-C data analysis please use `scHiCExplorer <https://schicexplorer.readthedocs.io/>`__ .
 
 
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
@@ -77,7 +159,7 @@ HiCExplorer tools
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotAverageRegions`          | visualization    | one npz file                      | one image                                   | Visualization of hicAverageRegions.                                               |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-|:ref`hicPlotSVL`                      | analysis         | one / multiple Hi-C matrices      | one image, p-values file, raw data file     | Computes short/long range contacts; a box plot, a p-value and raw data file       |
+|:ref:`hicPlotSVL`                     | analysis         | one / multiple Hi-C matrices      | one image, p-values file, raw data file     | Computes short/long range contacts; a box plot, a p-value and raw data file       |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicMergeTADbins`                | preprocessing    | one Hi-C matrix, one BED file     | one Hi-C matrix                             | Uses a BED file of domains or TAD boundaries to merge the                         |
 |                                      |                  |                                   |                                             | bin counts of a Hi-C matrix.                                                      |
@@ -128,114 +210,3 @@ You can always see all available command-line options via --help:
 - Output format of plots should be indicated by the file ending, e.g. ``MyPlot.pdf`` will return a pdf file, ``MyPlot.png`` a png-file.
 - Most of the tools that produce plots can also output the underlying data - this can be useful in cases where you don't like the HiCExplorer visualization, as you can then use the data matrices produced by deepTools with your favorite plotting tool, such as R.
 - The vast majority of command line options are also available in Galaxy (in a few cases with minor changes to their naming).
-
-
-Tools for Hi-C data pre-processing
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-:ref:`hicFindRestSite`
-""""""""""""""""""""""
-:ref:`hicBuildMatrix`
-"""""""""""""""""""""
-:ref:`hicSumMatrices`
-"""""""""""""""""""""
-:ref:`hicMergeMatrixBins`
-"""""""""""""""""""""""""
-:ref:`hicCorrectMatrix`
-"""""""""""""""""""""""
-:ref:`hicNormalize`
-"""""""""""""""""""
-
-Tools for Hi-C QC
-^^^^^^^^^^^^^^^^^
-
-:ref:`hicQuickQC`
-"""""""""""""""""
-:ref:`hicQC`
-""""""""""""
-:ref:`hicCorrelate`
-"""""""""""""""""""
-:ref:`hicPlotDistVsCounts`
-""""""""""""""""""""""""""
-:ref:`hicInfo`
-""""""""""""""
-
-Tools for Hi-C data analysis
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-:ref:`hicCompareMatrices`
-"""""""""""""""""""""""""
-:ref:`hicPCA`
-"""""""""""""
-:ref:`hicTransform`
-"""""""""""""""""""
-:ref:`hicAverageRegions`
-""""""""""""""""""""""""
-:ref:`hicDetectLoops`
-""""""""""""""""""""""""
-:ref:`hicValidateLocations`
-"""""""""""""""""""""""""""
-:ref:`hicMergeLoops`
-""""""""""""""""""""
-:ref:`hicHyperoptDetectLoops`
-"""""""""""""""""""""""""""""
-:ref:`hicHyperoptDetectLoopsHiCCUPS`
-""""""""""""""""""""""""""""""""""""
-:ref:`hicCompartmentalization`
-""""""""""""""""""""""""""""""
-:ref:`hicPlotSVL`
-"""""""""""""""""
-
-Tools for TADs processing
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-:ref:`hicFindTADs`
-""""""""""""""""""
-:ref:`hicMergeDomains`
-""""""""""""""""""""""
-:ref:`hicDifferentialTAD`
-"""""""""""""""""""""""""
-:ref:`hicMergeTADbins`
-""""""""""""""""""""""
-
-Tools for Hi-C and TADs visualization
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-:ref:`hicPlotMatrix`
-""""""""""""""""""""
-:ref:`hicPlotTADs`
-""""""""""""""""""
-:ref:`hicPlotViewpoint`
-"""""""""""""""""""""""
-:ref:`hicAggregateContacts`
-"""""""""""""""""""""""""""
-:ref:`hicPlotAverageRegions`
-""""""""""""""""""""""""""""
-
-
-Hi-C contact matrix handling
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-:ref:`hicConvertFormat`
-"""""""""""""""""""""""
-:ref:`hicAdjustMatrix`
-""""""""""""""""""""""
-
-
-Capture Hi-C analysis
-^^^^^^^^^^^^^^^^^^^^^
-
-:ref:`chicQualityControl`
-"""""""""""""""""""""""""
-:ref:`chicViewpointBackgroundModel`
-"""""""""""""""""""""""""""""""""""
-:ref:`chicViewpoint`
-""""""""""""""""""""
-:ref:`chicSignificantInteractions`
-""""""""""""""""""""""""""""""""""
-:ref:`chicAggregateStatistic`
-"""""""""""""""""""""""""""""
-:ref:`chicDifferentialTest`
-"""""""""""""""""""""""""""
-:ref:`chicPlotViewpoint`
-""""""""""""""""""""""""

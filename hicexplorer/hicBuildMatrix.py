@@ -5,6 +5,7 @@ import time
 from os import unlink
 import os
 from io import StringIO
+import traceback
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -180,7 +181,8 @@ def parse_arguments(args=None):
                            help='Minimum distance between restriction sites. '
                            'Restriction sites that are closer than this '
                            'distance are merged into one. This option only '
-                           'applies if --restrictionCutFile is given.',
+                           'applies if --restrictionCutFile is given'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=300,
                            required=False)
@@ -193,10 +195,11 @@ def parse_arguments(args=None):
                            help='The maximum library insert size defines different cut offs based on the maximum expected '
                            'library size. *This is not the average fragment size* but the higher end of the '
                            'the fragment size distribution (obtained using for example a Fragment Analyzer or a Bioanalyzer) '
-                           'which usually is between 800 to 1500 bp. If this value is not known use the default of '
-                           '1000. The insert value is used to decide if two mates belong to the same fragment (by '
+                           'which usually is between 800 to 1500 bp. If this value is not known use the default value.'
+                           ' The insert value is used to decide if two mates belong to the same fragment (by '
                            'checking if they are within this max insert size) and to decide if a mate is too far '
-                           'away from the nearest restriction site.',
+                           'away from the nearest restriction site'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=1000,
                            required=False)
@@ -216,7 +219,8 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--removeSelfLigation',
                            help='If set, inward facing reads less than 1000 bp apart and having a restriction'
                            'site in between are removed. Although this reads do not contribute to '
-                           'any distant contact, they are useful to account for bias in the data.',
+                           'any distant contact, they are useful to account for bias in the data'
+                           ' (for the moment is always True).',
                            #    help=argparse.SUPPRESS,
                            default=True
                            # action='store_true'
@@ -240,7 +244,8 @@ def parse_arguments(args=None):
                            'then checking the results to see if too many low quality '
                            'reads are present and then using the bam file generated to '
                            'check if those low quality reads are caused by the read '
-                           'not being mapped entirely.',
+                           'not being mapped entirely'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=15,
                            type=int
@@ -254,7 +259,8 @@ def parse_arguments(args=None):
                            'useful if you have a fast SSD. Have in mind that the performance of hicBuildMatrix is influenced by '
                            'the number of threads, the speed of your hard drive and the inputBufferSize. To clarify: the performance '
                            'with a higher thread number is not negative influenced but not positive too. With a slow HDD and a high number of '
-                           'threads many threads will do nothing most of the time. ',
+                           'threads many threads will do nothing most of the time'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int
@@ -276,7 +282,8 @@ def parse_arguments(args=None):
                            action='store_true'
                            )
     parserOpt.add_argument('--doTestRunLines',
-                           help='Number of lines to consider for the qc test run.',
+                           help='Number of lines to consider for the qc test run'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=1000000,
                            type=int
@@ -961,8 +968,9 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                                 len(restrictionSequence)
                             frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(restrictionSequence)
                             mate_ref = pRefId2name[mate1.rname]
-                            has_rf.extend(sorted(
-                                pRfPositions[mate_ref][frag_start: frag_end]))
+                            if mate_ref in pRfPositions:
+                                has_rf.extend(sorted(
+                                    pRfPositions[mate_ref][frag_start: frag_end]))
 
                             if len(has_rf) == 0:
                                 self_circle += 1
@@ -1002,8 +1010,9 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                                 len(restrictionSequence)
                             frag_end = max(mate1.pos + mate1.qlen, mate2.pos + mate2.qlen) - len(restrictionSequence)
                             mate_ref = pRefId2name[mate1.rname]
-                            has_rf.extend(sorted(
-                                pRfPositions[mate_ref][frag_start: frag_end]))
+                            if mate_ref in pRfPositions:
+                                has_rf.extend(sorted(
+                                    pRfPositions[mate_ref][frag_start: frag_end]))
 
                     # case when there is no restriction fragment site between the
                     # mates
@@ -1071,7 +1080,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                         mate_not_close_to_rf, count_inward, count_outward,
                         count_left, count_right, inter_chromosomal, short_range, long_range, pair_added, len(pMateBuffer1), pResultIndex, pCounter, out_bam_index_buffer]])
     except Exception as exp:
-        pQueueOut.put('Fail: ' + str(exp))
+        pQueueOut.put('Fail: ' + str(exp) + traceback.format_exc())
         return
     return
 
@@ -1147,7 +1156,7 @@ def main(args=None):
         rf_interval.extend(bed2interval_list(restrictionCutFile))
 
     rf_positions = intervalListToIntervalTree(rf_interval)
-
+    log.debug('rf_positions {}'.format(rf_positions.keys()))
     if args.binSize:
         bin_intervals = get_bins(args.binSize[0], chrom_sizes, args.region)
     else:
