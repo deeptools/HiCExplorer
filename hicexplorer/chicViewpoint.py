@@ -60,23 +60,27 @@ $ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoi
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module).',
+                           help='Number of threads (uses the python multiprocessing module)'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int)
     parserOpt.add_argument('--averageContactBin',
-                           help='Average the contacts of n bins via a sliding window approach to smooth the values and be less sensitive for outliers.',
+                           help='Average the contacts of n bins via a sliding window approach to smooth the values and be less sensitive for outliers'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=5)
     parserOpt.add_argument('--decimalPlaces',
-                           help='Decimal places for all output floating numbers in the viewpoint files.',
+                           help='Decimal places for all output floating numbers in the viewpoint files'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=12)
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
                            help='Set this parameter to have a file with all file names of the viewpoint files (useful only in batch processing mode).')
 
     parserOpt.add_argument('--fixateRange', '-fs',
-                           help='Fixate range of background model starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin.',
+                           help='Fixate range of background model starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=500000,
                            type=int
@@ -86,7 +90,8 @@ $ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoi
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--outputFolder', '-o',
-                           help='This folder contains all created viewpoint files.',
+                           help='This folder contains all created viewpoint files'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='interactionFiles')
     parserOpt.add_argument("--help", "-h", action="help",

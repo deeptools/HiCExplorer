@@ -49,7 +49,6 @@ In batch mode the list of file names and the folders containing the files need t
                                 'Format is --region upstream downstream, e.g.: --region 500000 500000 plots 500kb up- and 500kb downstream. This value should not exceed the range used in the other chic-tools.',
                                 required=True,
                                 type=int,
-                                default=[500000, 500000],
                                 nargs=2)
 
     parserOpt = parser.add_argument_group('Optional arguments')
@@ -58,7 +57,8 @@ In batch mode the list of file names and the folders containing the files need t
                            help='path to the background file which should be used for plotting',
                            required=False)
     parserOpt.add_argument('--interactionFileFolder', '-iff',
-                           help='Folder where the interaction files are stored. Applies only for batch mode.',
+                           help='Folder where the interaction files are stored. Applies only for batch mode'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='.')
     parserOpt.add_argument('--differentialTestResult', '-dif',
@@ -66,11 +66,13 @@ In batch mode the list of file names and the folders containing the files need t
                            required=False,
                            nargs='+')
     parserOpt.add_argument('--significantInteractionFileFolder', '-siff',
-                           help='Folder where the files with detected significant interactions are stored. Applies only for batch mode.',
+                           help='Folder where the files with detected significant interactions are stored. Applies only for batch mode'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='.')
     parserOpt.add_argument('--differentialTestResultsFolder', '-diff',
-                           help='Folder where the H0 rejected files are stored. Applies only for batch mode.',
+                           help='Folder where the H0 rejected files are stored. Applies only for batch mode'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='.')
     parserOpt.add_argument('--significantInteractions', '-si',
@@ -82,21 +84,25 @@ In batch mode the list of file names and the folders containing the files need t
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--outputFolder', '-of',
-                           help='Output folder of the files.',
+                           help='Output folder of the files'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='.')
     parserOpt.add_argument('--outputFormat', '-format',
-                           help='Output format of the plot.',
+                           help='Output format of the plot'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='png')
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image, if'
-                           'output is a raster graphics image (e.g png, jpg)',
+                           'output is a raster graphics image (e.g png, jpg)'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=300,
                            required=False)
     parserOpt.add_argument('--binResolution', '-r',
-                           help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.',
+                           help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=1000,
                            required=False)
@@ -104,14 +110,17 @@ In batch mode the list of file names and the folders containing the files need t
     parserOpt.add_argument('--colorMapPvalue',
                            help='Color map to use for the p-value. Available '
                            'values can be seen here: '
-                           'http://matplotlib.org/examples/color/colormaps_reference.html',
+                           'http://matplotlib.org/examples/color/colormaps_reference.html'
+                           ' (Default: %(default)s).',
                            default='RdYlBu')
     parserOpt.add_argument('--maxPValue', '-map',
-                           help='Maximal value for p-value. Values above this threshold are set to this value.',
+                           help='Maximal value for p-value. Values above this threshold are set to this value'
+                           ' (Default: %(default)s).',
                            type=float,
                            default=0.1)
     parserOpt.add_argument('--minPValue', '-mp',
-                           help='Minimal value for p-value. Values below this threshold are set to this value.',
+                           help='Minimal value for p-value. Values below this threshold are set to this value'
+                           ' (Default: %(default)s).',
                            type=float,
                            default=0.0)
 
@@ -139,18 +148,20 @@ In batch mode the list of file names and the folders containing the files need t
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--plotSampleNumber', '-psn',
-                           help='Number of samples per plot. Applies only in batch mode.',
+                           help='Number of samples per plot. Applies only in batch mode'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=2,
                            type=int)
     parserOpt.add_argument('--colorList', '-cl',
-                           help='Colorlist for the viewpoint lines.',
+                           help='Colorlist for the viewpoint lines (Default g b c m y k).',
                            required=False,
                            default=['g', 'b', 'c', 'm', 'y', 'k'],
                            type=str,
                            nargs='+')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module).',
+                           help='Number of threads (uses the python multiprocessing module)'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int

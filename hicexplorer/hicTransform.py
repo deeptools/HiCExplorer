@@ -58,7 +58,8 @@ def parse_arguments(args=None):
                            'and C is the covariance matrix'
                            'covariance computes the Covariance of the '
                            'input matrix: Cov_i,j = E[M_i, M_j] - my_i * my_j '
-                           'where M is the input matrix and my the mean.',
+                           'where M is the input matrix and my the mean'
+                           ' (Default: %(default)s).',
                            choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', 'pearson', 'covariance'],
                            default='obs_exp')
 

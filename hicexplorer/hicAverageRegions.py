@@ -46,7 +46,8 @@ WARNING: This tool can only be used with fixed bin size Hi-C matrices. No guaran
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
     parserOpt.add_argument('--coordinatesToBinMapping', '-cb',
                            help='If the region contains start and end coordinates, define if the start, center (start + (end-start) / 2) or end bin should be used as start for range.'
-                           'This parameter is only important to set if the given start and end coordinates are not in the same bin.',
+                           'This parameter is only important to set if the given start and end coordinates are not in the same bin'
+                           ' (Default: %(default)s).',
                                 choices=['start', 'center', 'end'],
                                 default='start')
     parserOpt.add_argument('--version', action='version',
