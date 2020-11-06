@@ -211,15 +211,15 @@ def test_hicAggregateContacts_clustering():
     res = compare_images(test_image_heatmap, outfile_heatmaps.name, tolerance)
     assert res is None, res
 
-    assert are_files_equal(test_matrix1_agg, outfile_aggregate_matrix.name+"_X_cluster_1.tab")
-    assert are_files_equal(test_matrix2_agg, outfile_aggregate_matrix.name+"_X_cluster_2.tab")
-    assert are_files_equal(test_matrix3_agg, outfile_aggregate_matrix.name+"_X_cluster_3.tab")
-    assert are_files_equal(test_matrix4_agg, outfile_aggregate_matrix.name+"_X_cluster_4.tab")
+    assert are_files_equal(test_matrix1_agg, outfile_aggregate_matrix.name + "_X_cluster_1.tab")
+    assert are_files_equal(test_matrix2_agg, outfile_aggregate_matrix.name + "_X_cluster_2.tab")
+    assert are_files_equal(test_matrix3_agg, outfile_aggregate_matrix.name + "_X_cluster_3.tab")
+    assert are_files_equal(test_matrix4_agg, outfile_aggregate_matrix.name + "_X_cluster_4.tab")
 
     os.unlink(outfile_aggregate_plots.name)
     os.unlink(outfile_heatmaps.name)
-    for i in range(1,5):
-        file = outfile_aggregate_matrix.name + "_X_cluster_"+str(i)+".tab"
+    for i in range(1, 5):
+        file = outfile_aggregate_matrix.name + "_X_cluster_" + str(i) + ".tab"
         os.unlink(file)
 
 
@@ -255,15 +255,15 @@ def test_hicAggregateContacts_clustering_cool():
     res = compare_images(test_image_heatmap, outfile_heatmaps.name, tolerance)
     assert res is None, res
 
-    assert are_files_equal(test_matrix1_agg, outfile_aggregate_matrix.name+"_X_cluster_1.tab")
-    assert are_files_equal(test_matrix2_agg, outfile_aggregate_matrix.name+"_X_cluster_2.tab")
-    assert are_files_equal(test_matrix3_agg, outfile_aggregate_matrix.name+"_X_cluster_3.tab")
-    assert are_files_equal(test_matrix4_agg, outfile_aggregate_matrix.name+"_X_cluster_4.tab")
+    assert are_files_equal(test_matrix1_agg, outfile_aggregate_matrix.name + "_X_cluster_1.tab")
+    assert are_files_equal(test_matrix2_agg, outfile_aggregate_matrix.name + "_X_cluster_2.tab")
+    assert are_files_equal(test_matrix3_agg, outfile_aggregate_matrix.name + "_X_cluster_3.tab")
+    assert are_files_equal(test_matrix4_agg, outfile_aggregate_matrix.name + "_X_cluster_4.tab")
 
     os.unlink(outfile_aggregate_plots.name)
     os.unlink(outfile_heatmaps.name)
-    for i in range(1,5):
-        file = outfile_aggregate_matrix.name + "_X_cluster_"+str(i)+".tab"
+    for i in range(1, 5):
+        file = outfile_aggregate_matrix.name + "_X_cluster_" + str(i) + ".tab"
         os.unlink(file)
 
 
