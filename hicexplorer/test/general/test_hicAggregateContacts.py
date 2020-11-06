@@ -218,7 +218,9 @@ def test_hicAggregateContacts_clustering():
 
         os.unlink(outfile_aggregate_plots.name)
         os.unlink(outfile_heatmaps.name)
-        os.unlink(outfile_aggregate_matrix.name)
+        for i in range(1,5):
+            file = outfile_aggregate_matrix.name + "_X_cluster_"+str(i)+".tab"
+            os.unlink(file)
 
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
 @pytest.mark.skipif(MID_MEMORY > memory,
@@ -259,7 +261,9 @@ def test_hicAggregateContacts_clustering_cool():
 
            os.unlink(outfile_aggregate_plots.name)
            os.unlink(outfile_heatmaps.name)
-           os.unlink(outfile_aggregate_matrix.name)
+           for i in range(1,5):
+               file = outfile_aggregate_matrix.name + "_X_cluster_"+str(i)+".tab"
+               os.unlink(file)
 
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
 @pytest.mark.skipif(MID_MEMORY > memory,
