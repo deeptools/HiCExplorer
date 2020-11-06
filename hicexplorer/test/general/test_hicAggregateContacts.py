@@ -26,6 +26,7 @@ REMOVE_OUTPUT = True
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
 tolerance = 50  # default matplotlib pixed difference tolerance
 
+
 def are_files_equal(file1, file2, delta=2, skip=0):
     equal = True
     if delta:
@@ -71,6 +72,7 @@ def test_hicAggregateContacts_intra_perChr():
     os.remove(outfile_aggregate_plots.name)
     os.remove(outfile_aggregate_matrix.name)
 
+
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
@@ -115,7 +117,6 @@ def test_hicAggregateContacts_inter():
     os.remove(outfile_aggregate_matrix.name)
 
 
-
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
 @pytest.mark.skipif(MID_MEMORY > memory,
                     reason="Travis has too less memory to run it.")
@@ -136,7 +137,6 @@ def test_hicAggregateContacts_all():
     assert are_files_equal(test_matrix_agg, outfile_aggregate_matrix.name)
     os.remove(outfile_aggregate_plots.name)
     os.remove(outfile_aggregate_matrix.name)
-
 
 
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
@@ -193,34 +193,35 @@ def test_hicAggregateContacts_clustering():
         "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight --dpi 100 " \
         "--BED2 {root}/hicAggregateContacts/test_regions.bed --mode intra-chr --perChr  --outFilePrefixMatrix {out_mat}".\
         format(root=ROOT, out_agg=outfile_aggregate_plots.name,
-                out_heat=outfile_heatmaps.name, out_mat=outfile_aggregate_matrix.name)
+               out_heat=outfile_heatmaps.name, out_mat=outfile_aggregate_matrix.name)
 
-        test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_hclust4.png'
-        test_image_heatmap = ROOT + 'hicAggregateContacts/master_heatmap.png'
-        test_matrix1_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust1_hclust4.tab'
-        test_matrix2_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust2_hclust4.tab'
-        test_matrix3_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust3_hclust4.tab'
-        test_matrix4_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust4_hclust4.tab'
+    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_hclust4.png'
+    test_image_heatmap = ROOT + 'hicAggregateContacts/master_heatmap.png'
+    test_matrix1_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust1_hclust4.tab'
+    test_matrix2_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust2_hclust4.tab'
+    test_matrix3_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust3_hclust4.tab'
+    test_matrix4_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust4_hclust4.tab'
 
-        # hicexplorer.hicAggregateContacts.main(args.split())
-        compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
+    # hicexplorer.hicAggregateContacts.main(args.split())
+    compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
 
-        res = compare_images(test_image_agg, outfile_aggregate_plots.name, tolerance)
-        assert res is None, res
+    res = compare_images(test_image_agg, outfile_aggregate_plots.name, tolerance)
+    assert res is None, res
 
-        res = compare_images(test_image_heatmap, outfile_heatmaps.name, tolerance)
-        assert res is None, res
+    res = compare_images(test_image_heatmap, outfile_heatmaps.name, tolerance)
+    assert res is None, res
 
-        assert are_files_equal(test_matrix1_agg, outfile_aggregate_matrix.name+"_X_cluster_1.tab")
-        assert are_files_equal(test_matrix2_agg, outfile_aggregate_matrix.name+"_X_cluster_2.tab")
-        assert are_files_equal(test_matrix3_agg, outfile_aggregate_matrix.name+"_X_cluster_3.tab")
-        assert are_files_equal(test_matrix4_agg, outfile_aggregate_matrix.name+"_X_cluster_4.tab")
+    assert are_files_equal(test_matrix1_agg, outfile_aggregate_matrix.name+"_X_cluster_1.tab")
+    assert are_files_equal(test_matrix2_agg, outfile_aggregate_matrix.name+"_X_cluster_2.tab")
+    assert are_files_equal(test_matrix3_agg, outfile_aggregate_matrix.name+"_X_cluster_3.tab")
+    assert are_files_equal(test_matrix4_agg, outfile_aggregate_matrix.name+"_X_cluster_4.tab")
 
-        os.unlink(outfile_aggregate_plots.name)
-        os.unlink(outfile_heatmaps.name)
-        for i in range(1,5):
-            file = outfile_aggregate_matrix.name + "_X_cluster_"+str(i)+".tab"
-            os.unlink(file)
+    os.unlink(outfile_aggregate_plots.name)
+    os.unlink(outfile_heatmaps.name)
+    for i in range(1,5):
+        file = outfile_aggregate_matrix.name + "_X_cluster_"+str(i)+".tab"
+        os.unlink(file)
+
 
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
 @pytest.mark.skipif(MID_MEMORY > memory,
@@ -236,34 +237,35 @@ def test_hicAggregateContacts_clustering_cool():
            "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight --dpi 100 " \
            "--BED2 {root}/hicAggregateContacts/test_regions.bed  --mode intra-chr --perChr --outFilePrefixMatrix {out_mat}".\
            format(root=ROOT, out_agg=outfile_aggregate_plots.name,
-                   out_heat=outfile_heatmaps.name, out_mat=outfile_aggregate_matrix.name)
+                  out_heat=outfile_heatmaps.name, out_mat=outfile_aggregate_matrix.name)
 
-           test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_hclust4.png'
-           test_image_heatmap = ROOT + 'hicAggregateContacts/master_heatmap.png'
-           test_matrix1_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust1_hclust4.tab'
-           test_matrix2_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust2_hclust4.tab'
-           test_matrix3_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust3_hclust4.tab'
-           test_matrix4_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust4_hclust4.tab'
+    test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_hclust4.png'
+    test_image_heatmap = ROOT + 'hicAggregateContacts/master_heatmap.png'
+    test_matrix1_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust1_hclust4.tab'
+    test_matrix2_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust2_hclust4.tab'
+    test_matrix3_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust3_hclust4.tab'
+    test_matrix4_agg = ROOT + 'hicAggregateContacts/master_aggregate_clust4_hclust4.tab'
 
-           # hicexplorer.hicAggregateContacts.main(args.split())
-           compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
+    # hicexplorer.hicAggregateContacts.main(args.split())
+    compute(hicexplorer.hicAggregateContacts.main, args.split(), 5)
 
-           res = compare_images(test_image_agg, outfile_aggregate_plots.name, tolerance)
-           assert res is None, res
+    res = compare_images(test_image_agg, outfile_aggregate_plots.name, tolerance)
+    assert res is None, res
 
-           res = compare_images(test_image_heatmap, outfile_heatmaps.name, tolerance)
-           assert res is None, res
+    res = compare_images(test_image_heatmap, outfile_heatmaps.name, tolerance)
+    assert res is None, res
 
-           assert are_files_equal(test_matrix1_agg, outfile_aggregate_matrix.name+"_X_cluster_1.tab")
-           assert are_files_equal(test_matrix2_agg, outfile_aggregate_matrix.name+"_X_cluster_2.tab")
-           assert are_files_equal(test_matrix3_agg, outfile_aggregate_matrix.name+"_X_cluster_3.tab")
-           assert are_files_equal(test_matrix4_agg, outfile_aggregate_matrix.name+"_X_cluster_4.tab")
+    assert are_files_equal(test_matrix1_agg, outfile_aggregate_matrix.name+"_X_cluster_1.tab")
+    assert are_files_equal(test_matrix2_agg, outfile_aggregate_matrix.name+"_X_cluster_2.tab")
+    assert are_files_equal(test_matrix3_agg, outfile_aggregate_matrix.name+"_X_cluster_3.tab")
+    assert are_files_equal(test_matrix4_agg, outfile_aggregate_matrix.name+"_X_cluster_4.tab")
 
-           os.unlink(outfile_aggregate_plots.name)
-           os.unlink(outfile_heatmaps.name)
-           for i in range(1,5):
-               file = outfile_aggregate_matrix.name + "_X_cluster_"+str(i)+".tab"
-               os.unlink(file)
+    os.unlink(outfile_aggregate_plots.name)
+    os.unlink(outfile_heatmaps.name)
+    for i in range(1,5):
+        file = outfile_aggregate_matrix.name + "_X_cluster_"+str(i)+".tab"
+        os.unlink(file)
+
 
 @pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
 @pytest.mark.skipif(MID_MEMORY > memory,
