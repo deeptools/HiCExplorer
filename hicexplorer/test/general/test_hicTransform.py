@@ -38,8 +38,8 @@ def test_hic_transfer_obs_exp_perChromosome():
     outfile.close()
 
     args = "--matrix {} --outFileName {} --method obs_exp --perChromosome".format(original_matrix_cool, outfile.name).split()
-    # hicTransform.main(args)
-    compute(hicTransform.main, args, 5)
+    hicTransform.main(args)
+    # compute(hicTransform.main, args, 5)
 
     test = hm.hiCMatrix(ROOT + "hicTransform/obs_exp_per_chromosome.cool")
 

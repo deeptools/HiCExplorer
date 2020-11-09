@@ -114,8 +114,10 @@ def _obs_exp(pSubmatrix):
     obs_exp_matrix_ = obs_exp_matrix(pSubmatrix)
     obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
     obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_))
+    # log.error('obs_exp_matrix_.data {}'.format(obs_exp_matrix_.data))
     # if len(obs_exp_matrix_.data) == 0:
-    # return np.array([[]])
+    #     log.debug('No data!')
+    #     return np.array([[]])
     return obs_exp_matrix_  # .todense()
 
 
@@ -155,7 +157,12 @@ def main(args=None):
                 chr_range = hic_ma.getChrBinRange(chrname)
                 submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
                 submatrix.astype(float)
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp(submatrix))
+                submatrix_chr = _obs_exp(submatrix)
+                if len(submatrix_chr.data) == 0:
+                    submatrix_chr = lil_matrix(submatrix_chr.shape)
+                else:
+                    submatrix_chr = lil_matrix(submatrix_chr)
+                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = submatrix_chr
         else:
             submatrix = _obs_exp(hic_ma.matrix)
             trasf_matrix = csr_matrix(submatrix)
@@ -167,7 +174,13 @@ def main(args=None):
                 chr_range = hic_ma.getChrBinRange(chrname)
                 submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
                 submatrix.astype(float)
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp_non_zero(submatrix, args.ligation_factor))
+
+                submatrix_chr = _obs_exp_non_zero(submatrix, args.ligation_factor)
+                if len(submatrix_chr.data) == 0:
+                    submatrix_chr = lil_matrix(submatrix_chr.shape)
+                else:
+                    submatrix_chr = lil_matrix(submatrix_chr)
+                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = submatrix_chr
         else:
             submatrix = _obs_exp_non_zero(hic_ma.matrix, args.ligation_factor)
             trasf_matrix = csr_matrix(submatrix)
@@ -181,7 +194,13 @@ def main(args=None):
             chr_range = hic_ma.getChrBinRange(chrname)
             submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
             submatrix.astype(float)
-            trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp_lieberman(submatrix, length_chromosome, chromosome_count))
+
+            submatrix_chr = _obs_exp_lieberman(submatrix, length_chromosome, chromosome_count)
+            if len(submatrix_chr.data) == 0:
+                submatrix_chr = lil_matrix(submatrix_chr.shape)
+            else:
+                submatrix_chr = lil_matrix(submatrix_chr)
+            trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = submatrix_chr
         trasf_matrix = trasf_matrix.tocsr()
         # log.debug('type: {}'.format(type(trasf_matrix)))
     elif args.method == 'pearson':
@@ -192,7 +211,13 @@ def main(args=None):
 
                 submatrix.astype(float)
 
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_pearson(submatrix.todense()))
+                submatrix_chr = _pearson(submatrix.todense())
+                if len(submatrix_chr.data) == 0:
+                    submatrix_chr = lil_matrix(submatrix_chr.shape)
+                else:
+                    submatrix_chr = lil_matrix(submatrix_chr)
+
+                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = submatrix_chr
         else:
             trasf_matrix = csr_matrix(_pearson(hic_ma.matrix.todense()))
 
@@ -205,8 +230,14 @@ def main(args=None):
 
                 submatrix.astype(float)
 
-                corrmatrix = np.cov(submatrix.todense())
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(corrmatrix)
+                # corrmatrix =
+
+                submatrix_chr = np.cov(submatrix.todense())
+                if len(submatrix_chr.data) == 0:
+                    submatrix_chr = lil_matrix(submatrix_chr.shape)
+                else:
+                    submatrix_chr = lil_matrix(submatrix_chr)
+                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = submatrix_chr
         else:
             corrmatrix = np.cov(hic_ma.matrix.todense())
             trasf_matrix = csr_matrix(corrmatrix)

@@ -1,12 +1,28 @@
 News and Developments
 =====================
 
+
+Release 3.6
+-----------
+**9 November 2020**
+
+- hicAggregateContacts, thanks @LeilyR:
+    - hicAggragateContact has been updated to be able to handle inter chromosomal contacts as well as inter chromosomal contacts
+    - Added scikit-learn to dependencies
+- hicBuildMatrix: Fixing another bug concerning scaffolds without any restriction enzyme cut site
+- Updated dependencies
+- Adding default values to the documentation. Thanks @lldelisle
+- hicTransform: Fixing a bug in case one of the intermediate matrices is empty
+- Official Python 3.8 support:
+   - Manually setting 'fork' as the start method for multiprocessing because the default on macOS was set to 'spawn'
+
+
 Release 3.5.3
 -------------
 **14 October 2020**
 
 - Bug fix release: 
-   - Reads from scaffolds without any restriction enzym cut site are considered as 'same fragment'. An appearance of such a read will not lead to a crash anymore
+   - Reads from scaffolds without any restriction enzyme cut site are considered as 'same fragment'. An appearance of such a read will not lead to a crash anymore
 - Minor documentation improvements
 
 

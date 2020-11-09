@@ -43,10 +43,11 @@ We recommend to compute first the normalization (with hicNormalize) and correct 
                                 nargs='+',
                                 required=True)
     parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--multiplicativeValue'
-                           ' (Default: %(default)s).', '-mv', default=1,
+    parserOpt.add_argument('--multiplicativeValue', '-mv',
                            type=float,
-                           help='show this help message and exit')
+                           help='Value to multiply if --normalize is set to multiplicative.'
+                           ' (Default: %(default)s).',
+                           default=1)
     parserOpt.add_argument('--setToZeroThreshold', '-sz', default=0.0,
                            type=float,
                            help='A threshold to set all values after normalization to 0 if smaller this threshold. Default value is 0 i.e. there is no effect.'
