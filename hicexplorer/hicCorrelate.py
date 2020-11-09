@@ -131,15 +131,15 @@ def parse_arguments(args=None):
                            default=None,
                            nargs='+')
 
-    parserOpt.add_argument('--threads',
-                           help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
-                           ' One master process which is used to read the input file into the buffer and one process which is merging '
-                           'the output bam files of the processes into one output bam file. All other threads do the actual computation'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=4,
-                           type=int
-                           )
+    # parserOpt.add_argument('--threads',
+    #                        help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
+    #                        ' One master process which is used to read the input file into the buffer and one process which is merging '
+    #                        'the output bam files of the processes into one output bam file. All other threads do the actual computation'
+    #                        ' (Default: %(default)s).',
+    #                        required=False,
+    #                        default=4,
+    #                        type=int
+    #                        )
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
