@@ -4,7 +4,7 @@ News and Developments
 
 Release 3.6
 -----------
-**6 November 2020**
+**9 November 2020**
 
 - hicAggregateContacts, thanks @LeilyR:
     - hicAggragateContact has been updated to be able to handle inter chromosomal contacts as well as inter chromosomal contacts
@@ -13,7 +13,8 @@ Release 3.6
 - Updated dependencies
 - Adding default values to the documentation. Thanks @lldelisle
 - hicTransform: Fixing a bug in case one of the intermediate matrices is empty
-- Official Python 3.8 support
+- Official Python 3.8 support:
+   - Manually setting 'fork' as the start method for multiprocessing because the default on macOS was set to 'spawn'
 
 
 Release 3.5.3
