@@ -28,7 +28,7 @@ Below, you can find an example of an aggregate Hi-C matrix obtained from *Drosop
     $ hicAggregateContacts --matrix Dmel.h5 --BED ChIP-seq-peaks.bed \
     --outFileName Dmel_aggregate_Contacts --vMin 0.8 --vMax 2.2 \
     --range 300000:1000000 --numberOfBins 30 --chromosomes X \
-    --avgType mean --transform obs/exp
+    --operationType mean --transform obs/exp --mode intra-chr
 
 .. image:: ../../images/hicAggregateContacts.png
 
