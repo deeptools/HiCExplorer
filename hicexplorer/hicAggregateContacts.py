@@ -99,7 +99,7 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--perChr',
                            help='if set, it generates a plot per chromosome. It is only affected if '
-                           'intera-chromosomal contacts are of interest.',
+                           'intra-chromosomal contacts are of interest.',
                            action='store_true',
                            required=False)
 
