@@ -4,7 +4,7 @@ News and Developments
 
 Release 3.6
 -----------
-**9 November 2020**
+**10 November 2020**
 
 - hicAggregateContacts, thanks @LeilyR:
     - hicAggragateContact has been updated to be able to handle inter chromosomal contacts as well as inter chromosomal contacts
