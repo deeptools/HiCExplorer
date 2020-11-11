@@ -43,35 +43,41 @@ The datapoints per sample are the ratios per chromosome.
 
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--plotFileName', '-pfn',
-                           help='Plot name.',
+                           help='Plot name'
+                           ' (Default: %(default)s).',
                            default='plot.png')
     parserOpt.add_argument('--outFileName', '-o',
-                           help='File the p-values are written to, p-values are only computed if at least two matrices are given.',
+                           help='File the p-values are written to, p-values are only computed if at least two matrices are given'
+                           ' (Default: %(default)s).',
                            default='p_values.txt')
     parserOpt.add_argument('--outFileNameData', '-od',
-                           help='File the computed ratios are written to.',
+                           help='File the computed ratios are written to'
+                           ' (Default: %(default)s).',
                            default='data.txt')
     parserOpt.add_argument('--distance', '-d',
-                           help='Distance which should be considered as short range. Default 2MB.',
+                           help='Distance (in bp) which should be considered as short range. Default 2MB (2000000).',
                            default=2000000,
                            type=int)
     parserOpt.add_argument('--chromosomes',
                            help='Chromosomes to include in the analysis. If not set, all chromosomes are included.',
                            nargs='+')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads. Using the python multiprocessing module. ',
+                           help='Number of threads. Using the python multiprocessing module'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int
                            )
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
-                           'output is a raster graphics image (e.g png, jpg)',
+                           'output is a raster graphics image (e.g png, jpg)'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=300,
                            required=False)
     parserOpt.add_argument('--colorList', '-cl',
-                           help='Colorlist for the boxplots.',
+                           help='Colorlist for the boxplots'
+                           ' (Default: g b c m y k).',
                            required=False,
                            default=['g', 'b', 'c', 'm', 'y', 'k'],
                            type=str,

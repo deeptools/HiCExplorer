@@ -40,18 +40,22 @@ H0 is the assumption that two regions are identical, the rejected files contain 
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
-                           help='H0 is considered as \'two regions are identical.\' i.e. all regions with a test result of <= p-value are rejected and considered as differential.',
+                           help='H0 is considered as \'two regions are identical.\' i.e. all regions with a test result of <= p-value are rejected and considered as differential'
+                           ' (Default: %(default)s).',
                            default=0.05)
     parserOpt.add_argument('--mode', '-m',
-                           help='Consider only intra-TAD interactions, or additional left inter-TAD, right inter-TAD or all.',
+                           help='Consider only intra-TAD interactions, or additional left inter-TAD, right inter-TAD or all'
+                           ' (Default: %(default)s).',
                            choices=['intra-TAD', 'left-inter-TAD', 'right-inter-TAD', 'all'],
                            default='all')
     parserOpt.add_argument('--modeReject', '-mr',
-                           help='All test of a mode must be rejected (all) or reject region (and accept it is differential) as soon as at least one region is having a p-value <= --pValue.',
+                           help='All test of a mode must be rejected (all) or reject region (and accept it is differential) as soon as at least one region is having a p-value <= --pValue'
+                           ' (Default: %(default)s).',
                            choices=['all', 'one'],
                            default='one')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads to use, the parallelization is implemented per chromosome.',
+                           help='Number of threads to use, the parallelization is implemented per chromosome'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int

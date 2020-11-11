@@ -57,7 +57,8 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--outputFormat',
                                 help='Output format. The following options are available: `h5` (native HiCExplorer '
                                 'format based on hdf5 storage format). '
-                                ' `cool` and `ginteractions`.',
+                                ' `cool`, `ginteractions`, `homer` and `mcool`'
+                                ' (Default: %(default)s).',
                                 default='cool',
                                 choices=['cool', 'h5', 'homer',
                                          'ginteractions', 'mcool'],
@@ -67,7 +68,8 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--correction_name',
                            help='Name of the column which stores the correction factors. The information about the '
-                                'column names can be figured out with the tool hicInfo. Option only for cool input files.',
+                                'column names can be figured out with the tool hicInfo. Option only for cool input files'
+                                ' (Default: %(default)s).',
                            default='weight')
     parserOpt.add_argument('--correction_division',
                            help='If set, division is applied for correction. Default is a multiplication. Option only for cool input files.',

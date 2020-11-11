@@ -9,10 +9,14 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
+from mpl_toolkits.mplot3d import Axes3D
+# from scipy.cluster.vq import vq, kmeans
+# from scipy.cluster.hierarchy import fcluster, linkage
+import sklearn.cluster as skclust
 from hicmatrix import HiCMatrix as hm
+from hicmatrix.lib import MatrixFileHandler
 import hicexplorer.utilities
-from .utilities import toString
-from .utilities import check_chrom_str_bytes
+from .utilities import check_chrom_str_bytes, change_chrom_names, toString
 from hicexplorer._version import __version__
 
 import logging
@@ -24,10 +28,9 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      description='Takes a list of positions in the Hi-C matrix and '
                                                  'makes a pooled image.')
-
+    # define the arguments
     parserRequired = parser.add_argument_group('Required arguments')
 
-    # define the arguments
     parserRequired.add_argument('--matrix', '-m',
                                 help='Path of the Hi-C matrix to plot.',
                                 required=True)
@@ -42,13 +45,27 @@ def parse_arguments(args=None):
                                 type=argparse.FileType('r'),
                                 required=True)
 
-    parserRequired.add_argument('--range',
-                                help='Range of contacts that will be considered for plotting the aggregate contacts '
-                                'in bp with the format low_range:high_range for example 1000000:20000000. The range '
-                                'should start at contacts larger than TAD size to reduce background interactions.',
+    parserRequired.add_argument('--mode',
+                                choices=['inter-chr', 'intra-chr', 'all'],
                                 required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
+
+    parserOpt.add_argument('--range',
+                           help='Range of contacts that will be considered for plotting the aggregate contacts '
+                           'in bp with the format low_range:high_range for example 1000000:20000000. The range '
+                           'should start at contacts larger than TAD size to reduce background interactions. '
+                           'This will be ignored if inter-chromosomal contacts are of interest.',
+                           default=None)
+
+    parserOpt.add_argument('--row_wise',
+                           help='If given,the insteractions between each row of the BED file and its '
+                           'corresponding row of the BED2 file are computed. If intra-chromosomal '
+                           'contacts are computed, the rows with different chromosomes are ignored. '
+                           'If inter-chromosomal, the rows with same chromosomes are ignored. '
+                           'It keeps all the rows if `all`.',
+                           action='store_true',
+                           required=False)
 
     parserOpt.add_argument('--BED2',
                            help='Optional second BED file. Interactions between regions in first '
@@ -58,7 +75,8 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--numberOfBins',
                            help='Number of  bins to include in the submatrix. The bed regions will be centered between '
-                           'half number of bins and the other half number of bins.',
+                           'half number of bins and the other half number of bins'
+                           ' (Default: %(default)s).',
                            default='51',
                            type=int)
 
@@ -67,14 +85,34 @@ def parse_arguments(args=None):
                            '"total-counts", "z-score" and "obs/exp". If total counts are selected, '
                            'the sub-matrix values are divided by the total counts for normalization. '
                            'If z-score or obs/exp are selected, the Hi-C matrix is converted into a '
-                           'z-score or observed / expected matrix.',
+                           'z-score or observed / expected matrix'
+                           ' (Default: %(default)s).',
                            choices=['total-counts', 'z-score', 'obs/exp', 'none'],
                            default='none')
 
-    parserOpt.add_argument('--avgType',
-                           help='Type of average used in the output matrix. Options are mean and median. Default is median.',
-                           choices=['mean', 'median'],
+    parserOpt.add_argument('--operationType',
+                           help='Type of the operation to be applied to summerize '
+                           'the submatrices into a single matrix. Options are sum, '
+                           'mean and median. (Default: %(default)s)',
+                           choices=['sum', 'mean', 'median'],
                            default='median')
+
+    parserOpt.add_argument('--perChr',
+                           help='if set, it generates a plot per chromosome. It is only affected if '
+                           'intra-chromosomal contacts are of interest.',
+                           action='store_true',
+                           required=False)
+
+    parserOpt.add_argument('--largeRegionsOperation',
+                           help='If a given coordinate in the bed file is larger than '
+                           'a bin of the input matrix, by default only the first bin '
+                           'is taken into account. However there are more posibilities '
+                           'to handel such a case. Users can ask for the last bin or '
+                           'for center of the region. As an example if a region falls into bins [4,5,6] '
+                           'and `--numberOfBins = 2` then if first, bins [3,4,5] are kept. '
+                           'If last: [5,6,7] and if center: [4,5,6].',
+                           choices=['first', 'last', 'center'],
+                           default='first')
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
     parserOpt.add_argument('--version', action='version',
@@ -97,6 +135,10 @@ def parse_arguments(args=None):
                            'If no clusters were computed, then only one file per chromosome is produced.',
                            required=False)
 
+    parserOut.add_argument('--outFileObsExp',
+                           help='writes the obs/exp matrix to a file, if --transform=obs/exp.',
+                           required=False)
+
     parserOut.add_argument('--diagnosticHeatmapFile',
                            help='If given, a heatmap (per chromosome) is saved. Each row in the heatmap contains the'
                            'diagonal of each of the submatrices centered on the bed file. This file is useful to '
@@ -104,12 +146,6 @@ def parse_arguments(args=None):
                            'the fraction of sub-matrices that are aggregated that may have an enrichment at the '
                            'center.',
                            type=argparse.FileType('w'),
-                           required=False)
-
-    parserOut.add_argument('--row_wise',
-                           help='If given,the insteractions between each row of the BED file and its '
-                           'corresponding row of the BED2 file are computed.',
-                           action='store_true',
                            required=False)
 
     parserClust = parser.add_argument_group('Clustering options')
@@ -128,12 +164,19 @@ def parse_arguments(args=None):
                              '>1000 submatrices per chromosome. In those cases, you might prefer --kmeans',
                              type=int)
 
+    parserClust.add_argument('--spectral',
+                             help='Number of clusters to compute (per chromosome). When this '
+                             'option is set, the matrix is split into clusters '
+                             'using the spectral clustering algorithm.',
+                             type=int)
+
     parserClust.add_argument('--howToCluster',
-                             help='Options are "full", "center" and "diagonal". The full clustering is the default and '
+                             help='Options are "full", "center" and "diagonal". The full clustering '
                              'takes all values of each submatrix for clustering. "center", takes only a square of '
                              'length 3x3 from each submatrix and uses only  this values for clustering. With the '
                              '"diagonal" option the clustering is only carried out based on the submatrix diagonal '
-                             '(representing values at the same distance to each other.)',
+                             '(representing values at the same distance to each other)'
+                             ' (Default: %(default)s).',
                              choices=['full', 'center', 'diagonal'],
                              default='full')
 
@@ -146,11 +189,13 @@ def parse_arguments(args=None):
     parserPlot.add_argument('--colorMap',
                             help='Color map to use for the heatmap. Available '
                             'values can be seen here: '
-                            'http://matplotlib.org/examples/color/colormaps_reference.html',
+                            'http://matplotlib.org/examples/color/colormaps_reference.html'
+                            ' (Default: %(default)s).',
                             default='RdYlBu_r')
 
     parserPlot.add_argument('--plotType',
-                            help='Plot type.',
+                            help='Plot type'
+                            ' (Default: %(default)s).',
                             choices=['2d', '3d'],
                             default='2d')
 
@@ -170,13 +215,14 @@ def parse_arguments(args=None):
                             action='store_true')
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image in case the'
-                           'output is a raster graphics image (e.g png, jpg).',
+                           'output is a raster graphics image (e.g png, jpg)'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=300)
     return parser
 
 
-def read_bed_per_chrom(fh):
+def read_bed_per_chrom(fh, chrom_list):
     """
     Reads the given BED file returning
     a dictionary that contains, per each chromosome
@@ -187,12 +233,185 @@ def read_bed_per_chrom(fh):
         if line[0] == "#":
             continue
         fields = line.strip().split()
+        if fields[0] not in chrom_list:
+            if change_chrom_names(fields[0]) in chrom_list:
+                fields[0] = change_chrom_names(fields[0])
+            else:
+                continue
         if fields[0] not in interval:
             interval[fields[0]] = []
-
         interval[fields[0]].append((int(fields[1]), int(fields[2])))
-
     return interval
+
+
+def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
+    """
+    To aggregate the contacts of desired sumatrices.
+    """
+    for k1, v1 in bed1.items():
+        for k2, v2 in bed2.items():
+            if (mode == 'inter-chr') & (k1 == k2):
+                if (len(bed1) == 1) and (len(bed2) == 1):
+                    exit("Error: 'inter-chr' mode needs at least a pair of coordinates with different chromoses to be available in the bed files.")
+                else:
+                    continue
+            if (mode == 'intra-chr') & (k1 != k2):
+                continue
+            for coord1 in v1:
+                for coord2 in v2:
+                    if (k1 == k2) and (coord1 == coord2):
+                        continue
+                    interval = [(k1, coord1[0], coord1[1]), (k2, coord2[0], coord2[1])]
+                    count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range, transform, perChr)
+    # over_1_5 = 0
+    #
+
+        # if len(chrom_matrix[chrom]) == 0:
+        #     log.warn("No valid submatrices were found for chrom: {}".format(chrom))
+        #     chrom_matrix.pop(chrom)
+        # else:
+        #     log.info("Number of matrices with ratio over 1.5 at center {}, fraction w.r.t. non empty submatrices: ({:.2f})".
+        #              format(over_1_5, float(over_1_5) / len(chrom_matrix[chrom])))
+        #
+        # log.info("Number of discarded empty submatrices  {} ({:.2f})".
+        #          format(empty_mat, float(empty_mat) / counter))
+
+
+def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
+    """
+    To aggregate the contacts of the desired submatrices , if row-wise.
+    """
+    for line1, line2 in zip(bed1, bed2):
+        line1 = line1.strip().split()
+        line2 = line2.strip().split()
+        if line1[0] not in chrom_list:
+            line1[0] = change_chrom_names(line1[0])
+            if line1[0] not in chrom_list:
+                continue
+        if line2[0] not in chrom_list:
+            line2[0] = change_chrom_names(line2[0])
+            if line2[0] not in chrom_list:
+                continue
+        if mode == 'inter-chr':  # skip the lines with same chrom
+            if line1[0] == line2[0]:
+                continue
+        elif mode == 'intra-chr':  # skip the lines with different chrom
+            if line1[0] != line2[0]:
+                continue
+        interval = (line1[0:3], line2[0:3])
+        count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range, transform, perChr)
+
+
+def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, range=None, transform=None, perChr=False):
+    """
+    To count the number of contacts for a given pair of intervals
+    """
+
+    chrom1, start1, end1 = interval[0]
+    chrom2, start2, end2 = interval[1]
+    if chrom1 not in agg_info["chrom_coord"]:
+        return
+    if chrom2 not in agg_info["chrom_coord"]:
+        return
+    if (int(end1) > agg_info["chrom_coord"][chrom1][1]) or (int(end2) > agg_info["chrom_coord"][chrom2][1]):  # TODO these intervals may still partially be overlapped, shall we keep them?
+        return
+    if (int(start1) < agg_info["chrom_coord"][chrom1][0]) or (int(start2) < agg_info["chrom_coord"][chrom2][0]):
+        return
+
+    bin_id1 = ma.getRegionBinRange(toString(chrom1), start1, end1)
+    bin_id2 = ma.getRegionBinRange(toString(chrom2), start2, end2)
+    if bin_id1 == bin_id2:
+        return
+    if (bin_id1 is None) or (bin_id2 is None):
+        return
+    else:  # If the regions size is bigger than a bin then:
+        if largeRegionsOperation == 'first':
+            bin_id1 = bin_id1[0]
+            bin_id2 = bin_id2[0]
+        elif largeRegionsOperation == 'last':
+            bin_id1 = bin_id1[-1]
+            bin_id2 = bin_id2[-1]
+        elif largeRegionsOperation == 'center':
+            bin_id1 = int(np.floor(np.mean(bin_id1)))
+            bin_id2 = int(np.floor(np.mean(bin_id2)))
+    if bin_id1 > bin_id2:
+        if chrom1 == chrom2:
+            bin_id1, bin_id2 = sorted([bin_id1, bin_id2])
+        else:
+            chr1, str1, en1, bin1 = chrom1, start1, end1, bin_id1
+            chrom1, start1, end1, bin_id1 = chrom2, start2, end2, bin_id2
+            chrom2, start2, end2, bin_id2 = chr1, str1, en1, bin1
+    agg_info["counter"] += 1
+    if agg_info["counter"] % 50000 == 0:
+        log.info("Number of contacts considered: {:,}".format(agg_info["counter"]))
+
+    bin_size = ma.getBinSize()
+    chrom1_bin_range = ma.getChrBinRange(toString(chrom1))
+    chrom2_bin_range = ma.getChrBinRange(toString(chrom2))
+
+    if chrom1 == chrom2:  # chrom1 == chrom2 can happen in intra or all
+        if (chrom1 not in agg_info["agg_total"]) and (mode == "intra-chr") and (perChr == True):
+            agg_info["agg_total"][chrom1] = 0
+            agg_info["agg_matrix"][chrom1] = []
+            agg_info["agg_diagonals"][chrom1] = []
+            agg_info["agg_contact_position"][chrom1] = []
+            agg_info["agg_center_values"][chrom1] = []
+
+        min_dist, max_dist = range.split(":")
+        min_dist_in_bins = int(min_dist) // bin_size
+        max_dist_in_bins = int(max_dist) // bin_size
+        if (min_dist_in_bins > abs(bin_id2 - bin_id1)) or (abs(bin_id2 - bin_id1) > max_dist_in_bins):
+            return
+    if (bin_id1, bin_id2) in agg_info["seen"]:
+        return
+    agg_info["seen"].append((bin_id1, bin_id2))
+    if bin_id1 - M_half < chrom1_bin_range[0] or bin_id1 + M_half >= chrom1_bin_range[1]:
+        log.info("The given interval exceeds the chromosome range on {}. It is skipped.".format(chrom1))
+        return
+
+    if bin_id2 - M_half < chrom2_bin_range[0] or bin_id2 + M_half >= chrom2_bin_range[1]:
+        log.info("The given interval exceeds the chromosome range on {}. It is skipped.".format(chrom2))
+        return
+    try:
+        mat_to_append = ma.matrix[bin_id1 - M_half:bin_id1 + M_half + 1, :][:, bin_id2 - M_half:bin_id2 + M_half + 1].todense().astype(float)
+    except IndexError:
+        log.info("index error for {} {}".format(bin_id1, bin_id2))
+        return
+
+    if mat_to_append.sum() == 0:
+        agg_info["empty_mat"] += 1
+        return
+
+    agg_info["used_counter"] += 1
+    if agg_info["used_counter"] % 50000 == 0:
+        log.info("Number of used contacts within the given range: {:,}".format(agg_info["used_counter"]))
+    # to account for the fact that submatrices close to the diagonal have more counts than
+    # submatrices far from the diagonal submatrices values are normalized using the
+    # total submatrix sum.
+    if transform == 'total-counts' and mat_to_append.sum() > 0:
+        mat_to_append = mat_to_append / mat_to_append.sum()
+
+    if (mode == "intra-chr") and (perChr == True):  # chrom1 == chrom2
+        agg_info["agg_total"][chrom1] += 1
+        agg_info["agg_matrix"][chrom1].append(mat_to_append)
+        agg_info["agg_diagonals"][chrom1].append(mat_to_append.diagonal())
+        agg_info["agg_center_values"][chrom1].append(ma.matrix[bin_id1, bin_id2])
+        agg_info["agg_contact_position"][chrom1].append((start1, end1, start2, end2))
+
+    else:
+
+        if 'genome' not in agg_info["agg_total"]:
+            agg_info["agg_total"]["genome"] = 0
+            agg_info["agg_matrix"]["genome"] = []
+            agg_info["agg_diagonals"]["genome"] = []
+            agg_info["agg_contact_position"]["genome"] = []
+            agg_info["agg_center_values"]["genome"] = []
+
+        agg_info["agg_total"]["genome"] += 1
+        agg_info["agg_matrix"]["genome"].append(mat_to_append)
+        agg_info["agg_diagonals"]["genome"].append(mat_to_append.diagonal())
+        agg_info["agg_center_values"]["genome"].append(ma.matrix[bin_id1, bin_id2])
+        agg_info["agg_contact_position"]["genome"].append((start1, end1, start2, end2))
 
 
 def get_outlier_indices(data, max_deviation=200):
@@ -237,7 +456,7 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', how='full'):
     ----------
     submatrices_dict key: chrom name, values, a list of submatrices
     k number of clusters
-    method either kmeans or hierarchical
+    method either kmeans, hierarchical or spectral
     how how to cluster. Options are 'full', 'center' and 'diagonal'. More info in the argparse options
 
     Returns
@@ -249,6 +468,9 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', how='full'):
     clustered_dict = {}
     for chrom in submatrices_dict:
         log.info("Length of entry: {}".format(len(submatrices_dict[chrom])))
+        if len(submatrices_dict[chrom]) < k:
+            log.info("number of the submatrices on chromosome {} is less than {}. Clustering is skipped.".format(chrom, k))
+            k = 1
         submat_vectors = []
         shape = submatrices_dict[chrom][0].shape
         center_bin = (shape[0] + 1) // 2
@@ -289,22 +511,14 @@ def cluster_matrices(submatrices_dict, k, method='kmeans', how='full'):
             matrix[np.isnan(matrix)] = 0
 
         if method == 'kmeans':
-            from scipy.cluster.vq import vq, kmeans
-
-            centroids, _ = kmeans(matrix, k)
-            # order the centroids in an attempt to
-            # get the same cluster order
-            cluster_labels, _ = vq(matrix, centroids)
-
+            clustering = skclust.KMeans(n_clusters=k, random_state=0).fit(matrix)
+            cluster_labels = clustering.labels_
         if method == 'hierarchical':
-            # normally too slow for large data sets
-            from scipy.cluster.hierarchy import fcluster, linkage
-            Z = linkage(matrix, method='ward', metric='euclidean')
-            cluster_labels = fcluster(Z, k, criterion='maxclust')
-            # hierarchical clustering labels from 1 .. k
-            # while k-means labels 0 .. k -1
-            # Thus, for consistency, we subtract 1
-            cluster_labels -= 1
+            clustering = skclust.AgglomerativeClustering(n_clusters=k).fit(matrix)
+            cluster_labels = clustering.labels_
+        if method == 'spectral':
+            clustering = skclust.SpectralClustering(n_clusters=k, assign_labels="discretize", random_state=0).fit(matrix)
+            cluster_labels = clustering.labels_
 
         # sort clusters
         clustered_dict[chrom] = []
@@ -340,7 +554,7 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
 
             chrom_cluster_len[chrom].append(len(cluster_ids))
 
-            if args.avgType == 'median':
+            if args.operationType == 'median':
                 _median = np.median(submatrices, axis=0)
                 if _median.sum() == 0 or np.isnan(_median.sum()):
                     # test if the mean matrix is not zero
@@ -351,8 +565,10 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
                         log.info("Apparently no matrices could be computed. All are "
                                  "zeros or nans.")
                 chrom_avg[chrom].append(_median)
-            else:
+            elif args.operationType == 'mean':
                 chrom_avg[chrom].append(np.mean(submatrices, axis=0))
+            else:
+                chrom_avg[chrom].append(np.sum(submatrices, axis=0))
 
             log.info("Mean aggregate matrix values: {}".format(chrom_avg[chrom][cluster_number].mean()))
 
@@ -384,7 +600,6 @@ def plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, 
                                 cmap=cmap,
                                 extent=[-M_half, M_half + 1, -M_half, M_half + 1])
             else:
-                from mpl_toolkits.mplot3d import Axes3D
                 # Axes3D is required for projection='3d' to work
                 # but since is imported but not used, flake8 will complain
                 # thus I add this dummy variable to avoid the error
@@ -505,181 +720,115 @@ def main(args=None):
     ma = hm.hiCMatrix(args.matrix)
     ma.maskBins(ma.nan_bins)
     ma.matrix.data[np.isnan(ma.matrix.data)] = 0
-
-    bin_size = ma.getBinSize()
     ma.maskBins(ma.nan_bins)
     ma.matrix.data = ma.matrix.data
     new_intervals = hicexplorer.utilities.enlarge_bins(ma.cut_intervals)
     ma.setCutIntervals(new_intervals)
-    min_dist, max_dist = args.range.split(":")
 
     if args.chromosomes:
         ma.keepOnlyTheseChr(args.chromosomes)
-    chrom_sizes = ma.get_chromosome_sizes()
-    chrom_list = chrom_sizes.keys()
+
+    default_range = '1000000:20000000'
+    if args.range is None:
+        if args.mode == "intra-chr":
+            log.warning("You have not set any range. This is by default set to {} for intra-chr.".format(default_range))
+        args.range = default_range
+    min_dist, max_dist = args.range.split(":")
     log.info("checking range {}-{}".format(min_dist, max_dist))
-    min_dist = int(min_dist)
-    max_dist = int(max_dist)
-    assert min_dist < max_dist, "Error lower range larger than upper range"
-
-    if args.transform == "z-score":
-        # use zscore matrix
+    assert int(min_dist) < int(max_dist), "Error lower range is larger than upper range!"
+    if args.transform == "z-score":  # use zscore matrix
         log.info("Computing z-score matrix. This may take a while.\n")
-        ma.convert_to_zscore_matrix(maxdepth=max_dist * 2.5, perchr=True)
-    elif args.transform == "obs/exp":
-        # use zscore matrix
+        if args.mode == 'intra-chr':
+            ma.convert_to_zscore_matrix(maxdepth=int(max_dist) * 2.5, perchr=True)
+        else:
+            ma.convert_to_zscore_matrix(maxdepth=None, perchr=True)
+    elif args.transform == "obs/exp":  # use obs/exp matrix
         log.info("Computing observed vs. expected matrix. This may take a while.\n")
-        ma.convert_to_obs_exp_matrix(maxdepth=max_dist * 2.5, perchr=True)
-
-    min_dist_in_bins = int(min_dist) // bin_size
-    max_dist_in_bins = int(max_dist) // bin_size
-
-    # read and sort bedgraph.
-    bed_intervals = read_bed_per_chrom(args.BED)
-    if args.BED2:
-        bed_intervals2 = read_bed_per_chrom(args.BED2)
-    else:
-        bed_intervals2 = bed_intervals
+        if args.mode == 'intra-chr':
+            ma.convert_to_obs_exp_matrix(maxdepth=int(max_dist) * 2.5, perchr=True)
+        else:
+            ma.convert_to_obs_exp_matrix(maxdepth=None, perchr=True)
+        if args.outFileObsExp:
+            file_type = 'cool'
+            if args.outFileObsExp.endswith('.h5'):
+                file_type = 'h5'
+            matrixFileHandlerOutput = MatrixFileHandler(pFileType=file_type)
+            matrixFileHandlerOutput.set_matrix_variables(ma.matrix,
+                                                         ma.cut_intervals,
+                                                         ma.nan_bins,
+                                                         ma.correction_factors,
+                                                         ma.distance_counts)
+            matrixFileHandlerOutput.save(args.outFileObsExp, pSymmetric=True, pApplyCorrection=False)
 
     M = args.numberOfBins if args.numberOfBins % 2 == 1 else args.numberOfBins + 1
     M_half = int((M - 1) // 2)
-    # make a new matrix for each chromosome.
-    chrom_matrix = OrderedDict()
-    chrom_total = {}
-    chrom_diagonals = OrderedDict()
-    chrom_contact_position = {}
-    seen = {}
 
-    center_values = {}
-
-    chrom_list = check_chrom_str_bytes(bed_intervals, chrom_list)
-
+    chrom_coord = dict()
+    chrom_list = ma.getChrNames()
     for chrom in chrom_list:
-        if chrom not in bed_intervals or chrom not in bed_intervals2:
-            continue
+        first, last = ma.getChrBinRange(chrom)
+        first = ma.getBinPos(first)
+        last = ma.getBinPos(last - 1)
+        chrom_coord[chrom] = (first[1], last[2])
 
-        chrom_matrix[chrom] = []
-        chrom_total[chrom] = 1
-        chrom_diagonals[chrom] = []
-        chrom_contact_position[chrom] = []
-        center_values[chrom] = []
-        seen[chrom] = set()
-        over_1_5 = 0
-        empty_mat = 0
-        chrom_bin_range = ma.getChrBinRange(toString(chrom))
-
-        log.info("processing {}".format(chrom))
-
-        counter = 0
-        if not args.row_wise:
-
-            bed2_len = len(bed_intervals2[chrom])
-            updated_bed2 = bed_intervals2[chrom] * len(bed_intervals[chrom])
-            updated_bed1 = [coord for coord in bed_intervals[chrom] for i in range(bed2_len)]
-            bed_intervals[chrom] = updated_bed1
-            bed_intervals2[chrom] = updated_bed2
-
+    agg_info = dict()
+    agg_info["chrom_coord"] = chrom_coord
+    agg_info["seen"] = []
+    agg_info["agg_matrix"] = OrderedDict()
+    agg_info["agg_total"] = {}
+    agg_info["agg_diagonals"] = OrderedDict()
+    agg_info["agg_contact_position"] = {}
+    agg_info["agg_center_values"] = {}
+    agg_info["counter"] = 0
+    agg_info["used_counter"] = 0
+    agg_info["empty_mat"] = 0
+    if (args.mode == 'inter-chr') and (len(agg_info["chrom_coord"]) == 1):
+        exit("Error: 'inter-chr' mode can not be applied on matrices of only one chromosme.")
+    if args.row_wise:
+        # read bed files
+        bed_intervals = args.BED.readlines()
+        if args.BED2:
+            bed_intervals2 = args.BED2.readlines()
         else:
-            updated_bed1 = bed_intervals[chrom]
-            updated_bed2 = bed_intervals2[chrom]
-
-        for (start, end), (start2, end2) in zip(updated_bed1, updated_bed2):
-            # check all other regions that may interact with the
-            # current interval at the given depth range
-            if end > chrom_sizes[chrom]:
-                continue
-            bin_id = ma.getRegionBinRange(toString(chrom), start, end)
-            if bin_id is None:
-                continue
-            else:
-                bin_id = bin_id[0]
-
-            counter += 1
-            if counter % 50000 == 0:
-                log.info("Number of contacts considered: {:,}".format(counter))
-
-            if end2 > chrom_sizes[chrom]:
-                continue
-            bin_id2 = ma.getRegionBinRange(toString(chrom), start2, end2)
-            if bin_id2 is None:
-                continue
-            else:
-                bin_id2 = bin_id2[0]
-            if bin_id2 in seen[chrom]:
-                continue
-            if bin_id == bin_id2:
-                continue
-            if min_dist_in_bins <= abs(bin_id2 - bin_id) <= max_dist_in_bins:
-                idx1, idx2 = sorted([bin_id, bin_id2])
-                if (idx1, idx2) in seen[chrom]:
-                    continue
-                seen[chrom].add((idx1, idx2))
-                if idx1 - M_half < chrom_bin_range[0] or idx2 + 1 + M_half > chrom_bin_range[1]:
-                    continue
-                try:
-                    mat_to_append = ma.matrix[idx1 - M_half:idx1 + M_half + 1, :][:, idx2 - M_half:idx2 + M_half + 1].todense().astype(float)
-                except IndexError:
-                    log.info("index error for {} {}".format(idx1, idx2))
-                    continue
-                counter += 1
-                if counter % 1000 == 0:
-                    log.info("Number of contacts within range computed: {:,}".format(counter))
-                if mat_to_append.sum() == 0:
-                    empty_mat += 1
-                    continue
-                # to account for the fact that submatrices
-                # close to the diagonal have more counts thatn
-                # submatrices far from the diagonal
-                # the submatrices values are normalized using the
-                # total submatrix sum.
-
-                if args.transform == 'total_counts' and mat_to_append.sum() > 0:
-                    mat_to_append = mat_to_append / mat_to_append.sum()
-
-                chrom_total[chrom] += 1
-                chrom_matrix[chrom].append(mat_to_append)
-                chrom_diagonals[chrom].append(mat_to_append.diagonal())
-                center_values[chrom].append(ma.matrix[idx1, idx2])
-                chrom_contact_position[chrom].append((start, end, start2, end2))
-                if ma.matrix[idx1, idx2] > 1.5:
-                    over_1_5 += 1
-
-        if len(chrom_matrix[chrom]) == 0:
-            log.warn("No valid submatrices were found for chrom: {}".format(chrom))
-            chrom_matrix.pop(chrom, None)
-
-        log.info("Number of matrices with ratio over 1.5 at center {}, fraction w.r.t. non empty submatrices: ({:.2f})".
-                 format(over_1_5, float(over_1_5) / len(chrom_matrix[chrom])))
-
-        log.info("Number of discarded empty submatrices  {} ({:.2f})".
-                 format(empty_mat, float(empty_mat) / counter))
+            log.error("Error computing row-wise contacts requires two bed files!")
+            exit("Error computing row-wise contacts requires two bed files!")
+        # agg_matrix could be either per chromosome or genome wide
+        aggregate_contacts_per_row(bed_intervals, bed_intervals2, agg_info, ma, chrom_list, M_half, args.largeRegionsOperation, args.range, args.transform, mode=args.mode, perChr=args.perChr)
+    else:  # not row-wise
+        # read and sort bed files.
+        bed_intervals = read_bed_per_chrom(args.BED, chrom_list)
+        if args.BED2:
+            bed_intervals2 = read_bed_per_chrom(args.BED2, chrom_list)
+        else:
+            bed_intervals2 = bed_intervals
+        # agg_matrix could be either per chromosome or genome wide
+        aggregate_contacts(bed_intervals, bed_intervals2, agg_info, ma, M_half, args.largeRegionsOperation, args.range, args.transform, mode=args.mode, perChr=args.perChr)
 
     if args.kmeans is not None:
-        cluster_ids = cluster_matrices(chrom_matrix, args.kmeans, method='kmeans', how=args.howToCluster)
+        cluster_ids = cluster_matrices(agg_info["agg_matrix"], args.kmeans, method='kmeans', how=args.howToCluster)
         num_clusters = args.kmeans
     elif args.hclust is not None:
         log.info("Performing hierarchical clustering."
                  "Please note that it might be very slow for large datasets.\n")
-        cluster_ids = cluster_matrices(chrom_matrix, args.hclust, method='hierarchical',
+        cluster_ids = cluster_matrices(agg_info["agg_matrix"], args.hclust, method='hierarchical',
                                        how=args.howToCluster)
         num_clusters = args.hclust
     else:
         # make a 'fake' clustering to generalize the plotting of the submatrices
         cluster_ids = {}
         num_clusters = 1
-        for chrom in chrom_list:
-            if chrom not in bed_intervals or chrom not in bed_intervals2:
-                continue
-            cluster_ids[chrom] = [range(len(chrom_matrix[chrom]))]
-
-    plot_aggregated_contacts(chrom_matrix, chrom_contact_position, cluster_ids, num_clusters, M_half, args)
+        for k in agg_info["agg_matrix"].keys():
+            cluster_ids[k] = [range(len(agg_info["agg_matrix"][k]))]
+    if len(agg_info["agg_matrix"]) == 0:
+        exit("No susbmatrix found to be aggregated.")
+    plot_aggregated_contacts(agg_info["agg_matrix"], agg_info["agg_contact_position"], cluster_ids, num_clusters, M_half, args)
 
     if args.outFileContactPairs:
-        for idx, chrom in enumerate(chrom_matrix):
+        for idx, chrom in enumerate(agg_info["agg_matrix"]):
             if chrom not in bed_intervals or chrom not in bed_intervals2:
                 continue
             for cluster_number, cluster_indices in enumerate(cluster_ids[chrom]):
-                center_values_to_order = np.array(center_values[chrom])[cluster_indices]
+                center_values_to_order = np.array(agg_info["agg_center_values"][chrom])[cluster_indices]
                 center_values_order = np.argsort(center_values_to_order)[::-1]
 
                 output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs,
@@ -687,10 +836,10 @@ def main(args=None):
                 with open(output_name, 'w') as fh:
                     for cl_idx in center_values_order:
                         value = center_values_to_order[cl_idx]
-                        start, end, start2, end2 = chrom_contact_position[chrom][cl_idx]
+                        start, end, start2, end2 = agg_info["agg_contact_position"][chrom][cl_idx]
                         fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom, start, end, chrom, start2, end2, value))
 
     # plot the diagonals
     # the diagonals plot is useful to see individual cases and if they had a contact in the center
     if args.diagnosticHeatmapFile:
-        plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args)
+        plot_diagnostic_heatmaps(agg_info["agg_diagonals"], cluster_ids, M_half, args)
