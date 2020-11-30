@@ -84,9 +84,11 @@ def parse_arguments():
 
 
 def get_indices(obs_exp, row):
-    indices = np.arange(obs_exp.getRegionBinRange(row['chr'], row['start'], row['end']-1)[0],
-                        obs_exp.getRegionBinRange(row['chr'], row['start'], row['end']-1)[1]+1) # end is inclusive
+    indices = np.arange(obs_exp.getRegionBinRange(row['chr'], row['start'], row['end'] - 1)[0],
+                        obs_exp.getRegionBinRange(row['chr'], row['start'], row['end'] - 1)[1] + 1)  # end is inclusive
     return indices
+
+
 def count_interactions(obs_exp, pc1, quantiles_number, offset):
     "Counts the total interaction on obs_exp matrix per quantile and "
     "normalizes it by the number of bins per quantile."
@@ -100,13 +102,11 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
             indices = np.arange(0, obs_exp.matrix.shape[0] - dist)
             obs_exp.matrix[indices, indices + dist] = np.nan
             obs_exp.matrix[indices + dist, indices] = np.nan
-    for chrom in chromosomes:
-        pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
-        chr_range = obs_exp.getChrBinRange(chrom)
-        chr_submatrix = obs_exp.matrix[chr_range[0]:chr_range[1],
-                                       chr_range[0]:chr_range[1]]
-
-
+    for chrom in chromosomes:  # It is only handeling cis contacts
+        # pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
+        # chr_range = obs_exp.getChrBinRange(chrom)
+        # chr_submatrix = obs_exp.matrix[chr_range[0]:chr_range[1],
+        #                                chr_range[0]:chr_range[1]]
         for qi in range(0, quantiles_number):
             row_indices = pc1.loc[pc1["quantile"] == qi]["bin_id"]
             if row_indices.empty:
@@ -202,7 +202,6 @@ def main(args=None):
     for matrix in args.obsexp_matrices:
         obs_exp = hm.hiCMatrix(matrix)
         pc1["bin_id"] = pc1.apply(lambda row: get_indices(obs_exp, row), axis=1)
-        pc1.sort_values(by=['quantile']).to_csv("ordered.tsv", header = None, sep ="\t", index = None)
         name = ".".join(matrix.split("/")[-1].split(".")[0:-1])
         labels.append(name)
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
