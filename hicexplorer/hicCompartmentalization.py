@@ -83,6 +83,12 @@ def parse_arguments():
     return parser
 
 
+def get_indices(obs_exp, row):
+    indices = np.arange(obs_exp.getRegionBinRange(row['chr'], row['start'], row['end'] - 1)[0],
+                        obs_exp.getRegionBinRange(row['chr'], row['start'], row['end'] - 1)[1] + 1)  # end is inclusive
+    return indices
+
+
 def count_interactions(obs_exp, pc1, quantiles_number, offset):
     "Counts the total interaction on obs_exp matrix per quantile and "
     "normalizes it by the number of bins per quantile."
@@ -90,30 +96,28 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
 
     interaction_sum = np.zeros((quantiles_number, quantiles_number))
     number_of_bins = np.zeros((quantiles_number, quantiles_number))
-
-    for chrom in chromosomes:
-        pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
-        chr_range = obs_exp.getChrBinRange(chrom)
-
-        chr_submatrix = obs_exp.matrix[chr_range[0]:chr_range[1],
-                                       chr_range[0]:chr_range[1]]
-
-        if offset:
-            for dist in offset:
-                assert(dist >= 0)
-                indices = np.arange(0, chr_submatrix.shape[0] - dist)
-                chr_submatrix[indices, indices + dist] = np.nan
-                chr_submatrix[indices + dist, indices] = np.nan
-
+    if offset:
+        for dist in offset:
+            assert(dist >= 0)
+            indices = np.arange(0, obs_exp.matrix.shape[0] - dist)
+            obs_exp.matrix[indices, indices + dist] = np.nan
+            obs_exp.matrix[indices + dist, indices] = np.nan
+    for chrom in chromosomes:  # It is only handeling cis contacts
+        # pc1_chr = pc1.loc[pc1["chr"] == chrom].reset_index(drop=True)
+        # chr_range = obs_exp.getChrBinRange(chrom)
+        # chr_submatrix = obs_exp.matrix[chr_range[0]:chr_range[1],
+        #                                chr_range[0]:chr_range[1]]
         for qi in range(0, quantiles_number):
-            row_indices = pc1_chr.loc[pc1_chr["quantile"] == qi].index
+            row_indices = pc1.loc[pc1["quantile"] == qi]["bin_id"]
             if row_indices.empty:
                 continue
+            row_indices = [i for list in row_indices for i in list]
             for qj in range(0, quantiles_number):
-                col_indices = pc1_chr.loc[pc1_chr["quantile"] == qj].index
+                col_indices = pc1.loc[pc1["quantile"] == qj]["bin_id"]
                 if col_indices.empty:
                     continue
-                submatrix = chr_submatrix[np.ix_(row_indices, col_indices)]
+                col_indices = [i for list in col_indices for i in list]
+                submatrix = obs_exp.matrix[np.ix_(row_indices, col_indices)]
                 submatrix = submatrix.todense()
                 submatrix = submatrix[~np.isnan(submatrix)]  # remove nans
                 submatrix = submatrix[~np.isinf(submatrix)]
@@ -121,7 +125,6 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
                 interaction_sum[qj, qi] += np.sum(submatrix)
                 number_of_bins[qi, qj] += submatrix.shape[1]
                 number_of_bins[qj, qi] += submatrix.shape[1]
-
     return interaction_sum / number_of_bins
 
 
@@ -192,11 +195,13 @@ def main(args=None):
                                       pc1['pc1'].values.astype(float),
                                       side="right")
     pc1.loc[pc1["pc1"] == np.nan]["quantile"] = args.quantile + 1
+
     polarization_ratio = []
     output_matrices = []
     labels = []
     for matrix in args.obsexp_matrices:
         obs_exp = hm.hiCMatrix(matrix)
+        pc1["bin_id"] = pc1.apply(lambda row: get_indices(obs_exp, row), axis=1)
         name = ".".join(matrix.split("/")[-1].split(".")[0:-1])
         labels.append(name)
         normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
