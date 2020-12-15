@@ -276,8 +276,8 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, 
                 agg_info["agg_matrix"][k1] = new_v1
             else:
                 to_del.append(k1)
-    agg_info["agg_matrix"] = {key:val for key, val in agg_info["agg_matrix"].items() if key not in to_del}
-    agg_info["agg_contact_position"] = {key:val for key, val in agg_info["agg_contact_position"].items() if key not in to_del}
+    agg_info["agg_matrix"] = {key: val for key, val in agg_info["agg_matrix"].items() if key not in to_del}
+    agg_info["agg_contact_position"] = {key: val for key, val in agg_info["agg_contact_position"].items() if key not in to_del}
 
 
 def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
@@ -302,7 +302,7 @@ def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, lar
         elif mode == 'intra-chr':  # skip the lines with different chrom
             if line1[0] != line2[0]:
                 continue
-        interval = [(line1[0],line1[1], line1[2]), (line2[0],line2[1], line2[2])]
+        interval = [(line1[0], line1[1], line1[2]), (line2[0], line2[1], line2[2])]
         count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, seen_chrs, range, transform)
     to_del = []
     for k1, v1 in agg_info["agg_matrix"].items():
@@ -312,8 +312,9 @@ def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, lar
         elif (mode == 'intra-chr') and (v1[k1] == []):
             log.info("no matrix between {} and {}".format(k1, k1))
             to_del.append(k1)
-    agg_info["agg_matrix"] = {key:val for key, val in agg_info["agg_matrix"].items() if key not in to_del}
-    agg_info["agg_contact_position"] = {key:val for key, val in agg_info["agg_contact_position"].items() if key not in to_del}
+    agg_info["agg_matrix"] = {key: val for key, val in agg_info["agg_matrix"].items() if key not in to_del}
+    agg_info["agg_contact_position"] = {key: val for key, val in agg_info["agg_contact_position"].items() if key not in to_del}
+
 
 def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, seen_chrs, range=None, transform=None):
     """
@@ -334,7 +335,7 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
 
     bin_id1 = ma.getRegionBinRange(toString(chrom1), start1, end1)
     bin_id2 = ma.getRegionBinRange(toString(chrom2), start2, end2)
-    if bin_id1 == bin_id2: # does not count the contact between a bin and itslef
+    if bin_id1 == bin_id2:  # does not count the contact between a bin and itslef
         return
     if (bin_id1 is None) or (bin_id2 is None):
         return
@@ -352,9 +353,9 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         if chrom1 == chrom2:
             bin_id1, bin_id2 = sorted([bin_id1, bin_id2])
         else:
-            chr1, str1, en1, bin1 = chrom1, start1, end1, bin_id1 # intermediate variables
+            tmp_chrom, tmp_start, tmp_end, tmp_bin = chrom1, start1, end1, bin_id1  # intermediate variables
             chrom1, start1, end1, bin_id1 = chrom2, start2, end2, bin_id2
-            chrom2, start2, end2, bin_id2 = chr1, str1, en1, bin1
+            chrom2, start2, end2, bin_id2 = tmp_chrom, tmp_start, tmp_end, tmp_bin
     agg_info["counter"] += 1
     if agg_info["counter"] % 50000 == 0:
         log.info("Number of contacts considered: {:,}".format(agg_info["counter"]))
@@ -362,23 +363,15 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
     bin_size = ma.getBinSize()
     chrom1_bin_range = ma.getChrBinRange(toString(chrom1))
     chrom2_bin_range = ma.getChrBinRange(toString(chrom2))
-    # stable:
-    # if chrom1 == chrom2:  # chrom1 == chrom2 can happen in intra or all
-    #     if (chrom1 not in agg_info["agg_total"]) and (mode == "intra-chr") and (perChr == True):
-    #         agg_info["agg_total"][chrom1] = 0
-    #         agg_info["agg_matrix"][chrom1] = []
-    #         agg_info["agg_diagonals"][chrom1] = []
-    #         agg_info["agg_contact_position"][chrom1] = []
-    #         agg_info["agg_center_values"][chrom1] = []
-    # alternative:
-    if [chrom1, chrom2] not in seen_chrs: # we only want to count one side of the diagonal
+
+    if [chrom1, chrom2] not in seen_chrs:  # we only want to count one side of the diagonal
         agg_info["agg_total"][chrom1][chrom2] = 0
         agg_info["agg_matrix"][chrom1][chrom2] = []
         agg_info["agg_diagonals"][chrom1][chrom2] = []
         agg_info["agg_contact_position"][chrom1][chrom2] = []
         agg_info["agg_center_values"][chrom1][chrom2] = []
-        seen_chrs.append([chrom1,chrom2])
-# # #
+        seen_chrs.append([chrom1, chrom2])
+
     if mode == "intra-chr":
         min_dist, max_dist = range.split(":")
         min_dist_in_bins = int(min_dist) // bin_size
@@ -419,6 +412,7 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
     agg_info["agg_diagonals"][chrom1][chrom2].append(mat_to_append.diagonal())
     agg_info["agg_center_values"][chrom1][chrom2].append(ma.matrix[bin_id1, bin_id2])
     agg_info["agg_contact_position"][chrom1][chrom2].append((start1, end1, start2, end2))
+
 
 def get_outlier_indices(data, max_deviation=200):
     """
@@ -466,8 +460,8 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
             submat_vectors.append(submatrix.diagonal())
         elif how == 'center':
             # take the mean of a  smaller submatrix of 3 x 3 centered on the submatrix
-            submat_vectors.append(
-            submatrix[center_bin - 2:center_bin + 1, center_bin - 2:center_bin + 1].reshape((1, 9)).mean())
+            submat_vectors.append(submatrix[center_bin - 2:center_bin + 1,
+                                            center_bin - 2:center_bin + 1].reshape((1, 9)).mean())
         else:
             # Transform list of submatrices in an array of shape:
             # shape = (num_submatrices, submatrix.shape[0] * submatrix.shape[1]
@@ -488,8 +482,7 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
     if out_ind is not None and len(np.flatnonzero(out_ind)) > 0:
         if len(np.flatnonzero(out_ind)) == matrix.shape[0]:
             exit("ERROR: all submatrices have been detected as outliers. You can consider changing the threshold")
-        log.info("Outliers detected. Number of outliers: {}".
-                format(len(np.flatnonzero(out_ind))))
+        log.info("Outliers detected. Number of outliers: {}".format(len(np.flatnonzero(out_ind))))
         # keep in matrix all indices that are not outliers
         matrix = matrix[np.logical_not(out_ind), :]
 
@@ -501,7 +494,7 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
         log.warning("For clustering nan values have to be replaced by zeros.")
         matrix[np.isnan(matrix)] = 0
 
-    if (k == 1) and (method == 'no_clust'): # no clustering
+    if (k == 1) and (method == 'no_clust'):  # no clustering
         cluster_labels = np.asarray([0] * matrix.shape[0])
     if method == 'kmeans':
         clustering = skclust.KMeans(n_clusters=k, random_state=0).fit(matrix)
@@ -520,7 +513,7 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
         clustered_dict.append(cluster_ids)
 
     matrix = np.array(matrix).reshape((matrix.shape[0], int(np.sqrt(matrix.shape[1])), int(np.sqrt(matrix.shape[1]))))
-    updated_info={'coords': updated_coords, 'centers': updated_centers, 'submatrices': matrix, 'clustered_dict': clustered_dict}
+    updated_info = {'coords': updated_coords, 'centers': updated_centers, 'submatrices': matrix, 'clustered_dict': clustered_dict}
     return updated_info
 
 
@@ -543,20 +536,19 @@ def cluster_matrices(submatrices_dict, positions, center_values, k, method='kmea
     """
     updated_info = dict()
     if not perChr:
-        updated_info["genome"]={"coords": [], "centers": [], "submatrices": [],
-                                "clustered_dict": []}
+        updated_info["genome"] = {"coords": [], "centers": [], "submatrices": [],
+                                  "clustered_dict": []}
     for chrom1 in submatrices_dict.keys():
-        for chrom2 , matrices in  submatrices_dict[chrom1].items():
+        for chrom2, matrices in submatrices_dict[chrom1].items():
             if perChr:
                 full_coords = [(chrom1, i[0], i[1], chrom2, i[2], i[3]) for i in positions[chrom1][chrom2]]
-                updated_info[chrom1]={"coords": full_coords, "centers": center_values[chrom1][chrom2],
+                updated_info[chrom1] = {"coords": full_coords, "centers": center_values[chrom1][chrom2],
                                       "submatrices": submatrices_dict[chrom1][chrom2],
                                       "clustered_dict": []}
                 assert(chrom1 == chrom2)
                 log.info("Length of entry on chr {}: {}".format(chrom1, len(submatrices_dict[chrom1][chrom2])))
-                if len(submatrices_dict[chrom1][chrom2]) < k: # TODO test it!
+                if len(submatrices_dict[chrom1][chrom2]) < k:
                     log.info("number of the submatrices on chromosome {} is less than {}. Clustering is skipped.".format(chrom1, k))
-                    # updated_info[chrom1]["clustered_dict"]  = [range(len(submatrices_dict[chrom1][chrom2]))]
                     k = 1
                 updated_info[chrom1] = compute_clusters(updated_info[chrom1], k, method, how)
             else:
@@ -564,11 +556,11 @@ def cluster_matrices(submatrices_dict, positions, center_values, k, method='kmea
                 # Add all corrdinates in a new container
                 for idx, matrix in enumerate(matrices):
                     start1, end1, start2, end2 = positions[chrom1][chrom2][idx]
-                    updated_info['genome']["coords"].append((chrom1,start1,end1,chrom2, start2, end2))
+                    updated_info['genome']["coords"].append((chrom1, start1, end1, chrom2, start2, end2))
                     updated_info['genome']["centers"].append(center_values[chrom1][chrom2][idx])
 
     if not perChr:
-        updated_info["genome"]  = compute_clusters( updated_info["genome"], k, method, how)
+        updated_info["genome"] = compute_clusters(updated_info["genome"], k, method, how)
         # TODO Do I need to update submatrices and positions here too?
 
     return updated_info
@@ -637,29 +629,30 @@ def plot_aggregated_contacts(clustered_info, num_clusters, M_half, args):
                                 cmap=cmap,
                                 extent=[-M_half, M_half + 1, -M_half, M_half + 1])
             else:
-                    # Axes3D is required for projection='3d' to work
-                    # but since is imported but not used, flake8 will complain
-                    # thus I add this dummy variable to avoid the error
-                    Axes3D(fig)
-                    ax = plt.subplot(gs[cluster_number, idx], projection='3d')
-                    # ax.set_aspect('equal')
-                    ax.margins(0)
-                    X, Y = np.meshgrid(range(-M_half, M_half + 1),
-                                       range(-M_half, M_half + 1))
-                    Z = chrom_avg[chrom][cluster_number].copy()
-                    img = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, linewidth=0, cmap=cmap,
-                                          vmax=vmax, vmin=vmin, edgecolor='none')
+                # Axes3D is required for projection='3d' to work
+                # but since is imported but not used, flake8 will complain
+                # thus I add this dummy variable to avoid the error
+                Axes3D(fig)
+                ax = plt.subplot(gs[cluster_number, idx], projection='3d')
+                # ax.set_aspect('equal')
+                ax.margins(0)
+                X, Y = np.meshgrid(range(-M_half, M_half + 1),
+                                   range(-M_half, M_half + 1))
+                Z = chrom_avg[chrom1][cluster_number].copy()
+                img = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, linewidth=0, cmap=cmap,
+                                      vmax=vmax, vmin=vmin, edgecolor='none')
 
-                    ax.set_zticklabels([])
-                    if vmax is not None and vmax is not None:
-                        ax.set_zlim(vmin, vmax)
+                ax.set_zticklabels([])
+                if vmax is not None and vmax is not None:
+                    ax.set_zlim(vmin, vmax)
+
             if args.outFilePrefixMatrix:
                 # save aggregate matrix values
                 if num_clusters == 1:
                     output_matrix_name = "{file}_{chrom}.tab".format(file=args.outFilePrefixMatrix, chrom=chrom1)
                 else:
                     output_matrix_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFilePrefixMatrix,
-                                                                             chrom=chrom1, id=cluster_number + 1)
+                                                                                  chrom=chrom1, id=cluster_number + 1)
                 np.savetxt(output_matrix_name, chrom_avg[chrom1][cluster_number], '%0.5f', delimiter='\t')
 
             if args.outFileContactPairs:
@@ -669,7 +662,7 @@ def plot_aggregated_contacts(clustered_info, num_clusters, M_half, args):
                     output_name = "{file}_{chrom}.tab".format(file=args.outFileContactPairs, chrom=chrom1)
                 else:
                     output_name = "{file}_{chrom}_cluster_{id}.tab".format(file=args.outFileContactPairs,
-                                                                      chrom=chrom1, id=cluster_number + 1)
+                                                                           chrom=chrom1, id=cluster_number + 1)
                 with open(output_name, 'w') as fh:
                     for cl_idx in center_values_order:
                         value = center_values_to_order[cl_idx]
@@ -904,19 +897,19 @@ def main(args=None):
 
     agg_info = dict()
     agg_info["chrom_coord"] = chrom_coord  # coordinates of each chrom
-    agg_info["seen"] = [] # seen bins
-    agg_info["agg_matrix"] = {chrom:{} for chrom in chrom_list} # important
-    agg_info["agg_total"] = {chrom:{} for chrom in chrom_list}
-    agg_info["agg_diagonals"] = {chrom:{} for chrom in chrom_list}
-    agg_info["agg_contact_position"] = {chrom:{} for chrom in chrom_list} # important
-    agg_info["agg_center_values"] = {chrom:{} for chrom in chrom_list} # important
+    agg_info["seen"] = []  # seen bins
+    agg_info["agg_matrix"] = {chrom: {} for chrom in chrom_list}  # important
+    agg_info["agg_total"] = {chrom: {} for chrom in chrom_list}
+    agg_info["agg_diagonals"] = {chrom: {} for chrom in chrom_list}
+    agg_info["agg_contact_position"] = {chrom: {} for chrom in chrom_list}  # important
+    agg_info["agg_center_values"] = {chrom: {} for chrom in chrom_list}  # important
     agg_info["counter"] = 0
     agg_info["used_counter"] = 0
     agg_info["empty_mat"] = 0
     if (args.mode == 'inter-chr') and (len(agg_info["chrom_coord"]) == 1):
         exit("Error: 'inter-chr' mode can not be applied on matrices of only one chromosme.")
     if (args.mode == 'inter-chr') and (args.perChr):
-            exit("Error: 'inter-chr' mode can not be used along with --perChr.")
+        exit("Error: 'inter-chr' mode can not be used along with --perChr.")
     if args.row_wise:
         # read bed files
         bed_intervals = args.BED.readlines()
@@ -950,9 +943,9 @@ def main(args=None):
         assert(args.kmeans > 1)
         if args.perChr == True:
             clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
-                                           agg_info["agg_center_values"],
-                                           k=args.kmeans, method='kmeans', how=args.howToCluster,
-                                           perChr=args.perChr)
+                                              agg_info["agg_center_values"],
+                                              k=args.kmeans, method='kmeans', how=args.howToCluster,
+                                              perChr=args.perChr)
         else:
             clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
                                               agg_info["agg_center_values"],
@@ -965,9 +958,9 @@ def main(args=None):
                  "Please note that it might be very slow for large datasets.\n")
         if args.perChr == True:
             clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
-                                           agg_info["agg_center_values"],
-                                           k=args.hclust, method='hierarchical',
-                                           how=args.howToCluster, perChr=args.perChr)
+                                              agg_info["agg_center_values"],
+                                              k=args.hclust, method='hierarchical',
+                                              how=args.howToCluster, perChr=args.perChr)
         else:
             clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
                                               agg_info["agg_center_values"],
@@ -979,12 +972,12 @@ def main(args=None):
         k = 1
         if args.perChr == True:
             clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
-                                              agg_info["agg_center_values"], k= k, method='no_clust',
+                                              agg_info["agg_center_values"], k=k, method='no_clust',
                                               how='full', perChr=args.perChr)
 
         else:
             clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
-                                              agg_info["agg_center_values"], k= k, method='no_clust',
+                                              agg_info["agg_center_values"], k=k, method='no_clust',
                                               how='full', perChr=False)
         num_clusters = k
 
