@@ -785,7 +785,7 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
                             wspace=0.1, hspace=0.1)
 
     gs_list = []
-    for idx, (chrom_name, values) in enumerate(chrom_diagonals.items()): # One more for loop should be added as it is or this container needs to be updated too. I would go for the latter
+    for idx, (chrom_name, values) in enumerate(chrom_diagonals.items()):  # One more for loop should be added as it is or this container needs to be updated too. I would go for the latter
         try:
             heatmap = np.asarray(np.vstack(values))
             print(heatmap.shape)
