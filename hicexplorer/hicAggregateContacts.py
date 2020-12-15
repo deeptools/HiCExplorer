@@ -478,7 +478,9 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
     # remove outliers
     updated_coords = updated_info["coords"]
     updated_centers = updated_info["centers"]
-    out_ind = get_outlier_indices(matrix, max_deviation=10)
+    updated_submatrices = updated_info["submatrices"]
+
+    out_ind = get_outlier_indices(matrix, max_deviation=2)
     if out_ind is not None and len(np.flatnonzero(out_ind)) > 0:
         if len(np.flatnonzero(out_ind)) == matrix.shape[0]:
             exit("ERROR: all submatrices have been detected as outliers. You can consider changing the threshold")
@@ -488,6 +490,7 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
 
         updated_coords = list(compress(updated_info["coords"], np.logical_not(out_ind)))
         updated_centers = list(compress(updated_info["centers"], np.logical_not(out_ind)))
+        updated_submatrices = list(compress(updated_info["submatrices"], np.logical_not(out_ind)))
 
     if np.any(np.isnan(matrix)):
         # replace nans for 0 otherwise kmeans produces a weird behaviour
@@ -512,8 +515,8 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
         cluster_ids = np.flatnonzero(cluster_labels == cluster)
         clustered_dict.append(cluster_ids)
 
-    matrix = np.array(matrix).reshape((matrix.shape[0], int(np.sqrt(matrix.shape[1])), int(np.sqrt(matrix.shape[1]))))
-    updated_info = {'coords': updated_coords, 'centers': updated_centers, 'submatrices': matrix, 'clustered_dict': clustered_dict}
+    # matrix = np.array(matrix).reshape((matrix.shape[0], int(np.sqrt(matrix.shape[1])), int(np.sqrt(matrix.shape[1]))))
+    updated_info = {'coords': updated_coords, 'centers': updated_centers, 'submatrices': updated_submatrices, 'clustered_dict': clustered_dict}
     return updated_info
 
 
@@ -763,7 +766,7 @@ def plot_aggregated_contacts(clustered_info, num_clusters, M_half, args):
 
 
 def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
-
+    print(len(chrom_diagonals), cluster_ids)
     num_chromosomes = len(chrom_diagonals)
     vmax_heat = args.vMax
     if vmax_heat is not None:
@@ -782,15 +785,16 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
                             wspace=0.1, hspace=0.1)
 
     gs_list = []
-    for idx, (chrom_name, values) in enumerate(chrom_diagonals.items()):
+    for idx, (chrom_name, values) in enumerate(chrom_diagonals.items()): # One more for loop should be added as it is or this container needs to be updated too. I would go for the latter
         try:
             heatmap = np.asarray(np.vstack(values))
+            print(heatmap.shape)
         except ValueError:
             log.error("Error computing diagnostic heatmap for chrom: {}".format(chrom_name))
             continue
 
         # get size of each cluster for the given chrom
-        clust_len = [(len(v)) for v in cluster_ids[chrom_name]]
+        clust_len = [(len(v)) for v in cluster_ids[chrom_name]["clustered_dict"]]
 
         # prepare layout
         gs_list.append(gridspec.GridSpecFromSubplotSpec(len(clust_len), 1,
@@ -800,7 +804,8 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
         summary_plot_ax = plt.subplot(gs0[0, idx])
         summary_plot_ax.set_title(chrom_name)
 
-        for cluster_number, cluster_indices in enumerate(cluster_ids[chrom_name]):
+        for cluster_number, cluster_indices in enumerate(cluster_ids[chrom_name]["clustered_dict"]):
+            print(cluster_number, cluster_indices)
             # sort by the value at the center of the rows
             heatmap_to_plot = heatmap[cluster_indices, :]
 
@@ -910,6 +915,8 @@ def main(args=None):
         exit("Error: 'inter-chr' mode can not be applied on matrices of only one chromosme.")
     if (args.mode == 'inter-chr') and (args.perChr):
         exit("Error: 'inter-chr' mode can not be used along with --perChr.")
+    if (args.mode == 'all') and (args.perChr):
+        exit("Error: 'all' mode can not be used along with --perChr.")
     if args.row_wise:
         # read bed files
         bed_intervals = args.BED.readlines()
@@ -983,8 +990,7 @@ def main(args=None):
 
     plot_aggregated_contacts(clustered_info, num_clusters, M_half, args)
 
-    # stable
-    # # plot the diagonals
-    # # the diagonals plot is useful to see individual cases and if they had a contact in the center
-    # if args.diagnosticHeatmapFile:
-    #     plot_diagnostic_heatmaps(agg_info["agg_diagonals"], cluster_ids, M_half, args)
+    # plot the diagonals
+    # the diagonals plot is useful to see individual cases and if they had a contact in the center
+    if args.diagnosticHeatmapFile:
+        plot_diagnostic_heatmaps(agg_info["agg_diagonals"], clustered_info, M_half, args)
