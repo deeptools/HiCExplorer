@@ -543,8 +543,8 @@ def cluster_matrices(submatrices_dict, positions, center_values, k, method='kmea
             if perChr:
                 full_coords = [(chrom1, i[0], i[1], chrom2, i[2], i[3]) for i in positions[chrom1][chrom2]]
                 updated_info[chrom1] = {"coords": full_coords, "centers": center_values[chrom1][chrom2],
-                                      "submatrices": submatrices_dict[chrom1][chrom2],
-                                      "clustered_dict": []}
+                                        "submatrices": submatrices_dict[chrom1][chrom2],
+                                        "clustered_dict": []}
                 assert(chrom1 == chrom2)
                 log.info("Length of entry on chr {}: {}".format(chrom1, len(submatrices_dict[chrom1][chrom2])))
                 if len(submatrices_dict[chrom1][chrom2]) < k:
