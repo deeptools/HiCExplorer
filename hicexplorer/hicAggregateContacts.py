@@ -479,6 +479,7 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
     updated_coords = updated_info["coords"]
     updated_centers = updated_info["centers"]
     updated_submatrices = updated_info["submatrices"]
+    updated_diags = updated_info["diagonal"]
 
     out_ind = get_outlier_indices(matrix, max_deviation=2)
     if out_ind is not None and len(np.flatnonzero(out_ind)) > 0:
@@ -491,6 +492,7 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
         updated_coords = list(compress(updated_info["coords"], np.logical_not(out_ind)))
         updated_centers = list(compress(updated_info["centers"], np.logical_not(out_ind)))
         updated_submatrices = list(compress(updated_info["submatrices"], np.logical_not(out_ind)))
+        updated_diags = list(compress(updated_info["diagonal"], np.logical_not(out_ind)))
 
     if np.any(np.isnan(matrix)):
         # replace nans for 0 otherwise kmeans produces a weird behaviour
@@ -516,17 +518,19 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
         clustered_dict.append(cluster_ids)
 
     # matrix = np.array(matrix).reshape((matrix.shape[0], int(np.sqrt(matrix.shape[1])), int(np.sqrt(matrix.shape[1]))))
-    updated_info = {'coords': updated_coords, 'centers': updated_centers, 'submatrices': updated_submatrices, 'clustered_dict': clustered_dict}
+    updated_info = {'coords': updated_coords, 'centers': updated_centers,
+                    'submatrices': updated_submatrices, 'clustered_dict': clustered_dict,
+                    'diagonal': updated_diags}
     return updated_info
 
 
-def cluster_matrices(submatrices_dict, positions, center_values, k, method='kmeans', how='full', perChr=False):
+def cluster_matrices(agg_info, k, method='kmeans', how='full', perChr=False):
     """
     clusters the submatrices .
 
     Parameters
     ----------
-    submatrices_dict key: chrom name, values, a list of submatrices
+    agg_info["agg_matrix"] key: chrom name, values, a list of submatrices
     k number of clusters
     method either kmeans, hierarchical or spectral
     how how to cluster. Options are 'full', 'center' and 'diagonal'. More info in the argparse options
@@ -540,27 +544,28 @@ def cluster_matrices(submatrices_dict, positions, center_values, k, method='kmea
     updated_info = dict()
     if not perChr:
         updated_info["genome"] = {"coords": [], "centers": [], "submatrices": [],
-                                  "clustered_dict": []}
-    for chrom1 in submatrices_dict.keys():
-        for chrom2, matrices in submatrices_dict[chrom1].items():
+                                  "clustered_dict": [], "diagonal": []}
+    for chrom1 in agg_info["agg_matrix"].keys():
+        for chrom2, matrices in agg_info["agg_matrix"][chrom1].items():
             if perChr:
-                full_coords = [(chrom1, i[0], i[1], chrom2, i[2], i[3]) for i in positions[chrom1][chrom2]]
-                updated_info[chrom1] = {"coords": full_coords, "centers": center_values[chrom1][chrom2],
-                                        "submatrices": submatrices_dict[chrom1][chrom2],
-                                        "clustered_dict": []}
+                full_coords = [(chrom1, i[0], i[1], chrom2, i[2], i[3]) for i in agg_info["agg_contact_position"][chrom1][chrom2]]
+                updated_info[chrom1] = {"coords": full_coords, "centers": agg_info["agg_center_values"][chrom1][chrom2],
+                                        "submatrices": agg_info["agg_matrix"][chrom1][chrom2],
+                                        "clustered_dict": [], "diagonal": agg_info["agg_diagonals"][chrom1][chrom2]}
                 assert(chrom1 == chrom2)
-                log.info("Length of entry on chr {}: {}".format(chrom1, len(submatrices_dict[chrom1][chrom2])))
-                if len(submatrices_dict[chrom1][chrom2]) < k:
+                log.info("Length of entry on chr {}: {}".format(chrom1, len(agg_info["agg_matrix"][chrom1][chrom2])))
+                if len(agg_info["agg_matrix"][chrom1][chrom2]) < k:
                     log.info("number of the submatrices on chromosome {} is less than {}. Clustering is skipped.".format(chrom1, k))
                     k = 1
                 updated_info[chrom1] = compute_clusters(updated_info[chrom1], k, method, how)
             else:
-                updated_info['genome']["submatrices"] += submatrices_dict[chrom1][chrom2]
+                updated_info['genome']["submatrices"] += agg_info["agg_matrix"][chrom1][chrom2]
                 # Add all corrdinates in a new container
                 for idx, matrix in enumerate(matrices):
-                    start1, end1, start2, end2 = positions[chrom1][chrom2][idx]
+                    start1, end1, start2, end2 = agg_info["agg_contact_position"][chrom1][chrom2][idx]
                     updated_info['genome']["coords"].append((chrom1, start1, end1, chrom2, start2, end2))
-                    updated_info['genome']["centers"].append(center_values[chrom1][chrom2][idx])
+                    updated_info['genome']["centers"].append(agg_info["agg_center_values"][chrom1][chrom2][idx])
+                    updated_info['genome']["diagonal"].append(agg_info["agg_diagonals"][chrom1][chrom2][idx])
 
     if not perChr:
         updated_info["genome"] = compute_clusters(updated_info["genome"], k, method, how)
@@ -765,9 +770,8 @@ def plot_aggregated_contacts(clustered_info, num_clusters, M_half, args):
 #     plt.close()
 
 
-def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
-    print(len(chrom_diagonals), cluster_ids)
-    num_chromosomes = len(chrom_diagonals)
+def plot_diagnostic_heatmaps(clustered_info, M_half, args):
+    num_chromosomes = len(clustered_info.keys())
     vmax_heat = args.vMax
     if vmax_heat is not None:
         vmax_heat *= 5
@@ -778,23 +782,22 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
     else:
         vmin_heat = 0
 
-    num_plots = len(chrom_diagonals)
+    num_plots = len(clustered_info.keys())
     fig = plt.figure(figsize=(num_plots * 4, 20))
 
     gs0 = gridspec.GridSpec(2, num_plots + 1, width_ratios=[10] * num_plots + [0.5], height_ratios=[1, 5],
                             wspace=0.1, hspace=0.1)
 
     gs_list = []
-    for idx, (chrom_name, values) in enumerate(chrom_diagonals.items()):  # One more for loop should be added as it is or this container needs to be updated too. I would go for the latter
+    for idx, (chrom_name, values) in enumerate(clustered_info.items()):  # One more for loop should be added as it is or this container needs to be updated too. I would go for the latter
         try:
-            heatmap = np.asarray(np.vstack(values))
-            print(heatmap.shape)
+            heatmap = np.asarray(np.vstack(clustered_info[chrom_name]['diagonal']))
         except ValueError:
             log.error("Error computing diagnostic heatmap for chrom: {}".format(chrom_name))
             continue
 
         # get size of each cluster for the given chrom
-        clust_len = [(len(v)) for v in cluster_ids[chrom_name]["clustered_dict"]]
+        clust_len = [(len(v)) for v in clustered_info[chrom_name]["clustered_dict"]]
 
         # prepare layout
         gs_list.append(gridspec.GridSpecFromSubplotSpec(len(clust_len), 1,
@@ -804,8 +807,7 @@ def plot_diagnostic_heatmaps(chrom_diagonals, cluster_ids, M_half, args):
         summary_plot_ax = plt.subplot(gs0[0, idx])
         summary_plot_ax.set_title(chrom_name)
 
-        for cluster_number, cluster_indices in enumerate(cluster_ids[chrom_name]["clustered_dict"]):
-            print(cluster_number, cluster_indices)
+        for cluster_number, cluster_indices in enumerate(clustered_info[chrom_name]["clustered_dict"]):
             # sort by the value at the center of the rows
             heatmap_to_plot = heatmap[cluster_indices, :]
 
@@ -949,13 +951,11 @@ def main(args=None):
     if args.kmeans is not None:
         assert(args.kmeans > 1)
         if args.perChr == True:
-            clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
-                                              agg_info["agg_center_values"],
+            clustered_info = cluster_matrices(agg_info,
                                               k=args.kmeans, method='kmeans', how=args.howToCluster,
                                               perChr=args.perChr)
         else:
-            clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
-                                              agg_info["agg_center_values"],
+            clustered_info = cluster_matrices(agg_info,
                                               k=args.kmeans, method='kmeans', how=args.howToCluster,
                                               perChr=False)
         num_clusters = args.kmeans
@@ -964,13 +964,11 @@ def main(args=None):
         log.info("Performing hierarchical clustering."
                  "Please note that it might be very slow for large datasets.\n")
         if args.perChr == True:
-            clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
-                                              agg_info["agg_center_values"],
+            clustered_info = cluster_matrices(agg_info,
                                               k=args.hclust, method='hierarchical',
                                               how=args.howToCluster, perChr=args.perChr)
         else:
-            clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
-                                              agg_info["agg_center_values"],
+            clustered_info = cluster_matrices(agg_info,
                                               k=args.hclust, method='hierarchical',
                                               how=args.howToCluster, perChr=False)
         num_clusters = args.hclust
@@ -978,13 +976,11 @@ def main(args=None):
         # make a 'fake' clustering to generalize the plotting of the submatrices
         k = 1
         if args.perChr == True:
-            clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
-                                              agg_info["agg_center_values"], k=k, method='no_clust',
+            clustered_info = cluster_matrices(agg_info, k=k, method='no_clust',
                                               how='full', perChr=args.perChr)
 
         else:
-            clustered_info = cluster_matrices(agg_info["agg_matrix"], agg_info["agg_contact_position"],
-                                              agg_info["agg_center_values"], k=k, method='no_clust',
+            clustered_info = cluster_matrices(agg_info, k=k, method='no_clust',
                                               how='full', perChr=False)
         num_clusters = k
 
@@ -993,4 +989,4 @@ def main(args=None):
     # plot the diagonals
     # the diagonals plot is useful to see individual cases and if they had a contact in the center
     if args.diagnosticHeatmapFile:
-        plot_diagnostic_heatmaps(agg_info["agg_diagonals"], clustered_info, M_half, args)
+        plot_diagnostic_heatmaps(clustered_info, M_half, args)
