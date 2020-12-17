@@ -179,6 +179,13 @@ def parse_arguments(args=None):
                              ' (Default: %(default)s).',
                              choices=['full', 'center', 'diagonal'],
                              default='full')
+    parserClust.add_argument('--keep_outlier',
+                             help="keep outliers before clustering. They will le be removed by default.",
+                             action='store_true')
+    parserClust.add_argument('--max_deviation',
+                             help="max deviation from mean to be determined as outlier.",
+                             type=int,
+                             default=2)
 
     parserPlot = parser.add_argument_group('Plotting options')
 
@@ -263,7 +270,6 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, 
                     if (k1 == k2) and (coord1 == coord2):
                         continue
                     interval = [(k1, coord1[0], coord1[1]), (k2, coord2[0], coord2[1])]
-
                     count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, seen_chrs, range, transform)
     to_del = []
     for k1, v1 in agg_info["agg_matrix"].items():
@@ -278,7 +284,6 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, 
                 to_del.append(k1)
     agg_info["agg_matrix"] = {key: val for key, val in agg_info["agg_matrix"].items() if key not in to_del}
     agg_info["agg_contact_position"] = {key: val for key, val in agg_info["agg_contact_position"].items() if key not in to_del}
-
 
 def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
     """
@@ -406,7 +411,6 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
     # total submatrix sum.
     if transform == 'total-counts' and mat_to_append.sum() > 0:
         mat_to_append = mat_to_append / mat_to_append.sum()
-
     agg_info["agg_total"][chrom1][chrom2] += 1
     agg_info["agg_matrix"][chrom1][chrom2].append(mat_to_append)
     agg_info["agg_diagonals"][chrom1][chrom2].append(mat_to_append.diagonal())
@@ -449,7 +453,7 @@ def get_outlier_indices(data, max_deviation=200):
     return outliers
 
 
-def compute_clusters(updated_info, k, method="kmeans", how='full'):
+def compute_clusters(updated_info, k, method="kmeans", how='full', max_deviation=2, keep_outlier=False):
 
     submat_vectors = []
     shape = updated_info["submatrices"][0].shape
@@ -480,19 +484,19 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
     updated_centers = updated_info["centers"]
     updated_submatrices = updated_info["submatrices"]
     updated_diags = updated_info["diagonal"]
+    if not keep_outlier:
+        out_ind = get_outlier_indices(matrix, max_deviation=max_deviation)
+        if out_ind is not None and len(np.flatnonzero(out_ind)) > 0:
+            if len(np.flatnonzero(out_ind)) == matrix.shape[0]:
+                exit("ERROR: all submatrices have been detected as outliers. You can consider changing the threshold")
+                log.info("Outliers detected. Number of outliers: {}".format(len(np.flatnonzero(out_ind))))
+            # keep in matrix all indices that are not outliers
+            matrix = matrix[np.logical_not(out_ind), :]
 
-    out_ind = get_outlier_indices(matrix, max_deviation=2)
-    if out_ind is not None and len(np.flatnonzero(out_ind)) > 0:
-        if len(np.flatnonzero(out_ind)) == matrix.shape[0]:
-            exit("ERROR: all submatrices have been detected as outliers. You can consider changing the threshold")
-        log.info("Outliers detected. Number of outliers: {}".format(len(np.flatnonzero(out_ind))))
-        # keep in matrix all indices that are not outliers
-        matrix = matrix[np.logical_not(out_ind), :]
-
-        updated_coords = list(compress(updated_info["coords"], np.logical_not(out_ind)))
-        updated_centers = list(compress(updated_info["centers"], np.logical_not(out_ind)))
-        updated_submatrices = list(compress(updated_info["submatrices"], np.logical_not(out_ind)))
-        updated_diags = list(compress(updated_info["diagonal"], np.logical_not(out_ind)))
+            updated_coords = list(compress(updated_info["coords"], np.logical_not(out_ind)))
+            updated_centers = list(compress(updated_info["centers"], np.logical_not(out_ind)))
+            updated_submatrices = list(compress(updated_info["submatrices"], np.logical_not(out_ind)))
+            updated_diags = list(compress(updated_info["diagonal"], np.logical_not(out_ind)))
 
     if np.any(np.isnan(matrix)):
         # replace nans for 0 otherwise kmeans produces a weird behaviour
@@ -524,7 +528,7 @@ def compute_clusters(updated_info, k, method="kmeans", how='full'):
     return updated_info
 
 
-def cluster_matrices(agg_info, k, method='kmeans', how='full', perChr=False):
+def cluster_matrices(agg_info, k, method='kmeans', how='full', perChr=False, max_deviation=2, keep_outlier=False):
     """
     clusters the submatrices .
 
@@ -557,7 +561,7 @@ def cluster_matrices(agg_info, k, method='kmeans', how='full', perChr=False):
                 if len(agg_info["agg_matrix"][chrom1][chrom2]) < k:
                     log.info("number of the submatrices on chromosome {} is less than {}. Clustering is skipped.".format(chrom1, k))
                     k = 1
-                updated_info[chrom1] = compute_clusters(updated_info[chrom1], k, method, how)
+                updated_info[chrom1] = compute_clusters(updated_info[chrom1], k, method, how, max_deviation, keep_outlier)
             else:
                 updated_info['genome']["submatrices"] += agg_info["agg_matrix"][chrom1][chrom2]
                 # Add all corrdinates in a new container
@@ -568,7 +572,10 @@ def cluster_matrices(agg_info, k, method='kmeans', how='full', perChr=False):
                     updated_info['genome']["diagonal"].append(agg_info["agg_diagonals"][chrom1][chrom2][idx])
 
     if not perChr:
-        updated_info["genome"] = compute_clusters(updated_info["genome"], k, method, how)
+        this_sum = []
+        for i in range(len(updated_info['genome']["submatrices"])):
+            this_sum.append(updated_info['genome']["submatrices"][i].sum())
+        updated_info["genome"] = compute_clusters(updated_info["genome"], k, method, how, max_deviation, keep_outlier)
         # TODO Do I need to update submatrices and positions here too?
 
     return updated_info
@@ -847,7 +854,6 @@ def plot_diagnostic_heatmaps(clustered_info, M_half, args):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-
     ma = hm.hiCMatrix(args.matrix)
     ma.maskBins(ma.nan_bins)
     ma.matrix.data[np.isnan(ma.matrix.data)] = 0
@@ -860,13 +866,17 @@ def main(args=None):
         ma.keepOnlyTheseChr(args.chromosomes)
 
     default_range = '1000000:20000000'
+    if args.range is not None:
+        if (args.mode == "inter-chr") or (args.mode == "all"):
+            log.info("--range is ineffective for inter-chr and all mode.")
     if args.range is None:
         if args.mode == "intra-chr":
             log.warning("You have not set any range. This is by default set to {} for intra-chr.".format(default_range))
         args.range = default_range
     min_dist, max_dist = args.range.split(":")
-    log.info("checking range {}-{}".format(min_dist, max_dist))
-    assert int(min_dist) < int(max_dist), "Error lower range is larger than upper range!"
+    if args.mode == "intra-chr":
+        log.info("checking range {}-{}".format(min_dist, max_dist))
+        assert int(min_dist) < int(max_dist), "Error lower range is larger than upper range!"
     if args.transform == "z-score":  # use zscore matrix
         log.info("Computing z-score matrix. This may take a while.\n")
         if args.mode == 'intra-chr':
@@ -953,11 +963,13 @@ def main(args=None):
         if args.perChr == True:
             clustered_info = cluster_matrices(agg_info,
                                               k=args.kmeans, method='kmeans', how=args.howToCluster,
-                                              perChr=args.perChr)
+                                              perChr=args.perChr, max_deviation=args.max_deviation,
+                                              keep_outlier=args.keep_outlier)
         else:
             clustered_info = cluster_matrices(agg_info,
                                               k=args.kmeans, method='kmeans', how=args.howToCluster,
-                                              perChr=False)
+                                              perChr=False, max_deviation=args.max_deviation,
+                                              keep_outlier=args.keep_outlier)
         num_clusters = args.kmeans
     elif args.hclust is not None:
         assert(args.hclust > 1)
@@ -966,22 +978,28 @@ def main(args=None):
         if args.perChr == True:
             clustered_info = cluster_matrices(agg_info,
                                               k=args.hclust, method='hierarchical',
-                                              how=args.howToCluster, perChr=args.perChr)
+                                              how=args.howToCluster,
+                                              perChr=args.perChr, max_deviation=args.max_deviation,
+                                              keep_outlier=args.keep_outlier)
         else:
             clustered_info = cluster_matrices(agg_info,
                                               k=args.hclust, method='hierarchical',
-                                              how=args.howToCluster, perChr=False)
+                                              how=args.howToCluster,
+                                              perChr=False, max_deviation=args.max_deviation,
+                                              keep_outlier=args.keep_outlier)
         num_clusters = args.hclust
     else:
         # make a 'fake' clustering to generalize the plotting of the submatrices
         k = 1
         if args.perChr == True:
             clustered_info = cluster_matrices(agg_info, k=k, method='no_clust',
-                                              how='full', perChr=args.perChr)
+                                              how='full', perChr=args.perChr, max_deviation=args.max_deviation,
+                                              keep_outlier=args.keep_outlier)
 
         else:
             clustered_info = cluster_matrices(agg_info, k=k, method='no_clust',
-                                              how='full', perChr=False)
+                                              how='full', perChr=False, max_deviation=args.max_deviation,
+                                              keep_outlier=args.keep_outlier)
         num_clusters = k
 
     plot_aggregated_contacts(clustered_info, num_clusters, M_half, args)
