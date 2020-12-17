@@ -285,6 +285,7 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, 
     agg_info["agg_matrix"] = {key: val for key, val in agg_info["agg_matrix"].items() if key not in to_del}
     agg_info["agg_contact_position"] = {key: val for key, val in agg_info["agg_contact_position"].items() if key not in to_del}
 
+
 def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
     """
     To aggregate the contacts of the desired submatrices , if row-wise.
