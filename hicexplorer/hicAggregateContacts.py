@@ -180,7 +180,9 @@ def parse_arguments(args=None):
                              choices=['full', 'center', 'diagonal'],
                              default='full')
     parserClust.add_argument('--keep_outlier',
-                             help="keep outliers before clustering. They will le be removed by default.",
+                             help="keep outliers before clustering. They will be removed by default. "
+                             "Note that removing outliers is also applied to the case where the number of "
+                             "clusters is one (e.g. no clustering is required) unless keep_outlier is set.",
                              action='store_true')
     parserClust.add_argument('--max_deviation',
                              help="max deviation from mean to be determined as outlier.",
