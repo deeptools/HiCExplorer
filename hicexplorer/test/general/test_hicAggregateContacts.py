@@ -126,7 +126,7 @@ def test_hicAggregateContacts_all():
     outfile_aggregate_matrix = NamedTemporaryFile(suffix='.tab', prefix='hicaggregate_test_', delete=False)
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/test_regions.bed " \
            "--outFileName {out_agg} --numberOfBins 30 --disable_bbox_tight --dpi 100 "\
-           "--mode all --range 50000:900000 --outFilePrefixMatrix {out_mat}".\
+           "--mode all --outFilePrefixMatrix {out_mat} --keep_outlier".\
            format(root=ROOT, out_agg=outfile_aggregate_plots.name, out_mat=outfile_aggregate_matrix.name)
 
     test_image_agg = ROOT + 'hicAggregateContacts/master_aggregate_all.png'
@@ -324,7 +324,7 @@ def test_hicAggregateContacts_row_wise_intra_perChr():
     args = "--matrix {root}/Li_et_al_2015.h5 --BED {root}/hicAggregateContacts/bed1_row-wise.bed " \
            "--BED2 {root}/hicAggregateContacts/bed2_row-wise.bed "\
            "--outFileName {out_agg} --numberOfBins 30 --row_wise "\
-           "--range 50000:6000000 --dpi 100 --mode intra-chr --perChr ".\
+           "--range 50000:6000000 --dpi 100 --mode intra-chr --perChr --keep_outlier".\
            format(root=ROOT, out_agg=outfile_aggregate_row_wise.name)
 
     test_image_agg_row_wise = ROOT + 'hicAggregateContacts/master_aggregate_row_wise_intra_perChr.png'
