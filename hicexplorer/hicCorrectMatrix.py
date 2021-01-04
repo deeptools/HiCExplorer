@@ -163,10 +163,12 @@ def correct_subparser():
 
     parserOpt.add_argument('--correctionMethod',
                            help='Method to be used for matrix correction. It'
-                           ' can be set to KR or ICE.',
+                           ' can be set to KR or ICE'
+                           ' (Default: %(default)s).',
                            type=str,
                            metavar='STR',
-                           default='KR')
+                           default='KR',
+                           choices=['KR', 'ICE'])
 
     parserOpt.add_argument('--filterThreshold', '-t',
                            help='Removes bins of low or large coverage. '
@@ -185,7 +187,8 @@ def correct_subparser():
 
     parserOpt.add_argument('--iterNum', '-n',
                            help='Number of iterations to compute.'
-                           'only for ICE!',
+                           'only for ICE!'
+                           ' (Default: %(default)s).',
                            type=int,
                            metavar='INT',
                            default=500)

@@ -53,53 +53,65 @@ Computes enriched regions (peaks) or long range contacts on the given contact ma
     parserOpt.add_argument('--peakWidth', '-pw',
                            type=int,
                            default=2,
-                           help='The width of the peak region in bins. Default is 2. The square around the peak will include (2 * peakWidth)^2 bins.')
+                           help='The width of the peak region in bins. The square around the peak will include (2 * peakWidth)^2 bins'
+                           ' (Default: %(default)s).')
 
     parserOpt.add_argument('--windowSize', '-w',
                            type=int,
                            default=5,
-                           help='The window size for the neighborhood region the peak is located in. Default is 5. All values from this region (exclude the values from the peak '
-                           ' region) are tested against the peak region for significant difference. The square will have the size of (2 * windowSize)^2 bins')
+                           help='The window size for the neighborhood region the peak is located in. All values from this region (exclude the values from the peak '
+                           ' region) are tested against the peak region for significant difference. The square will have the size of (2 * windowSize)^2 bins'
+                           ' (Default: %(default)s).')
     parserOpt.add_argument('--pValuePreselection', '-pp',
                            help='Only candidates with p-values less the given threshold will be considered as candidates. '
                                 'For each genomic distance a negative binomial distribution is fitted and for each pixel a p-value given by the cumulative density function is given. '
-                                'This does NOT influence the p-value for the neighborhood testing. Can a single value or a threshold file created by hicCreateThresholdFile.',
+                                'This does NOT influence the p-value for the neighborhood testing. Can a single value or a threshold file created by hicCreateThresholdFile'
+                                ' (Default: %(default)s).',
                            default=0.1)
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=float,
-                           help='The minimum number of interactions a detected peaks needs to have to be considered.',
+                           help='The minimum number of interactions a detected peaks needs to have to be considered'
+                                ' (Default: %(default)s).',
                            default=10)
     parserOpt.add_argument('--obsExpThreshold', '-oet',
                            type=float,
-                           help='The minimum number of obs/exp interactions a detected peaks needs to have to be considered. ',
+                           help='The minimum number of obs/exp interactions a detected peaks needs to have to be considered'
+                                ' (Default: %(default)s).',
                            default=1.5)
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
                            default=0.025,
-                           help='Rejection level for Anderson-Darling or Wilcoxon-rank sum test for H0. H0 is peak region and background have the same distribution.')
+                           help='Rejection level for Anderson-Darling or Wilcoxon-rank sum test for H0. H0 is peak region and background have the same distribution'
+                                ' (Default: %(default)s).')
 
     parserOpt.add_argument('--maxLoopDistance',
                            type=int,
                            default=2000000,
-                           help='Maximum genomic distance of a loop, usually loops are within a distance of ~2MB.')
+                           help='Maximum genomic distance of a loop, usually loops are within a distance of ~2MB'
+                           ' (Default: %(default)s).')
     parserOpt.add_argument('--chromosomes',
                            help='Chromosomes to include in the analysis. If not set, all chromosomes are included.',
                            nargs='+')
 
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads to use, the parallelization is implemented per chromosome.',
+                           help='Number of threads to use, the parallelization is implemented per chromosome'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int
                            )
     parserOpt.add_argument('--threadsPerChromosome', '-tpc',
-                           help='Number of threads to use per parallel thread processing a chromosome. E.g. --threads = 4 and --threadsPerChromosome = 4 makes 4 * 4 = 16 threads in total.',
+                           help='Number of threads to use per parallel thread processing a chromosome. E.g. --threads = 4 and --threadsPerChromosome = 4 makes 4 * 4 = 16 threads in total'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int
                            )
     parserOpt.add_argument('--expected', '-exp',
-                           help='Method to compute the expected value per distance: Either the mean, the mean of non-zero values or the mean of non-zero values with ligation factor correction.',
+                           help='Method to compute the expected value per distance: Either the mean (mean),'
+                           ' the mean of non-zero values (mean_nonzero) or '
+                           'the mean of non-zero values with ligation factor correction (mean_nonzero_ligation)'
+                           ' (Default: %(default)s).',
                            required=False,
                            type=str,
                            default="mean",

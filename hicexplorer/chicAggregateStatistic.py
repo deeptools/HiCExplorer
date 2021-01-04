@@ -60,23 +60,26 @@ If the `--targetFileFolder` flag is not set in batch mode, it is assumed the `--
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outFileNameSuffix', '-suffix',
-                           help='File name suffix to save the result.',
+                           help='File name suffix to save the result'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='_aggregate_target.txt')
 
     parserOpt.add_argument('--interactionFileFolder', '-iff',
-                           help='Folder where the interaction files are stored. Applies only for batch mode.',
+                           help='Folder where the interaction files are stored. Applies only for batch mode'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='.')
     parserOpt.add_argument('--targetFileFolder', '-tff',
                            help='Folder where the target files are stored. Applies only for batch mode.',
                            required=False)
     parserOpt.add_argument('--outputFolder', '-o',
-                           help='Output folder containing the files.',
+                           help='Output folder containing the files'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='aggregatedFiles')
     parserOpt.add_argument('--writeFileNamesToFile', '-w',
-                           help='',
+                           help='(Default: %(default)s).',
                            default='aggregatedFilesBatch.txt')
     parserOpt.add_argument('--batchMode', '-bm',
                            help='turns on batch mode. The files provided by --interactionFile and/or --targetFile contain a list of the files to be processed.',
@@ -84,7 +87,8 @@ If the `--targetFileFolder` flag is not set in batch mode, it is assumed the `--
                            action='store_true')
 
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module). ',
+                           help='Number of threads (uses the python multiprocessing module)ist'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int

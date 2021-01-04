@@ -15,3 +15,6 @@ if not sys.warnoptions:
 
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
+
+import multiprocessing as mp
+mp.set_start_method('fork')

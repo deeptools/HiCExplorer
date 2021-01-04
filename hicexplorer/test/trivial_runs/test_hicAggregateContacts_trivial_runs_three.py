@@ -37,11 +37,12 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("matrix", [matrix])  # required
 @pytest.mark.parametrize("outFileName", [outfile_aggregate_plots])  # required
 @pytest.mark.parametrize("BED", [BED])  # required
-@pytest.mark.parametrize("ran", ['50000:900000'])  # required
+@pytest.mark.parametrize("mode", ["intra-chr"])  # required
+@pytest.mark.parametrize("ran", ['50000:900000'])
 @pytest.mark.parametrize("BED2", [BED2])
 @pytest.mark.parametrize("numberOfBins", [30])
 @pytest.mark.parametrize("transform", sorted(['total-counts', 'z-score', 'obs/exp', 'none']))
-@pytest.mark.parametrize("avgType", sorted(['mean', 'median']))
+@pytest.mark.parametrize("operationType", sorted(['sum', 'mean', 'median']))
 @pytest.mark.parametrize("outFilePrefixMatrix", ['outFilePrefix'])
 @pytest.mark.parametrize("outFileContactPairs", ['outFileContactPairs'])
 @pytest.mark.parametrize("diagnosticHeatmapFile", [diagnosticHeatmapFile])
@@ -53,17 +54,17 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("plotType", sorted(['2d', '3d']))
 @pytest.mark.parametrize("vMin", [0.01])
 @pytest.mark.parametrize("vMax", [1.0])
-def test_aggregate_contacts_three(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins,
-                                  transform, avgType, outFilePrefixMatrix,
+def test_aggregate_contacts_three(capsys, matrix, outFileName, BED, mode, ran, BED2, numberOfBins,
+                                  transform, operationType, outFilePrefixMatrix,
                                   outFileContactPairs, diagnosticHeatmapFile, kmeans,
                                   hclust, howToCluster, chromosomes, colorMap, plotType,
                                   vMin, vMax):
     # test diagnosticHeatmapFile
     # first test with all parameters failed due to unknown error.
     args = "--matrix {} --BED {} " \
-           "--outFileName {out_agg} --numberOfBins 30 --range 50000:900000 --hclust 4 " \
+           "--outFileName {out_agg} --numberOfBins 30 --mode {} --range 50000:900000 --hclust 4 " \
            "--diagnosticHeatmapFile {out_heat} --howToCluster diagonal  --disable_bbox_tight " \
-           "--BED2 {}".format(matrix, BED, BED2, out_agg=outFileName.name,
+           "--BED2 {}".format(matrix, BED, mode, BED2, out_agg=outFileName.name,
                               out_heat=diagnosticHeatmapFile.name)
 
 #     hicexplorer.hicAggregateContacts.main(args.split())

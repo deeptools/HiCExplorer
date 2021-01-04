@@ -70,7 +70,8 @@ def parse_arguments(args=None):
         metavar='',
         help='Color map to use for the heatmap. Available values can be '
              'seen here: '
-             'http://matplotlib.org/examples/color/colormaps_reference.html')
+             'http://matplotlib.org/examples/color/colormaps_reference.html'
+             ' (Default: %(default)s).')
 
     parserHeatmap.add_argument('--plotFileFormat',
                                metavar='FILETYPE',
@@ -90,7 +91,8 @@ def parse_arguments(args=None):
 
     # define the arguments
     parserOpt.add_argument('--method',
-                           help='Correlation method to use.',
+                           help='Correlation method to use'
+                           ' (Default: %(default)s).',
                            choices=['pearson', 'spearman'],
                            default='pearson')
 
@@ -129,14 +131,15 @@ def parse_arguments(args=None):
                            default=None,
                            nargs='+')
 
-    parserOpt.add_argument('--threads',
-                           help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
-                           ' One master process which is used to read the input file into the buffer and one process which is merging '
-                           'the output bam files of the processes into one output bam file. All other threads do the actual computation.',
-                           required=False,
-                           default=4,
-                           type=int
-                           )
+    # parserOpt.add_argument('--threads',
+    #                        help='Number of threads. Using the python multiprocessing module. Is only used with \'cool\' matrix format.'
+    #                        ' One master process which is used to read the input file into the buffer and one process which is merging '
+    #                        'the output bam files of the processes into one output bam file. All other threads do the actual computation'
+    #                        ' (Default: %(default)s).',
+    #                        required=False,
+    #                        default=4,
+    #                        type=int
+    #                        )
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 

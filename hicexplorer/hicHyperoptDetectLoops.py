@@ -38,7 +38,8 @@ def parse_arguments(args=None):
                                 required=True,
                                 type=int)
     parserRequired.add_argument('--outputFileName', '-o',
-                                help='File names for the result of the optimization.',
+                                help='File names for the result of the optimization'
+                                ' (Default: %(default)s).',
                                 default='hyperopt_result.txt',
                                 required=False)
     parserOpt = parser.add_argument_group('Optional arguments')
@@ -46,9 +47,11 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--resolution', '-re',
                            type=int,
                            default=10000,
-                           help='Resolution of matrix')
+                           help='Resolution of matrix'
+                           ' (Default: %(default)s).')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module). ',
+                           help='Number of threads (uses the python multiprocessing module)'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int
@@ -56,7 +59,8 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--runs', '-r',
                            type=int,
                            default=100,
-                           help='Number of runs of hyperopt.')
+                           help='Number of runs of hyperopt'
+                           ' (Default: %(default)s).')
     parserOpt.add_argument('--help', '-h', action='help',
                            help='Show this help message and exit.')
 

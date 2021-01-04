@@ -36,11 +36,12 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("matrix", [matrix])  # required
 @pytest.mark.parametrize("outFileName", [outfile_aggregate_plots])  # required
 @pytest.mark.parametrize("BED", [BED])  # required
-@pytest.mark.parametrize("ran", ['50000:900000'])  # required
+@pytest.mark.parametrize("mode", ["intra-chr"])  # required
+@pytest.mark.parametrize("ran", ['50000:900000'])
 @pytest.mark.parametrize("BED2", [BED2])
 @pytest.mark.parametrize("numberOfBins", [30])
 @pytest.mark.parametrize("transform", sorted(['z-score']))
-@pytest.mark.parametrize("avgType", ['mean', 'median'])
+@pytest.mark.parametrize("operationType", ['sum', 'mean', 'median'])
 @pytest.mark.parametrize("outFilePrefixMatrix", ['outFilePrefix'])
 @pytest.mark.parametrize("outFileContactPairs", ['outFileContactPairs'])
 @pytest.mark.parametrize("diagnosticHeatmapFile", [diagnosticHeatmapFile])
@@ -52,20 +53,20 @@ diagnosticHeatmapFile = NamedTemporaryFile(suffix='.png', prefix='hicaggregate_h
 @pytest.mark.parametrize("plotType", sorted(['2d', '3d']))
 @pytest.mark.parametrize("vMin", [0.01])
 @pytest.mark.parametrize("vMax", [1.0])
-def test_aggregate_contacts(capsys, matrix, outFileName, BED, ran, BED2, numberOfBins, transform,
-                            avgType, outFilePrefixMatrix, outFileContactPairs,
+def test_aggregate_contacts(capsys, matrix, outFileName, BED, mode, ran, BED2, numberOfBins, transform,
+                            operationType, outFilePrefixMatrix, outFileContactPairs,
                             diagnosticHeatmapFile, kmeans, hclust, howToCluster,
                             chromosomes, colorMap, plotType, vMin, vMax):
     """
         Test will run all configurations defined by the parametrized option.
     """
     # test outFilePrefixMatrix
-    args = "--matrix {} --outFileName {} --BED {} --range {} --BED2 {} " \
-           "--numberOfBins {} --transform {} --avgType {} --outFilePrefixMatrix {} " \
+    args = "--matrix {} --outFileName {} --BED {} --mode {} --range {} --BED2 {} " \
+           "--numberOfBins {} --transform {} --operationType {} --outFilePrefixMatrix {} " \
            "--kmeans {} --hclust {} " \
            "--howToCluster {} --chromosomes {} --colorMap {} --plotType {} --vMin {} " \
-           "--vMax {} --disable_bbox_tight".format(matrix, outFileName.name, BED, ran,
-                                                   BED2, numberOfBins, transform, avgType,
+           "--vMax {} --disable_bbox_tight".format(matrix, outFileName.name, BED, mode, ran,
+                                                   BED2, numberOfBins, transform, operationType,
                                                    outFilePrefixMatrix,
                                                    kmeans, hclust,
                                                    howToCluster, chromosomes, colorMap,

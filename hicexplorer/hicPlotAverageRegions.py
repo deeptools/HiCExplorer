@@ -45,7 +45,8 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--colorMap',
                            help='Color map to use for the heatmap. Available '
                            'values can be seen here: '
-                           'http://matplotlib.org/examples/color/colormaps_reference.html',
+                           'http://matplotlib.org/examples/color/colormaps_reference.html'
+                           ' (Default: %(default)s).',
                            default='hot_r')
     parserOpt.add_argument('--vMin',
                            help='Minimum score value.',
@@ -58,7 +59,8 @@ def parse_arguments(args=None):
                            default=None)
     parserOpt.add_argument('--dpi',
                            help='Resolution of image if'
-                           'ouput is a raster graphics image (e.g png, jpg).',
+                           'ouput is a raster graphics image (e.g png, jpg)'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=300)
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')

@@ -53,29 +53,35 @@ $ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --rang
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outFileName', '-o',
-                           help='The output file name of the passed reference points. Used as prefix for the plots as well.',
+                           help='The output file name of the passed reference points. Used as prefix for the plots as well'
+                           ' (Default: %(default)s).',
                            default='new_referencepoints.bed')
     parserOpt.add_argument('--outFileNameHistogram', '-oh',
-                           help='The output file for the histogram plot.',
+                           help='The output file for the histogram plot'
+                           ' (Default: %(default)s).',
                            default='histogram.png')
     parserOpt.add_argument('--outFileNameSparsity', '-os',
-                           help='The output file for the sparsity distribution plot.',
+                           help='The output file for the sparsity distribution plot'
+                           ' (Default: %(default)s).',
                            default='sparsity.png')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads.',
+                           help='Number of threads'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int
                            )
     parserOpt.add_argument('--fixateRange', '-fs',
-                           help='Fixate score of background model starting at distance x. E.g. all values greater than 500kb are set to the value of the 500kb bin.',
+                           help='Fixate score of background model starting at distance x. E.g. all values greater than 500kb are set to the value of the 500kb bin'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=500000,
                            type=int
                            )
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image if the'
-                           'output is a raster graphics image (e.g png, jpg)',
+                           'output is a raster graphics image (e.g png, jpg)'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=300,
                            required=False)

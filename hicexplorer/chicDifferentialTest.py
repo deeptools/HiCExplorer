@@ -53,21 +53,23 @@ This will create, as in the non-batch mode, three files per aggregated file and 
     parserRequired.add_argument('--alpha', '-a',
                                 help='define a significance level (alpha) for accepting samples',
                                 type=float,
-                                default=0.05,
                                 required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--interactionFileFolder', '-iff',
-                           help='Folder where the interaction files are stored. Applies only for batch mode.',
+                           help='Folder where the interaction files are stored. Applies only for batch mode'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='.')
     parserOpt.add_argument('--outputFolder', '-o',
-                           help='Output folder of the files.',
+                           help='Output folder of the files'
+                           ' (Default: %(default)s).',
                            required=False,
                            default='differentialResults')
     parserOpt.add_argument('--statisticTest',
-                           help='Type of test used: fisher\'s exact test or chi2 contingency',
+                           help='Type of test used: fisher\'s exact test or chi2 contingency'
+                           ' (Default: %(default)s).',
                            choices=['fisher', 'chi2'],
                            default='fisher')
     parserOpt.add_argument('--batchMode', '-bm',
@@ -75,13 +77,15 @@ This will create, as in the non-batch mode, three files per aggregated file and 
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module)',
+                           help='Number of threads (uses the python multiprocessing module)'
+                           ' (Default: %(default)s).',
                            required=False,
                            default=4,
                            type=int
                            )
     parserOpt.add_argument('--rejectedFileNamesToFile', '-r',
-                           help='Writes the names of the rejected H0 (therefore containing the differential interactions) to file. Can be used for batch processing mode of chicPlotViewpoint.',
+                           help='Writes the names of the rejected H0 (therefore containing the differential interactions) to file. Can be used for batch processing mode of chicPlotViewpoint.'
+                           ' (Default: %(default)s).',
                            default='rejected_H0.txt')
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")

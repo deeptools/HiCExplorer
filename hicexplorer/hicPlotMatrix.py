@@ -96,7 +96,8 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--colorMap',
                            help='Color map to use for the heatmap. Available '
                            'values can be seen here: '
-                           'http://matplotlib.org/examples/color/colormaps_reference.html',
+                           'http://matplotlib.org/examples/color/colormaps_reference.html'
+                           ' (Default: %(default)s).',
                            default='RdYlBu_r')
 
     parserOpt.add_argument('--vMin',
@@ -111,7 +112,8 @@ def parse_arguments(args=None):
 
     parserOpt.add_argument('--dpi',
                            help='Resolution for the image in case the'
-                           'output is a raster graphics image (e.g png, jpg).',
+                           'output is a raster graphics image (e.g png, jpg)'
+                           ' (Default: %(default)s).',
                            type=int,
                            default=72)
 
@@ -138,27 +140,33 @@ def parse_arguments(args=None):
                            help='The sign of the bigwig values are flipped. Useful if hicPCA gives inverted values.',
                            action='store_true')
     parserOpt.add_argument('--scaleFactorBigwig',
-                           help='Scale the values of a bigwig file by the given factor.',
+                           help='Scale the values of a bigwig file by the given factor'
+                           ' (Default: %(default)s).',
                            type=float,
                            default=1.0)
     parserOpt.add_argument('--fontsize',
-                           help='Fontsize in the plot for x and y axis.',
+                           help='Fontsize in the plot for x and y axis'
+                           ' (Default: %(default)s).',
                            type=float,
                            default=10)
     parserOpt.add_argument('--rotationX',
-                           help='Rotation in degrees for the labels of x axis.',
+                           help='Rotation in degrees for the labels of x axis'
+                           ' (Default: %(default)s).',
                            type=float,
                            default=0)
     parserOpt.add_argument('--rotationY',
-                           help='Rotation in degrees for the labels of y axis.',
+                           help='Rotation in degrees for the labels of y axis'
+                           ' (Default: %(default)s).',
                            type=float,
                            default=0)
     parserOpt.add_argument('--increaseFigureWidth',
-                           help='Plotting additional bigwig tracks can cause compression in x or y direction of the heatmap. Set this factor to a value unequal to 0 to correct this.',
+                           help='Plotting additional bigwig tracks can cause compression in x or y direction of the heatmap. Set this factor to a value unequal to 0 to correct this'
+                           ' (Default: %(default)s).',
                            type=float,
                            default=0.5)
     parserOpt.add_argument('--increaseFigureHeight',
-                           help='Plotting additional bigwig tracks can cause compression in x or y direction of the heatmap. Set this factor to a value unequal to 0 to correct this.',
+                           help='Plotting additional bigwig tracks can cause compression in x or y direction of the heatmap. Set this factor to a value unequal to 0 to correct this'
+                           ' (Default: %(default)s).',
                            type=float,
                            default=0.5)
     parserOpt.add_argument('--loops',

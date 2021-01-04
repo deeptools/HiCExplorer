@@ -84,6 +84,7 @@ Contents:
    content/list-of-tools
    content/example_usage
    content/News
+   content/citation
 
 
 Citation
