@@ -94,18 +94,10 @@ $ chicViewpoint --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoi
                            help='Writes a file where all viewpoints all samples are sorted by the viewpoints.',
                            required=False,
                            action='store_true')
-<<<<<<< HEAD
     # parserOpt.add_argument('--outputFolder', '-o',
     #                        help='This folder contains all created viewpoint files.',
     #                        required=False,
     #                        default='interactionFiles')
-=======
-    parserOpt.add_argument('--outputFolder', '-o',
-                           help='This folder contains all created viewpoint files'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='interactionFiles')
->>>>>>> develop
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -146,7 +138,7 @@ def compute_x_fold(pDataList, pBackgroundList):
     return pDataList / pBackgroundList
 
 
-def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions, pInteractionFileGroupH5Object):
+def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions):
     file_list = []
     interaction_data_list = []
 
@@ -266,17 +258,19 @@ def main(args=None):
 
     # create hdf5 output file
     interactionFileH5Object = h5py.File(args.outFileName, 'w')
-    interactionFileGroup = interactionFileH5Object.create_group("interactionFiles")
-    matricesGroup = interactionFileH5Object.create_group("matrices")
+    # interactionFileGroup = interactionFileH5Object.create_group("interactionFiles")
 
-    for i, matrix in enumerate(args.matrices):
-        matricesGroup[str(i)] = str('.'.join(matrix.split('/')[-1].split('.')[:-1]))
+
+
+    # for i, matrix in enumerate(args.matrices):
+    #     matricesGroup[str(i)] = str('.'.join(matrix.split('/')[-1].split('.')[:-1]))
     # interactionFileH5Object.create_dataset('matrices', data=args.matrices)
 
 
     fail_flag = False
     fail_message = ''
-
+    matrix_collection = {}
+    resolution = 0
     for matrix in args.matrices:
         hic_ma = hm.hiCMatrix(matrix)
         viewpointObj.hicMatrix = hic_ma
@@ -284,6 +278,11 @@ def main(args=None):
         interaction_data_list_sample = [None] * args.threads
 
         all_data_collected = False
+
+        if resolution == 0:
+            resolution = hic_ma.getBinSize()
+            log.debug('resolution {}'.format(resolution))
+            interactionFileH5Object.attrs.create('resolution', resolution, dtype='i')
 
         for i in range(args.threads):
 
@@ -308,8 +307,7 @@ def main(args=None):
                 pGeneList=geneListThread,
                 pMatrix=matrix,
                 pBackgroundModel=background_model,
-                pBackgroundModelRelativeInteractions=background_model_mean_values,
-                pInteractionFileGroupH5Object=interactionFileGroup
+                pBackgroundModelRelativeInteractions=background_model_mean_values
             )
             )
 
@@ -340,38 +338,55 @@ def main(args=None):
 
         file_list_sample= [item for sublist in file_list_sample for item in sublist]
         interaction_data_list = [item for sublist in interaction_data_list_sample for item in sublist]
+        matrix_collection[matrix] = interaction_data_list
         file_list.append(file_list_sample)
 
-    for interaction_data in interaction_data_list:
-         viewpointObj.writeInteractionFileHDF5(
-                interactionFileGroup, interaction_data[0], interaction_data[1], interaction_data[2])
+    for matrix in matrix_collection:
+        matrixGroup = interactionFileH5Object.create_group(matrix.split('.')[0])
+        geneGroup = matrixGroup.create_group('genes')
 
+        for interaction_data in matrix_collection[matrix]:
+            if interaction_data[1][0] not in matrixGroup:
+                chromosomeObject = matrixGroup.create_group(interaction_data[1][0])
+
+            group_name = viewpointObj.writeInteractionFileHDF5(
+                    chromosomeObject, interaction_data[1][3], interaction_data[1])
+
+            geneGroup[group_name] = chromosomeObject[group_name]
     # log.debug('file_list {}'.format(file_list))
 
-    log.debug('interaction_data[3] {}'.format(interaction_data_list[3]))
-    # write reference point and gene name
-    interactionFileH5Object.create_dataset("referencePoints", data=interaction_data_list[3])
+    # log.debug('interaction_data[3] {}'.format(interaction_data_list[3]))
+    # # write reference point and gene name
+    # # interactionFileH5Object.create_dataset("referencePoints", data=interaction_data_list[3])
 
-    if args.writeFileNamesToFile:
-        with open(args.writeFileNamesToFile, 'w') as file:
-            log.debug('len(file_list) {}'.format(len(file_list)))
-            if len(file_list) > 1:
-                for i, sample in enumerate(file_list):
-                    for sample2 in file_list[i + 1:]:
-                        for viewpoint, viewpoint2 in zip(sample, sample2):
-                            file.write(viewpoint + '\n')
-                            file.write(viewpoint2 + '\n')
-            else:
-                for viewpoint in file_list[0]:
-                    file.write(viewpoint + '\n')
-    if args.allViewpointsList:
+    # if args.writeFileNamesToFile:
+    #     writeFileNamesToList = []
+    #     # with open(args.writeFileNamesToFile, 'w') as file:
+    #     log.debug('len(file_list) {}'.format(len(file_list)))
+    #     if len(file_list) > 1:
+    #         for i, sample in enumerate(file_list):
+    #             for sample2 in file_list[i + 1:]:
+    #                 for viewpoint, viewpoint2 in zip(sample, sample2):
+    #                     writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
+    #                     writeFileNamesToList.append(viewpoint2.encode("ascii", "ignore"))
 
-        with open(args.writeFileNamesToFile + 'all', 'w') as file:
-            if len(file_list) > 1:
-                for i, sample in enumerate(file_list[0]):
-                    file.write(sample + '\n')
-                    for j in range(1, len(file_list)):
-                        file.write(file_list[j][i] + '\n')
-            else:
-                for viewpoint in file_list[0]:
-                    file.write(viewpoint + '\n')
+    #     else:
+    #         for viewpoint in file_list[0]:
+    #             writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
+    #     # writeFileNamesToList = np.array(writeFileNamesToList, dtype='S')        
+
+    #     interactionFileH5Object.create_dataset("referencePointsBinary", (len(writeFileNamesToList),1), 'S10', writeFileNamesToList)
+
+    #     # asciiList = [n.encode("ascii", "ignore") for n in strList]
+    #     # h5File.create_dataset('xxx', (len(asciiList),1),'S10', asciiList)
+    # if args.allViewpointsList:
+
+    #     with open(args.writeFileNamesToFile + 'all', 'w') as file:
+    #         if len(file_list) > 1:
+    #             for i, sample in enumerate(file_list[0]):
+    #                 file.write(sample + '\n')
+    #                 for j in range(1, len(file_list)):
+    #                     file.write(file_list[j][i] + '\n')
+    #         else:
+    #             for viewpoint in file_list[0]:
+    #                 file.write(viewpoint + '\n')

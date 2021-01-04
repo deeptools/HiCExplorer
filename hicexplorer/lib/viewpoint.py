@@ -9,6 +9,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import nbinom
 from scipy.special import gammaln
 from scipy import special
+import h5py
 
 from hicexplorer.lib import cnb
 
@@ -96,7 +97,7 @@ class Viewpoint():
 
         return header, interaction_data, p_score, interaction_file_data, genomic_coordinates
 
-    def readInteractionFileForAggregateStatistics(self, pBedFile):
+    def readInteractionFileForAggregateStatistics(self, pFilePath, pInternalIdentifierTriplet):
         '''
         Reads an interaction file produced by chicViewpoint. Contains header information, these lines
         start with '#'.
@@ -109,26 +110,77 @@ class Viewpoint():
         - interaction data in relation to relative position as a dict together with p-value, raw and x-fold: e.g. {-1000:[0.1, 0.01, 2.3, 5]}
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
-        # use header info to store reference point, and based matrix
+
+
+        # interaction_data[int(_line[-5])] = np.array([float(_line[-4]), float(_line[-3]), float(_line[-1]), float(_line[-2])])
+        # interaction_file_data[int(_line[-5])] = _line
+
+
+
+        interactionFileHDF5Object = h5py.File(pFilePath, 'r')
+        arrays_to_retrieve = ['relative_position_list', 'interaction_data_list', 'pvalue', 'raw', 'xfold']
+        internal_path = '/'.join(pInternalIdentifierTriplet)
+        data = []
+
+        for array_name in arrays_to_retrieve:
+            try:
+                data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
+                # data.append(interactionFileHDF5Object.get( internal_path + '/' + array_name).value)
+            except Exception as exp:
+                log.debug( internal_path + '/' + array_name)
+                log.debug(str(exp))
+
+        for array_name in ['start_list', 'end_list']:
+            try:
+                data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
+                # data.append(interactionFileHDF5Object.get( internal_path + '/' + array_name).value)
+            except Exception as exp:
+                log.debug( internal_path + '/' + array_name)
+                log.debug(str(exp))
+
+        chromosome = interactionFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8") 
+        gene = interactionFileHDF5Object.get( internal_path + '/' + 'gene')[()].decode("utf-8") 
+        sum_of_interactions = interactionFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()]
+
+        log.debug('chromosomes: {}'.format(chromosome))
+
+        # log.debug(data)
         interaction_data = {}
         interaction_file_data = {}
-        with open(pBedFile) as fh:
-            fh.readline()
-            header = fh.readline()
-            fh.readline()
+        for i in range(len(data[0])):
+            interaction_data[data[0][i]] = list([float(data[1][i]), float(data[2][i]), float(data[3][i]), float(data[4][i])])
+            interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[5][i]) ])
+        log.debug('153')
+        return interaction_data, interaction_file_data
 
-            for line in fh.readlines():
-                # Addition header information for end users
-                if line.strip().startswith('#'):
-                    continue
-                if not line:
-                    continue
-                _line = line.strip().split('\t')
-                # relative postion and relative interactions
-                interaction_data[int(
-                    _line[-5])] = np.array([float(_line[-4]), float(_line[-3]), float(_line[-1]), float(_line[-2])])
-                interaction_file_data[int(_line[-5])] = _line
-        return header, interaction_data, interaction_file_data
+        # -5: relative position relative_position_list
+        # -4: relative interaction: interaction_data_list
+        # -3: p-value: pvalue
+        # -1: raw: raw
+        # -2: x-fold: xfold
+
+        # # use header info to store reference point, and based matrix
+        # interaction_data = {}
+        # interaction_file_data = {}
+        # with open(pBedFile) as fh:
+        #     fh.readline()
+        #     header = fh.readline()
+        #     fh.readline()
+
+        #     for line in fh.readlines():
+        #         # Addition header information for end users
+        #         if line.strip().startswith('#'):
+        #             continue
+        #         if not line:
+        #             continue
+        #         _line = line.strip().split('\t')
+        #         # relative postion and relative interactions
+
+
+        #         interaction_data[int(
+        #             _line[-5])] = np.array([float(_line[-4]), float(_line[-3]), float(_line[-1]), float(_line[-2])])
+        #         interaction_file_data[int(_line[-5])] = _line
+        # return header, interaction_data, interaction_file_data
 
     def readBackgroundDataFile(self, pBedFile, pRange, pFixateRange, pMean=False):
         '''
@@ -188,7 +240,7 @@ class Viewpoint():
                                 interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7], decimal_places=pDecimalPlaces))
         return
 
-    def writeInteractionFileHDF5(self, pInteractionFileGroupH5Object, pFileName, pData, pHeader):
+    def writeInteractionFileHDF5(self, pInteractionFileGroupH5Object, pFileName, pData):
         '''
         Writes an interaction file for one viewpoint and one sample as a tab delimited file with one interaction per line.
         Header contains information about the interaction:
@@ -197,8 +249,22 @@ class Viewpoint():
         '''
 
         # chrom, start_list, end_list, gene, sum_of_interactions, relative_position_list, interaction_data_list, pPValueList, xFoldList, raw_data_list
-        groupObject = pInteractionFileGroupH5Object.create_group(pFileName)
-        groupObject.create_dataset("header", data=pHeader)
+        # log.debug(pFileName)
+        success = False
+        counter = 0
+        while not success:
+            try:
+                if counter != 0:
+                    file_name = pFileName + '_' + str(counter)
+                else:
+                    file_name = pFileName
+                groupObject = pInteractionFileGroupH5Object.create_group(file_name)
+                success = True
+            except ValueError:
+                counter += 1
+        if counter != 0:
+            log.warning('Gene name {} occurred {} times! Stored as {}_{}'.format(pFileName, counter, pFileName, counter))
+        # groupObject.create_dataset("header", data=pHeader)
         # groupObject.create_dataset("chromosome", data=pData[0].decode("utf-8"))
         groupObject["chromosome"]=str(pData[0])
 
@@ -218,7 +284,7 @@ class Viewpoint():
         #         fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\t{:.{decimal_places}f}\n".
         #                  format(interaction[0], interaction[1],
         #                         interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7], decimal_places=pDecimalPlaces))
-        return
+        return file_name
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
         '''
