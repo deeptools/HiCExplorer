@@ -185,10 +185,14 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
 def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pFilePath, pResolution, pQueue=None):
     outfile_names = []
     target_outfile_names = []
+    significant_data_dict = {}
+    target_data_dict = {}
+
+
     try:
         for interactionFile in pInteractionFilesList:
             target_list = []
-            sample_prefix = ''
+            sample_prefix = []
             log.debug('interactionFile {}'.format(interactionFile))
             for sample in interactionFile:
                 log.debug('sample {}'.format(sample))
@@ -202,6 +206,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 data = pViewpointObj.readInteractionFileForAggregateStatistics(pFilePath, sample)
                 log.debug(data)
                 # exit(1)
+                sample_prefix.append(sample[0])
                 # sample_prefix += sample.split('/')[-1].split('_')[0]
                 # sample_prefix += '_'
                 # filter by x-fold over background value or loose p-value
@@ -240,15 +245,20 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 # write only significant lines to file
                 # write(outFileName, data[0], accepted_scores)
                 # target_list.append(target_lines)
+                significant_data_dict[sample] = accepted_scores
             log.debug('243')
 
             target_list = [item for sublist in target_list for item in sublist]
             log.debug('interactionFile {}'.format(interactionFile))
             # sample_name = '_'.join(interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:])
+
             # target_name = sample_prefix + sample_name + '_target.txt'
             # target_outfile_names.append(target_name)
             # target_name = pArgs.targetFolder + '/' + target_name
             # writeTargetList(target_list, target_name, pArgs)
+            sample_prefix.append(interactionFile[0][1])
+            sample_prefix.append(interactionFile[0][2])
+            target_data_dict[sample_prefix] = target_list
         if pQueue is None:
             return target_outfile_names
     except Exception as exp:
@@ -256,7 +266,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             return 'Fail: ' + str(exp) + traceback.format_exc()
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc()) 
         return
-    pQueue.put([outfile_names, target_outfile_names])
+    pQueue.put([significant_data_dict, target_data_dict])
     return
 
 
