@@ -249,7 +249,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 ##### TODO write significant and target files
                 # write only significant lines to file
                 # write(outFileName, data[0], accepted_scores)
-                # target_list.append(target_lines)
+                target_list.append(target_lines)
                 significant_data_list.append(accepted_scores)
                 significant_key_list.append(sample)
 
@@ -276,6 +276,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             return 'Fail: ' + str(exp) + traceback.format_exc()
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc()) 
         return
+    # log.debug('target_data_list {}'.format(target_data_list))
     pQueue.put([significant_data_list, significant_key_list, target_data_list, target_key_list])
     return
 
@@ -550,7 +551,7 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
     
     significantFileH5Object.close()
 
-def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj):
+def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj, pResolution):
     #     # remove duplicates
     #     target_list_ = []
     #     for line in pTargetList:
@@ -582,13 +583,60 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj)
     #     else:
     #         a.sort().merge(d=pArgs.resolution).saveas(pOutFileName, trackline=header)
 
-    # log.debug(pTargetKeyList[:10])
-    # log.debug(pTargetDataList[:10])
+    # log.debug(pTargetKeyList)
+    # log.debug(pTargetDataList)
 
+    targetFileH5Object = h5py.File(pOutFileName, 'w')
 
-    pass
+    for key, data in zip(pTargetKeyList, pTargetDataList):
+        if len(data) == 0:
+            continue
+        
+        chromosome = None
+        start_list = []
+        end_list = []
+        if key[4] == 'Hoxd12':
+            log.debug(data)
+        a = pybedtools.BedTool(data)
+        data_sorted_merged = a.sort().merge(d=pResolution)
+        if key[4] == 'Hoxd12':
+            log.debug(data_sorted_merged)
+            log.debug(key)
+        for datum in data_sorted_merged:
+            chromosome = datum[0]
+            start_list.append(datum[1])
+            end_list.append(datum[2])
 
-    
+        if key[0] not in targetFileH5Object:
+            matrixGroup = targetFileH5Object.create_group(key[0])
+        else:
+            matrixGroup = targetFileH5Object[key[0]]
+        
+        for matrix_name in key[1:]:
+            if matrix_name == 'genes':
+                break
+            if matrix_name not in matrixGroup:
+                matrixGroup = matrixGroup.create_group(matrix_name)
+            else:
+                matrixGroup = matrixGroup[matrix_name]
+        if chromosome not in matrixGroup:
+            chromosomeObject = matrixGroup.create_group(chromosome)
+        else:
+            chromosomeObject = matrixGroup[chromosome]
+
+        if 'genes' not in matrixGroup:
+            geneGroup = matrixGroup.create_group('genes')
+        else:
+            geneGroup = matrixGroup['genes']
+
+        groupObject = chromosomeObject.create_group(key[-1])
+
+        groupObject["chromosome"] = chromosome
+        groupObject.create_dataset("start_list", data=start_list)
+        groupObject.create_dataset("end_list", data=end_list)
+
+        geneGroup[key[-1]] = chromosomeObject[key[-1]]
+    targetFileH5Object.close()
 
 
 def main(args=None):
@@ -746,7 +794,7 @@ def main(args=None):
 
 
     writeSignificantHDF(args.outFileNameSignificant, significant_data_list, significant_key_list, viewpointObj)
-    writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj)
+    writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj, resolution)
     # if args.batchMode:
     #     if len(list(matrices_keys)) <= args.computeSampleNumber:
     #         for referencePoint in referencePoints_keys:
