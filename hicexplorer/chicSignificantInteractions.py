@@ -78,13 +78,13 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
-    parserOpt.add_argument('--outFileName', '-o',
+    parserOpt.add_argument('--outFileNameSignificant', '-os',
                            help='File name suffix to save the results; prefix is the input file name'
                            ' (Default: %(default)s).',
                            required=False,
-                           default='significant_interactions.hdf5')
-    parserOpt.add_argument('--targetFileName', '-tl',
-                           help='The file to store the target file names'
+                           default='significantInteractions.hdf5')
+    parserOpt.add_argument('--outFileNameTarget', '-ot',
+                           help='The file to store the target data'
                            ' (Default: %(default)s).',
                            default='targetFile.hdf5')
     parserOpt.add_argument('--combinationMode',
@@ -185,17 +185,22 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
 def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pFilePath, pResolution, pQueue=None):
     outfile_names = []
     target_outfile_names = []
-    significant_data_dict = {}
-    target_data_dict = {}
+    significant_data_list = []
+    significant_key_list = []
+
+
+    target_data_list = []
+    target_key_list = []
+
 
 
     try:
         for interactionFile in pInteractionFilesList:
             target_list = []
             sample_prefix = []
-            log.debug('interactionFile {}'.format(interactionFile))
+            # log.debug('interactionFile {}'.format(interactionFile))
             for sample in interactionFile:
-                log.debug('sample {}'.format(sample))
+                # log.debug('sample {}'.format(sample))
 
                 # header,
                 # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
@@ -204,14 +209,14 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 # else:
                 #     absolute_sample_path = sample
                 data = pViewpointObj.readInteractionFileForAggregateStatistics(pFilePath, sample)
-                log.debug(data)
+                # log.debug(data)
                 # exit(1)
                 sample_prefix.append(sample[0])
                 # sample_prefix += sample.split('/')[-1].split('_')[0]
                 # sample_prefix += '_'
                 # filter by x-fold over background value or loose p-value
                 # and merge neighbors. Use center position to compute new p-value.
-                log.debug('209')
+                # log.debug('209')
 
                 if pArgs.xFoldBackground is not None:
                     accepted_scores, merged_lines_dict = merge_neighbors_x_fold(
@@ -219,7 +224,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 else:
                     accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(
                         pArgs.loosePValue, data, pViewpointObj, pResolution=pResolution, pTruncateZeroPvalues=pArgs.truncateZeroPvalues)
-                log.debug('217')
+                # log.debug('217')
 
                 # compute new p-values and filter by them
                 accepted_scores, target_lines = compute_new_p_values(
@@ -227,13 +232,13 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
 
                 # filter by new p-value
                 if len(accepted_scores) == 0:
-                    if pArgs.batchMode:
-                        with open('errorLog.txt', 'a+') as errorlog:
-                            errorlog.write('Failed for: {} and {}.\n'.format(
-                                interactionFile[0], interactionFile[1]))
-                    else:
-                        log.info('No target regions found')
-                log.debug('231')
+                    # if pArgs.batchMode:
+                    with open('errorLog.txt', 'a+') as errorlog:
+                        errorlog.write('Failed for: {} and {}.\n'.format(
+                            interactionFile[0], interactionFile[1]))
+                    # else:
+                    #     log.info('No target regions found')
+                # log.debug('231')
                 
                 # outFileName = '.'.join(sample.split(
                 #     '/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
@@ -245,11 +250,13 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 # write only significant lines to file
                 # write(outFileName, data[0], accepted_scores)
                 # target_list.append(target_lines)
-                significant_data_dict[sample] = accepted_scores
-            log.debug('243')
+                significant_data_list.append(accepted_scores)
+                significant_key_list.append(sample)
+
+            # log.debug('243')
 
             target_list = [item for sublist in target_list for item in sublist]
-            log.debug('interactionFile {}'.format(interactionFile))
+            # log.debug('interactionFile {}'.format(interactionFile))
             # sample_name = '_'.join(interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:])
 
             # target_name = sample_prefix + sample_name + '_target.txt'
@@ -258,7 +265,10 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             # writeTargetList(target_list, target_name, pArgs)
             sample_prefix.append(interactionFile[0][1])
             sample_prefix.append(interactionFile[0][2])
-            target_data_dict[sample_prefix] = target_list
+            target_data_list.append(target_list)
+            target_key_list.append(sample_prefix)
+            # target_data_dict[sample_prefix] = target_list
+
         if pQueue is None:
             return target_outfile_names
     except Exception as exp:
@@ -266,7 +276,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             return 'Fail: ' + str(exp) + traceback.format_exc()
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc()) 
         return
-    pQueue.put([significant_data_dict, target_data_dict])
+    pQueue.put([significant_data_list, significant_key_list, target_data_list, target_key_list])
     return
 
 
@@ -355,26 +365,30 @@ def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolutio
     return accepted_line, None
 
 
-def write(pOutFileName, pHeader, pInteractionLines):
+# def write(pOutFileName, pHeader, pInteractionLines):
 
-    # sum_of_interactions = float(pHeader.split('\t')[-1].split(' ')[-1])
-    with open(pOutFileName, 'w') as file:
-        file.write(pHeader)
-        file.write(
-            '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative interactions\tp-value\tx-fold\tRaw target')
-        file.write('\n')
+#     # sum_of_interactions = float(pHeader.split('\t')[-1].split(' ')[-1])
+#     with open(pOutFileName, 'w') as file:
+#         file.write(pHeader)
+#         file.write(
+#             '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative interactions\tp-value\tx-fold\tRaw target')
+#         file.write('\n')
 
-        for data in pInteractionLines:
-            new_line = '\t'.join(pInteractionLines[data][:6])
-            new_line += '\t' + '\t'.join(format(float(x), "0.20f")
-                                         for x in pInteractionLines[data][6:])
-            new_line += '\n'
-            file.write(new_line)
+#         for data in pInteractionLines:
+#             new_line = '\t'.join(pInteractionLines[data][:6])
+#             new_line += '\t' + '\t'.join(format(float(x), "0.20f")
+#                                          for x in pInteractionLines[data][6:])
+#             new_line += '\n'
+#             file.write(new_line)
 
 
 def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pFilePath, pResolution):
-    outfile_names = [None] * pArgs.threads
-    target_list_name = [None] * pArgs.threads
+    significant_data_list = [None] * pArgs.threads
+    significant_key_list = [None] * pArgs.threads
+
+    target_data_list = [None] * pArgs.threads
+    target_key_list = [None] * pArgs.threads
+
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
     all_data_collected = False
     queue = [None] * pArgs.threads
@@ -413,7 +427,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
                     fail_flag = True
                     fail_message = background_data_thread[6:]
                 else:
-                    outfile_names[i], target_list_name[i] = background_data_thread
+                    significant_data_list[i], significant_key_list[i], target_data_list[i], target_key_list[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -428,44 +442,46 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
         log.error(fail_message)
         exit(1)
 
-    outfile_names = [item for sublist in outfile_names for item in sublist]
-    target_list_name = [
-        item for sublist in target_list_name for item in sublist]
+    significant_data_list = [item for sublist in significant_data_list for item in sublist]
+    significant_key_list = [item for sublist in significant_key_list for item in sublist]
 
-    return outfile_names, target_list_name
+    target_data_list = [item for sublist in target_data_list for item in sublist]
+    target_key_list = [item for sublist in target_key_list for item in sublist]
+
+    return significant_data_list, significant_key_list, target_data_list, target_key_list
 
 
-def writeTargetList(pTargetList, pOutFileName, pArgs):
-    # remove duplicates
-    target_list_ = []
-    for line in pTargetList:
-        target_list_.append('\t'.join(line))
-    target_set = set(target_list_)
-    pTargetList = sorted(list(target_set))
+# def writeTargetList(pTargetList, pOutFileName, pArgs):
+#     # remove duplicates
+#     target_list_ = []
+#     for line in pTargetList:
+#         target_list_.append('\t'.join(line))
+#     target_set = set(target_list_)
+#     pTargetList = sorted(list(target_set))
 
-    a = pybedtools.BedTool(pTargetList)
+#     a = pybedtools.BedTool(pTargetList)
 
-    header = '# Significant interactions result file of HiCExplorer\'s chicSignificantInteractions version '
-    header += str(__version__)
-    header += '\n'
-    header += '# {}\n'.format(pOutFileName)
+#     header = '# Significant interactions result file of HiCExplorer\'s chicSignificantInteractions version '
+#     header += str(__version__)
+#     header += '\n'
+#     header += '# {}\n'.format(pOutFileName)
 
-    if pArgs.xFoldBackground:
-        header += '# Mode: x-fold background with '
-        header += str(pArgs.xFoldBackground)
-        header += '\n'
-    else:
-        header += '# Mode: loose p-value with '
-        header += str(pArgs.loosePValue)
-        header += '\n'
-    header += '# Used p-value: '
-    header += str(pArgs.pValue)
-    header += '\n#\n'
-    if len(pTargetList) == 0:
-        with open(pOutFileName, 'w') as file:
-            file.write(header)
-    else:
-        a.sort().merge(d=pArgs.resolution).saveas(pOutFileName, trackline=header)
+#     if pArgs.xFoldBackground:
+#         header += '# Mode: x-fold background with '
+#         header += str(pArgs.xFoldBackground)
+#         header += '\n'
+#     else:
+#         header += '# Mode: loose p-value with '
+#         header += str(pArgs.loosePValue)
+#         header += '\n'
+#     header += '# Used p-value: '
+#     header += str(pArgs.pValue)
+#     header += '\n#\n'
+#     if len(pTargetList) == 0:
+#         with open(pOutFileName, 'w') as file:
+#             file.write(header)
+#     else:
+#         a.sort().merge(d=pArgs.resolution).saveas(pOutFileName, trackline=header)
 
 
 def read_threshold_file(pFile):
@@ -481,6 +497,98 @@ def read_threshold_file(pFile):
             relative_distance, value = line.split('\t')
             distance_value_dict[int(relative_distance)] = float(value)
     return distance_value_dict
+
+def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList, pViewpointObj):
+
+    significantFileH5Object = h5py.File(pOutFileName, 'w')
+
+    for key, data in zip(pSignificantKeyList, pSignificantDataList):
+        if len(data) == 0:
+            continue
+        chromosome = None
+        start_list = []
+        end_list = []
+        gene_name = None
+        sum_of_interactions = None
+        relative_distance_list = []
+        relative_interactions_list = []
+        pvalue_list = []
+        xfold_list = []
+        raw_target_list = [] 
+
+        for datum in data.values():
+            chromosome = datum[0]
+            start_list.append(datum[1])
+            end_list.append(datum[2])
+            gene_name = datum[3]
+            sum_of_interactions = datum[4]
+            relative_distance_list.append(datum[5])
+            relative_interactions_list.append(datum[6])
+            pvalue_list.append(datum[7])
+            xfold_list.append(datum[8])
+            raw_target_list.append(datum[9])
+
+        if key[0] not in significantFileH5Object:
+            matrixGroup = significantFileH5Object.create_group(key[0])
+        else:
+            matrixGroup = significantFileH5Object[key[0]]
+        if chromosome not in matrixGroup:
+            chromosomeObject = matrixGroup.create_group(chromosome)
+        else:
+            chromosomeObject = matrixGroup[chromosome]
+
+        if 'genes' not in matrixGroup:
+            geneGroup = matrixGroup.create_group('genes')
+        else:
+            geneGroup = matrixGroup['genes']
+
+        group_name = pViewpointObj.writeInteractionFileHDF5(
+                    chromosomeObject, key[2], [chromosome, start_list, end_list, gene_name, sum_of_interactions, relative_distance_list,
+                                                relative_interactions_list, pvalue_list, xfold_list, raw_target_list])
+
+        geneGroup[group_name] = chromosomeObject[group_name]
+    
+    significantFileH5Object.close()
+
+def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj):
+    #     # remove duplicates
+    #     target_list_ = []
+    #     for line in pTargetList:
+    #         target_list_.append('\t'.join(line))
+    #     target_set = set(target_list_)
+    #     pTargetList = sorted(list(target_set))
+
+    #     a = pybedtools.BedTool(pTargetList)
+
+    #     header = '# Significant interactions result file of HiCExplorer\'s chicSignificantInteractions version '
+    #     header += str(__version__)
+    #     header += '\n'
+    #     header += '# {}\n'.format(pOutFileName)
+
+    #     if pArgs.xFoldBackground:
+    #         header += '# Mode: x-fold background with '
+    #         header += str(pArgs.xFoldBackground)
+    #         header += '\n'
+    #     else:
+    #         header += '# Mode: loose p-value with '
+    #         header += str(pArgs.loosePValue)
+    #         header += '\n'
+    #     header += '# Used p-value: '
+    #     header += str(pArgs.pValue)
+    #     header += '\n#\n'
+    #     if len(pTargetList) == 0:
+    #         with open(pOutFileName, 'w') as file:
+    #             file.write(header)
+    #     else:
+    #         a.sort().merge(d=pArgs.resolution).saveas(pOutFileName, trackline=header)
+
+    # log.debug(pTargetKeyList[:10])
+    # log.debug(pTargetDataList[:10])
+
+
+    pass
+
+    
 
 
 def main(args=None):
@@ -631,10 +739,14 @@ def main(args=None):
     resolution = interactionFileHDF5Object.attrs['resolution'][()]
     interactionFileHDF5Object.close()
     
-    outfile_names, target_list_name = call_multi_core(
+    significant_data_list, significant_key_list, target_data_list, target_key_list = call_multi_core(
                             interactionList, args, viewpointObj, background_model, args.interactionFile, resolution)
 
 
+
+
+    writeSignificantHDF(args.outFileNameSignificant, significant_data_list, significant_key_list, viewpointObj)
+    writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj)
     # if args.batchMode:
     #     if len(list(matrices_keys)) <= args.computeSampleNumber:
     #         for referencePoint in referencePoints_keys:

@@ -263,7 +263,8 @@ class Viewpoint():
             except ValueError:
                 counter += 1
         if counter != 0:
-            log.warning('Gene name {} occurred {} times! Stored as {}_{}'.format(pFileName, counter, pFileName, counter))
+            pass
+            # log.debug('Gene name {} occurred {} times! Stored as {}_{}'.format(pFileName, counter, pFileName, counter))
         # groupObject.create_dataset("header", data=pHeader)
         # groupObject.create_dataset("chromosome", data=pData[0].decode("utf-8"))
         groupObject["chromosome"]=str(pData[0])
