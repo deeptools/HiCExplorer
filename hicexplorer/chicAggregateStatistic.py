@@ -10,10 +10,11 @@ import logging
 log = logging.getLogger(__name__)
 
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+# import matplotlib
+# matplotlib.use('Agg')
+# import matplotlib.pyplot as plt
+# import matplotlib.gridspec as gridspec
+import h5py
 
 from intervaltree import IntervalTree, Interval
 import hicmatrix.HiCMatrix as hm
@@ -50,41 +51,40 @@ If the `--targetFileFolder` flag is not set in batch mode, it is assumed the `--
 
     parserRequired.add_argument('--interactionFile', '-if',
                                 help='path to the interaction files which should be used for aggregation of the statistics.',
-                                required=True,
-                                nargs='+')
+                                required=True)
 
     parserRequired.add_argument('--targetFile', '-tf',
-                                help='path to the target files which contains the target regions to prepare data for differential analysis.',
-                                nargs='+')
+                                help='path to the target files which contains the target regions to prepare data for differential analysis. This is either the target file in the hdf format created by chicSignificantInteractions or a regular, three column bed file.'
+                                )
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
-    parserOpt.add_argument('--outFileNameSuffix', '-suffix',
-                           help='File name suffix to save the result'
+    parserOpt.add_argument('--outFileName', '-o',
+                           help='File name to save the result'
                            ' (Default: %(default)s).',
                            required=False,
-                           default='_aggregate_target.txt')
+                           default='aggregate_target.hdf')
 
-    parserOpt.add_argument('--interactionFileFolder', '-iff',
-                           help='Folder where the interaction files are stored. Applies only for batch mode'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='.')
-    parserOpt.add_argument('--targetFileFolder', '-tff',
-                           help='Folder where the target files are stored. Applies only for batch mode.',
-                           required=False)
-    parserOpt.add_argument('--outputFolder', '-o',
-                           help='Output folder containing the files'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='aggregatedFiles')
-    parserOpt.add_argument('--writeFileNamesToFile', '-w',
-                           help='(Default: %(default)s).',
-                           default='aggregatedFilesBatch.txt')
-    parserOpt.add_argument('--batchMode', '-bm',
-                           help='turns on batch mode. The files provided by --interactionFile and/or --targetFile contain a list of the files to be processed.',
-                           required=False,
-                           action='store_true')
+    # parserOpt.add_argument('--interactionFileFolder', '-iff',
+    #                        help='Folder where the interaction files are stored. Applies only for batch mode'
+    #                        ' (Default: %(default)s).',
+    #                        required=False,
+    #                        default='.')
+    # parserOpt.add_argument('--targetFileFolder', '-tff',
+    #                        help='Folder where the target files are stored. Applies only for batch mode.',
+    #                        required=False)
+    # parserOpt.add_argument('--outputFolder', '-o',
+    #                        help='Output folder containing the files'
+    #                        ' (Default: %(default)s).',
+    #                        required=False,
+    #                        default='aggregatedFiles')
+    # parserOpt.add_argument('--writeFileNamesToFile', '-w',
+    #                        help='(Default: %(default)s).',
+    #                        default='aggregatedFilesBatch.txt')
+    # parserOpt.add_argument('--batchMode', '-bm',
+    #                        help='turns on batch mode. The files provided by --interactionFile and/or --targetFile contain a list of the files to be processed.',
+    #                        required=False,
+    #                        action='store_true')
 
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module)ist'
@@ -102,18 +102,32 @@ If the `--targetFileFolder` flag is not set in batch mode, it is assumed the `--
     return parser
 
 
-def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetIntervalTree=None):
+def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetIntervalTree=None, pTargetFile=None):
 
     accepted_scores = {}
     same_target_dict = {}
     target_regions_intervaltree = None
     if pTargetList is not None:
-        target_regions = utilities.readBed(pTargetList)
+
+        # target_regions = utilities.readBed(pTargetList)
+        # read hdf content for this specific combination
+        targetFileHDF5Object = h5py.File(pTargetFile, 'r')
+        target_object = targetFileHDF5Object['/'.join(pTargetList)]
+        chromosome = target_object.get('chromosome')[()].decode("utf-8") 
+        start_list = list(target_object['start_list'][:])
+        end_list = list(target_object['end_list'][:])
+
+        chromosome = [chromosome] * len(start_list)
+
+        target_regions = list(zip(chromosome, start_list, end_list))
+        log.debug('target_regions {}'.format(target_regions))
         if len(target_regions) == 0:
             return accepted_scores
 
         hicmatrix = hm.hiCMatrix()
         target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
+        log.debug('target_regions_intervaltree {}'.format(target_regions_intervaltree))
+
     elif pTargetIntervalTree is not None:
         target_regions_intervaltree = pTargetIntervalTree
     else:
@@ -175,77 +189,132 @@ def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
                 new_line += '\n'
                 file.write(new_line)
 
+def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList):
+    # Chromosome	Start	End	Gene	Sum of interactions	Relative distance	Raw target
+
+    aggregateFileH5Object = h5py.File(pOutFileName, 'w')
+
+    for key, data in zip(pOutfileNamesList, pAcceptedScoresList):
+        if len(data) == 0:
+            continue
+        chromosome = None
+        start_list = []
+        end_list = []
+        gene_name = None
+        sum_of_interactions = None
+        relative_distance_list = []
+       
+        raw_target_list = [] 
+
+        for datum in data.values():
+            chromosome = datum[0]
+            start_list.append(datum[1])
+            end_list.append(datum[2])
+            gene_name = datum[3]
+            sum_of_interactions = datum[4]
+            relative_distance_list.append(datum[5])
+            relative_interactions_list.append(datum[6])
+            pvalue_list.append(datum[7])
+            xfold_list.append(datum[8])
+            raw_target_list.append(datum[9])
+
+        if key[0] not in significantFileH5Object:
+            matrixGroup = significantFileH5Object.create_group(key[0])
+        else:
+            matrixGroup = significantFileH5Object[key[0]]
+        if chromosome not in matrixGroup:
+            chromosomeObject = matrixGroup.create_group(chromosome)
+        else:
+            chromosomeObject = matrixGroup[chromosome]
+
+        if 'genes' not in matrixGroup:
+            geneGroup = matrixGroup.create_group('genes')
+        else:
+            geneGroup = matrixGroup['genes']
+
+        group_name = pViewpointObj.writeInteractionFileHDF5(
+                    chromosomeObject, key[2], [chromosome, start_list, end_list, gene_name, sum_of_interactions, relative_distance_list,
+                                                relative_interactions_list, pvalue_list, xfold_list, raw_target_list])
+
+        geneGroup[group_name] = chromosomeObject[group_name]
+    
+    significantFileH5Object.close()
+
 
 def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pViewpointObj, pQueue=None, pOneTarget=False):
-    outfile_names = []
+    outfile_names_list = []
+    accepted_scores_list = []
+
     target_regions_intervaltree = None
     log.debug('size: interactionFileList: {} '.format(pInteractionFilesList))
     log.debug('size: pTargetList: {} '.format(pTargetList))
     log.debug('pOneTarget: {} '.format(pOneTarget))
 
     try:
-        if pArgs.batchMode and len(pTargetList) == 1 and pOneTarget == True:
-            target_regions = utilities.readBed(pTargetList[0])
+        if pOneTarget == True:
+            target_regions = utilities.readBed(pTargetList)
             hicmatrix = hm.hiCMatrix()
             target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
 
         for i, interactionFile in enumerate(pInteractionFilesList):
             for sample in interactionFile:
-                if pArgs.interactionFileFolder != '.':
-                    absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
-                else:
-                    absolute_sample_path = sample
-                header, interaction_data, interaction_file_data = pViewpointObj.readInteractionFileForAggregateStatistics(
-                    absolute_sample_path)
+                # sample_prefix = []
+                # if pArgs.interactionFileFolder != '.':
+                #     absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
+                # else:
+                #     absolute_sample_path = sample
+                interaction_data, interaction_file_data = pViewpointObj.readInteractionFileForAggregateStatistics(pArgs.interactionFile, sample)
                 log.debug('len(pTargetList) {}'.format(len(pTargetList)))
-                if pArgs.batchMode and len(pTargetList) >= 1 and pOneTarget == False:
-                    if pArgs.targetFileFolder != '.':
-                        target_file = pArgs.targetFileFolder + '/' + pTargetList[i]
-                        log.debug('194')
-                    else:
-                        target_file = pTargetList[i]
-                        log.debug('197')
-
-                elif pArgs.batchMode and len(pTargetList) == 1 and pOneTarget == True:
+                if pOneTarget == True:
                     target_file = None
-                    log.debug('201')
+                    
+                    log.debug('197')
 
                 else:
                     target_file = pTargetList[i]
-                    log.debug('205')
 
-                accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree)
+                    log.debug('201')
+
+                accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree, pTargetFile=pArgs.targetFile)
 
                 if len(accepted_scores) == 0:
                     # do not call 'break' or 'continue'
                     # with this an empty file is written and no track of 'no significant interactions' detected files needs to be recorded.
-                    if pArgs.batchMode:
-                        with open('errorLog.txt', 'a+') as errorlog:
-                            errorlog.write('Failed for: {} and {}.\n'.format(interactionFile[0], interactionFile[1]))
-                    else:
-                        log.info('No target regions found')
-                outFileName = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
+                    # if pArgs.batchMode:
+                    #     with open('errorLog.txt', 'a+') as errorlog:
+                    #         errorlog.write('Failed for: {} and {}.\n'.format(interactionFile[0], interactionFile[1]))
+                    # else:
+                    #     log.info('No target regions found')
+                    pass
+                # sample_prefix.append(sample[0])
+                # sample_prefix.append(sample[1])
+                # sample_prefix.append(sample[2])
+                outfile_names_list.append(sample)
+                accepted_scores_list.append(accepted_scores)
+                # outFileName = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
 
-                if pArgs.batchMode:
-                    outfile_names.append(outFileName)
-                if pArgs.outputFolder != '.':
-                    outFileName = pArgs.outputFolder + '/' + outFileName
+                # if pArgs.batchMode:
+                #     outfile_names.append(outFileName)
+                # if pArgs.outputFolder != '.':
+                #     outFileName = pArgs.outputFolder + '/' + outFileName
 
-                write(outFileName, header, accepted_scores,
-                      interaction_file_data)
+                # write(outFileName, header, accepted_scores,
+                #       interaction_file_data)
     except Exception as exp:
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
         return
     if pQueue is None:
         return
-    pQueue.put(outfile_names)
+    pQueue.put([outfile_names_list, accepted_scores_list])
     return
 
 
 def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs, pViewpointObj):
     if len(pInteractionFilesList) < pArgs.threads:
         pArgs.threads = len(pInteractionFilesList)
-    outfile_names = [None] * pArgs.threads
+    outfile_names_list = [None] * pArgs.threads
+    accepted_scores_list = [None] * pArgs.threads
+
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
 
     all_data_collected = False
@@ -260,13 +329,13 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
         if i < pArgs.threads - 1:
             interactionFileListThread = pInteractionFilesList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
             if len(pTargetFileList) == 1:
-                targetFileListThread = pTargetFileList
+                targetFileListThread = pTargetFileList[0]
             else:
                 targetFileListThread = pTargetFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
         else:
             interactionFileListThread = pInteractionFilesList[i * interactionFilesPerThread:]
             if len(pTargetFileList) == 1:
-                targetFileListThread = pTargetFileList
+                targetFileListThread = pTargetFileList[0]
             else:
                 targetFileListThread = pTargetFileList[i * interactionFilesPerThread:]
 
@@ -290,7 +359,8 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
                 if 'Fail:' in background_data_thread:
                     fail_flag = True
                     fail_message = background_data_thread[6:]
-                outfile_names[i] = background_data_thread
+                else:
+                    outfile_names_list[i], accepted_scores_list[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -304,59 +374,126 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
     if fail_flag:
         log.error(fail_message)
         exit(1)
-    outfile_names = [item for sublist in outfile_names for item in sublist]
-    return outfile_names
+    outfile_names_list = [item for sublist in outfile_names_list for item in sublist]
+    accepted_scores_list = [item for sublist in accepted_scores_list for item in sublist]
+
+    return outfile_names_list, accepted_scores_list
 
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
     outfile_names = []
-    if not os.path.exists(args.outputFolder):
-        try:
-            os.makedirs(args.outputFolder)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
+    # if not os.path.exists(args.outputFolder):
+    #     try:
+    #         os.makedirs(args.outputFolder)
+    #     except OSError as exc:  # Guard against race condition
+    #         if exc.errno != errno.EEXIST:
+    #             raise
 
-    interactionFileList = []
-    targetFileList = []
+    interactionList = []
+    targetList = []
+    present_genes = {}
+    ### read hdf file
+    interactionFileHDF5Object = h5py.File(args.interactionFile, 'r')
+    keys_interactionFile = list(interactionFileHDF5Object.keys()) 
 
-    if args.batchMode:
-        with open(args.interactionFile[0], 'r') as interactionFile:
-            file_ = True
-            while file_:
-                file_ = interactionFile.readline().strip()
-                file2_ = interactionFile.readline().strip()
-                if file_ != '' and file2_ != '':
-                    interactionFileList.append((file_, file2_))
-
-        if len(args.targetFile) == 1 and args.targetFileFolder:
-
-            with open(args.targetFile[0], 'r') as targetFile:
-                file_ = True
-                while file_:
-                    file_ = targetFile.readline().strip()
-                    if file_ != '':
-                        targetFileList.append(file_)
-        else:
-            targetFileList = args.targetFile
-        outfile_names = call_multi_core(interactionFileList, targetFileList, run_target_list_compilation, args, viewpointObj)
+    if h5py.is_hdf5(args.targetFile):
+        targetFileHDF5Object = h5py.File(args.targetFile, 'r')
+        keys_targetFile = list(targetFileHDF5Object.keys())
+        log.debug('keys_interactionFile {}'.format(keys_targetFile))
+        for outer_matrix in keys_targetFile:
+            if outer_matrix not in present_genes:
+                present_genes[outer_matrix] = {}
+            inner_matrix_object = targetFileHDF5Object[outer_matrix]
+            keys_inner_matrices = list(inner_matrix_object.keys())
+            for inner_matrix in keys_inner_matrices:
+                if inner_matrix not in present_genes[outer_matrix]:
+                    present_genes[outer_matrix][inner_matrix] = []
+                inner_object = inner_matrix_object[inner_matrix]
+                gene_object = inner_object['genes']
+                keys_genes = list(gene_object.keys())
+                for gen in keys_genes:
+                    targetList.append([outer_matrix, inner_matrix, 'genes', gen])
+                    present_genes[outer_matrix][inner_matrix].append(gen)
 
     else:
-        targetFileList = args.targetFile
-        if len(args.interactionFile) % 2 == 0:
-            i = 0
-            while i < len(args.interactionFile):
-                interactionFileList.append(
-                    (args.interactionFile[i], args.interactionFile[i + 1]))
-                i += 2
-        else:
-            log.error('Number of interaction files needs to be even: {}'.format(
-                len(args.interactionFile)))
-            exit(1)
-        run_target_list_compilation(interactionFileList, targetFileList, args, viewpointObj)
+        targetList = [args.targetFile]
 
-    if args.batchMode:
-        with open(args.writeFileNamesToFile, 'w') as nameListFile:
-            nameListFile.write('\n'.join(outfile_names))
+    if len(keys_interactionFile) > 1:
+        for i, sample in enumerate(keys_interactionFile):
+            for sample2 in keys_interactionFile[i + 1:]:
+                
+                matrix_obj1 = interactionFileHDF5Object[sample]
+                matrix_obj2 = interactionFileHDF5Object[sample]
+
+                chromosomeList1 = sorted(list(matrix_obj1.keys()))
+                chromosomeList2 = sorted(list(matrix_obj2.keys()))
+                chromosomeList1.remove('genes')
+                chromosomeList2.remove('genes')
+                for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
+                    geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                    geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
+
+                    for gene1, gene2 in zip(geneList1, geneList2):
+                        if gene1 in present_genes[sample][sample2]:
+                            interactionList.append([[sample,chromosome1, gene1],[sample2,chromosome2, gene2]])
+
+                # for viewpoint, viewpoint2 in zip(sample, sample2):
+                #     writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
+                #     writeFileNamesToList.append(viewpoint2.encode("ascii", "ignore"))
+        # log.debug(interactionList)
+    else:
+        log.error('To aggregate and prepare the data for the differential test, at least two matrices need to be stored, but only one is present.')
+    interactionFileHDF5Object.close()
+
+    
+
+    # log.debug(targetList)
+    outfile_names_list, accepted_scores_list = call_multi_core(interactionList, targetList, run_target_list_compilation, args, viewpointObj)
+
+    # writeAggregateHDF(outfile_names_list, accepted_scores_list)
+    log.debug('len(interactionList) {}'.format(len(interactionList)))
+    log.debug('len(targetList) {}'.format(len(targetList) ))
+
+    log.debug(outfile_names_list)
+    log.debug(accepted_scores_list)
+
+    # if args.batchMode:
+    #     with open(args.interactionFile[0], 'r') as interactionFile:
+    #         file_ = True
+    #         while file_:
+    #             file_ = interactionFile.readline().strip()
+    #             file2_ = interactionFile.readline().strip()
+    #             if file_ != '' and file2_ != '':
+    #                 interactionFileList.append((file_, file2_))
+
+    #     if len(args.targetFile) == 1 and args.targetFileFolder:
+
+    #         with open(args.targetFile[0], 'r') as targetFile:
+    #             file_ = True
+    #             while file_:
+    #                 file_ = targetFile.readline().strip()
+    #                 if file_ != '':
+    #                     targetFileList.append(file_)
+    #     else:
+    #         targetFileList = args.targetFile
+    #     outfile_names = call_multi_core(interactionFileList, targetFileList, run_target_list_compilation, args, viewpointObj)
+
+    # else:
+    #     targetFileList = args.targetFile
+    #     if len(args.interactionFile) % 2 == 0:
+    #         i = 0
+    #         while i < len(args.interactionFile):
+    #             interactionFileList.append(
+    #                 (args.interactionFile[i], args.interactionFile[i + 1]))
+    #             i += 2
+    #     else:
+    #         log.error('Number of interaction files needs to be even: {}'.format(
+    #             len(args.interactionFile)))
+    #         exit(1)
+    #     run_target_list_compilation(interactionFileList, targetFileList, args, viewpointObj)
+
+    # if args.batchMode:
+    #     with open(args.writeFileNamesToFile, 'w') as nameListFile:
+    #         nameListFile.write('\n'.join(outfile_names))
