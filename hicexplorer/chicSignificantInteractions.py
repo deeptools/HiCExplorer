@@ -263,6 +263,9 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             # target_outfile_names.append(target_name)
             # target_name = pArgs.targetFolder + '/' + target_name
             # writeTargetList(target_list, target_name, pArgs)
+
+            # Stop character to seperate matrix names from the reference point / gene name
+            sample_prefix.append('::')
             sample_prefix.append(interactionFile[0][1])
             sample_prefix.append(interactionFile[0][2])
             target_data_list.append(target_list)
@@ -595,13 +598,13 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
         chromosome = None
         start_list = []
         end_list = []
-        if key[4] == 'Hoxd12':
-            log.debug(data)
+        # if key[4] == 'Hoxd12':
+        #     log.debug(data)
         a = pybedtools.BedTool(data)
         data_sorted_merged = a.sort().merge(d=pResolution)
-        if key[4] == 'Hoxd12':
-            log.debug(data_sorted_merged)
-            log.debug(key)
+        # if key[4] == 'Hoxd12':
+        #     log.debug(data_sorted_merged)
+        #     log.debug(key)
         for datum in data_sorted_merged:
             chromosome = datum[0]
             start_list.append(datum[1])
@@ -612,22 +615,28 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
         else:
             matrixGroup = targetFileH5Object[key[0]]
         
+        
+        # log.debug(key)
         for matrix_name in key[1:]:
-            if matrix_name == 'genes':
+            if matrix_name == '::':
                 break
             if matrix_name not in matrixGroup:
                 matrixGroup = matrixGroup.create_group(matrix_name)
             else:
                 matrixGroup = matrixGroup[matrix_name]
+        if 'genes' not in matrixGroup:
+            geneGroup = matrixGroup.create_group('genes')
+        else:
+            geneGroup = matrixGroup['genes']
         if chromosome not in matrixGroup:
             chromosomeObject = matrixGroup.create_group(chromosome)
         else:
             chromosomeObject = matrixGroup[chromosome]
 
-        if 'genes' not in matrixGroup:
-            geneGroup = matrixGroup.create_group('genes')
-        else:
-            geneGroup = matrixGroup['genes']
+        # if 'genes' not in matrixGroup:
+        #     geneGroup = matrixGroup.create_group('genes')
+        # else:
+        #     geneGroup = matrixGroup['genes']
 
         groupObject = chromosomeObject.create_group(key[-1])
 
