@@ -168,26 +168,26 @@ def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetInterv
     return accepted_scores
 
 
-def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
+# def write(pOutFileName, pHeader, pNeighborhoods, pInteractionLines):
 
-    with open(pOutFileName, 'w') as file:
-        file.write('# Aggregated file, created with HiCExplorer\'s chicAggregateStatistic version {}\n'.format(__version__))
-        file.write(pHeader)
-        # file.write(
-        #     '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRelative Interactions\tp-value\tx-fold\tRaw target')
-        file.write(
-            '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRaw target')
-        file.write('\n')
+#     with open(pOutFileName, 'w') as file:
+#         file.write('# Aggregated file, created with HiCExplorer\'s chicAggregateStatistic version {}\n'.format(__version__))
+#         file.write(pHeader)
+#         # file.write(
+#         #     '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRelative Interactions\tp-value\tx-fold\tRaw target')
+#         file.write(
+#             '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative distance\tRaw target')
+#         file.write('\n')
 
-        if pNeighborhoods is not None:
-            for data in pNeighborhoods:
-                log.debug('pInteractionLines[data]: {}'.format(pInteractionLines[data]))
-                log.debug('pInteractionLines[data][:-6]: {}'.format(pInteractionLines[data][:6]))
+#         if pNeighborhoods is not None:
+#             for data in pNeighborhoods:
+#                 log.debug('pInteractionLines[data]: {}'.format(pInteractionLines[data]))
+#                 log.debug('pInteractionLines[data][:-6]: {}'.format(pInteractionLines[data][:6]))
 
-                new_line = '\t'.join(pInteractionLines[data][:6])
-                new_line += '\t' + format(pNeighborhoods[data][-1], '10.5f')
-                new_line += '\n'
-                file.write(new_line)
+#                 new_line = '\t'.join(pInteractionLines[data][:6])
+#                 new_line += '\t' + format(pNeighborhoods[data][-1], '10.5f')
+#                 new_line += '\n'
+#                 file.write(new_line)
 
 def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList):
     # Chromosome	Start	End	Gene	Sum of interactions	Relative distance	Raw target
