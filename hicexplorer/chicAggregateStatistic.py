@@ -193,10 +193,12 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList):
     # Chromosome	Start	End	Gene	Sum of interactions	Relative distance	Raw target
 
     aggregateFileH5Object = h5py.File(pOutFileName, 'w')
-
+    counter = 0
     for key, data in zip(pOutfileNamesList, pAcceptedScoresList):
         if len(data) == 0:
             continue
+        else:
+            counter += 1
         chromosome = None
         start_list = []
         end_list = []
@@ -206,24 +208,25 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList):
        
         raw_target_list = [] 
 
-        for datum in data.values():
-            chromosome = datum[0]
-            start_list.append(datum[1])
-            end_list.append(datum[2])
-            gene_name = datum[3]
-            sum_of_interactions = datum[4]
-            relative_distance_list.append(datum[5])
-            relative_interactions_list.append(datum[6])
-            pvalue_list.append(datum[7])
-            xfold_list.append(datum[8])
-            raw_target_list.append(datum[9])
+        # log.debug('data {}'.format(data))
+        for key_accepted in data:
+            log.debug('datum {}'.format(data[key_accepted]))
+            # log.debug('interactionData {}'.format(data[1][key_accepted]))
 
-        if key[0] not in significantFileH5Object:
-            matrixGroup = significantFileH5Object.create_group(key[0])
+            chromosome = data[key_accepted][0]
+            start_list.append(data[key_accepted][1])
+            end_list.append(data[key_accepted][2])
+            gene_name = data[key_accepted][3]
+            sum_of_interactions = data[key_accepted][4]
+            relative_distance_list.append(data[key_accepted][5])
+            raw_target_list.append(data[key_accepted][-1])
+
+        if key[0] not in aggregateFileH5Object:
+            matrixGroup = aggregateFileH5Object.create_group(key[0])
         else:
-            matrixGroup = significantFileH5Object[key[0]]
-        if chromosome not in matrixGroup:
-            chromosomeObject = matrixGroup.create_group(chromosome)
+            matrixGroup = aggregateFileH5Object[key[0]]
+        if key[1] not in matrixGroup:
+            chromosomeObject = matrixGroup.create_group(key[1])
         else:
             chromosomeObject = matrixGroup[chromosome]
 
@@ -232,13 +235,25 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList):
         else:
             geneGroup = matrixGroup['genes']
 
-        group_name = pViewpointObj.writeInteractionFileHDF5(
-                    chromosomeObject, key[2], [chromosome, start_list, end_list, gene_name, sum_of_interactions, relative_distance_list,
-                                                relative_interactions_list, pvalue_list, xfold_list, raw_target_list])
+        groupObject = chromosomeObject.create_group(key[-1])
+        groupObject["chromosome"] = chromosome
+        groupObject.create_dataset("start_list", data=start_list)
+        groupObject.create_dataset("end_list", data=end_list)
+        groupObject["gene_name"] = gene_name
+        groupObject["sum_of_interactions"] = sum_of_interactions
+        groupObject.create_dataset("relative_distance_list", data=relative_distance_list)
+        groupObject.create_dataset("raw_target_list", data=raw_target_list)
 
-        geneGroup[group_name] = chromosomeObject[group_name]
+
+
+        # group_name = pViewpointObj.writeInteractionFileHDF5(
+        #             chromosomeObject, key[2], [chromosome, start_list, end_list, gene_name, sum_of_interactions, relative_distance_list,
+        #                                         relative_interactions_list, pvalue_list, xfold_list, raw_target_list])
+
+        geneGroup[key[-1]] = chromosomeObject[key[-1]]
     
-    significantFileH5Object.close()
+    log.debug('counter {}'.format(counter))
+    aggregateFileH5Object.close()
 
 
 def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pViewpointObj, pQueue=None, pOneTarget=False):
@@ -452,12 +467,12 @@ def main(args=None):
     # log.debug(targetList)
     outfile_names_list, accepted_scores_list = call_multi_core(interactionList, targetList, run_target_list_compilation, args, viewpointObj)
 
-    # writeAggregateHDF(outfile_names_list, accepted_scores_list)
-    log.debug('len(interactionList) {}'.format(len(interactionList)))
-    log.debug('len(targetList) {}'.format(len(targetList) ))
+    writeAggregateHDF(args.outFileName, outfile_names_list, accepted_scores_list)
+    # log.debug('len(interactionList) {}'.format(len(interactionList)))
+    # log.debug('len(targetList) {}'.format(len(targetList) ))
 
-    log.debug(outfile_names_list)
-    log.debug(accepted_scores_list)
+    # log.debug(outfile_names_list)
+    # log.debug(accepted_scores_list)
 
     # if args.batchMode:
     #     with open(args.interactionFile[0], 'r') as interactionFile:
