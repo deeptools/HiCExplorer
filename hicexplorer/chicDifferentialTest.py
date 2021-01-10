@@ -130,6 +130,7 @@ def readAggregatedFileHDF(pAggregatedFileName, pInternalPath):
     relative_distance_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + array_name][:])
     raw_target_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + array_name][:])
     
+    
     # chromosome = None
     #     start_list = []
     #     end_list = []
