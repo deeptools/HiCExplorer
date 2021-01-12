@@ -122,15 +122,18 @@ def readAggregatedFileHDF(pAggregatedFileName, pInternalPath):
     internal_path = '/'.join(pInternalPath)
     chromosome = aggregatedFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8")
     
-    gene_name = aggregatedFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8")
-    actions = np.array(aggregatedFileHDF5Object[internal_path + '/' + array_name][:])
+    gene_name = aggregatedFileHDF5Object.get( internal_path + '/' + 'gene_name')[()].decode("utf-8")
+
+    # array_name = ['start_list', 'end_list', 'relative_distance_list', 'raw_target_list']
+    # actions = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'start_list'][:])
    
-    start_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + array_name][:])
-    end_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + array_name][:])
-    relative_distance_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + array_name][:])
-    raw_target_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + array_name][:])
+    start_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'start_list'][:])
+    end_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'end_list'][:])
+    relative_distance_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'relative_distance_list'][:])
+    raw_target_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'raw_target_list'][:])
+    sum_of_interactions = float(aggregatedFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()])
     
-    
+    # data.append()
     # chromosome = None
     #     start_list = []
     #     end_list = []
@@ -333,25 +336,37 @@ def main(args=None):
 
     aggregatedFileHDF5Object = h5py.File(args.aggregatedFile, 'r')
     keys_aggregatedFile = list(aggregatedFileHDF5Object.keys()) 
+    log.debug('keys_aggregatedFile {}'.format(keys_aggregatedFile))
 
     if len(keys_aggregatedFile) > 1:
-        for i, sample in enumerate(keys_aggregatedFile):
-            for sample2 in keys_aggregatedFile[i + 1:]:
+        for i, combinationOfMatrix in enumerate(keys_aggregatedFile):
+            # log.debug('list(aggregatedFileHDF5Object[combinationOfMatrix].keys()) {}'.format(list(aggregatedFileHDF5Object[combinationOfMatrix].keys())))
+            keys_matrix_intern = list(aggregatedFileHDF5Object[combinationOfMatrix].keys())
+            if len(keys_matrix_intern) == 0:
+                continue
+            log.debug('combinationOfMatrix {} keys_matrix_intern {}'.format(combinationOfMatrix, keys_matrix_intern))
+            matrix1 = keys_matrix_intern[0]
+            matrix2 = keys_matrix_intern[1]
+
+            matrix_obj1 = aggregatedFileHDF5Object[combinationOfMatrix + '/' + matrix1]
+            matrix_obj2 = aggregatedFileHDF5Object[combinationOfMatrix + '/' + matrix2]
+            # for 
+            # for sample2 in keys_aggregatedFile[i + 1:]:
                 
-                matrix_obj1 = aggregatedFileHDF5Object[sample]
-                matrix_obj2 = aggregatedFileHDF5Object[sample]
+            #     matrix_obj1 = aggregatedFileHDF5Object[sample]
+            #     matrix_obj2 = aggregatedFileHDF5Object[sample]
 
-                chromosomeList1 = sorted(list(matrix_obj1.keys()))
-                chromosomeList2 = sorted(list(matrix_obj2.keys()))
-                chromosomeList1.remove('genes')
-                chromosomeList2.remove('genes')
-                for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
-                    geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-                    geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
+            chromosomeList1 = sorted(list(matrix_obj1.keys()))
+            chromosomeList2 = sorted(list(matrix_obj2.keys()))
+            chromosomeList1.remove('genes')
+            chromosomeList2.remove('genes')
+            for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
+                geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
 
-                    for gene1, gene2 in zip(geneList1, geneList2):
-                        # if gene1 in present_genes[sample][sample2]:
-                        aggregatedList.append([[sample,chromosome1, gene1],[sample2,chromosome2, gene2]])
+                for gene1, gene2 in zip(geneList1, geneList2):
+                    # if gene1 in present_genes[sample][sample2]:
+                    aggregatedList.append([[combinationOfMatrix, matrix1, chromosome1, gene1],[combinationOfMatrix, matrix2, chromosome2, gene2]])
 
             # for viewpoint, viewpoint2 in zip(sample, sample2):
             #     writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
