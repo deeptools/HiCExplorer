@@ -219,7 +219,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             # log.debug('x_fold_list {}'.format(x_fold_list))
             referencePointGenename = '_'.join([referencePointString, pGeneList[i]])
             referencePointGenename = str(referencePointGenename)
-            log.debug('referencePointGenename {}'.format(referencePointGenename))
+            # log.debug('referencePointGenename {}'.format(referencePointGenename))
             interaction_data_list.append([matrix_name, interaction_data, header_information, referencePointGenename])
             # pViewpointObj.writeInteractionFileHDF5(
             #     pInteractionFileGroupH5Object, matrix_name, interaction_data, header_information, p_value_list, x_fold_list, pArgs.decimalPlaces)
@@ -352,7 +352,12 @@ def main(args=None):
             group_name = viewpointObj.writeInteractionFileHDF5(
                     chromosomeObject, interaction_data[1][3], interaction_data[1])
 
-            geneGroup[group_name] = chromosomeObject[group_name]
+            try:
+                geneGroup[group_name] = chromosomeObject[group_name]
+            except Exception as e:
+                log.debug(str(e))
+                log.debug('group_name {}'.format(group_name))
+                log.debug('gene name {}'.format(interaction_data[1][3]))
     # log.debug('file_list {}'.format(file_list))
 
     # log.debug('interaction_data[3] {}'.format(interaction_data_list[3]))
