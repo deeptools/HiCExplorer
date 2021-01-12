@@ -197,8 +197,12 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
     try:
         for interactionFile in pInteractionFilesList:
             target_list = []
+            # significant_data_list_intern = []
+            # significant_key_list_intern = []
+
             sample_prefix = []
             # log.debug('interactionFile {}'.format(interactionFile))
+
             for sample in interactionFile:
                 # log.debug('sample {}'.format(sample))
 
@@ -264,6 +268,9 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             # target_name = pArgs.targetFolder + '/' + target_name
             # writeTargetList(target_list, target_name, pArgs)
 
+
+            # significant_data_list.append(significant_data_list_intern)
+            # significant_key_list.append(significant_key_list_intern)
             # Stop character to seperate matrix names from the reference point / gene name
             sample_prefix.append('::')
             sample_prefix.append(interactionFile[0][1])
@@ -290,9 +297,9 @@ def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPe
     if isinstance(pPValue, float):
         for key in pData:
             if key in pBackgroundModel:
-                log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
+                # log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
                 pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
-                log.debug('new {}\n\n'.format(pData[key][-3]))
+                # log.debug('new {}\n\n'.format(pData[key][-3]))
                 if pData[key][-3] <= pPValue:
                     if float(pData[key][-1]) >= pPeakInteractionsThreshold:
                         accepted[key] = pData[key]
@@ -304,10 +311,10 @@ def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPe
     elif isinstance(pPValue, dict):
         for key in pData:
             if key in pBackgroundModel:
-                log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
+                # log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
 
                 pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
-                log.debug('new {}\n\n'.format(pData[key][-3]))
+                # log.debug('new {}\n\n'.format(pData[key][-3]))
 
                 if pData[key][-3] <= pPValue[key]:
                     if float(pData[key][-1]) >= pPeakInteractionsThreshold:
@@ -447,7 +454,18 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
         exit(1)
 
     significant_data_list = [item for sublist in significant_data_list for item in sublist]
-    significant_key_list = [item for sublist in significant_key_list for item in sublist]
+    significant_key_list = np.array([item for sublist in significant_key_list for item in sublist])
+
+    significant_key_list, indices = np.unique(significant_key_list, axis=0, return_index=True)
+
+    significant_data_list_new = []
+    for x in indices:
+        significant_data_list_new.append(significant_data_list[x])
+    significant_data_list = significant_data_list_new
+    # log.debug('significant_data_list[:5] {}'.format(significant_data_list[:5]))
+    # log.debug('significant_key_list[:5] {}'.format(significant_key_list[:5]))
+
+
 
     target_data_list = [item for sublist in target_data_list for item in sublist]
     target_key_list = [item for sublist in target_key_list for item in sublist]
@@ -505,10 +523,17 @@ def read_threshold_file(pFile):
 def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList, pViewpointObj):
 
     significantFileH5Object = h5py.File(pOutFileName, 'w')
-
+    # log.debug('key_significant {}'.format(pSignificantKeyList[:10]))
+    # log.debug('len(pSignificantKeyList) {}'.format(len(pSignificantKeyList)))
+    # log.debug('len(pSignificantDataList) {}'.format(len(pSignificantDataList)))
+    keys_seen = {}
+    matrix_seen = {}
     for key, data in zip(pSignificantKeyList, pSignificantDataList):
+        # for 
         if len(data) == 0:
             continue
+
+
         chromosome = None
         start_list = []
         end_list = []
@@ -534,8 +559,10 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
 
         if key[0] not in significantFileH5Object:
             matrixGroup = significantFileH5Object.create_group(key[0])
+            keys_seen[key[0]] = set()
         else:
             matrixGroup = significantFileH5Object[key[0]]
+
         if chromosome not in matrixGroup:
             chromosomeObject = matrixGroup.create_group(chromosome)
         else:
@@ -546,12 +573,33 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
         else:
             geneGroup = matrixGroup['genes']
 
+        success = False
+        counter = 0
+        while not success:
+
+            if counter != 0:
+                gene_name_key = key[2] + '_' + str(counter)
+            else:
+                gene_name_key = key[2]
+            if gene_name_key in keys_seen[key[0]]:
+                success = False
+            else:
+                keys_seen[key[0]].add(gene_name_key)
+                success = True
+            counter += 1
+
         group_name = pViewpointObj.writeInteractionFileHDF5(
-                    chromosomeObject, key[2], [chromosome, start_list, end_list, gene_name, sum_of_interactions, relative_distance_list,
+                    chromosomeObject, gene_name_key, [chromosome, start_list, end_list, gene_name, sum_of_interactions, relative_distance_list,
                                                 relative_interactions_list, pvalue_list, xfold_list, raw_target_list])
 
-        geneGroup[group_name] = chromosomeObject[group_name]
-    
+        try:
+            geneGroup[group_name] = chromosomeObject[group_name]
+        except Exception as exp:
+            log.debug('exception {}'.format(str(exp)))
+            log.debug('Gene group given: {}'.format(key[2]))
+            log.debug('Gene group return: {}'.format(group_name))
+
+            
     significantFileH5Object.close()
 
 def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj, pResolution):
@@ -588,9 +636,12 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
 
     # log.debug(pTargetKeyList)
     # log.debug(pTargetDataList)
+    log.debug('len(pTargetKeyList) {}'.format(len(pTargetKeyList)))
+    log.debug('len(pTargetDataList) {}'.format(len(pTargetDataList)))
+
 
     targetFileH5Object = h5py.File(pOutFileName, 'w')
-
+    keys_seen = {}
     for key, data in zip(pTargetKeyList, pTargetDataList):
         if len(data) == 0:
             continue
@@ -612,6 +663,7 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
 
         if key[0] not in targetFileH5Object:
             matrixGroup = targetFileH5Object.create_group(key[0])
+            keys_seen[key[0]] = set()
         else:
             matrixGroup = targetFileH5Object[key[0]]
         
@@ -622,8 +674,11 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
                 break
             if matrix_name not in matrixGroup:
                 matrixGroup = matrixGroup.create_group(matrix_name)
+                keys_seen[matrix_name] = set()
+                # log.debug('matrix+name {}'.format(matrix_name))
             else:
                 matrixGroup = matrixGroup[matrix_name]
+
         if 'genes' not in matrixGroup:
             geneGroup = matrixGroup.create_group('genes')
         else:
@@ -638,13 +693,36 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
         # else:
         #     geneGroup = matrixGroup['genes']
 
-        groupObject = chromosomeObject.create_group(key[-1])
+        success = False
+        counter = 0
+        while not success:
+            
+            if counter != 0:
+                gene_name_key = key[-1] + '_' + str(counter)
+            else:
+                gene_name_key = key[-1]
+            if gene_name_key in keys_seen[key[0]]:
+                success = False
+            else:
+                keys_seen[key[0]].add(gene_name_key)
+                success = True
+            counter += 1
+
+        groupObject, groupName = pViewpointObj.createUniqueHDFGroup(chromosomeObject, gene_name_key)
+        # groupObject = chromosomeObject.create_group(key[-1])
 
         groupObject["chromosome"] = chromosome
+        # groupObject.create_dataset("start_list", data=start_list, compression="gzip", compression_opts=9)
+        # groupObject.create_dataset("end_list", data=end_list, compression="gzip", compression_opts=9)
         groupObject.create_dataset("start_list", data=start_list)
         groupObject.create_dataset("end_list", data=end_list)
 
-        geneGroup[key[-1]] = chromosomeObject[key[-1]]
+        try:
+            geneGroup[groupName] = chromosomeObject[groupName]
+        except Exception as exp:
+            log.debug('exception {}'.format(str(exp)))
+            log.debug('Gene group: {}'.format(key[-1]))
+            log.debug('Adjusted name {}'.format(groupName))
     targetFileH5Object.close()
 
 
@@ -698,7 +776,7 @@ def main(args=None):
     #     log.error('Given interaction file has the wrong structure! Please use an interaction file created with HiCExplorer 3.6, earlier version are not supported!')
     #     exit(1)
 
-    log.debug('list(interactionFileHDF5Object.keys()) {}'.format(list(interactionFileHDF5Object.keys()) ))
+    # log.debug('list(interactionFileHDF5Object.keys()) {}'.format(list(interactionFileHDF5Object.keys()) ))
     # log.debug('list(interactionFileHDF5Object[keys_interactionFile[0]].keys()) {}'.format(list(interactionFileHDF5Object[keys_interactionFile[0]].keys()) ))
     # log.debug('list(interactionFileHDF5Object[keys_interactionFile[1]].keys()) {}'.format(list(interactionFileHDF5Object[keys_interactionFile[1]].keys()) ))
 
@@ -796,6 +874,7 @@ def main(args=None):
     resolution = interactionFileHDF5Object.attrs['resolution'][()]
     interactionFileHDF5Object.close()
     
+    log.debug('len(interactionList) {}'.format(len(interactionList)))
     significant_data_list, significant_key_list, target_data_list, target_key_list = call_multi_core(
                             interactionList, args, viewpointObj, background_model, args.interactionFile, resolution)
 

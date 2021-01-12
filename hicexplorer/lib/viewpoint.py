@@ -125,6 +125,7 @@ class Viewpoint():
         for array_name in arrays_to_retrieve:
             try:
                 data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
+                # log.debug('datatype of {} {} '.format(array_name, data[-1].dtype))
                 # data.append(interactionFileHDF5Object.get( internal_path + '/' + array_name).value)
             except Exception as exp:
                 log.debug( internal_path + '/' + array_name)
@@ -142,15 +143,18 @@ class Viewpoint():
         gene = interactionFileHDF5Object.get( internal_path + '/' + 'gene')[()].decode("utf-8") 
         sum_of_interactions = interactionFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()]
 
-        log.debug('chromosomes: {}'.format(chromosome))
+        # log.debug('chromosomes: {}'.format(chromosome))
 
         # log.debug(data)
         interaction_data = {}
         interaction_file_data = {}
         for i in range(len(data[0])):
             interaction_data[data[0][i]] = list([float(data[1][i]), float(data[2][i]), float(data[3][i]), float(data[4][i])])
-            interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[5][i]) ])
-        log.debug('153')
+            interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[3][i]) ])
+        # log.debug('153')
+        # log.debug('interaction_data {}'.format(interaction_data[0]))
+        # log.debug('interaction_file_data {}'.format(interaction_file_data[0]))
+
         return interaction_data, interaction_file_data
 
         # -5: relative position relative_position_list
@@ -250,24 +254,24 @@ class Viewpoint():
 
         # chrom, start_list, end_list, gene, sum_of_interactions, relative_position_list, interaction_data_list, pPValueList, xFoldList, raw_data_list
         # log.debug(pFileName)
-        success = False
-        counter = 0
-        while not success:
-            try:
-                if counter != 0:
-                    file_name = pFileName + '_' + str(counter)
-                else:
-                    file_name = pFileName
-                groupObject = pInteractionFileGroupH5Object.create_group(file_name)
-                success = True
-            except ValueError:
-                counter += 1
-        if counter != 0:
-            pass
+        
+        groupObject, file_name = self.createUniqueHDFGroup(pInteractionFileGroupH5Object, pFileName)
+        # if counter != 0:
+        #     pass
             # log.debug('Gene name {} occurred {} times! Stored as {}_{}'.format(pFileName, counter, pFileName, counter))
         # groupObject.create_dataset("header", data=pHeader)
         # groupObject.create_dataset("chromosome", data=pData[0].decode("utf-8"))
         groupObject["chromosome"]=str(pData[0])
+
+        # groupObject.create_dataset("start_list", data=pData[1], compression="gzip", compression_opts=9)
+        # groupObject.create_dataset("end_list", data=pData[2], compression="gzip", compression_opts=9)
+        # groupObject.create_dataset("gene", data=pData[3])
+        # groupObject.create_dataset("sum_of_interactions", data=pData[4])
+        # groupObject.create_dataset("relative_position_list", data=pData[5], compression="gzip", compression_opts=9)
+        # groupObject.create_dataset("interaction_data_list", data=pData[6], compression="gzip", compression_opts=9)
+        # groupObject.create_dataset("pvalue", data=pData[7], compression="gzip", compression_opts=9)
+        # groupObject.create_dataset("xfold", data=pData[8], compression="gzip", compression_opts=9)
+        # groupObject.create_dataset("raw", data=pData[9], compression="gzip", compression_opts=9)
 
         groupObject.create_dataset("start_list", data=pData[1])
         groupObject.create_dataset("end_list", data=pData[2])
@@ -286,6 +290,23 @@ class Viewpoint():
         #                  format(interaction[0], interaction[1],
         #                         interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7], decimal_places=pDecimalPlaces))
         return file_name
+
+    def createUniqueHDFGroup(self, pGroupObject, pAdditionalGroupName):
+
+        success = False
+        counter = 0
+        while not success:
+            try:
+                if counter != 0:
+                    pAdditionalGroupName = pAdditionalGroupName + '_' + str(counter)
+                else:
+                    file_name = pAdditionalGroupName
+                groupObject = pGroupObject.create_group(file_name)
+                success = True
+            except ValueError:
+                counter += 1
+        
+        return groupObject, file_name
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
         '''
@@ -454,14 +475,14 @@ class Viewpoint():
             view_point_start, view_point_end = self.hicMatrix.getRegionBinRange(
                 pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[1]))
         elif len(pReferencePoint) == 3:
-            log.debug('pReferencePoint: {}'.format(pReferencePoint))
+            # log.debug('pReferencePoint: {}'.format(pReferencePoint))
             view_point_start, view_point_end = self.hicMatrix.getRegionBinRange(
                 pReferencePoint[0], int(pReferencePoint[1]), int(pReferencePoint[2]))
         else:
             log.error("No valid reference point given. {}".format(
                 pReferencePoint))
             exit(1)
-        log.debug('view_point_start: {} view_point_end {}'.format(view_point_start, view_point_end))
+        # log.debug('view_point_start: {} view_point_end {}'.format(view_point_start, view_point_end))
 
         return view_point_start, view_point_end
 
