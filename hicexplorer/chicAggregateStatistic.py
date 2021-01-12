@@ -120,13 +120,13 @@ def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetInterv
         chromosome = [chromosome] * len(start_list)
 
         target_regions = list(zip(chromosome, start_list, end_list))
-        log.debug('target_regions {}'.format(target_regions))
+        # log.debug('target_regions {}'.format(target_regions))
         if len(target_regions) == 0:
             return accepted_scores
 
         hicmatrix = hm.hiCMatrix()
         target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
-        log.debug('target_regions_intervaltree {}'.format(target_regions_intervaltree))
+        # log.debug('target_regions_intervaltree {}'.format(target_regions_intervaltree))
 
     elif pTargetIntervalTree is not None:
         target_regions_intervaltree = pTargetIntervalTree
@@ -194,63 +194,73 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList):
 
     aggregateFileH5Object = h5py.File(pOutFileName, 'w')
     counter = 0
-    for key, data in zip(pOutfileNamesList, pAcceptedScoresList):
-        if len(data) == 0:
-            continue
+    log.debug('key_outer {}'.format(pOutfileNamesList[:2]))
+    for key_outer, data_outer in zip(pOutfileNamesList, pAcceptedScoresList):
+
+        matrix_combination_key = key_outer[0][0] + '_' + key_outer[1][0]
+        # log.debug('matrix_combination_key {}'.format(matrix_combination_key))
+        if matrix_combination_key not in aggregateFileH5Object:
+            matrixCombinationGroup = aggregateFileH5Object.create_group(matrix_combination_key)
         else:
-            counter += 1
-        chromosome = None
-        start_list = []
-        end_list = []
-        gene_name = None
-        sum_of_interactions = None
-        relative_distance_list = []
-       
-        raw_target_list = [] 
+            matrixCombinationGroup = aggregateFileH5Object[matrix_combination_key]
 
-        # log.debug('data {}'.format(data))
-        for key_accepted in data:
-            log.debug('datum {}'.format(data[key_accepted]))
-            # log.debug('interactionData {}'.format(data[1][key_accepted]))
+        for key, data in zip(key_outer, data_outer):
+            if len(data) == 0:
+                continue
+            else:
+                counter += 1
+            chromosome = None
+            start_list = []
+            end_list = []
+            gene_name = None
+            sum_of_interactions = None
+            relative_distance_list = []
+        
+            raw_target_list = [] 
 
-            chromosome = data[key_accepted][0]
-            start_list.append(data[key_accepted][1])
-            end_list.append(data[key_accepted][2])
-            gene_name = data[key_accepted][3]
-            sum_of_interactions = data[key_accepted][4]
-            relative_distance_list.append(data[key_accepted][5])
-            raw_target_list.append(data[key_accepted][-1])
+            # log.debug('data {}'.format(data))
+            for key_accepted in data:
+                # log.debug('datum {}'.format(data[key_accepted]))
+                # log.debug('interactionData {}'.format(data[1][key_accepted]))
 
-        if key[0] not in aggregateFileH5Object:
-            matrixGroup = aggregateFileH5Object.create_group(key[0])
-        else:
-            matrixGroup = aggregateFileH5Object[key[0]]
-        if key[1] not in matrixGroup:
-            chromosomeObject = matrixGroup.create_group(key[1])
-        else:
-            chromosomeObject = matrixGroup[chromosome]
+                chromosome = data[key_accepted][0]
+                start_list.append(data[key_accepted][1])
+                end_list.append(data[key_accepted][2])
+                gene_name = data[key_accepted][3]
+                sum_of_interactions = data[key_accepted][4]
+                relative_distance_list.append(data[key_accepted][5])
+                raw_target_list.append(data[key_accepted][-1])
 
-        if 'genes' not in matrixGroup:
-            geneGroup = matrixGroup.create_group('genes')
-        else:
-            geneGroup = matrixGroup['genes']
+            if key[0] not in matrixCombinationGroup:
+                matrixGroup = matrixCombinationGroup.create_group(key[0])
+            else:
+                matrixGroup = matrixCombinationGroup[key[0]]
+            if key[1] not in matrixGroup:
+                chromosomeObject = matrixGroup.create_group(key[1])
+            else:
+                chromosomeObject = matrixGroup[chromosome]
 
-        groupObject = chromosomeObject.create_group(key[-1])
-        groupObject["chromosome"] = chromosome
-        groupObject.create_dataset("start_list", data=start_list)
-        groupObject.create_dataset("end_list", data=end_list)
-        groupObject["gene_name"] = gene_name
-        groupObject["sum_of_interactions"] = sum_of_interactions
-        groupObject.create_dataset("relative_distance_list", data=relative_distance_list)
-        groupObject.create_dataset("raw_target_list", data=raw_target_list)
+            if 'genes' not in matrixGroup:
+                geneGroup = matrixGroup.create_group('genes')
+            else:
+                geneGroup = matrixGroup['genes']
+
+            groupObject = chromosomeObject.create_group(key[-1])
+            groupObject["chromosome"] = chromosome
+            groupObject.create_dataset("start_list", data=start_list, compression="gzip", compression_opts=9)
+            groupObject.create_dataset("end_list", data=end_list, compression="gzip", compression_opts=9)
+            groupObject["gene_name"] = gene_name
+            groupObject["sum_of_interactions"] = sum_of_interactions
+            groupObject.create_dataset("relative_distance_list", data=relative_distance_list, compression="gzip", compression_opts=9)
+            groupObject.create_dataset("raw_target_list", data=raw_target_list, compression="gzip", compression_opts=9)
 
 
 
-        # group_name = pViewpointObj.writeInteractionFileHDF5(
-        #             chromosomeObject, key[2], [chromosome, start_list, end_list, gene_name, sum_of_interactions, relative_distance_list,
-        #                                         relative_interactions_list, pvalue_list, xfold_list, raw_target_list])
+            # group_name = pViewpointObj.writeInteractionFileHDF5(
+            #             chromosomeObject, key[2], [chromosome, start_list, end_list, gene_name, sum_of_interactions, relative_distance_list,
+            #                                         relative_interactions_list, pvalue_list, xfold_list, raw_target_list])
 
-        geneGroup[key[-1]] = chromosomeObject[key[-1]]
+            geneGroup[key[-1]] = chromosomeObject[key[-1]]
     
     log.debug('counter {}'.format(counter))
     aggregateFileH5Object.close()
@@ -261,9 +271,9 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
     accepted_scores_list = []
 
     target_regions_intervaltree = None
-    log.debug('size: interactionFileList: {} '.format(pInteractionFilesList))
-    log.debug('size: pTargetList: {} '.format(pTargetList))
-    log.debug('pOneTarget: {} '.format(pOneTarget))
+    # log.debug('size: interactionFileList: {} '.format(pInteractionFilesList))
+    # log.debug('size: pTargetList: {} '.format(pTargetList))
+    # log.debug('pOneTarget: {} '.format(pOneTarget))
 
     try:
         if pOneTarget == True:
@@ -272,6 +282,8 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
             target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
 
         for i, interactionFile in enumerate(pInteractionFilesList):
+            outfile_names_list_intern = []
+            accepted_scores_list_intern = []
             for sample in interactionFile:
                 # sample_prefix = []
                 # if pArgs.interactionFileFolder != '.':
@@ -279,16 +291,16 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
                 # else:
                 #     absolute_sample_path = sample
                 interaction_data, interaction_file_data = pViewpointObj.readInteractionFileForAggregateStatistics(pArgs.interactionFile, sample)
-                log.debug('len(pTargetList) {}'.format(len(pTargetList)))
+                # log.debug('len(pTargetList) {}'.format(len(pTargetList)))
                 if pOneTarget == True:
                     target_file = None
                     
-                    log.debug('197')
+                    # log.debug('197')
 
                 else:
                     target_file = pTargetList[i]
 
-                    log.debug('201')
+                    # log.debug('201')
 
                 accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree, pTargetFile=pArgs.targetFile)
 
@@ -304,8 +316,10 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
                 # sample_prefix.append(sample[0])
                 # sample_prefix.append(sample[1])
                 # sample_prefix.append(sample[2])
-                outfile_names_list.append(sample)
-                accepted_scores_list.append(accepted_scores)
+                outfile_names_list_intern.append(sample)
+                accepted_scores_list_intern.append(accepted_scores)
+            outfile_names_list.append(outfile_names_list_intern)
+            accepted_scores_list.append(accepted_scores_list_intern)
                 # outFileName = '.'.join(sample.split('/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
 
                 # if pArgs.batchMode:
