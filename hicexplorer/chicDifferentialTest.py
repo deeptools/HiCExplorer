@@ -17,7 +17,6 @@ from hicexplorer import utilities
 from hicexplorer._version import __version__
 from .lib import Viewpoint
 
-
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -249,15 +248,16 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
     # resultFileH5Object.attrs.create('statistic test', pTest, dtype='S')
     # resultFileH5Object.attrs.create('version', __version__, dtype='f')
 
-    log.debug('pInputData[:1] {}'.format(pInputData[:2]))
-    log.debug('pAcceptedData[:1] {}'.format(pAcceptedData[:2]))
-    log.debug('pRejectedData[:1] {}'.format(pRejectedData[:2]))
-    log.debug('pAllResultData[:1] {}'.format(pAllResultData[:2]))
+    # log.debug('pInputData[:1] {}'.format(pInputData[:2]))
+    # log.debug('pAcceptedData[:1] {}'.format(pAcceptedData[:2]))
+    # log.debug('pRejectedData[:1] {}'.format(pRejectedData[:2]))
+    # log.debug('pAllResultData[:1] {}'.format(pAllResultData[:2]))
 
     all_data_dict = {'accepted' : pAcceptedData, 'rejected' : pRejectedData, 'all' : pAllResultData}
     for i, inputData in enumerate(pInputData):
+        log.debug(inputData)
         matrix1_name = inputData[0][1]
-        matrix2_name = inputData[0][2]
+        matrix2_name = inputData[1][1]
         chromosome = inputData[0][2]
         gene_name = inputData[0][3]
 
@@ -267,18 +267,18 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
         else:
             matrix1_object = resultFileH5Object[resultFileH5Object]
         
-        if matrix2_name not in matrix1_obj:
-            matrix2_object = matrix1_obj.create_group(matrix2_name)
+        if matrix2_name not in matrix1_object:
+            matrix2_object = matrix1_object.create_group(matrix2_name)
         else:
-            matrix2_object = matrix1_obj[matrix2_name]
+            matrix2_object = matrix1_object[matrix2_name]
 
-        if chromosome not in matrix2_obj:
-            chromosome_object = matrix2_obj.create_group(chromosome)
+        if chromosome not in matrix2_object:
+            chromosome_object = matrix2_object.create_group(chromosome)
         else:
-            chromosome_object = matrix2_obj[chromosome]
+            chromosome_object = matrix2_object[chromosome]
 
         # if chromosome not in matrix2_obj:
-        gene_object = chromosome_obj.create_group(gene_name)
+        gene_object = chromosome_object.create_group(gene_name)
         accepted_object = gene_object.create_group('accepted')
         rejected_object = gene_object.create_group('rejected')
         all_object = gene_object.create_group('all')
@@ -287,7 +287,9 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
        
         for category in ['accepted', 'rejected', 'all']:
             write_object = gene_object[category]
-            data_object = all_data_dict[category]
+            data_object = all_data_dict[category][i]
+            if len(data_object) == 0:
+                continue
             chromosome = None
             start_list = []
             end_list = []
@@ -303,28 +305,44 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
 
 
             # log.debug('data {}'.format(data))
-            for data in data_object[i]:
+            for data in data_object:
+                
                 # log.debug('datum {}'.format(data[key_accepted]))
                 # log.debug('interactionData {}'.format(data[1][key_accepted]))
 
-                chromosome = data[0]
-                start_list.append(data[1])
-                end_list.append(data[2])
-                gene_name = data[3]
-                sum_of_interactions = data[4]
-                relative_distance_list.append(data[5])
-                raw_target_list.append(data[-1])
+                chromosome = data[0][0]
+                start_list.append(data[0][1])
+                end_list.append(data[0][2])
+                gene_name = data[0][3]
+                relative_distance_list.append(data[0][5])
 
 
-            gene_object["chromosome"] = chromosome
-            gene_object.create_dataset("start_list", data=start_list, compression="gzip", compression_opts=9)
-            gene_object.create_dataset("end_list", data=end_list, compression="gzip", compression_opts=9)
-            gene_object["gene_name"] = gene_name
-            gene_object.create_dataset("relative_distance_list", data=relative_distance_list, compression="gzip", compression_opts=9)
+                sum_of_interactions_1 = float(data[3][0])
+                sum_of_interactions_2 = float(data[4][0])
+
+
+                raw_target_list_1.append(data[3][1])
+                raw_target_list_2.append(data[4][1])
+                pvalue_list.append(data[2])
+
+
+            write_object["chromosome"] = str(chromosome)
+            write_object.create_dataset("start_list", data=start_list, compression="gzip", compression_opts=9)
+            write_object.create_dataset("end_list", data=end_list, compression="gzip", compression_opts=9)
+            write_object["gene_name"] = str(gene_name)
+            write_object.create_dataset("relative_distance_list", data=relative_distance_list, compression="gzip", compression_opts=9)
             
-            groupObject["sum_of_interactions"] = sum_of_interactions
+            # write_object.create_dataset("sum_of_interactions_1", data=sum_of_interactions_1)
+            # write_object.create_dataset("sum_of_interactions_2", data=sum_of_interactions_2)
+
+
+            write_object["sum_of_interactions_1"] = float(sum_of_interactions_1)
+            write_object["sum_of_interactions_2"] = float(sum_of_interactions_2)
+
             
-            groupObject.create_dataset("raw_target_list", data=raw_target_list, compression="gzip", compression_opts=9)
+            write_object.create_dataset("raw_target_list_1", data=raw_target_list_1, compression="gzip", compression_opts=9)
+            write_object.create_dataset("raw_target_list_2", data=raw_target_list_2, compression="gzip", compression_opts=9)
+            write_object.create_dataset("pvalue_list", data=pvalue_list, compression="gzip", compression_opts=9)
 
 
     resultFileH5Object.close()
@@ -332,9 +350,9 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
 
 def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
     rejected_names = []
-    accepted = []
-    rejected = []
-    all_results = []
+    accepted_list = []
+    rejected_list = []
+    all_results_list = []
     try:
         for interactionFile in pInteractionFilesList:
 
@@ -398,11 +416,14 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
             write_out_lines_rejected = []
             for result in rejected:
                 write_out_lines_rejected.append(
-                    [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
+                    [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0] ] ] )
+                log.debug('foo: {}'.format([line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0] ] ]))
+            # log.debug('write_out_lines_rejected {}'.format(write_out_lines_rejected))
+                
 
-            accepted.append(write_out_lines_accepted)
-            rejected.append(write_out_lines_rejected)
-            all_results.append(write_out_lines)
+            accepted_list.append(write_out_lines_accepted)
+            rejected_list.append(write_out_lines_rejected)
+            all_results_list.append(write_out_lines)
             # writeResult(outFileName, write_out_lines, header1, header2,
             #             pArgs.alpha, pArgs.statisticTest)
             # writeResult(outFileName_accepted, write_out_lines_accepted, header1, header2,
@@ -411,13 +432,15 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
             #             pArgs.alpha, pArgs.statisticTest)
             # rejected_names.append(rejected_name_output_file)
 
+        log.debug('rejected 415 {}'.format(rejected_list))
+    
     except Exception as exp:
         pQueue.put('Fail: ' + str(exp))
         return
 
     if pQueue is None:
         return
-    pQueue.put([accepted, rejected, all_results])
+    pQueue.put([accepted_list, rejected_list, all_results_list])
     return
 
 
@@ -438,42 +461,43 @@ def main(args=None):
     keys_aggregatedFile = list(aggregatedFileHDF5Object.keys()) 
     log.debug('keys_aggregatedFile {}'.format(keys_aggregatedFile))
 
-    if len(keys_aggregatedFile) > 1:
-        for i, combinationOfMatrix in enumerate(keys_aggregatedFile):
-            # log.debug('list(aggregatedFileHDF5Object[combinationOfMatrix].keys()) {}'.format(list(aggregatedFileHDF5Object[combinationOfMatrix].keys())))
-            keys_matrix_intern = list(aggregatedFileHDF5Object[combinationOfMatrix].keys())
-            if len(keys_matrix_intern) == 0:
-                continue
-            log.debug('combinationOfMatrix {} keys_matrix_intern {}'.format(combinationOfMatrix, keys_matrix_intern))
-            matrix1 = keys_matrix_intern[0]
-            matrix2 = keys_matrix_intern[1]
+    for i, combinationOfMatrix in enumerate(keys_aggregatedFile):
+        # log.debug('list(aggregatedFileHDF5Object[combinationOfMatrix].keys()) {}'.format(list(aggregatedFileHDF5Object[combinationOfMatrix].keys())))
+        keys_matrix_intern = list(aggregatedFileHDF5Object[combinationOfMatrix].keys())
+        if len(keys_matrix_intern) == 0:
+            continue
+    # if len(keys_aggregatedFile) > 1:
 
-            matrix_obj1 = aggregatedFileHDF5Object[combinationOfMatrix + '/' + matrix1]
-            matrix_obj2 = aggregatedFileHDF5Object[combinationOfMatrix + '/' + matrix2]
-            # for 
-            # for sample2 in keys_aggregatedFile[i + 1:]:
-                
-            #     matrix_obj1 = aggregatedFileHDF5Object[sample]
-            #     matrix_obj2 = aggregatedFileHDF5Object[sample]
+        log.debug('combinationOfMatrix {} keys_matrix_intern {}'.format(combinationOfMatrix, keys_matrix_intern))
+        matrix1 = keys_matrix_intern[0]
+        matrix2 = keys_matrix_intern[1]
 
-            chromosomeList1 = sorted(list(matrix_obj1.keys()))
-            chromosomeList2 = sorted(list(matrix_obj2.keys()))
-            chromosomeList1.remove('genes')
-            chromosomeList2.remove('genes')
-            for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
-                geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-                geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
+        matrix_obj1 = aggregatedFileHDF5Object[combinationOfMatrix + '/' + matrix1]
+        matrix_obj2 = aggregatedFileHDF5Object[combinationOfMatrix + '/' + matrix2]
+        # for 
+        # for sample2 in keys_aggregatedFile[i + 1:]:
+            
+        #     matrix_obj1 = aggregatedFileHDF5Object[sample]
+        #     matrix_obj2 = aggregatedFileHDF5Object[sample]
 
-                for gene1, gene2 in zip(geneList1, geneList2):
-                    # if gene1 in present_genes[sample][sample2]:
-                    aggregatedList.append([[combinationOfMatrix, matrix1, chromosome1, gene1],[combinationOfMatrix, matrix2, chromosome2, gene2]])
+        chromosomeList1 = sorted(list(matrix_obj1.keys()))
+        chromosomeList2 = sorted(list(matrix_obj2.keys()))
+        chromosomeList1.remove('genes')
+        chromosomeList2.remove('genes')
+        for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
+            geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+            geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
 
-            # for viewpoint, viewpoint2 in zip(sample, sample2):
-            #     writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
+            for gene1, gene2 in zip(geneList1, geneList2):
+                # if gene1 in present_genes[sample][sample2]:
+                aggregatedList.append([[combinationOfMatrix, matrix1, chromosome1, gene1],[combinationOfMatrix, matrix2, chromosome2, gene2]])
+
+        # for viewpoint, viewpoint2 in zip(sample, sample2):
+        #     writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
             #     writeFileNamesToList.append(viewpoint2.encode("ascii", "ignore"))
     # log.debug(interactionList)
-    else:
-        log.error('To aggregate and prepare the data for the differential test, at least two matrices need to be stored, but only one is present.')
+        # else:
+        #     log.error('To aggregate and prepare the data for the differential test, at least two matrices need to be stored, but only one is present.')
     aggregatedFileHDF5Object.close()
 
     log.debug('aggregatedList {}'.format(aggregatedList))
