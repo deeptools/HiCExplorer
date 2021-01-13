@@ -62,11 +62,11 @@ This will create, as in the non-batch mode, three files per aggregated file and 
     #                        ' (Default: %(default)s).',
     #                        required=False,
     #                        default='.')
-    # parserOpt.add_argument('--outputFolder', '-o',
-    #                        help='Output folder of the files'
-    #                        ' (Default: %(default)s).',
-    #                        required=False,
-    #                        default='differentialResults')
+    parserOpt.add_argument('--outFileName', '-o',
+                           help='Output file for the differential results'
+                           ' (Default: %(default)s).',
+                           required=False,
+                           default='differentialResults.hdf5')
     parserOpt.add_argument('--statisticTest',
                            help='Type of test used: fisher\'s exact test or chi2 contingency'
                            ' (Default: %(default)s).',
@@ -83,10 +83,10 @@ This will create, as in the non-batch mode, three files per aggregated file and 
                            default=4,
                            type=int
                            )
-    parserOpt.add_argument('--rejectedFileNamesToFile', '-r',
-                           help='Writes the names of the rejected H0 (therefore containing the differential interactions) to file. Can be used for batch processing mode of chicPlotViewpoint.'
-                           ' (Default: %(default)s).',
-                           default='rejected_H0.txt')
+    # parserOpt.add_argument('--rejectedFileNamesToFile', '-r',
+    #                        help='Writes the names of the rejected H0 (therefore containing the differential interactions) to file. Can be used for batch processing mode of chicPlotViewpoint.'
+    #                        ' (Default: %(default)s).',
+    #                        default='rejected_H0.txt')
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
     parserOpt.add_argument('--version', action='version',
@@ -124,15 +124,14 @@ def readAggregatedFileHDF(pAggregatedFileName, pInternalPath):
     
     gene_name = aggregatedFileHDF5Object.get( internal_path + '/' + 'gene_name')[()].decode("utf-8")
 
-    # array_name = ['start_list', 'end_list', 'relative_distance_list', 'raw_target_list']
-    # actions = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'start_list'][:])
-   
+    #Chromosome Start   End     Gene    Relative distance       sum of interactions 1   target_1 raw    sum of interactions 2   target_2 raw    p-value
+
     start_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'start_list'][:])
     end_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'end_list'][:])
     relative_distance_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'relative_distance_list'][:])
     raw_target_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'raw_target_list'][:])
     sum_of_interactions = float(aggregatedFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()])
-    
+    aggregatedFileHDF5Object.close()
     # data.append()
     # chromosome = None
     #     start_list = []
@@ -142,6 +141,15 @@ def readAggregatedFileHDF(pAggregatedFileName, pInternalPath):
     #     relative_distance_list = []
        
     #     raw_target_list = [] 
+    line_content = []
+    data = []
+    for i in range(len(start_list)):
+        line_content.append([chromosome, start_list[i], end_list[i], relative_distance_list[i], sum_of_interactions, raw_target_list[i]])
+        data.append([sum_of_interactions, raw_target_list[i]])
+        # interaction_data[data[0][i]] = list([float(data[1][i]), float(data[2][i]), float(data[3][i]), float(data[4][i])])
+        # interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[3][i]) ])
+        
+    return line_content, data
 
 def chisquare_test(pDataFile1, pDataFile2, pAlpha):
     # pair of accepted/unaccepted and pvalue
@@ -235,9 +243,98 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pAlpha, pTest):
                 line += '\t{}\n'.format(format(data[2], '.5f'))
                 file.write(line)
 
+def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, pInputData, pAlpha, pTest):
+    resultFileH5Object = h5py.File(pOutFileName, 'w')
+    resultFileH5Object.attrs.create('alpha', pAlpha, dtype='f')
+    # resultFileH5Object.attrs.create('statistic test', pTest, dtype='S')
+    # resultFileH5Object.attrs.create('version', __version__, dtype='f')
+
+    log.debug('pInputData[:1] {}'.format(pInputData[:2]))
+    log.debug('pAcceptedData[:1] {}'.format(pAcceptedData[:2]))
+    log.debug('pRejectedData[:1] {}'.format(pRejectedData[:2]))
+    log.debug('pAllResultData[:1] {}'.format(pAllResultData[:2]))
+
+    all_data_dict = {'accepted' : pAcceptedData, 'rejected' : pRejectedData, 'all' : pAllResultData}
+    for i, inputData in enumerate(pInputData):
+        matrix1_name = inputData[0][1]
+        matrix2_name = inputData[0][2]
+        chromosome = inputData[0][2]
+        gene_name = inputData[0][3]
+
+
+        if matrix1_name not in resultFileH5Object:
+            matrix1_object = resultFileH5Object.create_group(matrix1_name)
+        else:
+            matrix1_object = resultFileH5Object[resultFileH5Object]
+        
+        if matrix2_name not in matrix1_obj:
+            matrix2_object = matrix1_obj.create_group(matrix2_name)
+        else:
+            matrix2_object = matrix1_obj[matrix2_name]
+
+        if chromosome not in matrix2_obj:
+            chromosome_object = matrix2_obj.create_group(chromosome)
+        else:
+            chromosome_object = matrix2_obj[chromosome]
+
+        # if chromosome not in matrix2_obj:
+        gene_object = chromosome_obj.create_group(gene_name)
+        accepted_object = gene_object.create_group('accepted')
+        rejected_object = gene_object.create_group('rejected')
+        all_object = gene_object.create_group('all')
+
+
+       
+        for category in ['accepted', 'rejected', 'all']:
+            write_object = gene_object[category]
+            data_object = all_data_dict[category]
+            chromosome = None
+            start_list = []
+            end_list = []
+            gene_name = None
+            sum_of_interactions_1 = None
+            sum_of_interactions_2 = None
+
+            relative_distance_list = []
+            pvalue_list = []
+        
+            raw_target_list_1 = [] 
+            raw_target_list_2 = [] 
+
+
+            # log.debug('data {}'.format(data))
+            for data in data_object[i]:
+                # log.debug('datum {}'.format(data[key_accepted]))
+                # log.debug('interactionData {}'.format(data[1][key_accepted]))
+
+                chromosome = data[0]
+                start_list.append(data[1])
+                end_list.append(data[2])
+                gene_name = data[3]
+                sum_of_interactions = data[4]
+                relative_distance_list.append(data[5])
+                raw_target_list.append(data[-1])
+
+
+            gene_object["chromosome"] = chromosome
+            gene_object.create_dataset("start_list", data=start_list, compression="gzip", compression_opts=9)
+            gene_object.create_dataset("end_list", data=end_list, compression="gzip", compression_opts=9)
+            gene_object["gene_name"] = gene_name
+            gene_object.create_dataset("relative_distance_list", data=relative_distance_list, compression="gzip", compression_opts=9)
+            
+            groupObject["sum_of_interactions"] = sum_of_interactions
+            
+            groupObject.create_dataset("raw_target_list", data=raw_target_list, compression="gzip", compression_opts=9)
+
+
+    resultFileH5Object.close()
+
 
 def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
     rejected_names = []
+    accepted = []
+    rejected = []
+    all_results = []
     try:
         for interactionFile in pInteractionFilesList:
 
@@ -269,17 +366,17 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
             #     absolute_sample_path1 = interactionFile[0]
             #     absolute_sample_path2 = interactionFile[1]
 
-            header1, line_content1, data1 = readAggregatedFileHDF(pArgs.aggregatedFile, interactionFile[0])
-            header2, line_content2, data2 = readAggregatedFileHDF(pArgs.aggregatedFile, interactionFile[0])
+            line_content1, data1 = readAggregatedFileHDF(pArgs.aggregatedFile, interactionFile[0])
+            line_content2, data2 = readAggregatedFileHDF(pArgs.aggregatedFile, interactionFile[1])
 
             if len(line_content1) == 0 or len(line_content2) == 0:
-                writeResult(outFileName, None, header1, header2,
-                            pArgs.alpha, pArgs.statisticTest)
-                writeResult(outFileName_accepted, None, header1, header2,
-                            pArgs.alpha, pArgs.statisticTest)
-                writeResult(outFileName_rejected, None, header1, header2,
-                            pArgs.alpha, pArgs.statisticTest)
-                rejected_names.append(rejected_name_output_file)
+                # writeResult(outFileName, None, header1, header2,
+                #             pArgs.alpha, pArgs.statisticTest)
+                # writeResult(outFileName_accepted, None, header1, header2,
+                #             pArgs.alpha, pArgs.statisticTest)
+                # writeResult(outFileName_rejected, None, header1, header2,
+                #             pArgs.alpha, pArgs.statisticTest)
+                # rejected_names.append(rejected_name_output_file)
                 continue
             if pArgs.statisticTest == 'chi2':
                 test_result, accepted, rejected = chisquare_test(
@@ -303,6 +400,9 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
                 write_out_lines_rejected.append(
                     [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
 
+            accepted.append(write_out_lines_accepted)
+            rejected.append(write_out_lines_rejected)
+            all_results.append(write_out_lines)
             # writeResult(outFileName, write_out_lines, header1, header2,
             #             pArgs.alpha, pArgs.statisticTest)
             # writeResult(outFileName_accepted, write_out_lines_accepted, header1, header2,
@@ -317,7 +417,7 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
 
     if pQueue is None:
         return
-    pQueue.put(rejected_names)
+    pQueue.put([accepted, rejected, all_results])
     return
 
 
@@ -400,7 +500,10 @@ def main(args=None):
     fail_flag = False
     fail_message = ''
     # if args.batchMode:
-    rejected_file_names = [None] * args.threads
+    all_data = [None] * args.threads
+    accepted_data = [None] * args.threads
+    rejected_data = [None] * args.threads
+
     aggregatedListPerThread = len(aggregatedList) // args.threads
     all_data_collected = False
     queue = [None] * args.threads
@@ -431,7 +534,8 @@ def main(args=None):
                 if 'Fail:' in background_data_thread:
                     fail_flag = True
                     fail_message = background_data_thread[6:]
-                rejected_file_names[i] = background_data_thread
+                else:
+                    accepted_data[i], rejected_data[i], all_data[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -445,6 +549,12 @@ def main(args=None):
     if fail_flag:
         log.error(fail_message)
         exit(1)
+
+    accepted_data = [item for sublist in accepted_data for item in sublist]
+    rejected_data = [item for sublist in rejected_data for item in sublist]
+    all_data = [item for sublist in all_data for item in sublist]
+
+    writeResultHDF(args.outFileName, accepted_data, rejected_data, all_data, aggregatedList, args.alpha, args.statisticTest)
     # else:
     #     run_statistical_tests(interactionFileList, args)
 
