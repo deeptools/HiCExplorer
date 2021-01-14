@@ -56,56 +56,54 @@ In batch mode the list of file names and the folders containing the files need t
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
                            help='path to the background file which should be used for plotting',
                            required=False)
-    parserOpt.add_argument('--interactionFileFolder', '-iff',
-                           help='Folder where the interaction files are stored. Applies only for batch mode'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='.')
+    # parserOpt.add_argument('--interactionFileFolder', '-iff',
+    #                        help='Folder where the interaction files are stored. Applies only for batch mode'
+    #                        ' (Default: %(default)s).',
+    #                        required=False,
+    #                        default='.')
     parserOpt.add_argument('--differentialTestResult', '-dif',
                            help='Path to the H0 rejected files to highlight the regions in the plot.',
-                           required=False,
-                           nargs='+')
-    parserOpt.add_argument('--significantInteractionFileFolder', '-siff',
-                           help='Folder where the files with detected significant interactions are stored. Applies only for batch mode'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='.')
-    parserOpt.add_argument('--differentialTestResultsFolder', '-diff',
-                           help='Folder where the H0 rejected files are stored. Applies only for batch mode'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='.')
+                           required=False)
+    # parserOpt.add_argument('--significantInteractionFileFolder', '-siff',
+    #                        help='Folder where the files with detected significant interactions are stored. Applies only for batch mode'
+    #                        ' (Default: %(default)s).',
+    #                        required=False,
+    #                        default='.')
+    # parserOpt.add_argument('--differentialTestResultsFolder', '-diff',
+    #                        help='Folder where the H0 rejected files are stored. Applies only for batch mode'
+    #                        ' (Default: %(default)s).',
+    #                        required=False,
+    #                        default='.')
     parserOpt.add_argument('--significantInteractions', '-si',
                            help='Path to the files with detected significant interactions to highlight the regions in the plot.',
-                           required=False,
-                           nargs='+')
+                           required=False)
     parserOpt.add_argument('--plotSignificantInteractions', '-psi',
                            help='Highlights the significant interactions in the plot itself. If not set, only the p-values are updated',
                            required=False,
                            action='store_true')
-    parserOpt.add_argument('--outputFolder', '-of',
+    parserOpt.add_argument('--outFileName', '-o',
                            help='Output folder of the files'
                            ' (Default: %(default)s).',
                            required=False,
-                           default='.')
-    parserOpt.add_argument('--outputFormat', '-format',
-                           help='Output format of the plot'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='png')
-    parserOpt.add_argument('--dpi',
-                           help='Optional parameter: Resolution for the image, if'
-                           'output is a raster graphics image (e.g png, jpg)'
-                           ' (Default: %(default)s).',
-                           type=int,
-                           default=300,
-                           required=False)
-    parserOpt.add_argument('--binResolution', '-r',
-                           help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution'
-                           ' (Default: %(default)s).',
-                           type=int,
-                           default=1000,
-                           required=False)
+                           default='plots.hdf5')
+    # parserOpt.add_argument('--outputFormat', '-format',
+    #                        help='Output format of the plot'
+    #                        ' (Default: %(default)s).',
+    #                        required=False,
+    #                        default='png')
+    # parserOpt.add_argument('--dpi',
+    #                        help='Optional parameter: Resolution for the image, if'
+    #                        'output is a raster graphics image (e.g png, jpg)'
+    #                        ' (Default: %(default)s).',
+    #                        type=int,
+    #                        default=300,
+    #                        required=False)
+    # parserOpt.add_argument('--binResolution', '-r',
+    #                        help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution'
+    #                        ' (Default: %(default)s).',
+    #                        type=int,
+    #                        default=1000,
+    #                        required=False)
 
     parserOpt.add_argument('--colorMapPvalue',
                            help='Color map to use for the p-value. Available '
@@ -141,12 +139,12 @@ In batch mode the list of file names and the folders containing the files need t
                            help='Sets all p-values which are equal to zero to one.',
                            required=False,
                            action='store_true')
-    parserOpt.add_argument('--outFileName', '-o',
-                           help='File name to save the image. Not used in batch mode.')
-    parserOpt.add_argument('--batchMode', '-bm',
-                           help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
-                           required=False,
-                           action='store_true')
+    # parserOpt.add_argument('--outFileName', '-o',
+    #                        help='File name to save the image. Not used in batch mode.')
+    # parserOpt.add_argument('--batchMode', '-bm',
+    #                        help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
+    #                        required=False,
+    #                        action='store_true')
     parserOpt.add_argument('--plotSampleNumber', '-psn',
                            help='Number of samples per plot. Applies only in batch mode'
                            ' (Default: %(default)s).',
