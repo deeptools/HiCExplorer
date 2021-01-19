@@ -210,7 +210,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
             matrix_name = '.'.join(pMatrix.split('/')[-1].split('.')[:-1])
             matrix_name = '_'.join(
                 [matrix_name, referencePointString, pGeneList[i]])
-            file_list.append(matrix_name + '.txt')
+            # file_list.append(matrix_name + '.txt')
 
             # matrix_name = pOutputFolder + '/' + matrix_name
             # log.debug('type(p_value_list) {}'.format(type(p_value_list)))
@@ -227,7 +227,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         log.debug('Error! {}'.format(str(exp)))
         pQueue.put('Fail: ' + str(exp))
         return
-    pQueue.put([file_list, interaction_data_list])
+    pQueue.put([interaction_data_list])
     return
 
 
@@ -238,6 +238,8 @@ def main(args=None):
 
     referencePoints, gene_list = viewpointObj.readReferencePointFile(
         args.referencePoints)
+    
+    log.debug('referencePoints {}'.format(referencePoints[:5]))
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
@@ -336,10 +338,10 @@ def main(args=None):
             log.error(fail_message)
             exit(1)
 
-        file_list_sample= [item for sublist in file_list_sample for item in sublist]
+        # file_list_sample= [item for sublist in file_list_sample for item in sublist]
         interaction_data_list = [item for sublist in interaction_data_list_sample for item in sublist]
         matrix_collection[matrix] = interaction_data_list
-        file_list.append(file_list_sample)
+        # file_list.append(file_list_sample)
 
     for matrix in matrix_collection:
         matrixGroup = interactionFileH5Object.create_group(matrix.split('.')[0])
@@ -350,7 +352,7 @@ def main(args=None):
                 chromosomeObject = matrixGroup.create_group(interaction_data[1][0])
 
             group_name = viewpointObj.writeInteractionFileHDF5(
-                    chromosomeObject, interaction_data[1][3], interaction_data[1])
+                    chromosomeObject, interaction_data[1][3], interaction_data[1], )
 
             try:
                 geneGroup[group_name] = chromosomeObject[group_name]

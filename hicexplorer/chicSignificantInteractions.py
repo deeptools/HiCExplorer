@@ -88,7 +88,7 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            ' (Default: %(default)s).',
                            default='targetFile.hdf5')
     parserOpt.add_argument('--combinationMode',
-                        '-a',
+                        '-cm',
                         help='This option defines how the interaction data should be computed and combined: '
                         'dual: Combines as follows: [[matrix1_gene1, matrix2_gene1], [matrix2_gene1, matrix3_gene1],[matrix1_gene2, matrix2_gene2], ...]'
                         'single: Combines as follows: [matrix1_gene1, matrix1_gene2, matrix2_gene1, ...], '
@@ -212,7 +212,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 #     absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
                 # else:
                 #     absolute_sample_path = sample
-                data = pViewpointObj.readInteractionFileForAggregateStatistics(pFilePath, sample)
+                data = pViewpointObj.readInteractionFile(pFilePath, sample)
                 # log.debug(data)
                 # exit(1)
                 sample_prefix.append(sample[0])

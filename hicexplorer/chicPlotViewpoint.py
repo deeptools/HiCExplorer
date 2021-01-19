@@ -104,6 +104,24 @@ In batch mode the list of file names and the folders containing the files need t
     #                        type=int,
     #                        default=1000,
     #                        required=False)
+    parserOpt.add_argument('--combinationMode',
+                        '-cm',
+                        help='This option defines how the interaction data should be computed and combined: '
+                        'dual: Combines as follows: [[matrix1_gene1, matrix2_gene1], [matrix2_gene1, matrix3_gene1],[matrix1_gene2, matrix2_gene2], ...]'
+                        'single: Combines as follows: [matrix1_gene1, matrix1_gene2, matrix2_gene1, ...], '
+                        'allGenes: Combines as follows: [[matrix1_gene1, matrix2_gene1, matrix2_gene1], [matrix1_gene2, matrix2_gene2, matrix3_gene2], ...]'
+                        'oneGene: Computes all data of one gene, please specify \'--\'. If a gene is not unique, each viewpoint is treated independently.'
+                        'file: A user specific file (\'--\') with one entry per line and tab seperated: matrixName   geneName. Please define how many lines should be combined to one (\'--computeSampleNumber\').'
+                        ' (Default: %(default)s).',
+                        default='dual',
+                        choices=['dual', 'single', 'allGenes', 'oneGene', 'file']
+                        )
+
+    parserOpt.add_argument('--combinationName', '-cn',
+                           help='Gene name or file name for modes \'oneGene\' or \'file\' of parameter \'--combinationMode\''
+                           ' (Default: %(default)s).',
+                           required=False,
+                           default=None)
 
     parserOpt.add_argument('--colorMapPvalue',
                            help='Color map to use for the p-value. Available '
@@ -145,12 +163,12 @@ In batch mode the list of file names and the folders containing the files need t
     #                        help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
     #                        required=False,
     #                        action='store_true')
-    parserOpt.add_argument('--plotSampleNumber', '-psn',
-                           help='Number of samples per plot. Applies only in batch mode'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=2,
-                           type=int)
+    # parserOpt.add_argument('--plotSampleNumber', '-psn',
+    #                        help='Number of samples per plot. Applies only in batch mode'
+    #                        ' (Default: %(default)s).',
+    #                        required=False,
+    #                        default=2,
+    #                        type=int)
     parserOpt.add_argument('--colorList', '-cl',
                            help='Colorlist for the viewpoint lines (Default g b c m y k).',
                            required=False,
@@ -171,7 +189,7 @@ In batch mode the list of file names and the folders containing the files need t
     return parser
 
 
-def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBackgroundData, pArgs, pViewpointObj, pSignificantRegionsFileList, pQueue=None):
+def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBackgroundData, pArgs, pViewpointObj, pSignificantRegionsFileList, pResolution, pQueue=None):
     try:
         for j, interactionFile in enumerate(pInteractionFileList):
             number_of_rows_plot = len(interactionFile)
@@ -197,12 +215,12 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             data_plot_label = None
             gene = ''
             for i, interactionFile_ in enumerate(interactionFile):
-                if pArgs.interactionFileFolder != '.':
-                    absolute_path_interactionFile_ = pArgs.interactionFileFolder + '/' + interactionFile_
-                else:
-                    absolute_path_interactionFile_ = interactionFile_
+                # if pArgs.interactionFileFolder != '.':
+                #     absolute_path_interactionFile_ = pArgs.interactionFileFolder + '/' + interactionFile_
+                # else:
+                #     absolute_path_interactionFile_ = interactionFile_
 
-                header, data, background_data_plot, p_values, viewpoint_index_start, viewpoint_index_end = pViewpointObj.getDataForPlotting(absolute_path_interactionFile_, pArgs.range, pBackgroundData, pArgs.binResolution)
+                header, data, background_data_plot, p_values, viewpoint_index_start, viewpoint_index_end = pViewpointObj.getDataForPlotting(interactionFile_, pArgs.range, pBackgroundData, pResolution)
                 # log.debug('data {}'.format(data))
                 if len(data) <= 1 or len(p_values) <= 1:
                     log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
@@ -223,13 +241,13 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                     else:
                         differentialFilePath = pHighlightDifferentialRegionsFileList[j]
 
-                    highlight_differential_regions = pViewpointObj.readRejectedFile(differentialFilePath, viewpoint_index_start, viewpoint_index_end, pArgs.binResolution, pArgs.range, viewpoint)
+                    highlight_differential_regions = pViewpointObj.readRejectedFile(differentialFilePath, viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
                 if pArgs.significantInteractions:
                     if pArgs.significantInteractionFileFolder != '.':
                         significantInteractionsFilePath = pArgs.significantInteractionFileFolder + '/' + pSignificantRegionsFileList[j][i]
                     else:
                         significantInteractionsFilePath = pSignificantRegionsFileList[j][i]
-                    significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(significantInteractionsFilePath, viewpoint_index_start, viewpoint_index_end, pArgs.binResolution, pArgs.range, viewpoint)
+                    significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(significantInteractionsFilePath, viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
                 if not pArgs.plotSignificantInteractions:
                     significant_regions = None
                 if data_plot_label:
@@ -289,15 +307,15 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 for k, j in zip(range((pArgs.range[0])), range(pArgs.range[0], 1, -1)):
                     if j % mod_legend == 0:
                         x_labels.append(str(-int(j) // int(divisor_legend)) + unit)
-                        ticks.append(k // pArgs.binResolution)
+                        ticks.append(k // pResolution)
                 x_labels.append('RP')
-                ticks.append(pArgs.range[0] // pArgs.binResolution)
+                ticks.append(pArgs.range[0] // pResolution)
 
                 referencepoint_index = ticks[-1]
                 for k, j in zip(range(pArgs.range[1]), range(1, pArgs.range[1] + 1, 1)):
                     if j % mod_legend == 0:
                         x_labels.append(str(int(j) // int(divisor_legend)) + unit)
-                        ticks.append(referencepoint_index + (k // pArgs.binResolution))
+                        ticks.append(referencepoint_index + (k // pResolution))
 
                 # log.debug('labels: {}'.format(x_labels))
                 ax1.set_ylabel('Number of interactions')
@@ -308,26 +326,27 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 data_legend = [label.get_label() for label in data_plot_label]
                 ax1.legend(data_plot_label, data_legend, loc=0)
 
-                sample_prefix = ""
-                if pArgs.outFileName:
-                    if pArgs.outputFolder != '.':
-                        outFileName = pArgs.outputFolder + '/' + pArgs.outFileName
-                    else:
-                        outFileName = pArgs.outFileName
+                #### TODO store other name, store as numpy array in hdf
+                # sample_prefix = ""
+                # if pArgs.outFileName:
+                #     if pArgs.outputFolder != '.':
+                #         outFileName = pArgs.outputFolder + '/' + pArgs.outFileName
+                #     else:
+                #         outFileName = pArgs.outFileName
 
-                else:
-                    for interactionFile_ in interactionFile:
-                        sample_prefix += interactionFile_.split('/')[-1].split('_')[0] + '_'
-                    if sample_prefix.endswith('_'):
-                        sample_prefix = sample_prefix[:-1]
-                    region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:4])
-                    outFileName = gene + '_' + sample_prefix + '_' + region_prefix
-                    if pArgs.outputFolder != '.':
-                        outFileName = pArgs.outputFolder + '/' + outFileName
+                # else:
+                #     for interactionFile_ in interactionFile:
+                #         sample_prefix += interactionFile_.split('/')[-1].split('_')[0] + '_'
+                #     if sample_prefix.endswith('_'):
+                #         sample_prefix = sample_prefix[:-1]
+                #     region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:4])
+                #     outFileName = gene + '_' + sample_prefix + '_' + region_prefix
+                #     if pArgs.outputFolder != '.':
+                #         outFileName = pArgs.outputFolder + '/' + outFileName
 
-                if pArgs.outputFormat != outFileName.split('.')[-1]:
-                    outFileName = outFileName + '.' + pArgs.outputFormat
-                plt.savefig(outFileName, dpi=pArgs.dpi)
+                # if pArgs.outputFormat != outFileName.split('.')[-1]:
+                #     outFileName = outFileName + '.' + pArgs.outputFormat
+                # plt.savefig(outFileName, dpi=pArgs.dpi)
             plt.close(fig)
     except Exception as exp:
         pQueue.put('Fail: ' + str(exp))
@@ -365,103 +384,196 @@ def main(args=None):
     highlightDifferentialRegionsFileList = []
     highlightSignificantRegionsFileList = []
 
-    if args.batchMode:
-        with open(args.interactionFile[0], 'r') as interactionFile:
+    # if args.batchMode:
+
+    ### read hdf file
+    interactionFileHDF5Object = h5py.File(args.interactionFile, 'r')
+    keys_interactionFile = list(interactionFileHDF5Object.keys()) 
+    resolution = interactionFileHDF5Object.attrs['resolution'][()]
+
+    if args.combinationMode == 'dual':
+        if len(keys_interactionFile) > 1:
+            for i, sample in enumerate(keys_interactionFile):
+                for sample2 in keys_interactionFile[i + 1:]:
+                    
+                    matrix_obj1 = interactionFileHDF5Object[sample]
+                    matrix_obj2 = interactionFileHDF5Object[sample]
+
+                    chromosomeList1 = sorted(list(matrix_obj1.keys()))
+                    chromosomeList2 = sorted(list(matrix_obj2.keys()))
+                    chromosomeList1.remove('genes')
+                    chromosomeList2.remove('genes')
+                    for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
+                        geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                        geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
+
+                        for gene1, gene2 in zip(geneList1, geneList2):
+                            interactionFileList.append([[sample,chromosome1, gene1],[sample2,chromosome2, gene2]])
+
+                    # for viewpoint, viewpoint2 in zip(sample, sample2):
+                    #     writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
+                    #     writeFileNamesToList.append(viewpoint2.encode("ascii", "ignore"))
+            # log.debug(interactionList)
+        else:
+            log.error('Dual mode selected but only one matrix is stored')
+    elif args.combinationMode == 'multi':
+        if len(keys_interactionFile) > 1:
+            for i, sample in enumerate(keys_interactionFile):
+                for sample2 in keys_interactionFile[i + 1:]:
+                    
+                    matrix_obj1 = interactionFileHDF5Object[sample]
+                    matrix_obj2 = interactionFileHDF5Object[sample]
+
+                    chromosomeList1 = sorted(list(matrix_obj1.keys()))
+                    chromosomeList2 = sorted(list(matrix_obj2.keys()))
+                    chromosomeList1.remove('genes')
+                    chromosomeList2.remove('genes')
+                    for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
+                        geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                        geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
+
+                        for gene1, gene2 in zip(geneList1, geneList2):
+                            interactionFileList.append([[sample,chromosome1, gene1],[sample2,chromosome2, gene2]])
+
+                    # for viewpoint, viewpoint2 in zip(sample, sample2):
+                    #     writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
+                    #     writeFileNamesToList.append(viewpoint2.encode("ascii", "ignore"))
+            # log.debug(interactionList)
+        else:
+            log.error('Dual mode selected but only one matrix is stored')
+    elif args.combinationMode == 'single':
+        for i, sample in enumerate(keys_interactionFile):
+                
+                matrix_obj1 = interactionFileHDF5Object[sample]
+                chromosomeList1 = sorted(list(matrix_obj1.keys()))
+                chromosomeList1.remove('genes')
+                for chromosome1 in chromosomeList1:
+                    geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                    for gene1 in geneList1:
+                        interactionFileList.append([sample,chromosome1, gene1])
+    elif args.combinationMode == 'oneGene': 
+        if len(keys_interactionFile) > 0:
+            matrix_obj1 = interactionFileHDF5Object[keys_interactionFile[0]]
+            all_detected = False
+            counter = 0
+            gene_list = []
+            while not all_detected:
+                if counter == 0:
+                    check_gene_name = args.combinationName
+                else:
+                    check_gene_name = args.combinationName + '_' + str(counter)
+
+                if check_gene_name in matrix_obj1['genes']:
+                    gene_list.append(check_gene_name)
+                else:
+                    all_detected = True
+
+                counter += 1
+
+            for gene in gene_list:
+                gene_list = []
+                for matrix in keys_interactionFile:
+                    gene_list.append([matrix, 'genes', gene])
+                interactionFileList.append(gene_list)
+    
+    
+    # with open(args.interactionFile[0], 'r') as interactionFile:
+
+    #     file_ = True
+    #     while file_:
+    #         lines = []
+    #         for i in range(0, args.plotSampleNumber):
+    #             file_ = interactionFile.readline().strip()
+    #             if file_ != '':
+    #                 lines.append(file_)
+    #         interactionFileList.append(lines)
+    if args.differentialTestResult:
+
+        if args.differentialTestResult and args.plotSampleNumber != 2:
+            log.warning('Cannot use differential data, only possible for two samples in one plot.')
+            args.differentialTestResult = None
+        else:
+            with open(args.differentialTestResult[0], 'r') as differentialTestFile:
+
+                file_ = True
+                while file_:
+                    file_ = differentialTestFile.readline().strip()
+                    if file_ != '':
+                        highlightDifferentialRegionsFileList.append(file_)
+    if args.significantInteractions:
+        with open(args.significantInteractions[0], 'r') as significantRegionsFile:
 
             file_ = True
             while file_:
                 lines = []
                 for i in range(0, args.plotSampleNumber):
-                    file_ = interactionFile.readline().strip()
+                    file_ = significantRegionsFile.readline().strip()
                     if file_ != '':
                         lines.append(file_)
-                interactionFileList.append(lines)
-        if args.differentialTestResult:
+                if len(lines) > 0:
+                    highlightSignificantRegionsFileList.append(lines)
+    interactionFilesPerThread = len(interactionFileList) // args.threads
+    highlightSignificantRegionsFileListThread = len(highlightSignificantRegionsFileList) // args.threads
 
-            if args.differentialTestResult and args.plotSampleNumber != 2:
-                log.warning('Cannot use differential data, only possible for two samples in one plot.')
-                args.differentialTestResult = None
-            else:
-                with open(args.differentialTestResult[0], 'r') as differentialTestFile:
+    all_data_collected = False
+    queue = [None] * args.threads
+    process = [None] * args.threads
+    thread_done = [False] * args.threads
+    fail_flag = False
+    fail_message = ''
 
-                    file_ = True
-                    while file_:
-                        file_ = differentialTestFile.readline().strip()
-                        if file_ != '':
-                            highlightDifferentialRegionsFileList.append(file_)
-        if args.significantInteractions:
-            with open(args.significantInteractions[0], 'r') as significantRegionsFile:
+    for i in range(args.threads):
 
-                file_ = True
-                while file_:
-                    lines = []
-                    for i in range(0, args.plotSampleNumber):
-                        file_ = significantRegionsFile.readline().strip()
-                        if file_ != '':
-                            lines.append(file_)
-                    if len(lines) > 0:
-                        highlightSignificantRegionsFileList.append(lines)
-        interactionFilesPerThread = len(interactionFileList) // args.threads
-        highlightSignificantRegionsFileListThread = len(highlightSignificantRegionsFileList) // args.threads
+        if i < args.threads - 1:
+            interactionFileListThread = interactionFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
+            highlightDifferentialRegionsFileListThread = highlightDifferentialRegionsFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
+            highlightSignificantRegionsFileListThread = highlightSignificantRegionsFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
+        else:
+            interactionFileListThread = interactionFileList[i * interactionFilesPerThread:]
+            highlightDifferentialRegionsFileListThread = highlightDifferentialRegionsFileList[i * interactionFilesPerThread:]
+            highlightSignificantRegionsFileListThread = highlightSignificantRegionsFileList[i * interactionFilesPerThread:]
+        queue[i] = Queue()
+        process[i] = Process(target=plot_images, kwargs=dict(
+            pInteractionFileList=interactionFileListThread,
+            pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileListThread,
+            pBackgroundData=background_data,
+            pArgs=args,
+            pViewpointObj=viewpointObj,
+            pSignificantRegionsFileList=highlightSignificantRegionsFileListThread,
+            pResolution=resolution,
+            pQueue=queue[i]
+        )
+        )
 
-        all_data_collected = False
-        queue = [None] * args.threads
-        process = [None] * args.threads
-        thread_done = [False] * args.threads
-        fail_flag = False
-        fail_message = ''
+        process[i].start()
 
+    while not all_data_collected:
         for i in range(args.threads):
-
-            if i < args.threads - 1:
-                interactionFileListThread = interactionFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
-                highlightDifferentialRegionsFileListThread = highlightDifferentialRegionsFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
-                highlightSignificantRegionsFileListThread = highlightSignificantRegionsFileList[i * interactionFilesPerThread:(i + 1) * interactionFilesPerThread]
-            else:
-                interactionFileListThread = interactionFileList[i * interactionFilesPerThread:]
-                highlightDifferentialRegionsFileListThread = highlightDifferentialRegionsFileList[i * interactionFilesPerThread:]
-                highlightSignificantRegionsFileListThread = highlightSignificantRegionsFileList[i * interactionFilesPerThread:]
-            queue[i] = Queue()
-            process[i] = Process(target=plot_images, kwargs=dict(
-                pInteractionFileList=interactionFileListThread,
-                pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileListThread,
-                pBackgroundData=background_data,
-                pArgs=args,
-                pViewpointObj=viewpointObj,
-                pSignificantRegionsFileList=highlightSignificantRegionsFileListThread,
-                pQueue=queue[i]
-            )
-            )
-
-            process[i].start()
-
-        while not all_data_collected:
-            for i in range(args.threads):
-                if queue[i] is not None and not queue[i].empty():
-                    return_content = queue[i].get()
-                    if 'Fail:' in return_content:
-                        fail_flag = True
-                        fail_message = return_content[6:]
-                    queue[i] = None
-                    process[i].join()
-                    process[i].terminate()
-                    process[i] = None
-                    thread_done[i] = True
-            all_data_collected = True
-            for thread in thread_done:
-                if not thread:
-                    all_data_collected = False
-            time.sleep(1)
-        if fail_flag:
-            log.error(fail_message)
-            exit(1)
-    else:
-        interactionFileList = [args.interactionFile]
-        highlightDifferentialRegionsFileList = args.differentialTestResult
-        highlightSignificantRegionsFileList = [args.significantInteractions]
-        plot_images(pInteractionFileList=interactionFileList,
-                    pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileList,
-                    pBackgroundData=background_data,
-                    pArgs=args,
-                    pViewpointObj=viewpointObj,
-                    pSignificantRegionsFileList=highlightSignificantRegionsFileList)
+            if queue[i] is not None and not queue[i].empty():
+                return_content = queue[i].get()
+                if 'Fail:' in return_content:
+                    fail_flag = True
+                    fail_message = return_content[6:]
+                queue[i] = None
+                process[i].join()
+                process[i].terminate()
+                process[i] = None
+                thread_done[i] = True
+        all_data_collected = True
+        for thread in thread_done:
+            if not thread:
+                all_data_collected = False
+        time.sleep(1)
+    if fail_flag:
+        log.error(fail_message)
+        exit(1)
+    # else:
+    #     interactionFileList = [args.interactionFile]
+    #     highlightDifferentialRegionsFileList = args.differentialTestResult
+    #     highlightSignificantRegionsFileList = [args.significantInteractions]
+    #     plot_images(pInteractionFileList=interactionFileList,
+    #                 pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileList,
+    #                 pBackgroundData=background_data,
+    #                 pArgs=args,
+    #                 pViewpointObj=viewpointObj,
+    #                 pSignificantRegionsFileList=highlightSignificantRegionsFileList)

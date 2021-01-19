@@ -61,43 +61,43 @@ class Viewpoint():
         else:
             return viewpoints
 
-    def readInteractionFile(self, pBedFile):
-        '''
-        Reads an interaction file produced by chicViewpoint. Contains header information, these lines
-        start with '#'.
-        Interactions files contain:
-        Chromosome Viewpoint, Start, End, Gene, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
-        Relative number of interactions, p-score based on relative interactions.
+    # def readInteractionFile(self, pBedFile):
+    #     '''
+    #     Reads an interaction file produced by chicViewpoint. Contains header information, these lines
+    #     start with '#'.
+    #     Interactions files contain:
+    #     Chromosome Viewpoint, Start, End, Gene, Chromosome Interation, Start, End, Relative position (to viewpoint start / end),
+    #     Relative number of interactions, p-score based on relative interactions.
 
-        This function returns:
-        - header as  a string
-        - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}
-        - p-score in relation to relative position as a dict (same format as interaction data)
-        - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
-        '''
-        # use header info to store reference point, and based matrix
-        interaction_data = {}
-        p_score = {}
-        interaction_file_data = {}
-        genomic_coordinates = {}
-        with open(pBedFile) as fh:
-            fh.readline()
-            header = fh.readline()
-            for line in fh.readlines():
-                # Addition header information for end users
-                if line.strip().startswith('#'):
-                    continue
+    #     This function returns:
+    #     - header as  a string
+    #     - interaction data in relation to relative position as a dict e.g. {-1000:0.1, -1500:0.2}
+    #     - p-score in relation to relative position as a dict (same format as interaction data)
+    #     - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
+    #     '''
+    #     # use header info to store reference point, and based matrix
+    #     interaction_data = {}
+    #     p_score = {}
+    #     interaction_file_data = {}
+    #     genomic_coordinates = {}
+    #     with open(pBedFile) as fh:
+    #         fh.readline()
+    #         header = fh.readline()
+    #         for line in fh.readlines():
+    #             # Addition header information for end users
+    #             if line.strip().startswith('#'):
+    #                 continue
 
-                _line = line.strip().split('\t')
-                # relative postion and relative interactions
-                interaction_data[int(_line[-5])] = float(_line[-4])
-                p_score[int(_line[-5])] = float(_line[-3])
-                interaction_file_data[int(_line[-5])] = _line
-                genomic_coordinates[int(_line[-5])] = [_line[0], _line[1], _line[2]]
+    #             _line = line.strip().split('\t')
+    #             # relative postion and relative interactions
+    #             interaction_data[int(_line[-5])] = float(_line[-4])
+    #             p_score[int(_line[-5])] = float(_line[-3])
+    #             interaction_file_data[int(_line[-5])] = _line
+    #             genomic_coordinates[int(_line[-5])] = [_line[0], _line[1], _line[2]]
 
-        return header, interaction_data, p_score, interaction_file_data, genomic_coordinates
+    #     return header, interaction_data, p_score, interaction_file_data, genomic_coordinates
 
-    def readInteractionFileForAggregateStatistics(self, pFilePath, pInternalIdentifierTriplet):
+    def readInteractionFile(self, pFilePath, pInternalIdentifierTriplet):
         '''
         Reads an interaction file produced by chicViewpoint. Contains header information, these lines
         start with '#'.
@@ -185,6 +185,32 @@ class Viewpoint():
         #             _line[-5])] = np.array([float(_line[-4]), float(_line[-3]), float(_line[-1]), float(_line[-2])])
         #         interaction_file_data[int(_line[-5])] = _line
         # return header, interaction_data, interaction_file_data
+    def interactionDataForPlot(self, pFilePath, pInternalIdentifierTriplet):
+
+        # header, interaction_data, p_value_data, #_interaction_file_data_raw#, genomic_coordinates = self.readInteractionFile(pInteractionFile)
+        # matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
+        interaction_data, interaction_file_data = self.readInteractionFile(pFilePath, pInternalIdentifierTriplet)
+
+        #             _line = line.strip().split('\t')
+        #             # relative postion and relative interactions
+        #             interaction_data[int(_line[-5])] = float(_line[-4])
+        #             p_score[int(_line[-5])] = float(_line[-3])
+        #             interaction_file_data[int(_line[-5])] = _line
+        #             genomic_coordinates[int(_line[-5])] = [_line[0], _line[1], _line[2]]
+        
+        # arrays_to_retrieve = ['relative_position_list', 'interaction_data_list', 'pvalue', 'raw', 'xfold']
+        interaction_data = {}
+        p_score = {}
+        # interaction_file_data = {}
+        genomic_coordinates = {}
+
+        for key, value in interaction_file_data.iteritems():
+            interaction_data[key] = value[5]
+            p_score[key] = value[6]
+            genomic_coordinates[key] = value[:3]
+
+        
+
 
     def readBackgroundDataFile(self, pBedFile, pRange, pFixateRange, pMean=False):
         '''
@@ -556,8 +582,12 @@ class Viewpoint():
         return region_start, region_end, _range
 
     def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel, pResolution):
-        header, interaction_data, p_value_data, _interaction_file_data_raw, genomic_coordinates = self.readInteractionFile(pInteractionFile)
-        matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
+        # header, interaction_data, p_value_data, _interaction_file_data_raw, genomic_coordinates = self.readInteractionFile(pInteractionFile)
+        # matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
+
+        data = pViewpointObj.readInteractionFile(pFilePath, sample)
+
+        
 
         data = []
         p_value = []
