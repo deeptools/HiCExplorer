@@ -142,6 +142,9 @@ class Viewpoint():
         chromosome = interactionFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8") 
         gene = interactionFileHDF5Object.get( internal_path + '/' + 'gene')[()].decode("utf-8") 
         sum_of_interactions = interactionFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()]
+        reference_point_start = interactionFileHDF5Object.get( internal_path + '/' + 'reference_point_start')[()]
+        reference_point_end = interactionFileHDF5Object.get( internal_path + '/' + 'reference_point_end')[()]
+
 
         # log.debug('chromosomes: {}'.format(chromosome))
 
@@ -155,7 +158,7 @@ class Viewpoint():
         # log.debug('interaction_data {}'.format(interaction_data[0]))
         # log.debug('interaction_file_data {}'.format(interaction_file_data[0]))
 
-        return interaction_data, interaction_file_data
+        return interaction_data, interaction_file_data, [reference_point_start, reference_point_end]
 
         # -5: relative position relative_position_list
         # -4: relative interaction: interaction_data_list
@@ -189,7 +192,7 @@ class Viewpoint():
 
         # header, interaction_data, p_value_data, #_interaction_file_data_raw#, genomic_coordinates = self.readInteractionFile(pInteractionFile)
         # matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
-        interaction_data, interaction_file_data = self.readInteractionFile(pFilePath, pInternalIdentifierTriplet)
+        interaction_data, interaction_file_data, reference_point = self.readInteractionFile(pFilePath, pInternalIdentifierTriplet)
 
         #             _line = line.strip().split('\t')
         #             # relative postion and relative interactions
@@ -204,12 +207,12 @@ class Viewpoint():
         # interaction_file_data = {}
         genomic_coordinates = {}
 
-        for key, value in interaction_file_data.iteritems():
-            interaction_data[key] = value[5]
-            p_score[key] = value[6]
+        for key, value in interaction_file_data.items():
+            interaction_data[key] = value[6]
+            p_score[key] = value[7]
             genomic_coordinates[key] = value[:3]
 
-        
+        return interaction_data, p_score, genomic_coordinates, reference_point
 
 
     def readBackgroundDataFile(self, pBedFile, pRange, pFixateRange, pMean=False):
@@ -270,7 +273,7 @@ class Viewpoint():
                                 interaction[2], interaction[3], interaction[4], interaction[5], interaction[6], pPValueData[j], pXfold[j], interaction[7], decimal_places=pDecimalPlaces))
         return
 
-    def writeInteractionFileHDF5(self, pInteractionFileGroupH5Object, pFileName, pData):
+    def writeInteractionFileHDF5(self, pInteractionFileGroupH5Object, pFileName, pData, pReferencePoint):
         '''
         Writes an interaction file for one viewpoint and one sample as a tab delimited file with one interaction per line.
         Header contains information about the interaction:
@@ -289,25 +292,29 @@ class Viewpoint():
         # groupObject.create_dataset("chromosome", data=pData[0].decode("utf-8"))
         groupObject["chromosome"]=str(pData[0])
 
-        # groupObject.create_dataset("start_list", data=pData[1], compression="gzip", compression_opts=9)
-        # groupObject.create_dataset("end_list", data=pData[2], compression="gzip", compression_opts=9)
-        # groupObject.create_dataset("gene", data=pData[3])
-        # groupObject.create_dataset("sum_of_interactions", data=pData[4])
-        # groupObject.create_dataset("relative_position_list", data=pData[5], compression="gzip", compression_opts=9)
-        # groupObject.create_dataset("interaction_data_list", data=pData[6], compression="gzip", compression_opts=9)
-        # groupObject.create_dataset("pvalue", data=pData[7], compression="gzip", compression_opts=9)
-        # groupObject.create_dataset("xfold", data=pData[8], compression="gzip", compression_opts=9)
-        # groupObject.create_dataset("raw", data=pData[9], compression="gzip", compression_opts=9)
-
-        groupObject.create_dataset("start_list", data=pData[1])
-        groupObject.create_dataset("end_list", data=pData[2])
+        groupObject.create_dataset("start_list", data=pData[1], compression="gzip", compression_opts=9)
+        groupObject.create_dataset("end_list", data=pData[2], compression="gzip", compression_opts=9)
         groupObject.create_dataset("gene", data=pData[3])
         groupObject.create_dataset("sum_of_interactions", data=pData[4])
-        groupObject.create_dataset("relative_position_list", data=pData[5])
-        groupObject.create_dataset("interaction_data_list", data=pData[6])
-        groupObject.create_dataset("pvalue", data=pData[7])
-        groupObject.create_dataset("xfold", data=pData[8])
-        groupObject.create_dataset("raw", data=pData[9])
+        groupObject.create_dataset("relative_position_list", data=pData[5], compression="gzip", compression_opts=9)
+        groupObject.create_dataset("interaction_data_list", data=pData[6], compression="gzip", compression_opts=9)
+        groupObject.create_dataset("pvalue", data=pData[7], compression="gzip", compression_opts=9)
+        groupObject.create_dataset("xfold", data=pData[8], compression="gzip", compression_opts=9)
+        groupObject.create_dataset("raw", data=pData[9], compression="gzip", compression_opts=9)
+
+        # groupObject.create_dataset("start_list", data=pData[1])
+        # groupObject.create_dataset("end_list", data=pData[2])
+        # groupObject.create_dataset("gene", data=pData[3])
+        # groupObject.create_dataset("sum_of_interactions", data=pData[4])
+        # groupObject.create_dataset("relative_position_list", data=pData[5])
+        # groupObject.create_dataset("interaction_data_list", data=pData[6])
+        # groupObject.create_dataset("pvalue", data=pData[7])
+        # groupObject.create_dataset("xfold", data=pData[8])
+        # groupObject.create_dataset("raw", data=pData[9])
+
+        groupObject.create_dataset("reference_point_start", data=int(pReferencePoint[1]))
+        groupObject.create_dataset("reference_point_end", data=int(pReferencePoint[2]))
+
 
         # with open((pBedFile + '.txt').strip(), 'w') as fh:
         #     fh.write('{}\n'.format(pHeader))
@@ -581,12 +588,12 @@ class Viewpoint():
             _range[1] = (max_length - int(pViewpoint[2])) + bin_size
         return region_start, region_end, _range
 
-    def getDataForPlotting(self, pInteractionFile, pRange, pBackgroundModel, pResolution):
+    def getDataForPlotting(self, pFilePath, pInteractionFile, pRange, pBackgroundModel, pResolution):
         # header, interaction_data, p_value_data, _interaction_file_data_raw, genomic_coordinates = self.readInteractionFile(pInteractionFile)
         # matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
 
-        data = pViewpointObj.readInteractionFile(pFilePath, sample)
-
+        # data = pViewpointObj.readInteractionFile(pFilePath, sample)
+        interaction_data, p_value_data, genomic_coordinates, viewpoint =  self.interactionDataForPlot(pFilePath, pInteractionFile)
         
 
         data = []
@@ -706,7 +713,7 @@ class Viewpoint():
                 viewpoint_index_end = viewpoint_index_start
             else:
                 viewpoint_index_end += viewpoint_index_start
-        return header, data, data_background, p_value, viewpoint_index_start, viewpoint_index_end
+        return data, data_background, p_value, viewpoint_index_start, viewpoint_index_end, viewpoint
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHighlightSignificantRegion=None):
         data_plot_label = pAxis.plot(
@@ -812,7 +819,7 @@ class Viewpoint():
         # [[start, end], [start, end]]
         highlight_areas_list = []
         # for bed_file in pDifferentialHighlightFiles:
-        _, reference_point_start, reference_point_end = pViewpoint.split('_')
+        reference_point_start, reference_point_end = pViewpoint
 
         with open(pDifferentialHighlightFiles) as fh:
             # skip header
@@ -1011,11 +1018,11 @@ class Viewpoint():
         # [[start, end], [start, end]]
         highlight_areas_list = []
         p_values = []
-        viewpoint_split = pViewpoint.split('_')
-        if len(viewpoint_split) == 3:
-            _, reference_point_start, reference_point_end = viewpoint_split
+        # viewpoint_split = pViewpoint.split('_')
+        if len(pViewpoint) == 2:
+            reference_point_start, reference_point_end = pViewpoint
         else:
-            log.debug('viewpoint_split {}, file: {}'.format(viewpoint_split, pSignificantFile))
+            log.debug('viewpoint_split {}, file: {}'.format(pViewpoint, pSignificantFile))
             return None, None
         with open(pSignificantFile) as fh:
             # skip header

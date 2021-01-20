@@ -227,7 +227,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
         log.debug('Error! {}'.format(str(exp)))
         pQueue.put('Fail: ' + str(exp))
         return
-    pQueue.put([interaction_data_list])
+    pQueue.put(interaction_data_list)
     return
 
 
@@ -322,7 +322,7 @@ def main(args=None):
                     if 'Fail:' in file_list_:
                         fail_flag = True
                         fail_message = file_list_[6:]
-                    file_list_sample[i], interaction_data_list_sample[i] = file_list_
+                    interaction_data_list_sample[i] = file_list_
                     process[i].join()
                     process[i].terminate()
                     process[i] = None
@@ -347,12 +347,12 @@ def main(args=None):
         matrixGroup = interactionFileH5Object.create_group(matrix.split('.')[0])
         geneGroup = matrixGroup.create_group('genes')
 
-        for interaction_data in matrix_collection[matrix]:
+        for i, interaction_data in enumerate(matrix_collection[matrix]):
             if interaction_data[1][0] not in matrixGroup:
                 chromosomeObject = matrixGroup.create_group(interaction_data[1][0])
 
             group_name = viewpointObj.writeInteractionFileHDF5(
-                    chromosomeObject, interaction_data[1][3], interaction_data[1], )
+                    chromosomeObject, interaction_data[1][3], interaction_data[1], referencePoints[i])
 
             try:
                 geneGroup[group_name] = chromosomeObject[group_name]

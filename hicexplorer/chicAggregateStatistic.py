@@ -290,7 +290,7 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
                 #     absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
                 # else:
                 #     absolute_sample_path = sample
-                interaction_data, interaction_file_data = pViewpointObj.readInteractionFile(pArgs.interactionFile, sample)
+                interaction_data, interaction_file_data, _ = pViewpointObj.readInteractionFile(pArgs.interactionFile, sample)
                 # log.debug('len(pTargetList) {}'.format(len(pTargetList)))
                 if pOneTarget == True:
                     target_file = None

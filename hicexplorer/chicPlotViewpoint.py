@@ -5,6 +5,8 @@ import errno
 import math
 from multiprocessing import Process, Queue
 import time
+import traceback
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -18,6 +20,8 @@ import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
 from hicexplorer._version import __version__
 from .lib import Viewpoint
+
+import h5py
 
 
 def parse_arguments(args=None):
@@ -41,8 +45,7 @@ In batch mode the list of file names and the folders containing the files need t
 
     parserRequired.add_argument('--interactionFile', '-if',
                                 help='path to the interaction files which should be used for plotting',
-                                required=True,
-                                nargs='+')
+                                required=True)
 
     parserRequired.add_argument('--range',
                                 help='Defines the region upstream and downstream of a reference point which should be included. '
@@ -220,17 +223,17 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 # else:
                 #     absolute_path_interactionFile_ = interactionFile_
 
-                header, data, background_data_plot, p_values, viewpoint_index_start, viewpoint_index_end = pViewpointObj.getDataForPlotting(interactionFile_, pArgs.range, pBackgroundData, pResolution)
+                data, background_data_plot, p_values, viewpoint_index_start, viewpoint_index_end, viewpoint = pViewpointObj.getDataForPlotting(pArgs.interactionFile, interactionFile_, pArgs.range, pBackgroundData, pResolution)
                 # log.debug('data {}'.format(data))
                 if len(data) <= 1 or len(p_values) <= 1:
                     log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
                     continue
-                matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
-                log.debug('Matrix_name {}'.format(matrix_name))
-                matrix_name = os.path.basename(matrix_name)
+                # matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
+                # log.debug('Matrix_name {}'.format(matrix_name))
+                # matrix_name = os.path.basename(matrix_name)
 
-                matrix_name = matrix_name.split('.')[0]
-                log.debug('matrix_name {}'.format(matrix_name))
+                # matrix_name = matrix_name.split('.')[0]
+                # log.debug('matrix_name {}'.format(matrix_name))
                 # number_of_data_points = len(data)
                 highlight_differential_regions = None
                 significant_p_values = None
@@ -251,9 +254,9 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 if not pArgs.plotSignificantInteractions:
                     significant_regions = None
                 if data_plot_label:
-                    data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
+                    data_plot_label += pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=':'.join(interactionFile_), pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
                 else:
-                    data_plot_label = pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=gene + ': ' + matrix_name, pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
+                    data_plot_label = pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=':'.join(interactionFile_), pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
 
                 if background_plot:
                     # log.debug('background_data_plot {}'.format(len(background_data_plot)))
@@ -276,7 +279,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
 
                 if pArgs.pValue:
                     pViewpointObj.plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
-                                             pLabelText=gene + ': ' + matrix_name, pCmap=pArgs.colorMapPvalue,
+                                             pLabelText=':'.join(interactionFile_), pCmap=pArgs.colorMapPvalue,
                                              pFigure=fig, pValueSignificanceLevels=pArgs.pValueSignificanceLevels)
 
             if data_plot_label is not None:
@@ -346,10 +349,10 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
 
                 # if pArgs.outputFormat != outFileName.split('.')[-1]:
                 #     outFileName = outFileName + '.' + pArgs.outputFormat
-                # plt.savefig(outFileName, dpi=pArgs.dpi)
+                plt.savefig('_'.join(interactionFile[0]) + '_'.join(interactionFile[1]) +'.png', dpi=300)
             plt.close(fig)
     except Exception as exp:
-        pQueue.put('Fail: ' + str(exp))
+        pQueue.put('Fail: ' + str(exp)+ traceback.format_exc())
         return
     if pQueue is None:
         return
@@ -362,12 +365,12 @@ def main(args=None):
     viewpointObj = Viewpoint()
     background_data = None
 
-    if not os.path.exists(args.outputFolder):
-        try:
-            os.makedirs(args.outputFolder)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
+    # if not os.path.exists(args.outputFolder):
+    #     try:
+    #         os.makedirs(args.outputFolder)
+    #     except OSError as exc:  # Guard against race condition
+    #         if exc.errno != errno.EEXIST:
+    #             raise
     if args.pValueSignificanceLevels:
         old = -100
         for element in args.pValueSignificanceLevels:
