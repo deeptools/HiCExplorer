@@ -15,6 +15,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
@@ -94,13 +95,13 @@ In batch mode the list of file names and the folders containing the files need t
     #                        ' (Default: %(default)s).',
     #                        required=False,
     #                        default='png')
-    # parserOpt.add_argument('--dpi',
-    #                        help='Optional parameter: Resolution for the image, if'
-    #                        'output is a raster graphics image (e.g png, jpg)'
-    #                        ' (Default: %(default)s).',
-    #                        type=int,
-    #                        default=300,
-    #                        required=False)
+    parserOpt.add_argument('--dpi',
+                           help='Optional parameter: Resolution for the image, if'
+                           'output is a raster graphics image (e.g png, jpg)'
+                           ' (Default: %(default)s).',
+                           type=int,
+                           default=300,
+                           required=False)
     # parserOpt.add_argument('--binResolution', '-r',
     #                        help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution'
     #                        ' (Default: %(default)s).',
@@ -193,12 +194,13 @@ In batch mode the list of file names and the folders containing the files need t
 
 
 def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBackgroundData, pArgs, pViewpointObj, pSignificantRegionsFileList, pResolution, pQueue=None):
+    images_array = []
     try:
         for j, interactionFile in enumerate(pInteractionFileList):
             number_of_rows_plot = len(interactionFile)
             matplotlib.rcParams.update({'font.size': 9})
-            fig = plt.figure(figsize=(9.4, 4.8))
-
+            fig = plt.figure(figsize=(9.4, 4.8), dpi=pArgs.dpi)
+            canvas = FigureCanvas(fig)
             z_score_heights = [0.07] * number_of_rows_plot
             viewpoint_height_ratio = 0.95 - (0.07 * number_of_rows_plot)
             if viewpoint_height_ratio < 0.4:
@@ -348,15 +350,20 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 #         outFileName = pArgs.outputFolder + '/' + outFileName
 
                 # if pArgs.outputFormat != outFileName.split('.')[-1]:
-                #     outFileName = outFileName + '.' + pArgs.outputFormat
-                plt.savefig('_'.join(interactionFile[0]) + '_'.join(interactionFile[1]) +'.png', dpi=300)
+                #     outFileName = outFileName + '.' + pArgs.outputFormat  
+                # plt.savefig('_'.join(interactionFile[0]) + '_'.join(interactionFile[1]) +'.png', dpi=300)
+                canvas.draw()
+                # width, height = fig.get_size_inches() * fig.get_dpi()
+                image = canvas.buffer_rgba()
+                images_array.append(np.asarray(image))
+                # log.debug('image {}'.format(image))
             plt.close(fig)
     except Exception as exp:
         pQueue.put('Fail: ' + str(exp)+ traceback.format_exc())
         return
     if pQueue is None:
         return
-    pQueue.put('done')
+    pQueue.put(images_array)
     return
 
 
@@ -519,6 +526,7 @@ def main(args=None):
     highlightSignificantRegionsFileListThread = len(highlightSignificantRegionsFileList) // args.threads
 
     all_data_collected = False
+    images_array = [None] * args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
     thread_done = [False] * args.threads
@@ -557,6 +565,8 @@ def main(args=None):
                 if 'Fail:' in return_content:
                     fail_flag = True
                     fail_message = return_content[6:]
+                else:
+                    images_array[i] = return_content
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -570,6 +580,35 @@ def main(args=None):
     if fail_flag:
         log.error(fail_message)
         exit(1)
+
+    images_array = [item for sublist in images_array for item in sublist]
+    
+
+    # outFileName
+    plotsFileH5Object = h5py.File(args.outFileName, 'w')
+
+    for i, element in enumerate(interactionFileList):
+        # log.debug('element: {}'.format(element))
+        write_obj = plotsFileH5Object
+        for matrix in element:
+            if matrix[0] not in write_obj:
+                write_obj = write_obj.create_group(matrix[0])
+            else:
+                write_obj = write_obj[matrix[0]]
+        
+        if element[0][1] not in write_obj:
+            write_obj = write_obj.create_group(element[0][1])
+        else:
+            write_obj = write_obj[element[0][1]]
+        
+        if element[0][2] not in write_obj:
+            write_obj = write_obj.create_group(element[0][2])
+        else:
+            write_obj = write_obj[element[0][2]]
+        
+        write_obj.create_dataset('image_raw', data=images_array[i], compression="gzip", compression_opts=9)
+
+    plotsFileH5Object.close()
     # else:
     #     interactionFileList = [args.interactionFile]
     #     highlightDifferentialRegionsFileList = args.differentialTestResult
