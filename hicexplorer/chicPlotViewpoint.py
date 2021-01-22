@@ -23,7 +23,9 @@ from hicexplorer._version import __version__
 from .lib import Viewpoint
 
 import h5py
-
+import io
+import tarfile
+from contextlib import closing
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
@@ -86,15 +88,15 @@ In batch mode the list of file names and the folders containing the files need t
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--outFileName', '-o',
-                           help='Output folder of the files'
+                           help='Output tar.gz of the files'
                            ' (Default: %(default)s).',
                            required=False,
-                           default='plots.hdf5')
-    # parserOpt.add_argument('--outputFormat', '-format',
-    #                        help='Output format of the plot'
-    #                        ' (Default: %(default)s).',
-    #                        required=False,
-    #                        default='png')
+                           default='plots.tar.gz')
+    parserOpt.add_argument('--outputFormat', '-format',
+                           help='Output format of the plot'
+                           ' (Default: %(default)s).',
+                           required=False,
+                           default='png')
     parserOpt.add_argument('--dpi',
                            help='Optional parameter: Resolution for the image, if'
                            'output is a raster graphics image (e.g png, jpg)'
@@ -195,7 +197,9 @@ In batch mode the list of file names and the folders containing the files need t
 
 def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBackgroundData, pArgs, pViewpointObj, pSignificantRegionsFileList, pResolution, pQueue=None):
     images_array = []
+    file_name_list = []
     try:
+
         for j, interactionFile in enumerate(pInteractionFileList):
             number_of_rows_plot = len(interactionFile)
             matplotlib.rcParams.update({'font.size': 9})
@@ -219,12 +223,14 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             background_plot = True
             data_plot_label = None
             gene = ''
+            file_name = []
             for i, interactionFile_ in enumerate(interactionFile):
                 # if pArgs.interactionFileFolder != '.':
                 #     absolute_path_interactionFile_ = pArgs.interactionFileFolder + '/' + interactionFile_
                 # else:
                 #     absolute_path_interactionFile_ = interactionFile_
-
+                file_name.append(interactionFile_[0])
+                # log.debug('interactionFile_ {}'.format(interactionFile_))
                 data, background_data_plot, p_values, viewpoint_index_start, viewpoint_index_end, viewpoint = pViewpointObj.getDataForPlotting(pArgs.interactionFile, interactionFile_, pArgs.range, pBackgroundData, pResolution)
                 # log.debug('data {}'.format(data))
                 if len(data) <= 1 or len(p_values) <= 1:
@@ -301,7 +307,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                         mod_legend = 5e4
                     elif pArgs.range[0] + pArgs.range[1] <= 5e5:
                         mod_legend = 1e5
-                    log.debug('divisor_legend {}'.format(divisor_legend))
+                    # log.debug('divisor_legend {}'.format(divisor_legend))
 
                     unit = 'kb'
                 elif pArgs.range[0] + pArgs.range[1] > 2e6:
@@ -351,19 +357,28 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
 
                 # if pArgs.outputFormat != outFileName.split('.')[-1]:
                 #     outFileName = outFileName + '.' + pArgs.outputFormat  
-                # plt.savefig('_'.join(interactionFile[0]) + '_'.join(interactionFile[1]) +'.png', dpi=300)
-                canvas.draw()
+
+                
+                    # tar.add(source_dir, arcname=os.path.basename(source_dir))
+
+                bufferObject = io.BytesIO()
+                # plt.savefig(buf, format = 'png')
+                plt.savefig(bufferObject, format=pArgs.outputFormat, dpi=300)
+                images_array.append(bufferObject)
+                # canvas.draw()
                 # width, height = fig.get_size_inches() * fig.get_dpi()
-                image = canvas.buffer_rgba()
-                images_array.append(np.asarray(image))
+                # image = canvas.buffer_rgba()
+                # images_array.append(np.asarray(image))
                 # log.debug('image {}'.format(image))
             plt.close(fig)
+            file_name.append(interactionFile[0][2])
+            file_name_list.append('_'.join(file_name))
     except Exception as exp:
         pQueue.put('Fail: ' + str(exp)+ traceback.format_exc())
         return
     if pQueue is None:
         return
-    pQueue.put(images_array)
+    pQueue.put([images_array,file_name_list])
     return
 
 
@@ -527,6 +542,7 @@ def main(args=None):
 
     all_data_collected = False
     images_array = [None] * args.threads
+    file_name_list = [None] * args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
     thread_done = [False] * args.threads
@@ -544,6 +560,7 @@ def main(args=None):
             highlightDifferentialRegionsFileListThread = highlightDifferentialRegionsFileList[i * interactionFilesPerThread:]
             highlightSignificantRegionsFileListThread = highlightSignificantRegionsFileList[i * interactionFilesPerThread:]
         queue[i] = Queue()
+
         process[i] = Process(target=plot_images, kwargs=dict(
             pInteractionFileList=interactionFileListThread,
             pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileListThread,
@@ -566,7 +583,7 @@ def main(args=None):
                     fail_flag = True
                     fail_message = return_content[6:]
                 else:
-                    images_array[i] = return_content
+                    images_array[i], file_name_list[i] = return_content
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -582,33 +599,58 @@ def main(args=None):
         exit(1)
 
     images_array = [item for sublist in images_array for item in sublist]
+    file_name_list = [item for sublist in file_name_list for item in sublist]
     
+    with tarfile.open(args.outFileName, "w:gz") as tar:
+        for i, bufferObject in enumerate(images_array):
+            with closing(bufferObject) as fobj:
+                # tarinfo = tarfile.TarInfo(filename)
+                # tarinfo.size = len(fobj.getvalue())
+                # tarinfo.mtime = time.time()
+                # tf.addfile(tarinfo, fileobj=fobj)
 
+                # bufferObject.seek(0)
+                # data = bufferObject.read()
+                # bufferObject.close()
+
+                tar_info = tarfile.TarInfo(name=file_name_list[i] + '.' + args.outputFormat)
+                tar_info.mtime=time.time()
+                tar_info.size=len(fobj.getvalue())
+                fobj.seek(0)
+                tar.addfile(tarinfo=tar_info, fileobj=fobj)
+                # tar.add(fobj)
+            # f = open(file_name_list[i] + args.outputFormat, 'wb')
+            # f.write(data)
+            # f.close()
+
+       
+    # for name in ["foo", "bar", "quux"]:
+    #     tar.add(name)
     # outFileName
-    plotsFileH5Object = h5py.File(args.outFileName, 'w')
+    # plotsFileH5Object = h5py.File(args.outFileName, 'w')
 
-    for i, element in enumerate(interactionFileList):
-        # log.debug('element: {}'.format(element))
-        write_obj = plotsFileH5Object
-        for matrix in element:
-            if matrix[0] not in write_obj:
-                write_obj = write_obj.create_group(matrix[0])
-            else:
-                write_obj = write_obj[matrix[0]]
+    # for i, element in enumerate(interactionFileList):
+    #     # log.debug('element: {}'.format(element))
+    #     write_obj = plotsFileH5Object
+    #     for matrix in element:
+    #         if matrix[0] not in write_obj:
+    #             write_obj = write_obj.create_group(matrix[0])
+    #         else:
+    #             write_obj = write_obj[matrix[0]]
         
-        if element[0][1] not in write_obj:
-            write_obj = write_obj.create_group(element[0][1])
-        else:
-            write_obj = write_obj[element[0][1]]
+    #     if element[0][1] not in write_obj:
+    #         write_obj = write_obj.create_group(element[0][1])
+    #     else:
+    #         write_obj = write_obj[element[0][1]]
         
-        if element[0][2] not in write_obj:
-            write_obj = write_obj.create_group(element[0][2])
-        else:
-            write_obj = write_obj[element[0][2]]
+    #     if element[0][2] not in write_obj:
+    #         write_obj = write_obj.create_group(element[0][2])
+    #     else:
+    #         write_obj = write_obj[element[0][2]]
         
-        write_obj.create_dataset('image_raw', data=images_array[i], compression="gzip", compression_opts=9)
+    #     write_obj.create_dataset('image_raw', data=images_array[i], compression="gzip", compression_opts=9)
 
-    plotsFileH5Object.close()
+    # plotsFileH5Object.close()
     # else:
     #     interactionFileList = [args.interactionFile]
     #     highlightDifferentialRegionsFileList = args.differentialTestResult
