@@ -123,6 +123,7 @@ class Viewpoint():
         data = []
 
         if internal_path not in interactionFileHDF5Object: 
+            log.debug('internal path not found: {}'.format(internal_path))
             return {}, {} , []
         if list(interactionFileHDF5Object[internal_path].keys()) == 0:
             log.debug('interactionFileHDF5Object[internal_path] {}'.format(interactionFileHDF5Object[internal_path]))
@@ -149,10 +150,19 @@ class Viewpoint():
 
         if internal_path + '/' + 'chromosome' in interactionFileHDF5Object:
             chromosome = interactionFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8") 
+        else:
+            log.debug('internal path not found: {}'.format(internal_path + '/' + 'chromosome'))
+
         if internal_path + '/' + 'gene' in interactionFileHDF5Object:
             gene = interactionFileHDF5Object.get( internal_path + '/' + 'gene')[()].decode("utf-8") 
+        else:
+            log.debug('internal path not found: {}'.format(internal_path + '/' + 'gene'))
+
         if internal_path + '/' + 'sum_of_interactions' in interactionFileHDF5Object:
             sum_of_interactions = interactionFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()]
+        else:
+            log.debug('internal path not found: {}'.format(internal_path + '/' + 'sum_of_interactions'))
+
 
         reference_point_start = None
         reference_point_end = None
@@ -841,44 +851,39 @@ class Viewpoint():
         if pDifferentialHighlightTriplet is None or len(pDifferentialHighlightTriplet) == 0:
             return None
 
-        
-        interaction_data, interaction_file_data, _ = self.readInteractionFile(pFilePath, pDifferentialHighlightTriplet)
-       
-        if len(interaction_data) == 0:
+        differentialFileHDF5Object = h5py.File(pFilePath, 'r')
+        # arrays_to_retrieve = ['relative_position_list', 'interaction_data_list', 'pvalue', 'raw', 'xfold']
+        internal_path = '/'.join(pDifferentialHighlightTriplet)
+        data = []
+
+        if internal_path not in differentialFileHDF5Object: 
+            log.debug('internal path not found: {}'.format(internal_path))
             return None
-        # if internal_path not in interactionFileHDF5Object: 
-        #     return {}, {} , []
-        # for array_name in arrays_to_retrieve:
-        #     try:
-        #         data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
-                # log.debug('datatype of {} {} '.format(array_name, data[-1].dtype))
+        if list(differentialFileHDF5Object[internal_path].keys()) == 0:
+            log.debug('differentialFileHDF5Object[internal_path] {}'.format(differentialFileHDF5Object[internal_path]))
+            return None
 
-
-
-
-
-
-
+        try:
+            start_list = np.array(differentialFileHDF5Object[internal_path + '/' + 'start_list'][:])
+            end_list = np.array(differentialFileHDF5Object[internal_path + '/' + 'end_list'][:])
+            relative_distance_list = np.array(differentialFileHDF5Object[internal_path + '/' + 'relative_distance_list'][:])
+        except Exception:
+            return None
+        if len(start_list) == 0:
+            return None
+       
         highlight_areas_list = []
         # for bed_file in pDifferentialHighlightFiles:
         reference_point_start, reference_point_end = pViewpoint
 
+        for start, end, relative_distance in zip(start_list, end_list, relative_distance_list):
+            # start = int(_line[1])
+            # end = int(_line[2])
 
-
-        # with open(pDifferentialHighlightFiles) as fh:
-        #     # skip header
-        #     for line in fh.readlines():
-        #         if line.startswith('#'):
-        #             continue
-        #         _line = line.split('\t')
-        for _line in interaction_file_data:
-            start = int(_line[1])
-            end = int(_line[2])
-
-            if int(_line[4]) >= -pRange[0] and int(_line[4]) <= pRange[1]:
+            if int(relative_distance) >= -pRange[0] and int(relative_distance) <= pRange[1]:
 
                 width = (end - start) / pResolution
-                if int(_line[4]) < 0:
+                if int(relative_distance) < 0:
                     # reference_point_position = reference_point_start
                     relative_position_genomic_coordinates = start - int(reference_point_start)
                     viewpointIndex = pViewpointIndexStart
@@ -900,6 +905,7 @@ class Viewpoint():
                     [relative_position, relative_position + width])
         if len(highlight_areas_list) == 0:
             return None
+        log.debug('highlight_areas_list {}'.format(highlight_areas_list))
         return highlight_areas_list
 
     def pvalues(self, pBackgroundModel, pDataList, pIndexReferencePoint):
@@ -1078,7 +1084,7 @@ class Viewpoint():
             # if line.startswith('#'):
             #     continue
             # _line = line.split('\t')
-
+            log.debug(_line)
             start = int(_line[1])
             end = int(_line[2])
 
@@ -1099,9 +1105,9 @@ class Viewpoint():
                     [relative_position, relative_position + width])
                 p_values.append([int(relative_position), int(relative_position + width), float(_line[-3])])
 
-        # log.debug('highlight_areas_list {}'.format(highlight_areas_list))
         if len(highlight_areas_list) == 0:
             return None, None
+        log.debug('highlight_areas_list {}'.format(highlight_areas_list))
         
         
         return highlight_areas_list, p_values

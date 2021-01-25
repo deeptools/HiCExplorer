@@ -293,7 +293,7 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
             chromosome = None
             start_list = []
             end_list = []
-            gene_name = None
+            # gene_name = None
             sum_of_interactions_1 = None
             sum_of_interactions_2 = None
 
@@ -313,7 +313,10 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
                 chromosome = data[0][0]
                 start_list.append(data[0][1])
                 end_list.append(data[0][2])
-                gene_name = data[0][3]
+                # gene_name = data[0][3]
+                log.debug('gene_name {}'.format(gene_name))
+                log.debug('data {}'.format(data))
+
                 relative_distance_list.append(data[0][5])
 
 
@@ -329,7 +332,7 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
             write_object["chromosome"] = str(chromosome)
             write_object.create_dataset("start_list", data=start_list, compression="gzip", compression_opts=9)
             write_object.create_dataset("end_list", data=end_list, compression="gzip", compression_opts=9)
-            write_object["gene_name"] = str(gene_name)
+            write_object["gene"] = str(gene_name)
             write_object.create_dataset("relative_distance_list", data=relative_distance_list, compression="gzip", compression_opts=9)
             
             # write_object.create_dataset("sum_of_interactions_1", data=sum_of_interactions_1)
