@@ -247,18 +247,20 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 significant_p_values = None
                 significant_regions = None
                 if pArgs.differentialTestResult:
-                    if pArgs.differentialTestResultsFolder != '.':
-                        differentialFilePath = pArgs.differentialTestResultsFolder + '/' + pHighlightDifferentialRegionsFileList[j]
-                    else:
-                        differentialFilePath = pHighlightDifferentialRegionsFileList[j]
+                    # if pArgs.differentialTestResultsFolder != '.':
+                    #     differentialFilePath = pArgs.differentialTestResultsFolder + '/' + pHighlightDifferentialRegionsFileList[j]
+                    # else:
+                    #     differentialFilePath = pHighlightDifferentialRegionsFileList[j]
 
-                    highlight_differential_regions = pViewpointObj.readRejectedFile(differentialFilePath, viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
+                    highlight_differential_regions = pViewpointObj.readRejectedFile(pArgs.differentialTestResult, pHighlightDifferentialRegionsFileList[j], viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
                 if pArgs.significantInteractions:
-                    if pArgs.significantInteractionFileFolder != '.':
-                        significantInteractionsFilePath = pArgs.significantInteractionFileFolder + '/' + pSignificantRegionsFileList[j][i]
-                    else:
-                        significantInteractionsFilePath = pSignificantRegionsFileList[j][i]
-                    significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(significantInteractionsFilePath, viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
+                    # if pArgs.significantInteractionFileFolder != '.':
+                    #     significantInteractionsFilePath = pArgs.significantInteractionFileFolder + '/' + pSignificantRegionsFileList[j][i]
+                    # else:
+                    #     significantInteractionsFilePath = pSignificantRegionsFileList[j][i]
+                    
+                    significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(pArgs.significantInteractions, pSignificantRegionsFileList[j][i], viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
+                    # significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(significantInteractionsFilePath, viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
                 if not pArgs.plotSignificantInteractions:
                     significant_regions = None
                 if data_plot_label:
@@ -416,6 +418,11 @@ def main(args=None):
     keys_interactionFile = list(interactionFileHDF5Object.keys()) 
     resolution = interactionFileHDF5Object.attrs['resolution'][()]
 
+    if args.differentialTestResult and args.combinationMode != 'dual':
+        log.warning('Cannot use differential data, only possible for two samples in one plot.')
+        exit(1)
+           
+
     if args.combinationMode == 'dual':
         if len(keys_interactionFile) > 1:
             for i, sample in enumerate(keys_interactionFile):
@@ -439,6 +446,35 @@ def main(args=None):
                     #     writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
                     #     writeFileNamesToList.append(viewpoint2.encode("ascii", "ignore"))
             # log.debug(interactionList)
+            if args.differentialTestResult:
+                
+                differentialFileHDF5Object = h5py.File(args.differentialTestResult, 'r')
+                keys_significantFile = list(differentialFileHDF5Object.keys()) 
+                for plotGroup in interactionFileList:
+                    differential_group = []
+                    # log.debug(plotGroup)
+                    # for item in plotGroup:
+                        # log.debug(item)
+                    if plotGroup[0][0] in keys_significantFile:
+                        matrix_object = differentialFileHDF5Object[plotGroup[0][0]]
+                        if plotGroup[1][0] in matrix_object:
+
+                            matrix1_object = matrix_object[plotGroup[1][0]]
+                            if plotGroup[1][1] in matrix1_object:
+                                chromosome_object = matrix1_object[plotGroup[1][1]]
+                        
+                                if plotGroup[1][2] in chromosome_object:
+                                    differential_group = [plotGroup[0][0], plotGroup[1][0], plotGroup[1][1], plotGroup[1][2], 'rejected']
+                    log.debug('differential_group {}'.format(differential_group))
+                    highlightDifferentialRegionsFileList.append(differential_group)
+
+                # with open(args.differentialTestResult[0], 'r') as differentialTestFile:
+
+                #     file_ = True
+                #     while file_:
+                #         file_ = differentialTestFile.readline().strip()
+                #         if file_ != '':
+                #             highlightDifferentialRegionsFileList.append(file_)
         else:
             log.error('Dual mode selected but only one matrix is stored')
     elif args.combinationMode == 'multi':
@@ -512,31 +548,45 @@ def main(args=None):
     #             if file_ != '':
     #                 lines.append(file_)
     #         interactionFileList.append(lines)
-    if args.differentialTestResult:
-
-        if args.differentialTestResult and args.plotSampleNumber != 2:
-            log.warning('Cannot use differential data, only possible for two samples in one plot.')
-            args.differentialTestResult = None
-        else:
-            with open(args.differentialTestResult[0], 'r') as differentialTestFile:
-
-                file_ = True
-                while file_:
-                    file_ = differentialTestFile.readline().strip()
-                    if file_ != '':
-                        highlightDifferentialRegionsFileList.append(file_)
+    
+    # log.debug(interactionFileList[:10])
     if args.significantInteractions:
-        with open(args.significantInteractions[0], 'r') as significantRegionsFile:
+        significantFileHDF5Object = h5py.File(args.interactionFile, 'r')
+        keys_significantFile = list(significantFileHDF5Object.keys()) 
+        for plotGroup in interactionFileList:
+            significant_group = []
+            # log.debug(plotGroup)
+            for item in plotGroup:
+                # log.debug(item)
+                if item[0] in keys_significantFile:
+                    matrix_object = significantFileHDF5Object[item[0]]
+                    if item[1] in matrix_object:
+                        chromosome_object = matrix_object[item[1]]
+                    
+                        if item[2] in chromosome_object:
+                            significant_group.append(item)
+                        else:
+                            log.warning('Requested gene {} to plot significant areas is not available in the given data {}.'.format(item[2], args.significantInteractions))
+                    else:
+                        log.warning('Requested chromosome {} to plot significant areas is not available in the given data {}.'.format(item[1], args.significantInteractions))
 
-            file_ = True
-            while file_:
-                lines = []
-                for i in range(0, args.plotSampleNumber):
-                    file_ = significantRegionsFile.readline().strip()
-                    if file_ != '':
-                        lines.append(file_)
-                if len(lines) > 0:
-                    highlightSignificantRegionsFileList.append(lines)
+                else:
+                    log.warning('Requested matrix {} to plot significant areas is not available in the given data {}.'.format(item[0], args.significantInteractions))
+            highlightSignificantRegionsFileList.append(significant_group)
+        # with open(args.significantInteractions[0], 'r') as significantRegionsFile:
+    # log.debug(highlightSignificantRegionsFileList[:10])
+    # exit(1)
+        #     file_ = True
+        #     while file_:
+        #         lines = []
+        #         for i in range(0, args.plotSampleNumber):
+        #             file_ = significantRegionsFile.readline().strip()
+        #             if file_ != '':
+        #                 lines.append(file_)
+        #         if len(lines) > 0:
+        #             highlightSignificantRegionsFileList.append(lines)
+
+
     interactionFilesPerThread = len(interactionFileList) // args.threads
     highlightSignificantRegionsFileListThread = len(highlightSignificantRegionsFileList) // args.threads
 

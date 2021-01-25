@@ -265,7 +265,7 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
         if matrix1_name not in resultFileH5Object:
             matrix1_object = resultFileH5Object.create_group(matrix1_name)
         else:
-            matrix1_object = resultFileH5Object[resultFileH5Object]
+            matrix1_object = resultFileH5Object[matrix1_name]
         
         if matrix2_name not in matrix1_object:
             matrix2_object = matrix1_object.create_group(matrix2_name)

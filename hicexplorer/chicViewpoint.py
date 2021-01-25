@@ -352,7 +352,7 @@ def main(args=None):
                 chromosomeObject = matrixGroup.create_group(interaction_data[1][0])
 
             group_name = viewpointObj.writeInteractionFileHDF5(
-                    chromosomeObject, interaction_data[1][3], interaction_data[1], referencePoints[i])
+                    chromosomeObject, interaction_data[1][3], interaction_data[1], referencePoints[i][1:])
 
             try:
                 geneGroup[group_name] = chromosomeObject[group_name]

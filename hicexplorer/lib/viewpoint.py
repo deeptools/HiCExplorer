@@ -122,9 +122,16 @@ class Viewpoint():
         internal_path = '/'.join(pInternalIdentifierTriplet)
         data = []
 
+        if internal_path not in interactionFileHDF5Object: 
+            return {}, {} , []
+        if list(interactionFileHDF5Object[internal_path].keys()) == 0:
+            log.debug('interactionFileHDF5Object[internal_path] {}'.format(interactionFileHDF5Object[internal_path]))
+            return {}, {} , []
+
         for array_name in arrays_to_retrieve:
             try:
-                data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
+                if internal_path + '/' + array_name in interactionFileHDF5Object:
+                    data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
                 # log.debug('datatype of {} {} '.format(array_name, data[-1].dtype))
                 # data.append(interactionFileHDF5Object.get( internal_path + '/' + array_name).value)
             except Exception as exp:
@@ -133,17 +140,26 @@ class Viewpoint():
 
         for array_name in ['start_list', 'end_list']:
             try:
-                data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
+                if internal_path + '/' + array_name in interactionFileHDF5Object:
+                    data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
                 # data.append(interactionFileHDF5Object.get( internal_path + '/' + array_name).value)
             except Exception as exp:
                 log.debug( internal_path + '/' + array_name)
                 log.debug(str(exp))
 
-        chromosome = interactionFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8") 
-        gene = interactionFileHDF5Object.get( internal_path + '/' + 'gene')[()].decode("utf-8") 
-        sum_of_interactions = interactionFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()]
-        reference_point_start = interactionFileHDF5Object.get( internal_path + '/' + 'reference_point_start')[()]
-        reference_point_end = interactionFileHDF5Object.get( internal_path + '/' + 'reference_point_end')[()]
+        if internal_path + '/' + 'chromosome' in interactionFileHDF5Object:
+            chromosome = interactionFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8") 
+        if internal_path + '/' + 'gene' in interactionFileHDF5Object:
+            gene = interactionFileHDF5Object.get( internal_path + '/' + 'gene')[()].decode("utf-8") 
+        if internal_path + '/' + 'sum_of_interactions' in interactionFileHDF5Object:
+            sum_of_interactions = interactionFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()]
+
+        reference_point_start = None
+        reference_point_end = None
+        if 'reference_point_start' in interactionFileHDF5Object[internal_path]:
+            reference_point_start = interactionFileHDF5Object.get( internal_path + '/' + 'reference_point_start')[()]
+        if 'reference_point_end' in interactionFileHDF5Object[internal_path]:
+            reference_point_end = interactionFileHDF5Object.get( internal_path + '/' + 'reference_point_end')[()]
 
 
         # log.debug('chromosomes: {}'.format(chromosome))
@@ -151,9 +167,13 @@ class Viewpoint():
         # log.debug(data)
         interaction_data = {}
         interaction_file_data = {}
-        for i in range(len(data[0])):
-            interaction_data[data[0][i]] = list([float(data[1][i]), float(data[2][i]), float(data[3][i]), float(data[4][i])])
-            interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[3][i]) ])
+
+        try:
+            for i in range(len(data[0])):
+                interaction_data[data[0][i]] = list([float(data[1][i]), float(data[2][i]), float(data[3][i]), float(data[4][i])])
+                interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[3][i]) ])
+        except Exception:
+            return {}, {}, []
         # log.debug('153')
         # log.debug('interaction_data {}'.format(interaction_data[0]))
         # log.debug('interaction_file_data {}'.format(interaction_file_data[0]))
@@ -312,8 +332,8 @@ class Viewpoint():
         # groupObject.create_dataset("xfold", data=pData[8])
         # groupObject.create_dataset("raw", data=pData[9])
 
-        groupObject.create_dataset("reference_point_start", data=int(pReferencePoint[1]))
-        groupObject.create_dataset("reference_point_end", data=int(pReferencePoint[2]))
+        groupObject.create_dataset("reference_point_start", data=int(pReferencePoint[0]))
+        groupObject.create_dataset("reference_point_end", data=int(pReferencePoint[1]))
 
 
         # with open((pBedFile + '.txt').strip(), 'w') as fh:
@@ -814,46 +834,70 @@ class Viewpoint():
         _rbz_score[mask] = -1
         return _rbz_score
 
-    def readRejectedFile(self, pDifferentialHighlightFiles, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
+    def readRejectedFile(self, pFilePath, pDifferentialHighlightTriplet, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
+
+        if pDifferentialHighlightTriplet is None or len(pDifferentialHighlightTriplet) == 0:
+            return None
+
+        
+        interaction_data, interaction_file_data, _ = self.readInteractionFile(pFilePath, pDifferentialHighlightTriplet)
+       
+        if len(interaction_data) == 0:
+            return None
+        # if internal_path not in interactionFileHDF5Object: 
+        #     return {}, {} , []
+        # for array_name in arrays_to_retrieve:
+        #     try:
+        #         data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
+                # log.debug('datatype of {} {} '.format(array_name, data[-1].dtype))
+
+
+
+
+
+
+
         highlight_areas_list = []
         # for bed_file in pDifferentialHighlightFiles:
         reference_point_start, reference_point_end = pViewpoint
 
-        with open(pDifferentialHighlightFiles) as fh:
-            # skip header
-            for line in fh.readlines():
-                if line.startswith('#'):
-                    continue
-                _line = line.split('\t')
 
-                start = int(_line[1])
-                end = int(_line[2])
 
-                if int(_line[4]) >= -pRange[0] and int(_line[4]) <= pRange[1]:
+        # with open(pDifferentialHighlightFiles) as fh:
+        #     # skip header
+        #     for line in fh.readlines():
+        #         if line.startswith('#'):
+        #             continue
+        #         _line = line.split('\t')
+        for _line in interaction_file_data:
+            start = int(_line[1])
+            end = int(_line[2])
 
-                    width = (end - start) / pResolution
-                    if int(_line[4]) < 0:
-                        # reference_point_position = reference_point_start
-                        relative_position_genomic_coordinates = start - int(reference_point_start)
-                        viewpointIndex = pViewpointIndexStart
-                    else:
-                        relative_position_genomic_coordinates = start - int(reference_point_end)
-                        viewpointIndex = pViewpointIndexEnd
+            if int(_line[4]) >= -pRange[0] and int(_line[4]) <= pRange[1]:
 
-                    log.debug('_line[4] {}'.format(_line[4]))
-                    log.debug('relative_position_genomic_coordinates {}'.format(relative_position_genomic_coordinates))
-                    log.debug('start {} end {}'.format(start, end))
-                    log.debug('reference_point_start {} reference_point_end {}'.format(reference_point_start, reference_point_end))
+                width = (end - start) / pResolution
+                if int(_line[4]) < 0:
+                    # reference_point_position = reference_point_start
+                    relative_position_genomic_coordinates = start - int(reference_point_start)
+                    viewpointIndex = pViewpointIndexStart
+                else:
+                    relative_position_genomic_coordinates = start - int(reference_point_end)
+                    viewpointIndex = pViewpointIndexEnd
 
-                    # start
+                # log.debug('_line[4] {}'.format(_line[4]))
+                # log.debug('relative_position_genomic_coordinates {}'.format(relative_position_genomic_coordinates))
+                # log.debug('start {} end {}'.format(start, end))
+                # log.debug('reference_point_start {} reference_point_end {}'.format(reference_point_start, reference_point_end))
 
-                    # relative_position_genomic_coordinates  = reference_point_position
-                    relative_position = viewpointIndex + \
-                        (relative_position_genomic_coordinates / pResolution)
-                    highlight_areas_list.append(
-                        [relative_position, relative_position + width])
+                # start
+
+                # relative_position_genomic_coordinates  = reference_point_position
+                relative_position = viewpointIndex + \
+                    (relative_position_genomic_coordinates / pResolution)
+                highlight_areas_list.append(
+                    [relative_position, relative_position + width])
         if len(highlight_areas_list) == 0:
             return None
         return highlight_areas_list
@@ -1013,9 +1057,11 @@ class Viewpoint():
 
         return scores_dict, merged_lines_dict
 
-    def readSignificantRegionsFile(self, pSignificantFile, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
+    def readSignificantRegionsFile(self, pFilePath, pInternalIdentifierTriplet, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
         # [[start, end], [start, end]]
+
+        interaction_data, interaction_file_data, _ = self.readInteractionFile(pFilePath, pInternalIdentifierTriplet)
         highlight_areas_list = []
         p_values = []
         # viewpoint_split = pViewpoint.split('_')
@@ -1024,33 +1070,38 @@ class Viewpoint():
         else:
             log.debug('viewpoint_split {}, file: {}'.format(pViewpoint, pSignificantFile))
             return None, None
-        with open(pSignificantFile) as fh:
-            # skip header
-            for line in fh.readlines():
-                if line.startswith('#'):
-                    continue
-                _line = line.split('\t')
 
-                start = int(_line[1])
-                end = int(_line[2])
+        for _line in interaction_file_data.values(): 
+        # with open(pSignificantFile) as fh:
+        #     # skip header
+        #     for line in fh.readlines():
+            # if line.startswith('#'):
+            #     continue
+            # _line = line.split('\t')
 
-                if int(_line[5]) >= -pRange[0] and int(_line[5]) <= pRange[1]:
+            start = int(_line[1])
+            end = int(_line[2])
 
-                    width = (end - start) / pResolution
-                    if int(_line[5]) < 0:
-                        # reference_point_position = reference_point_start
-                        relative_position_genomic_coordinates = start - int(reference_point_start)
-                        viewpointIndex = pViewpointIndexStart
-                    else:
-                        relative_position_genomic_coordinates = start - int(reference_point_end)
-                        viewpointIndex = pViewpointIndexEnd
+            if int(_line[5]) >= -pRange[0] and int(_line[5]) <= pRange[1]:
 
-                    relative_position = viewpointIndex + \
-                        (relative_position_genomic_coordinates / pResolution)
-                    highlight_areas_list.append(
-                        [relative_position, relative_position + width])
-                    p_values.append([int(relative_position), int(relative_position + width), float(_line[-3])])
+                width = (end - start) / pResolution
+                if int(_line[5]) < 0:
+                    # reference_point_position = reference_point_start
+                    relative_position_genomic_coordinates = start - int(reference_point_start)
+                    viewpointIndex = pViewpointIndexStart
+                else:
+                    relative_position_genomic_coordinates = start - int(reference_point_end)
+                    viewpointIndex = pViewpointIndexEnd
 
+                relative_position = viewpointIndex + \
+                    (relative_position_genomic_coordinates / pResolution)
+                highlight_areas_list.append(
+                    [relative_position, relative_position + width])
+                p_values.append([int(relative_position), int(relative_position + width), float(_line[-3])])
+
+        # log.debug('highlight_areas_list {}'.format(highlight_areas_list))
         if len(highlight_areas_list) == 0:
             return None, None
+        
+        
         return highlight_areas_list, p_values

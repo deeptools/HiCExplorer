@@ -192,7 +192,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
     target_data_list = []
     target_key_list = []
 
-
+    reference_points_list = []
 
     try:
         for interactionFile in pInteractionFilesList:
@@ -277,6 +277,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             sample_prefix.append(interactionFile[0][2])
             target_data_list.append(target_list)
             target_key_list.append(sample_prefix)
+            reference_points_list.append(data[2])
             # target_data_dict[sample_prefix] = target_list
 
         if pQueue is None:
@@ -287,7 +288,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc()) 
         return
     # log.debug('target_data_list {}'.format(target_data_list))
-    pQueue.put([significant_data_list, significant_key_list, target_data_list, target_key_list])
+    pQueue.put([significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list])
     return
 
 
@@ -399,6 +400,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
 
     target_data_list = [None] * pArgs.threads
     target_key_list = [None] * pArgs.threads
+    reference_points_list = [None] * pArgs.threads
 
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
     all_data_collected = False
@@ -438,7 +440,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
                     fail_flag = True
                     fail_message = background_data_thread[6:]
                 else:
-                    significant_data_list[i], significant_key_list[i], target_data_list[i], target_key_list[i] = background_data_thread
+                    significant_data_list[i], significant_key_list[i], target_data_list[i], target_key_list[i], reference_points_list[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -455,6 +457,8 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
 
     significant_data_list = [item for sublist in significant_data_list for item in sublist]
     significant_key_list = np.array([item for sublist in significant_key_list for item in sublist])
+    reference_points_list = np.array([item for sublist in reference_points_list for item in sublist])
+
 
     significant_key_list, indices = np.unique(significant_key_list, axis=0, return_index=True)
 
@@ -470,7 +474,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
     target_data_list = [item for sublist in target_data_list for item in sublist]
     target_key_list = [item for sublist in target_key_list for item in sublist]
 
-    return significant_data_list, significant_key_list, target_data_list, target_key_list
+    return significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list
 
 
 # def writeTargetList(pTargetList, pOutFileName, pArgs):
@@ -520,7 +524,7 @@ def read_threshold_file(pFile):
             distance_value_dict[int(relative_distance)] = float(value)
     return distance_value_dict
 
-def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList, pViewpointObj):
+def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList, pViewpointObj, pReferencePointsList):
 
     significantFileH5Object = h5py.File(pOutFileName, 'w')
     # log.debug('key_significant {}'.format(pSignificantKeyList[:10]))
@@ -528,7 +532,7 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
     # log.debug('len(pSignificantDataList) {}'.format(len(pSignificantDataList)))
     keys_seen = {}
     matrix_seen = {}
-    for key, data in zip(pSignificantKeyList, pSignificantDataList):
+    for i, (key, data) in enumerate(zip(pSignificantKeyList, pSignificantDataList)):
         # for 
         if len(data) == 0:
             continue
@@ -590,7 +594,7 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
 
         group_name = pViewpointObj.writeInteractionFileHDF5(
                     chromosomeObject, gene_name_key, [chromosome, start_list, end_list, gene_name, sum_of_interactions, relative_distance_list,
-                                                relative_interactions_list, pvalue_list, xfold_list, raw_target_list])
+                                                relative_interactions_list, pvalue_list, xfold_list, raw_target_list], pReferencePointsList[i])
 
         try:
             geneGroup[group_name] = chromosomeObject[group_name]
@@ -602,7 +606,7 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
             
     significantFileH5Object.close()
 
-def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj, pResolution):
+def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj, pResolution, pReferencePointsList):
     #     # remove duplicates
     #     target_list_ = []
     #     for line in pTargetList:
@@ -642,7 +646,7 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
 
     targetFileH5Object = h5py.File(pOutFileName, 'w')
     keys_seen = {}
-    for key, data in zip(pTargetKeyList, pTargetDataList):
+    for i, (key, data) in enumerate(zip(pTargetKeyList, pTargetDataList)):
         if len(data) == 0:
             continue
         
@@ -716,7 +720,8 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
         # groupObject.create_dataset("end_list", data=end_list, compression="gzip", compression_opts=9)
         groupObject.create_dataset("start_list", data=start_list)
         groupObject.create_dataset("end_list", data=end_list)
-
+        groupObject.create_dataset("reference_point_start", data=int(pReferencePointsList[i][0]))
+        groupObject.create_dataset("reference_point_end", data=int(pReferencePointsList[i][1]))
         try:
             geneGroup[groupName] = chromosomeObject[groupName]
         except Exception as exp:
@@ -875,14 +880,14 @@ def main(args=None):
     interactionFileHDF5Object.close()
     
     log.debug('len(interactionList) {}'.format(len(interactionList)))
-    significant_data_list, significant_key_list, target_data_list, target_key_list = call_multi_core(
+    significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list = call_multi_core(
                             interactionList, args, viewpointObj, background_model, args.interactionFile, resolution)
 
 
 
 
-    writeSignificantHDF(args.outFileNameSignificant, significant_data_list, significant_key_list, viewpointObj)
-    writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj, resolution)
+    writeSignificantHDF(args.outFileNameSignificant, significant_data_list, significant_key_list, viewpointObj, reference_points_list)
+    writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj, resolution, reference_points_list)
     # if args.batchMode:
     #     if len(list(matrices_keys)) <= args.computeSampleNumber:
     #         for referencePoint in referencePoints_keys:
