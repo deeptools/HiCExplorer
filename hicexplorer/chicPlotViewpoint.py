@@ -117,10 +117,10 @@ In batch mode the list of file names and the folders containing the files need t
                         'single: Combines as follows: [matrix1_gene1, matrix1_gene2, matrix2_gene1, ...], '
                         'allGenes: Combines as follows: [[matrix1_gene1, matrix2_gene1, matrix2_gene1], [matrix1_gene2, matrix2_gene2, matrix3_gene2], ...]'
                         'oneGene: Computes all data of one gene, please specify \'--\'. If a gene is not unique, each viewpoint is treated independently.'
-                        'file: A user specific file (\'--\') with one entry per line and tab seperated: matrixName   geneName. Please define how many lines should be combined to one (\'--computeSampleNumber\').'
+                        # 'file: A user specific file (\'--\') with one entry per line and tab seperated: matrixName   geneName. Please define how many lines should be combined to one (\'--computeSampleNumber\').'
                         ' (Default: %(default)s).',
                         default='dual',
-                        choices=['dual', 'single', 'allGenes', 'oneGene', 'file']
+                        choices=['dual', 'single', 'allGenes', 'oneGene']
                         )
 
     parserOpt.add_argument('--combinationName', '-cn',
@@ -277,7 +277,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                     p_values = np.array(p_values, dtype=np.float32)
                     mask = p_values == 0.0
                     p_values[mask] = 1.0
-                if pArgs.minPValue is not None or pArgs.maxPValue is not None:
+                if pArgs.pValue and (pArgs.minPValue is not None or pArgs.maxPValue is not None):
 
                     p_values = np.array(p_values, dtype=np.float32)
                     if significant_p_values:
@@ -477,31 +477,17 @@ def main(args=None):
                 #             highlightDifferentialRegionsFileList.append(file_)
         else:
             log.error('Dual mode selected but only one matrix is stored')
-    elif args.combinationMode == 'multi':
-        if len(keys_interactionFile) > 1:
-            for i, sample in enumerate(keys_interactionFile):
-                for sample2 in keys_interactionFile[i + 1:]:
-                    
-                    matrix_obj1 = interactionFileHDF5Object[sample]
-                    matrix_obj2 = interactionFileHDF5Object[sample]
+    elif args.combinationMode == 'allGenes':
+        if len(keys_interactionFile) > 0:
+            matrix_obj1 = interactionFileHDF5Object[keys_interactionFile[0]]
+            gene_list = matrix_obj1['genes'].keys()
 
-                    chromosomeList1 = sorted(list(matrix_obj1.keys()))
-                    chromosomeList2 = sorted(list(matrix_obj2.keys()))
-                    chromosomeList1.remove('genes')
-                    chromosomeList2.remove('genes')
-                    for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
-                        geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-                        geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
+            for gene in gene_list:
+                gene_list = []
+                for matrix in keys_interactionFile:
+                    gene_list.append([matrix, 'genes', gene])
+                interactionFileList.append(gene_list)
 
-                        for gene1, gene2 in zip(geneList1, geneList2):
-                            interactionFileList.append([[sample,chromosome1, gene1],[sample2,chromosome2, gene2]])
-
-                    # for viewpoint, viewpoint2 in zip(sample, sample2):
-                    #     writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
-                    #     writeFileNamesToList.append(viewpoint2.encode("ascii", "ignore"))
-            # log.debug(interactionList)
-        else:
-            log.error('Dual mode selected but only one matrix is stored')
     elif args.combinationMode == 'single':
         for i, sample in enumerate(keys_interactionFile):
                 
@@ -511,7 +497,7 @@ def main(args=None):
                 for chromosome1 in chromosomeList1:
                     geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
                     for gene1 in geneList1:
-                        interactionFileList.append([sample,chromosome1, gene1])
+                        interactionFileList.append([[sample,chromosome1, gene1]])
     elif args.combinationMode == 'oneGene': 
         if len(keys_interactionFile) > 0:
             matrix_obj1 = interactionFileHDF5Object[keys_interactionFile[0]]
@@ -535,6 +521,7 @@ def main(args=None):
                 gene_list = []
                 for matrix in keys_interactionFile:
                     gene_list.append([matrix, 'genes', gene])
+                    interactionFileList.append([[matrix, 'genes', gene]])
                 interactionFileList.append(gene_list)
     
     

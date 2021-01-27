@@ -92,19 +92,16 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                         help='This option defines how the interaction data should be computed and combined: '
                         'dual: Combines as follows: [[matrix1_gene1, matrix2_gene1], [matrix2_gene1, matrix3_gene1],[matrix1_gene2, matrix2_gene2], ...]'
                         'single: Combines as follows: [matrix1_gene1, matrix1_gene2, matrix2_gene1, ...], '
-                        'allGenes: Combines as follows: [[matrix1_gene1, matrix2_gene1, matrix2_gene1], [matrix1_gene2, matrix2_gene2, matrix3_gene2], ...]'
-                        'oneGene: Computes all data of one gene, please specify \'--\'. If a gene is not unique, each viewpoint is treated independently.'
-                        'file: A user specific file (\'--\') with one entry per line and tab seperated: matrixName   geneName. Please define how many lines should be combined to one (\'--computeSampleNumber\').'
                         ' (Default: %(default)s).',
                         default='dual',
-                        choices=['dual', 'single', 'allGenes', 'oneGene', 'file']
+                        choices=['dual', 'single']#, 'allGenes', 'oneGene', 'file']
                         )
 
-    parserOpt.add_argument('--combinationName', '-cn',
-                           help='Gene name or file name for modes \'oneGene\' or \'file\' of parameter \'--combinationMode\''
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=None)
+    # parserOpt.add_argument('--combinationName', '-cn',
+    #                        help='Gene name or file name for modes \'oneGene\' or \'file\' of parameter \'--combinationMode\''
+    #                        ' (Default: %(default)s).',
+    #                        required=False,
+    #                        default=None)
     # parserOpt.add_argument('--targetFolder', '-tf',
     #                        help='Folder where the target files are stored'
     #                        ' (Default: %(default)s).',
@@ -221,25 +218,44 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 # filter by x-fold over background value or loose p-value
                 # and merge neighbors. Use center position to compute new p-value.
                 # log.debug('209')
-
+                compute_new_p_values_bool = False
                 if pArgs.xFoldBackground is not None:
                     accepted_scores, merged_lines_dict = merge_neighbors_x_fold(
                         pArgs.xFoldBackground, data, pViewpointObj, pResolution=pResolution)
-                else:
+                    compute_new_p_values_bool = True
+                elif pArgs.loosePValue is not None:
+                    # log.debug('pArgs.loosePValue {}')
                     accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(
                         pArgs.loosePValue, data, pViewpointObj, pResolution=pResolution, pTruncateZeroPvalues=pArgs.truncateZeroPvalues)
+                    compute_new_p_values_bool = True
+
+                # else:
+                #     accepted_scores = data[0]
+                #     merged_lines_dict = data[1]
+
                 # log.debug('217')
 
                 # compute new p-values and filter by them
-                accepted_scores, target_lines = compute_new_p_values(
-                    accepted_scores, pBackground, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold, pViewpointObj)
+                if compute_new_p_values_bool:
+                    accepted_scores, target_lines = compute_new_p_values(
+                        accepted_scores, pBackground, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold)
+                else:
+                    accepted_scores, target_lines = filter_by_pvalue(
+                        data[0], pArgs.pValue, data[1], pArgs.peakInteractionsThreshold)
+
+                if len(accepted_scores) > 0 and len(target_lines) > 0 and False:
+                    log.debug('accepted_scores {}'.format(list(accepted_scores.values())[0] ))
+                    log.debug('target_lines {}'.format(target_lines[0] ))
+                    log.debug('data[0] {}'.format(list(data[0].values())[0]) )
+                    log.debug('data[1] {}'.format(list(data[1].values())[0]) )
+
 
                 # filter by new p-value
                 if len(accepted_scores) == 0:
                     # if pArgs.batchMode:
                     with open('errorLog.txt', 'a+') as errorlog:
-                        errorlog.write('Failed for: {} and {}.\n'.format(
-                            interactionFile[0], interactionFile[1]))
+                        errorlog.write('Failed for: {}.\n'.format(
+                            interactionFile))
                     # else:
                     #     log.info('No target regions found')
                 # log.debug('231')
@@ -291,29 +307,61 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
     pQueue.put([significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list])
     return
 
+def filter_by_pvalue(pData, pPValue, pMergedLinesDict, pPeakInteractionsThreshold):
+    accepted = {}
+    accepted_lines = []
+    if isinstance(pPValue, float):
+        for key in pData:
+            # log.debug('new {}\n\n'.format(pData[key][-3]))
+            if pData[key][-3] <= pPValue:
+                if float(pData[key][-1]) >= pPeakInteractionsThreshold:
+                    accepted[key] = pMergedLinesDict[key]
+                    target_content = pMergedLinesDict[key][:3]
+                    # log.debug('target_content {}'.format(target_content))
+                    # log.debug('pMergedLinesDict {}'.format(pMergedLinesDict[key][-1]))
 
-def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPeakInteractionsThreshold, pViewpointObj):
+                    # target_content[2] = pMergedLinesDict[key][-1][2]
+                    accepted_lines.append(target_content)
+    elif isinstance(pPValue, dict):
+        for key in pData:
+            
+            if pData[key][-3] <= pPValue[key]:
+                if float(pData[key][-1]) >= pPeakInteractionsThreshold:
+                    accepted[key] = pMergedLinesDict[key]
+                    target_content = pMergedLinesDict[key][:3]
+                    # target_content[2] = pMergedLinesDict[key]
+                    accepted_lines.append(target_content)
+
+    return accepted, accepted_lines
+
+
+def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPeakInteractionsThreshold):
     accepted = {}
     accepted_lines = []
     if isinstance(pPValue, float):
         for key in pData:
             if key in pBackgroundModel:
                 # log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
+                
                 pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
                 # log.debug('new {}\n\n'.format(pData[key][-3]))
                 if pData[key][-3] <= pPValue:
                     if float(pData[key][-1]) >= pPeakInteractionsThreshold:
                         accepted[key] = pData[key]
                         target_content = pMergedLinesDict[key][0][:3]
+                        # log.debug('target_content {}'.format(target_content))
+                        # log.debug('pMergedLinesDict {}'.format(pMergedLinesDict[key][-1]))
+
                         target_content[2] = pMergedLinesDict[key][-1][2]
+
+
                         accepted_lines.append(target_content)
             else:
-                log.debug('key not in background')
+                log.debug('key not in background {}'.format(key))
     elif isinstance(pPValue, dict):
         for key in pData:
             if key in pBackgroundModel:
                 # log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
-
                 pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
                 # log.debug('new {}\n\n'.format(pData[key][-3]))
 
@@ -324,7 +372,7 @@ def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPe
                         target_content[2] = pMergedLinesDict[key][-1][2]
                         accepted_lines.append(target_content)
             else:
-                log.debug('key not in background')
+                log.debug('key not in background {}'.format(key))
     return accepted, accepted_lines
 
 
@@ -833,48 +881,47 @@ def main(args=None):
                 for chromosome1 in chromosomeList1:
                     geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
                     for gene1 in geneList1:
-                        interactionList.append([sample,chromosome1, gene1])
+                        interactionList.append([[sample,chromosome1, gene1]])
+    # elif args.combinationMode == 'allGenes':
 
-    elif args.combinationMode == 'allGenes':
+    #     if len(keys_interactionFile) > 0:
+    #         matrix_obj1 = interactionFileHDF5Object[keys_interactionFile[0]]
+    #         gene_list = matrix_obj1['genes'].keys()
 
-        if len(keys_interactionFile) > 0:
-            matrix_obj1 = interactionFileHDF5Object[keys_interactionFile[0]]
-            gene_list = matrix_obj1['genes'].keys()
+    #         for gene in gene_list:
+    #             gene_list = []
+    #             for matrix in keys_interactionFile:
+    #                 gene_list.append([matrix, 'genes', gene])
+    #             interactionList.append(gene_list)
 
-            for gene in gene_list:
-                gene_list = []
-                for matrix in keys_interactionFile:
-                    gene_list.append([matrix, 'genes', gene])
-                interactionList.append(gene_list)
+    # elif args.combinationMode == 'oneGene': 
+    #     if len(keys_interactionFile) > 0:
+    #         matrix_obj1 = interactionFileHDF5Object[keys_interactionFile[0]]
+    #         all_detected = False
+    #         counter = 0
+    #         gene_list = []
+    #         while not all_detected:
+    #             if counter == 0:
+    #                 check_gene_name = args.combinationName
+    #             else:
+    #                 check_gene_name = args.combinationName + '_' + str(counter)
 
-    elif args.combinationMode == 'oneGene': 
-        if len(keys_interactionFile) > 0:
-            matrix_obj1 = interactionFileHDF5Object[keys_interactionFile[0]]
-            all_detected = False
-            counter = 0
-            gene_list = []
-            while not all_detected:
-                if counter == 0:
-                    check_gene_name = args.combinationName
-                else:
-                    check_gene_name = args.combinationName + '_' + str(counter)
+    #             if check_gene_name in matrix_obj1['genes']:
+    #                 gene_list.append(check_gene_name)
+    #             else:
+    #                 all_detected = True
 
-                if check_gene_name in matrix_obj1['genes']:
-                    gene_list.append(check_gene_name)
-                else:
-                    all_detected = True
+    #             counter += 1
 
-                counter += 1
-
-            for gene in gene_list:
-                gene_list = []
-                for matrix in keys_interactionFile:
-                    gene_list.append([matrix, 'genes', gene])
-                interactionList.append(gene_list)
+    #         for gene in gene_list:
+    #             gene_list = []
+    #             for matrix in keys_interactionFile:
+    #                 gene_list.append([matrix, 'genes', gene])
+    #             interactionList.append(gene_list)
 
             
-    elif args.combinationMode == 'file':
-        pass
+    # elif args.combinationMode == 'file':
+    #     pass
     
     resolution = interactionFileHDF5Object.attrs['resolution'][()]
     interactionFileHDF5Object.close()

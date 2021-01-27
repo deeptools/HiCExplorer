@@ -171,7 +171,7 @@ class Viewpoint():
         if 'reference_point_end' in interactionFileHDF5Object[internal_path]:
             reference_point_end = interactionFileHDF5Object.get( internal_path + '/' + 'reference_point_end')[()]
 
-
+        interactionFileHDF5Object.close()
         # log.debug('chromosomes: {}'.format(chromosome))
 
         # log.debug(data)
@@ -1084,7 +1084,7 @@ class Viewpoint():
             # if line.startswith('#'):
             #     continue
             # _line = line.split('\t')
-            log.debug(_line)
+            # log.debug(_line)
             start = int(_line[1])
             end = int(_line[2])
 
@@ -1107,7 +1107,7 @@ class Viewpoint():
 
         if len(highlight_areas_list) == 0:
             return None, None
-        log.debug('highlight_areas_list {}'.format(highlight_areas_list))
+        # log.debug('highlight_areas_list {}'.format(highlight_areas_list))
         
         
         return highlight_areas_list, p_values
