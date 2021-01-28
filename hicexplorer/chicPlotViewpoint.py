@@ -27,20 +27,12 @@ import io
 import tarfile
 from contextlib import closing
 
+
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description="""
 chicPlotViewpoint plots one or many viewpoints with the average background model and the computed p-value per sample. In addition, it can highlight differential interactions of two samples and/or significant regions.
-
-An example usage is:
-
-`$ chicPlotViewpoint --interactionFile viewpoint1.txt viewpoint2.txt --range 500000 500000  --backgroundModelFile background_model.txt --pValue --outFileName viewpoint1_2.png --dpi 300`
-
-
-In batch mode the list of file names and the folders containing the files need to be given:
-
-`$ chicPlotViewpoint --interactionFile viewpoint_names.txt -interactionFileFolder viewpointFilesFolder --differentialTestResult rejected_H0.txt --differentialTestResultsFolder differentialFolder --range 500000 500000 --backgroundModelFile background_model.txt --pValue --outputFolder plotsFOlder --dpi 300 --threads 20`
 
 """
                                      )
@@ -62,24 +54,9 @@ In batch mode the list of file names and the folders containing the files need t
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
                            help='path to the background file which should be used for plotting',
                            required=False)
-    # parserOpt.add_argument('--interactionFileFolder', '-iff',
-    #                        help='Folder where the interaction files are stored. Applies only for batch mode'
-    #                        ' (Default: %(default)s).',
-    #                        required=False,
-    #                        default='.')
     parserOpt.add_argument('--differentialTestResult', '-dif',
                            help='Path to the H0 rejected files to highlight the regions in the plot.',
                            required=False)
-    # parserOpt.add_argument('--significantInteractionFileFolder', '-siff',
-    #                        help='Folder where the files with detected significant interactions are stored. Applies only for batch mode'
-    #                        ' (Default: %(default)s).',
-    #                        required=False,
-    #                        default='.')
-    # parserOpt.add_argument('--differentialTestResultsFolder', '-diff',
-    #                        help='Folder where the H0 rejected files are stored. Applies only for batch mode'
-    #                        ' (Default: %(default)s).',
-    #                        required=False,
-    #                        default='.')
     parserOpt.add_argument('--significantInteractions', '-si',
                            help='Path to the files with detected significant interactions to highlight the regions in the plot.',
                            required=False)
@@ -104,24 +81,17 @@ In batch mode the list of file names and the folders containing the files need t
                            type=int,
                            default=300,
                            required=False)
-    # parserOpt.add_argument('--binResolution', '-r',
-    #                        help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution'
-    #                        ' (Default: %(default)s).',
-    #                        type=int,
-    #                        default=1000,
-    #                        required=False)
     parserOpt.add_argument('--combinationMode',
-                        '-cm',
-                        help='This option defines how the interaction data should be computed and combined: '
-                        'dual: Combines as follows: [[matrix1_gene1, matrix2_gene1], [matrix2_gene1, matrix3_gene1],[matrix1_gene2, matrix2_gene2], ...]'
-                        'single: Combines as follows: [matrix1_gene1, matrix1_gene2, matrix2_gene1, ...], '
-                        'allGenes: Combines as follows: [[matrix1_gene1, matrix2_gene1, matrix2_gene1], [matrix1_gene2, matrix2_gene2, matrix3_gene2], ...]'
-                        'oneGene: Computes all data of one gene, please specify \'--\'. If a gene is not unique, each viewpoint is treated independently.'
-                        # 'file: A user specific file (\'--\') with one entry per line and tab seperated: matrixName   geneName. Please define how many lines should be combined to one (\'--computeSampleNumber\').'
-                        ' (Default: %(default)s).',
-                        default='dual',
-                        choices=['dual', 'single', 'allGenes', 'oneGene']
-                        )
+                           '-cm',
+                           help='This option defines how the interaction data should be computed and combined: '
+                           'dual: Combines as follows: [[matrix1_gene1, matrix2_gene1], [matrix2_gene1, matrix3_gene1],[matrix1_gene2, matrix2_gene2], ...]'
+                           'single: Combines as follows: [matrix1_gene1, matrix1_gene2, matrix2_gene1, ...], '
+                           'allGenes: Combines as follows: [[matrix1_gene1, matrix2_gene1, matrix2_gene1], [matrix1_gene2, matrix2_gene2, matrix3_gene2], ...]'
+                           'oneGene: Computes all data of one gene, please specify \'--\'. If a gene is not unique, each viewpoint is treated independently.'
+                           ' (Default: %(default)s).',
+                           default='dual',
+                           choices=['dual', 'single', 'allGenes', 'oneGene']
+                           )
 
     parserOpt.add_argument('--combinationName', '-cn',
                            help='Gene name or file name for modes \'oneGene\' or \'file\' of parameter \'--combinationMode\''
@@ -163,18 +133,6 @@ In batch mode the list of file names and the folders containing the files need t
                            help='Sets all p-values which are equal to zero to one.',
                            required=False,
                            action='store_true')
-    # parserOpt.add_argument('--outFileName', '-o',
-    #                        help='File name to save the image. Not used in batch mode.')
-    # parserOpt.add_argument('--batchMode', '-bm',
-    #                        help='The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
-    #                        required=False,
-    #                        action='store_true')
-    # parserOpt.add_argument('--plotSampleNumber', '-psn',
-    #                        help='Number of samples per plot. Applies only in batch mode'
-    #                        ' (Default: %(default)s).',
-    #                        required=False,
-    #                        default=2,
-    #                        type=int)
     parserOpt.add_argument('--colorList', '-cl',
                            help='Colorlist for the viewpoint lines (Default g b c m y k).',
                            required=False,
@@ -225,42 +183,19 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             gene = ''
             file_name = []
             for i, interactionFile_ in enumerate(interactionFile):
-                # if pArgs.interactionFileFolder != '.':
-                #     absolute_path_interactionFile_ = pArgs.interactionFileFolder + '/' + interactionFile_
-                # else:
-                #     absolute_path_interactionFile_ = interactionFile_
                 file_name.append(interactionFile_[0])
-                # log.debug('interactionFile_ {}'.format(interactionFile_))
                 data, background_data_plot, p_values, viewpoint_index_start, viewpoint_index_end, viewpoint = pViewpointObj.getDataForPlotting(pArgs.interactionFile, interactionFile_, pArgs.range, pBackgroundData, pResolution)
                 # log.debug('data {}'.format(data))
                 if len(data) <= 1 or len(p_values) <= 1:
                     log.warning('Only one data point in given range, no plot is created! Interaction file {} Range {}'.format(interactionFile_, pArgs.range))
                     continue
-                # matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.strip().split('\t')
-                # log.debug('Matrix_name {}'.format(matrix_name))
-                # matrix_name = os.path.basename(matrix_name)
-
-                # matrix_name = matrix_name.split('.')[0]
-                # log.debug('matrix_name {}'.format(matrix_name))
-                # number_of_data_points = len(data)
                 highlight_differential_regions = None
                 significant_p_values = None
                 significant_regions = None
                 if pArgs.differentialTestResult:
-                    # if pArgs.differentialTestResultsFolder != '.':
-                    #     differentialFilePath = pArgs.differentialTestResultsFolder + '/' + pHighlightDifferentialRegionsFileList[j]
-                    # else:
-                    #     differentialFilePath = pHighlightDifferentialRegionsFileList[j]
-
                     highlight_differential_regions = pViewpointObj.readRejectedFile(pArgs.differentialTestResult, pHighlightDifferentialRegionsFileList[j], viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
                 if pArgs.significantInteractions:
-                    # if pArgs.significantInteractionFileFolder != '.':
-                    #     significantInteractionsFilePath = pArgs.significantInteractionFileFolder + '/' + pSignificantRegionsFileList[j][i]
-                    # else:
-                    #     significantInteractionsFilePath = pSignificantRegionsFileList[j][i]
-                    
                     significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(pArgs.significantInteractions, pSignificantRegionsFileList[j][i], viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
-                    # significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(significantInteractionsFilePath, viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
                 if not pArgs.plotSignificantInteractions:
                     significant_regions = None
                 if data_plot_label:
@@ -269,7 +204,6 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                     data_plot_label = pViewpointObj.plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=':'.join(interactionFile_), pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
 
                 if background_plot:
-                    # log.debug('background_data_plot {}'.format(len(background_data_plot)))
                     if background_data_plot is not None:
                         data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot, pXFold=pArgs.xFold)
                     background_plot = False
@@ -309,7 +243,6 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                         mod_legend = 5e4
                     elif pArgs.range[0] + pArgs.range[1] <= 5e5:
                         mod_legend = 1e5
-                    # log.debug('divisor_legend {}'.format(divisor_legend))
 
                     unit = 'kb'
                 elif pArgs.range[0] + pArgs.range[1] > 2e6:
@@ -330,7 +263,6 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                         x_labels.append(str(int(j) // int(divisor_legend)) + unit)
                         ticks.append(referencepoint_index + (k // pResolution))
 
-                # log.debug('labels: {}'.format(x_labels))
                 ax1.set_ylabel('Number of interactions')
                 ax1.set_xticks(ticks)
                 ax1.set_xticklabels(x_labels)
@@ -339,48 +271,18 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                 data_legend = [label.get_label() for label in data_plot_label]
                 ax1.legend(data_plot_label, data_legend, loc=0)
 
-                #### TODO store other name, store as numpy array in hdf
-                # sample_prefix = ""
-                # if pArgs.outFileName:
-                #     if pArgs.outputFolder != '.':
-                #         outFileName = pArgs.outputFolder + '/' + pArgs.outFileName
-                #     else:
-                #         outFileName = pArgs.outFileName
-
-                # else:
-                #     for interactionFile_ in interactionFile:
-                #         sample_prefix += interactionFile_.split('/')[-1].split('_')[0] + '_'
-                #     if sample_prefix.endswith('_'):
-                #         sample_prefix = sample_prefix[:-1]
-                #     region_prefix = '_'.join(interactionFile[0].split('/')[-1].split('_')[1:4])
-                #     outFileName = gene + '_' + sample_prefix + '_' + region_prefix
-                #     if pArgs.outputFolder != '.':
-                #         outFileName = pArgs.outputFolder + '/' + outFileName
-
-                # if pArgs.outputFormat != outFileName.split('.')[-1]:
-                #     outFileName = outFileName + '.' + pArgs.outputFormat  
-
-                
-                    # tar.add(source_dir, arcname=os.path.basename(source_dir))
-
                 bufferObject = io.BytesIO()
-                # plt.savefig(buf, format = 'png')
                 plt.savefig(bufferObject, format=pArgs.outputFormat, dpi=300)
                 images_array.append(bufferObject)
-                # canvas.draw()
-                # width, height = fig.get_size_inches() * fig.get_dpi()
-                # image = canvas.buffer_rgba()
-                # images_array.append(np.asarray(image))
-                # log.debug('image {}'.format(image))
             plt.close(fig)
             file_name.append(interactionFile[0][2])
             file_name_list.append('_'.join(file_name))
     except Exception as exp:
-        pQueue.put('Fail: ' + str(exp)+ traceback.format_exc())
+        pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
         return
     if pQueue is None:
         return
-    pQueue.put([images_array,file_name_list])
+    pQueue.put([images_array, file_name_list])
     return
 
 
@@ -389,12 +291,6 @@ def main(args=None):
     viewpointObj = Viewpoint()
     background_data = None
 
-    # if not os.path.exists(args.outputFolder):
-    #     try:
-    #         os.makedirs(args.outputFolder)
-    #     except OSError as exc:  # Guard against race condition
-    #         if exc.errno != errno.EEXIST:
-    #             raise
     if args.pValueSignificanceLevels:
         old = -100
         for element in args.pValueSignificanceLevels:
@@ -411,23 +307,20 @@ def main(args=None):
     highlightDifferentialRegionsFileList = []
     highlightSignificantRegionsFileList = []
 
-    # if args.batchMode:
-
-    ### read hdf file
+    # read hdf file
     interactionFileHDF5Object = h5py.File(args.interactionFile, 'r')
-    keys_interactionFile = list(interactionFileHDF5Object.keys()) 
+    keys_interactionFile = list(interactionFileHDF5Object.keys())
     resolution = interactionFileHDF5Object.attrs['resolution'][()]
 
     if args.differentialTestResult and args.combinationMode != 'dual':
         log.warning('Cannot use differential data, only possible for two samples in one plot.')
         exit(1)
-           
 
     if args.combinationMode == 'dual':
         if len(keys_interactionFile) > 1:
             for i, sample in enumerate(keys_interactionFile):
                 for sample2 in keys_interactionFile[i + 1:]:
-                    
+
                     matrix_obj1 = interactionFileHDF5Object[sample]
                     matrix_obj2 = interactionFileHDF5Object[sample]
 
@@ -440,21 +333,14 @@ def main(args=None):
                         geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
 
                         for gene1, gene2 in zip(geneList1, geneList2):
-                            interactionFileList.append([[sample,chromosome1, gene1],[sample2,chromosome2, gene2]])
+                            interactionFileList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
 
-                    # for viewpoint, viewpoint2 in zip(sample, sample2):
-                    #     writeFileNamesToList.append(viewpoint.encode("ascii", "ignore"))
-                    #     writeFileNamesToList.append(viewpoint2.encode("ascii", "ignore"))
-            # log.debug(interactionList)
             if args.differentialTestResult:
-                
+
                 differentialFileHDF5Object = h5py.File(args.differentialTestResult, 'r')
-                keys_significantFile = list(differentialFileHDF5Object.keys()) 
+                keys_significantFile = list(differentialFileHDF5Object.keys())
                 for plotGroup in interactionFileList:
                     differential_group = []
-                    # log.debug(plotGroup)
-                    # for item in plotGroup:
-                        # log.debug(item)
                     if plotGroup[0][0] in keys_significantFile:
                         matrix_object = differentialFileHDF5Object[plotGroup[0][0]]
                         if plotGroup[1][0] in matrix_object:
@@ -462,19 +348,11 @@ def main(args=None):
                             matrix1_object = matrix_object[plotGroup[1][0]]
                             if plotGroup[1][1] in matrix1_object:
                                 chromosome_object = matrix1_object[plotGroup[1][1]]
-                        
+
                                 if plotGroup[1][2] in chromosome_object:
                                     differential_group = [plotGroup[0][0], plotGroup[1][0], plotGroup[1][1], plotGroup[1][2], 'rejected']
-                    log.debug('differential_group {}'.format(differential_group))
                     highlightDifferentialRegionsFileList.append(differential_group)
 
-                # with open(args.differentialTestResult[0], 'r') as differentialTestFile:
-
-                #     file_ = True
-                #     while file_:
-                #         file_ = differentialTestFile.readline().strip()
-                #         if file_ != '':
-                #             highlightDifferentialRegionsFileList.append(file_)
         else:
             log.error('Dual mode selected but only one matrix is stored')
     elif args.combinationMode == 'allGenes':
@@ -490,15 +368,15 @@ def main(args=None):
 
     elif args.combinationMode == 'single':
         for i, sample in enumerate(keys_interactionFile):
-                
-                matrix_obj1 = interactionFileHDF5Object[sample]
-                chromosomeList1 = sorted(list(matrix_obj1.keys()))
-                chromosomeList1.remove('genes')
-                for chromosome1 in chromosomeList1:
-                    geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-                    for gene1 in geneList1:
-                        interactionFileList.append([[sample,chromosome1, gene1]])
-    elif args.combinationMode == 'oneGene': 
+
+            matrix_obj1 = interactionFileHDF5Object[sample]
+            chromosomeList1 = sorted(list(matrix_obj1.keys()))
+            chromosomeList1.remove('genes')
+            for chromosome1 in chromosomeList1:
+                geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                for gene1 in geneList1:
+                    interactionFileList.append([[sample, chromosome1, gene1]])
+    elif args.combinationMode == 'oneGene':
         if len(keys_interactionFile) > 0:
             matrix_obj1 = interactionFileHDF5Object[keys_interactionFile[0]]
             all_detected = False
@@ -523,33 +401,18 @@ def main(args=None):
                     gene_list.append([matrix, 'genes', gene])
                     interactionFileList.append([[matrix, 'genes', gene]])
                 interactionFileList.append(gene_list)
-    
-    
-    # with open(args.interactionFile[0], 'r') as interactionFile:
 
-    #     file_ = True
-    #     while file_:
-    #         lines = []
-    #         for i in range(0, args.plotSampleNumber):
-    #             file_ = interactionFile.readline().strip()
-    #             if file_ != '':
-    #                 lines.append(file_)
-    #         interactionFileList.append(lines)
-    
-    # log.debug(interactionFileList[:10])
     if args.significantInteractions:
         significantFileHDF5Object = h5py.File(args.interactionFile, 'r')
-        keys_significantFile = list(significantFileHDF5Object.keys()) 
+        keys_significantFile = list(significantFileHDF5Object.keys())
         for plotGroup in interactionFileList:
             significant_group = []
-            # log.debug(plotGroup)
             for item in plotGroup:
-                # log.debug(item)
                 if item[0] in keys_significantFile:
                     matrix_object = significantFileHDF5Object[item[0]]
                     if item[1] in matrix_object:
                         chromosome_object = matrix_object[item[1]]
-                    
+
                         if item[2] in chromosome_object:
                             significant_group.append(item)
                         else:
@@ -560,19 +423,6 @@ def main(args=None):
                 else:
                     log.warning('Requested matrix {} to plot significant areas is not available in the given data {}.'.format(item[0], args.significantInteractions))
             highlightSignificantRegionsFileList.append(significant_group)
-        # with open(args.significantInteractions[0], 'r') as significantRegionsFile:
-    # log.debug(highlightSignificantRegionsFileList[:10])
-    # exit(1)
-        #     file_ = True
-        #     while file_:
-        #         lines = []
-        #         for i in range(0, args.plotSampleNumber):
-        #             file_ = significantRegionsFile.readline().strip()
-        #             if file_ != '':
-        #                 lines.append(file_)
-        #         if len(lines) > 0:
-        #             highlightSignificantRegionsFileList.append(lines)
-
 
     interactionFilesPerThread = len(interactionFileList) // args.threads
     highlightSignificantRegionsFileListThread = len(highlightSignificantRegionsFileList) // args.threads
@@ -637,64 +487,12 @@ def main(args=None):
 
     images_array = [item for sublist in images_array for item in sublist]
     file_name_list = [item for sublist in file_name_list for item in sublist]
-    
+
     with tarfile.open(args.outFileName, "w:gz") as tar:
         for i, bufferObject in enumerate(images_array):
             with closing(bufferObject) as fobj:
-                # tarinfo = tarfile.TarInfo(filename)
-                # tarinfo.size = len(fobj.getvalue())
-                # tarinfo.mtime = time.time()
-                # tf.addfile(tarinfo, fileobj=fobj)
-
-                # bufferObject.seek(0)
-                # data = bufferObject.read()
-                # bufferObject.close()
-
                 tar_info = tarfile.TarInfo(name=file_name_list[i] + '.' + args.outputFormat)
-                tar_info.mtime=time.time()
-                tar_info.size=len(fobj.getvalue())
+                tar_info.mtime = time.time()
+                tar_info.size = len(fobj.getvalue())
                 fobj.seek(0)
                 tar.addfile(tarinfo=tar_info, fileobj=fobj)
-                # tar.add(fobj)
-            # f = open(file_name_list[i] + args.outputFormat, 'wb')
-            # f.write(data)
-            # f.close()
-
-       
-    # for name in ["foo", "bar", "quux"]:
-    #     tar.add(name)
-    # outFileName
-    # plotsFileH5Object = h5py.File(args.outFileName, 'w')
-
-    # for i, element in enumerate(interactionFileList):
-    #     # log.debug('element: {}'.format(element))
-    #     write_obj = plotsFileH5Object
-    #     for matrix in element:
-    #         if matrix[0] not in write_obj:
-    #             write_obj = write_obj.create_group(matrix[0])
-    #         else:
-    #             write_obj = write_obj[matrix[0]]
-        
-    #     if element[0][1] not in write_obj:
-    #         write_obj = write_obj.create_group(element[0][1])
-    #     else:
-    #         write_obj = write_obj[element[0][1]]
-        
-    #     if element[0][2] not in write_obj:
-    #         write_obj = write_obj.create_group(element[0][2])
-    #     else:
-    #         write_obj = write_obj[element[0][2]]
-        
-    #     write_obj.create_dataset('image_raw', data=images_array[i], compression="gzip", compression_opts=9)
-
-    # plotsFileH5Object.close()
-    # else:
-    #     interactionFileList = [args.interactionFile]
-    #     highlightDifferentialRegionsFileList = args.differentialTestResult
-    #     highlightSignificantRegionsFileList = [args.significantInteractions]
-    #     plot_images(pInteractionFileList=interactionFileList,
-    #                 pHighlightDifferentialRegionsFileList=highlightDifferentialRegionsFileList,
-    #                 pBackgroundData=background_data,
-    #                 pArgs=args,
-    #                 pViewpointObj=viewpointObj,
-    #                 pSignificantRegionsFileList=highlightSignificantRegionsFileList)
