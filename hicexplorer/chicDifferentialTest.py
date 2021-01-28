@@ -115,40 +115,6 @@ def readInteractionFile(pInteractionFile):
 
     return header, line_content, data
 
-def readAggregatedFileHDF(pAggregatedFileName, pInternalPath):
-    aggregatedFileHDF5Object = h5py.File(pAggregatedFileName, 'r')
-
-    internal_path = '/'.join(pInternalPath)
-    chromosome = aggregatedFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8")
-    
-    gene_name = aggregatedFileHDF5Object.get( internal_path + '/' + 'gene_name')[()].decode("utf-8")
-
-    #Chromosome Start   End     Gene    Relative distance       sum of interactions 1   target_1 raw    sum of interactions 2   target_2 raw    p-value
-
-    start_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'start_list'][:])
-    end_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'end_list'][:])
-    relative_distance_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'relative_distance_list'][:])
-    raw_target_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'raw_target_list'][:])
-    sum_of_interactions = float(aggregatedFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()])
-    aggregatedFileHDF5Object.close()
-    # data.append()
-    # chromosome = None
-    #     start_list = []
-    #     end_list = []
-    #     gene_name = None
-    #     sum_of_interactions = None
-    #     relative_distance_list = []
-       
-    #     raw_target_list = [] 
-    line_content = []
-    data = []
-    for i in range(len(start_list)):
-        line_content.append([chromosome, start_list[i], end_list[i], relative_distance_list[i], sum_of_interactions, raw_target_list[i]])
-        data.append([sum_of_interactions, raw_target_list[i]])
-        # interaction_data[data[0][i]] = list([float(data[1][i]), float(data[2][i]), float(data[3][i]), float(data[4][i])])
-        # interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[3][i]) ])
-        
-    return line_content, data
 
 def chisquare_test(pDataFile1, pDataFile2, pAlpha):
     # pair of accepted/unaccepted and pvalue
@@ -283,7 +249,7 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
         rejected_object = gene_object.create_group('rejected')
         all_object = gene_object.create_group('all')
 
-
+# [chromosome, start_list[i], end_list[i], gene_name, sum_of_interactions, relative_distance_list[i], raw_target_list[i]])
        
         for category in ['accepted', 'rejected', 'all']:
             write_object = gene_object[category]
@@ -351,7 +317,7 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
     resultFileH5Object.close()
 
 
-def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
+def run_statistical_tests(pInteractionFilesList, pArgs, pViewpointObject, pQueue=None):
     rejected_names = []
     accepted_list = []
     rejected_list = []
@@ -387,8 +353,8 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pQueue=None):
             #     absolute_sample_path1 = interactionFile[0]
             #     absolute_sample_path2 = interactionFile[1]
 
-            line_content1, data1 = readAggregatedFileHDF(pArgs.aggregatedFile, interactionFile[0])
-            line_content2, data2 = readAggregatedFileHDF(pArgs.aggregatedFile, interactionFile[1])
+            line_content1, data1 = pViewpointObject.readAggregatedFileHDF(pArgs.aggregatedFile, interactionFile[0])
+            line_content2, data2 = pViewpointObject.readAggregatedFileHDF(pArgs.aggregatedFile, interactionFile[1])
 
             if len(line_content1) == 0 or len(line_content2) == 0:
                 # writeResult(outFileName, None, header1, header2,
@@ -456,6 +422,7 @@ def main(args=None):
     #         if exc.errno != errno.EEXIST:
     #             raise
 
+    viewpointObj = Viewpoint()
 
     aggregatedList = []
 
@@ -548,6 +515,7 @@ def main(args=None):
         process[i] = Process(target=run_statistical_tests, kwargs=dict(
             pInteractionFilesList=aggregatedListThread,
             pArgs=args,
+            pViewpointObject=viewpointObj,
             pQueue=queue[i]
         )
         )

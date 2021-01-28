@@ -116,7 +116,7 @@ def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetInterv
         chromosome = target_object.get('chromosome')[()].decode("utf-8") 
         start_list = list(target_object['start_list'][:])
         end_list = list(target_object['end_list'][:])
-
+        targetFileHDF5Object.close()
         chromosome = [chromosome] * len(start_list)
 
         target_regions = list(zip(chromosome, start_list, end_list))
@@ -428,23 +428,24 @@ def main(args=None):
     keys_interactionFile = list(interactionFileHDF5Object.keys()) 
 
     if h5py.is_hdf5(args.targetFile):
-        targetFileHDF5Object = h5py.File(args.targetFile, 'r')
-        keys_targetFile = list(targetFileHDF5Object.keys())
-        log.debug('keys_interactionFile {}'.format(keys_targetFile))
-        for outer_matrix in keys_targetFile:
-            if outer_matrix not in present_genes:
-                present_genes[outer_matrix] = {}
-            inner_matrix_object = targetFileHDF5Object[outer_matrix]
-            keys_inner_matrices = list(inner_matrix_object.keys())
-            for inner_matrix in keys_inner_matrices:
-                if inner_matrix not in present_genes[outer_matrix]:
-                    present_genes[outer_matrix][inner_matrix] = []
-                inner_object = inner_matrix_object[inner_matrix]
-                gene_object = inner_object['genes']
-                keys_genes = list(gene_object.keys())
-                for gen in keys_genes:
-                    targetList.append([outer_matrix, inner_matrix, 'genes', gen])
-                    present_genes[outer_matrix][inner_matrix].append(gen)
+        # targetFileHDF5Object = h5py.File(args.targetFile, 'r')
+        # keys_targetFile = list(targetFileHDF5Object.keys())
+        # log.debug('keys_interactionFile {}'.format(keys_targetFile))
+        # for outer_matrix in keys_targetFile:
+        #     if outer_matrix not in present_genes:
+        #         present_genes[outer_matrix] = {}
+        #     inner_matrix_object = targetFileHDF5Object[outer_matrix]
+        #     keys_inner_matrices = list(inner_matrix_object.keys())
+        #     for inner_matrix in keys_inner_matrices:
+        #         if inner_matrix not in present_genes[outer_matrix]:
+        #             present_genes[outer_matrix][inner_matrix] = []
+        #         inner_object = inner_matrix_object[inner_matrix]
+        #         gene_object = inner_object['genes']
+        #         keys_genes = list(gene_object.keys())
+        #         for gen in keys_genes:
+        #             targetList.append([outer_matrix, inner_matrix, 'genes', gen])
+        #             present_genes[outer_matrix][inner_matrix].append(gen)
+        targetList, present_genes = viewpointObj.readTargetHDFFile(args.targetFile)
 
     else:
         targetList = [args.targetFile]

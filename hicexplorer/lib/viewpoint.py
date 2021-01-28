@@ -1111,3 +1111,99 @@ class Viewpoint():
         
         
         return highlight_areas_list, p_values
+
+    def readTargetHDFFile(self, pFile):
+        present_genes = {}
+        targetList = []
+        targetFileHDF5Object = h5py.File(pFile, 'r')
+        keys_targetFile = list(targetFileHDF5Object.keys())
+        log.debug('keys_interactionFile {}'.format(keys_targetFile))
+        for outer_matrix in keys_targetFile:
+            if outer_matrix not in present_genes:
+                present_genes[outer_matrix] = {}
+            inner_matrix_object = targetFileHDF5Object[outer_matrix]
+            keys_inner_matrices = list(inner_matrix_object.keys())
+            for inner_matrix in keys_inner_matrices:
+                if inner_matrix not in present_genes[outer_matrix]:
+                    present_genes[outer_matrix][inner_matrix] = []
+                inner_object = inner_matrix_object[inner_matrix]
+                gene_object = inner_object['genes']
+                keys_genes = list(gene_object.keys())
+                for gen in keys_genes:
+                    targetList.append([outer_matrix, inner_matrix, 'genes', gen])
+                    present_genes[outer_matrix][inner_matrix].append(gen)
+        targetFileHDF5Object.close()
+        return targetList, present_genes
+
+
+    
+    def readAggregatedFileHDF(self, pAggregatedFileName, pInternalPath):
+        aggregatedFileHDF5Object = h5py.File(pAggregatedFileName, 'r')
+
+        internal_path = '/'.join(pInternalPath)
+        chromosome = aggregatedFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8")
+        
+        gene_name = aggregatedFileHDF5Object.get( internal_path + '/' + 'gene_name')[()].decode("utf-8")
+
+        #Chromosome Start   End     Gene    Relative distance       sum of interactions 1   target_1 raw    sum of interactions 2   target_2 raw    p-value
+
+        start_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'start_list'][:])
+        end_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'end_list'][:])
+        relative_distance_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'relative_distance_list'][:])
+        raw_target_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'raw_target_list'][:])
+        sum_of_interactions = float(aggregatedFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()])
+        aggregatedFileHDF5Object.close()
+        # data.append()
+        # chromosome = None
+        #     start_list = []
+        #     end_list = []
+        #     gene_name = None
+        #     sum_of_interactions = None
+        #     relative_distance_list = []
+        
+        #     raw_target_list = [] 
+        line_content = []
+        data = []
+        for i in range(len(start_list)):
+            line_content.append([chromosome, start_list[i], end_list[i], gene_name, sum_of_interactions, relative_distance_list[i], raw_target_list[i]])
+            data.append([sum_of_interactions, raw_target_list[i]])
+            # interaction_data[data[0][i]] = list([float(data[1][i]), float(data[2][i]), float(data[3][i]), float(data[4][i])])
+            # interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[3][i]) ])
+            
+        return line_content, data
+
+    def readDifferentialFile(self, pFilePath, pQuadruple):
+
+        # Chromosome	Start	End	Gene	Relative distance	sum of interactions 1	target_1 raw	sum of interactions 2	target_2 raw	p-value	
+
+        differentialFileHDF5Object = h5py.File(pFilePath, 'r')
+
+        internal_path = '/'.join(pQuadruple)
+        output_list = []
+        for item in ['accepted', 'all', 'rejected']:
+
+            try:
+                item_object = differentialFileHDF5Object[internal_path + '/' + item]
+                chromosome = item_object.get('chromosome')[()].decode("utf-8")
+                start_list = np.array(item_object['start_list'][:])
+                end_list = np.array(item_object[ 'end_list'][:])
+                relative_distance_list = np.array(item_object[ 'relative_distance_list'][:])
+                gene = item_object.get('gene')[()].decode("utf-8")
+                pvalue_list = np.array(item_object[ 'pvalue_list'][:])
+
+               
+                raw_target_list_1 = np.array(item_object['raw_target_list_1'][:])
+                raw_target_list_2 = np.array(item_object['raw_target_list_2'][:])
+                sum_of_interactions_1 = float(item_object.get( 'sum_of_interactions_1')[()])
+                sum_of_interactions_2 = float(item_object.get('sum_of_interactions_2')[()])
+
+                chromosome = [chromosome] * len(start_list)
+                gene = [gene] * len(start_list)
+                sum_of_interactions_1 = [sum_of_interactions_1] * len(start_list)
+                sum_of_interactions_2 = [sum_of_interactions_2] * len(start_list)
+                output_list.append(zip(chromosome, start_list, end_list, gene, relative_distance_list, sum_of_interactions_1, raw_target_list_1, sum_of_interactions_2, raw_target_list_2, pvalue_list))
+
+            except Exception:
+                output_list.append([])
+
+        return output_list

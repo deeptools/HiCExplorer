@@ -56,7 +56,7 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                         help=''
                         ' (Default: %(default)s).',
                         default='interaction',
-                        choices=['interaction', 'significant', 'target', 'aggregated']
+                        choices=['interaction', 'significant', 'target', 'aggregated', 'differential']
                         )
 
     parserOpt.add_argument('--threads', '-t',
@@ -72,7 +72,7 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            version='%(prog)s {}'.format(__version__))
     return parser
 
-def exportData(pFileList, pArgs, pViewpointObj, pQueue):
+def exportData(pFileList, pArgs, pViewpointObject, pQueue):
 
     file_list = []
     file_content_list = []
@@ -82,7 +82,7 @@ def exportData(pFileList, pArgs, pViewpointObj, pQueue):
 
             for file in pFileList:
                 for sample in file:
-                    data = pViewpointObj.readInteractionFile(pArgs.file, sample)
+                    data = pViewpointObject.readInteractionFile(pArgs.file, sample)
                     
                     file_content_string = header_information
                     key_list = sorted(list(data[1].keys()))
@@ -91,13 +91,59 @@ def exportData(pFileList, pArgs, pViewpointObj, pQueue):
                 file_content_list.append(file_content_string)
                 file_name = '_'.join(sample) + '.txt'
                 file_list.append(file_name)
-        elif args.fileType == 'target':
-            pass
-        elif args.fileType == 'aggregated':
-            pass
+        elif pArgs.fileType == 'target':
+            targetList, present_genes = pViewpointObject.readTargetHDFFile(pArgs.file)
+            header_information = '# Chromosome\tStart\tEnd\n'
+
+            for targetFile in targetList:
+                targetFileHDF5Object = h5py.File(pArgs.file, 'r')
+                target_object = targetFileHDF5Object['/'.join(targetFile)]
+                chromosome = target_object.get('chromosome')[()]
+                start_list = list(target_object['start_list'][:])
+                end_list = list(target_object['end_list'][:])
+                targetFileHDF5Object.close()
+                chromosome = [chromosome] * len(start_list)
+
+                target_regions = list(zip(chromosome, start_list, end_list))
+                file_content_string = header_information
+                # key_list = sorted(list(data[1].keys()))
+                for region in target_regions:
+                    file_content_string += '\t'.join(x.decode('utf-8') for x in region) + '\n'
+                file_content_list.append(file_content_string)
+                file_name = '_'.join(targetFile) + '.txt'
+                file_list.append(file_name)
+
+
+        elif pArgs.fileType == 'aggregated':
+            header_information = '# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRaw\n'
+
+            for file in pFileList:
+                for sample in file:
+                    line_content, data = pViewpointObject.readAggregatedFileHDF(pArgs.file, sample)
+                    file_content_string = header_information
+                    for line in line_content:
+                        file_content_string += '\t'.join(str(x) for x in line) + '\n'
+                    file_content_list.append(file_content_string)
+
+                    file_name = '_'.join(sample) + '.txt'
+                    file_list.append(file_name)
+            
         
-        elif args.fileType == 'differential':
-            pass
+        elif pArgs.fileType == 'differential':
+            header_information = '# Chromosome\tStart\tEnd\tGene\tRelative distance\tsum of interactions 1\ttarget_1 raw\tsum of interactions 2\ttarget_2 raw\tp-value\n'
+            
+            for file in pFileList:
+                # accepted_list, all_list, rejected_list
+                item_classification = ['accepted', 'all', 'rejected']
+                line_content = pViewpointObject.readDifferentialFile(pArgs.file, file)
+                for i, item in enumerate(line_content):
+                    file_content_string = header_information
+
+                    for line in item:
+                        file_content_string += '\t'.join(str(x) for x in line) + '\n'
+                    file_content_list.append(file_content_string)
+                    file_name = '_'.join(file) + '_' + item_classification[i] +'.txt'
+                    file_list.append(file_name)
     
     except Exception as exp:
         log.debug("FAIL: {}".format(str(exp) + traceback.format_exc()))
@@ -162,8 +208,8 @@ def main(args=None):
             matrix1 = keys_matrix_intern[0]
             matrix2 = keys_matrix_intern[1]
 
-            matrix_obj1 = aggregatedFileHDF5Object[combinationOfMatrix + '/' + matrix1]
-            matrix_obj2 = aggregatedFileHDF5Object[combinationOfMatrix + '/' + matrix2]
+            matrix_obj1 = fileHDF5Object[combinationOfMatrix + '/' + matrix1]
+            matrix_obj2 = fileHDF5Object[combinationOfMatrix + '/' + matrix2]
             # for 
             # for sample2 in keys_aggregatedFile[i + 1:]:
                 
@@ -185,22 +231,19 @@ def main(args=None):
 
     elif args.fileType == 'differential':
 
-        for plotGroup in interactionFileList:
-            differential_group = []
+        for outer_matrix in keys_file:
+            inner_matrix_object = fileHDF5Object[outer_matrix]
+            keys_inner_matrices = list(inner_matrix_object.keys())
+            for inner_matrix in keys_inner_matrices:
+                inner_object = inner_matrix_object[inner_matrix]
+                chromosomeList = sorted(list(inner_object.keys()))
+                # chromosomeList.remove('genes')
+                for chromosome in chromosomeList:
+                    geneList = sorted(list(inner_object[chromosome].keys()))
 
-            if plotGroup[0][0] in keys_file:
-                matrix_object = fileHDF5Object[plotGroup[0][0]]
-                if plotGroup[1][0] in matrix_object:
-
-                    matrix1_object = matrix_object[plotGroup[1][0]]
-                    if plotGroup[1][1] in matrix1_object:
-                        chromosome_object = matrix1_object[plotGroup[1][1]]
-                
-                        if plotGroup[1][2] in chromosome_object:
-                            differential_group = [plotGroup[0][0], plotGroup[1][0], plotGroup[1][1], plotGroup[1][2]]
-            log.debug('differential_group {}'.format(differential_group))
-            fileList.append(differential_group)
-
+                    for gene in geneList:
+                        fileList.append([outer_matrix, inner_matrix, chromosome, gene])
+                        
 
     fileHDF5Object.close()
 
@@ -228,7 +271,7 @@ def main(args=None):
         process[i] = Process(target=exportData, kwargs=dict(
             pFileList=fileListPerThread,
             pArgs=args,
-            pViewpointObj=viewpointObj,
+            pViewpointObject=viewpointObj,
             pQueue=queue[i]
         )
         )
