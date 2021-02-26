@@ -1,6 +1,6 @@
 ---
 name: HiCExplorer issue
-about: Describe this issue template's purpose here.
+about: Open a new HiCExplorer issue
 title: ''
 labels: ''
 assignees: ''
