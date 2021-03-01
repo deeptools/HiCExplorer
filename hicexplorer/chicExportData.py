@@ -26,6 +26,8 @@ import h5py
 import io
 import tarfile
 from contextlib import closing
+import pyBigWig
+from collections import OrderedDict
 
 
 def parse_arguments(args=None):
@@ -57,11 +59,37 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            default='interaction',
                            choices=['interaction', 'significant', 'target', 'aggregated', 'differential']
                            )
+    parserOpt.add_argument('--outputFileType',
+                           '-oft',
+                           help='Output file type can be set for all --fileTypes to txt; except \'interaction\' supports also bigwig'
+                           ' (Default: %(default)s).',
+                           default='txt',
+                           choices=['txt', 'bigwig']
+                           )
     parserOpt.add_argument('--decimalPlaces',
                            help='Decimal places for all output floating numbers in the viewpoint files'
                            ' (Default: %(default)s).',
                            type=int,
                            default=12)
+    parserOpt.add_argument('--chromosomeSizes', '-cs',
+                            help=('File with the chromosome sizes for your genome. A tab-delimited two column layout \"chr_name size\" is expected'
+                                    'Usually the sizes can be determined from the SAM/BAM input files, however, '
+                                    'for cHi-C or scHi-C it can be that at the start or end no data is present. '
+                                    'Please consider that this option causes that only reads are considered which are on the listed chromosomes.'
+                                    'Use this option to guarantee fixed sizes. An example file is available via UCSC: '
+                                    'http://hgdownload.soe.ucsc.edu/goldenPath/dm3/bigZips/dm3.chrom.sizes'),
+                            type=argparse.FileType('r'),
+                            metavar='txt file')
+    parserOpt.add_argument('--backgroundModelFile', '-bmf',
+                           help='Path to the background model file. Required only for fileType=interactions and outputFileTypeBigwig.',
+                           required=False)
+    parserOpt.add_argument('--range',
+                            help='Defines the region upstream and downstream of a reference point which should be included. '
+                            'Format is --region upstream downstream, e.g.: --region 500000 500000 plots 500kb up- and 500kb downstream. '
+                            'This value should not exceed the range used in the other chic-tools. Applies only for interaction files in the combination with bigwig and a background model file!',
+                            required=False,
+                            type=int,
+                            nargs=2)
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module)'
                            ' (Default: %(default)s).',
@@ -76,24 +104,69 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
     return parser
 
 
-def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pQueue):
+def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSizes, pBackgroundData, pQueue):
 
     file_list = []
     file_content_list = []
+
+    file_ending = '.txt' if pArgs.outputFileType == 'txt' else '.bigwig'
+
     try:
         if pArgs.fileType == 'interaction' or pArgs.fileType == 'significant':
             header_information = '# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n'
 
             for file in pFileList:
+
+                if pArgs.outputFileType == 'bigwig':
+                    chromosome_name = []
+                    start = []
+                    end = []
+                    values = []
+                    relative_distance = {}
                 for sample in file:
                     data = pViewpointObject.readInteractionFile(pArgs.file, sample)
-
-                    file_content_string = header_information
                     key_list = sorted(list(data[1].keys()))
-                    for key in key_list:
-                        file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in data[1][key]) + '\n'
-                file_content_list.append(file_content_string)
-                file_name = '_'.join(sample) + '.txt'
+
+                    if pArgs.outputFileType == 'txt':
+
+                        file_content_string = header_information
+                        for key in key_list:
+                            file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in data[1][key]) + '\n'
+                    else:
+                        for key in key_list:
+                            # log.debug('len(data[1][key]) {}'.format(data[1][key]))
+                            chromosome_name.append(str(data[1][key][0]))
+                            start.append(int(data[1][key][1]))
+                            end.append(int(data[1][key][2]))
+                            values.append(float(data[1][key][6]))
+                            relative_distance[data[1][key][5]] = [str(data[1][key][0]), str(data[1][key][1]), str(data[1][key][2])]
+                        header = [(chromosome_name[0], pChromosomeSizes[chromosome_name[0]])]
+
+                        if pArgs.backgroundModelFile is not None:
+                            key_list_background = sorted(list(pBackgroundData.keys()))
+                            chromosome_name_background = []
+                            start_background = []
+                            end_background = []
+                            value_background = []
+
+                            for key in key_list_background:
+                                if key in relative_distance:
+                                    chromosome_name_background.append(relative_distance[key][0])
+                                    start_background.append(relative_distance[key][1])
+                                    end_background.append(relative_distance[key][2])
+                                    value_background.append(float(pBackgroundData[key]))
+                            
+                if pArgs.outputFileType == 'txt':
+                    file_content_list.append(file_content_string)
+                    file_name = ['_'.join(sample) + file_ending, 'background_'+'_'.join(sample) + file_ending]
+                else:
+                    if pArgs.backgroundModelFile is not None:
+                        file_content_list.append([[header, chromosome_name, start, end, values], [header, chromosome_name_background, start_background, end_background, value_background]])
+                        file_name = '_'.join(sample) + file_ending
+                    else:
+                        file_content_list.append([[header, chromosome_name, start, end, values]])
+                        file_name = ['_'.join(sample) + file_ending]
+                
                 file_list.append(file_name)
         elif pArgs.fileType == 'target':
             targetList, present_genes = pViewpointObject.readTargetHDFFile(pArgs.file)
@@ -162,6 +235,28 @@ def main(args=None):
     viewpointObj = Viewpoint()
 
     fileList = []
+    chromosome_sizes = None
+    background_dict = None
+    if args.outputFileType == 'bigwig':
+        if args.fileType != 'interaction':
+            log.error('Only file type \'interaction\' supports bigwig. Exiting.')
+            exit(1)
+        if args.backgroundModelFile is not None:
+                if args.backgroundModelFile:
+                    background_dict = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, args.range[1], pMean=True)
+        if args.chromosomeSizes is not None:
+            chromosome_sizes = OrderedDict()
+            with open(args.chromosomeSizes.name, 'r') as file:
+                file_ = True
+                while file_:
+                    file_ = file.readline().strip()
+                    if file_ != '':
+                        line_split = file_.split('\t')
+                        chromosome_sizes[line_split[0]] = int(line_split[1])
+                # chromosome_sizes = list(chromosome_sizes.items())
+        else:
+            log.error('Bigwig files require the argument \'--chromosomeSizes\'. Exiting.')
+            exit(1)
 
     # read hdf file
     fileHDF5Object = h5py.File(args.file, 'r')
@@ -249,7 +344,7 @@ def main(args=None):
     # highlightSignificantRegionsFileListThread = len(highlightSignificantRegionsFileList) // args.threads
 
     all_data_collected = False
-    stringIO_data = [None] * args.threads
+    thread_data = [None] * args.threads
     file_name_list = [None] * args.threads
 
     queue = [None] * args.threads
@@ -271,6 +366,8 @@ def main(args=None):
             pArgs=args,
             pViewpointObject=viewpointObj,
             pDecimalPlace=args.decimalPlaces,
+            pChromosomeSizes=chromosome_sizes,
+            pBackgroundData=background_dict,
             pQueue=queue[i]
         )
         )
@@ -286,7 +383,7 @@ def main(args=None):
                     fail_message = return_content[6:]
                     log.debug('fail flag')
                 else:
-                    file_name_list[i], stringIO_data[i] = return_content
+                    file_name_list[i], thread_data[i] = return_content
                     log.debug('return content')
 
                 queue[i] = None
@@ -303,16 +400,86 @@ def main(args=None):
         log.error(fail_message)
         exit(1)
 
-    stringIO_data = [item for sublist in stringIO_data for item in sublist]
+    thread_data = [item for sublist in thread_data for item in sublist]
     file_name_list = [item for sublist in file_name_list for item in sublist]
 
     with tarfile.open(args.outFileName, "w:gz") as tar:
-        for i, file_content_string in enumerate(stringIO_data):
-            # with closing(bufferObject) as fobj:
 
-            tar_info = tarfile.TarInfo(name=file_name_list[i])
-            tar_info.mtime = time.time()
-            file_content_string = file_content_string.encode('utf-8')
-            tar_info.size = len(file_content_string)
-            file = io.BytesIO(file_content_string)
-            tar.addfile(tarinfo=tar_info, fileobj=file)
+        if args.outputFileType == 'txt':
+            for i, file_content_string in enumerate(thread_data):
+                # with closing(bufferObject) as fobj:
+
+                tar_info = tarfile.TarInfo(name=file_name_list[i])
+                tar_info.mtime = time.time()
+                file_content_string = file_content_string.encode('utf-8')
+                tar_info.size = len(file_content_string)
+                file = io.BytesIO(file_content_string)
+                tar.addfile(tarinfo=tar_info, fileobj=file)
+
+        elif args.outputFileType == 'bigwig':
+
+            for i, file_content in enumerate(thread_data):
+                
+                for j, file_list in enumerate(file_content):
+
+                    # bw = pyBigWig.open(file_name_list[i][j], 'w')
+                    # # set big wig header
+                    # # log.debug('header: {}'.format(file_list[0]))
+                    # # log.debug('len(file_list): {}'.format(len(file_list)))
+
+                    # bw.addHeader(file_list[0])
+                    # bw.addEntries(file_list[1], file_list[2], ends=file_list[3], values=file_list[4])
+                    # bw.close()
+
+
+                    tar_info = tarfile.TarInfo(name=file_name_list[i][j])
+                    tar_info.mtime = time.time()
+                    # file_content_string = file_content_string.encode('utf-8')
+                    # tar_info.size = len(file_content_string)
+
+
+                    file = io.BytesIO()
+                    bw = pyBigWig.open(file, 'wb')
+                    bw.addHeader(file_list[0])
+                    bw.addEntries(file_list[1], file_list[2], ends=file_list[3], values=file_list[4])
+                    bw.close()
+                    tar_info.size = file.getbuffer().nbytes
+
+                    tar.addfile(tarinfo=tar_info, fileobj=file)
+
+            # old_chrom = chrom_list[0]
+            #     header = []
+            #     for i, _chrom in enumerate(chrom_list):
+            #         if old_chrom != _chrom:
+            #             header.append((toString(old_chrom), end_list[i - 1]))
+            #         old_chrom = _chrom
+
+            #     header.append((toString(chrom_list[-1]), end_list[-1]))
+            #     for idx, outfile in enumerate(args.outputFileName):
+            #         log.debug("bigwig: len(vecs_list) {}".format(len(vecs_list)))
+            #         log.debug("bigwig: len(chrom_list) {}".format(len(chrom_list)))
+
+            #         assert(len(vecs_list) == len(chrom_list))
+            #         _chrom_list = []
+            #         _start_list = []
+            #         _end_list = []
+            #         values = []
+
+                    
+            #         # set big wig header
+            #         bw.addHeader(header)
+            #         # create entry lists
+            #         for i, value in enumerate(vecs_list):
+            #             # it can happen that some 'value' is having less dimensions than it should
+            #             if len(value) == args.numberOfEigenvectors:
+            #                 if isinstance(value[idx], np.complex):
+            #                     value[idx] = value[idx].real
+            #                 values.append(value[idx])
+            #                 _chrom_list.append(toString(chrom_list[i]))
+            #                 _start_list.append(start_list[i])
+            #                 _end_list.append(end_list[i])
+
+            #         # write entries
+            #         bw.addEntries(_chrom_list, _start_list, ends=_end_list,
+            #                     values=values)
+            #         bw.close()
