@@ -92,6 +92,13 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                             required=False,
                             type=int,
                             nargs=2)
+    parserOpt.add_argument('--outputValueBigwig',
+                           '-ovb',
+                           help='Select which value the bigwig file should contain: \'relative-interactions\', \'p-value\', \'x-fold\', \'raw\''
+                           ' (Default: %(default)s).',
+                           default='relative-interactions',
+                           choices=['relative-interactions', 'p-value', 'x-fold', 'raw']
+                           )
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module)'
                            ' (Default: %(default)s).',
@@ -140,7 +147,15 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                             chromosome_name.append(str(data[1][key][0]))
                             start.append(int(data[1][key][1]))
                             end.append(int(data[1][key][2]))
-                            values.append(float(data[1][key][6]))
+                            if pArgs.outputValueBigwig == 'relative-interactions':
+                                values.append(float(data[1][key][6]))
+                            elif pArgs.outputValueBigwig == 'p-value':
+                                values.append(float(data[1][key][7]))
+                            elif pArgs.outputValueBigwig == 'x-fold':
+                                values.append(float(data[1][key][8]))
+                            elif pArgs.outputValueBigwig == 'raw':
+                                values.append(float(data[1][key][9]))
+
                             relative_distance[data[1][key][5]] = [str(data[1][key][0]), int(data[1][key][1]), int(data[1][key][2])]
                         header = [(chromosome_name[0], pChromosomeSizes[chromosome_name[0]])]
 
