@@ -29,6 +29,8 @@ from contextlib import closing
 import pyBigWig
 from collections import OrderedDict
 
+from tempfile import mkdtemp
+import shutil
 
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(add_help=False,
@@ -85,7 +87,7 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            required=False)
     parserOpt.add_argument('--range',
                             help='Defines the region upstream and downstream of a reference point which should be included. '
-                            'Format is --region upstream downstream, e.g.: --region 500000 500000 plots 500kb up- and 500kb downstream. '
+                            'Format is --range upstream downstream, e.g.: --range 500000 500000 plots 500kb up- and 500kb downstream. '
                             'This value should not exceed the range used in the other chic-tools. Applies only for interaction files in the combination with bigwig and a background model file!',
                             required=False,
                             type=int,
@@ -139,7 +141,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                             start.append(int(data[1][key][1]))
                             end.append(int(data[1][key][2]))
                             values.append(float(data[1][key][6]))
-                            relative_distance[data[1][key][5]] = [str(data[1][key][0]), str(data[1][key][1]), str(data[1][key][2])]
+                            relative_distance[data[1][key][5]] = [str(data[1][key][0]), int(data[1][key][1]), int(data[1][key][2])]
                         header = [(chromosome_name[0], pChromosomeSizes[chromosome_name[0]])]
 
                         if pArgs.backgroundModelFile is not None:
@@ -154,15 +156,18 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                                     chromosome_name_background.append(relative_distance[key][0])
                                     start_background.append(relative_distance[key][1])
                                     end_background.append(relative_distance[key][2])
-                                    value_background.append(float(pBackgroundData[key]))
+                                    # log.debug("pBackgroundData[key] {}".format(pBackgroundData[key][0]))
+                                    value_background.append(float(pBackgroundData[key][0]))
                             
                 if pArgs.outputFileType == 'txt':
                     file_content_list.append(file_content_string)
-                    file_name = ['_'.join(sample) + file_ending, 'background_'+'_'.join(sample) + file_ending]
+                    file_name = '_'.join(sample) + file_ending
                 else:
                     if pArgs.backgroundModelFile is not None:
                         file_content_list.append([[header, chromosome_name, start, end, values], [header, chromosome_name_background, start_background, end_background, value_background]])
-                        file_name = '_'.join(sample) + file_ending
+                        
+                        file_name = ['_'.join(sample) + file_ending, 'background_'+'_'.join(sample) + file_ending]
+
                     else:
                         file_content_list.append([[header, chromosome_name, start, end, values]])
                         file_name = ['_'.join(sample) + file_ending]
@@ -403,9 +408,9 @@ def main(args=None):
     thread_data = [item for sublist in thread_data for item in sublist]
     file_name_list = [item for sublist in file_name_list for item in sublist]
 
-    with tarfile.open(args.outFileName, "w:gz") as tar:
+    if args.outputFileType == 'txt':
+        with tarfile.open(args.outFileName, "w:gz") as tar:
 
-        if args.outputFileType == 'txt':
             for i, file_content_string in enumerate(thread_data):
                 # with closing(bufferObject) as fobj:
 
@@ -416,36 +421,49 @@ def main(args=None):
                 file = io.BytesIO(file_content_string)
                 tar.addfile(tarinfo=tar_info, fileobj=file)
 
-        elif args.outputFileType == 'bigwig':
+    elif args.outputFileType == 'bigwig':
+        bigwig_folder = mkdtemp(prefix="bigwig_folder")
+        for i, file_content in enumerate(thread_data):
+            
+            for j, file_list in enumerate(file_content):
 
-            for i, file_content in enumerate(thread_data):
-                
-                for j, file_list in enumerate(file_content):
+                bw = pyBigWig.open(bigwig_folder + '/' + file_name_list[i][j], 'w')
+                # # set big wig header
+                # # log.debug('header: {}'.format(file_list[0]))
+                log.debug('len(file_list): {}'.format(len(file_list)))
 
-                    # bw = pyBigWig.open(file_name_list[i][j], 'w')
-                    # # set big wig header
-                    # # log.debug('header: {}'.format(file_list[0]))
-                    # # log.debug('len(file_list): {}'.format(len(file_list)))
+                log.debug('len(file_list): {}'.format(len(file_list)))
 
-                    # bw.addHeader(file_list[0])
-                    # bw.addEntries(file_list[1], file_list[2], ends=file_list[3], values=file_list[4])
-                    # bw.close()
+                bw.addHeader(file_list[0])
+
+                bw.addEntries(file_list[1], file_list[2], ends=file_list[3], values=file_list[4])
+                bw.close()
+
+        with tarfile.open(args.outFileName, "w:gz") as tar_handle:
+            for root, dirs, files in os.walk(bigwig_folder):
+                for file in files:
+                    tar_handle.add(os.path.join(root, file))
+
+        if os.path.exists(bigwig_folder):
+            try:
+                shutil.rmtree(bigwig_folder)
+            except OSError as e:
+                log.error("Error: %s - %s." % (e.filename, e.strerror))
+        # os.remove("/tmp/<file_name>.txt")
+                # tar_info = tarfile.TarInfo(name=file_name_list[i][j])
+                # tar_info.mtime = time.time()
+                # # file_content_string = file_content_string.encode('utf-8')
+                # # tar_info.size = len(file_content_string)
 
 
-                    tar_info = tarfile.TarInfo(name=file_name_list[i][j])
-                    tar_info.mtime = time.time()
-                    # file_content_string = file_content_string.encode('utf-8')
-                    # tar_info.size = len(file_content_string)
+                # file = io.BytesIO()
+                # bw = pyBigWig.open(file, 'wb')
+                # bw.addHeader(file_list[0])
+                # bw.addEntries(file_list[1], file_list[2], ends=file_list[3], values=file_list[4])
+                # bw.close()
+                    # tar_info.size = file.getbuffer().nbytes
 
-
-                    file = io.BytesIO()
-                    bw = pyBigWig.open(file, 'wb')
-                    bw.addHeader(file_list[0])
-                    bw.addEntries(file_list[1], file_list[2], ends=file_list[3], values=file_list[4])
-                    bw.close()
-                    tar_info.size = file.getbuffer().nbytes
-
-                    tar.addfile(tarinfo=tar_info, fileobj=file)
+                    # tar.addfile(tarinfo=tar_info, fileobj=file)
 
             # old_chrom = chrom_list[0]
             #     header = []
