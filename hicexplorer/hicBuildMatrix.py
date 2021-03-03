@@ -368,7 +368,7 @@ def get_bins(bin_size, chrom_size, region=None):
     return bin_intvals
 
 
-def bed2interval_list(bed_file_handler):
+def bed2interval_list(bed_file_handler, pChromosomeSize, pRegion):
     r"""
     reads a BED file and returns
     a list of tuples containing
@@ -387,6 +387,11 @@ def bed2interval_list(bed_file_handler):
     [('chr1', 10, 20), ('chr1', 60, 70)]
     >>> os.remove(_file.name)
     """
+
+    if pRegion is not None:
+        chrom_size, start_region, end_region, _ = \
+            getUserRegion(pChromosomeSize, pRegion)
+
     count = 0
     interval_list = []
     for line in bed_file_handler:
@@ -394,10 +399,14 @@ def bed2interval_list(bed_file_handler):
         fields = line.strip().split()
         try:
             chrom, start, end = fields[0], int(fields[1]), int(fields[2])
+
         except IndexError:
             log.error("error reading BED file at line {}".format(count))
 
-        interval_list.append((chrom, start, end))
+        if chrom == chrom_size[0] and start_region <= start and end_region <= end:
+
+            interval_list.append((chrom, start, end))
+
     return interval_list
 
 
@@ -1153,7 +1162,7 @@ def main(args=None):
 
     rf_interval = []
     for restrictionCutFile in args.restrictionCutFile:
-        rf_interval.extend(bed2interval_list(restrictionCutFile))
+        rf_interval.extend(bed2interval_list(restrictionCutFile, chrom_sizes, args.region))
 
     rf_positions = intervalListToIntervalTree(rf_interval)
     log.debug('rf_positions {}'.format(rf_positions.keys()))
