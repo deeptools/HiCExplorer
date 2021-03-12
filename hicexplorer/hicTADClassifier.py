@@ -13,7 +13,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         conflict_handler='resolve',
         description="""
-Uses Supervised Learning to call TAD boundaries. One or multiple HiC-Matrices can be passed, from which a BED file will be produced containing the predicted boundary positions. By default, a EasyEnsembleClassifier as described in Liu et al.: “Exploratory Undersampling for Class-Imbalance Learning” will be used to call TADs. Internally this classifier relies on Resampling, Boosting and Bagging. Passed matrices will be range normalized by default. It is advised to normalize matrices beforehand and state the used method in the optional arguments of this program. Currently, only classifiers for 10kb resolution are implemented. For building own classifiers or tune existing ones, hicTrainClassifier can be used and passed with the saved_classifer argument. A simple usage example can be seen here:
+Uses Supervised Learning to call TAD boundaries. One or multiple HiC-Matrices can be passed, from which a BED file will be produced containing the predicted boundary positions. By default, a EasyEnsembleClassifier as described in Liu et al.: “Exploratory Undersampling for Class-Imbalance Learning” will be used to call TADs. Internally this classifier relies on Resampling, Boosting and Bagging. Passed matrices will be range normalized by default. Alternatively, obs/exp normalization can be used. Currently, only classifiers for 10kb resolution are implemented. For building own classifiers or tune existing ones, hicTrainClassifier can be used and passed with the saved_classifer argument. A simple usage example can be seen here:
 
 $ hicTADClassifier -f 'my_matrix.cool' -o 'predictions' -n 'range'
         """)
