@@ -39,6 +39,12 @@ def parse_arguments(args=None):
                            choices=['diff', 'ratio', 'log2ratio'],
                            default='log2ratio')
 
+    parserOpt.add_argument('--noNorm',
+                           help='Do not apply normalisation before'
+                           ' computing the operation (Default: False).',
+                           required=False,
+                           action='store_true')
+
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
 
     parserOpt.add_argument('--version', action='version',
@@ -66,9 +72,10 @@ def main(args=None):
              "{}: {}".format(args.matrices[0], hic1.chrBinBoundaries.keys(),
                              args.matrices[1], hic2.chrBinBoundaries.keys()))
 
-    # normalize by total matrix sum
-    hic1.matrix.data = hic1.matrix.data.astype(float) / hic1.matrix.data.sum()
-    hic2.matrix.data = hic2.matrix.data.astype(float) / hic2.matrix.data.sum()
+    if not args.noNorm:
+        # normalize by total matrix sum
+        hic1.matrix.data = hic1.matrix.data.astype(float) / hic1.matrix.data.sum()
+        hic2.matrix.data = hic2.matrix.data.astype(float) / hic2.matrix.data.sum()
 
     nan_bins = set(hic1.nan_bins)
     nan_bins = nan_bins.union(hic2.nan_bins)

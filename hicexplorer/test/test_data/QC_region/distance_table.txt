@@ -1,0 +1,2 @@
+File	inter chromosomal	inter chromosomal %	Intra short range (< 20kb)	Intra short range (< 20kb) %	Intra long range (>= 20kb)	Intra long range (>= 20kb) %
+/tmp/tmpmzka3uhk.h5	0	0.0	2145	0.2685614122949793	5842	0.7314385877050207
