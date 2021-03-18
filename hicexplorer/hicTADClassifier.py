@@ -1,8 +1,10 @@
 import argparse
-#from lib_hicTADClassifier import TADClassifier
+import logging
+# from lib_hicTADClassifier import TADClassifier
 from hicexplorer.lib_hicTADClassifier import TADClassifier
 
 # taken and altered from hicFindTads
+log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
@@ -45,19 +47,19 @@ $ hicTADClassifier -f 'my_matrix.cool' -o 'predictions' -n 'range'
         else:
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
-    def check_file_list(l):
-        if(isinstance(l, str)):
-            return l
+    def check_file_list(le):
+        if(isinstance(le, str)):
+            return le
 
-        elif(isinstance(l, list)):
+        elif(isinstance(le, list)):
             f = True
 
-            for w in l:
+            for w in le:
                 if(not isinstance(w, str)):
                     f = False
 
             if(f):
-                return l
+                return le
             else:
                 raise argparse.ArgumentTypeError(
                     "passed file list contains non-string values")
@@ -104,14 +106,14 @@ $ hicTADClassifier -f 'my_matrix.cool' -o 'predictions' -n 'range'
                            default=4,
                            type=check_threads)
 
-    #TODO: check
+    # TODO: check
     parserOpt.add_argument(
         '--help',
         '-h',
         action='help',
         help='show this help message and exit.')
 
-    #TODO: check
+    # TODO: check
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format('0.1'))
 
