@@ -17,9 +17,6 @@ sdist
 develop-eggs
 .installed.cfg
 lib
-!/lib/lib_hicTADClassifier.py
-!/lib/pretrained_classifier_10000_obsexp.BIN
-!/lib/pretrained_classifier_10000_obsexp.BIN
 lib64
 __pycache__
 
