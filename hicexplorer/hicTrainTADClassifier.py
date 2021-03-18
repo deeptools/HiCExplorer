@@ -1,10 +1,12 @@
 # from lib_hicTADClassifier import TADClassifier
 from hicexplorer.lib_hicTADClassifier import TADClassifier
 import argparse
+import logging
 
 
 # taken and altered from hicFindTads
 log = logging.getLogger(__name__)
+
 
 def parse_arguments(args=None):
     """
@@ -71,7 +73,6 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
                 "leniency %s is not within valid range 0 -" % le)
         return li
 
-
     def str2bool(v):
         if isinstance(v, bool):
             return v
@@ -82,19 +83,19 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
         else:
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
-    def check_file_list(l):
-        if(isinstance(l, str)):
-            return l
+    def check_file_list(le):
+        if(isinstance(le, str)):
+            return le
 
-        elif(isinstance(l, list)):
+        elif(isinstance(le, list)):
             f = True
 
-            for w in l:
+            for w in le:
                 if(not isinstance(w, str)):
                     f = False
 
             if(f):
-                return l
+                return le
             else:
                 raise argparse.ArgumentTypeError(
                     "passed file list contains non-string values")

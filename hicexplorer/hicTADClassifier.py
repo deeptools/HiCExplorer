@@ -1,9 +1,11 @@
 import argparse
+import logging
 # from lib_hicTADClassifier import TADClassifier
 from hicexplorer.lib_hicTADClassifier import TADClassifier
 
 # taken and altered from hicFindTads
 log = logging.getLogger(__name__)
+
 
 def parse_arguments(args=None):
     """

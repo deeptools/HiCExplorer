@@ -40,7 +40,7 @@ def test_hicTrainClassifier():
             '--estimators_per_step',
             '10']
 
-    compute(hicTrainClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 1)
     f = open(test_folder + 'train_test.txt', "r")
     assert f.readline().split()[0] == 'accuracy'
 
@@ -59,7 +59,7 @@ def test_hicTrainClassifier():
             '--estimators_per_step',
             '10']
 
-    compute(hicTrainClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 1)
     # if estimator is build will be checked by the next run
 
     args = ['--mode',
@@ -77,7 +77,7 @@ def test_hicTrainClassifier():
             '--saved_classifier',
             test_folder + 'unittest_classifier_new.BIN']
 
-    compute(hicTrainClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 1)
 
     args = ['--mode',
             'predict_test',
@@ -94,7 +94,7 @@ def test_hicTrainClassifier():
             '--saved_classifier',
             test_folder + 'unittest_classifier_new.BIN']
 
-    compute(hicTrainClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 1)
     f = open(test_folder + 'predict_test_results.txt', "r")
     assert f.readline().split()[0] == 'accuracy'
 

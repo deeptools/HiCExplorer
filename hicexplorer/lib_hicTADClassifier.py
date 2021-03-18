@@ -16,7 +16,7 @@ import scipy.stats as statsw
 from scipy.sparse import csr_matrix, lil_matrix
 import pickle
 
-#hicexplorer and pybedtools
+# hicexplorer and pybedtools
 from hicexplorer import hicFindTADs
 from hicexplorer import hicTransform
 from hicmatrix import HiCMatrix as hm
@@ -64,7 +64,7 @@ class TADClassifier:
                 domain_file)
 
             # read protein file and intersect if necessary
-            if(not protein_file is None):
+            if(protein_file is not None):
                 self.protein_df = TADClassifier.MP_Domain_Data.readProtein(
                     protein_file, False)
                 TADClassifier.MP_Domain_Data.apply_binning_and_leniency(
@@ -99,7 +99,7 @@ class TADClassifier:
         def read_domain_file(tad_file):
             '''read in the domain.bed output file of hicFindTads'''
 
-            #read and sort
+            # read and sort
             domains_by_hicfindtads = pd.read_csv(
                 tad_file, sep="\t", header=None)
             domains_by_hicfindtads.columns = TADClassifier.MP_Domain_Data.get_domain_col_names()
@@ -380,9 +380,11 @@ class TADClassifier:
 
             for chrname in hic_ma.getChrNames():
                 chr_range = hic_ma.getChrBinRange(chrname)
-                submatrix = hic_ma.matrix[chr_range[0]                                          :chr_range[1], chr_range[0]:chr_range[1]]
+                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1],
+                chr_range[0]:chr_range[1]]
                 submatrix.astype(float)
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]                             :chr_range[1]] = lil_matrix(_obs_exp(submatrix))
+                trasf_matrix[chr_range[0]:chr_range[1], 
+                chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp(submatrix))
 
             hic_ma.setMatrix(
                 trasf_matrix.tocsr(),
@@ -558,7 +560,7 @@ class TADClassifier:
                 return rus.fit_resample(X, y)
 
             # use users method
-            elif(method == 'passed_method' and not passed_method is None):
+            elif(method == 'passed_method' and passed_method is not None):
                 log.info('resampling with: ' + method)
                 return passed_method.fit_resample(X, y)
 
@@ -690,7 +692,7 @@ class TADClassifier:
         self.concatenate_before_resample = concatenate_before_resample
 
         if(mode == 'predict' or mode == 'train_existing' or mode == 'predict_test'):
-            if(not saved_classifier is None):
+            if(saved_classifier is not None):
                 self.classifier = pickle.load(open(saved_classifier, 'rb'))
             else:
                 if(normalization_method == 'obs_exp'):
@@ -703,15 +705,15 @@ class TADClassifier:
                     log.info('using range default classifier')
 
         if(mode == 'train_new' or mode == 'train_test'):
-            if(not alternative_classifier is None and not isinstance(alternative_classifier, sklearn.base.BaseEstimator)):
+            if(alternative_classifier is not None and not isinstance(alternative_classifier, sklearn.base.BaseEstimator)):
                 raise ValueError('the passed classifier is not valid')
 
-            if(not resampling_method == 'passed_method' and not alternative_resampling_method is None):
+            if(not resampling_method == 'passed_method' and alternative_resampling_method is not None):
                 warnings.warn(
                     'default resampling method chosen, but custom method passed; using passed method')
                 resampling_method = 'passed_method'
 
-            if(not alternative_resampling_method is None and not isinstance(alternative_resampling_method, imblearn.base.BaseCleaningSampler)):
+            if(alternative_resampling_method is not None and not isinstance(alternative_resampling_method, imblearn.base.BaseCleaningSampler)):
                 raise ValueError('the passed resampling method is not valid')
 
             self.classifier = TADClassifier.MP_Classifier(
@@ -812,7 +814,7 @@ class TADClassifier:
             y_test, y_pred = self.classifier.single_run(
                 positions, features, is_boundary)
             self.classifier.print_results(
-                y_test, y_pred, out_file=self.out_file)
+                y_test, y_pred, out_file=out_file)
         except ValueError:
             raise ValueError(
                 'training or test set does not contain any boundaries')
@@ -826,7 +828,7 @@ class TADClassifier:
         nm_conc_features = nm_conc_features - 1
         i = 0
         conc_features = None
-        conf_is_boundary = None
+        conc_is_boundary = None
         resampled_X = None
         resampled_y = None
 
@@ -838,7 +840,6 @@ class TADClassifier:
             matrix.numpy_matrix = None
             matrix.hic_matrix = None
             matrix = None
-            positions = None
 
             if(conc_features is None):
                 conc_features = features
@@ -863,7 +864,7 @@ class TADClassifier:
             features = None
             is_boundary = None
 
-        if (not conc_features is None):
+        if (conc_features is not None):
             resampled_X, resampled_y = self.incremental_resample(
                 resampled_X, resampled_y, conc_features, conc_is_boundary)
             conc_features = None
@@ -887,7 +888,7 @@ class TADClassifier:
         nm_conc_features = nm_conc_features - 1
         i = 0
         conc_features = None
-        conf_is_boundary = None
+        conc_is_boundary = None
 
         for data in zip(matrix_list, domain_list, protein_list):
 
@@ -897,7 +898,6 @@ class TADClassifier:
             matrix.numpy_matrix = None
             matrix.hic_matrix = None
             matrix = None
-            positions = None
 
             if(conc_features is None):
                 conc_features = features
@@ -927,7 +927,7 @@ class TADClassifier:
             features = None
             is_boundary = None
 
-        if (not conc_features is None):
+        if (conc_features is not None):
             try:
                 self.classifier.incremental_fit(
                     conc_features, conc_is_boundary, resample=True)
