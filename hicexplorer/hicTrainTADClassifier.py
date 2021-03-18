@@ -1,9 +1,11 @@
-#from lib_hicTADClassifier import TADClassifier
+# from lib_hicTADClassifier import TADClassifier
 from hicexplorer.lib_hicTADClassifier import TADClassifier
 import argparse
 
 
 # taken and altered from hicFindTads
+log = logging.getLogger(__name__)
+
 def parse_arguments(args=None):
     """
     get command line arguments
@@ -62,15 +64,14 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
                 "range_max %s is not within valid range 0 -" % t)
         return ti
 
-    def check_leniency(l):
-        li = int(l)
+    def check_leniency(le):
+        li = int(le)
         if li < 0:
             raise argparse.ArgumentTypeError(
-                "leniency %s is not within valid range 0 -" % l)
+                "leniency %s is not within valid range 0 -" % le)
         return li
 
-    # from:
-    # https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
+
     def str2bool(v):
         if isinstance(v, bool):
             return v
@@ -216,14 +217,14 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
                            default=False,
                            type=str2bool)
 
-    #TODO: check
+    # TODO: check
     parserOpt.add_argument(
         '--help',
         '-h',
         action='help',
         help='show this help message and exit.')
 
-    #TODO: check
+    # TODO: check
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format('0.1'))
 
