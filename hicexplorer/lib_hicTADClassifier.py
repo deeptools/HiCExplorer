@@ -380,9 +380,11 @@ class TADClassifier:
 
             for chrname in hic_ma.getChrNames():
                 chr_range = hic_ma.getChrBinRange(chrname)
-                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1],chr_range[0]:chr_range[1]]
+                submatrix = hic_ma.matrix[chr_range[0]
+                    :chr_range[1], chr_range[0]:chr_range[1]]
                 submatrix.astype(float)
-                trasf_matrix[chr_range[0]:chr_range[1],chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp(submatrix))
+                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]
+                    :chr_range[1]] = lil_matrix(_obs_exp(submatrix))
 
             hic_ma.setMatrix(
                 trasf_matrix.tocsr(),
@@ -657,27 +659,7 @@ class TADClassifier:
                 plt.legend(loc="lower right")
                 plt.savefig(out_file)
 
-
-# TAD classifier program
-    def __init__(self,
-                 mode,
-                 out_file,
-                 normalization_method='range',
-                 saved_classifier=None,
-                 unselect_border_cases=True,
-                 threads=4,
-                 threshold=None,
-                 leniency=0,
-                 resolution=10000,
-                 distance=15,
-                 impute_value=-1.0,
-                 resampling_method='undersample_random',
-                 alternative_resampling_method=None,
-                 alternative_classifier=None,
-                 use_cleanlab=False,
-                 estimators_per_step=50,
-                 concatenate_before_resample=False
-                 ):
+    def __init__(self, mode, out_file, normalization_method='range', saved_classifier=None, unselect_border_cases=True, threads=4, threshold=None, leniency=0, resolution=10000, distance=15, impute_value=-1.0, resampling_method='undersample_random', alternative_resampling_method=None, alternative_classifier=None, use_cleanlab=False, estimators_per_step=50, concatenate_before_resample=False):
 
         self.mode = mode
         self.out_file = out_file
@@ -1103,12 +1085,38 @@ class TADClassifier:
         '''print domain file'''
 
         domain_df.to_csv(path, sep='\t', header=None, index=False)
+        
+    def filter_domains(domains):
+        '''filter out to small domains'''
+
+        min_tad_size = 50000 - 1
+        domain_df = pd.DataFrame({'Chrom': domains[:,
+                                                   0],
+                                  'Start': domains[:,
+                                                   1],
+                                  'End': domains[:,
+                                                 2]})
+
+        domain_df['Start'] = domain_df.Start.apply(np.int64)
+        domain_df['End'] = domain_df.End.apply(np.int64)
+        domain_df = domain_df.sort_values(by=["Chrom", "Start"])
+        domain_df['Test'] = domain_df['Start'].shift(1, fill_value=0)
+        domain_df['Chrom_Test'] = domain_df['Chrom'].shift(1, fill_value=0)
+        domain_df['Chrom_Test_Bool'] = domain_df['Chrom'] != domain_df['Chrom_Test']
+        domain_df['Test_Bool'] = domain_df['Test'] + min_tad_size <= domain_df['Start']
+        domain_df['Test_Bool'] = np.logical_or(domain_df['Test_Bool'],domain_df['Chrom_Test_Bool'])
+        domain_df = domain_df[domain_df['Test_Bool']]
+
+        return domain_df[['Chrom', 'Start', 'End']].to_numpy()
 
     def get_domains(positions, y):
         '''return dataframe of predicted TADs'''
 
         pos_mask = y[:] == True
         domains = positions[pos_mask]
+
+        domains = TADClassifier.filter_domains(domains)
+
         name = np.arange(1, domains.shape[0] + 1)
         score = np.full(domains.shape[0], -1)
         strand = np.full(domains.shape[0], 0)
@@ -1120,14 +1128,14 @@ class TADClassifier:
                                   'Start': domains[:,
                                                    1],
                                   'End': domains[:,
-                                                 2],
+                                                 1],
                                   'Name': name,
                                   'Score': score,
                                   'Strand': strand,
                                   'ThickStart': domains[:,
                                                         1],
                                   'ThickEnd': domains[:,
-                                                      2],
+                                                      1],
                                   'ItemRGB': item_rgb})
 
         def rgb_helper(i):
