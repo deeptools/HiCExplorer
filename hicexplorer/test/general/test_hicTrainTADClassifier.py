@@ -1,25 +1,31 @@
-from hicexplorer import hicTrainClassifier
+from hicexplorer import hicTrainTADClassifier
 from hicexplorer.test.test_compute_function import compute
-from hicexplorer.lib_hicTADClassifier import TADClassifier
+# from hicexplorer.lib.tadClassifier import TADClassifier
 import numpy.testing as nt
 import os
 import shutil
 from tempfile import mkdtemp
+import tempfile
 from hicmatrix import HiCMatrix
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
-#from hicexplorer.test.test_compute_function import compute
+# from hicexplorer.test.test_compute_function import compute
 
 
-ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
-#ROOT = 'test_data/hicTADClassifier/'
+ROOT = os.path.join(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__))),
+    "test_data/hicTADClassifier/")
+# ROOT = 'test_data/hicTADClassifier/'
 
 
 def test_hicTrainClassifier():
 
     test_folder = mkdtemp(prefix="testfolder_hicTrainClassifier")
+    print(tempfile.gettempdir())
 
     args = ['--mode',
             'train_test',
@@ -36,7 +42,7 @@ def test_hicTrainClassifier():
             '--estimators_per_step',
             '10']
 
-    compute(hicTrainClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 1)
     f = open(test_folder + 'train_test.txt', "r")
     assert f.readline().split()[0] == 'accuracy'
 
@@ -55,7 +61,7 @@ def test_hicTrainClassifier():
             '--estimators_per_step',
             '10']
 
-    compute(hicTrainClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 1)
     # if estimator is build will be checked by the next run
 
     args = ['--mode',
@@ -73,7 +79,7 @@ def test_hicTrainClassifier():
             '--saved_classifier',
             test_folder + 'unittest_classifier_new.BIN']
 
-    compute(hicTrainClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 1)
 
     args = ['--mode',
             'predict_test',
@@ -90,8 +96,8 @@ def test_hicTrainClassifier():
             '--saved_classifier',
             test_folder + 'unittest_classifier_new.BIN']
 
-    compute(hicTrainClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 1)
     f = open(test_folder + 'predict_test_results.txt', "r")
     assert f.readline().split()[0] == 'accuracy'
 
-    shutil.rmtree(test_folder)
+#     shutil.rmtree(test_folder)

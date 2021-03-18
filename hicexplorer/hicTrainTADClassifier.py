@@ -1,9 +1,12 @@
-#from lib_hicTADClassifier import TADClassifier
-from hicexplorer.lib_hicTADClassifier import TADClassifier
+from .lib import TADClassifier
 import argparse
+import logging
 
 
 # taken and altered from hicFindTads
+log = logging.getLogger(__name__)
+
+
 def parse_arguments(args=None):
     """
     get command line arguments
@@ -19,19 +22,19 @@ This program can be used to train and test new and existing classifiers for hicT
 
 train_test mode: this is a convenience function, where a single matrix/domains set can be passed to quickly assert the performance of a new classifier. Nothing will be saved from this mode, instead, the classifier will be trained on 80% of the data and tested on the remaining 20%. The output will be a performance report. A quick usage example can be seen here:
 
-$ hicTrainClassifier -m 'train_test' -f 'my_test_matrix.cool' -d 'domains.bed' -o 'report.txt' -n 'range' -r 10000
+$ hicTrainTADClassifier -m 'train_test' -f 'my_test_matrix.cool' -d 'domains.bed' -o 'report.txt' -n 'range' -r 10000
 
 train_new mode: this mode allows the training of a new classifier. Note that range of optional arguments, that can be used to fine tune. The resulting classifier will be pickled at the specified out_file. A quick example can be seen here, where we varied the feature distance:
 
-$ hicTrainClassifier -m 'train_new' -f 'my_test_matrix.cool' -d 'domains.bed' -o 'new_classifier.data' -n 'range' -r 10000 --distance 18
+$ hicTrainTADClassifier -m 'train_new' -f 'my_test_matrix.cool' -d 'domains.bed' -o 'new_classifier.data' -n 'range' -r 10000 --distance 18
 
 train_existing mode: train the classifier specified in saved_classifier on new data. When not setting the saved_classifier, the preset classifiers will be used as preset. The output will be the classifier trained with additional data and more internal estimators.
 
-$ hicTrainClassifier -m 'train_existing' -f 'my_test_matrix.cool' -d 'domains.bed' -o 'updated_classifier.data' -n 'range' -r 10000
+$ hicTrainTADClassifier -m 'train_existing' -f 'my_test_matrix.cool' -d 'domains.bed' -o 'updated_classifier.data' -n 'range' -r 10000
 
 predict_test mode: predict using an existing classifier and produce a classification report. The difference in using this over hicTADClassifier is, that this version will predict on a balanced test set. Normally, HiC-Matrices contain a lot more non-boundaries than boundaries, which skews the classification report to the point, where it does not contain usefull information anymore. By passing a domain file produced by another TAD Caller, hicTrainClassifier will build a test set using the boundaries of this domain file and will pick at random as many non-boundaries from the passed matrix. Use this over hicTADClassifier to produce a meaningful output, but not for TAD calling.
 
-$ hicTrainClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.bed' -o 'report.txt' -n 'range' -r 10000
+$ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.bed' -o 'report.txt' -n 'range' -r 10000
         """)
 
     def check_distance(d):
@@ -62,15 +65,13 @@ $ hicTrainClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.bed'
                 "range_max %s is not within valid range 0 -" % t)
         return ti
 
-    def check_leniency(l):
-        li = int(l)
+    def check_leniency(le):
+        li = int(le)
         if li < 0:
             raise argparse.ArgumentTypeError(
-                "leniency %s is not within valid range 0 -" % l)
+                "leniency %s is not within valid range 0 -" % le)
         return li
 
-    # from:
-    # https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
     def str2bool(v):
         if isinstance(v, bool):
             return v
@@ -81,19 +82,19 @@ $ hicTrainClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.bed'
         else:
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
-    def check_file_list(l):
-        if(isinstance(l, str)):
-            return l
+    def check_file_list(le):
+        if(isinstance(le, str)):
+            return le
 
-        elif(isinstance(l, list)):
+        elif(isinstance(le, list)):
             f = True
 
-            for w in l:
+            for w in le:
                 if(not isinstance(w, str)):
                     f = False
 
             if(f):
-                return l
+                return le
             else:
                 raise argparse.ArgumentTypeError(
                     "passed file list contains non-string values")
@@ -216,14 +217,14 @@ $ hicTrainClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.bed'
                            default=False,
                            type=str2bool)
 
-    #TODO: check
+    # TODO: check
     parserOpt.add_argument(
         '--help',
         '-h',
         action='help',
         help='show this help message and exit.')
 
-    #TODO: check
+    # TODO: check
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format('0.1'))
 
