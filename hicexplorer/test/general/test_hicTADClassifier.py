@@ -16,7 +16,11 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 #from hicexplorer.test.test_compute_function import compute
 
 
-ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
+ROOT = os.path.join(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__))),
+    "test_data/")
 #ROOT = 'test_data/hicTADClassifier/'
 
 

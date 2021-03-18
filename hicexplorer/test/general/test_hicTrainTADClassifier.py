@@ -1,4 +1,4 @@
-from hicexplorer import hicTrainClassifier
+from hicexplorer import hicTrainTADClassifier
 from hicexplorer.test.test_compute_function import compute
 from hicexplorer.lib_hicTADClassifier import TADClassifier
 import numpy.testing as nt
@@ -13,7 +13,11 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 #from hicexplorer.test.test_compute_function import compute
 
 
-ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/")
+ROOT = os.path.join(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__))),
+    "test_data/")
 #ROOT = 'test_data/hicTADClassifier/'
 
 
