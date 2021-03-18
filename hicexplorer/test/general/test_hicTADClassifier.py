@@ -1,6 +1,6 @@
 from hicexplorer import hicTADClassifier
 from hicexplorer.test.test_compute_function import compute
-from hicexplorer.lib_hicTADClassifier import TADClassifier
+from hicexplorer.lib.tadClassifier import TADClassifier
 import math
 import pandas as pd
 import numpy as np
@@ -20,7 +20,7 @@ ROOT = os.path.join(
     os.path.dirname(
         os.path.dirname(
             os.path.abspath(__file__))),
-    "test_data/")
+    "test_data/hicTADClassifier/")
 # ROOT = 'test_data/hicTADClassifier/'
 
 
@@ -160,8 +160,8 @@ def test_hicTADClassifier():
             '--threads',
             '4'
             ]
-
-    compute(hicTADClassifier.main, args, 1)
+    hicTADClassifier.main(args)
+    # compute(hicTADClassifier.main, args, 1)
     domain_df = TADClassifier.MP_Domain_Data.read_domain_file(
         test_folder + 'domains_test_0.bed')
     assert domain_df['Chrom'].iloc[0] == 'chr1'

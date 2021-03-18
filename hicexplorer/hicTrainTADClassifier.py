@@ -1,5 +1,4 @@
-# from lib_hicTADClassifier import TADClassifier
-from hicexplorer.lib_hicTADClassifier import TADClassifier
+from .lib import TADClassifier
 import argparse
 import logging
 

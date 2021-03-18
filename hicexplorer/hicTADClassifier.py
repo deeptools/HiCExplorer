@@ -1,7 +1,6 @@
 import argparse
 import logging
-# from lib_hicTADClassifier import TADClassifier
-from hicexplorer.lib_hicTADClassifier import TADClassifier
+from .lib import TADClassifier
 
 # taken and altered from hicFindTads
 log = logging.getLogger(__name__)

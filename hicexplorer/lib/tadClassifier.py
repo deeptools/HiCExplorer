@@ -380,9 +380,9 @@ class TADClassifier:
 
             for chrname in hic_ma.getChrNames():
                 chr_range = hic_ma.getChrBinRange(chrname)
-                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1],chr_range[0]:chr_range[1]]
+                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
                 submatrix.astype(float)
-                trasf_matrix[chr_range[0]:chr_range[1],chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp(submatrix))
+                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp(submatrix))
 
             hic_ma.setMatrix(
                 trasf_matrix.tocsr(),
@@ -657,10 +657,9 @@ class TADClassifier:
                 plt.legend(loc="lower right")
                 plt.savefig(out_file)
 
+    # TAD classifier program
 
-# TAD classifier program
-    def __init__(self,
-                 mode,
+    def __init__(self, mode,
                  out_file,
                  normalization_method='range',
                  saved_classifier=None,
