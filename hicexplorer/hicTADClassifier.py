@@ -4,6 +4,7 @@ from .lib import TADClassifier
 
 # taken and altered from hicFindTads
 log = logging.getLogger(__name__)
+from hicexplorer._version import __version__
 
 
 def parse_arguments(args=None):
@@ -19,60 +20,13 @@ Uses Supervised Learning to call TAD boundaries. One or multiple HiC-Matrices ca
 $ hicTADClassifier -f 'my_matrix.cool' -o 'predictions' -n 'range'
         """)
 
-    def check_range_max(r):
-        ri = float(r)
-        if ri <= 0:
-            raise argparse.ArgumentTypeError(
-                "range_max %s is not within valid range 0 -" % r)
-        return ri
-
-    def check_threads(t):
-        ti = int(t)
-        if ti <= 0:
-            raise argparse.ArgumentTypeError(
-                "range_max %s is not within valid range 0 -" % t)
-        return ti
-
-    # from:
-    # https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
-
-    def str2bool(v):
-        if isinstance(v, bool):
-            return v
-        if v.lower() in ('yes', 'true', 't', 'y', '1'):
-            return True
-        elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-            return False
-        else:
-            raise argparse.ArgumentTypeError('Boolean value expected.')
-
-    def check_file_list(le):
-        if(isinstance(le, str)):
-            return le
-
-        elif(isinstance(le, list)):
-            f = True
-
-            for w in le:
-                if(not isinstance(w, str)):
-                    f = False
-
-            if(f):
-                return le
-            else:
-                raise argparse.ArgumentTypeError(
-                    "passed file list contains non-string values")
-
-        else:
-            raise argparse.ArgumentTypeError(
-                "passed file list is not a string or list of strings")
-
+   
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrix_file', '-f',
                                 help='HiC-Matrix file or list of files for input',
                                 required=True,
-                                type=check_file_list)
+                                nargs='+')
 
     parserRequired.add_argument('--out_file', '-o',
                                 help='output file path for predictions',
@@ -97,44 +51,40 @@ $ hicTADClassifier -f 'my_matrix.cool' -o 'predictions' -n 'range'
 
     parserOpt.add_argument('--unselect_border_cases',
                            help='set whether genes at the border of the matrices will not be predicted',
-                           type=str2bool,
-                           default=False)
+                           required=False,
+                           action='store_true')
 
-    parserOpt.add_argument('--threads',
+    parserOpt.add_argument('--threads', '-t',
                            help='number of threads used',
                            default=4,
-                           type=check_threads)
+                           type=int)
 
-    # TODO: check
-    parserOpt.add_argument(
-        '--help',
-        '-h',
-        action='help',
-        help='show this help message and exit.')
+    parserOpt.add_argument("--help", "-h", action="help",
+                           help="show this help message and exit")
 
-    # TODO: check
     parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format('0.1'))
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
 
 
-def print_args(args):
-    """
-    Print to stderr the parameters used
-    Parameters
-    ----------
-    args
+# def print_args(args):
+#     """
+#     Print to stderr the parameters used
+#     Parameters
+#     ----------
+#     args
 
-    Returns
-    -------
+#     Returns
+#     -------
 
-    """
-    for key, value in args._get_kwargs():
-        log.info("{}:\t{}\n".format(key, value))
+#     """
+#     for key, value in args._get_kwargs():
+#         log.info("{}:\t{}\n".format(key, value))
 
 
 def main(args=None):
+    # args = parse_arguments().parse_args(args)
 
     args = parse_arguments().parse_args(args)
     program = TADClassifier('predict',

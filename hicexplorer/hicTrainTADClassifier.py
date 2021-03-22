@@ -2,6 +2,7 @@ from .lib import TADClassifier
 import argparse
 import logging
 
+from hicexplorer._version import __version__
 
 # taken and altered from hicFindTads
 log = logging.getLogger(__name__)
@@ -37,34 +38,7 @@ predict_test mode: predict using an existing classifier and produce a classifica
 $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.bed' -o 'report.txt' -n 'range' -r 10000
         """)
 
-    def check_distance(d):
-        di = int(d)
-        if di <= 5 or di > 30:
-            raise argparse.ArgumentTypeError(
-                "distance %s is not within valid range 5 - 30" % d)
-        return di
-
-    def check_estimators_per_step(e):
-        ei = int(e)
-        if ei <= 5 or ei > 1000:
-            raise argparse.ArgumentTypeError(
-                "estimators %s is not within valid range 5 - 1000" % e)
-        return ei
-
-    def check_range_max(r):
-        ri = float(r)
-        if ri <= 0:
-            raise argparse.ArgumentTypeError(
-                "range_max %s is not within valid range 0 -" % r)
-        return ri
-
-    def check_threads(t):
-        ti = int(t)
-        if ti <= 0:
-            raise argparse.ArgumentTypeError(
-                "range_max %s is not within valid range 0 -" % t)
-        return ti
-
+  
     def check_leniency(le):
         li = int(le)
         if li < 0:
@@ -72,36 +46,7 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
                 "leniency %s is not within valid range 0 -" % le)
         return li
 
-    def str2bool(v):
-        if isinstance(v, bool):
-            return v
-        if v.lower() in ('yes', 'true', 't', 'y', '1'):
-            return True
-        elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-            return False
-        else:
-            raise argparse.ArgumentTypeError('Boolean value expected.')
 
-    def check_file_list(le):
-        if(isinstance(le, str)):
-            return le
-
-        elif(isinstance(le, list)):
-            f = True
-
-            for w in le:
-                if(not isinstance(w, str)):
-                    f = False
-
-            if(f):
-                return le
-            else:
-                raise argparse.ArgumentTypeError(
-                    "passed file list contains non-string values")
-
-        else:
-            raise argparse.ArgumentTypeError(
-                "passed file list is not a string or list of strings")
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -118,12 +63,12 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
     parserRequired.add_argument('--matrix_file', '-f',
                                 help='HiC-Matrix file or list of files for input',
                                 required=True,
-                                type=check_file_list)
+                                nargs='+')
 
     parserRequired.add_argument('--domain_file', '-d',
                                 help='domain file or list of files containing tad boundaries',
                                 required=True,
-                                type=check_file_list)
+                                nargs='+')
 
     parserRequired.add_argument('--out_file', '-o',
                                 help='output file for either the classification report or the saved classifier',
@@ -161,27 +106,27 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
 
     parserOpt.add_argument('--unselect_border_cases',
                            help='set whether genes at the border of the matrix up to set distance will not be used for training and testing',
-                           type=str2bool,
-                           default=True)
+                           action='store_false')
 
     parserOpt.add_argument('--protein_file',
                            help='provide a bed file for TAD quality control',
-                           type=check_file_list,
+                           nargs='+',
                            default=None)
 
-    parserOpt.add_argument('--threads',
+    parserOpt.add_argument('--threads', '-t',
                            help='number of threads used',
                            default=4,
-                           type=check_threads)
+                           type=int)
 
     parserOpt.add_argument('--concatenate_before_resample',
                            help='whether features build from matrix list are concatenated and resampled together or resampled separatly per matrix. Not important for random undersampling, but alter for other resampling methods and check if performance increases.',
                            default=False,
-                           type=str2bool)
+                           action='store_true')
 
     parserOpt.add_argument('--estimators_per_step',
                            help='how many estimators are added in each training step for the classifier (new classifier)',
-                           type=check_estimators_per_step,
+                           choices=range(5,1001),
+                           metavar="[5-1000]", 
                            default=20)
 
     parserOpt.add_argument('--resampling_method',
@@ -200,7 +145,8 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
 
     parserOpt.add_argument('--distance',
                            help='max distance between genes to be used in calculation (new classifier)',
-                           type=check_distance,
+                           choices=range(5,31),
+                           metavar="[5-30]", 
                            default=15)
 
     parserOpt.add_argument('--impute_value',
@@ -214,36 +160,28 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
 
     parserOpt.add_argument('--use_cleanlab',
                            help='use Confident Learning with the cleanlab library (new classifier)',
-                           default=False,
-                           type=str2bool)
+                           action='store_true')
 
-    # TODO: check
-    parserOpt.add_argument(
-        '--help',
-        '-h',
-        action='help',
-        help='show this help message and exit.')
+    parserOpt.add_argument("--help", "-h", action="help",
+                           help="show this help message and exit")
 
-    # TODO: check
     parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format('0.1'))
+                           version='%(prog)s {}'.format(__version__))
 
     return parser
+# def print_args(args):
+#     """
+#     Print to stderr the parameters used
+#     Parameters
+#     ----------
+#     args
 
+#     Returns
+#     -------
 
-def print_args(args):
-    """
-    Print to stderr the parameters used
-    Parameters
-    ----------
-    args
-
-    Returns
-    -------
-
-    """
-    for key, value in args._get_kwargs():
-        log.info("{}:\t{}\n".format(key, value))
+#     """
+#     for key, value in args._get_kwargs():
+#         log.info("{}:\t{}\n".format(key, value))
 
 
 def main(args=None):

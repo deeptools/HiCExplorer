@@ -12,8 +12,12 @@ from hicexplorer.utilities import enlarge_bins
 from scipy import sparse
 import numpy as np
 import multiprocessing
+import cooler
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
+from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes, compute_zscore
+
+from scipy.sparse import csr_matrix, lil_matrix
+# import numpy as np
 
 from past.builtins import zip
 from past.builtins import map
@@ -364,7 +368,7 @@ class HicFindTads(object):
 
     def __init__(self, matrix, num_processors=1, max_depth=None, min_depth=None, step=None, delta=0.01,
                  min_boundary_distance=None, use_zscore=True, p_correct_for_multiple_testing="fdr", p_threshold_comparisons=0.01,
-                 pChromosomes=None):
+                 pChromosomes=None, pBedgraphMatrix=None):
         """
 
         Parameters
@@ -385,10 +389,16 @@ class HicFindTads(object):
 
         # if matrix is string, loaded, else, assume is a HiCMatrix object
 
-        self.set_matrix(matrix, pChromosomes)
+      
         if max_depth is not None and min_depth is not None and max_depth <= min_depth:
             log.error("Please check that maxDepth is larger than minDepth.")
             exit()
+        if isinstance(matrix, str) and matrix.endswith(".cool"):
+            cooler_file = cooler.Cooler(matrix)
+            self.binsize = cooler_file.binsize
+            self.is_cooler = True
+        else:
+            self.is_cooler = False
 
         self.num_processors = num_processors
         self.max_depth = max_depth
@@ -397,20 +407,33 @@ class HicFindTads(object):
         self.delta = delta
         self.min_boundary_distance = min_boundary_distance
         self.use_zscore = use_zscore
-        self.binsize = self.hic_ma.getBinSize()
-        self.bedgraph_matrix = None
+        self.bedgraph_matrix = pBedgraphMatrix
         self.boundaries = None
-        self.set_variables()
+        if isinstance(matrix, str) and matrix.endswith(".h5") or not isinstance(matrix, str):
+            log.info('h5 file')
+            self.set_matrix(matrix, pChromosomes)
+            self.binsize = self.hic_ma.getBinSize()
+            self.set_variables()
+        else:
+            log.info('cool file')
+
+            self.set_variables()
+            log.info('Load matrix!')
+            self.set_matrix(matrix, pChromosomes)
+            log.info('Load matrix! ... DONE')
+        self.max_depth_bin = self.max_depth // self.binsize
+
         self.correct_for_multiple_testing = p_correct_for_multiple_testing
         self.threshold_comparisons = p_threshold_comparisons
+        
 
     def set_matrix(self, pMatrix, pChromosomes):
         if isinstance(pMatrix, str):
-            self.hic_ma = hm.hiCMatrix(pMatrix)
+            self.hic_ma = hm.hiCMatrix(pMatrix, pChrnameList=pChromosomes)#pDistance=self.max_depth * 2.5, pUpperTriangleOnly=True)
         else:
             self.hic_ma = pMatrix
 
-        if pChromosomes is not None:
+        if pChromosomes is not None and not self.is_cooler:
             valid_chromosomes = []
             invalid_chromosomes = []
             log.debug('args.chromosomeOrder: {}'.format(pChromosomes))
@@ -460,7 +483,6 @@ class HicFindTads(object):
         elif self.min_depth < self.binsize * 3:
             log.error("Please specify a --minDepth that is at least 3 times larger than the matrix bin size")
             exit(1)
-
         if self.step is None:
             if self.binsize < 1000:
                 self.step = self.binsize * 4
@@ -888,10 +910,10 @@ class HicFindTads(object):
         """
         # get params to save as part of the bedgraph file
         params = OrderedDict()
-        params['step'] = self.step
-        params['minDepth'] = self.min_depth
-        params['maxDepth'] = self.max_depth
-        params['binsize'] = self.binsize
+        params['step'] = int(self.step)
+        params['minDepth'] = int(self.min_depth)
+        params['maxDepth'] = int(self.max_depth)
+        params['binsize'] = int(self.binsize)
         params_str = json.dumps(params, separators=(',', ':'))
 
         with open(outfile, 'w') as f:
@@ -1047,7 +1069,7 @@ class HicFindTads(object):
                 tad_score.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom[idx]), left_bin_center, right_bin_center,
                                                                mean_mat_all[idx]))
 
-    def compute_spectra_matrix(self, perchr=True):
+    def compute_spectra_matrix(self, perchr=True, pNewZscore=False):
         """
         Uses multiple processors to compute the TAD-score
 
@@ -1065,10 +1087,35 @@ class HicFindTads(object):
         self.hic_ma.maskBins(self.hic_ma.nan_bins)
         orig_intervals = self.hic_ma.cut_intervals[:]
 
+
         if self.use_zscore:
-            # use zscore matrix
-            log.info("Computing z-score matrix...\n")
-            self.hic_ma.convert_to_zscore_matrix(maxdepth=self.max_depth * 2.5, perchr=perchr)
+        
+            if pNewZscore and self.is_cooler:
+                log.info("Computing z-score matrix, new method...\n")
+                # cooler_obj = cooler.Cooler(self.matrix_name)
+                # trasf_matrix = lil_matrix(self.hic_ma.matrix.shape)
+               
+                # # for chromosome_name in cooler_obj.chromnames:
+                # #     chr_range = self.hic_ma.getChrBinRange(chrname)
+
+                # #     pHiCMatrix = hm.hiCMatrix(pMatrixFile=pArgs.matrix, pChrnameList=[chromosome_name], pDistance=self.max_depth * 2.5, pNoIntervalTree=True, pUpperTriangleOnly=True)
+                # for chrname in self.hic_ma.getChrNames():
+                #     chr_range = self.hic_ma.getChrBinRange(chrname)
+                #     submatrix = self.hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+                #     submatrix.astype(float)
+                #     submatrix_chr = lil_matrix(compute_zscore(submatrix, int(self.max_depth_bin * 2.5), self.num_processors))
+
+                #     trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = submatrix_chr
+                # self.hic_ma.matrix = trasf_matrix.tocsr()
+            else:
+
+                # use zscore matrix
+                log.info("Computing z-score matrix, old method...\n")
+                # if self.is_cooler:
+                #     self.hic_ma.convert_to_zscore_matrix(maxdepth=self.max_depth * 2.5, perchr=perchr, pSkipTriu=True)
+                # else:
+                self.hic_ma.convert_to_zscore_matrix(maxdepth=self.max_depth * 2.5, perchr=perchr)
+
 
         # extend remaining bins to remove gaps in
         # the matrix

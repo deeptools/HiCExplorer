@@ -21,6 +21,7 @@ from hicexplorer import hicFindTADs
 from hicexplorer import hicTransform
 from hicmatrix import HiCMatrix as hm
 from pybedtools import BedTool
+import cooler
 from hicexplorer.utilities import obs_exp_matrix
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
@@ -202,7 +203,7 @@ class TADClassifier:
                 chr_domains = domains[domains['Chrom'] == chromosome]
                 b = chr_domains["Start"]
                 chr_dict = dict((int(position), True) for position in b)
-                domain_dicts[chromosome] = chr_dict
+                domain_dicts[str(chromosome)] = chr_dict
 
             return domain_dicts
 
@@ -210,20 +211,21 @@ class TADClassifier:
         '''acts as a wrapper class for a HiCMatrix Object and implements helper functions for matrix data preparation'''
         # currently supports matrices of one chromosome
 
-        def __init__(self, matrix_file, method=None, range_max=None):
+        def __init__(self, matrix_file, method=None, range_max=None, pChromosome=None):
 
             # use input directly, if already normalized
             if method == 'obs_exp':
                 hic_ma, hic_ma_np = TADClassifier.MP_Matrix.read_matrix_file(
-                    matrix_file)
+                    matrix_file, pChromosome)
                 hic_ma = TADClassifier.MP_Matrix.obs_exp_normalization(hic_ma)
-                hic_ma_np = np.array(hic_ma.getMatrix())
+                # hic_ma_np = np.array(hic_ma.getMatrix())
+                hic_ma_np = hic_ma.matrix
 
             # perform range normalization, with given max value or infer from
             # matrix
             elif method == 'range':
                 hic_ma, hic_ma_np = TADClassifier.MP_Matrix.read_matrix_file(
-                    matrix_file)
+                    matrix_file, pChromosome)
                 range_min = 0.0
                 o_min = 0.0
                 o_max = 1.0
@@ -271,12 +273,13 @@ class TADClassifier:
             # at position
 
             is_boundary = np.full(self.positions.shape[0], False, dtype=bool)
-
+            # log.debug(domain_dicts)
             # check for all indices
             for k in range(self.positions.shape[0]):
-                is_boundary[k] = int(self.positions[k, 1]
-                                     ) in domain_dicts[self.positions[k, 0]]
-
+                try:
+                    is_boundary[k] = int(self.positions[k, 1]) in domain_dicts[self.positions[k, 0]]
+                except KeyError:
+                    is_boundary[k] = False
             return is_boundary
 
         def get_features(self, distance, use_gradient=False):
@@ -285,7 +288,8 @@ class TADClassifier:
             # run build features for self
             features = TADClassifier.MP_Matrix.build_features(
                 self.numpy_matrix, distance)
-
+            if features is None:
+                return None
             # experimental: use gradient matrix too
             if(use_gradient):
                 x_gradient, y_gradient = self.build_gradient_features(distance)
@@ -306,7 +310,10 @@ class TADClassifier:
             def get_triangle(index):
                 start = index - distance
                 end = index + distance + 1
-                triangle = np.triu(numpy_matrix[start:end, start:end])
+
+                # log.debug('triu submatrix: {}'.format(numpy_matrix[start:end, start:end]))
+                # log.debug('start {} end {}'.format(start, end))
+                triangle = np.triu(numpy_matrix[start:end, start:end].todense(), k=0)
                 triangle[np.tril_indices(triangle.shape[0], -1)] = np.NINF
                 mask = triangle != float('-inf')
                 flattened_triangle = np.ndarray.flatten(triangle[mask])
@@ -320,6 +327,8 @@ class TADClassifier:
 
             # build output
             # at boundaries: use filler, those will be unselected later anyways
+            if len(m_list) == 0:
+                return None
             features = np.stack(m_list, axis=1)
             sentinel1 = np.full((features.shape[0], distance), np.nan)
             sentinel2 = np.full((features.shape[0], distance), np.nan)
@@ -343,16 +352,22 @@ class TADClassifier:
             output = np.concatenate((positions, X, y[:, np.newaxis]), axis=1)
             np.savetxt(out_file, output, delimiter=";")
 
-        def read_matrix_file(matrix_file):
-            ''''reads a given h5 or cool file and returns its hiCMatrix and numpy representation'''
+        def read_matrix_file(matrix_file, pChromosome):
+            ''''reads a given cool file and returns its hiCMatrix and numpy representation'''
 
-            # check if instance of string or file and load appropiate
+            # check if instance of string or file and load appropriate
             if isinstance(matrix_file, str):
-                hic_ma = hm.hiCMatrix(matrix_file)
+                hic_ma = hm.hiCMatrix(matrix_file, pChrnameList=[pChromosome])
+                log.debug('hic_ma: {}'.format(hic_ma.matrix))
+                log.debug('matrix_file {}'.format(matrix_file))
+                log.debug('pChromosome {}'.format(pChromosome))
+
             else:
                 hic_ma = matrix_file
 
-            hic_ma_np = np.array(hic_ma.getMatrix())
+            # hic_ma_np = np.array(hic_ma.getMatrix())
+            hic_ma_np = hic_ma.matrix
+
 
             return (hic_ma, hic_ma_np)
 
@@ -363,13 +378,13 @@ class TADClassifier:
 
         def obs_exp_normalization(hic_ma):
             '''apply obs_exp normalization'''
-
+            log.info('obs/exp matrix computation...')
+            
             trasf_matrix = lil_matrix(hic_ma.matrix.shape)
 
             # from hicTransformTADs
             def _obs_exp(pSubmatrix):
-
-                obs_exp_matrix_ = obs_exp_matrix(pSubmatrix)
+                obs_exp_matrix_ = obs_exp_matrix(pSubmatrix, pThreads=16, pDistance=100)
                 obs_exp_matrix_ = convertNansToZeros(
                     csr_matrix(obs_exp_matrix_))
                 obs_exp_matrix_ = convertInfsToZeros(
@@ -382,11 +397,14 @@ class TADClassifier:
                 chr_range = hic_ma.getChrBinRange(chrname)
                 submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
                 submatrix.astype(float)
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(_obs_exp(submatrix))
+                obs_exp = _obs_exp(submatrix)
+                if obs_exp.nnz != 0:
+                    trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp)
 
             hic_ma.setMatrix(
                 trasf_matrix.tocsr(),
                 cut_intervals=hic_ma.cut_intervals)
+            log.info('obs/exp matrix computation... DONE')
 
             return hic_ma
 
@@ -723,7 +741,7 @@ class TADClassifier:
                 distance=distance,
                 threads=threads)
 
-    def prepare_train(self, matrix_file, domain_file, protein_file):
+    def prepare_train(self, matrix_file, domain_file, protein_file, pChromosome):
         '''prepare matrix and its derivatives for the run'''
 
         log.info('preparing domain data')
@@ -738,7 +756,7 @@ class TADClassifier:
         log.info('loading matrix')
         # ingest matrix
         matrix = TADClassifier.MP_Matrix(matrix_file,
-                                         method=self.classifier.normalization_method)
+                                         method=self.classifier.normalization_method, pChromosome=pChromosome)
 
         # build inputs for classifier
         log.info('build features')
@@ -746,6 +764,8 @@ class TADClassifier:
         features = matrix.get_features(
             self.classifier.distance,
             self.classifier.use_gradient)
+        if features is None:
+            return matrix, None, features, is_boundary
         positions = matrix.positions
 
         if(not self.classifier.resolution == matrix.get_resolution()):
@@ -789,12 +809,12 @@ class TADClassifier:
 
         return matrix, positions, features
 
-    def train_test(self, matrix_list, domain_list, protein_list):
+    def train_test(self, matrix_list, domain_list, protein_list, pChromosome):
         '''perform train_test program mode'''
 
         # prepare
         matrix, positions, features, is_boundary = self.prepare_train(
-            matrix_list[0], domain_list[0], protein_list[0])
+            matrix_list[0], domain_list[0], protein_list[0], pChromosome=pChromosome[0][0])
 
         out_file_s = self.out_file.split('.')
 
@@ -814,7 +834,7 @@ class TADClassifier:
                 'training or test set does not contain any boundaries')
 
     def multi_train(self, matrix_list, domain_list,
-                    protein_list, nm_conc_features=1):
+                    protein_list, nm_conc_features=1, pChromosome=None):
         '''perform train and on multiple matrices in list, resample separatly, but train once'''
 
         # note, that the parameter nm_conc_features can be used to resample a
@@ -826,37 +846,39 @@ class TADClassifier:
         resampled_X = None
         resampled_y = None
 
-        for data in zip(matrix_list, domain_list, protein_list):
+        for j, data in enumerate(zip(matrix_list, domain_list, protein_list, pChromosome)):
+            for chromosome in pChromosome[j]:
+                matrix, positions, features, is_boundary = self.prepare_train(
+                    data[0], data[1], data[2], pChromosome=chromosome)
 
-            matrix, positions, features, is_boundary = self.prepare_train(
-                data[0], data[1], data[2])
+                if features is None:
+                    continue
+                matrix.numpy_matrix = None
+                matrix.hic_matrix = None
+                matrix = None
 
-            matrix.numpy_matrix = None
-            matrix.hic_matrix = None
-            matrix = None
+                if(conc_features is None):
+                    conc_features = features
+                    conc_is_boundary = is_boundary
 
-            if(conc_features is None):
-                conc_features = features
-                conc_is_boundary = is_boundary
+                else:
+                    conc_features = np.concatenate(
+                        (conc_features, features), axis=0)
+                    conc_is_boundary = np.concatenate(
+                        (conc_is_boundary, is_boundary), axis=0)
 
-            else:
-                conc_features = np.concatenate(
-                    (conc_features, features), axis=0)
-                conc_is_boundary = np.concatenate(
-                    (conc_is_boundary, is_boundary), axis=0)
+                if(i == nm_conc_features):
+                    resampled_X, resampled_y = self.incremental_resample(
+                        resampled_X, resampled_y, conc_features, conc_is_boundary)
+                    i = 0
+                    conc_features = None
+                    conc_is_boundary = None
 
-            if(i == nm_conc_features):
-                resampled_X, resampled_y = self.incremental_resample(
-                    resampled_X, resampled_y, conc_features, conc_is_boundary)
-                i = 0
-                conc_features = None
-                conc_is_boundary = None
+                else:
+                    i = i + 1
 
-            else:
-                i = i + 1
-
-            features = None
-            is_boundary = None
+                features = None
+                is_boundary = None
 
         if (conc_features is not None):
             resampled_X, resampled_y = self.incremental_resample(
@@ -874,7 +896,7 @@ class TADClassifier:
                 'training matrix does not contain any boundaries, training skipped')
 
     def multi_train_concatenate_before_resample(
-            self, matrix_list, domain_list, protein_list, nm_conc_features=1000000):
+            self, matrix_list, domain_list, protein_list, pChromosome, nm_conc_features=1000000):
         '''perform train on multiple matrice, concatenate the features of each matrices and then resample and train'''
 
         # use nm_conc_features to reduce the number of matrices, that are
@@ -884,42 +906,42 @@ class TADClassifier:
         conc_features = None
         conc_is_boundary = None
 
-        for data in zip(matrix_list, domain_list, protein_list):
+        for j, data in enumerate(zip(matrix_list, domain_list, protein_list)):
+            for chromosome in pChromosome[j]:
+                matrix, positions, features, is_boundary = self.prepare_train(
+                    data[0], data[1], data[2], pChromosome=chromosome)
 
-            matrix, positions, features, is_boundary = self.prepare_train(
-                data[0], data[1], data[2])
+                matrix.numpy_matrix = None
+                matrix.hic_matrix = None
+                matrix = None
 
-            matrix.numpy_matrix = None
-            matrix.hic_matrix = None
-            matrix = None
+                if(conc_features is None):
+                    conc_features = features
+                    conc_is_boundary = is_boundary
 
-            if(conc_features is None):
-                conc_features = features
-                conc_is_boundary = is_boundary
+                else:
+                    conc_features = np.concatenate(
+                        (conc_features, features), axis=0)
+                    conc_is_boundary = np.concatenate(
+                        (conc_is_boundary, is_boundary), axis=0)
 
-            else:
-                conc_features = np.concatenate(
-                    (conc_features, features), axis=0)
-                conc_is_boundary = np.concatenate(
-                    (conc_is_boundary, is_boundary), axis=0)
+                if(i == nm_conc_features):
+                    try:
+                        self.classifier.incremental_fit(
+                            conc_features, conc_is_boundary, resample=True)
+                    except ValueError:
+                        warnings.warn(
+                            'training matrix does not contain any boundaries, training skipped')
 
-            if(i == nm_conc_features):
-                try:
-                    self.classifier.incremental_fit(
-                        conc_features, conc_is_boundary, resample=True)
-                except ValueError:
-                    warnings.warn(
-                        'training matrix does not contain any boundaries, training skipped')
+                    i = 0
+                    conc_features = None
+                    conc_is_boundary = None
 
-                i = 0
-                conc_features = None
-                conc_is_boundary = None
+                else:
+                    i = i + 1
 
-            else:
-                i = i + 1
-
-            features = None
-            is_boundary = None
+                features = None
+                is_boundary = None
 
         if (conc_features is not None):
             try:
@@ -934,7 +956,7 @@ class TADClassifier:
 
         self.persist(self.out_file)
 
-    def multi_test_predict(self, matrix_list, domain_list, protein_list):
+    def multi_test_predict(self, matrix_list, domain_list, protein_list, pChromosome):
         '''predict a balanced dataset for a meaningful classification report'''
 
         conc_test_boundary = None
@@ -944,45 +966,46 @@ class TADClassifier:
         # ROC
         conc_features = None
 
-        for data in zip(matrix_list, domain_list, protein_list):
+        for i, data in enumerate(zip(matrix_list, domain_list, protein_list)):
 
-            matrix, positions, features, is_boundary = self.prepare_train(
-                data[0], data[1], data[2])
+            for chromosome in pChromosome[i]:
+                matrix, positions, features, is_boundary = self.prepare_train(
+                    data[0], data[1], data[2], pChromosome=chromosome)
 
-            matrix.numpy_matrix = None
-            matrix.hic_matrix = None
-            matrix = None
+                matrix.numpy_matrix = None
+                matrix.hic_matrix = None
+                matrix = None
 
-            try:
-                positions, features, y_test, y_pred = self.classifier.predict_test(
-                    positions, features, y_test=is_boundary)
+                try:
+                    positions, features, y_test, y_pred = self.classifier.predict_test(
+                        positions, features, y_test=is_boundary)
 
-                if(conc_test_boundary is None):
-                    conc_test_boundary = y_test
-                    conc_is_boundary = y_pred
-                    conc_positions = positions
+                    if(conc_test_boundary is None):
+                        conc_test_boundary = y_test
+                        conc_is_boundary = y_pred
+                        conc_positions = positions
 
-                    # ROC
-                    conc_features = features
+                        # ROC
+                        conc_features = features
 
-                else:
-                    conc_test_boundary = np.concatenate(
-                        (conc_test_boundary, y_test), axis=0)
-                    conc_is_boundary = np.concatenate(
-                        (conc_is_boundary, y_pred), axis=0)
-                    conc_positions = np.concatenate(
-                        (conc_positions, positions), axis=0)
+                    else:
+                        conc_test_boundary = np.concatenate(
+                            (conc_test_boundary, y_test), axis=0)
+                        conc_is_boundary = np.concatenate(
+                            (conc_is_boundary, y_pred), axis=0)
+                        conc_positions = np.concatenate(
+                            (conc_positions, positions), axis=0)
 
-                    # ROC
-                    conc_features = np.concatenate(
-                        (conc_features, features), axis=0)
+                        # ROC
+                        conc_features = np.concatenate(
+                            (conc_features, features), axis=0)
 
-            except BaseException:
-                log.info('one of the inputs did not contain boundaries')
+                except BaseException:
+                    log.info('one of the inputs did not contain boundaries')
 
-            is_boundary = None
-            positions = None
-            features = None
+                is_boundary = None
+                positions = None
+                features = None
 
         out_file_results = self.out_file + '_results.txt'
         out_file_fi = self.out_file + '_feature_importance.png'
@@ -1055,20 +1078,26 @@ class TADClassifier:
             raise ValueError(
                 'please pass domain (,optional protein) and matrix lists of same length or pass a single domain (and optional protein) file')
 
+
+        chromosome_list = []
+        for matrix in matrix_list:
+            cooler_obj = cooler.Cooler(matrix)
+            chromosome_list.append(cooler_obj.chromnames)
+
         if(self.mode == 'train_new' or self.mode == 'train_existing'):
 
             if(self.concatenate_before_resample):
                 self.multi_train_concatenate_before_resample(
-                    matrix_list, domain_list, protein_list)
+                    matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
 
             else:
-                self.multi_train(matrix_list, domain_list, protein_list)
+                self.multi_train(matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
 
         elif(self.mode == 'train_test'):
-            self.train_test(matrix_list, domain_list, protein_list)
+            self.train_test(matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
 
         elif(self.mode == 'predict_test'):
-            self.multi_test_predict(matrix_list, domain_list, protein_list)
+            self.multi_test_predict(matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
 
     def run_hicTADClassifier(self, matrix_list):
         '''predict a dataset'''
