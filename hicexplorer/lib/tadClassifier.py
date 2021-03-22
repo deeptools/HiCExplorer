@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from numpy.random import Generator
 from os import walk
 from os import listdir
+import os
 import re
 import math
 import argparse
@@ -211,13 +212,13 @@ class TADClassifier:
         '''acts as a wrapper class for a HiCMatrix Object and implements helper functions for matrix data preparation'''
         # currently supports matrices of one chromosome
 
-        def __init__(self, matrix_file, method=None, range_max=None, pChromosome=None):
+        def __init__(self, matrix_file, method=None, range_max=None, pChromosome=None, pThreads=None):
 
             # use input directly, if already normalized
             if method == 'obs_exp':
                 hic_ma, hic_ma_np = TADClassifier.MP_Matrix.read_matrix_file(
                     matrix_file, pChromosome)
-                hic_ma = TADClassifier.MP_Matrix.obs_exp_normalization(hic_ma)
+                hic_ma = TADClassifier.MP_Matrix.obs_exp_normalization(hic_ma, pThreads=pThreads)
                 # hic_ma_np = np.array(hic_ma.getMatrix())
                 hic_ma_np = hic_ma.matrix
 
@@ -354,13 +355,17 @@ class TADClassifier:
 
         def read_matrix_file(matrix_file, pChromosome):
             ''''reads a given cool file and returns its hiCMatrix and numpy representation'''
-
+            # log.debug('matrix_file {}'.format(matrix_file))
+            # log.debug('pChromosome {}'.format(pChromosome))
             # check if instance of string or file and load appropriate
             if isinstance(matrix_file, str):
-                hic_ma = hm.hiCMatrix(matrix_file, pChrnameList=[pChromosome])
-                log.debug('hic_ma: {}'.format(hic_ma.matrix))
-                log.debug('matrix_file {}'.format(matrix_file))
-                log.debug('pChromosome {}'.format(pChromosome))
+                if pChromosome is not None:
+                    hic_ma = hm.hiCMatrix(matrix_file, pChrnameList=[pChromosome])
+                else:
+                    hic_ma = hm.hiCMatrix(matrix_file)
+
+                # log.debug('hic_ma: {}'.format(hic_ma.matrix))
+                
 
             else:
                 hic_ma = matrix_file
@@ -376,15 +381,15 @@ class TADClassifier:
 
             return o_min + (n - n_min) * (o_max - o_min) / (n_max - n_min)
 
-        def obs_exp_normalization(hic_ma):
+        def obs_exp_normalization(hic_ma, pThreads=None):
             '''apply obs_exp normalization'''
             log.info('obs/exp matrix computation...')
             
             trasf_matrix = lil_matrix(hic_ma.matrix.shape)
 
             # from hicTransformTADs
-            def _obs_exp(pSubmatrix):
-                obs_exp_matrix_ = obs_exp_matrix(pSubmatrix, pThreads=16, pDistance=100)
+            def _obs_exp(pSubmatrix, pThreads=None):
+                obs_exp_matrix_ = obs_exp_matrix(pSubmatrix, pThreads=pThreads, pDistance=100)
                 obs_exp_matrix_ = convertNansToZeros(
                     csr_matrix(obs_exp_matrix_))
                 obs_exp_matrix_ = convertInfsToZeros(
@@ -397,7 +402,7 @@ class TADClassifier:
                 chr_range = hic_ma.getChrBinRange(chrname)
                 submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
                 submatrix.astype(float)
-                obs_exp = _obs_exp(submatrix)
+                obs_exp = _obs_exp(submatrix, pThreads)
                 if obs_exp.nnz != 0:
                     trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp)
 
@@ -519,6 +524,8 @@ class TADClassifier:
         def predict(self, positions, X):
             '''predict with existing model'''
 
+            if X is None or len(X) == 0:
+                return None, None
             # impute missing values
             X = TADClassifier.MP_Classifier.impute(X, self.impute_value)
 
@@ -785,13 +792,13 @@ class TADClassifier:
 
         return matrix, positions, features, is_boundary
 
-    def prepare_predict(self, matrix_file):
+    def prepare_predict(self, matrix_file, pChromosome):
         '''prepare matrix and its derivatives for the run'''
 
         log.info('loading matrix')
         # ingest matrix
         matrix = TADClassifier.MP_Matrix(matrix_file,
-                                         method=self.classifier.normalization_method)
+                                         method=self.classifier.normalization_method, pChromosome=pChromosome)
 
         # build inputs for classifier
         log.info('build features')
@@ -1105,27 +1112,43 @@ class TADClassifier:
         if(isinstance(matrix_list, str)):
             matrix_list = [matrix_list]
 
-        i = 0
+        chromosome_list = []
+        for matrix in matrix_list:
+            cooler_obj = cooler.Cooler(matrix)
+            chromosome_list.append(cooler_obj.chromnames)
+        # i = 0
+        conc_is_boundary = None
+        conc_positions = None
+        for i, data in enumerate(matrix_list):
+            for chromosome in chromosome_list[i]:
+                matrix, positions, features = self.prepare_predict(data, pChromosome=chromosome)
 
-        for data in matrix_list:
 
-            matrix, positions, features = self.prepare_predict(data)
+                matrix.numpy_matrix = None
+                matrix.hic_matrix = None
+                matrix = None
 
-            matrix.numpy_matrix = None
-            matrix.hic_matrix = None
-            matrix = None
-            out_file_i = self.out_file + '_' + str(i) + '.bed'
+                positions, is_boundary = self.classifier.predict(
+                    positions, features)
+                if positions is None or len(positions) == 0:
+                    continue
+                if conc_is_boundary is None:
+                    conc_positions = positions
+                    conc_is_boundary = is_boundary
+                else:
+                    conc_positions = np.concatenate((conc_positions, positions), axis=0)
 
-            positions, is_boundary = self.classifier.predict(
-                positions, features)
-            TADClassifier.print_to_bed(
-                TADClassifier.get_domains(
-                    positions, is_boundary), out_file_i)
+                    conc_is_boundary = np.concatenate((conc_is_boundary, is_boundary), axis=0)
+                
+                features = None
+                is_boundary = None
+                positions = None
+                # i = i + 1
 
-            features = None
-            is_boundary = None
-            positions = None
-            i = i + 1
+            matrix_name = ".".join(os.path.basename(matrix_list[i]).split(".")[:-1])
+            out_file_i = self.out_file + '_' + matrix_name + '.bed'
+            TADClassifier.print_to_bed(TADClassifier.get_domains(
+                                        conc_positions, conc_is_boundary), out_file_i)
 
     def print_to_bed(domain_df, path):
         '''print domain file'''
