@@ -68,7 +68,7 @@ class TADClassifier:
             # read protein file and intersect if necessary
             if(protein_file is not None):
                 self.protein_df = TADClassifier.MP_Domain_Data.readProtein(
-                    protein_file, False)
+                    protein_file, False, True)
                 TADClassifier.MP_Domain_Data.apply_binning_and_leniency(
                     self.protein_df, pBinSize=resolution, leniency=leniency)
                 self.domain_df = TADClassifier.MP_Domain_Data.check_domains_against_protein(
@@ -79,7 +79,7 @@ class TADClassifier:
             self.domain_dict = TADClassifier.MP_Domain_Data.build_tad_dictionary(
                 self.domain_df, chromosomes=self.chromosomes)
 
-        def readProtein(pFile, pAddChr):
+        def readProtein(pFile, pAddChr, pRemoveChr):
             '''read in a bed protein file (add pAddChr, if chr are in single digit form)'''
 
             # read
@@ -87,7 +87,10 @@ class TADClassifier:
                 [0, 1, 2, 6, 7, 8]]
             if pAddChr:
                 protein_df[0] = 'chr' + protein_df[0].astype(str)
-
+            elif pRemoveChr:
+                # protein_df[0] = 'chr' + protein_df[0].astype(str)
+                protein_df[0] = protein_df[0].str.lstrip('chr')
+            log.debug('protein_df {}'.format(protein_df))
             if(protein_df.size < 1):
                 raise ValueError('empty protein file passed')
 
@@ -147,9 +150,9 @@ class TADClassifier:
             domain_protein['End'] = domain_protein['Name']
 
             # debug information; TODO: move
-            log.info('protein peaks: {}'.format(len(protein_df)))
-            log.info('TADs: {}'.format(len(domain_df)))
-            log.info('Matched TADs: {}'.format(len(domain_protein)))
+            log.debug('protein peaks: {}'.format(len(protein_df)))
+            log.debug('TADs: {}'.format(len(domain_df)))
+            log.debug('Matched TADs: {}'.format(len(domain_protein)))
 
             return domain_protein
 
@@ -365,14 +368,12 @@ class TADClassifier:
                     hic_ma = hm.hiCMatrix(matrix_file)
 
                 # log.debug('hic_ma: {}'.format(hic_ma.matrix))
-                
 
             else:
                 hic_ma = matrix_file
 
             # hic_ma_np = np.array(hic_ma.getMatrix())
             hic_ma_np = hic_ma.matrix
-
 
             return (hic_ma, hic_ma_np)
 
@@ -383,8 +384,8 @@ class TADClassifier:
 
         def obs_exp_normalization(hic_ma, pThreads=None):
             '''apply obs_exp normalization'''
-            log.info('obs/exp matrix computation...')
-            
+            log.debug('obs/exp matrix computation...')
+
             trasf_matrix = lil_matrix(hic_ma.matrix.shape)
 
             # from hicTransformTADs
@@ -409,7 +410,7 @@ class TADClassifier:
             hic_ma.setMatrix(
                 trasf_matrix.tocsr(),
                 cut_intervals=hic_ma.cut_intervals)
-            log.info('obs/exp matrix computation... DONE')
+            log.debug('obs/exp matrix computation... DONE')
 
             return hic_ma
 
@@ -479,7 +480,7 @@ class TADClassifier:
 
             # train model
             # if input contains only one class, an exception is thrown
-            log.info('fitting')
+            log.debug('fitting')
             if(np.unique(y).shape[0] >= 2):
                 self.classifier.fit(X, y)
 
@@ -518,7 +519,7 @@ class TADClassifier:
 
             # train model
             # if input contains only one class, an exception is thrown
-            log.info('fitting')
+            log.debug('fitting')
             self.classifier.fit(X, y)
 
         def predict(self, positions, X):
@@ -530,7 +531,7 @@ class TADClassifier:
             X = TADClassifier.MP_Classifier.impute(X, self.impute_value)
 
             # test model
-            log.info('predicting')
+            log.debug('predicting')
             y_pred = self.classifier.predict(X)
             return positions, y_pred
 
@@ -544,7 +545,7 @@ class TADClassifier:
                 positions, X, y_test, threads=self.threads)
 
             # test model
-            log.info('predicting')
+            log.debug('predicting')
             if(not y_test[y_test == False].shape[0] <= 0 and not y_test[y_test == True].shape[0] <= 0):
                 y_pred = self.classifier.predict(X)
                 return positions, X, y_test, y_pred
@@ -557,7 +558,7 @@ class TADClassifier:
 
             # call Simple Imputer, which will fill all non real numbers with
             # another value
-            log.info('imputing with value: ' + str(fill_value))
+            log.debug('imputing with value: ' + str(fill_value))
             imp = SimpleImputer(
                 missing_values=np.nan,
                 strategy='constant',
@@ -572,19 +573,19 @@ class TADClassifier:
 
             # resample method: KMEANs
             if(method == 'undersample_cluster_centroids'):
-                log.info('resampling with: ' + method)
+                log.debug('resampling with: ' + method)
                 cc = ClusterCentroids(random_state=42, n_jobs=threads)
                 return cc.fit_resample(X, y)
 
             # resample method: random
             elif(method == 'undersample_random'):
-                log.info('resampling with: ' + method)
+                log.debug('resampling with: ' + method)
                 rus = RandomUnderSampler(random_state=42)
                 return rus.fit_resample(X, y)
 
             # use users method
             elif(method == 'passed_method' and passed_method is not None):
-                log.info('resampling with: ' + method)
+                log.debug('resampling with: ' + method)
                 return passed_method.fit_resample(X, y)
 
             # just return, if none is chosen
@@ -615,9 +616,9 @@ class TADClassifier:
             conf = "confusion matrix:\n" + \
                 str(confusion_matrix(y_test, y_pred))
 
-            log.info(acc)
-            log.info(classification)
-            log.info(conf)
+            log.debug(acc)
+            log.debug(classification)
+            log.debug(conf)
 
             if(out_file):
 
@@ -717,11 +718,11 @@ class TADClassifier:
                 if(normalization_method == 'obs_exp'):
                     self.classifier = pickle.load(
                         open(pretrained_classifier_10000_obsexp, 'rb'))
-                    log.info('using obs/exp default classifier')
+                    log.debug('using obs/exp default classifier')
                 else:
                     self.classifier = pickle.load(
                         open(pretrained_classifier_10000_range, 'rb'))
-                    log.info('using range default classifier')
+                    log.debug('using range default classifier')
 
         if(mode == 'train_new' or mode == 'train_test'):
             if(alternative_classifier is not None and not isinstance(alternative_classifier, sklearn.base.BaseEstimator)):
@@ -751,7 +752,7 @@ class TADClassifier:
     def prepare_train(self, matrix_file, domain_file, protein_file, pChromosome):
         '''prepare matrix and its derivatives for the run'''
 
-        log.info('preparing domain data')
+        log.debug('preparing domain data')
         prep = TADClassifier.MP_Domain_Data(
             domain_file,
             protein_file,
@@ -760,13 +761,13 @@ class TADClassifier:
             leniency=self.leniency)
         domain_dict = prep.domain_dict
 
-        log.info('loading matrix')
+        log.debug('loading matrix')
         # ingest matrix
         matrix = TADClassifier.MP_Matrix(matrix_file,
                                          method=self.classifier.normalization_method, pChromosome=pChromosome)
 
         # build inputs for classifier
-        log.info('build features')
+        log.debug('build features')
         is_boundary = matrix.get_boundary_positions(domain_dict)
         features = matrix.get_features(
             self.classifier.distance,
@@ -795,13 +796,13 @@ class TADClassifier:
     def prepare_predict(self, matrix_file, pChromosome):
         '''prepare matrix and its derivatives for the run'''
 
-        log.info('loading matrix')
+        log.debug('loading matrix')
         # ingest matrix
         matrix = TADClassifier.MP_Matrix(matrix_file,
                                          method=self.classifier.normalization_method, pChromosome=pChromosome)
 
         # build inputs for classifier
-        log.info('build features')
+        log.debug('build features')
         features = matrix.get_features(
             self.classifier.distance,
             self.classifier.use_gradient)
@@ -1008,7 +1009,7 @@ class TADClassifier:
                             (conc_features, features), axis=0)
 
                 except BaseException:
-                    log.info('one of the inputs did not contain boundaries')
+                    log.debug('one of the inputs did not contain boundaries')
 
                 is_boundary = None
                 positions = None
@@ -1085,7 +1086,6 @@ class TADClassifier:
             raise ValueError(
                 'please pass domain (,optional protein) and matrix lists of same length or pass a single domain (and optional protein) file')
 
-
         chromosome_list = []
         for matrix in matrix_list:
             cooler_obj = cooler.Cooler(matrix)
@@ -1123,7 +1123,6 @@ class TADClassifier:
             for chromosome in chromosome_list[i]:
                 matrix, positions, features = self.prepare_predict(data, pChromosome=chromosome)
 
-
                 matrix.numpy_matrix = None
                 matrix.hic_matrix = None
                 matrix = None
@@ -1139,7 +1138,7 @@ class TADClassifier:
                     conc_positions = np.concatenate((conc_positions, positions), axis=0)
 
                     conc_is_boundary = np.concatenate((conc_is_boundary, is_boundary), axis=0)
-                
+
                 features = None
                 is_boundary = None
                 positions = None
@@ -1148,18 +1147,42 @@ class TADClassifier:
             matrix_name = ".".join(os.path.basename(matrix_list[i]).split(".")[:-1])
             out_file_i = self.out_file + '_' + matrix_name + '.bed'
             TADClassifier.print_to_bed(TADClassifier.get_domains(
-                                        conc_positions, conc_is_boundary), out_file_i)
+                conc_positions, conc_is_boundary), out_file_i)
 
     def print_to_bed(domain_df, path):
         '''print domain file'''
 
         domain_df.to_csv(path, sep='\t', header=None, index=False)
 
+    def filter_domains(domains):
+        '''filter out to small domains'''
+
+        min_tad_size = 50000 - 1
+        domain_df = pd.DataFrame({'Chrom': domains[:,
+                                                   0],
+                                  'Start': domains[:,
+                                                   1],
+                                  'End': domains[:,
+                                                 2]})
+
+        domain_df['Start'] = domain_df.Start.apply(np.int64)
+        domain_df['End'] = domain_df.End.apply(np.int64)
+        domain_df = domain_df.sort_values(by=["Chrom", "Start"])
+        domain_df['Test'] = domain_df['Start'].shift(1, fill_value=0)
+        domain_df['Chrom_Test'] = domain_df['Chrom'].shift(1, fill_value=0)
+        domain_df['Chrom_Test_Bool'] = domain_df['Chrom'] != domain_df['Chrom_Test']
+        domain_df['Test_Bool'] = domain_df['Test'] + min_tad_size <= domain_df['Start']
+        domain_df['Test_Bool'] = np.logical_or(domain_df['Test_Bool'], domain_df['Chrom_Test_Bool'])
+        domain_df = domain_df[domain_df['Test_Bool']]
+
+        return domain_df[['Chrom', 'Start', 'End']].to_numpy()
+
     def get_domains(positions, y):
         '''return dataframe of predicted TADs'''
 
         pos_mask = y[:] == True
         domains = positions[pos_mask]
+        domains = TADClassifier.filter_domains(domains)
         name = np.arange(1, domains.shape[0] + 1)
         score = np.full(domains.shape[0], -1)
         strand = np.full(domains.shape[0], 0)
@@ -1171,14 +1194,14 @@ class TADClassifier:
                                   'Start': domains[:,
                                                    1],
                                   'End': domains[:,
-                                                 2],
+                                                 1],
                                   'Name': name,
                                   'Score': score,
                                   'Strand': strand,
                                   'ThickStart': domains[:,
                                                         1],
                                   'ThickEnd': domains[:,
-                                                      2],
+                                                      1],
                                   'ItemRGB': item_rgb})
 
         def rgb_helper(i):
