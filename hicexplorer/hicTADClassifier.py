@@ -20,7 +20,6 @@ Uses Supervised Learning to call TAD boundaries. One or multiple HiC-Matrices ca
 $ hicTADClassifier -f 'my_matrix.cool' -o 'predictions' -n 'range'
         """)
 
-   
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--matrix_file', '-f',

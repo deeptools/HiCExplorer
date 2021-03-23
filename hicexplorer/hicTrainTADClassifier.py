@@ -38,15 +38,12 @@ predict_test mode: predict using an existing classifier and produce a classifica
 $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.bed' -o 'report.txt' -n 'range' -r 10000
         """)
 
-  
     def check_leniency(le):
         li = int(le)
         if li < 0:
             raise argparse.ArgumentTypeError(
                 "leniency %s is not within valid range 0 -" % le)
         return li
-
-
 
     parserRequired = parser.add_argument_group('Required arguments')
 
@@ -125,8 +122,8 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
 
     parserOpt.add_argument('--estimators_per_step',
                            help='how many estimators are added in each training step for the classifier (new classifier)',
-                           choices=range(5,1001),
-                           metavar="[5-1000]", 
+                           choices=range(5, 1001),
+                           metavar="[5-1000]",
                            default=20)
 
     parserOpt.add_argument('--resampling_method',
@@ -145,8 +142,8 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
 
     parserOpt.add_argument('--distance',
                            help='max distance between genes to be used in calculation (new classifier)',
-                           choices=range(5,31),
-                           metavar="[5-30]", 
+                           choices=range(5, 31),
+                           metavar="[5-30]",
                            default=15)
 
     parserOpt.add_argument('--impute_value',

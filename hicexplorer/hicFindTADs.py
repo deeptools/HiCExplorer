@@ -14,7 +14,7 @@ import numpy as np
 import multiprocessing
 import cooler
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes, compute_zscore
+from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes, compute_zscore, check_cooler
 
 from scipy.sparse import csr_matrix, lil_matrix
 # import numpy as np
@@ -158,11 +158,8 @@ of information at certain bins, and depending on the parameters used with this t
                            'used to reduce spurious boundaries caused by noise.',
                            type=int)
 
-    parserOpt.add_argument('--chromosomes',
-                           help='Chromosomes and order in which the '
-                           'chromosomes should be plotted. This option '
-                           'overrides --region and --region2.',
-                           nargs='+')
+    parserOpt.add_argument('--chromosome',
+                           help='Compute TADs for one chromosome only.')
 
     parserOpt.add_argument('--numberOfProcessors', '-p',
                            help='Number of processors to use '
@@ -368,7 +365,7 @@ class HicFindTads(object):
 
     def __init__(self, matrix, num_processors=1, max_depth=None, min_depth=None, step=None, delta=0.01,
                  min_boundary_distance=None, use_zscore=True, p_correct_for_multiple_testing="fdr", p_threshold_comparisons=0.01,
-                 pChromosomes=None, pBedgraphMatrix=None):
+                 pChromosomes=None):
         """
 
         Parameters
@@ -393,13 +390,13 @@ class HicFindTads(object):
         if max_depth is not None and min_depth is not None and max_depth <= min_depth:
             log.error("Please check that maxDepth is larger than minDepth.")
             exit()
-        if isinstance(matrix, str) and matrix.endswith(".cool"):
-            cooler_file = cooler.Cooler(matrix)
-            self.binsize = cooler_file.binsize
-            self.is_cooler = True
-        else:
-            self.is_cooler = False
-
+        # if isinstance(matrix, str) and matrix.endswith(".cool"):
+        #     cooler_file = cooler.Cooler(matrix)
+        #     self.binsize = cooler_file.binsize
+        self.is_cooler = False
+        # else:
+        #     self.is_cooler = False
+        self.matrix_name = matrix
         self.num_processors = num_processors
         self.max_depth = max_depth
         self.min_depth = min_depth
@@ -407,21 +404,22 @@ class HicFindTads(object):
         self.delta = delta
         self.min_boundary_distance = min_boundary_distance
         self.use_zscore = use_zscore
-        self.bedgraph_matrix = pBedgraphMatrix
-        self.boundaries = None
-        if isinstance(matrix, str) and matrix.endswith(".h5") or not isinstance(matrix, str):
-            log.info('h5 file')
-            self.set_matrix(matrix, pChromosomes)
-            self.binsize = self.hic_ma.getBinSize()
-            self.set_variables()
-        else:
-            log.info('cool file')
+        # self.bedgraph_matrix = pBedgraphMatrix
+        self.boundaries = {}
+        self.chromosomes = pChromosomes
+        # if isinstance(matrix, str) and matrix.endswith(".h5") or not isinstance(matrix, str):
+        #     log.info('h5 file')
+        #     self.set_matrix(matrix, pChromosomes)
+        #     self.binsize = self.hic_ma.getBinSize()
+        #     self.set_variables()
+        # else:
+        #     log.info('cool file')
 
-            self.set_variables()
-            log.info('Load matrix!')
-            self.set_matrix(matrix, pChromosomes)
-            log.info('Load matrix! ... DONE')
-        self.max_depth_bin = self.max_depth // self.binsize
+        #     self.set_variables()
+        #     log.info('Load matrix!')
+        #     self.set_matrix(matrix, pChromosomes)
+        #     log.info('Load matrix! ... DONE')
+        # self.max_depth_bin = self.max_depth // self.binsize
 
         self.correct_for_multiple_testing = p_correct_for_multiple_testing
         self.threshold_comparisons = p_threshold_comparisons
@@ -429,7 +427,10 @@ class HicFindTads(object):
 
     def set_matrix(self, pMatrix, pChromosomes):
         if isinstance(pMatrix, str):
+            log.debug('pChromosomes {}'.format(pChromosomes))
             self.hic_ma = hm.hiCMatrix(pMatrix, pChrnameList=pChromosomes)#pDistance=self.max_depth * 2.5, pUpperTriangleOnly=True)
+            log.debug('self.hic_ma {}'.format(self.hic_ma))
+
         else:
             self.hic_ma = pMatrix
 
@@ -677,7 +678,8 @@ class HicFindTads(object):
 
         # get the delta for each boundary
         delta_to_mean = HicFindTads.delta_wrt_window(min_idx, tad_score_matrix_avg, chrom)
-
+        
+        # X, dict
         return min_idx, delta_to_mean
 
     def hierarchical_clustering(self, boundary_list, clusters_cutoff=[]):
@@ -942,6 +944,7 @@ class HicFindTads(object):
 
     def save_domains_and_boundaries(self, prefix):
 
+        for chromosome in self.boundaries:
         # a boundary is added to the start and end of each chromosome
         # np.unique return index is used to quickly get
         # the indices at which the name of the chromosome changes (chrom, start, end should be  sorted)
@@ -1069,7 +1072,7 @@ class HicFindTads(object):
                 tad_score.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom[idx]), left_bin_center, right_bin_center,
                                                                mean_mat_all[idx]))
 
-    def compute_spectra_matrix(self, perchr=True, pNewZscore=False):
+    def compute_spectra_matrix(self, perchr=True):
         """
         Uses multiple processors to compute the TAD-score
 
@@ -1079,136 +1082,210 @@ class HicFindTads(object):
 
         """
 
-        # remove self counts
-        log.info('removing diagonal values\n')
-        self.hic_ma.diagflat(value=0)
+        # if cool, check the chromosomes if self.chromosomes is empty and iterate over them
+        # else h5: load full matrix, get chromosomes all at once, and iterate only once with all chromosomes over it.
+        log.debug('self.matrix_name {}'.format(self.matrix_name))
+        log.debug('check_cooler(self.matrix_name) {}'.format(check_cooler(self.matrix_name)))
 
-        # mask bins without any information
-        self.hic_ma.maskBins(self.hic_ma.nan_bins)
-        orig_intervals = self.hic_ma.cut_intervals[:]
+        if check_cooler(self.matrix_name):
+            cooler_obj = cooler.Cooler(self.matrix_name)
+
+            if self.chromosomes is None or (len(self.chromosomes) == 1 and self.chromosomes[0] is None):
+                self.chromosomes = cooler_obj.chromnames
 
 
-        if self.use_zscore:
-        
-            if pNewZscore and self.is_cooler:
-                log.info("Computing z-score matrix, new method...\n")
-                # cooler_obj = cooler.Cooler(self.matrix_name)
-                # trasf_matrix = lil_matrix(self.hic_ma.matrix.shape)
-               
-                # # for chromosome_name in cooler_obj.chromnames:
-                # #     chr_range = self.hic_ma.getChrBinRange(chrname)
+            self.is_cooler = True
 
-                # #     pHiCMatrix = hm.hiCMatrix(pMatrixFile=pArgs.matrix, pChrnameList=[chromosome_name], pDistance=self.max_depth * 2.5, pNoIntervalTree=True, pUpperTriangleOnly=True)
-                # for chrname in self.hic_ma.getChrNames():
-                #     chr_range = self.hic_ma.getChrBinRange(chrname)
-                #     submatrix = self.hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
-                #     submatrix.astype(float)
-                #     submatrix_chr = lil_matrix(compute_zscore(submatrix, int(self.max_depth_bin * 2.5), self.num_processors))
-
-                #     trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = submatrix_chr
-                # self.hic_ma.matrix = trasf_matrix.tocsr()
+            if len(self.chromosomes) == 1 and self.chromosomes[0] is not None:
+                # log.debug('self.chromosomes')
+                extent_range = cooler_obj.extent(self.chromosomes[0])
+                left_min = 0
+                right_max = extent_range[1] - extent_range[0]
+                z_score_matrix_tmp = lil_matrix((left_min, right_max))
             else:
+                left_min = None
+                right_max = None
+                for chromosome in self.chromosomes:
+                    extent_range = cooler_obj.extent(chromosome)
+                    if left_min is None and right_max is None:
+                        left_min = extent_range[0]
+                        right_max = extent_range[1]
+                    else:
+                        if left_min > extent_range[0]:
+                            left_min = extent_range[0]
+                        if right_max < extent_range[1]:
+                            right_max = extent_range[1]
 
-                # use zscore matrix
-                log.info("Computing z-score matrix, old method...\n")
-                # if self.is_cooler:
-                #     self.hic_ma.convert_to_zscore_matrix(maxdepth=self.max_depth * 2.5, perchr=perchr, pSkipTriu=True)
-                # else:
+                z_score_matrix_tmp = lil_matrix((left_min, right_max))
+            
+
+        else:
+            self.set_matrix(self.matrix_name, self.chromosomes)
+            self.binsize = self.hic_ma.getBinSize()
+            self.set_variables()
+            self.max_depth_bin = self.max_depth // self.binsize
+            self.chromosomes = [None]
+        
+        chromosome_list = []
+        chr_start_list  = []
+        chr_end_list  = []
+        matrix_list  = []
+
+        # chromosome_list_chr = []
+        # chr_start_list_chr  = []
+        # chr_end_list_chr  = []
+        # matrix_list_chr  = []
+
+        for chromosome in self.chromosomes:
+
+            if self.is_cooler:
+                self.set_matrix(self.matrix_name, [chromosome])
+                log.debug('self.hic_ma {}'.format(self.hic_ma))
+
+                self.binsize = self.hic_ma.getBinSize()
+                self.set_variables()
+                self.max_depth_bin = self.max_depth // self.binsize
+                if len(self.chromosomes) == 1:
+                    chr_range = self.hic_ma.getChrBinRange(chromosome)
+                else:
+                    chr_range = cooler_obj.extent(chromosome)
+            
+            if self.hic_ma.matrix.nnz <= 10:
+                continue
+            elif chromosome == 'MT':
+                log.debug('shape {}'.format(self.hic_ma.matrix.shape))
+                log.debug('nnz {}'.format(self.hic_ma.matrix.nnz))
+                log.debug('matrix {}'.format(self.hic_ma.matrix))
+
+            # remove self counts
+            log.info('removing diagonal values\n')
+            self.hic_ma.diagflat(value=0)
+
+            # mask bins without any information
+            self.hic_ma.maskBins(self.hic_ma.nan_bins)
+            orig_intervals = self.hic_ma.cut_intervals[:]
+
+
+            if self.use_zscore:
+            
                 self.hic_ma.convert_to_zscore_matrix(maxdepth=self.max_depth * 2.5, perchr=perchr)
 
+            if self.is_cooler:
+                log.debug('self.hic_ma.matrix.shape {}'.format(self.hic_ma.matrix.shape))
+                log.debug('chr_range {}'.format(chr_range))
+                # z_score_matrix_tmp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(self.hic_ma.matrix)
 
-        # extend remaining bins to remove gaps in
-        # the matrix
-        new_intervals = enlarge_bins(self.hic_ma.cut_intervals)
+            # extend remaining bins to remove gaps in
+            # the matrix
+            new_intervals = enlarge_bins(self.hic_ma.cut_intervals)
 
-        # rebuilt bin positions if necessary
-        if new_intervals != orig_intervals:
-            self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = self.hic_ma.intervalListToIntervalTree(new_intervals)
-            self.hic_ma.cut_intervals = new_intervals
-            self.hic_ma.orig_cut_intervals = new_intervals
-            self.hic_ma.orig_bin_ids = list(range(len(new_intervals)))
-            self.hic_ma.nan_bins = []
+            # rebuilt bin positions if necessary
+            if new_intervals != orig_intervals:
+                self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = self.hic_ma.intervalListToIntervalTree(new_intervals)
+                self.hic_ma.cut_intervals = new_intervals
+                self.hic_ma.orig_cut_intervals = new_intervals
+                self.hic_ma.orig_bin_ids = list(range(len(new_intervals)))
+                self.hic_ma.nan_bins = []
 
-        if self.min_depth % self.hic_ma.getBinSize() != 0:
-            log.warn('Warning. specified *depth* is not multiple of the '
-                     'Hi-C matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
-        if self.step % self.hic_ma.getBinSize() != 0:
-            log.warn('Warning. specified *step* is not multiple of the '
-                     'Hi-C matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
+            if self.min_depth % self.hic_ma.getBinSize() != 0:
+                log.warn('Warning. specified *depth* is not multiple of the '
+                        'Hi-C matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
+            if self.step % self.hic_ma.getBinSize() != 0:
+                log.warn('Warning. specified *step* is not multiple of the '
+                        'Hi-C matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
 
-        self.binsize = self.hic_ma.getBinSize()
+            self.binsize = self.hic_ma.getBinSize()
 
-        log.info("Computing TAD-separation scores...\n")
-        min_depth_in_bins = int(self.min_depth / self.binsize)
-        max_depth_in_bins = int(self.max_depth / self.binsize)
-        step_in_bins = int(self.step / self.binsize)
-        if step_in_bins == 0:
-            log.error("Please select a step size larger than {}".format(self.binsize))
-            exit(1)
+            log.info("Computing TAD-separation scores...\n")
+            min_depth_in_bins = int(self.min_depth / self.binsize)
+            max_depth_in_bins = int(self.max_depth / self.binsize)
+            step_in_bins = int(self.step / self.binsize)
+            if step_in_bins == 0:
+                log.error("Please select a step size larger than {}".format(self.binsize))
+                exit(1)
 
-        incremental_step = get_incremental_step_size(self.min_depth, self.max_depth, self.step)
+            incremental_step = get_incremental_step_size(self.min_depth, self.max_depth, self.step)
 
-        log.info("computing spectrum for window sizes between {} ({} bp)"
-                 "and {} ({} bp) at the following window sizes {} {}\n".format(min_depth_in_bins,
-                                                                               self.binsize * min_depth_in_bins,
-                                                                               max_depth_in_bins,
-                                                                               self.binsize * max_depth_in_bins,
-                                                                               step_in_bins, incremental_step))
-        if min_depth_in_bins <= 1:
-            log.error('ERROR\nminDepth length too small. Use a value that is at least '
-                      'twice as large as the bin size which is: {}\n'.format(self.binsize))
-            exit(0)
+            log.info("computing spectrum for window sizes between {} ({} bp)"
+                    "and {} ({} bp) at the following window sizes {} {}\n".format(min_depth_in_bins,
+                                                                                self.binsize * min_depth_in_bins,
+                                                                                max_depth_in_bins,
+                                                                                self.binsize * max_depth_in_bins,
+                                                                                step_in_bins, incremental_step))
+            if min_depth_in_bins <= 1:
+                log.error('ERROR\nminDepth length too small. Use a value that is at least '
+                        'twice as large as the bin size which is: {}\n'.format(self.binsize))
+                exit(0)
 
-        if max_depth_in_bins <= 1:
-            log.error('ERROR\nmaxDepth length too small. Use a value that is larger '
-                      'than the bin size which is: {}\n'.format(self.binsize))
-            exit(0)
-        # work only with the upper matrix
-        # and remove all pixels that are beyond
-        # 2 * max_depth_in_bis which are not required
-        # (this is done by subtracting a second sparse matrix
-        # that contains only the upper matrix that wants to be removed.
-        limit = 2 * max_depth_in_bins
-        self.hic_ma.matrix = sparse.triu(self.hic_ma.matrix, k=0, format='csr') - sparse.triu(self.hic_ma.matrix,
-                                                                                              k=limit, format='csr')
-        self.hic_ma.matrix.eliminate_zeros()
+            if max_depth_in_bins <= 1:
+                log.error('ERROR\nmaxDepth length too small. Use a value that is larger '
+                        'than the bin size which is: {}\n'.format(self.binsize))
+                exit(0)
+            # work only with the upper matrix
+            # and remove all pixels that are beyond
+            # 2 * max_depth_in_bis which are not required
+            # (this is done by subtracting a second sparse matrix
+            # that contains only the upper matrix that wants to be removed.
+            limit = 2 * max_depth_in_bins
+            self.hic_ma.matrix = sparse.triu(self.hic_ma.matrix, k=0, format='csr') - sparse.triu(self.hic_ma.matrix,
+                                                                                                k=limit, format='csr')
+            self.hic_ma.matrix.eliminate_zeros()
 
-        func = compute_matrix_wrapper
-        TASKS = []
-        bins_to_consider = []
-        # to speed up parallel computation the self.hic_ma (HiCMatrix object) is converted into a global object.
-        global hic_ma
-        hic_ma = self.hic_ma
-        for chrom in list(self.hic_ma.chrBinBoundaries):
-            bins_to_consider.extend(list(range(*self.hic_ma.chrBinBoundaries[chrom])))
+            func = compute_matrix_wrapper
+            TASKS = []
+            bins_to_consider = []
+            # to speed up parallel computation the self.hic_ma (HiCMatrix object) is converted into a global object.
+            global hic_ma
+            hic_ma = self.hic_ma
+            for chrom in list(self.hic_ma.chrBinBoundaries):
+                bins_to_consider.extend(list(range(*self.hic_ma.chrBinBoundaries[chrom])))
 
-        for idx_array in np.array_split(bins_to_consider, self.num_processors):
-            TASKS.append((idx_array, self.min_depth, self.max_depth, self.step))
+            for idx_array in np.array_split(bins_to_consider, self.num_processors):
+                TASKS.append((idx_array, self.min_depth, self.max_depth, self.step))
 
-        if self.num_processors > 1:
-            pool = multiprocessing.Pool(self.num_processors)
-            log.info("Using {} processors\n".format(self.num_processors))
-            res = pool.map_async(func, TASKS).get(9999999)
-            pool.close()
-        else:
-            res = map(func, TASKS)
+            if self.num_processors > 1:
+                pool = multiprocessing.Pool(self.num_processors)
+                log.info("Using {} processors\n".format(self.num_processors))
+                res = pool.map_async(func, TASKS).get(9999999)
+                pool.close()
+            else:
+                res = map(func, TASKS)
 
-        chrom = []
-        chr_start = []
-        chr_end = []
-        matrix = []
-        for _chrom, _chr_start, _chr_end, _matrix in res:
-            chrom.extend(toString(_chrom))
-            chr_start.extend(_chr_start)
-            chr_end.extend(_chr_end)
-            matrix.append(_matrix)
+            chromosome_list_chr = []
+            chr_start_list_chr  = []
+            chr_end_list_chr  = []
+            matrix_list_chr  = []
+            for _chrom, _chr_start, _chr_end, _matrix in res:
+                chromosome_list.extend(toString(_chrom))
+                chr_start_list.extend(_chr_start)
+                chr_end_list.extend(_chr_end)
+                matrix_list.append(_matrix)
 
-        matrix = np.vstack(matrix)
+                chromosome_list_chr.extend(toString(_chrom))
+                chr_start_list_chr.extend(_chr_start)
+                chr_end_list_chr.extend(_chr_end)
+                matrix_list_chr.append(_matrix)
+            if len(matrix_list_chr) > 0:
+                matrix_list_chr = np.vstack(matrix_list_chr)
+            self.bedgraph_matrix = {'chrom': np.array(chromosome_list_chr),
+                                'chr_start': np.array(chr_start_list_chr).astype(int),
+                                'chr_end': np.array(chr_end_list_chr).astype(int),
+                                'matrix': matrix_list_chr}
+            self.find_boundaries()
 
-        self.bedgraph_matrix = {'chrom': np.array(chrom),
-                                'chr_start': np.array(chr_start).astype(int),
-                                'chr_end': np.array(chr_end).astype(int),
-                                'matrix': matrix}
+        # global one
+        if len(matrix_list) > 0:
+            matrix_list = np.vstack(matrix_list)
+
+        self.bedgraph_matrix = {'chrom': np.array(chromosome_list ),
+                                'chr_start': np.array(chr_start_list).astype(int),
+                                'chr_end': np.array(chr_end_list).astype(int),
+                                'matrix': matrix_list}
+        
+        if self.is_cooler:     
+            pass                   
+            # self.hic_ma.matrix = z_score_matrix_tmp
+            # self.hic_ma.matrix.eliminate_zeros()
 
     def load_bedgraph_matrix(self, filename, pChromosomes=None):
         # load spectrum matrix:
@@ -1333,7 +1410,7 @@ class HicFindTads(object):
 
         return OrderedDict(zip(new_min_idx, pvalues))
 
-    def find_boundaries(self):
+    def find_boundaries(self, pChromosome):
 
         # perform some checks
         avg_bin_size = np.median(self.bedgraph_matrix['chr_end'] - self.bedgraph_matrix['chr_start'])
@@ -1345,11 +1422,15 @@ class HicFindTads(object):
         lookahead = int(self.min_boundary_distance / avg_bin_size)
         if lookahead < 1:
             raise ValueError("minBoundaryDistance must be '1' or above in value")
-
+        # X, dict
         min_idx, delta = HicFindTads.find_consensus_minima(self.bedgraph_matrix['matrix'], lookahead=lookahead,
                                                            chrom=self.bedgraph_matrix['chrom'])
-
+        log.debug('min_idx {}'.format(min_idx))
+        log.debug('delta {}'.format(delta))
+        
+        # ordered dict
         pvalues = self.min_pvalue(min_idx)
+        log.debug('pvalues {}'.format(pvalues))
 
         if len(min_idx) <= 10:
             mat_mean = self.bedgraph_matrix['matrix'].mean(axis=1)
@@ -1374,9 +1455,11 @@ class HicFindTads(object):
             else:
                 log.info("Only {} boundaries found. {}".format(len(min_idx), msg))
 
-        self.boundaries = {'min_idx': min_idx,
-                           'delta': delta,
-                           'pvalues': pvalues}
+
+            self.boundaries[pChromosome] = {'min_idx': min_idx,
+                                'delta': delta,
+                                'pvalues': pvalues}
+      
 
 
 def print_args(args):
@@ -1401,7 +1484,7 @@ def main(args=None):
                      min_depth=args.minDepth, step=args.step, delta=args.delta,
                      min_boundary_distance=args.minBoundaryDistance, use_zscore=True,
                      p_correct_for_multiple_testing=args.correctForMultipleTesting, p_threshold_comparisons=args.thresholdComparisons,
-                     pChromosomes=args.chromosomes)
+                     pChromosomes=[args.chromosome])
 
     matrix_ending = args.matrix.split('.')[-1]
     if matrix_ending not in ['cool', 'h5']:
@@ -1426,8 +1509,8 @@ def main(args=None):
                       "Could not find file {}".format(zscore_matrix_file))
             exit(1)
         log.info("\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
-        ft.set_matrix(zscore_matrix_file, args.chromosomes)
-        ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
+        ft.set_matrix(zscore_matrix_file, [args.chromosome])
+        ft.load_bedgraph_matrix(tad_score_file, [args.chromosome])
 
     elif not os.path.isfile(tad_score_file):
         ft.compute_spectra_matrix()
@@ -1437,11 +1520,11 @@ def main(args=None):
     else:
         log.info("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
         log.info("This file will be used\n")
-        ft.set_matrix(zscore_matrix_file, args.chromosomes)
+        ft.set_matrix(zscore_matrix_file, [args.chromosome])
         # ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
-        ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
+        ft.load_bedgraph_matrix(tad_score_file, [args.chromosome])
 
-    ft.find_boundaries()
+    # ft.find_boundaries()
     ft.save_domains_and_boundaries(args.outPrefix)
 
     # turn of hierarchical clustering which is apparently not working.
