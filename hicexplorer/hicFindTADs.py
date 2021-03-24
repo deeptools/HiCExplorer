@@ -355,6 +355,9 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
         cond_matrix.append(mult_matrix)
 
         positions_array.append((chrom, chr_start, chr_end))
+    if len(positions_array) == 0:
+        return [], [], [],[]
+
     chrom, chr_start, chr_end = zip(*positions_array)
     cond_matrix = np.vstack(cond_matrix)
 
@@ -1380,11 +1383,11 @@ class HicFindTads(object):
                 # chr_start_list.extend(_chr_start)
                 # chr_end_list.extend(_chr_end)
                 # matrix_list.append(_matrix)
-
-                chromosome_list_chr.extend(toString(_chrom))
-                chr_start_list_chr.extend(_chr_start)
-                chr_end_list_chr.extend(_chr_end)
-                matrix_list_chr.append(_matrix)
+                if len(_matrix) != 0:
+                    chromosome_list_chr.extend(toString(_chrom))
+                    chr_start_list_chr.extend(_chr_start)
+                    chr_end_list_chr.extend(_chr_end)
+                    matrix_list_chr.append(_matrix)
             if len(matrix_list_chr) > 0:
                 matrix_list_chr = np.vstack(matrix_list_chr)
             self.bedgraph_matrix[chromosome] = {'chrom': np.array(chromosome_list_chr),
