@@ -99,16 +99,13 @@ def parse_arguments(args=None):
 
 def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
     """
-    Converts a corrected counts matrix into a
-    obs / expected matrix or z-scores fast.
+    Compute average of values for each distance (only intrachr)
 
-    The caveat is that the obs/exp or z-score are only
+    The caveat is that the average are only
     computed for non-zero values, although zero values that
     are not part of the sparse matrix are considered.
 
-    For each diagonal the mean (and std when computing z-scores) are
-    calculated and then each non-zero value of the sparse matrix is
-    replaced by the obs/exp or z-score.
+    For each diagonal the mean are calculated
 
     Parameters
     ----------
@@ -120,7 +117,8 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
 
     Returns
     -------
-    observed / expected sparse matrix
+    dictionary where keys are either 'all' or the chromosome names when perchr is set to True
+               and values are ordered dictionary where keys are distances and values are the mean.
 
     >>> from scipy.sparse import csr_matrix, dia_matrix
     >>> row, col = np.triu_indices(5)
@@ -137,30 +135,10 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False):
 
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals)
-    >>> hic.convert_to_obs_exp_matrix().todense()
-    matrix([[1. , 0.8, 1. , 1. , 0. ],
-            [0. , 4. , 1.5, 1. , 1. ],
-            [0. , 0. , 0. , 0.7, 2. ],
-            [0. , 0. , 0. , 0. , 1. ],
-            [0. , 0. , 0. , 0. , 0. ]])
-
-    >>> hic.matrix = csr_matrix(matrix)
-    >>> hic.convert_to_obs_exp_matrix(maxdepth=20).todense()
-    matrix([[1. , 0.8, 1. , 0. , 0. ],
-            [0. , 4. , 1.5, 1. , 0. ],
-            [0. , 0. , 0. , 0.7, nan],
-            [0. , 0. , 0. , 0. , nan],
-            [0. , 0. , 0. , 0. , 0. ]])
-
-    >>> hic.matrix = csr_matrix(matrix)
-    >>> hic.convert_to_obs_exp_matrix(zscore=True).todense()
-    matrix([[ 0.        , -0.56195149,         nan,         nan, -1.41421356],
-            [ 0.        ,  1.93649167,  1.40487872,         nan,  0.        ],
-            [ 0.        ,  0.        , -0.64549722, -0.84292723,  1.41421356],
-            [ 0.        ,  0.        ,  0.        , -0.64549722,  0.        ],
-            [ 0.        ,  0.        ,  0.        ,  0.        , -0.64549722]])
-
-    nans occur where the standard deviation is zero
+    >>> compute_distance_mean(hic)
+    {'all': OrderedDict([(0, 1.0), (10, 10.0), (20, 5.0), (30, 3.0)])}
+    >>> compute_distance_mean(hic, perchr=true)
+    {'all': OrderedDict([(0, 1.0), (10, 10.0), (20, 5.0), (30, 3.0)])}
     """
 
     binsize = hicmat.getBinSize()
