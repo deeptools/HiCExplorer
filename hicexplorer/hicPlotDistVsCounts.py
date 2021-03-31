@@ -205,13 +205,13 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
         assert len(custom_cut_intervals) == len(hicmat.cut_intervals), \
             "The custom_cut_intervals should have the same size as hicmat.cut_intervals"
         cut_intervals_genome_wide = custom_cut_intervals
-    
+
     if perchr:
         for chrname in hicmat.getChrNames():
             chr_range = hicmat.getChrBinRange(chrname)
             chr_submatrix[chrname] = hicmat.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]].tocoo()
             cut_intervals[chrname] = [cut_intervals_genome_wide[x] for x in range(chr_range[0], chr_range[1])]
-            unit_sizes[chrname] = np.array([v[1] - v[0] 
+            unit_sizes[chrname] = np.array([v[1] - v[0]
                                             for k, v in hicmat.intervalListToIntervalTree(cut_intervals[chrname])[1].items()
                                             if not k.startswith('_ignore_')])
             chrom_range[chrname] = (chr_range[0], chr_range[1])
@@ -219,7 +219,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
     else:
         chr_submatrix['all'] = hicmat.matrix.tocoo()
         cut_intervals['all'] = cut_intervals_genome_wide
-        unit_sizes['all'] = np.array([v[1] - v[0] 
+        unit_sizes['all'] = np.array([v[1] - v[0]
                                       for k, v in hicmat.intervalListToIntervalTree(cut_intervals_genome_wide)[1].items()
                                       if not k.startswith('_ignore_')])
         chrom_range['all'] = (0, hicmat.matrix.shape[0])
@@ -419,7 +419,11 @@ def main(args=None):
         chrtokeep = [x for x in list(hic_ma.interval_trees) if x not in args.chromosomeExclude]
         hic_ma.keepOnlyTheseChr(chrtokeep)
 
-        mean_dict[matrix_file] = compute_distance_mean(hic_ma, maxdepth=args.maxdepth, perchr=args.perchr)
+        if args.domains:
+            custom_cut_interval = from_bed_to_cut_interval(hic_ma, args.domain)
+        else:
+            custom_cut_interval = None
+        mean_dict[matrix_file] = compute_distance_mean(hic_ma, maxdepth=args.maxdepth, perchr=args.perchr, custom_cut_intervals=custom_cut_interval)
         chroms = chroms.union([k for k in list(mean_dict[matrix_file]) if len(mean_dict[matrix_file][k]) > 1])
 
     # compute scale factors such that values are comparable
