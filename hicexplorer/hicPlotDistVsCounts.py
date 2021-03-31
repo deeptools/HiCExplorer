@@ -168,6 +168,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
     ... ('1', 0, 10, 1), ('1', 10, 20, 1), ('1', 20, 30, 1)]
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
     {'all': OrderedDict([(0, 4.0), (10, 5.0), (20, 20.0)])}
+
     # >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut, perchr=True)
     # {'a': OrderedDict([(0, 2.0), (10, 15.0)]), 'b': OrderedDict([(0, 5.333333333333333), (10, 0.0), (20, 20.0)])}
     """
