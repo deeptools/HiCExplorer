@@ -350,7 +350,7 @@ def from_bed_to_cut_interval(hicmat, fh):
 
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals)
-    >>> tad_line=r"a\t0\t30\nb\t20\t50"
+    >>> tad_line='''a\t0\t30\nb\t20\t50'''
     >>> with open('/tmp/test.bed', 'w') as fh:
     ...     fh.write(tad_line)
     >>> fh = open('/tmp/test.bed', 'r')
