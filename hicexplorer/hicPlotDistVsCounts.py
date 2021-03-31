@@ -156,23 +156,20 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
     >>> compute_distance_mean(hic)
     {'all': OrderedDict([(0, 3.0), (10, 6.0), (20, 10.0), (30, 3.0)])}
     >>> compute_distance_mean(hic, perchr=True)
-    {'a': OrderedDict([(0, 1.25), (10, 10.0), (20, 5.0), (30, 3.0)]),
-     'b': OrderedDict([(0, 5.333333333333333), (10, 0.0), (20, 20.0)])}
+    {'a': OrderedDict([(0, 1.25), (10, 10.0), (20, 5.0), (30, 3.0)]), 'b': OrderedDict([(0, 5.333333333333333), (10, 0.0), (20, 20.0)])}
     >>> custom_cut = [('tad1', 0, 10, 1), ('tad1', 10, 20, 1), ('tad2', 0, 10, 1),
     ... ('tad2', 10, 20, 1), ('tad3', 0, 10, 1), ('tad3', 10, 20, 1), ('tad3', 20, 30, 1)]
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
     {'all': OrderedDict([(0, 3.0), (10, 3.75), (20, 20.0)])}
     >>> compute_distance_mean(hic, perchr=True, custom_cut_intervals=custom_cut)
-    {'a': OrderedDict([(0, 1.25), (10, 7.5)]),
-     'b': OrderedDict([(0, 5.333333333333333), (10, 0.0), (20, 20.0)])}
+    {'a': OrderedDict([(0, 1.25), (10, 7.5)]), 'b': OrderedDict([(0, 5.333333333333333), (10, 0.0), (20, 20.0)])}
     >>> custom_cut = [('_ignore_0', 0, 10, 1), ('0', 0, 10, 1),
     ... ('0', 10, 20, 1), ('_ignore_3', 0, 10, 1),
     ... ('1', 0, 10, 1), ('1', 10, 20, 1), ('1', 20, 30, 1)]
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
     {'all': OrderedDict([(0, 4.0), (10, 5.0), (20, 20.0)])}
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut, perchr=True)
-    {'a': OrderedDict([(0, 2.0), (10, 15.0)]),
-     'b': OrderedDict([(0, 5.333333333333333), (10, 0.0), (20, 20.0)])}
+    {'a': OrderedDict([(0, 2.0), (10, 15.0)]), 'b': OrderedDict([(0, 5.333333333333333), (10, 0.0), (20, 20.0)])}
     """
 
     binsize = hicmat.getBinSize()
@@ -350,17 +347,13 @@ def from_bed_to_cut_interval(hicmat, fh):
 
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals)
-    >>> tad_line='''a\t0\t30\nb\t20\t50'''
+    >>> tad_line='a\\t0\\t30\\nb\\t20\\t50'
     >>> with open('/tmp/test.bed', 'w') as fh:
     ...     fh.write(tad_line)
+    14
     >>> fh = open('/tmp/test.bed', 'r')
-    >>> from_bed_to_cut_interval(hicmat, fh)
-    [('0', 0, 10, 1),
-     ('0', 10, 20, 1),
-     ('0', 20, 30, 1),
-     ('_ignore_3', 0, 10, 1),
-     ('1', 0, 10, 1),
-     ('1', 20, 30, 1)]
+    >>> from_bed_to_cut_interval(hic, fh)
+    [('0', 0, 10, 1), ('0', 10, 20, 1), ('0', 20, 30, 1), ('_ignore_3', 0, 10, 1), ('1', 0, 10, 1), ('1', 20, 30, 1)]
     """
     original_cut_intervals = hicmat.cut_intervals
     new_cut_intervals = [()] * len(original_cut_intervals)
