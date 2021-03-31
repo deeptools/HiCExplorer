@@ -420,7 +420,7 @@ def main(args=None):
         hic_ma.keepOnlyTheseChr(chrtokeep)
 
         if args.domains:
-            custom_cut_interval = from_bed_to_cut_interval(hic_ma, args.domain)
+            custom_cut_interval = from_bed_to_cut_interval(hic_ma, args.domains)
         else:
             custom_cut_interval = None
         mean_dict[matrix_file] = compute_distance_mean(hic_ma, maxdepth=args.maxdepth, perchr=args.perchr, custom_cut_intervals=custom_cut_interval)
