@@ -388,6 +388,8 @@ def from_bed_to_cut_interval(hicmat, fh):
                                     original_cut_intervals[i][2] - original_start_bin_pos,
                                     original_cut_intervals[i][3])
         id += 1
+    assert id > 0, \
+        "No region overlapped with bins."
     # Fill all intervals which are not in the fh with a 'chromosome' which starts with '_ignore_'
     for i in [i for i, interval in enumerate(new_cut_intervals) if len(interval) == 0]:
         new_cut_intervals[i] = ('_ignore_{}'.format(i), 0, original_cut_intervals[i][2] - original_cut_intervals[i][1], original_cut_intervals[i][3])
