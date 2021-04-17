@@ -57,11 +57,11 @@ def parse_arguments(args=None):
     parserRequired.add_argument('--outputFormat',
                                 help='Output format. The following options are available: `h5` (native HiCExplorer '
                                 'format based on hdf5 storage format). '
-                                ' `cool`, `ginteractions`, `homer` and `mcool`'
+                                ' `cool`, `ginteractions`, `homer`, `mcool` and `hicpro`'
                                 ' (Default: %(default)s).',
                                 default='cool',
                                 choices=['cool', 'h5', 'homer',
-                                         'ginteractions', 'mcool'],
+                                         'ginteractions', 'mcool', 'hicpro'],
                                 required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
@@ -112,6 +112,9 @@ def main(args=None):
             log.error(
                 'Number of input matrices does not match number output matrices!')
             exit(1)
+    if args.inputFormat == 'hic' and args.outputFormat != 'cool':
+        log.error('The export of a hic file is only possible to a cool file.')
+        exit(1)
     if args.inputFormat == 'hic' and args.outputFormat == 'cool':
         log.info('Converting with hic2cool.')
         for i, matrix in enumerate(args.matrices):
@@ -169,7 +172,11 @@ def main(args=None):
             log.debug('Setting done')
 
             if args.outputFormat in ['cool', 'h5', 'homer', 'ginteractions']:
+                log.debug('cool h5 homer ginteractions hicpro branch')
+
                 if args.outputFormat in ['homer', 'ginteractions']:
+                    log.debug('homer ginteractions branch')
+
                     # make it a upper triangular matrix in case it is not already
                     _matrix = triu(_matrix)
                     # make it a full symmetrical matrix
@@ -177,12 +184,27 @@ def main(args=None):
                 hic2CoolVersion = None
                 if args.inputFormat == 'cool':
                     hic2CoolVersion = matrixFileHandlerInput.matrixFile.hic2cool_version
+                
+
                 matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5, pHic2CoolVersion=hic2CoolVersion)
 
                 matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
                                                              correction_factors, distance_counts)
                 matrixFileHandlerOutput.save(
                     args.outFileName[i], pSymmetric=True, pApplyCorrection=applyCorrection)
+            
+            if args.outputFormat == 'hicpro':
+                log.debug('hicpro branch')
+                if len(args.matrices) == len(args.outFileName) and len(args.outFileName) == len(args.bedFileHicpro):
+                    log.debug('args.bedFileHicpro[i] {}'.format(args.bedFileHicpro[i]))
+                    matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pBedFileHicPro=args.bedFileHicpro[i])
+
+                    matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
+                                                                correction_factors, distance_counts)
+                    matrixFileHandlerOutput.save(args.outFileName[i], pSymmetric=True, pApplyCorrection=applyCorrection)
+                else:
+                    log.error('The number of input matrices, output files and bed files does not match: Input: {}; Output: {}; Bed: {}'.format(len(args.matrix), len(args.outFileName), len(bedFileHicpro)))
+                    exit(1)
             elif args.outputFormat in ['mcool']:
 
                 log.debug('outformat is mcool')
