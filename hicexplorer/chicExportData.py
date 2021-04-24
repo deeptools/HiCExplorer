@@ -99,6 +99,10 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
     parserOpt.add_argument('--backgroundModelFile', '-bmf',
                            help='Path to the background model file. Required only for fileType=interactions and outputFileTypeBigwig.',
                            required=False)
+    parserOpt.add_argument('--oneTargetFile', '-otf',
+                           help='Compile all target files to one. Applies only if --fileType is target',
+                           required=False,
+                           action='store_true')
     parserOpt.add_argument('--range',
                            help='Defines the region upstream and downstream of a reference point which should be included. '
                            'Format is --range upstream downstream, e.g.: --range 500000 500000 plots 500kb up- and 500kb downstream. '
@@ -133,7 +137,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
     file_content_list = []
 
     file_ending = '.txt' if pArgs.outputFileType == 'txt' else '.bigwig'
-
+    log.debug('len(pFileList) {}'.format(len(pFileList)))
     try:
         if pArgs.fileType == 'interaction' or pArgs.fileType == 'significant':
             header_information = '# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n'
@@ -202,10 +206,10 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
 
                 file_list.append(file_name)
         elif pArgs.fileType == 'target':
-            targetList, present_genes = pViewpointObject.readTargetHDFFile(pArgs.file)
-            header_information = '# Chromosome\tStart\tEnd\n'
+            # targetList, present_genes = pViewpointObject.readTargetHDFFile(pArgs.file)
+            # header_information = '# Chromosome\tStart\tEnd\n'
 
-            for targetFile in targetList:
+            for targetFile in pFileList:
                 targetFileHDF5Object = h5py.File(pArgs.file, 'r')
                 target_object = targetFileHDF5Object['/'.join(targetFile)]
                 chromosome = target_object.get('chromosome')[()]
@@ -215,7 +219,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                 chromosome = [chromosome] * len(start_list)
 
                 target_regions = list(zip(chromosome, start_list, end_list))
-                file_content_string = header_information
+                file_content_string = ''
                 # key_list = sorted(list(data[1].keys()))
                 for region in target_regions:
                     file_content_string += '\t'.join(x.decode('utf-8') for x in region) + '\n'
@@ -336,6 +340,7 @@ def main(args=None):
     elif args.fileType == 'target':
 
         if args.outputMode == 'all':
+            log.debug('foo')
             for outer_matrix in keys_file:
                 inner_matrix_object = fileHDF5Object[outer_matrix]
                 keys_inner_matrices = list(inner_matrix_object.keys())
@@ -346,12 +351,14 @@ def main(args=None):
                     for gen in keys_genes:
                         fileList.append([outer_matrix, inner_matrix, 'genes', gen])
         else:
+            log.debug('huh')
+
             for outer_matrix in keys_file:
                 inner_matrix_object = fileHDF5Object[outer_matrix]
                 keys_inner_matrices = list(inner_matrix_object.keys())
                 for inner_matrix in keys_inner_matrices:
                     inner_object = inner_matrix_object[inner_matrix]['genes']
-                    keys_genes = list(gene_object.keys())
+                    keys_genes = list(inner_object.keys())
                     gene_name = args.outputModeName 
                     counter = 1
                     while gene_name in keys_genes:
@@ -412,6 +419,7 @@ def main(args=None):
                 for inner_matrix in keys_inner_matrices:
                     inner_object = inner_matrix_object[inner_matrix]
                     chromosomeList = sorted(list(inner_object.keys()))
+                    chromosomeList.remove('genes')
                     for chromosome in chromosomeList:
                         geneList = sorted(list(inner_object[chromosome].keys()))
 
@@ -432,6 +440,7 @@ def main(args=None):
                         gene_name = args.outputModeName + '_' + str(counter)
                         counter += 1
 
+    log.debug('len(fileList) {}'.format(len(fileList)))
     fileHDF5Object.close()
 
     filesPerThread = len(fileList) // args.threads
@@ -496,16 +505,33 @@ def main(args=None):
     thread_data = [item for sublist in thread_data for item in sublist]
     file_name_list = [item for sublist in file_name_list for item in sublist]
 
+    if len(thread_data) == 0:
+        log.error('Contains not the requested data!')
+        exit(1)
     if args.outputFileType == 'txt':
         with tarfile.open(args.outFileName, "w:gz") as tar:
 
-            for i, file_content_string in enumerate(thread_data):
+            if not args.oneTargetFile and not args.fileType == 'target':
+                for i, file_content_string in enumerate(thread_data):
 
-                tar_info = tarfile.TarInfo(name=file_name_list[i])
+                    tar_info = tarfile.TarInfo(name=file_name_list[i])
+                    tar_info.mtime = time.time()
+                    file_content_string = file_content_string.encode('utf-8')
+                    tar_info.size = len(file_content_string)
+                    file = io.BytesIO(file_content_string)
+                    tar.addfile(tarinfo=tar_info, fileobj=file)
+            else:
+                tar_info = tarfile.TarInfo(name='targets.tsv')
                 tar_info.mtime = time.time()
-                file_content_string = file_content_string.encode('utf-8')
-                tar_info.size = len(file_content_string)
-                file = io.BytesIO(file_content_string)
+                file_content_string_all = ''
+                for i, file_content_string in enumerate(thread_data):
+
+                    # tar_info = tarfile.TarInfo(name=file_name_list[i])
+                    file_content_string_all += file_content_string
+                
+                file_content_string_all = file_content_string_all.encode('utf-8')
+                tar_info.size = len(file_content_string_all)
+                file = io.BytesIO(file_content_string_all)
                 tar.addfile(tarinfo=tar_info, fileobj=file)
 
     elif args.outputFileType == 'bigwig':

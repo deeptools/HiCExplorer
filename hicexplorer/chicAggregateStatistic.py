@@ -351,8 +351,12 @@ def main(args=None):
 
                     for gene1, gene2 in zip(geneList1, geneList2):
                         # log.debug('gene1 {}, gene2 {}'.format(gene1, gene2))
-                        if gene1 in present_genes[sample][sample2]:
+                        if h5py.is_hdf5(args.targetFile):
+                            if gene1 in present_genes[sample][sample2]:
+                                interactionList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
+                        else:
                             interactionList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
+
 
     else:
         log.error('To aggregate and prepare the data for the differential test, at least two matrices need to be stored, but only one is present.')

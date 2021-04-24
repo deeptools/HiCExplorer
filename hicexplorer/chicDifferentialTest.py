@@ -203,12 +203,19 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
         else:
             matrix2_object = matrix1_object[matrix2_name]
 
+        if 'genes' not in matrix2_object:
+            geneGroup = matrix2_object.create_group('genes')
+        else:
+            geneGroup = matrix2_object['genes']
+
         if chromosome not in matrix2_object:
             chromosome_object = matrix2_object.create_group(chromosome)
         else:
             chromosome_object = matrix2_object[chromosome]
 
         gene_object = chromosome_object.create_group(gene_name)
+       
+
         accepted_object = gene_object.create_group('accepted')
         rejected_object = gene_object.create_group('rejected')
         all_object = gene_object.create_group('all')
@@ -258,6 +265,12 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
             write_object.create_dataset("raw_target_list_2", data=raw_target_list_2, compression="gzip", compression_opts=9)
             write_object.create_dataset("pvalue_list", data=pvalue_list, compression="gzip", compression_opts=9)
 
+        try:
+            geneGroup[gene_name] = chromosome_object[gene_name]
+        except Exception as exp:
+            log.debug('exception {}'.format(str(exp)))
+            log.debug('Gene group given: {}'.format(key[2]))
+            log.debug('Gene group return: {}'.format(group_name))
     resultFileH5Object.close()
 
 

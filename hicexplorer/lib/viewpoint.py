@@ -1186,10 +1186,10 @@ class Viewpoint():
                 item_object = differentialFileHDF5Object[internal_path + '/' + item]
                 chromosome = item_object.get('chromosome')[()].decode("utf-8")
                 start_list = np.array(item_object['start_list'][:])
-                end_list = np.array(item_object[ 'end_list'][:])
-                relative_distance_list = np.array(item_object[ 'relative_distance_list'][:])
+                end_list = np.array(item_object['end_list'][:])
+                relative_distance_list = np.array(item_object['relative_distance_list'][:])
                 gene = item_object.get('gene')[()].decode("utf-8")
-                pvalue_list = np.array(item_object[ 'pvalue_list'][:])
+                pvalue_list = np.array(item_object['pvalue_list'][:])
 
                
                 raw_target_list_1 = np.array(item_object['raw_target_list_1'][:])
@@ -1203,7 +1203,8 @@ class Viewpoint():
                 sum_of_interactions_2 = [sum_of_interactions_2] * len(start_list)
                 output_list.append(zip(chromosome, start_list, end_list, gene, relative_distance_list, sum_of_interactions_1, raw_target_list_1, sum_of_interactions_2, raw_target_list_2, pvalue_list))
 
-            except Exception:
+            except Exception as exp:
+                log.debug('exception {}'.format(str(exp)))
                 output_list.append([])
 
         return output_list
