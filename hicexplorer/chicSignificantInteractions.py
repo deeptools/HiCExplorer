@@ -134,7 +134,9 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
     target_data_list = []
     target_key_list = []
 
-    reference_points_list = []
+    reference_points_list_target = []
+    reference_points_list_significant = []
+
 
     try:
         for interactionFile in pInteractionFilesList:
@@ -171,6 +173,8 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 target_list.append(target_lines)
                 significant_data_list.append(accepted_scores)
                 significant_key_list.append(sample)
+                reference_points_list_significant.append(data[2])
+
 
             target_list = [item for sublist in target_list for item in sublist]
             sample_prefix.append('::')
@@ -178,7 +182,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             sample_prefix.append(interactionFile[0][2])
             target_data_list.append(target_list)
             target_key_list.append(sample_prefix)
-            reference_points_list.append(data[2])
+            reference_points_list_target.append(data[2])
 
         if pQueue is None:
             return target_outfile_names
@@ -187,7 +191,7 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
             return 'Fail: ' + str(exp) + traceback.format_exc()
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
         return
-    pQueue.put([significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list])
+    pQueue.put([significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list_target, reference_points_list_significant])
     return
 
 
@@ -301,7 +305,9 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
 
     target_data_list = [None] * pArgs.threads
     target_key_list = [None] * pArgs.threads
-    reference_points_list = [None] * pArgs.threads
+    reference_points_list_target = [None] * pArgs.threads
+    reference_points_list_significant = [None] * pArgs.threads
+
 
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
     all_data_collected = False
@@ -341,7 +347,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
                     fail_flag = True
                     fail_message = background_data_thread[6:]
                 else:
-                    significant_data_list[i], significant_key_list[i], target_data_list[i], target_key_list[i], reference_points_list[i] = background_data_thread
+                    significant_data_list[i], significant_key_list[i], target_data_list[i], target_key_list[i], reference_points_list_target[i], reference_points_list_significant[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -358,7 +364,9 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
 
     significant_data_list = [item for sublist in significant_data_list for item in sublist]
     significant_key_list = np.array([item for sublist in significant_key_list for item in sublist])
-    reference_points_list = np.array([item for sublist in reference_points_list for item in sublist])
+    reference_points_list_target = np.array([item for sublist in reference_points_list_target for item in sublist])
+    reference_points_list_significant = np.array([item for sublist in reference_points_list_significant for item in sublist])
+
 
     significant_key_list, indices = np.unique(significant_key_list, axis=0, return_index=True)
 
@@ -370,7 +378,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
     target_data_list = [item for sublist in target_data_list for item in sublist]
     target_key_list = [item for sublist in target_key_list for item in sublist]
 
-    return significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list
+    return significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list_target, reference_points_list_significant
 
 
 def read_threshold_file(pFile):
@@ -393,6 +401,11 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
     significantFileH5Object = h5py.File(pOutFileName, 'w')
     keys_seen = {}
     matrix_seen = {}
+
+    log.debug('len(pSignificantKeyList) {}'.format(len(pSignificantKeyList)))
+    log.debug('len(pReferencePointsList) {}'.format(len(pReferencePointsList)))
+
+
     for i, (key, data) in enumerate(zip(pSignificantKeyList, pSignificantDataList)):
         if len(data) == 0:
             continue
@@ -606,8 +619,18 @@ def main(args=None):
     interactionFileHDF5Object.close()
 
     log.debug('len(interactionList) {}'.format(len(interactionList)))
-    significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list = call_multi_core(
+    significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list_target,  reference_points_list_significant = call_multi_core(
         interactionList, args, viewpointObj, background_model, args.interactionFile, resolution)
 
-    writeSignificantHDF(args.outFileNameSignificant, significant_data_list, significant_key_list, viewpointObj, reference_points_list)
-    writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj, resolution, reference_points_list)
+    log.debug('len(significant_data_list) {}'.format(len(significant_data_list)))
+    log.debug('len(significant_key_list) {}'.format(len(significant_key_list)))
+    log.debug('len(target_data_list) {}'.format(len(target_data_list)))
+    log.debug('len(target_key_list) {}'.format(len(target_key_list)))
+    log.debug('len(reference_points_list_target) {}'.format(len(reference_points_list_target)))
+    log.debug('len(reference_points_list_significant) {}'.format(len(reference_points_list_significant)))
+
+    # log.debug('len() {}'.format(len()))
+
+    
+    writeSignificantHDF(args.outFileNameSignificant, significant_data_list, significant_key_list, viewpointObj, reference_points_list_significant)
+    writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj, resolution, reference_points_list_target)

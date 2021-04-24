@@ -332,11 +332,14 @@ def main(args=None):
         targetList = [args.targetFile]
 
     if len(keys_interactionFile) > 1:
+
+        # log.debug('keys_interactionFile {}'.format(keys_interactionFile))
         for i, sample in enumerate(keys_interactionFile):
             for sample2 in keys_interactionFile[i + 1:]:
+                # log.debug('keys_interactionFile {}'.format(keys_interactionFile))
 
                 matrix_obj1 = interactionFileHDF5Object[sample]
-                matrix_obj2 = interactionFileHDF5Object[sample]
+                matrix_obj2 = interactionFileHDF5Object[sample2]
 
                 chromosomeList1 = sorted(list(matrix_obj1.keys()))
                 chromosomeList2 = sorted(list(matrix_obj2.keys()))
@@ -347,6 +350,7 @@ def main(args=None):
                     geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
 
                     for gene1, gene2 in zip(geneList1, geneList2):
+                        # log.debug('gene1 {}, gene2 {}'.format(gene1, gene2))
                         if gene1 in present_genes[sample][sample2]:
                             interactionList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
 
