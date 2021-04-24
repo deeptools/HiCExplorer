@@ -62,12 +62,25 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            default='interaction',
                            choices=['interaction', 'significant', 'target', 'aggregated', 'differential']
                            )
+
     parserOpt.add_argument('--outputFileType',
                            '-oft',
                            help='Output file type can be set for all --fileTypes to txt; except \'interaction\' supports also bigwig'
                            ' (Default: %(default)s).',
                            default='txt',
                            choices=['txt', 'bigwig']
+                           )
+    parserOpt.add_argument('--outputMode',
+                           '-om',
+                           help='Output mode: Either all date is written or a gene name must be specified.'
+                           ' (Default: %(default)s).',
+                           default='all',
+                           choices=['all', 'geneName']
+                           )
+    parserOpt.add_argument('--outputModeName',
+                           '-omn',
+                           help='ONLY valid if --outputMode geneName! Define the name of the gene',
+                        #    default='',
                            )
     parserOpt.add_argument('--decimalPlaces',
                            help='Decimal places for all output floating numbers in the viewpoint files'
@@ -257,6 +270,11 @@ def main(args=None):
     fileList = []
     chromosome_sizes = None
     background_dict = None
+
+    if args.outputMode == 'geneName' and args.outputModeName is None:
+        log.error('Output mode is \'geneName\'. Please specify a gene name via --outputModeName too!')
+        exit(1)
+
     if args.outputFileType == 'bigwig':
         if args.fileType != 'interaction':
             log.error('Only file type \'interaction\' supports bigwig. Exiting.')
@@ -264,6 +282,9 @@ def main(args=None):
         if args.backgroundModelFile is not None:
             if args.backgroundModelFile:
                 background_dict = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, args.range[1], pMean=True)
+        else:
+            log.error('Please define a background file via --backgroundModelFile')
+            exit(1)
         if args.chromosomeSizes is not None:
             chromosome_sizes = OrderedDict()
             with open(args.chromosomeSizes.name, 'r') as file:
@@ -277,13 +298,17 @@ def main(args=None):
             log.error('Bigwig files require the argument \'--chromosomeSizes\'. Exiting.')
             exit(1)
 
+        if args.range is None:
+            log.error('Bigwig files require the argument \'--range upstream downstream\'. Exiting.')
+            exit(1)
     # read hdf file
     fileHDF5Object = h5py.File(args.file, 'r')
     keys_file = list(fileHDF5Object.keys())
 
     if args.fileType == 'interaction' or args.fileType == 'significant':
 
-        if len(keys_file) > 1:
+        # if len(keys_file) > 0:
+        if args.outputMode == 'all':
             for i, sample in enumerate(keys_file):
 
                 matrix_obj1 = fileHDF5Object[sample]
@@ -293,55 +318,119 @@ def main(args=None):
                     geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
                     for gene1 in geneList1:
                         fileList.append([[sample, chromosome1, gene1]])
+        else:
+            for i, sample in enumerate(keys_file):
+                matrix_obj1 = fileHDF5Object[sample]['genes']
+                chromosomeList1 = sorted(list(matrix_obj1.keys()))
+                gene_name = args.outputModeName 
+                counter = 1
+                while gene_name in chromosomeList1:
+                    fileList.append([[sample, 'genes', gene_name]])
+                    gene_name = args.outputModeName + '_' + str(counter)
+                    counter += 1
 
+                # for chromosome1 in chromosomeList1:
+                #     geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                #     for gene1 in geneList1:
+                #         fileList.append([[sample, chromosome1, gene1]])
     elif args.fileType == 'target':
 
-        for outer_matrix in keys_file:
-            inner_matrix_object = fileHDF5Object[outer_matrix]
-            keys_inner_matrices = list(inner_matrix_object.keys())
-            for inner_matrix in keys_inner_matrices:
-                inner_object = inner_matrix_object[inner_matrix]
-                gene_object = inner_object['genes']
-                keys_genes = list(gene_object.keys())
-                for gen in keys_genes:
-                    fileList.append([outer_matrix, inner_matrix, 'genes', gen])
-
+        if args.outputMode == 'all':
+            for outer_matrix in keys_file:
+                inner_matrix_object = fileHDF5Object[outer_matrix]
+                keys_inner_matrices = list(inner_matrix_object.keys())
+                for inner_matrix in keys_inner_matrices:
+                    inner_object = inner_matrix_object[inner_matrix]
+                    gene_object = inner_object['genes']
+                    keys_genes = list(gene_object.keys())
+                    for gen in keys_genes:
+                        fileList.append([outer_matrix, inner_matrix, 'genes', gen])
+        else:
+            for outer_matrix in keys_file:
+                inner_matrix_object = fileHDF5Object[outer_matrix]
+                keys_inner_matrices = list(inner_matrix_object.keys())
+                for inner_matrix in keys_inner_matrices:
+                    inner_object = inner_matrix_object[inner_matrix]['genes']
+                    keys_genes = list(gene_object.keys())
+                    gene_name = args.outputModeName 
+                    counter = 1
+                    while gene_name in keys_genes:
+                        fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
+                        gene_name = args.outputModeName + '_' + str(counter)
+                        counter += 1
+                
     elif args.fileType == 'aggregated':
 
-        for i, combinationOfMatrix in enumerate(keys_file):
-            keys_matrix_intern = list(fileHDF5Object[combinationOfMatrix].keys())
-            if len(keys_matrix_intern) == 0:
-                continue
-            matrix1 = keys_matrix_intern[0]
-            matrix2 = keys_matrix_intern[1]
+        if args.outputMode == 'all':
+            for i, combinationOfMatrix in enumerate(keys_file):
+                keys_matrix_intern = list(fileHDF5Object[combinationOfMatrix].keys())
+                if len(keys_matrix_intern) == 0:
+                    continue
+                matrix1 = keys_matrix_intern[0]
+                matrix2 = keys_matrix_intern[1]
 
-            matrix_obj1 = fileHDF5Object[combinationOfMatrix + '/' + matrix1]
-            matrix_obj2 = fileHDF5Object[combinationOfMatrix + '/' + matrix2]
+                matrix_obj1 = fileHDF5Object[combinationOfMatrix + '/' + matrix1]
+                matrix_obj2 = fileHDF5Object[combinationOfMatrix + '/' + matrix2]
 
-            chromosomeList1 = sorted(list(matrix_obj1.keys()))
-            chromosomeList2 = sorted(list(matrix_obj2.keys()))
-            chromosomeList1.remove('genes')
-            chromosomeList2.remove('genes')
-            for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
-                geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-                geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
+                chromosomeList1 = sorted(list(matrix_obj1.keys()))
+                chromosomeList2 = sorted(list(matrix_obj2.keys()))
+                chromosomeList1.remove('genes')
+                chromosomeList2.remove('genes')
+                for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
+                    geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                    geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
 
-                for gene1, gene2 in zip(geneList1, geneList2):
-                    fileList.append([[combinationOfMatrix, matrix1, chromosome1, gene1], [combinationOfMatrix, matrix2, chromosome2, gene2]])
+                    for gene1, gene2 in zip(geneList1, geneList2):
+                        fileList.append([[combinationOfMatrix, matrix1, chromosome1, gene1], [combinationOfMatrix, matrix2, chromosome2, gene2]])
+        else:
+            for i, combinationOfMatrix in enumerate(keys_file):
+                keys_matrix_intern = list(fileHDF5Object[combinationOfMatrix].keys())
+                if len(keys_matrix_intern) == 0:
+                    continue
+                matrix1 = keys_matrix_intern[0]
+                matrix2 = keys_matrix_intern[1]
 
+                matrix_obj1 = fileHDF5Object[combinationOfMatrix + '/' + matrix1]['genes']
+                matrix_obj2 = fileHDF5Object[combinationOfMatrix + '/' + matrix2]['genes']
+
+                chromosomeList1 = sorted(list(matrix_obj1.keys()))
+                chromosomeList2 = sorted(list(matrix_obj2.keys()))
+                # chromosomeList1.remove('genes')
+                # chromosomeList2.remove('genes')
+                gene_name = args.outputModeName 
+                counter = 1
+                while gene_name in chromosomeList1 and gene_name in chromosomeList2:
+                    fileList.append([[combinationOfMatrix, matrix1, 'genes', gene_name], [combinationOfMatrix, matrix2, 'genes', gene_name]])
+                    gene_name = args.outputModeName + '_' + str(counter)
+                    counter += 1
+                
     elif args.fileType == 'differential':
+        if args.outputMode == 'all':
+            for outer_matrix in keys_file:
+                inner_matrix_object = fileHDF5Object[outer_matrix]
+                keys_inner_matrices = list(inner_matrix_object.keys())
+                for inner_matrix in keys_inner_matrices:
+                    inner_object = inner_matrix_object[inner_matrix]
+                    chromosomeList = sorted(list(inner_object.keys()))
+                    for chromosome in chromosomeList:
+                        geneList = sorted(list(inner_object[chromosome].keys()))
 
-        for outer_matrix in keys_file:
-            inner_matrix_object = fileHDF5Object[outer_matrix]
-            keys_inner_matrices = list(inner_matrix_object.keys())
-            for inner_matrix in keys_inner_matrices:
-                inner_object = inner_matrix_object[inner_matrix]
-                chromosomeList = sorted(list(inner_object.keys()))
-                for chromosome in chromosomeList:
-                    geneList = sorted(list(inner_object[chromosome].keys()))
-
-                    for gene in geneList:
-                        fileList.append([outer_matrix, inner_matrix, chromosome, gene])
+                        for gene in geneList:
+                            fileList.append([outer_matrix, inner_matrix, chromosome, gene])
+        else:
+            for outer_matrix in keys_file:
+                inner_matrix_object = fileHDF5Object[outer_matrix]
+                keys_inner_matrices = list(inner_matrix_object.keys())
+                for inner_matrix in keys_inner_matrices:
+                    inner_object = inner_matrix_object[inner_matrix]['genes']
+                    chromosomeList = sorted(list(inner_object.keys()))
+                    gene_name = args.outputModeName 
+                    counter = 1
+                    while gene_name in chromosomeList:
+                        fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
+                        # fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
+                        gene_name = args.outputModeName + '_' + str(counter)
+                        counter += 1
 
     fileHDF5Object.close()
 
