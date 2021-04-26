@@ -50,7 +50,7 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outFileName', '-o',
-                           help='Output tar.gz of the files'
+                           help='Output tar.gz of the files. In case of --outputMode == geneName it is ignored.'
                            ' (Default: %(default)s).',
                            required=False,
                            default='data.tar.gz')
@@ -504,35 +504,44 @@ def main(args=None):
 
     thread_data = [item for sublist in thread_data for item in sublist]
     file_name_list = [item for sublist in file_name_list for item in sublist]
+    log.debug('len(thread_data) {}'.format(len(thread_data)))
+    log.debug('len(file_name_list) {}'.format(len(file_name_list)))
+
 
     if len(thread_data) == 0:
         log.error('Contains not the requested data!')
         exit(1)
     if args.outputFileType == 'txt':
-        with tarfile.open(args.outFileName, "w:gz") as tar:
+        if args.outputMode == 'geneName':
+            for i, file_content_string in enumerate(thread_data):
+                with open(file_name_list[i], "w") as file:
+                    file.write(file_content_string)
+        else:        
+            with tarfile.open(args.outFileName, "w:gz") as tar:
 
-            if not args.oneTargetFile and not args.fileType == 'target':
-                for i, file_content_string in enumerate(thread_data):
+                if not args.oneTargetFile and not args.fileType == 'target':
+                    log.debug('correct sub')
+                    for i, file_content_string in enumerate(thread_data):
 
-                    tar_info = tarfile.TarInfo(name=file_name_list[i])
+                        tar_info = tarfile.TarInfo(name=file_name_list[i])
+                        tar_info.mtime = time.time()
+                        file_content_string = file_content_string.encode('utf-8')
+                        tar_info.size = len(file_content_string)
+                        file = io.BytesIO(file_content_string)
+                        tar.addfile(tarinfo=tar_info, fileobj=file)
+                else:
+                    tar_info = tarfile.TarInfo(name='targets.tsv')
                     tar_info.mtime = time.time()
-                    file_content_string = file_content_string.encode('utf-8')
-                    tar_info.size = len(file_content_string)
-                    file = io.BytesIO(file_content_string)
-                    tar.addfile(tarinfo=tar_info, fileobj=file)
-            else:
-                tar_info = tarfile.TarInfo(name='targets.tsv')
-                tar_info.mtime = time.time()
-                file_content_string_all = ''
-                for i, file_content_string in enumerate(thread_data):
+                    file_content_string_all = ''
+                    for i, file_content_string in enumerate(thread_data):
 
-                    # tar_info = tarfile.TarInfo(name=file_name_list[i])
-                    file_content_string_all += file_content_string
-                
-                file_content_string_all = file_content_string_all.encode('utf-8')
-                tar_info.size = len(file_content_string_all)
-                file = io.BytesIO(file_content_string_all)
-                tar.addfile(tarinfo=tar_info, fileobj=file)
+                        # tar_info = tarfile.TarInfo(name=file_name_list[i])
+                        file_content_string_all += file_content_string
+                    
+                    file_content_string_all = file_content_string_all.encode('utf-8')
+                    tar_info.size = len(file_content_string_all)
+                    file = io.BytesIO(file_content_string_all)
+                    tar.addfile(tarinfo=tar_info, fileobj=file)
 
     elif args.outputFileType == 'bigwig':
         bigwig_folder = mkdtemp(prefix="bigwig_folder")
