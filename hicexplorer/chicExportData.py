@@ -55,17 +55,17 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            required=False,
                            default='data.tar.gz')
 
-    parserOpt.add_argument('--fileType',
-                           '-ft',
-                           help=''
-                           ' (Default: %(default)s).',
-                           default='interaction',
-                           choices=['interaction', 'significant', 'target', 'aggregated', 'differential']
-                           )
+    # parserOpt.add_argument('--fileType',
+    #                        '-ft',
+    #                        help=''
+    #                        ' (Default: %(default)s).',
+    #                        default='interaction',
+    #                        choices=['interaction', 'significant', 'target', 'aggregated', 'differential']
+    #                        )
 
     parserOpt.add_argument('--outputFileType',
                            '-oft',
-                           help='Output file type can be set for all --fileTypes to txt; except \'interaction\' supports also bigwig'
+                           help='Output file type can be set for all file types to txt; except \'interaction\' supports also bigwig'
                            ' (Default: %(default)s).',
                            default='txt',
                            choices=['txt', 'bigwig']
@@ -131,7 +131,7 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
     return parser
 
 
-def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSizes, pBackgroundData, pQueue):
+def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSizes, pBackgroundData, pFileType, pQueue):
 
     file_list = []
     file_content_list = []
@@ -139,7 +139,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
     file_ending = '.txt' if pArgs.outputFileType == 'txt' else '.bigwig'
     log.debug('len(pFileList) {}'.format(len(pFileList)))
     try:
-        if pArgs.fileType == 'interaction' or pArgs.fileType == 'significant':
+        if pFileType == 'interaction' or pFileType == 'significant':
             header_information = '# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n'
 
             for file in pFileList:
@@ -205,7 +205,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                         file_name = ['_'.join(sample) + file_ending]
 
                 file_list.append(file_name)
-        elif pArgs.fileType == 'target':
+        elif pFileType == 'target':
             # targetList, present_genes = pViewpointObject.readTargetHDFFile(pArgs.file)
             # header_information = '# Chromosome\tStart\tEnd\n'
 
@@ -227,7 +227,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                 file_name = '_'.join(targetFile) + '.txt'
                 file_list.append(file_name)
 
-        elif pArgs.fileType == 'aggregated':
+        elif pFileType == 'aggregated':
             header_information = '# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRaw\n'
 
             for file in pFileList:
@@ -241,7 +241,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                     file_name = '_'.join(sample) + '.txt'
                     file_list.append(file_name)
 
-        elif pArgs.fileType == 'differential':
+        elif pFileType == 'differential':
             header_information = '# Chromosome\tStart\tEnd\tGene\tRelative distance\tsum of interactions 1\ttarget_1 raw\tsum of interactions 2\ttarget_2 raw\tp-value\n'
 
             for file in pFileList:
@@ -274,13 +274,18 @@ def main(args=None):
     fileList = []
     chromosome_sizes = None
     background_dict = None
+    # read hdf file
+    fileHDF5Object = h5py.File(args.file, 'r')
+
+    fileType = fileHDF5Object.attrs['type']
+    log.debug('fileType {}'.format(fileType))
 
     if args.outputMode == 'geneName' and args.outputModeName is None:
         log.error('Output mode is \'geneName\'. Please specify a gene name via --outputModeName too!')
         exit(1)
 
     if args.outputFileType == 'bigwig':
-        if args.fileType != 'interaction':
+        if fileType != 'interaction':
             log.error('Only file type \'interaction\' supports bigwig. Exiting.')
             exit(1)
         if args.backgroundModelFile is not None:
@@ -306,10 +311,10 @@ def main(args=None):
             log.error('Bigwig files require the argument \'--range upstream downstream\'. Exiting.')
             exit(1)
     # read hdf file
-    fileHDF5Object = h5py.File(args.file, 'r')
+    # fileHDF5Object = h5py.File(args.file, 'r')
     keys_file = list(fileHDF5Object.keys())
-
-    if args.fileType == 'interaction' or args.fileType == 'significant':
+    log.debug('keys_file {}'.format(keys_file))
+    if fileType == 'interaction' or fileType == 'significant':
 
         # if len(keys_file) > 0:
         if args.outputMode == 'all':
@@ -337,36 +342,63 @@ def main(args=None):
                 #     geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
                 #     for gene1 in geneList1:
                 #         fileList.append([[sample, chromosome1, gene1]])
-    elif args.fileType == 'target':
+    elif fileType == 'target':
 
-        if args.outputMode == 'all':
-            log.debug('foo')
-            for outer_matrix in keys_file:
-                inner_matrix_object = fileHDF5Object[outer_matrix]
-                keys_inner_matrices = list(inner_matrix_object.keys())
-                for inner_matrix in keys_inner_matrices:
-                    inner_object = inner_matrix_object[inner_matrix]
-                    gene_object = inner_object['genes']
+        if fileHDF5Object.attrs['combinationMode'] == 'dual':
+            if args.outputMode == 'all':
+                log.debug('foo')
+                for outer_matrix in keys_file:
+                    inner_matrix_object = fileHDF5Object[outer_matrix]
+                    keys_inner_matrices = list(inner_matrix_object.keys())
+                    for inner_matrix in keys_inner_matrices:
+                        inner_object = inner_matrix_object[inner_matrix]
+                        gene_object = inner_object['genes']
+                        keys_genes = list(gene_object.keys())
+                        for gen in keys_genes:
+                            fileList.append([outer_matrix, inner_matrix, 'genes', gen])
+            else:
+                log.debug('huh')
+
+                for outer_matrix in keys_file:
+                    inner_matrix_object = fileHDF5Object[outer_matrix]
+                    keys_inner_matrices = list(inner_matrix_object.keys())
+                    for inner_matrix in keys_inner_matrices:
+                        inner_object = inner_matrix_object[inner_matrix]['genes']
+                        keys_genes = list(inner_object.keys())
+                        gene_name = args.outputModeName 
+                        counter = 1
+                        while gene_name in keys_genes:
+                            fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
+                            gene_name = args.outputModeName + '_' + str(counter)
+                            counter += 1
+        elif fileHDF5Object.attrs['combinationMode'] == 'single':
+            if args.outputMode == 'all':
+                log.debug('foo')
+                for outer_matrix in keys_file:
+                  
+                    # inner_object = inner_matrix_object[inner_matrix]
+
+                    gene_object = fileHDF5Object[outer_matrix]['genes']
                     keys_genes = list(gene_object.keys())
                     for gen in keys_genes:
-                        fileList.append([outer_matrix, inner_matrix, 'genes', gen])
-        else:
-            log.debug('huh')
+                        fileList.append([outer_matrix, 'genes', gen])
+            else:
+                log.debug('huh')
 
-            for outer_matrix in keys_file:
-                inner_matrix_object = fileHDF5Object[outer_matrix]
-                keys_inner_matrices = list(inner_matrix_object.keys())
-                for inner_matrix in keys_inner_matrices:
-                    inner_object = inner_matrix_object[inner_matrix]['genes']
-                    keys_genes = list(inner_object.keys())
-                    gene_name = args.outputModeName 
-                    counter = 1
-                    while gene_name in keys_genes:
-                        fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
-                        gene_name = args.outputModeName + '_' + str(counter)
-                        counter += 1
+                for outer_matrix in keys_file:
+                    # inner_matrix_object = fileHDF5Object[outer_matrix]
+                    # keys_inner_matrices = list(inner_matrix_object.keys())
+                    # for inner_matrix in keys_inner_matrices:
+                    #     inner_object = inner_matrix_object[inner_matrix]['genes']
+                        keys_genes = list(fileHDF5Object[outer_matrix]['genes'].keys())
+                        gene_name = args.outputModeName 
+                        counter = 1
+                        while gene_name in keys_genes:
+                            fileList.append([outer_matrix, 'genes', gene_name])
+                            gene_name = args.outputModeName + '_' + str(counter)
+                            counter += 1
                 
-    elif args.fileType == 'aggregated':
+    elif fileType == 'aggregated':
 
         if args.outputMode == 'all':
             for i, combinationOfMatrix in enumerate(keys_file):
@@ -411,7 +443,7 @@ def main(args=None):
                     gene_name = args.outputModeName + '_' + str(counter)
                     counter += 1
                 
-    elif args.fileType == 'differential':
+    elif fileType == 'differential':
         if args.outputMode == 'all':
             for outer_matrix in keys_file:
                 inner_matrix_object = fileHDF5Object[outer_matrix]
@@ -470,6 +502,7 @@ def main(args=None):
             pDecimalPlace=args.decimalPlaces,
             pChromosomeSizes=chromosome_sizes,
             pBackgroundData=background_dict,
+            pFileType=fileType,
             pQueue=queue[i]
         )
         )
@@ -519,7 +552,7 @@ def main(args=None):
         else:        
             with tarfile.open(args.outFileName, "w:gz") as tar:
 
-                if not args.oneTargetFile and not args.fileType == 'target':
+                if not args.oneTargetFile and fileType == 'target':
                     log.debug('correct sub')
                     for i, file_content_string in enumerate(thread_data):
 
@@ -530,6 +563,7 @@ def main(args=None):
                         file = io.BytesIO(file_content_string)
                         tar.addfile(tarinfo=tar_info, fileobj=file)
                 else:
+                    log.debug('oneTargetFile {}'.format(args.oneTargetFile))
                     tar_info = tarfile.TarInfo(name='targets.tsv')
                     tar_info.mtime = time.time()
                     file_content_string_all = ''

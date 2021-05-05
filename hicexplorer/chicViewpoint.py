@@ -211,6 +211,13 @@ def main(args=None):
 
     # create hdf5 output file
     interactionFileH5Object = h5py.File(args.outFileName, 'w')
+    interactionFileH5Object.attrs['type'] = 'interactions'
+    interactionFileH5Object.attrs['range'] = args.range
+    interactionFileH5Object.attrs['averageContactBin'] = args.averageContactBin
+    interactionFileH5Object.attrs['fixateRange'] = args.fixateRange
+
+
+
 
     fail_flag = False
     fail_message = ''
@@ -227,7 +234,7 @@ def main(args=None):
         if resolution == 0:
             resolution = hic_ma.getBinSize()
             log.debug('resolution {}'.format(resolution))
-            interactionFileH5Object.attrs.create('resolution', resolution, dtype='i')
+            interactionFileH5Object.attrs['resolution'] = resolution
 
         for i in range(args.threads):
 

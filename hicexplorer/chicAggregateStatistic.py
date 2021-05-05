@@ -144,9 +144,31 @@ def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetInterv
     return accepted_scores
 
 
-def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList):
+def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArgs):
 
     aggregateFileH5Object = h5py.File(pOutFileName, 'w')
+
+    significantFileH5Object.attrs['type'] = "aggregate"
+    # significantFileH5Object.attrs['pvalue'] = pArgs.pValue
+
+
+    # if pArgs.xFoldBackground is not None:
+    #     significantFileH5Object.attrs['mode_preselection'] = "xfold"
+    #     significantFileH5Object.attrs['mode_preselection_value'] = pArgs.xFoldBackground
+
+    # elif pArgs.loosePValue is not None:
+    #     significantFileH5Object.attrs['mode_preselection'] = "loosePValue"
+    #     significantFileH5Object.attrs['mode_preselection_value'] = pArgs.loosePValue
+    # else:
+    #     significantFileH5Object.attrs['mode_preselection'] = "None"
+    #     significantFileH5Object.attrs['mode_preselection_calue'] = "None"
+    
+    # significantFileH5Object.attrs['range'] = pArgs.range
+    # significantFileH5Object.attrs['combinationMode'] = pArgs.combinationMode
+
+    # significantFileH5Object.attrs['truncateZeroPvalues'] = pArgs.truncateZeroPvalues
+    # significantFileH5Object.attrs['fixateRange'] = pArgs.fixateRange
+    # significantFileH5Object.attrs['peakInteractionsThreshold'] = pArgs.peakInteractionsThreshold
     counter = 0
     for key_outer, data_outer in zip(pOutfileNamesList, pAcceptedScoresList):
 
@@ -404,4 +426,4 @@ def main(args=None):
     log.debug('outfile_names_list[:30] {}'.format(outfile_names_list[:30] ))
     log.debug('accepted_scores_list[:30] {}'.format(accepted_scores_list[:30] ))
 
-    writeAggregateHDF(args.outFileName, outfile_names_list, accepted_scores_list)
+    writeAggregateHDF(args.outFileName, outfile_names_list, accepted_scores_list, args)

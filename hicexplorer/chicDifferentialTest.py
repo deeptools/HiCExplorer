@@ -183,7 +183,12 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pAlpha, pTest):
 
 def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, pInputData, pAlpha, pTest):
     resultFileH5Object = h5py.File(pOutFileName, 'w')
-    resultFileH5Object.attrs.create('alpha', pAlpha, dtype='f')
+    resultFileH5Object.attrs['type'] = "differential"
+    resultFileH5Object.attrs['alpha'] = pAlpha
+    resultFileH5Object.attrs['test'] = pTest
+
+
+    # resultFileH5Object.attrs.create('alpha', pAlpha, dtype='f')
 
     all_data_dict = {'accepted': pAcceptedData, 'rejected': pRejectedData, 'all': pAllResultData}
     for i, inputData in enumerate(pInputData):
