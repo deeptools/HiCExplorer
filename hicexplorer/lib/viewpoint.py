@@ -1114,7 +1114,8 @@ class Viewpoint():
 
     def readTargetHDFFile(self, pFile):
         present_genes = {}
-        targetList = []
+        # targetList = []
+        targetDict = {}
         targetFileHDF5Object = h5py.File(pFile, 'r')
         keys_targetFile = list(targetFileHDF5Object.keys())
         log.debug('keys_interactionFile {}'.format(keys_targetFile))
@@ -1129,11 +1130,12 @@ class Viewpoint():
                 inner_object = inner_matrix_object[inner_matrix]
                 gene_object = inner_object['genes']
                 keys_genes = list(gene_object.keys())
-                for gen in keys_genes:
-                    targetList.append([outer_matrix, inner_matrix, 'genes', gen])
-                    present_genes[outer_matrix][inner_matrix].append(gen)
+                for gene in keys_genes:
+                    # targetList.append([outer_matrix, inner_matrix, 'genes', gene])
+                    targetDict[gene] = [outer_matrix, inner_matrix, 'genes', gene]
+                    present_genes[outer_matrix][inner_matrix].append(gene)
         targetFileHDF5Object.close()
-        return targetList, present_genes
+        return targetDict, present_genes
 
 
     
