@@ -137,7 +137,6 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
     file_content_list = []
 
     file_ending = '.txt' if pArgs.outputFileType == 'txt' else '.bigwig'
-    log.debug('len(pFileList) {}'.format(len(pFileList)))
     try:
         if pFileType == 'interactions' or pFileType == 'significant':
             header_information = '# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n'
@@ -161,7 +160,6 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                             file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in data[1][key]) + '\n'
                     else:
                         for key in key_list:
-                            # log.debug('len(data[1][key]) {}'.format(data[1][key]))
                             chromosome_name.append(str(data[1][key][0]))
                             start.append(int(data[1][key][1]))
                             end.append(int(data[1][key][2]))
@@ -258,12 +256,10 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                     file_list.append(file_name)
 
     except Exception as exp:
-        log.debug("FAIL: {}".format(str(exp) + traceback.format_exc()))
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
         return
 
     pQueue.put([file_list, file_content_list])
-    log.debug('RETRUN')
     return
 
 
@@ -278,7 +274,6 @@ def main(args=None):
     fileHDF5Object = h5py.File(args.file, 'r')
 
     fileType = fileHDF5Object.attrs['type']
-    log.debug('fileType {}'.format(fileType))
 
     if args.outputMode == 'geneName' and args.outputModeName is None:
         log.error('Output mode is \'geneName\'. Please specify a gene name via --outputModeName too!')
@@ -295,7 +290,7 @@ def main(args=None):
             if args.backgroundModelFile:
                 background_dict = viewpointObj.readBackgroundDataFile(args.backgroundModelFile, args.range, args.range[1], pMean=True)
         else:
-            log.error('Please define a background file via --backgroundModelFile')
+            log.error('Please define a background file via --backgroundModelFile.')
             exit(1)
         if args.chromosomeSizes is not None:
             chromosome_sizes = OrderedDict()
@@ -307,24 +302,14 @@ def main(args=None):
                         line_split = file_.split('\t')
                         chromosome_sizes[line_split[0]] = int(line_split[1])
         else:
-            log.debug('here we are!')
-
             log.error('Bigwig files require the argument \'--chromosomeSizes\'. Exiting.')
             exit(1)
 
     # read hdf file
-    # fileHDF5Object = h5py.File(args.file, 'r')
     keys_file = list(fileHDF5Object.keys())
-    log.debug('keys_file {}'.format(keys_file))
     if fileType == 'interactions' or fileType == 'significant':
-
-        # if len(keys_file) > 0:
-        log.debug('fileType: {}; mode: {} 1'.format(fileType, args.outputMode))
         if args.outputMode == 'all':
-            log.debug('mode: {}'.format(args.outputMode))
-
             for i, sample in enumerate(keys_file):
-
                 matrix_obj1 = fileHDF5Object[sample]
                 chromosomeList1 = sorted(list(matrix_obj1.keys()))
                 chromosomeList1.remove('genes')
@@ -333,8 +318,6 @@ def main(args=None):
                     for gene1 in geneList1:
                         fileList.append([[sample, chromosome1, gene1]])
         else:
-            log.debug('mode: {}'.format(args.outputMode))
-
             for i, sample in enumerate(keys_file):
                 matrix_obj1 = fileHDF5Object[sample]['genes']
                 chromosomeList1 = sorted(list(matrix_obj1.keys()))
@@ -344,17 +327,9 @@ def main(args=None):
                     fileList.append([[sample, 'genes', gene_name]])
                     gene_name = args.outputModeName + '_' + str(counter)
                     counter += 1
-
-                # for chromosome1 in chromosomeList1:
-                #     geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-                #     for gene1 in geneList1:
-                #         fileList.append([[sample, chromosome1, gene1]])
     elif fileType == 'target':
-        log.debug('fileType: {}; mode: {} 2'.format(fileType, args.outputMode))
-
         if fileHDF5Object.attrs['combinationMode'] == 'dual':
             if args.outputMode == 'all':
-                log.debug('foo')
                 for outer_matrix in keys_file:
                     inner_matrix_object = fileHDF5Object[outer_matrix]
                     keys_inner_matrices = list(inner_matrix_object.keys())
@@ -365,8 +340,6 @@ def main(args=None):
                         for gen in keys_genes:
                             fileList.append([outer_matrix, inner_matrix, 'genes', gen])
             else:
-                log.debug('huh')
-
                 for outer_matrix in keys_file:
                     inner_matrix_object = fileHDF5Object[outer_matrix]
                     keys_inner_matrices = list(inner_matrix_object.keys())
@@ -380,26 +353,15 @@ def main(args=None):
                             gene_name = args.outputModeName + '_' + str(counter)
                             counter += 1
         elif fileHDF5Object.attrs['combinationMode'] == 'single':
-            log.debug('fileType: {}; mode: {} 3'.format(fileType, args.outputMode))
 
             if args.outputMode == 'all':
-                log.debug('foo')
                 for outer_matrix in keys_file:
-
-                    # inner_object = inner_matrix_object[inner_matrix]
-
                     gene_object = fileHDF5Object[outer_matrix]['genes']
                     keys_genes = list(gene_object.keys())
                     for gen in keys_genes:
                         fileList.append([outer_matrix, 'genes', gen])
             else:
-                log.debug('huh')
-
                 for outer_matrix in keys_file:
-                    # inner_matrix_object = fileHDF5Object[outer_matrix]
-                    # keys_inner_matrices = list(inner_matrix_object.keys())
-                    # for inner_matrix in keys_inner_matrices:
-                    #     inner_object = inner_matrix_object[inner_matrix]['genes']
                     keys_genes = list(fileHDF5Object[outer_matrix]['genes'].keys())
                     gene_name = args.outputModeName
                     counter = 1
@@ -409,8 +371,6 @@ def main(args=None):
                         counter += 1
 
     elif fileType == 'aggregate':
-        log.debug('fileType: {}; mode: {} 4'.format(fileType, args.outputMode))
-
         if args.outputMode == 'all':
             for i, combinationOfMatrix in enumerate(keys_file):
                 keys_matrix_intern = list(fileHDF5Object[combinationOfMatrix].keys())
@@ -455,8 +415,6 @@ def main(args=None):
                     counter += 1
 
     elif fileType == 'differential':
-        log.debug('fileType: {}; mode: {} 5'.format(fileType, args.outputMode))
-
         if args.outputMode == 'all':
             for outer_matrix in keys_file:
                 inner_matrix_object = fileHDF5Object[outer_matrix]
@@ -485,9 +443,6 @@ def main(args=None):
                         gene_name = args.outputModeName + '_' + str(counter)
                         counter += 1
 
-    log.debug('fileType: {}; mode: {} 6'.format(fileType, args.outputMode))
-
-    log.debug('len(fileList) {}'.format(len(fileList)))
     fileHDF5Object.close()
 
     filesPerThread = len(fileList) // args.threads
@@ -531,10 +486,8 @@ def main(args=None):
                 if 'Fail:' in return_content:
                     fail_flag = True
                     fail_message = return_content[6:]
-                    log.debug('fail flag')
                 else:
                     file_name_list[i], thread_data[i] = return_content
-                    log.debug('return content')
 
                 queue[i] = None
                 process[i].join()
@@ -552,8 +505,6 @@ def main(args=None):
 
     thread_data = [item for sublist in thread_data for item in sublist]
     file_name_list = [item for sublist in file_name_list for item in sublist]
-    log.debug('len(thread_data) {}'.format(len(thread_data)))
-    log.debug('len(file_name_list) {}'.format(len(file_name_list)))
 
     if len(thread_data) == 0:
         log.error('Contains not the requested data!')
@@ -567,13 +518,11 @@ def main(args=None):
             with tarfile.open(args.outFileName, "w:gz") as tar:
 
                 if args.oneTargetFile and fileType == 'target':
-                    log.debug('oneTargetFile {}'.format(args.oneTargetFile))
                     tar_info = tarfile.TarInfo(name='targets.tsv')
                     tar_info.mtime = time.time()
                     file_content_string_all = ''
                     for i, file_content_string in enumerate(thread_data):
 
-                        # tar_info = tarfile.TarInfo(name=file_name_list[i])
                         file_content_string_all += file_content_string
 
                     file_content_string_all = file_content_string_all.encode('utf-8')
@@ -581,7 +530,6 @@ def main(args=None):
                     file = io.BytesIO(file_content_string_all)
                     tar.addfile(tarinfo=tar_info, fileobj=file)
                 else:
-                    log.debug('correct sub')
                     for i, file_content_string in enumerate(thread_data):
 
                         tar_info = tarfile.TarInfo(name=file_name_list[i])
