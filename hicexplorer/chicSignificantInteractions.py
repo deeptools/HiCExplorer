@@ -106,18 +106,6 @@ p-value is computed based on the sum of interactions for this neighborhood. Only
                            default=5,
                            help='The minimum number of interactions a detected peak needs to have to be considered'
                            ' (Default: %(default)s).')
-
-    # parserOpt.add_argument('--multipleTesting', '-mt',
-    #                        help='Multiple testing correction per relative distance with Bonferroni or FDR'
-    #                        ' (Default: %(default)s).',
-    #                        type=str,
-    #                        default="None",
-    #                        choices=['fdr', 'bonferroni', 'None'],
-    #                        )
-    # parserOpt.add_argument('--thresholdMultipleTesting', '-tmt',
-    #                        help='Threshold for Bonferroni / FDR. Either a float value for all or a file with one threshold per relative distance.',
-                           
-    #                        )
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -137,7 +125,6 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
 
     reference_points_list_target = []
     reference_points_list_significant = []
-
 
     try:
         for interactionFile in pInteractionFilesList:
@@ -175,7 +162,6 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 significant_data_list.append(accepted_scores)
                 significant_key_list.append(sample)
                 reference_points_list_significant.append(data[2])
-
 
             target_list = [item for sublist in target_list for item in sublist]
             sample_prefix.append('::')
@@ -309,7 +295,6 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
     reference_points_list_target = [None] * pArgs.threads
     reference_points_list_significant = [None] * pArgs.threads
 
-
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
     all_data_collected = False
     queue = [None] * pArgs.threads
@@ -368,7 +353,6 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pF
     reference_points_list_target = np.array([item for sublist in reference_points_list_target for item in sublist])
     reference_points_list_significant = np.array([item for sublist in reference_points_list_significant for item in sublist])
 
-
     significant_key_list, indices = np.unique(significant_key_list, axis=0, return_index=True)
 
     significant_data_list_new = []
@@ -403,7 +387,6 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
     significantFileH5Object.attrs['type'] = "significant"
     significantFileH5Object.attrs['pvalue'] = pArgs.pValue
 
-
     if pArgs.xFoldBackground is not None:
         significantFileH5Object.attrs['mode_preselection'] = "xfold"
         significantFileH5Object.attrs['mode_preselection_value'] = pArgs.xFoldBackground
@@ -414,26 +397,16 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
     else:
         significantFileH5Object.attrs['mode_preselection'] = "None"
         significantFileH5Object.attrs['mode_preselection_calue'] = "None"
-    
+
     significantFileH5Object.attrs['range'] = pArgs.range
     significantFileH5Object.attrs['combinationMode'] = pArgs.combinationMode
 
     significantFileH5Object.attrs['truncateZeroPvalues'] = pArgs.truncateZeroPvalues
     significantFileH5Object.attrs['fixateRange'] = pArgs.fixateRange
     significantFileH5Object.attrs['peakInteractionsThreshold'] = pArgs.peakInteractionsThreshold
-    # significantFileH5Object.attrs['multipleTesting'] = pArgs.multipleTesting
-    # significantFileH5Object.attrs['thresholdMultipleTesting'] = pArgs.thresholdMultipleTesting
-
-
-
-
 
     keys_seen = {}
     matrix_seen = {}
-
-    log.debug('len(pSignificantKeyList) {}'.format(len(pSignificantKeyList)))
-    log.debug('len(pReferencePointsList) {}'.format(len(pReferencePointsList)))
-
 
     for i, (key, data) in enumerate(zip(pSignificantKeyList, pSignificantDataList)):
         if len(data) == 0:
@@ -512,7 +485,6 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
     targetFileH5Object.attrs['type'] = "target"
     targetFileH5Object.attrs['pvalue'] = pArgs.pValue
 
-
     if pArgs.xFoldBackground is not None:
         targetFileH5Object.attrs['mode_preselection'] = "xfold"
         targetFileH5Object.attrs['mode_preselection_value'] = pArgs.xFoldBackground
@@ -523,7 +495,7 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
     else:
         targetFileH5Object.attrs['mode_preselection'] = "None"
         targetFileH5Object.attrs['mode_preselection_calue'] = "None"
-    
+
     targetFileH5Object.attrs['range'] = pArgs.range
     targetFileH5Object.attrs['combinationMode'] = pArgs.combinationMode
 
@@ -672,19 +644,8 @@ def main(args=None):
     resolution = interactionFileHDF5Object.attrs['resolution'][()]
     interactionFileHDF5Object.close()
 
-    log.debug('len(interactionList) {}'.format(len(interactionList)))
-    significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list_target,  reference_points_list_significant = call_multi_core(
+    significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list_target, reference_points_list_significant = call_multi_core(
         interactionList, args, viewpointObj, background_model, args.interactionFile, resolution)
 
-    log.debug('len(significant_data_list) {}'.format(len(significant_data_list)))
-    log.debug('len(significant_key_list) {}'.format(len(significant_key_list)))
-    log.debug('len(target_data_list) {}'.format(len(target_data_list)))
-    log.debug('len(target_key_list) {}'.format(len(target_key_list)))
-    log.debug('len(reference_points_list_target) {}'.format(len(reference_points_list_target)))
-    log.debug('len(reference_points_list_significant) {}'.format(len(reference_points_list_significant)))
-
-    # log.debug('len() {}'.format(len()))
-
-    
     writeSignificantHDF(args.outFileNameSignificant, significant_data_list, significant_key_list, viewpointObj, reference_points_list_significant, args)
     writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj, resolution, reference_points_list_target, args)

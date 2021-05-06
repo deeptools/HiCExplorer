@@ -47,9 +47,9 @@ Computes per input matrix all viewpoints which are defined in the reference poin
                                 help='path to the background file computed by chicViewpointBackgroundModel',
                                 required=True)
     parserRequired.add_argument('--outFileName', '-o',
-                           help='This hdf5 file contains all created viewpoint files.',
-                           required=False,
-                           default='chic_files.hdf5')
+                                help='This hdf5 file contains all created viewpoint files.',
+                                required=False,
+                                default='chic_files.hdf5')
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module)'
@@ -162,8 +162,8 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
                 referencePoint, (pArgs.range[0], pArgs.range[1]))
 
             interaction_data = pViewpointObj.createInteractionFileDataHDF5(referencePoint, referencePoint[0],
-                                                                       region_start_range, region_end_range, data_list, data_list_raw,
-                                                                       pGeneList[i], denominator_relative_interactions, p_value_list, x_fold_list)
+                                                                           region_start_range, region_end_range, data_list, data_list_raw,
+                                                                           pGeneList[i], denominator_relative_interactions, p_value_list, x_fold_list)
 
             referencePointString = '_'.join(str(j) for j in referencePoint)
 
@@ -198,8 +198,7 @@ def main(args=None):
 
     referencePoints, gene_list = viewpointObj.readReferencePointFile(
         args.referencePoints)
-    
-    log.debug('referencePoints {}'.format(referencePoints[:5]))
+
     referencePointsPerThread = len(referencePoints) // args.threads
     queue = [None] * args.threads
     process = [None] * args.threads
@@ -216,9 +215,6 @@ def main(args=None):
     interactionFileH5Object.attrs['averageContactBin'] = args.averageContactBin
     interactionFileH5Object.attrs['fixateRange'] = args.fixateRange
 
-
-
-
     fail_flag = False
     fail_message = ''
     matrix_collection = {}
@@ -233,7 +229,6 @@ def main(args=None):
 
         if resolution == 0:
             resolution = hic_ma.getBinSize()
-            log.debug('resolution {}'.format(resolution))
             interactionFileH5Object.attrs['resolution'] = resolution
 
         for i in range(args.threads):
@@ -300,7 +295,7 @@ def main(args=None):
                 chromosomeObject = matrixGroup.create_group(interaction_data[1][0])
 
             group_name = viewpointObj.writeInteractionFileHDF5(
-                    chromosomeObject, interaction_data[1][3], interaction_data[1], referencePoints[i][1:])
+                chromosomeObject, interaction_data[1][3], interaction_data[1], referencePoints[i][1:])
 
             try:
                 geneGroup[group_name] = chromosomeObject[group_name]

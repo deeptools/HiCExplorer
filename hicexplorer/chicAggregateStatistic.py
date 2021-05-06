@@ -10,10 +10,6 @@ import logging
 log = logging.getLogger(__name__)
 
 import numpy as np
-# import matplotlib
-# matplotlib.use('Agg')
-# import matplotlib.pyplot as plt
-# import matplotlib.gridspec as gridspec
 import h5py
 
 from intervaltree import IntervalTree, Interval
@@ -72,7 +68,6 @@ def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetInterv
     accepted_scores = {}
     same_target_dict = {}
     target_regions_intervaltree = None
-    # log.debug('pTargetList {} '.format(pTargetList))
     if pTargetList is not None:
 
         # read hdf content for this specific combination
@@ -90,25 +85,14 @@ def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetInterv
 
         hicmatrix = hm.hiCMatrix()
         target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
-        # log.debug('new intervaltree')
     elif pTargetIntervalTree is not None:
         target_regions_intervaltree = pTargetIntervalTree
-        # log.debug('reuse intervaltree')
 
     else:
         log.error('No target list given.')
         raise Exception('No target list given.')
 
-    # for key, value in target_regions_intervaltree.items():
-    #     log.debug('target_regions_intervaltree {} {}'.format(key, value))
-    #     break
-    # for key, value in pScoresDictionary.items():
-    #     log.debug('pScoresDictionary {} {}'.format(key, value))
-    #     break 
-    # log.debug('target_regions_intervaltree {}'.format(target_regions_intervaltree))
-    # log.debug('pScoresDictionary {}'.format(pScoresDictionary))
     for key in pScoresDictionary:
-        # try:
         chromosome = pScoresDictionary[key][0]
         start = int(pScoresDictionary[key][1])
         end = int(pScoresDictionary[key][2])
@@ -139,8 +123,6 @@ def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetInterv
 
         accepted_scores[same_target_dict[target][0]] = new_data_line
 
-    # log.debug('accepted_scores {}'.format(accepted_scores))
-    # exit(1)
     return accepted_scores
 
 
@@ -148,27 +130,8 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArg
 
     aggregateFileH5Object = h5py.File(pOutFileName, 'w')
 
-    significantFileH5Object.attrs['type'] = "aggregate"
-    # significantFileH5Object.attrs['pvalue'] = pArgs.pValue
+    aggregateFileH5Object.attrs['type'] = "aggregate"
 
-
-    # if pArgs.xFoldBackground is not None:
-    #     significantFileH5Object.attrs['mode_preselection'] = "xfold"
-    #     significantFileH5Object.attrs['mode_preselection_value'] = pArgs.xFoldBackground
-
-    # elif pArgs.loosePValue is not None:
-    #     significantFileH5Object.attrs['mode_preselection'] = "loosePValue"
-    #     significantFileH5Object.attrs['mode_preselection_value'] = pArgs.loosePValue
-    # else:
-    #     significantFileH5Object.attrs['mode_preselection'] = "None"
-    #     significantFileH5Object.attrs['mode_preselection_calue'] = "None"
-    
-    # significantFileH5Object.attrs['range'] = pArgs.range
-    # significantFileH5Object.attrs['combinationMode'] = pArgs.combinationMode
-
-    # significantFileH5Object.attrs['truncateZeroPvalues'] = pArgs.truncateZeroPvalues
-    # significantFileH5Object.attrs['fixateRange'] = pArgs.fixateRange
-    # significantFileH5Object.attrs['peakInteractionsThreshold'] = pArgs.peakInteractionsThreshold
     counter = 0
     for key_outer, data_outer in zip(pOutfileNamesList, pAcceptedScoresList):
 
@@ -232,7 +195,6 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArg
 def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pViewpointObj, pQueue=None, pOneTarget=False):
     outfile_names_list = []
     accepted_scores_list = []
-    log.debug('len(pInteractionFilesList) {}'.format(len(pInteractionFilesList)))
     target_regions_intervaltree = None
     try:
         if pOneTarget == True:
@@ -253,16 +215,6 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
 
                 accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree, pTargetFile=pArgs.targetFile)
 
-                if len(accepted_scores) == 0:
-                    # do not call 'break' or 'continue'
-                    # with this an empty file is written and no track of 'no significant interactions' detected files needs to be recorded.
-                    # if pArgs.batchMode:
-                    #     with open('errorLog.txt', 'a+') as errorlog:
-                    #         errorlog.write('Failed for: {} and {}.\n'.format(interactionFile[0], interactionFile[1]))
-                    # else:
-                    #     log.info('No target regions found')
-                    pass
-
                 outfile_names_list_intern.append(sample)
                 accepted_scores_list_intern.append(accepted_scores)
             outfile_names_list.append(outfile_names_list_intern)
@@ -277,7 +229,6 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
     for item in accepted_scores_list_intern:
         if len(item) == 0:
             counter += 1
-    log.debug('empry items: {}'.format(counter))
     pQueue.put([outfile_names_list, accepted_scores_list])
     return
 
@@ -376,10 +327,8 @@ def main(args=None):
 
     if len(keys_interactionFile) > 1:
 
-        # log.debug('keys_interactionFile {}'.format(keys_interactionFile))
         for i, sample in enumerate(keys_interactionFile):
             for sample2 in keys_interactionFile[i + 1:]:
-                # log.debug('keys_interactionFile {}'.format(keys_interactionFile))
 
                 matrix_obj1 = interactionFileHDF5Object[sample]
                 matrix_obj2 = interactionFileHDF5Object[sample2]
@@ -393,18 +342,14 @@ def main(args=None):
                     geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
 
                     for gene1, gene2 in zip(geneList1, geneList2):
-                        # log.debug('gene1 {}, gene2 {}'.format(gene1, gene2))
                         if h5py.is_hdf5(args.targetFile):
                             if gene1 in present_genes[sample][sample2]:
                                 interactionDict[gene1] = [[sample, chromosome1, gene1], [sample2, chromosome2, gene2]]
-                                # interactionList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
                         else:
                             interactionList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
-
-
     else:
         log.error('To aggregate and prepare the data for the differential test, at least two matrices need to be stored, but only one is present.')
-    
+
     interactionFileHDF5Object.close()
 
     if h5py.is_hdf5(args.targetFile):
@@ -416,14 +361,5 @@ def main(args=None):
                     interactionList.append(interactionDict[gene])
                     targetList.append(targetDict[gene])
 
-    log.debug('len(interactionList) {}'.format(len(interactionList)))
-    log.debug('interactionList[0] {}'.format(interactionList[0]))
-    log.debug('targetList[0] {}'.format(targetList[0]))
-
-
     outfile_names_list, accepted_scores_list = call_multi_core(interactionList, targetList, run_target_list_compilation, args, viewpointObj)
-
-    log.debug('outfile_names_list[:30] {}'.format(outfile_names_list[:30] ))
-    log.debug('accepted_scores_list[:30] {}'.format(accepted_scores_list[:30] ))
-
     writeAggregateHDF(args.outFileName, outfile_names_list, accepted_scores_list, args)

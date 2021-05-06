@@ -187,12 +187,8 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
     resultFileH5Object.attrs['alpha'] = pAlpha
     resultFileH5Object.attrs['test'] = pTest
 
-
-    # resultFileH5Object.attrs.create('alpha', pAlpha, dtype='f')
-
     all_data_dict = {'accepted': pAcceptedData, 'rejected': pRejectedData, 'all': pAllResultData}
     for i, inputData in enumerate(pInputData):
-        log.debug(inputData)
         matrix1_name = inputData[0][1]
         matrix2_name = inputData[1][1]
         chromosome = inputData[0][2]
@@ -219,7 +215,6 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
             chromosome_object = matrix2_object[chromosome]
 
         gene_object = chromosome_object.create_group(gene_name)
-       
 
         accepted_object = gene_object.create_group('accepted')
         rejected_object = gene_object.create_group('rejected')
@@ -313,7 +308,6 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pViewpointObject, pQueue
             for result in rejected:
                 write_out_lines_rejected.append(
                     [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
-                log.debug('foo: {}'.format([line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]]))
 
             accepted_list.append(write_out_lines_accepted)
             rejected_list.append(write_out_lines_rejected)
@@ -337,15 +331,17 @@ def main(args=None):
     aggregatedList = []
 
     aggregatedFileHDF5Object = h5py.File(args.aggregatedFile, 'r')
+    if aggregatedFileHDF5Object.attrs['type'] != 'aggregate':
+        log.error('Please provide a file created by chicAggregateStatistic for the parameter --aggregatedFile.')
+        exit(1)
+
     keys_aggregatedFile = list(aggregatedFileHDF5Object.keys())
-    log.debug('keys_aggregatedFile {}'.format(keys_aggregatedFile))
 
     for i, combinationOfMatrix in enumerate(keys_aggregatedFile):
         keys_matrix_intern = list(aggregatedFileHDF5Object[combinationOfMatrix].keys())
         if len(keys_matrix_intern) == 0:
             continue
 
-        log.debug('combinationOfMatrix {} keys_matrix_intern {}'.format(combinationOfMatrix, keys_matrix_intern))
         matrix1 = keys_matrix_intern[0]
         matrix2 = keys_matrix_intern[1]
 

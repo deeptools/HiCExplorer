@@ -111,65 +111,61 @@ class Viewpoint():
         - interaction_file_data: the raw line in relation to the relative position. Needed for additional output file.
         '''
 
-
         # interaction_data[int(_line[-5])] = np.array([float(_line[-4]), float(_line[-3]), float(_line[-1]), float(_line[-2])])
         # interaction_file_data[int(_line[-5])] = _line
-
-
 
         interactionFileHDF5Object = h5py.File(pFilePath, 'r')
         arrays_to_retrieve = ['relative_position_list', 'interaction_data_list', 'pvalue', 'raw', 'xfold']
         internal_path = '/'.join(pInternalIdentifierTriplet)
         data = []
 
-        if internal_path not in interactionFileHDF5Object: 
+        if internal_path not in interactionFileHDF5Object:
             log.debug('internal path not found: {}'.format(internal_path))
-            return {}, {} , []
+            return {}, {}, []
         if list(interactionFileHDF5Object[internal_path].keys()) == 0:
             log.debug('interactionFileHDF5Object[internal_path] {}'.format(interactionFileHDF5Object[internal_path]))
-            return {}, {} , []
+            return {}, {}, []
 
         for array_name in arrays_to_retrieve:
             try:
                 if internal_path + '/' + array_name in interactionFileHDF5Object:
-                    data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
+                    data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]))
                 # log.debug('datatype of {} {} '.format(array_name, data[-1].dtype))
                 # data.append(interactionFileHDF5Object.get( internal_path + '/' + array_name).value)
             except Exception as exp:
-                log.debug( internal_path + '/' + array_name)
+                log.debug(internal_path + '/' + array_name)
                 log.debug(str(exp))
 
         for array_name in ['start_list', 'end_list']:
             try:
                 if internal_path + '/' + array_name in interactionFileHDF5Object:
-                    data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]) )
+                    data.append(np.array(interactionFileHDF5Object[internal_path + '/' + array_name][:]))
                 # data.append(interactionFileHDF5Object.get( internal_path + '/' + array_name).value)
             except Exception as exp:
-                log.debug( internal_path + '/' + array_name)
+                log.debug(internal_path + '/' + array_name)
                 log.debug(str(exp))
 
         if internal_path + '/' + 'chromosome' in interactionFileHDF5Object:
-            chromosome = interactionFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8") 
+            chromosome = interactionFileHDF5Object.get(internal_path + '/' + 'chromosome')[()].decode("utf-8")
         else:
             log.debug('internal path not found: {}'.format(internal_path + '/' + 'chromosome'))
 
         if internal_path + '/' + 'gene' in interactionFileHDF5Object:
-            gene = interactionFileHDF5Object.get( internal_path + '/' + 'gene')[()].decode("utf-8") 
+            gene = interactionFileHDF5Object.get(internal_path + '/' + 'gene')[()].decode("utf-8")
         else:
             log.debug('internal path not found: {}'.format(internal_path + '/' + 'gene'))
 
         if internal_path + '/' + 'sum_of_interactions' in interactionFileHDF5Object:
-            sum_of_interactions = interactionFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()]
+            sum_of_interactions = interactionFileHDF5Object.get(internal_path + '/' + 'sum_of_interactions')[()]
         else:
             log.debug('internal path not found: {}'.format(internal_path + '/' + 'sum_of_interactions'))
-
 
         reference_point_start = None
         reference_point_end = None
         if 'reference_point_start' in interactionFileHDF5Object[internal_path]:
-            reference_point_start = interactionFileHDF5Object.get( internal_path + '/' + 'reference_point_start')[()]
+            reference_point_start = interactionFileHDF5Object.get(internal_path + '/' + 'reference_point_start')[()]
         if 'reference_point_end' in interactionFileHDF5Object[internal_path]:
-            reference_point_end = interactionFileHDF5Object.get( internal_path + '/' + 'reference_point_end')[()]
+            reference_point_end = interactionFileHDF5Object.get(internal_path + '/' + 'reference_point_end')[()]
 
         interactionFileHDF5Object.close()
         # log.debug('chromosomes: {}'.format(chromosome))
@@ -181,7 +177,7 @@ class Viewpoint():
         try:
             for i in range(len(data[0])):
                 interaction_data[data[0][i]] = list([float(data[1][i]), float(data[2][i]), float(data[3][i]), float(data[4][i])])
-                interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[3][i]) ])
+                interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[3][i])])
         except Exception:
             return {}, {}, []
         # log.debug('153')
@@ -213,11 +209,11 @@ class Viewpoint():
         #         _line = line.strip().split('\t')
         #         # relative postion and relative interactions
 
-
         #         interaction_data[int(
         #             _line[-5])] = np.array([float(_line[-4]), float(_line[-3]), float(_line[-1]), float(_line[-2])])
         #         interaction_file_data[int(_line[-5])] = _line
         # return header, interaction_data, interaction_file_data
+
     def interactionDataForPlot(self, pFilePath, pInternalIdentifierTriplet):
 
         # header, interaction_data, p_value_data, #_interaction_file_data_raw#, genomic_coordinates = self.readInteractionFile(pInteractionFile)
@@ -230,7 +226,7 @@ class Viewpoint():
         #             p_score[int(_line[-5])] = float(_line[-3])
         #             interaction_file_data[int(_line[-5])] = _line
         #             genomic_coordinates[int(_line[-5])] = [_line[0], _line[1], _line[2]]
-        
+
         # arrays_to_retrieve = ['relative_position_list', 'interaction_data_list', 'pvalue', 'raw', 'xfold']
         interaction_data = {}
         p_score = {}
@@ -243,7 +239,6 @@ class Viewpoint():
             genomic_coordinates[key] = value[:3]
 
         return interaction_data, p_score, genomic_coordinates, reference_point
-
 
     def readBackgroundDataFile(self, pBedFile, pRange, pFixateRange, pMean=False):
         '''
@@ -313,14 +308,14 @@ class Viewpoint():
 
         # chrom, start_list, end_list, gene, sum_of_interactions, relative_position_list, interaction_data_list, pPValueList, xFoldList, raw_data_list
         # log.debug(pFileName)
-        
+
         groupObject, file_name = self.createUniqueHDFGroup(pInteractionFileGroupH5Object, pFileName)
         # if counter != 0:
         #     pass
-            # log.debug('Gene name {} occurred {} times! Stored as {}_{}'.format(pFileName, counter, pFileName, counter))
+        # log.debug('Gene name {} occurred {} times! Stored as {}_{}'.format(pFileName, counter, pFileName, counter))
         # groupObject.create_dataset("header", data=pHeader)
         # groupObject.create_dataset("chromosome", data=pData[0].decode("utf-8"))
-        groupObject["chromosome"]=str(pData[0])
+        groupObject["chromosome"] = str(pData[0])
 
         groupObject.create_dataset("start_list", data=pData[1], compression="gzip", compression_opts=9)
         groupObject.create_dataset("end_list", data=pData[2], compression="gzip", compression_opts=9)
@@ -345,7 +340,6 @@ class Viewpoint():
         groupObject.create_dataset("reference_point_start", data=int(pReferencePoint[0]))
         groupObject.create_dataset("reference_point_end", data=int(pReferencePoint[1]))
 
-
         # with open((pBedFile + '.txt').strip(), 'w') as fh:
         #     fh.write('{}\n'.format(pHeader))
         #     for j, interaction in enumerate(pData):
@@ -368,7 +362,7 @@ class Viewpoint():
                 success = True
             except ValueError:
                 counter += 1
-        
+
         return groupObject, file_name
 
     def computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end):
@@ -514,7 +508,6 @@ class Viewpoint():
                 # p_value_list.append(pPValueList[j])
                 # x_fold_list.append(xFoldList[])
 
-
             except Exception:
                 log.error('Failed to get bin position of index {}'.format(idx))
                 exit(1)
@@ -623,8 +616,7 @@ class Viewpoint():
         # matrix_name, viewpoint, upstream_range, downstream_range, gene, _ = header.split('\t')
 
         # data = pViewpointObj.readInteractionFile(pFilePath, sample)
-        interaction_data, p_value_data, genomic_coordinates, viewpoint =  self.interactionDataForPlot(pFilePath, pInteractionFile)
-        
+        interaction_data, p_value_data, genomic_coordinates, viewpoint = self.interactionDataForPlot(pFilePath, pInteractionFile)
 
         data = []
         p_value = []
@@ -852,11 +844,12 @@ class Viewpoint():
             return None
 
         differentialFileHDF5Object = h5py.File(pFilePath, 'r')
+
         # arrays_to_retrieve = ['relative_position_list', 'interaction_data_list', 'pvalue', 'raw', 'xfold']
         internal_path = '/'.join(pDifferentialHighlightTriplet)
         data = []
 
-        if internal_path not in differentialFileHDF5Object: 
+        if internal_path not in differentialFileHDF5Object:
             log.debug('internal path not found: {}'.format(internal_path))
             return None
         if list(differentialFileHDF5Object[internal_path].keys()) == 0:
@@ -871,7 +864,7 @@ class Viewpoint():
             return None
         if len(start_list) == 0:
             return None
-       
+
         highlight_areas_list = []
         # for bed_file in pDifferentialHighlightFiles:
         reference_point_start, reference_point_end = pViewpoint
@@ -1077,10 +1070,10 @@ class Viewpoint():
             log.debug('viewpoint_split {}, file: {}'.format(pViewpoint, pSignificantFile))
             return None, None
 
-        for _line in interaction_file_data.values(): 
-        # with open(pSignificantFile) as fh:
-        #     # skip header
-        #     for line in fh.readlines():
+        for _line in interaction_file_data.values():
+            # with open(pSignificantFile) as fh:
+            #     # skip header
+            #     for line in fh.readlines():
             # if line.startswith('#'):
             #     continue
             # _line = line.split('\t')
@@ -1108,8 +1101,7 @@ class Viewpoint():
         if len(highlight_areas_list) == 0:
             return None, None
         # log.debug('highlight_areas_list {}'.format(highlight_areas_list))
-        
-        
+
         return highlight_areas_list, p_values
 
     def readTargetHDFFile(self, pFile):
@@ -1137,23 +1129,21 @@ class Viewpoint():
         targetFileHDF5Object.close()
         return targetDict, present_genes
 
-
-    
     def readAggregatedFileHDF(self, pAggregatedFileName, pInternalPath):
         aggregatedFileHDF5Object = h5py.File(pAggregatedFileName, 'r')
 
         internal_path = '/'.join(pInternalPath)
-        chromosome = aggregatedFileHDF5Object.get( internal_path + '/' + 'chromosome')[()].decode("utf-8")
-        
-        gene_name = aggregatedFileHDF5Object.get( internal_path + '/' + 'gene_name')[()].decode("utf-8")
+        chromosome = aggregatedFileHDF5Object.get(internal_path + '/' + 'chromosome')[()].decode("utf-8")
 
-        #Chromosome Start   End     Gene    Relative distance       sum of interactions 1   target_1 raw    sum of interactions 2   target_2 raw    p-value
+        gene_name = aggregatedFileHDF5Object.get(internal_path + '/' + 'gene_name')[()].decode("utf-8")
+
+        # Chromosome Start   End     Gene    Relative distance       sum of interactions 1   target_1 raw    sum of interactions 2   target_2 raw    p-value
 
         start_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'start_list'][:])
         end_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'end_list'][:])
         relative_distance_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'relative_distance_list'][:])
         raw_target_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'raw_target_list'][:])
-        sum_of_interactions = float(aggregatedFileHDF5Object.get( internal_path + '/' + 'sum_of_interactions')[()])
+        sum_of_interactions = float(aggregatedFileHDF5Object.get(internal_path + '/' + 'sum_of_interactions')[()])
         aggregatedFileHDF5Object.close()
         # data.append()
         # chromosome = None
@@ -1162,8 +1152,8 @@ class Viewpoint():
         #     gene_name = None
         #     sum_of_interactions = None
         #     relative_distance_list = []
-        
-        #     raw_target_list = [] 
+
+        #     raw_target_list = []
         line_content = []
         data = []
         for i in range(len(start_list)):
@@ -1171,12 +1161,12 @@ class Viewpoint():
             data.append([sum_of_interactions, raw_target_list[i]])
             # interaction_data[data[0][i]] = list([float(data[1][i]), float(data[2][i]), float(data[3][i]), float(data[4][i])])
             # interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[3][i]) ])
-            
+
         return line_content, data
 
     def readDifferentialFile(self, pFilePath, pQuadruple):
 
-        # Chromosome	Start	End	Gene	Relative distance	sum of interactions 1	target_1 raw	sum of interactions 2	target_2 raw	p-value	
+        # Chromosome	Start	End	Gene	Relative distance	sum of interactions 1	target_1 raw	sum of interactions 2	target_2 raw	p-value
 
         differentialFileHDF5Object = h5py.File(pFilePath, 'r')
 
@@ -1193,10 +1183,9 @@ class Viewpoint():
                 gene = item_object.get('gene')[()].decode("utf-8")
                 pvalue_list = np.array(item_object['pvalue_list'][:])
 
-               
                 raw_target_list_1 = np.array(item_object['raw_target_list_1'][:])
                 raw_target_list_2 = np.array(item_object['raw_target_list_2'][:])
-                sum_of_interactions_1 = float(item_object.get( 'sum_of_interactions_1')[()])
+                sum_of_interactions_1 = float(item_object.get('sum_of_interactions_1')[()])
                 sum_of_interactions_2 = float(item_object.get('sum_of_interactions_2')[()])
 
                 chromosome = [chromosome] * len(start_list)
