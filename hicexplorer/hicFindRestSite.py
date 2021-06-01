@@ -11,7 +11,6 @@ from mimetypes import guess_type
 from functools import partial
 from Bio import SeqIO
 from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
 from hicexplorer._version import __version__
 
 import logging
@@ -97,7 +96,7 @@ def find_pattern(pattern, fasta_file, out_file):
     """
 
     # get the reverse complement of the pattern
-    rev_compl = str(Seq(pattern, generic_dna).reverse_complement())
+    rev_compl = str(Seq(pattern).reverse_complement())
 
     temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='wt')
     try:
@@ -109,7 +108,7 @@ def find_pattern(pattern, fasta_file, out_file):
     _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
 
     with _open(fasta_file_name) as f:
-        for record in SeqIO.parse(f, 'fasta', generic_dna):
+        for record in SeqIO.parse(f, 'fasta'):
             # find all the occurrences of pattern
             for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
                 _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
