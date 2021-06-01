@@ -134,7 +134,8 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
     Returns
     -------
     dictionary where keys are either 'all' or the chromosome names when perchr is set to True
-               and values are ordered dictionary where keys are distances and values are the mean.
+               and values are ordered dictionary where keys are distances and values are a
+               2-tuple with the mean and the number of bins considered.
 
     >>> from scipy.sparse import csr_matrix
     >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
@@ -154,23 +155,23 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals)
     >>> compute_distance_mean(hic)
-    {'all': OrderedDict([(0, 3.0), (10, 6.0), (20, 10.0), (30, 3.0)])}
+    {'all': OrderedDict([(0, (3.0, 7)), (10, (6.0, 5)), (20, (10.0, 3)), (30, (3.0, 1))])}
     >>> compute_distance_mean(hic, perchr=True)
-    {'a': OrderedDict([(0, 1.25), (10, 10.0), (20, 5.0), (30, 3.0)]), 'b': OrderedDict([(0, 5.333333333333333), (10, 0.0), (20, 20.0)])}
+    {'a': OrderedDict([(0, (1.25, 4)), (10, (10.0, 3)), (20, (5.0, 2)), (30, (3.0, 1))]), 'b': OrderedDict([(0, (5.333333333333333, 3)), (10, (0.0, 2)), (20, (20.0, 1))])}
     >>> custom_cut = [('tad1', 0, 10, 1), ('tad1', 10, 20, 1), ('tad2', 0, 10, 1),
     ... ('tad2', 10, 20, 1), ('tad3', 0, 10, 1), ('tad3', 10, 20, 1), ('tad3', 20, 30, 1)]
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
-    {'all': OrderedDict([(0, 3.0), (10, 3.75), (20, 20.0)])}
+    {'all': OrderedDict([(0, (3.0, 7)), (10, (3.75, 4)), (20, (20.0, 1))])}
     >>> compute_distance_mean(hic, perchr=True, custom_cut_intervals=custom_cut)
-    {'a': OrderedDict([(0, 1.25), (10, 7.5)]), 'b': OrderedDict([(0, 5.333333333333333), (10, 0.0), (20, 20.0)])}
+    {'a': OrderedDict([(0, (1.25, 4)), (10, (7.5, 2))]), 'b': OrderedDict([(0, (5.333333333333333, 3)), (10, (0.0, 2)), (20, (20.0, 1))])}
     >>> custom_cut = [('_ignore_0', 0, 10, 1), ('0', 0, 10, 1),
     ... ('0', 10, 20, 1), ('_ignore_3', 0, 10, 1),
     ... ('1', 0, 10, 1), ('1', 10, 20, 1), ('1', 20, 30, 1)]
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
-    {'all': OrderedDict([(0, 4.0), (10, 5.0), (20, 20.0)])}
+    {'all': OrderedDict([(0, (4.0, 5)), (10, (5.0, 3)), (20, (20.0, 1))])}
 
     # >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut, perchr=True)
-    # {'a': OrderedDict([(0, 2.0), (10, 15.0)]), 'b': OrderedDict([(0, 5.333333333333333), (10, 0.0), (20, 20.0)])}
+    # {'a': OrderedDict([(0, (2.0, 2)), (10, (15.0, 1))]), 'b': OrderedDict([(0, (5.333333333333333, 3)), (10, (0.0, 2)), (20, (20.0, 1))])}
     """
 
     binsize = hicmat.getBinSize()
@@ -182,7 +183,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
         max_depth_in_bins = int(float(maxdepth * 1.5) / binsize)
         # work only with the upper matrix
         # and remove all pixels that are beyond
-        # max_depth_in_bis
+        # max_depth_in_bins
         # (this is done by subtracting a second sparse matrix
         # that contains only the upper matrix that wants to be removed.
         hicmat.matrix = triu(hicmat.matrix, k=0, format='csr') - \
@@ -251,13 +252,16 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
         mat_size = submatrix.shape[0]
         # compute mean value for each distance
         mu = {}
+        # also store the number of bins used to do the average
+        nb = {}
         zero_value_bins = []
         for bin_dist_plus_one, sum_value in enumerate(sum_counts):
-            if maxdepth and bin_dist_plus_one == 0:  # this is for intra chromosomal counts
+            if maxdepth and bin_dist_plus_one == 0:  # this is for inter chromosomal counts
                 # when max depth is set, the computation
-                # of the total_intra is not accurate and is safer to
+                # of the total_inter is not accurate and is safer to
                 # output np.nan
                 mu[bin_dist_plus_one] = np.nan
+                nb[bin_dist_plus_one] = np.nan
                 continue
 
             if bin_dist_plus_one == 0:
@@ -293,8 +297,10 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
 
             if diagonal_length == 0:
                 mu[bin_dist_plus_one] = np.nan
+                nb[bin_dist_plus_one] = 0
             else:
                 mu[bin_dist_plus_one] = np.float64(sum_value) / diagonal_length
+                nb[bin_dist_plus_one] = diagonal_length
                 if sum_value == 0:
                     zero_value_bins.append(bin_dist_plus_one)
                     log.info("zero value for {}, diagonal len: {}\n".format(bin_dist_plus_one, diagonal_length))
@@ -310,7 +316,7 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
 
         if maxdepth is None:
             maxdepth = np.inf
-        mean_dict[chrname] = OrderedDict([((k - 1) * binsize, v) for k, v in mu.items() if k > 0 and
+        mean_dict[chrname] = OrderedDict([((k - 1) * binsize, (v, nb[k])) for k, v in mu.items() if k > 0 and
                                           (k - 1) * binsize <= maxdepth])
         # mean_dict[chrname]['intra_chr'] = mu[0]
 
@@ -450,7 +456,7 @@ def main(args=None):
             if len(mean_values) <= 1:
                 log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
-            x, y = zip(*[(k, v) for k, v in mean_values.items() if v > 0])
+            x, y, z = zip(*[(k, v, nb) for k, (v, nb) in mean_values.items() if v > 0])
             if len(x) <= 1:
                 log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
                 continue
@@ -486,10 +492,13 @@ def main(args=None):
             if args.outFileData is not None:
                 x_vals = np.stack(x).T
                 y_vals = np.stack(y).T
+                z_vals = np.stack(z).T
                 table_to_export = pd.DataFrame({'Matrix': labels[matrix_file],
                                                 'Chromosome': chrom,
                                                 'Distance': x_vals,
-                                                'Contacts': y_vals})
+                                                'Contacts': y_vals,
+                                                'Number_bins': z_vals,
+                                                'Scale_factor': scale_factor[matrix_file]})
                 table_to_export.to_csv(args.outFileData, sep='\t')
 
     for ax in axs.reshape(-1):
