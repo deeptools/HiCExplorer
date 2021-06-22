@@ -44,10 +44,9 @@ def test_loop_narrow_peak():
     outfile = NamedTemporaryFile(suffix='out', delete=True)
     outfile.close()
 
-    args = "--data {} --protein {} --method {} --outFileName {} -r {} --addChrPrefixLoops".format(ROOT + 'loops_1.bedgraph',
-                                                                                                  ROOT + 'GSM935376_hg19_Gm12878_Smc3.narrowPeak',
-                                                                                                  'loops', outfile.name, 10000).split()
-    # hicValidateLocations.main(args)
+    args = "--data {} --validationData {} --validationType {} --method {} --outFileName {} -r {} --chrPrefixLoops {} ".format(ROOT + 'loops_1.bedgraph',
+                                                                                                                              ROOT + 'GSM935376_hg19_Gm12878_Smc3.narrowPeak', 'bed',
+                                                                                                                              'loops', outfile.name, 10000, 'add').split()
     compute(hicValidateLocations.main, args, 5)
     assert are_files_equal(
         ROOT + 'overlap_smc3_matched_locations', outfile.name + '_matched_locations')
@@ -59,16 +58,31 @@ def test_loop_broad_peak():
     outfile = NamedTemporaryFile(suffix='out', delete=True)
     outfile.close()
 
-    args = "--data {} --protein {} --method {} --outFileName {} -r {} --addChrPrefixLoops".format(ROOT + 'loops_1.bedgraph',
-                                                                                                  ROOT + 'GSM733752_hg19_ctcf_GM12878.broadPeak',
-                                                                                                  'loops', outfile.name, 10000).split()
-    # hicValidateLocations.main(args)
+    args = "--data {} --validationData {} --validationType {} --method {} --outFileName {} -r {} --chrPrefixProtein {} ".format(ROOT + 'loops_1.bedgraph',
+                                                                                                                                ROOT + 'GSM733752_hg19_ctcf_GM12878.broadPeak', 'bed',
+                                                                                                                                'loops', outfile.name, 10000, 'remove').split()
     compute(hicValidateLocations.main, args, 5)
 
-    # print(outfile.name + '_matched_locations')
     print(open(outfile.name + '_matched_locations', "r").read(1000))
     print(open(outfile.name + '_statistics', "r").read(1000))
     assert are_files_equal(
         ROOT + 'overlap_ctcf_matched_locations', outfile.name + '_matched_locations')
     assert are_files_equal(ROOT + 'overlap_ctcf_statistics',
+                           outfile.name + '_statistics', skip=3)
+
+
+def test_loop_cool():
+    outfile = NamedTemporaryFile(suffix='out', delete=True)
+    outfile.close()
+
+    args = "--data {} --validationData {} --validationType {} --method {} --outFileName {} -r {} --chrPrefixLoop {} ".format(ROOT + 'loops_1.bedgraph',
+                                                                                                                             ROOT + 'GSM1436265_RAD21_ENCFF002EMQ_10kb.cool', 'cool',
+                                                                                                                             'loops', outfile.name, 10000, 'add').split()
+    compute(hicValidateLocations.main, args, 5)
+
+    print(open(outfile.name + '_matched_locations', "r").read(1000))
+    print(open(outfile.name + '_statistics', "r").read(1000))
+    assert are_files_equal(
+        ROOT + 'overlap_rad21_cool_matched_locations', outfile.name + '_matched_locations')
+    assert are_files_equal(ROOT + 'overlap_rad21_cool_statistics',
                            outfile.name + '_statistics', skip=3)

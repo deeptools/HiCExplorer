@@ -92,10 +92,11 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            action='store_true')
 
     parserOpt.add_argument('--extraTrack',
-                           help='Either a gene track or a histon mark coverage'
+                           help='Either a gene track or a histone mark coverage'
                            ' file (preferably a broad mark) is needed to decide'
                            ' if the values of the eigenvector need a sign flip'
-                           ' or not.',
+                           ' or not. Please consider: bed files are interpreted as'
+                           ' gene tracks and bigwig files as histone marks.',
                            default=None)
 
     parserOpt.add_argument('--histonMarkType',
@@ -175,7 +176,7 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
     for chromosome in chromosome_list:
         bin_id = pMatrix.getChrBinRange(chromosome)
         for i, eigenvector in enumerate(pEigenvector):
-            _correlation = pearsonr(eigenvector[bin_id[0]:bin_id[1]].real,
+            _correlation = pearsonr(np.array(eigenvector[bin_id[0]:bin_id[1]]).real,
                                     gene_occurrence_per_chr[chromosome])
             if _correlation[0] < 0:
                 eigenvector[bin_id[0]:bin_id[1]] = np.negative(eigenvector[bin_id[0]:bin_id[1]])

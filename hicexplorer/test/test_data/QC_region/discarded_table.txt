@@ -1,0 +1,2 @@
+File	One mate not close to rest site	One mate not close to rest site %	dangling end GATC %	dangling end AGCT %	duplicated pairs	duplicated pairs %	same fragment	same fragment %	self circle	self circle %	self ligation (removed)	self ligation (removed) %
+/tmp/tmpmzka3uhk.h5	40906	0.7758221750180176	0.0002086257254485453	0.001118992527405834	12	0.00022759170048932214	3751	0.07114137237795395	0	0.0	0	0.0
