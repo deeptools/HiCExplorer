@@ -79,6 +79,7 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
         accepted_inter_right = []
         accepted_intra = []
         p_values_list = []
+        stats_list = []
         rows = []
 
         old_chromosome = None
@@ -241,37 +242,48 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
                 log.debug('left statistic {}, significance_level {}'.format(statistic_left, significance_level_left))
 
                 p_values = []
+                stats = []
                 if significance_level_left is None or np.isnan(significance_level_left):
                     accepted_inter_left.append(0)
                     p_values.append(np.nan)
+                    stats.append(np.nan)
                 elif significance_level_left <= pPValue:
                     accepted_inter_left.append(1)
                     p_values.append(significance_level_left)
+                    stats.append(statistic_left)
                 else:
                     accepted_inter_left.append(0)
                     p_values.append(significance_level_left)
+                    stats.append(statistic_left)
 
                 if significance_level_right is None or np.isnan(significance_level_right):
                     accepted_inter_right.append(0)
                     p_values.append(np.nan)
+                    stats.append(np.nan)
                 elif significance_level_right <= pPValue:
                     accepted_inter_right.append(1)
                     p_values.append(significance_level_right)
+                    stats.append(statistic_right)
                 else:
                     accepted_inter_right.append(0)
                     p_values.append(significance_level_right)
+                    stats.append(statistic_right)
 
                 if significance_level is None or np.isnan(significance_level):
                     accepted_intra.append(0)
                     p_values.append(np.nan)
+                    stats.append(np.nan)
                 elif significance_level <= pPValue:
                     accepted_intra.append(1)
                     p_values.append(significance_level)
+                    stats.append(statistic)
                 else:
                     accepted_intra.append(0)
                     p_values.append(significance_level)
+                    stats.append(statistic)
 
                 p_values_list.append(p_values)
+                stats_list.append(stats)
 
                 rows.append(row)
     except Exception as exp:
@@ -279,7 +291,7 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
         return
     # hic_matrix_target_inter_tad.save('manipulated_target.cool')
     # hic_matrix_control_inter_tad.save('manipulated_control.cool')
-    pQueue.put([p_values_list, accepted_inter_left, accepted_inter_right, accepted_intra, rows])
+    pQueue.put([stats_list, p_values_list, accepted_inter_left, accepted_inter_right, accepted_intra, rows])
 
 
 def main(args=None):
@@ -305,6 +317,7 @@ def main(args=None):
     # log.debug('domains_df {}'.format(domains_df))
     domains = domains_df.values.tolist()
 
+    stats_threads = [None] * args.threads
     p_values_threads = [None] * args.threads
     accepted_left_inter_threads = [None] * args.threads
     accepted_right_inter_threads = [None] * args.threads
@@ -360,7 +373,7 @@ def main(args=None):
                     fail_flag = True
                     fail_message = queue_data
                 else:
-                    p_values_threads[i], accepted_left_inter_threads[i], \
+                    stats_threads[i], p_values_threads[i], accepted_left_inter_threads[i], \
                         accepted_right_inter_threads[i], \
                         accepted_intra_threads[i], rows_threads[i] = queue_data
 
@@ -382,12 +395,14 @@ def main(args=None):
         log.error(fail_message[6:])
         exit(1)
 
+    stats_list = [item for sublist in stats_threads for item in sublist]
     p_values_list = [item for sublist in p_values_threads for item in sublist]
     accepted_inter_left = [item for sublist in accepted_left_inter_threads for item in sublist]
     accepted_inter_right = [item for sublist in accepted_right_inter_threads for item in sublist]
     accepted_intra = [item for sublist in accepted_intra_threads for item in sublist]
     rows = [item for sublist in rows_threads for item in sublist]
 
+    stats_list = np.array(stats_list)
     p_values_list = np.array(p_values_list)
     accepted_inter_left = np.array(accepted_inter_left)
     accepted_inter_right = np.array(accepted_inter_right)
@@ -424,7 +439,7 @@ def main(args=None):
         header = '# Created with HiCExplorer\'s hicDifferentialTAD version ' + __version__ + '\n'
         header += '# H0 \'regions are equal\' H0 is accepted for all p-value greater the user given p-value threshold; i.e. regions in this file are not considered as differential.\n'
         header += '# Accepted regions with Wilcoxon rank-sum test to p-value: {}  with used mode: {} and modeReject: {} \n'.format(args.pValue, args.mode, args.modeReject)
-        header += '# Chromosome\tstart\tend\tname\tscore\tstrand\tp-value left-inter-TAD\tp-value right-inter-TAD\tp-value intra-TAD\n'
+        header += '# Chromosome\tstart\tend\tname\tscore\tstrand\tp-value left-inter-TAD\tp-value right-inter-TAD\tp-value intra-TAD\tW left-inter-TAD\tW right-inter-TAD\tW intra-TAD\n'
         file.write(header)
         for i, row in enumerate(accepted_rows):
             row_list = list(map(str, row))
@@ -432,13 +447,16 @@ def main(args=None):
             file.write('\t')
             pvalue_list = list(map(str, accepted_H0[i]))
             file.write('\t'.join(pvalue_list))
+            file.write('\t')
+            stats_list = list(map(str, accepted_H0[i]))
+            file.write('\t'.join(stats_list))
 
             file.write('\n')
     with open(args.outFileNamePrefix + '_rejected.diff_tad', 'w') as file:
         header = '# Created with HiCExplorer\'s hicDifferentialTAD version ' + __version__ + '\n'
         header += '# H0 \'regions are equal\' H0 is rejected for all p-value smaller or equal the user given p-value threshold; i.e. regions in this file are considered as differential.\n'
         header += '# Rejected regions with Wilcoxon rank-sum test to p-value: {}  with used mode: {} and modeReject: {} \n'.format(args.pValue, args.mode, args.modeReject)
-        header += '# Chromosome\tstart\tend\tname\tscore\tstrand\tp-value left-inter-TAD\tp-value right-inter-TAD\tp-value intra-TAD\n'
+        header += '# Chromosome\tstart\tend\tname\tscore\tstrand\tp-value left-inter-TAD\tp-value right-inter-TAD\tp-value intra-TAD\tW left-inter-TAD\tW right-inter-TAD\tW intra-TAD\n'
 
         file.write(header)
 
@@ -448,4 +466,7 @@ def main(args=None):
             file.write('\t')
             pvalue_list = list(map(str, rejected_H0[i]))
             file.write('\t'.join(pvalue_list))
+            file.write('\t')
+            stats_list = list(map(str, rejected_H0[i]))
+            file.write('\t'.join(stats_list))
             file.write('\n')
