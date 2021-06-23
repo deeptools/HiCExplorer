@@ -200,6 +200,7 @@ def main(args=None):
         args.referencePoints)
 
     referencePointsPerThread = len(referencePoints) // args.threads
+
     queue = [None] * args.threads
     process = [None] * args.threads
     file_list = []
@@ -236,6 +237,7 @@ def main(args=None):
             if i < args.threads - 1:
                 referencePointsThread = referencePoints[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
                 geneListThread = gene_list[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
+
             else:
                 referencePointsThread = referencePoints[i * referencePointsPerThread:]
                 geneListThread = gene_list[i * referencePointsPerThread:]
@@ -283,11 +285,16 @@ def main(args=None):
             log.error(fail_message)
             exit(1)
 
-        interaction_data_list = [item for sublist in interaction_data_list_sample for item in sublist]
+        interaction_data_list = []
+        for sublist in interaction_data_list_sample:
+            if sublist is not None:
+                for item in sublist:
+                    interaction_data_list.append(item)
         matrix_collection[matrix] = interaction_data_list
 
     for matrix in matrix_collection:
-        matrixGroup = interactionFileH5Object.create_group(matrix.split('.')[0])
+
+        matrixGroup = interactionFileH5Object.create_group(os.path.basename(matrix).split('.')[0])
         geneGroup = matrixGroup.create_group('genes')
 
         for i, interaction_data in enumerate(matrix_collection[matrix]):
