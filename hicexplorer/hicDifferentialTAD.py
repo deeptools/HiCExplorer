@@ -432,7 +432,9 @@ def main(args=None):
             mask = np.logical_or(mask, accepted_intra)
 
     accepted_H0 = p_values_list[~mask]
+    accepted_H0_s = stats_list[~mask]
     rejected_H0 = p_values_list[mask]
+    rejected_H0_s = stats_list[mask]
     accepted_rows = rows[~mask]
     rejected_rows = rows[mask]
     with open(args.outFileNamePrefix + '_accepted.diff_tad', 'w') as file:
@@ -448,7 +450,7 @@ def main(args=None):
             pvalue_list = list(map(str, accepted_H0[i]))
             file.write('\t'.join(pvalue_list))
             file.write('\t')
-            stats_list = list(map(str, accepted_H0[i]))
+            stats_list = list(map(str, accepted_H0_s[i]))
             file.write('\t'.join(stats_list))
 
             file.write('\n')
@@ -467,6 +469,6 @@ def main(args=None):
             pvalue_list = list(map(str, rejected_H0[i]))
             file.write('\t'.join(pvalue_list))
             file.write('\t')
-            stats_list = list(map(str, rejected_H0[i]))
+            stats_list = list(map(str, rejected_H0_s[i]))
             file.write('\t'.join(stats_list))
             file.write('\n')
