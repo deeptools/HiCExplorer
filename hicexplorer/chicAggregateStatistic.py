@@ -198,7 +198,11 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
     target_regions_intervaltree = None
     try:
         if pOneTarget == True:
-            target_regions = utilities.readBed(pTargetList)
+            try:
+                target_regions = utilities.readBed(pTargetList)
+            except Exception as exp:
+                pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
+                return
             hicmatrix = hm.hiCMatrix()
             target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
 

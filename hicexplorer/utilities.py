@@ -25,8 +25,11 @@ def readBed(pBedFile):
             _line = line.strip().split('\t')
             if len(line) == 0:
                 continue
-
-            chrom, start, end = _line[:3]
+            try:
+                chrom, start, end = _line[:3]
+            except ValueError:
+                _line = line.strip().split()
+                chrom, start, end = _line[:3]
             viewpoints.append((chrom, start, end))
 
     return viewpoints

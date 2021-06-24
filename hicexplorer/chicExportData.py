@@ -55,14 +55,6 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            required=False,
                            default='data.tar.gz')
 
-    # parserOpt.add_argument('--fileType',
-    #                        '-ft',
-    #                        help=''
-    #                        ' (Default: %(default)s).',
-    #                        default='interaction',
-    #                        choices=['interaction', 'significant', 'target', 'aggregated', 'differential']
-    #                        )
-
     parserOpt.add_argument('--outputFileType',
                            '-oft',
                            help='Output file type can be set for all file types to txt; except \'interaction\' supports also bigwig'
@@ -79,8 +71,7 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            )
     parserOpt.add_argument('--outputModeName',
                            '-omn',
-                           help='ONLY valid if --outputMode geneName! Define the name of the gene',
-                           #    default='',
+                           help='ONLY valid if --outputMode geneName! Define the name of the gene'
                            )
     parserOpt.add_argument('--decimalPlaces',
                            help='Decimal places for all output floating numbers in the viewpoint files'
@@ -540,7 +531,11 @@ def main(args=None):
                         tar.addfile(tarinfo=tar_info, fileobj=file)
 
     elif args.outputFileType == 'bigwig':
-        bigwig_folder = mkdtemp(prefix="bigwig_folder")
+        if args.outputMode == 'geneName':
+            bigwig_folder = os.path.dirname(args.outFileName)
+            # bigwig_folder = '.'
+        else:
+            bigwig_folder = mkdtemp(prefix="bigwig_folder")
         for i, file_content in enumerate(thread_data):
 
             for j, file_list in enumerate(file_content):
@@ -552,13 +547,16 @@ def main(args=None):
                 bw.addEntries(file_list[1], file_list[2], ends=file_list[3], values=file_list[4])
                 bw.close()
 
-        with tarfile.open(args.outFileName, "w:gz") as tar_handle:
-            for root, dirs, files in os.walk(bigwig_folder):
-                for file in files:
-                    tar_handle.add(os.path.join(root, file))
+        if args.outputMode == 'all':
+            if not args.outFileName.endswith('.tar.gz'):
+                args.outFileName = args.outFileName + '.tar.gz'
+            with tarfile.open(args.outFileName, "w:gz") as tar_handle:
+                for root, dirs, files in os.walk(bigwig_folder):
+                    for file in files:
+                        tar_handle.add(os.path.join(root, file))
 
-        if os.path.exists(bigwig_folder):
-            try:
-                shutil.rmtree(bigwig_folder)
-            except OSError as e:
-                log.error("Error: %s - %s." % (e.filename, e.strerror))
+            if os.path.exists(bigwig_folder):
+                try:
+                    shutil.rmtree(bigwig_folder)
+                except OSError as e:
+                    log.error("Error: %s - %s." % (e.filename, e.strerror))

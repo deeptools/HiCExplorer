@@ -30,7 +30,7 @@ The files that are accepted for this test can be created with `chicAggregateStat
 
     parserRequired = parser.add_argument_group('Required arguments')
 
-    parserRequired.add_argument('--aggregatedFile', '-if',
+    parserRequired.add_argument('--aggregatedFile', '-af',
                                 help='path to the aggregated files which should be used for the differential test.',
                                 required=True)
 

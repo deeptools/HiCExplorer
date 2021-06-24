@@ -396,7 +396,7 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
         significantFileH5Object.attrs['mode_preselection_value'] = pArgs.loosePValue
     else:
         significantFileH5Object.attrs['mode_preselection'] = "None"
-        significantFileH5Object.attrs['mode_preselection_calue'] = "None"
+        significantFileH5Object.attrs['mode_preselection_value'] = "None"
 
     significantFileH5Object.attrs['range'] = pArgs.range
     significantFileH5Object.attrs['combinationMode'] = pArgs.combinationMode

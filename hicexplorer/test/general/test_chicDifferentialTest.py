@@ -2,6 +2,7 @@ from hicexplorer import chicDifferentialTest
 from tempfile import NamedTemporaryFile, mkdtemp
 import os
 import pytest
+import h5py
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -34,154 +35,84 @@ def are_files_equal(file1, file2, delta=2, skip=0):
 
 def test_regular_mode_fisher():
 
-    output_folder = mkdtemp(prefix="output_")
+    outfile_differential = NamedTemporaryFile(suffix='.hdf5', delete=False)
+    outfile_differential.close()
 
-    args = "--interactionFile {} {} --alpha {} --statisticTest {} --outputFolder {} -t {}\
-        ".format(ROOT + 'chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt',
-                 ROOT + 'chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt ',
+    args = "--aggregatedFile {} --alpha {} --statisticTest {} --outFileName {} -t {}\
+        ".format(ROOT + 'chicAggregateStatistic/aggregate.hdf5',
                  0.5, 'fisher',
-                 output_folder, 1).split()
+                 outfile_differential.name, 1).split()
     chicDifferentialTest.main(args)
 
-    assert are_files_equal(ROOT + "chicDifferentialTest/regular_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/regular_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/regular_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_results.txt')
-    assert set(os.listdir(ROOT + "chicDifferentialTest/regular_mode_fisher/")
-               ) == set(os.listdir(output_folder))
 
+    differentialFileH5Object = h5py.File(outfile_differential.name, 'r')
+    assert 'FL-E13-5_chr1' in differentialFileH5Object
+    assert len(differentialFileH5Object) == 1
+
+    assert 'MB-E10-5_chr1' in differentialFileH5Object['FL-E13-5_chr1']
+
+    assert 'genes' in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1']
+
+    assert differentialFileH5Object.attrs['type'] == 'differential'
+    assert differentialFileH5Object.attrs['alpha'] == 0.5
+    assert differentialFileH5Object.attrs['test'] == 'fisher'
+
+
+
+    for chromosome in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1']:
+
+        assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome]) == 3
+
+
+        for gene in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome]:
+            assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene]) == 3
+            for data in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene]:
+                assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene][data]) == 10
+                for status in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene][data]:
+
+                    assert status in ['chromosome', 'end_list', 'gene', 'pvalue_list', 'raw_target_list_1', 'raw_target_list_2', \
+                                    'relative_distance_list', 'start_list', 'sum_of_interactions_1', 'sum_of_interactions_2']
+
+    differentialFileH5Object.close()
 
 def test_regular_mode_chi2():
 
-    output_folder = mkdtemp(prefix="output_")
+    outfile_differential = NamedTemporaryFile(suffix='.hdf5', delete=False)
+    outfile_differential.close()
 
-    args = "--interactionFile {} {} --alpha {} --statisticTest {} --outputFolder {} -t {}\
-        ".format(ROOT + 'chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt',
-                 ROOT + 'chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt ',
+    args = "--aggregatedFile {} --alpha {} --statisticTest {} --outFileName {} -t {}\
+        ".format(ROOT + 'chicAggregateStatistic/aggregate.hdf5',
                  0.5, 'chi2',
-                 output_folder, 1).split()
+                 outfile_differential.name, 1).split()
     chicDifferentialTest.main(args)
 
-    assert are_files_equal(ROOT + "chicDifferentialTest/regular_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/regular_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/regular_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_results.txt')
-    assert set(os.listdir(ROOT + "chicDifferentialTest/regular_mode_chi2/")
-               ) == set(os.listdir(output_folder))
+
+    differentialFileH5Object = h5py.File(outfile_differential.name, 'r')
+    assert 'FL-E13-5_chr1' in differentialFileH5Object
+    assert len(differentialFileH5Object) == 1
+
+    assert 'MB-E10-5_chr1' in differentialFileH5Object['FL-E13-5_chr1']
+
+    assert 'genes' in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1']
+
+    assert differentialFileH5Object.attrs['type'] == 'differential'
+    assert differentialFileH5Object.attrs['alpha'] == 0.5
+    assert differentialFileH5Object.attrs['test'] == 'chi2'
 
 
-def test_batch_mode_fisher():
+    for chromosome in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1']:
 
-    output_folder = mkdtemp(prefix="output_")
-
-    args = "--interactionFile {} -iff {} --alpha {} --statisticTest {} --outputFolder {} -bm -t {}\
-        ".format(ROOT + 'chicAggregateStatistic/batch_mode_file_names.txt',
-                 ROOT + 'chicAggregateStatistic/batch_mode',
-                 0.5, 'fisher',
-                 output_folder, 1).split()
-    chicDifferentialTest.main(args)
-
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_results.txt')
-
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_results.txt')
-
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_results.txt')
-
-    assert set(os.listdir(ROOT + "chicDifferentialTest/batch_mode_fisher/")
-               ) == set(os.listdir(output_folder))
+        assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome]) == 3
 
 
-def test_batch_mode_chi2():
+        for gene in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome]:
+            assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene]) == 3
+            for data in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene]:
+                assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene][data]) == 10
+                for status in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene][data]:
 
-    output_folder = mkdtemp(prefix="output_")
-
-    args = "--interactionFile {} -iff {} --alpha {} --statisticTest {} --outputFolder {} -bm -t {}\
-        ".format(ROOT + 'chicAggregateStatistic/batch_mode_file_names.txt',
-                 ROOT + 'chicAggregateStatistic/batch_mode',
-                 0.5, 'chi2',
-                 output_folder, 1).split()
-    chicDifferentialTest.main(args)
-
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_results.txt')
-
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_results.txt')
-
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_chi2/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_results.txt')
-
-    assert set(os.listdir(ROOT + "chicDifferentialTest/batch_mode_chi2/")
-               ) == set(os.listdir(output_folder))
+                    assert status in ['chromosome', 'end_list', 'gene', 'pvalue_list', 'raw_target_list_1', 'raw_target_list_2', \
+                                    'relative_distance_list', 'start_list', 'sum_of_interactions_1', 'sum_of_interactions_2']
 
 
-def test_batch_mode_fisher_rejected_file():
-
-    output_folder = mkdtemp(prefix="output_")
-    outfile = NamedTemporaryFile(suffix='.txt', delete=False)
-
-    args = "--interactionFile {} -iff {} --alpha {} --statisticTest {} --outputFolder {} -bm --rejectedFileNamesToFile {} -t {}\
-        ".format(ROOT + 'chicAggregateStatistic/batch_mode_file_names.txt',
-                 ROOT + 'chicAggregateStatistic/batch_mode',
-                 0.5, 'fisher',
-                 output_folder, outfile.name, 1
-                 ).split()
-    chicDifferentialTest.main(args)
-
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher_outfile/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher_outfile/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher_outfile/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_results.txt')
-
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher_outfile/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher_outfile/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher_outfile/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_results.txt')
-
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher_outfile/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_accepted.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_accepted.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher_outfile/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_rejected.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_H0_rejected.txt')
-    assert are_files_equal(ROOT + "chicDifferentialTest/batch_mode_fisher_outfile/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_results.txt",
-                           output_folder + '/FL-E13-5_MB-E10-5_chr1_chr1_4487435_4487435_Sox17_results.txt')
-
-    assert are_files_equal(
-        ROOT + "chicDifferentialTest/rejectedFilesList.txt", outfile.name)
-
-    assert set(os.listdir(ROOT + "chicDifferentialTest/batch_mode_fisher_outfile/")
-               ) == set(os.listdir(output_folder))
+    differentialFileH5Object.close()
