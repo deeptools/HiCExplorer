@@ -403,8 +403,10 @@ def bed2interval_list(bed_file_handler, pChromosomeSize, pRegion):
         except IndexError:
             log.error("error reading BED file at line {}".format(count))
 
-        if chrom == chrom_size[0] and start_region <= start and end_region <= end:
-
+        if pRegion is not None:
+            if chrom == chrom_size[0] and start_region <= start and end_region <= end:
+                interval_list.append((chrom, start, end))
+        else:
             interval_list.append((chrom, start, end))
 
     return interval_list

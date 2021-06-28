@@ -340,7 +340,7 @@ def test_differential_all():
     outfile = NamedTemporaryFile(suffix='.tar.gz', delete=False)
     outfile.close()
     args = "-f {} -o {} -om {}".format(
-        ROOT + 'chicDifferentialTest/diflfferential.hdf5', outfile.name, 'all').split()
+        ROOT + 'chicDifferentialTest/differential.hdf5', outfile.name, 'all').split()
     chicExportData.main(args)
 
     file_obj_new = tarfile.open(outfile.name, "r")
