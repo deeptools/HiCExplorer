@@ -115,7 +115,6 @@ p-value is computed based on the sum of interactions for this neighborhood. Only
 
 
 def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pFilePath, pResolution, pQueue=None):
-    outfile_names = []
     target_outfile_names = []
     significant_data_list = []
     significant_key_list = []
@@ -406,7 +405,6 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
     significantFileH5Object.attrs['peakInteractionsThreshold'] = pArgs.peakInteractionsThreshold
 
     keys_seen = {}
-    matrix_seen = {}
 
     for i, (key, data) in enumerate(zip(pSignificantKeyList, pSignificantDataList)):
         if len(data) == 0:
@@ -593,9 +591,6 @@ def main(args=None):
             args.xFoldBackground = read_threshold_file(args.xFoldBackground)
 
     viewpointObj = Viewpoint()
-    outfile_names = []
-
-    interactionFileList = []
 
     background_model = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range, args.fixateRange)

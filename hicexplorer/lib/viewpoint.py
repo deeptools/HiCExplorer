@@ -465,8 +465,6 @@ class Viewpoint():
         relative_position_list = []
         interaction_data_list = []
         raw_data_list = []
-        # p_value_list = []
-        # x_fold_list = []
 
         view_point_start, view_point_end = self.getReferencePointAsMatrixIndices(
             pReferencePoint)
@@ -474,10 +472,7 @@ class Viewpoint():
             pChromViewpoint, pRegion_start, pRegion_end)
         view_point_range = list(view_point_range)
         view_point_range[1] += 1
-        # elements_of_viewpoint = view_point_range[1] - view_point_range[0] - (
-        #     view_point_end - view_point_start) + 1
 
-        interactions_list = []
         chrom, start, _, _ = self.hicMatrix.getBinPos(view_point_start)
         _, _, end, _ = self.hicMatrix.getBinPos(view_point_end)
         interaction_positions = list(
@@ -496,17 +491,12 @@ class Viewpoint():
                 else:
                     relative_position = int(end_second) - int(end)
 
-                # interactions_list.append((chrom_second, start_second, end_second, pGene, str(
-                #     pSumOfInteractions), relative_position, float(pInteractionData[j]), float(pInteractionDataRaw[j])))
-
                 chrom = chrom_second
                 start_list.append(start_second)
                 end_list.append(end_second)
                 relative_position_list.append(relative_position)
                 interaction_data_list.append(float(pInteractionData[j]))
                 raw_data_list.append(float(pInteractionDataRaw[j]))
-                # p_value_list.append(pPValueList[j])
-                # x_fold_list.append(xFoldList[])
 
             except Exception:
                 log.error('Failed to get bin position of index {}'.format(idx))
@@ -838,7 +828,6 @@ class Viewpoint():
 
     def readRejectedFile(self, pFilePath, pDifferentialHighlightTriplet, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
-        # [[start, end], [start, end]]
 
         if pDifferentialHighlightTriplet is None or len(pDifferentialHighlightTriplet) == 0:
             return None
@@ -847,7 +836,6 @@ class Viewpoint():
 
         # arrays_to_retrieve = ['relative_position_list', 'interaction_data_list', 'pvalue', 'raw', 'xfold']
         internal_path = '/'.join(pDifferentialHighlightTriplet)
-        data = []
 
         if internal_path not in differentialFileHDF5Object:
             log.debug('internal path not found: {}'.format(internal_path))
@@ -870,26 +858,16 @@ class Viewpoint():
         reference_point_start, reference_point_end = pViewpoint
 
         for start, end, relative_distance in zip(start_list, end_list, relative_distance_list):
-            # start = int(_line[1])
-            # end = int(_line[2])
 
             if int(relative_distance) >= -pRange[0] and int(relative_distance) <= pRange[1]:
 
                 width = (end - start) / pResolution
                 if int(relative_distance) < 0:
-                    # reference_point_position = reference_point_start
                     relative_position_genomic_coordinates = start - int(reference_point_start)
                     viewpointIndex = pViewpointIndexStart
                 else:
                     relative_position_genomic_coordinates = start - int(reference_point_end)
                     viewpointIndex = pViewpointIndexEnd
-
-                # log.debug('_line[4] {}'.format(_line[4]))
-                # log.debug('relative_position_genomic_coordinates {}'.format(relative_position_genomic_coordinates))
-                # log.debug('start {} end {}'.format(start, end))
-                # log.debug('reference_point_start {} reference_point_end {}'.format(reference_point_start, reference_point_end))
-
-                # start
 
                 # relative_position_genomic_coordinates  = reference_point_position
                 relative_position = viewpointIndex + \
@@ -931,73 +909,6 @@ class Viewpoint():
         mask = np.logical_or(mask, mask_inf)
         p_value_list[mask] = 1.0
         return p_value_list
-
-    # def computeSumOfDensities(self, pBackgroundModel, pArgs, pXfoldMaxValue=None):
-    #     background_nbinom = {}
-    #     background_sum_of_densities_dict = {}
-    #     max_value = 0
-
-    #     fixateRange = int(pArgs.fixateRange)
-    #     for distance in pBackgroundModel:
-    #         max_value_distance = int(pBackgroundModel[distance][2])
-    #         if max_value < int(pBackgroundModel[distance][2]):
-    #             max_value = int(pBackgroundModel[distance][2])
-
-    #         if pXfoldMaxValue is not None:
-    #             if max_value_distance == 0:
-    #                 max_value_distance = 1
-    #             if pXfoldMaxValue == 0:
-    #                 pXfoldMaxValue = 1
-    #             max_value_distance *= pXfoldMaxValue
-
-    #         if -int(pArgs.fixateRange) < distance and int(pArgs.fixateRange) > distance:
-    #             # background_nbinom[distance] = nbinom(pBackgroundModel[distance][0], pBackgroundModel[distance][1])
-    #             background_nbinom[distance] = (pBackgroundModel[distance][0], pBackgroundModel[distance][1])
-
-    #             sum_of_densities = np.zeros(max_value_distance)
-    #             for j in range(max_value_distance):
-    #                 if j >= 1:
-    #                     sum_of_densities[j] += sum_of_densities[j - 1]
-    #                 # sum_of_densities[j] += background_nbinom[distance].pmf(j)
-    #                 sum_of_densities[j] += pmf(j, background_nbinom[distance][0], background_nbinom[distance][1])
-
-    #             background_sum_of_densities_dict[distance] = sum_of_densities
-
-    #     # background_nbinom[fixateRange] = nbinom(pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
-    #     background_nbinom[fixateRange] = (pBackgroundModel[fixateRange][0], pBackgroundModel[fixateRange][1])
-
-    #     sum_of_densities = np.zeros(max_value)
-    #     for j in range(max_value):
-    #         if j >= 1:
-    #             sum_of_densities[j] += sum_of_densities[j - 1]
-    #         # sum_of_densities[j] += background_nbinom[fixateRange].pmf(j)
-    #         sum_of_densities[j] += pmf(j, background_nbinom[fixateRange][0], background_nbinom[fixateRange][1])
-
-    #     background_sum_of_densities_dict[fixateRange] = sum_of_densities
-    #     # background_nbinom[-fixateRange] = nbinom(pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
-    #     background_nbinom[-fixateRange] = (pBackgroundModel[-fixateRange][0], pBackgroundModel[-fixateRange][1])
-
-    #     sum_of_densities = np.zeros(max_value)
-    #     for j in range(max_value):
-    #         if j >= 1:
-    #             sum_of_densities[j] += sum_of_densities[j - 1]
-    #         # sum_of_densities[j] += background_nbinom[-fixateRange].pmf(j)
-    #         sum_of_densities[j] += pmf(j, background_nbinom[-fixateRange][0], background_nbinom[-fixateRange][1])
-
-    #     background_sum_of_densities_dict[-fixateRange] = sum_of_densities
-
-    #     min_key = min(background_sum_of_densities_dict)
-    #     max_key = max(background_sum_of_densities_dict)
-
-    #     for key in pBackgroundModel.keys():
-    #         if key in background_sum_of_densities_dict:
-    #             continue
-    #         if key < min_key:
-    #             background_sum_of_densities_dict[key] = background_sum_of_densities_dict[min_key]
-    #         elif key > max_key:
-    #             background_sum_of_densities_dict[key] = background_sum_of_densities_dict[max_key]
-
-    #     return background_sum_of_densities_dict
 
     def merge_neighbors(self, pScoresDictionary, pMergeThreshold=1000):
         if pScoresDictionary is None or len(pScoresDictionary) == 0:
@@ -1058,26 +969,17 @@ class Viewpoint():
 
     def readSignificantRegionsFile(self, pFilePath, pInternalIdentifierTriplet, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint):
         # list of start and end point of regions to highlight
-        # [[start, end], [start, end]]
 
-        interaction_data, interaction_file_data, _ = self.readInteractionFile(pFilePath, pInternalIdentifierTriplet)
+        _, interaction_file_data, _ = self.readInteractionFile(pFilePath, pInternalIdentifierTriplet)
         highlight_areas_list = []
         p_values = []
-        # viewpoint_split = pViewpoint.split('_')
         if len(pViewpoint) == 2:
             reference_point_start, reference_point_end = pViewpoint
         else:
-            log.debug('viewpoint_split {}, file: {}'.format(pViewpoint, pSignificantFile))
+            log.debug('viewpoint_split {}, file: {} {}'.format(pViewpoint, pFilePath, pInternalIdentifierTriplet))
             return None, None
 
         for _line in interaction_file_data.values():
-            # with open(pSignificantFile) as fh:
-            #     # skip header
-            #     for line in fh.readlines():
-            # if line.startswith('#'):
-            #     continue
-            # _line = line.split('\t')
-            # log.debug(_line)
             start = int(_line[1])
             end = int(_line[2])
 
@@ -1085,7 +987,6 @@ class Viewpoint():
 
                 width = (end - start) / pResolution
                 if int(_line[5]) < 0:
-                    # reference_point_position = reference_point_start
                     relative_position_genomic_coordinates = start - int(reference_point_start)
                     viewpointIndex = pViewpointIndexStart
                 else:
@@ -1100,13 +1001,11 @@ class Viewpoint():
 
         if len(highlight_areas_list) == 0:
             return None, None
-        # log.debug('highlight_areas_list {}'.format(highlight_areas_list))
 
         return highlight_areas_list, p_values
 
     def readTargetHDFFile(self, pFile):
         present_genes = {}
-        # targetList = []
         targetDict = {}
         targetFileHDF5Object = h5py.File(pFile, 'r')
         keys_targetFile = list(targetFileHDF5Object.keys())
@@ -1123,7 +1022,6 @@ class Viewpoint():
                 gene_object = inner_object['genes']
                 keys_genes = list(gene_object.keys())
                 for gene in keys_genes:
-                    # targetList.append([outer_matrix, inner_matrix, 'genes', gene])
                     targetDict[gene] = [outer_matrix, inner_matrix, 'genes', gene]
                     present_genes[outer_matrix][inner_matrix].append(gene)
         targetFileHDF5Object.close()
@@ -1137,36 +1035,21 @@ class Viewpoint():
 
         gene_name = aggregatedFileHDF5Object.get(internal_path + '/' + 'gene_name')[()].decode("utf-8")
 
-        # Chromosome Start   End     Gene    Relative distance       sum of interactions 1   target_1 raw    sum of interactions 2   target_2 raw    p-value
-
         start_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'start_list'][:])
         end_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'end_list'][:])
         relative_distance_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'relative_distance_list'][:])
         raw_target_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'raw_target_list'][:])
         sum_of_interactions = float(aggregatedFileHDF5Object.get(internal_path + '/' + 'sum_of_interactions')[()])
         aggregatedFileHDF5Object.close()
-        # data.append()
-        # chromosome = None
-        #     start_list = []
-        #     end_list = []
-        #     gene_name = None
-        #     sum_of_interactions = None
-        #     relative_distance_list = []
-
-        #     raw_target_list = []
         line_content = []
         data = []
         for i in range(len(start_list)):
             line_content.append([chromosome, start_list[i], end_list[i], gene_name, sum_of_interactions, relative_distance_list[i], raw_target_list[i]])
             data.append([sum_of_interactions, raw_target_list[i]])
-            # interaction_data[data[0][i]] = list([float(data[1][i]), float(data[2][i]), float(data[3][i]), float(data[4][i])])
-            # interaction_file_data[data[0][i]] = list([str(chromosome), int(float(data[5][i])), int(float(data[6][i])), str(gene), float(sum_of_interactions), int(float(data[0][i])), float(data[1][i]), float(data[2][i]), float(data[4][i]), float(data[3][i]) ])
 
         return line_content, data
 
     def readDifferentialFile(self, pFilePath, pQuadruple):
-
-        # Chromosome	Start	End	Gene	Relative distance	sum of interactions 1	target_1 raw	sum of interactions 2	target_2 raw	p-value
 
         differentialFileHDF5Object = h5py.File(pFilePath, 'r')
 

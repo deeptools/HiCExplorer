@@ -44,7 +44,6 @@ def test_regular_mode_fisher():
                  outfile_differential.name, 1).split()
     chicDifferentialTest.main(args)
 
-
     differentialFileH5Object = h5py.File(outfile_differential.name, 'r')
     assert 'FL-E13-5_chr1' in differentialFileH5Object
     assert len(differentialFileH5Object) == 1
@@ -57,12 +56,9 @@ def test_regular_mode_fisher():
     assert differentialFileH5Object.attrs['alpha'] == 0.5
     assert differentialFileH5Object.attrs['test'] == 'fisher'
 
-
-
     for chromosome in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1']:
 
         assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome]) == 3
-
 
         for gene in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome]:
             assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene]) == 3
@@ -70,10 +66,11 @@ def test_regular_mode_fisher():
                 assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene][data]) == 10
                 for status in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene][data]:
 
-                    assert status in ['chromosome', 'end_list', 'gene', 'pvalue_list', 'raw_target_list_1', 'raw_target_list_2', \
-                                    'relative_distance_list', 'start_list', 'sum_of_interactions_1', 'sum_of_interactions_2']
+                    assert status in ['chromosome', 'end_list', 'gene', 'pvalue_list', 'raw_target_list_1', 'raw_target_list_2',
+                                      'relative_distance_list', 'start_list', 'sum_of_interactions_1', 'sum_of_interactions_2']
 
     differentialFileH5Object.close()
+
 
 def test_regular_mode_chi2():
 
@@ -85,7 +82,6 @@ def test_regular_mode_chi2():
                  0.5, 'chi2',
                  outfile_differential.name, 1).split()
     chicDifferentialTest.main(args)
-
 
     differentialFileH5Object = h5py.File(outfile_differential.name, 'r')
     assert 'FL-E13-5_chr1' in differentialFileH5Object
@@ -99,11 +95,9 @@ def test_regular_mode_chi2():
     assert differentialFileH5Object.attrs['alpha'] == 0.5
     assert differentialFileH5Object.attrs['test'] == 'chi2'
 
-
     for chromosome in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1']:
 
         assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome]) == 3
-
 
         for gene in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome]:
             assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene]) == 3
@@ -111,8 +105,7 @@ def test_regular_mode_chi2():
                 assert len(differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene][data]) == 10
                 for status in differentialFileH5Object['FL-E13-5_chr1']['MB-E10-5_chr1'][chromosome][gene][data]:
 
-                    assert status in ['chromosome', 'end_list', 'gene', 'pvalue_list', 'raw_target_list_1', 'raw_target_list_2', \
-                                    'relative_distance_list', 'start_list', 'sum_of_interactions_1', 'sum_of_interactions_2']
-
+                    assert status in ['chromosome', 'end_list', 'gene', 'pvalue_list', 'raw_target_list_1', 'raw_target_list_2',
+                                      'relative_distance_list', 'start_list', 'sum_of_interactions_1', 'sum_of_interactions_2']
 
     differentialFileH5Object.close()

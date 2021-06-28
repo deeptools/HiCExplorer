@@ -112,7 +112,6 @@ def compute_x_fold(pDataList, pBackgroundList):
 
 
 def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions):
-    file_list = []
     interaction_data_list = []
 
     try:
@@ -203,7 +202,6 @@ def main(args=None):
 
     queue = [None] * args.threads
     process = [None] * args.threads
-    file_list = []
     background_model = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range, args.fixateRange)
     background_model_mean_values = viewpointObj.readBackgroundDataFile(

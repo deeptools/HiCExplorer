@@ -216,9 +216,9 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
 
         gene_object = chromosome_object.create_group(gene_name)
 
-        accepted_object = gene_object.create_group('accepted')
-        rejected_object = gene_object.create_group('rejected')
-        all_object = gene_object.create_group('all')
+        gene_object.create_group('accepted')
+        gene_object.create_group('rejected')
+        gene_object.create_group('all')
 
         for category in ['accepted', 'rejected', 'all']:
             write_object = gene_object[category]
@@ -269,13 +269,10 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
             geneGroup[gene_name] = chromosome_object[gene_name]
         except Exception as exp:
             log.debug('exception {}'.format(str(exp)))
-            log.debug('Gene group given: {}'.format(key[2]))
-            log.debug('Gene group return: {}'.format(group_name))
     resultFileH5Object.close()
 
 
 def run_statistical_tests(pInteractionFilesList, pArgs, pViewpointObject, pQueue=None):
-    rejected_names = []
     accepted_list = []
     rejected_list = []
     all_results_list = []

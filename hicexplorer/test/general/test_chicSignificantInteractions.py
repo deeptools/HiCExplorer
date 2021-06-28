@@ -44,9 +44,9 @@ def test_xFold():
     outfile_target.close()
 
     args = "--interactionFile {} --backgroundModelFile {} --range {} {} --outFileNameSignificant {} --outFileNameTarget {} --xFoldBackground {} --pValue {} -t {} --combinationMode dual".format(ROOT + 'chicViewpoint/two_matrices.hdf5',
-                                                                                                                                                                      ROOT + 'background.txt',
-                                                                                                                                                                      200000, 200000, outfile_significant.name,
-                                                                                                                                                                      outfile_target.name, 1.5, 0.2, 1).split()
+                                                                                                                                                                                                 ROOT + 'background.txt',
+                                                                                                                                                                                                 200000, 200000, outfile_significant.name,
+                                                                                                                                                                                                 outfile_target.name, 1.5, 0.2, 1).split()
     chicSignificantInteractions.main(args)
 
     significantFileH5Object = h5py.File(outfile_significant.name, 'r')
@@ -116,7 +116,6 @@ def test_xFold():
 
             assert len(targetFileH5Object['FL-E13-5_chr1'][matrix][chromosome]) == 3
 
-
         for gene in targetFileH5Object['FL-E13-5_chr1'][matrix][chromosome]:
             assert len(targetFileH5Object['FL-E13-5_chr1'][matrix][chromosome][gene]) == 5
             for data in targetFileH5Object['FL-E13-5_chr1'][matrix][chromosome][gene]:
@@ -136,9 +135,9 @@ def test_loose_pvalue():
     outfile_target.close()
 
     args = "--interactionFile {} --backgroundModelFile {} --range {} {} --outFileNameSignificant {} --outFileNameTarget {} --loosePValue {} --pValue {} -t {} --combinationMode dual".format(ROOT + 'chicViewpoint/two_matrices.hdf5',
-                                                                                                                                                                      ROOT + 'background.txt',
-                                                                                                                                                                      200000, 200000, outfile_significant.name,
-                                                                                                                                                                      outfile_target.name, 0.5, 0.2, 1).split()
+                                                                                                                                                                                             ROOT + 'background.txt',
+                                                                                                                                                                                             200000, 200000, outfile_significant.name,
+                                                                                                                                                                                             outfile_target.name, 0.5, 0.2, 1).split()
     chicSignificantInteractions.main(args)
 
     significantFileH5Object = h5py.File(outfile_significant.name, 'r')
@@ -208,14 +207,12 @@ def test_loose_pvalue():
 
             assert len(targetFileH5Object['FL-E13-5_chr1'][matrix][chromosome]) == 3
 
-
         for gene in targetFileH5Object['FL-E13-5_chr1'][matrix][chromosome]:
             assert len(targetFileH5Object['FL-E13-5_chr1'][matrix][chromosome][gene]) == 5
             for data in targetFileH5Object['FL-E13-5_chr1'][matrix][chromosome][gene]:
                 assert data in ['chromosome', 'end_list', 'gene', 'interaction_data_list', 'pvalue', 'raw', 'reference_point_end', 'reference_point_start', 'relative_position_list', 'start_list', 'sum_of_interactions', 'xfold']
 
     targetFileH5Object.close()
-
 
 
 def test_loose_pvalue_single():
@@ -229,9 +226,9 @@ def test_loose_pvalue_single():
     outfile_target.close()
 
     args = "--interactionFile {} --backgroundModelFile {} --range {} {} --outFileNameSignificant {} --outFileNameTarget {} --loosePValue {} --pValue {} -t {} --combinationMode single".format(ROOT + 'chicViewpoint/two_matrices.hdf5',
-                                                                                                                                                                      ROOT + 'background.txt',
-                                                                                                                                                                      200000, 200000, outfile_significant.name,
-                                                                                                                                                                      outfile_target.name, 0.5, 0.2, 12).split()
+                                                                                                                                                                                               ROOT + 'background.txt',
+                                                                                                                                                                                               200000, 200000, outfile_significant.name,
+                                                                                                                                                                                               outfile_target.name, 0.5, 0.2, 12).split()
     chicSignificantInteractions.main(args)
 
     significantFileH5Object = h5py.File(outfile_significant.name, 'r')
@@ -282,7 +279,6 @@ def test_loose_pvalue_single():
     assert len(targetFileH5Object['FL-E13-5_chr1']) == 2
     assert len(targetFileH5Object['MB-E10-5_chr1']) == 2
 
-
     assert targetFileH5Object.attrs['type'] == 'target'
     assert len(targetFileH5Object.attrs['range']) == 2
     assert targetFileH5Object.attrs['range'][0] == 200000
@@ -305,7 +301,6 @@ def test_loose_pvalue_single():
 
         assert len(targetFileH5Object['FL-E13-5_chr1'][chromosome]) == 3
 
-
         for gene in targetFileH5Object['FL-E13-5_chr1'][chromosome]:
             assert len(targetFileH5Object['FL-E13-5_chr1'][chromosome][gene]) == 5
             for data in targetFileH5Object['FL-E13-5_chr1'][chromosome][gene]:
@@ -314,7 +309,6 @@ def test_loose_pvalue_single():
     for chromosome in targetFileH5Object['MB-E10-5_chr1']:
 
         assert len(targetFileH5Object['MB-E10-5_chr1'][chromosome]) == 3
-
 
         for gene in targetFileH5Object['MB-E10-5_chr1'][chromosome]:
             assert len(targetFileH5Object['MB-E10-5_chr1'][chromosome][gene]) == 5

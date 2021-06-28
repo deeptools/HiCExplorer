@@ -162,7 +162,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             number_of_rows_plot = len(interactionFile)
             matplotlib.rcParams.update({'font.size': 9})
             fig = plt.figure(figsize=(9.4, 4.8), dpi=pArgs.dpi)
-            canvas = FigureCanvas(fig)
+            FigureCanvas(fig)
             z_score_heights = [0.07] * number_of_rows_plot
             viewpoint_height_ratio = 0.95 - (0.07 * number_of_rows_plot)
             if viewpoint_height_ratio < 0.4:
@@ -180,7 +180,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
             colors = pArgs.colorList
             background_plot = True
             data_plot_label = None
-            gene = ''
+
             file_name = []
             for i, interactionFile_ in enumerate(interactionFile):
                 file_name.append(interactionFile_[0])
@@ -200,7 +200,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                         if i < len(pSignificantRegionsFileList[j]):
                             #         if len(pSignificantRegionsFileList[j][i]) > 0:
                             significant_regions, significant_p_values = pViewpointObj.readSignificantRegionsFile(pArgs.significantInteractions, pSignificantRegionsFileList[j][i], viewpoint_index_start, viewpoint_index_end, pResolution, pArgs.range, viewpoint)
-                    except:
+                    except Exception:
                         log.debug('len(pSignificantRegionsFileList) {}'.format(len(pSignificantRegionsFileList)))
                         log.debug('len(pSignificantRegionsFileList[j]) {}'.format(len(pSignificantRegionsFileList[j])))
                         log.debug('i {}'.format(i))

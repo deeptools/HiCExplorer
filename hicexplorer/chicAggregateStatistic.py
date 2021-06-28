@@ -311,7 +311,6 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
-    outfile_names = []
 
     interactionList = []
     interactionDict = {}

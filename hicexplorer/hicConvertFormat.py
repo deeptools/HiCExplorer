@@ -280,7 +280,7 @@ def main(args=None):
                                                                  correction_factors, distance_counts)
                     matrixFileHandlerOutput.save(args.outFileName[i], pSymmetric=True, pApplyCorrection=applyCorrection)
                 else:
-                    log.error('The number of input matrices, output files and bed files does not match: Input: {}; Output: {}; Bed: {}'.format(len(args.matrix), len(args.outFileName), len(bedFileHicpro)))
+                    log.error('The number of input matrices, output files and bed files does not match: Input: {}; Output: {}; Bed: {}'.format(len(args.matrix), len(args.outFileName), len(args.bedFileHicpro)))
                     exit(1)
             elif args.outputFormat in ['mcool']:
 
