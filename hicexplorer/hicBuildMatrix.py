@@ -383,8 +383,8 @@ def bed2interval_list(bed_file_handler, pChromosomeSize, pRegion):
     >>> foo = file_tmp.write('chr1\t10\t20\tH1\t0\n')
     >>> foo = file_tmp.write("chr1\t60\t70\tH2\t0\n")
     >>> file_tmp.close()
-    >>> bed2interval_list(open(_file.name, 'r'))
-    [('chr1', 10, 20), ('chr1', 60, 70), None, None]
+    >>> bed2interval_list(open(_file.name, 'r'), None, None)
+    [('chr1', 10, 20), ('chr1', 60, 70)]
     >>> os.remove(_file.name)
     """
 
