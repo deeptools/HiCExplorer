@@ -502,8 +502,9 @@ def main(args=None):
         exit(1)
     if args.outputFileType == 'txt':
         if args.outputMode == 'geneName':
+            basepath = os.path.dirname(args.outFileName)
             for i, file_content_string in enumerate(thread_data):
-                with open(file_name_list[i], "w") as file:
+                with open(basepath + '/' + file_name_list[i], "w") as file:
                     file.write(file_content_string)
         else:
             with tarfile.open(args.outFileName, "w:gz") as tar:
@@ -553,7 +554,9 @@ def main(args=None):
             with tarfile.open(args.outFileName, "w:gz") as tar_handle:
                 for root, dirs, files in os.walk(bigwig_folder):
                     for file in files:
-                        tar_handle.add(os.path.join(root, file))
+                        # tar_handle.addfile(tarfile.TarInfo(file), os.path.join(root, file))
+                        # tar_handle.add(os.path.join(root, file))
+                        tar_handle.add(os.path.join(root, file), arcname=file)
 
             if os.path.exists(bigwig_folder):
                 try:
