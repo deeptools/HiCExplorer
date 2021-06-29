@@ -6,6 +6,8 @@ How we use HiCExplorer to analyse cHi-C data
 
 This How-to is based on the published dataset from `Andrey et al. 2017 <https://doi.org/10.1101/gr.213066.116>`__. For the tutorial, we use the samples FL-E13.5 and MB-E-10.5. 
 
+**Disclaimer**: With HiCExplorer 3.7 all data is stored in hdf5 based files to make the handling easier. Please check your version of HiCExplorer to make sure you use the latest version. Commands of older HiCExplorer version do not work with the introduced changes!
+
 
 Download the raw data
 ---------------------
@@ -150,48 +152,34 @@ Viewpoint computation
 
 In this step the viewpoints for each reference point listed in a `reference_points.bed`-file is extracted from the interaction matrix, using the quality controlled file created by `chicQualityControl`. The up- and downstream range can be given via `--range upstream downstream`. Please use the same value for `--fixateRange` as in the background model computation.
 For each relative distance the x-fold over the average value of this relative distance is computed and each location is assigned a p-value based on the background negative binomial distribution for this relative distance.
-For each viewpoint one viewpoint file is created and stored in the folder given by the parameter `--outputFolder`. 
+The output is one hdf5 based file containing all the data.
 
 .. code:: bash
 
-    chicViewpoint -m FL-E13-5.cool MB-E10-5.cool --averageContactBin 5 --range 1000000 1000000 -rp referencePoints.bed -bmf background_model.txt --writeFileNamesToFile interactionFiles.txt --outputFolder interactionFilesFolder --fixateRange 500000 --threads 20
+    chicViewpoint -m FL-E13-5.cool MB-E10-5.cool --averageContactBin 5 --range 1000000 1000000 -rp referencePoints.bed -bmf background_model.txt --outFileName interactions.hdf5 --fixateRange 500000 --threads 20
 
+.. code:: bash
 
-The name of each viewpoint file starts with its sample name (given by the name of the matrix), the
-exact location and the gene / promoter name. For example, the viewpoint `chr1	4487435	4487435 Sox17` from `MB-E10-5.cool` matrix will be called `MB-E10-5_chr1_4487435_4487435_Sox17.txt` and looks like the following:
+    chicExportData --file interactions.hdf5 --outputMode all -o interactions.tar.gz  -t 16
+
+The text files for each matrix and viewpoint have the following structure:
 
 .. code:: text
 
-    # Interaction file, created with HiCExplorer's chicViewpoint version 3.2
-    # MB-E10-5.cool chr1_4487435_4487435    3.49  Mbp       5.49  Mbp       Sox17   Sum of interactions in fixate range: 978.0
-    # Chromosome    Start   End     Gene    Sum of interactions     Relative position       Relative Interactions   p-value x-fold  Raw
-    #
-    chr1    3487000 3488000 Sox17   978.0   -1000000        0.000000000000  0.894286365313  0.000000000000  0.000000000000
-    chr1    3488000 3489000 Sox17   978.0   -999000 0.000000000000  0.894286365313  0.000000000000  0.000000000000
-    chr1    3489000 3490000 Sox17   978.0   -998000 0.000000000000  0.894286365313  0.000000000000  0.000000000000
-    chr1    3490000 3491000 Sox17   978.0   -997000 0.000000000000  0.894286365313  0.000000000000  0.000000000000
-    chr1    3491000 3492000 Sox17   978.0   -996000 0.000000000000  0.894286365313  0.000000000000  0.000000000000
-    chr1    3492000 3493000 Sox17   978.0   -995000 0.000000000000  0.894286365313  0.000000000000  0.000000000000
-    chr1    3493000 3494000 Sox17   978.0   -994000 0.000000000000  0.894286365313  0.000000000000  0.000000000000
-    chr1    3494000 3495000 Sox17   978.0   -993000 0.000000000000  0.894286365313  0.000000000000  0.000000000000
-    chr1    3495000 3496000 Sox17   978.0   -992000 0.000000000000  0.894286365313  0.000000000000  0.000000000000
-    chr1    3496000 3497000 Sox17   978.0   -991000 0.000000000000  0.894286365313  0.000000000000  0.000000000000
+    # Chromosome	Start	End	Gene	Sum of interactions	Relative position	Relative Interactions	p-value	x-fold	Raw
+    chr1	14167000	14168000	Eya1	673.000000000000	-133000	0.000000000000	1.000000000000	0.000000000000	0.000000000000
+    chr1	14168000	14169000	Eya1	673.000000000000	-132000	0.000000000000	1.000000000000	0.000000000000	0.000000000000
+    chr1	14169000	14170000	Eya1	673.000000000000	-131000	0.000000000000	1.000000000000	0.000000000000	0.000000000000
+    chr1	14170000	14171000	Eya1	673.000000000000	-130000	0.000000000000	1.000000000000	0.000000000000	0.000000000000
+    chr1	14171000	14172000	Eya1	673.000000000000	-129000	0.000000000000	1.000000000000	0.000000000000	0.000000000000
+    chr1	14172000	14173000	Eya1	673.000000000000	-128000	0.000000000000	1.000000000000	0.000000000000	0.000000000000
+    chr1	14173000	14174000	Eya1	673.000000000000	-127000	0.000000000000	1.000000000000	0.000000000000	0.000000000000
+    chr1	14174000	14175000	Eya1	673.000000000000	-126000	0.000000000000	1.000000000000	0.000000000000	0.000000000000
+    chr1	14175000	14176000	Eya1	673.000000000000	-125000	0.000297176820	0.042850447268	0.916568982282	0.200000000000
+    chr1	14176000	14177000	Eya1	673.000000000000	-124000	0.000297176820	0.042850447268	0.908160092485	0.200000000000
 
 
-Each file contains a header with information about the HiCExplorer version used, the sample, the viewpoint and the content of the different columns. 
-
-If the parameter `--writeFileNamesToFile` is set, the viewpoint file names are written to a file which can be used for batch processing in the later steps. Each sample is combined with every other sample for each viewpoint to enable the batch processing
-for the differential analysis. Example: matrices `FL-E13-5.cool` and  `MB-E10-5.cool` with the three reference points:
-
-.. code:: bash
-
-    FL-E13-5_chr1_4487435_4487435_Sox17.txt
-    MB-E10-5_chr1_4487435_4487435_Sox17.txt
-    FL-E13-5_chr1_14300280_14300280_Eya1.txt
-    MB-E10-5_chr1_14300280_14300280_Eya1.txt
-    FL-E13-5_chr1_19093103_19093103_Tfap2d.txt
-    MB-E10-5_chr1_19093103_19093103_Tfap2d.txt
-
+Each file contains a header with information about content of the different columns. 
 
 
 
@@ -202,102 +190,76 @@ Significant interactions detection
 To detect significant interactions and to prepare a target file for each viewpoint which will be used for the differential analysis, the script `chicSignificantInteractions` is used. It offers two modes: either the user can specify 
 an x-fold value or a loose p-value. The first one considers all interactions with a minimum x-fold over the average background for its relative distribution as a candidate or secondly, all interactions with a loose p-value or less are considered. 
 These are pre-selection steps to be able to detect wider peaks in the same way as sharp ones. All detected candidates are merged to one peak if they are direct neighbors, and the sum of all interaction values of this neighborhood
-is used to compute a new p-value. The p-value is computed based on the relative distance negative binomial distribution of the interaction with the original highest interaction value. All peaks considered are accepted as significant interactions if
+is used to compute a new p-value. The p-value is computed based on the relative distance continuous negative binomial distribution of the interaction with the original highest interaction value. All peaks considered are accepted as significant interactions if
 their p-value is as small as the threshold `--pvalue`.
 
 To exclude interactions with an interaction value smaller than desired the parameter `--peakInteractionsThreshold` can be set.
 
-In this example we use the reference point Mstn at location chr1 53118507, a loose p-value of 0.1 and p-value of 0.01:
+In this example we use the created interactions.hdf5 file of chicViewpoint, a loose p-value of 0.1 and p-value of 0.01. For all stored locations the significant interactions are computed:
 
 .. code:: bash
 
-    chicSignificantInteractions --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt -bmf background_model.txt --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1
+    chicSignificantInteractions --interactionFile interactions.hdf5 -bmf background_model.txt --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1 --outFileNameSignificant significant.hdf5 --outFileNameTarget target.hdf5 --combinationMode dual
 
 
-This creates two files: 
+This creates two files, a file storing all significant interactions, significant.hdf5, and a target file, target.hdf5. The content of the two files can be export via chicExport: 
 
 .. code:: bash
 
-    FL-E13-5_chr1_53118507_53118507_Mstn_target.txt
-    FL-E13-5_chr1_53118507_53118507_Mstn__significant_interactions.txt
+    chicExportData --file significant.hdf5 --outputMode all -o targets.tar.gz  -t 16
+    chicExportData --file target.hdf5 --outputMode all -o targets.tar.gz  -t 16
 
-These files are stored in the folders given by the parameters `--targetFolder` and `--outputFolder`.
+For all tools it is also possible to just extract one gene by the gene name as it was given in the fourth column of the reference file. For each name, the data for all stored matrices is extracted. This mode works also on the interactions, target, aggregated and differential files.
+
+.. code:: bash
+
+    chicExportData --file significant.hdf5 --outputMode geneName --outputModeName Eya1  -t 16
+
 
 The significant interaction files looks like the following:
 
 .. code:: bash
 
-    # FL-E13-5.cool	chr1_53118507_53118507	52.12  Mbp	54.12  Mbp	Mstn	Sum of interactions in fixate range: 1517.0
-    #Chromosome	Start	End	Gene	Sum of interactions	Relative position	Relative interactions	p-value	x-fold	Raw target
-    chr1	53318000	53321000	Mstn	1517.0	200000	0.00395517468600000040	0.00000145009991170397	8.37043994897500098773	6.00000000000000000000
-    chr1	53329000	53334000	Mstn	1517.0	212000	0.01081081081000000166	0.00000000000000188738	22.37661518795599846499	16.39999999999999857891
-    chr1	53348000	53350000	Mstn	1517.0	231000	0.00329597890600000004	0.00001463968364323609	7.37204640642899988734	5.00000000000000000000
-    chr1	53351000	53359000	Mstn	1517.0	239000	0.01437046802899999941	0.00000000000000099920	34.20972383882499912033	21.80000000000000071054
-    chr1	53393000	53401000	Mstn	1517.0	278000	0.01793012524599999977	0.00000000000000044409	48.20518935066399990319	27.19999999999999928946
-    chr1	53408000	53420000	Mstn	1517.0	294000	0.02307185234000000418	0.00000000000001743050	68.05162660125500906361	35.00000000000000000000
+    # Chromosome	Start	End	Gene	Sum of interactions	Relative position	Relative Interactions	p-value	x-fold	Raw
+    chr1	14274000	14278000	Eya1	673.000000000000	-26000	0.008320950966	0.007037698679	7.811125758170	5.600000000000
+    chr1	14296000	14298000	Eya1	673.000000000000	-3000	0.057949479941	0.104215728599	3.781355935916	39.000000000000
+    chr1	14314000	14316000	Eya1	673.000000000000	14000	0.015156017831	0.048507853154	3.190333935010	10.200000000000
+    chr1	14317000	14319000	Eya1	673.000000000000	17000	0.014561664190	0.034914431882	3.517090338584	9.800000000000
+    chr1	14480000	14488000	Eya1	673.000000000000	184000	0.011292719168	0.000000010481	19.285082946462	7.600000000000
+    chr1	14491000	14501000	Eya1	673.000000000000	200000	0.030683506686	0.000000000000	56.967824833429	20.650000000000
 
 
 The target file looks like:
 
 .. code:: bash
 
-    # Significant interactions result file of HiCExplorer's chicSignificantInteractions version 3.2-dev
-    # targetFolder/FL-E13-5_chr1_53118507_53118507_Mstn_target.txt
-    # Mode: loose p-value with 0.1
-    # Used p-value: 0.01
-    #
-    chr1	53318000	53321000
-    chr1	53329000	53334000
-    chr1	53348000	53359000
-    chr1	53393000	53401000
-    chr1	53408000	53420000
+    chr1	14274000	14278000
+    chr1	14295000	14298000
+    chr1	14314000	14319000
+    chr1	14426000	14432000
+    chr1	14447000	14455000
+    chr1	14460000	14465000
+    chr1	14480000	14488000
+    chr1	14491000	14501000
 
 
-Batch mode
-~~~~~~~~~~
-
-The batch mode supports the computation of many viewpoints at once and is able to create one target list for the same viewpoint and two (or n) samples. To do the batch computation the 
-parameter `--batchMode` needs to be added and the folder of the viewpoint files needs to be defined. In addition, the list of viewpoints created by `chicViewpoint` with `--writeFileNamesToFile` needs to be 
-used as input. One target file is created for n consecutive lines and can be defined via the `--computeSampleNumber` parameter. However, for the differential test where the target file is needed, only 
-two samples and one target file is supported.
-
-.. code:: bash
-
-    chicSignificantInteractions --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder/  -bmf background_model.txt --range 1000000 1000000 --pValue 0.01 --loosePValue 0.1 --batchMode
-
-The output is: 
-
-- A folder containing all target files, name defined by `--targetFolder`, default value is `targetFolder`
-- A folder with all significant interaction files, name defined by `--outputFolder`, default value is `significantFiles`
-- A list containing the file names of all target files, name defined by `--targetFileList`, default value is `targetList.txt`
-- A list containing the file names of all significant interaction files, name defined by `--writeFileNamesToFile`, default value is `significantFilesBatch.txt`
-
+The parameter `--combinationMode` has the options `single` and `dual`. This parameter is important if a differential analysis should be computed, either a target region is only for one gene of one matrix, or the regions of one gene of two matrices are combined. 
+For example: 
+- `dual` combines as follows: `[[matrix1_gene1, matrix2_gene1], [matrix2_gene1, matrix3_gene1],[matrix1_gene2, matrix2_gene2], ...]`
+- `single` combines as follows: `[matrix1_gene1, matrix1_gene2, matrix2_gene1, ...]`
 
 Aggregate data for differential test
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The process to aggregate data is only necessary if the differential test is used. Either two files and one target list are used to generate the files for the differential test
-or the batch mode can be used. `chicAggregateStatistic` takes the created viewpoint files from `chicViewpoint` as input and either the target files per two samples created by `chicSignificantInteractions`
+The process to aggregate data is only necessary if the differential test is used. `chicAggregateStatistic` takes the created interaction file from `chicViewpoint` as input and either the target file created by `chicSignificantInteractions`
 or one target file which applies for all viewpoints. 
 
 .. code:: bash
 
-    chicAggregateStatistic --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.txt --targetFile targetFolder/FL-E13-5_MB-E10-5_chr1_53118507_53118507_Mstn_target.txt
+    chicAggregateStatistic --interactionFile interaction.hdf5 --targetFile target.hdf5 --outFileName aggregate.hdf5 -t 16
+    chicAggregateStatistic --interactionFile interaction.hdf5 --targetFile regions_of_interest.bed --outFileName aggregate.hdf5 -t 16
 
-It selects the original data based on the target locations and returns one file per sample which is used for the differential test.
-
-Batch mode
-~~~~~~~~~~
-
-In the batch mode the interaction file is the file containing the viewpoint file names, the folder needs to be defined by `--interactionFileFolder`, the same applies to the target file and folder.
-Two viewpoint files are match with one target file created by `chicSignificantInteractions` or one target file for all viewpoints. Please notice the output files are written to the folder name
-defined by `--outputFolder`, the default is `aggregatedFiles` and it is recommended to write the file names for further batch processing with `hicDifferentialTest` to `--writeFileNamesToFile`. All output files
-get the suffix defined by `--outFileNameSuffix`, default value is `_aggregate_target.txt`.
-
-.. code:: bash
-
-     chicAggregateStatistic --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder --targetFile targetList.txt --targetFileFolder targetFolder --batchMode
-
+It selects the original data based on the target locations and returns one hdf5 based file.
 
 
 Differential test
@@ -306,101 +268,58 @@ Differential test
 The differential test tests the interaction value of the reference point and the interaction value of the target of two samples for a differential expression. To achieve this,
 either Fisher's test or the chi-squared test can be used. H0 is defined as 'both locations are equal', meaning the differential expressed targets can be found in the H0 rejected file.
 
-This can be computed per sample: 
-
 
 .. code:: bash
 
-    chicDifferentialTest --interactionFile aggregatedFiles/FL-E13-5_chr1_53118507_53118507_Mstn__aggregate_target.txt aggregatedFiles/MB-E10-5_chr1_53118507_53118507_Mstn__aggregate_target.txt --alpha 0.05 --statisticTest fisher
+    chicDifferentialTest --aggregatedFile aggregate.hdf5  --alpha 0.05 --statisticTest fisher --outFileName differential.hdf5 -t 16
 
-Or via batch mode:
 
-.. code:: bash
-
-    chicDifferentialTest --interactionFile aggregatedFilesBatch.txt --interactionFileFolder aggregatedFiles --alpha 0.05 --statisticTest fisher --batchMode --threads 20
-
-In both cases it is important to set the desired alpha value and the output is written to `--outputFolder` (default `differentialResults`). For each sample three files are created:
+It is important to set the desired alpha value and the output is written to one hdf5 based file. For each sample three internal datasets are created:
 
 - H0 rejected targets 
 - H0 accepted targets 
 - one file containing both
 
-In the batch mode, the file `--rejectedFileNamesToFile` is also written and contains the file names of the rejected files. This can be used for the batch processing mode of `chicPlotViewpoint`.
+The data can be exported via `chicExportData`:
 
 .. code:: bash
 
-    # Differential analysis result file of HiCExplorer's chicDifferentialTest version 3.2-dev
-    # This file contains the p-values computed by fisher test
-    # To test the smoothed (float) values they were rounded up to the next integer
-    #
-    # Alpha level 0.05
-    # Degrees of freedom 1
-    #
-    # FL-E13-5.cool	chr1_53118507_53118507	52.12  Mbp	54.12  Mbp	Mstn	Sum of interactions in fixate range: 1517.0
-    # MB-E10-5.cool	chr1_53118507_53118507	52.12  Mbp	54.12  Mbp	Mstn	Sum of interactions in fixate range: 1670.0
-    #Chromosome	Start	End	Gene	Relative distance	sum of interactions 1	target_1 raw	sum of interactions 2	target_2 raw	p-value
-    chr1	53089000	53091000	Mstn	-28000	1517.00000	5.00000	1670.00000	10.40000		0.21800
-    chr1	53131000	53133000	Mstn	14000	1517.00000	18.20000	1670.00000	23.60000		0.75900
-    chr1	53156000	53158000	Mstn	39000	1517.00000	3.00000	1670.00000	10.80000		0.06117
-    chr1	53251000	53254000	Mstn	135000	1517.00000	4.00000	1670.00000	9.60000		0.18614
-    chr1	53287000	53291000	Mstn	172000	1517.00000	7.20000	1670.00000	15.00000		0.29506
-    chr1	53305000	53309000	Mstn	190000	1517.00000	6.20000	1670.00000	12.40000		0.36952
-    chr1	53318000	53321000	Mstn	202000	1517.00000	6.00000	1670.00000	3.20000		0.53309
-    chr1	53326000	53334000	Mstn	215000	1517.00000	25.80000	1670.00000	22.60000		0.47374
-    chr1	53346000	53359000	Mstn	240000	1517.00000	31.60000	1670.00000	22.20000		0.13464
-    chr1	53408000	53421000	Mstn	302000	1517.00000	36.40000	1670.00000	28.20000		0.21290
+    chicExportData --file differential.hdf5 --outputMode all  -o differential.tar.gz  -t 16
+
+The created tar.gz file contains for each tested regions the three files `rejected`, 'accepted' and a file containing both information. It is also possible to extract only one gene:
+
+.. code:: bash
+
+    chicExportData --file differential.hdf5 --outputMode geneName --outputModeName Eya1 -o differential_one  -t 16
+
+In case of the single extraction, the output file name serves only to determine the folder to save the data. The names are based on the gene name.
 
 
 .. code:: bash
 
-    # Differential analysis result file of HiCExplorer's chicDifferentialTest version 3.2-dev
-    # This file contains the p-values computed by fisher test
-    # To test the smoothed (float) values they were rounded up to the next integer
-    #
-    # Alpha level 0.05
-    # Degrees of freedom 1
-    #
-    # FL-E13-5.cool	chr1_53118507_53118507	52.12  Mbp	54.12  Mbp	Mstn	Sum of interactions in fixate range: 1517.0
-    # MB-E10-5.cool	chr1_53118507_53118507	52.12  Mbp	54.12  Mbp	Mstn	Sum of interactions in fixate range: 1670.0
-    #Chromosome	Start	End	Gene	Relative distance	sum of interactions 1	target_1 raw	sum of interactions 2	target_2 raw	p-value
-    chr1	53393000	53401000	Mstn	282000	1517.00000	27.20000	1670.00000	6.40000		0.00012
+    # Chromosome	Start	End	Gene	Relative distance	sum of interactions 1	target_1 raw	sum of interactions 2	target_2 raw	p-value
+    chr1	14274000	14278000	Eya1	-23000	673.000000000000	5.600000000000	832.000000000000	0.000000000000	0.008134451704
+    chr1	14295000	14298000	Eya1	-3000	673.000000000000	44.400000000000	832.000000000000	49.800000000000	0.670801771179
+    chr1	14314000	14319000	Eya1	18000	673.000000000000	24.200000000000	832.000000000000	23.400000000000	0.385952554141
+    chr1	14426000	14432000	Eya1	131000	673.000000000000	2.400000000000	832.000000000000	9.000000000000	0.245228952263
+    chr1	14447000	14455000	Eya1	154000	673.000000000000	4.400000000000	832.000000000000	12.400000000000	0.232102031454
+    chr1	14460000	14465000	Eya1	164000	673.000000000000	3.200000000000	832.000000000000	7.600000000000	0.564250349826
+    chr1	14480000	14488000	Eya1	187000	673.000000000000	7.600000000000	832.000000000000	3.200000000000	0.151571165731
+    chr1	14491000	14501000	Eya1	200000	673.000000000000	20.650000000000	832.000000000000	18.750000000000	0.338670136491
 
-.. code:: bash
-
-    # Differential analysis result file of HiCExplorer's chicDifferentialTest version 3.2-dev
-    # This file contains the p-values computed by fisher test
-    # To test the smoothed (float) values they were rounded up to the next integer
-    #
-    # Alpha level 0.05
-    # Degrees of freedom 1
-    #
-    # FL-E13-5.cool	chr1_53118507_53118507	52.12  Mbp	54.12  Mbp	Mstn	Sum of interactions in fixate range: 1517.0
-    # MB-E10-5.cool	chr1_53118507_53118507	52.12  Mbp	54.12  Mbp	Mstn	Sum of interactions in fixate range: 1670.0
-    #Chromosome	Start	End	Gene	Relative distance	sum of interactions 1	target_1 raw	sum of interactions 2	target_2 raw	p-value
-    chr1	53089000	53091000	Mstn	-28000	1517.00000	5.00000	1670.00000	10.40000		0.21800
-    chr1	53131000	53133000	Mstn	14000	1517.00000	18.20000	1670.00000	23.60000		0.75900
-    chr1	53156000	53158000	Mstn	39000	1517.00000	3.00000	1670.00000	10.80000		0.06117
-    chr1	53251000	53254000	Mstn	135000	1517.00000	4.00000	1670.00000	9.60000		0.18614
-    chr1	53287000	53291000	Mstn	172000	1517.00000	7.20000	1670.00000	15.00000		0.29506
-    chr1	53305000	53309000	Mstn	190000	1517.00000	6.20000	1670.00000	12.40000		0.36952
-    chr1	53318000	53321000	Mstn	202000	1517.00000	6.00000	1670.00000	3.20000		0.53309
-    chr1	53326000	53334000	Mstn	215000	1517.00000	25.80000	1670.00000	22.60000		0.47374
-    chr1	53346000	53359000	Mstn	240000	1517.00000	31.60000	1670.00000	22.20000		0.13464
-    chr1	53393000	53401000	Mstn	282000	1517.00000	27.20000	1670.00000	6.40000		0.00012
-    chr1	53408000	53421000	Mstn	302000	1517.00000	36.40000	1670.00000	28.20000		0.21290
 
 
 
 Plotting of Viewpoints
 ^^^^^^^^^^^^^^^^^^^^^^
 
-`chicPlotViewpoint` can plot `n` viewpoints in one plot, add the mean background, show the p-value per relative distance per sample as an additional heatmap bar and highlight significant interactions or differential expressed regions.
+`chicPlotViewpoint` can plot viewpoints of one gene in one plot, add the mean background, show the p-value per relative distance per sample as an additional heatmap bar and highlight significant interactions or differential expressed regions.
 
 One viewpoint:
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt --range 200000 200000 -o single_plot.png
+    chicPlotViewpoint --interactionFile interactions.hdf5 --combinationMode oneGene --combinationName Eya1 --range 200000 200000 -o single_plot.tar.gz --outputFormat png
 
 .. image:: ../images/chic/single_plot.png
 
@@ -408,8 +327,9 @@ Two viewpoints, background, differential expression and p-values:
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.txt --range 300000 300000 --pValue --differentialTestResult differentialResults/FL-E13-5_MB-E10-5_chr1_53118507_53118507_Mstn__H0_rejected.txt --backgroundModelFile background_model.txt -o differential_background_pvalue.png
+    chicPlotViewpoint --interactionFile interactions.hdf5 --combinationMode dual --range 300000 300000 --pValue --differentialTestResult differential.hdf5 --backgroundModelFile background_model.txt -o differential_background_pvalue.tar.gz
 
+This command plots two viewpoints of two different matrices of the same gene in a plot and highlights the differential regions.
 
 .. image:: ../images/chic/differential_background_pvalue.png
 
@@ -417,19 +337,7 @@ Two viewpoints, background, significant interactions and p-values:
 
 .. code:: bash
 
-    chicPlotViewpoint --interactionFile interactionFilesFolder/FL-E13-5_chr1_53118507_53118507_Mstn.txt interactionFilesFolder/MB-E10-5_chr1_53118507_53118507_Mstn.txt --range 300000 300000 --pValue --significantInteractions significantFiles/FL-E13-5_chr1_53118507_53118507_Mstn__significant_interactions.txt significantFiles/MB-E10-5_chr1_53118507_53118507_Mstn__significant_interactions.txt --backgroundModelFile background_model.txt -o significant_background_pvalue.png
+    chicPlotViewpoint --interactionFile interaction.hdf5 --combinationMode dual --range 300000 300000 --pValue --significantInteractions significant.hdf5 --plotSignificantInteractions --backgroundModelFile background_model.txt -o significant_background_pvalue.tar.gz
 
 .. image:: ../images/chic/significant_background_pvalue.png
 
-
-Batch mode
-~~~~~~~~~~
-
-The batch mode is able to plot files under the same parameter setting for multiple viewpoints. These viewpoints are given by the file created by `chicViewpoint` with `--writeFileNamesToFile` parameter.
-The number of consecutive lines which should be plotted to one image can be defined using `--plotSampleNumber`. If the differentially expressed regions should be highlighted, setting this parameter to 2 is recommended.
-
-For all modes the principle of a file containing the file names and a folder containing them applies for the plotting too, and using all cores available is highly recommended.
-
-.. code:: bash
-
-    chicPlotViewpoint --interactionFile interactionFiles.txt --interactionFileFolder interactionFilesFolder/ --range 300000 300000 --pValue --significantInteractions significantFilesBatch.txt --significantInteractionFileFolder significantFiles --backgroundModelFile background_model.txt --outputFolder plots --threads 20 --batchMode

@@ -383,7 +383,7 @@ def bed2interval_list(bed_file_handler, pChromosomeSize, pRegion):
     >>> foo = file_tmp.write('chr1\t10\t20\tH1\t0\n')
     >>> foo = file_tmp.write("chr1\t60\t70\tH2\t0\n")
     >>> file_tmp.close()
-    >>> bed2interval_list(open(_file.name, 'r'))
+    >>> bed2interval_list(open(_file.name, 'r'), None, None)
     [('chr1', 10, 20), ('chr1', 60, 70)]
     >>> os.remove(_file.name)
     """
@@ -403,8 +403,10 @@ def bed2interval_list(bed_file_handler, pChromosomeSize, pRegion):
         except IndexError:
             log.error("error reading BED file at line {}".format(count))
 
-        if chrom == chrom_size[0] and start_region <= start and end_region <= end:
-
+        if pRegion is not None:
+            if chrom == chrom_size[0] and start_region <= start and end_region <= end:
+                interval_list.append((chrom, start, end))
+        else:
             interval_list.append((chrom, start, end))
 
     return interval_list
