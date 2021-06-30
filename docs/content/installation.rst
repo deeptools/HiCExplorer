@@ -14,7 +14,7 @@ Requirements
 * ipykernel >= 5.3.0
 * pysam >= 0.16.*
 * intervaltree >= 3.1.*
-* biopython < 1.77
+* biopython
 * pytables >= 3.6.*
 * pandas >= 1.1.*
 * pybigwig >= 0.3.*

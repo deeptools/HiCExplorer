@@ -21,7 +21,6 @@ from multiprocessing.sharedctypes import Array, RawArray
 from intervaltree import IntervalTree, Interval
 
 from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
 
 # own tools
 from hicmatrix import HiCMatrix as hm
@@ -1204,7 +1203,7 @@ def main(args=None):
                 dangling_sequences[args.restrictionSequence[i]] = {}
                 dangling_sequences[args.restrictionSequence[i]]['pat_forw'] = args.danglingSequence[i]
                 dangling_sequences[args.restrictionSequence[i]]['pat_rev'] = str(
-                    Seq(args.danglingSequence[i], generic_dna).reverse_complement())
+                    Seq(args.danglingSequence[i]).reverse_complement())
 
         log.info("dangling sequences to check "
                  "are {}\n".format(dangling_sequences))
