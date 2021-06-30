@@ -94,7 +94,7 @@ class install(_install):
 
 install_requires_py = ["numpy >= 1.19.*",
                        "scipy >= 1.5.*",
-                       "matplotlib-base >= 3.1.*",
+                       "matplotlib >= 3.1.*",
                        "ipykernel >= 5.3.0",
                        "pysam >= 0.16",
                        "intervaltree >= 3.1.*",

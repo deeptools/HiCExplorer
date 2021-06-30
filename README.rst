@@ -83,7 +83,25 @@ The easiest way to install HiCExplorer is using `BioConda <http://bioconda.githu
 ::
 
    $ conda install hicexplorer -c bioconda -c conda-forge
+   
+   
+We highly recommend conda environments to separate software from each other. With it, different versions of dependencies do not interfere with each other.
 
+::
+
+   $ conda create --name hicexplorer hicexplorer=3.6 python=3.8 -c bioconda -c conda-forge
+   $ conda activate hicexplorer
+   
+To deactivate the environment use:
+
+::
+
+   $ conda deactivate
+   
+
+To learn more about conda and environments, please consider the following `documentation <https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html#>`_.
+   
+   
 
 Install by cloning this repository
 __________________________________
