@@ -29,7 +29,7 @@ This script creates three output files: a plot with the sparsity distribution pe
 
 An example usage is:
 
-$ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --range 20000 40000 --sparsity 0.01 -o referencePointFile_QC_passed.bed
+$ chicQualityControl -m matrix1.cool matrix2.cool -rp referencePointsFile.bed --range 20000 40000 --sparsity 0.01 -o referencePointFile_QC_passed.bed
 """
     )
 

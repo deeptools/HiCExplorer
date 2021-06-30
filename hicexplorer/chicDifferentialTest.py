@@ -23,7 +23,7 @@ def parse_arguments(args=None):
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description="""
 chicDifferentialTest tests if two locations under consideration of the reference point have a different interaction count. For this either Fisher's test or the chi2 contingency test can be used.
-The files that are accepted for this test can be created with `chicAggregateStatistic`. H0 assumes the interactions are not different. Therefore the differential interaction counts are all where H0 was rejected.
+The file that is accepted for this test can be created with `chicAggregateStatistic`. H0 assumes the interactions are not different. Therefore the differential interaction counts are all where H0 was rejected.
 
 """
                                      )
