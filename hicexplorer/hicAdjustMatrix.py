@@ -76,20 +76,29 @@ def adjustMatrix(pArgs):
 
         chromosomes_list = list(hic_matrix.chrBinBoundaries)
         chromosomes_list_to_operate_on = []
+        log.debug('pArgs.chromosomes {}'.format(pArgs.chromosomes))
         for chromosome in pArgs.chromosomes:
             if chromosome in chromosomes_list:
                 chromosomes_list_to_operate_on.append(chromosome)
             else:
                 log.warning('Chromosome not available in matrix: {} {}'.format(pArgs.matrix, chromosome))
+        log.debug('85: chromosomes_list_to_operate_on {}'.format(chromosomes_list_to_operate_on))
         if len(chromosomes_list_to_operate_on) == 0:
             log.error('No valid chromosome given: {}. Available: {}'.format(pArgs.chromosomes, chromosomes_list))
             exit(1)
         if pArgs.action == 'keep':
             hic_matrix.reorderChromosomes(chromosomes_list_to_operate_on)
         elif pArgs.action == 'remove':
-            for chromosome in chromosomes_list:
-                if chromosome in chromosomes_list_to_operate_on:
+            log.debug('chromosomes_list {}'.format(chromosomes_list))
+
+            for chromosome in chromosomes_list_to_operate_on:
+                if chromosome in chromosomes_list:
                     chromosomes_list.remove(chromosome)
+            # for chromosome in chromosomes_list:
+            #     if chromosome in chromosomes_list_to_operate_on:
+            #         chromosomes_list.remove(chromosome)
+                    log.debug('chromosome {}'.format(chromosome))
+            log.debug('chromosomes_list {}'.format(chromosomes_list))
             hic_matrix.reorderChromosomes(chromosomes_list)
         elif pArgs.action == 'mask':
             hic_matrix.maskChromosomes(chromosomes_list_to_operate_on)

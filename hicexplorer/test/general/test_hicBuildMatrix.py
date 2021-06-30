@@ -94,6 +94,38 @@ def test_build_matrix_restriction_enzyme(capsys):
     # os.unlink("/tmp/test.bam")
 
 
+def test_build_matrix_restriction_enzyme_region(capsys):
+    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
+    outfile.close()
+    outfile_bam = NamedTemporaryFile(suffix='.bam', delete=False)
+    outfile.close()
+    qc_folder = mkdtemp(prefix="testQC_")
+    args = "-s {} {} --outFileName {} -bs 5000 -b {} --QCfolder {} --threads 4 --danglingSequence GATC AGCT --restrictionSequence GATC AAGCTT -rs {} {} --region {}".format(sam_R1, sam_R2,
+                                                                                                                                                                            outfile.name, outfile_bam.name,
+                                                                                                                                                                            qc_folder, dpnii_file, ROOT + 'hicFindRestSite/hindIII.bed', 'chr3R').split()
+    # hicBuildMatrix.main(args)
+    compute(hicBuildMatrix.main, args, 5)
+
+    test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel_two_rc_chr3R.h5")
+    new = hm.hiCMatrix(outfile.name)
+
+    # print('test.cut_intervals {}'.format(test.cut_intervals))
+    # print('new.cut_intervals {}'.format(new.cut_intervals))
+    nt.assert_equal(test.matrix.data, new.matrix.data)
+    nt.assert_equal(len(test.cut_intervals), len(new.cut_intervals))
+
+    # print("MATRIX NAME:", outfile.name)
+    print(set(os.listdir(ROOT + "QC_region/")))
+    assert are_files_equal(ROOT + "QC_region/QC.log", qc_folder + "/QC.log")
+    assert set(os.listdir(ROOT + "QC_region/")) == set(os.listdir(qc_folder))
+
+    # accept delta of 60 kb, file size is around 4.5 MB
+    assert abs(os.path.getsize(ROOT + "build_region.bam") - os.path.getsize(outfile_bam.name)) < 64000
+
+    os.unlink(outfile.name)
+    shutil.rmtree(qc_folder)
+
+
 def test_build_matrix_chromosome_sizes(capsys):
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()
