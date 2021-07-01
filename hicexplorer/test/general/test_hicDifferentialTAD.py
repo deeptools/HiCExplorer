@@ -213,7 +213,7 @@ def test_h5_all_single_core_one():
     compute(hicDifferentialTAD.main, args, 5)
 
     assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'mode_one_reject_all_h5_accepted.diff_tad', delta=5, skip=4)
-    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'mode_one_reject_all_h5_rejected.diff_tad', delta=5, skip=4)
+    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'mode_one_reject_all_h5_accepted.diff_tad', delta=5, skip=4)
 
 
 def test_h5_all_multi_core_all():
@@ -227,8 +227,8 @@ def test_h5_all_multi_core_all():
     ).split()
     compute(hicDifferentialTAD.main, args, 5)
 
-    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'mode_all_reject_all__t4_h5_accepted.diff_tad', delta=5, skip=4)
-    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'mode_all_reject_all__t4_h5_rejected.diff_tad', delta=5, skip=4)
+    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'mode_one_reject_all_h5_accepted.diff_tad', delta=5, skip=4)
+    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'mode_one_reject_all_h5_accepted.diff_tad', delta=5, skip=4)
 
 
 @pytest.mark.xfail(reason='Access of a chromosome which is not in the matrix.')
@@ -283,3 +283,7 @@ def test_cool_all_one_core_all_multichr_chromosome():
         1, outfile_pref.name, 'all', 'all'
     ).split()
     compute(hicDifferentialTAD.main, args, 5)
+    
+    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'mode_all_reject_all__t4_cool_multi_chromosomes_accepted.diff_tad', delta=5, skip=4)
+    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'mode_all_reject_all__t4_cool_multi_chromosomes_rejected.diff_tad', delta=5, skip=4)
+  

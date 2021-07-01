@@ -84,208 +84,213 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
 
         old_chromosome = None
 
-        tads_per_chromosome = []
+        # tads_per_chromosome = []
 
-        for j in range(len(pDomainList)):
-            if old_chromosome is None:
-                old_chromosome = pDomainList[j][0]
-                per_chromosome = []
-                per_chromosome.append(pDomainList[j])
+        # for j in range(len(pDomainList)):
+        #     if old_chromosome is None:
+        #         old_chromosome = pDomainList[j][0]
+        #         per_chromosome = []
+        #         per_chromosome.append(pDomainList[j])
 
-            elif old_chromosome == pDomainList[j][0]:
-                per_chromosome.append(pDomainList[j])
-                continue
+        #     elif old_chromosome == pDomainList[j][0]:
+        #         per_chromosome.append(pDomainList[j])
+        #         continue
+        #     else:
+        #         tads_per_chromosome.append(per_chromosome)
+        #         per_chromosome = []
+        #         old_chromosome = pDomainList[j][0]
+        # tads_per_chromosome.append(per_chromosome)
+
+        # log.debug('tads_per_chromosome {}'.format(len(tads_per_chromosome)))
+        # for chromosome_list in tads_per_chromosome:
+        # log.debug('chromosome_list {}'.format(len(chromosome_list)))
+        chromosome_list = pDomainList
+        for i, row in enumerate(chromosome_list):
+
+            if pThreadId is None:
+                log.debug('first thread')
+                if i == len(chromosome_list) - 1:
+                    continue
+            elif pThreadId == True:
+                log.debug('middle thread')
+
+                if i == 0 or i == len(chromosome_list) - 1:
+                    log.debug('i: {}'.format(i))
+                    log.debug('len(chromosome_list): {}'.format(len(chromosome_list)))
+
+                    continue
+            elif pThreadId == False:
+                log.debug('last thread')
+
+                if i == 0:
+                    continue
+
+            if i - 1 >= 0:
+                chromosom = chromosome_list[i - 1][0]
+                start = chromosome_list[i - 1][1]
             else:
-                tads_per_chromosome.append(per_chromosome)
-                per_chromosome = []
-                old_chromosome = pDomainList[j][0]
-        tads_per_chromosome.append(per_chromosome)
-        log.debug('tads_per_chromosome {}'.format(len(tads_per_chromosome)))
-        for chromosome_list in tads_per_chromosome:
+                chromosom = chromosome_list[i][0]
+                start = chromosome_list[i][1]
+            if i + 1 < len(chromosome_list):
+                end = chromosome_list[i + 1][2]
+            else:
+                end = chromosome_list[i][2]
+            # midpos = row[1] + ((row[2] - row[1]) / 2)
 
-            for i, row in enumerate(chromosome_list):
+            if pCoolOrH5:
 
-                if pThreadId is None:
-                    log.debug('first thread')
-                    if i == len(chromosome_list) - 1:
-                        continue
-                elif pThreadId == True:
-                    log.debug('middle thread')
+                # # get intra-TAD data
+                hic_matrix_target = hm.hiCMatrix(
+                    pMatrixFile=pMatrixTarget, pChrnameList=[str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])])
+                hic_matrix_control = hm.hiCMatrix(
+                    pMatrixFile=pMatrixControl, pChrnameList=[str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])])
+                matrix_target = hic_matrix_target.matrix.toarray()
+                matrix_control = hic_matrix_control.matrix.toarray()
 
-                    if i == 0 or i == len(chromosome_list) - 1:
-                        continue
-                elif pThreadId == False:
-                    log.debug('last thread')
+                hic_matrix_target_inter_tad = hm.hiCMatrix(
+                    pMatrixFile=pMatrixTarget, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
+                hic_matrix_control_inter_tad = hm.hiCMatrix(
+                    pMatrixFile=pMatrixControl, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
 
-                    if i == 0:
-                        continue
+                matrix_target_inter_tad = hic_matrix_target_inter_tad.matrix
+                matrix_control_inter_tad = hic_matrix_control_inter_tad.matrix
 
-                if i - 1 >= 0:
-                    chromosom = chromosome_list[i - 1][0]
-                    start = chromosome_list[i - 1][1]
-                else:
-                    chromosom = chromosome_list[i][0]
-                    start = chromosome_list[i][1]
-                if i + 1 < len(chromosome_list):
-                    end = chromosome_list[i + 1][2]
-                else:
-                    end = chromosome_list[i][2]
-                # midpos = row[1] + ((row[2] - row[1]) / 2)
+            else:
+                # in case of h5 pMatrixTarget is already a HiCMatrix object
+                hic_matrix_target = pMatrixTarget
+                hic_matrix_control = pMatrixControl
+                hic_matrix_target_inter_tad = pMatrixTarget
+                hic_matrix_control_inter_tad = pMatrixControl
+                indices_target = hic_matrix_target.getRegionBinRange(str(row[0]), row[1], row[2])
+                indices_control = hic_matrix_control.getRegionBinRange(str(row[0]), row[1], row[2])
 
-                if pCoolOrH5:
+                matrix_target = hic_matrix_target.matrix[indices_target[0]:indices_target[1], indices_target[0]:indices_target[1]].toarray()
+                matrix_control = hic_matrix_control.matrix[indices_control[0]:indices_control[1], indices_control[0]:indices_control[1]].toarray()
+                matrix_target_inter_tad = pMatrixTarget.matrix
+                matrix_control_inter_tad = pMatrixControl.matrix
 
-                    # # get intra-TAD data
-                    hic_matrix_target = hm.hiCMatrix(
-                        pMatrixFile=pMatrixTarget, pChrnameList=[str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])])
-                    hic_matrix_control = hm.hiCMatrix(
-                        pMatrixFile=pMatrixControl, pChrnameList=[str(row[0]) + ':' + str(row[1]) + '-' + str(row[2])])
-                    matrix_target = hic_matrix_target.matrix.toarray()
-                    matrix_control = hic_matrix_control.matrix.toarray()
+            matrix_target = matrix_target.flatten()
+            matrix_control = matrix_control.flatten()
+            # tad_midpoint = hic_matrix_target_inter_tad.getRegionBinRange(str(row[0]), midpos, midpos)[0]
 
-                    hic_matrix_target_inter_tad = hm.hiCMatrix(
-                        pMatrixFile=pMatrixTarget, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
-                    hic_matrix_control_inter_tad = hm.hiCMatrix(
-                        pMatrixFile=pMatrixControl, pChrnameList=[str(chromosom) + ':' + str(start) + '-' + str(end)])
+            # if i - 1 >= 0:
+            # get index position left tad with tad
+            left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
+            left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
+            if pCoolOrH5:
+                outer_left_boundary_index_target = 0
+                outer_left_boundary_index_control = 0
 
-                    matrix_target_inter_tad = hic_matrix_target_inter_tad.matrix
-                    matrix_control_inter_tad = hic_matrix_control_inter_tad.matrix
+                outer_right_boundary_index_control = -1
+                outer_right_boundary_index_target = -1
 
-                else:
-                    # in case of h5 pMatrixTarget is already a HiCMatrix object
-                    hic_matrix_target = pMatrixTarget
-                    hic_matrix_control = pMatrixControl
-                    hic_matrix_target_inter_tad = pMatrixTarget
-                    hic_matrix_control_inter_tad = pMatrixControl
-                    indices_target = hic_matrix_target.getRegionBinRange(str(row[0]), row[1], row[2])
-                    indices_control = hic_matrix_control.getRegionBinRange(str(row[0]), row[1], row[2])
+            else:
+                outer_left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
+                outer_left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
 
-                    matrix_target = hic_matrix_target.matrix[indices_target[0]:indices_target[1], indices_target[0]:indices_target[1]].toarray()
-                    matrix_control = hic_matrix_control.matrix[indices_control[0]:indices_control[1], indices_control[0]:indices_control[1]].toarray()
-                    matrix_target_inter_tad = pMatrixTarget.matrix
-                    matrix_control_inter_tad = pMatrixControl.matrix
+                outer_right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
+                outer_right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
 
-                matrix_target = matrix_target.flatten()
-                matrix_control = matrix_control.flatten()
-                # tad_midpoint = hic_matrix_target_inter_tad.getRegionBinRange(str(row[0]), midpos, midpos)[0]
+            if i + 1 < len(chromosome_list) and not pCoolOrH5:
+                # get index position right tad with tad
+                right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+                right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+            elif i + 1 < len(chromosome_list):
+                right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+                right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
 
-                # if i - 1 >= 0:
-                # get index position left tad with tad
-                left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
-                left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[1], row[1])[0]
-                if pCoolOrH5:
-                    outer_left_boundary_index_target = 0
-                    outer_left_boundary_index_control = 0
+            if i - 1 >= 0 and i + 1 < len(chromosome_list):
+                intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:left_boundary_index_target, left_boundary_index_target:right_boundary_index_target].toarray()
+                intertad_right_target = matrix_target_inter_tad[left_boundary_index_target:right_boundary_index_target, right_boundary_index_target:outer_right_boundary_index_target].toarray()
+                intertad_left_control = matrix_control_inter_tad[outer_left_boundary_index_control:left_boundary_index_control, left_boundary_index_control:right_boundary_index_control].toarray()
+                intertad_right_control = matrix_control_inter_tad[left_boundary_index_control:right_boundary_index_control, right_boundary_index_control:outer_right_boundary_index_control].toarray()
 
-                    outer_right_boundary_index_control = -1
-                    outer_right_boundary_index_target = -1
+            elif i - 1 < 0 and i + 1 < len(chromosome_list):
+                intertad_right_target = matrix_target_inter_tad[left_boundary_index_target:right_boundary_index_target, right_boundary_index_target:outer_right_boundary_index_target].toarray()
+                intertad_right_control = matrix_control_inter_tad[left_boundary_index_control:right_boundary_index_control, right_boundary_index_control:outer_right_boundary_index_control].toarray()
 
-                else:
-                    outer_left_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
-                    outer_left_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[0]
+            elif i - 1 > 0 and i + 1 >= len(chromosome_list):
+                intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:left_boundary_index_target, left_boundary_index_target:right_boundary_index_target].toarray()
+                intertad_left_control = matrix_control_inter_tad[outer_left_boundary_index_control:left_boundary_index_control, left_boundary_index_control:right_boundary_index_control].toarray()
 
-                    outer_right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
-                    outer_right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), start, end)[1]
+            significance_level_left = None
+            significance_level_right = None
+            statistic_left = None
+            statistic_right = None
 
-                if i + 1 < len(chromosome_list) and not pCoolOrH5:
-                    # get index position left tad with tad
-                    right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
-                    right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
-                elif i + 1 < len(chromosome_list) - 1:
-                    right_boundary_index_target = hic_matrix_target_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
-                    right_boundary_index_control = hic_matrix_control_inter_tad.getRegionBinRange(str(chromosom), row[2], row[2])[0]
+            if i - 1 >= 0 and i + 1 < len(chromosome_list):
+                intertad_left_target = intertad_left_target.flatten()
+                intertad_left_control = intertad_left_control.flatten()
+                intertad_right_target = intertad_right_target.flatten()
+                intertad_right_control = intertad_right_control.flatten()
 
-                if i - 1 >= 0 and i + 1 < len(chromosome_list):
-                    intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:left_boundary_index_target, left_boundary_index_target:right_boundary_index_target].toarray()
-                    intertad_right_target = matrix_target_inter_tad[left_boundary_index_target:right_boundary_index_target, right_boundary_index_target:outer_right_boundary_index_target].toarray()
-                    intertad_left_control = matrix_control_inter_tad[outer_left_boundary_index_control:left_boundary_index_control, left_boundary_index_control:right_boundary_index_control].toarray()
-                    intertad_right_control = matrix_control_inter_tad[left_boundary_index_control:right_boundary_index_control, right_boundary_index_control:outer_right_boundary_index_control].toarray()
+                statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
+                statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
+            elif i - 1 < 0 and i + 1 < len(chromosome_list):
+                intertad_right_target = intertad_right_target.flatten()
+                intertad_right_control = intertad_right_control.flatten()
+                statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
+            elif i - 1 > 0 and i + 1 >= len(chromosome_list):
+                intertad_left_target = intertad_left_target.flatten()
+                intertad_left_control = intertad_left_control.flatten()
+                # log.debug('intertad_left_target {}'.format(intertad_left_target))
+                # log.debug('intertad_left_control {}'.format(intertad_left_control))
 
-                elif i - 1 < 0 and i + 1 < len(chromosome_list):
-                    intertad_right_target = matrix_target_inter_tad[left_boundary_index_target:right_boundary_index_target, right_boundary_index_target:outer_right_boundary_index_target].toarray()
-                    intertad_right_control = matrix_control_inter_tad[left_boundary_index_control:right_boundary_index_control, right_boundary_index_control:outer_right_boundary_index_control].toarray()
+                statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
 
-                elif i - 1 > 0 and i + 1 >= len(chromosome_list):
-                    intertad_left_target = matrix_target_inter_tad[outer_left_boundary_index_target:left_boundary_index_target, left_boundary_index_target:right_boundary_index_target].toarray()
-                    intertad_left_control = matrix_control_inter_tad[outer_left_boundary_index_control:left_boundary_index_control, left_boundary_index_control:right_boundary_index_control].toarray()
+            # log.debug('matrix_target {}'.format(matrix_target))
+            # log.debug('matrix_control {}'.format(matrix_control))
 
-                significance_level_left = None
-                significance_level_right = None
-                statistic_left = None
-                statistic_right = None
+            statistic, significance_level = ranksums(matrix_target, matrix_control)
+            # log.debug('statistic {}, significance_level {}'.format(statistic, significance_level))
+            # log.debug('right statistic {}, significance_level {}'.format(statistic_right, significance_level_right))
+            # log.debug('left statistic {}, significance_level {}'.format(statistic_left, significance_level_left))
 
-                if i - 1 >= 0 and i + 1 < len(chromosome_list):
-                    intertad_left_target = intertad_left_target.flatten()
-                    intertad_left_control = intertad_left_control.flatten()
-                    intertad_right_target = intertad_right_target.flatten()
-                    intertad_right_control = intertad_right_control.flatten()
+            p_values = []
+            stats = []
+            if significance_level_left is None or np.isnan(significance_level_left):
+                accepted_inter_left.append(0)
+                p_values.append(np.nan)
+                stats.append(np.nan)
+            elif significance_level_left <= pPValue:
+                accepted_inter_left.append(1)
+                p_values.append(significance_level_left)
+                stats.append(statistic_left)
+            else:
+                accepted_inter_left.append(0)
+                p_values.append(significance_level_left)
+                stats.append(statistic_left)
 
-                    statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
-                    statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
-                elif i - 1 < 0 and i + 1 < len(chromosome_list):
-                    intertad_right_target = intertad_right_target.flatten()
-                    intertad_right_control = intertad_right_control.flatten()
-                    statistic_right, significance_level_right = ranksums(intertad_right_target, intertad_right_control)
-                elif i - 1 > 0 and i + 1 >= len(chromosome_list):
-                    intertad_left_target = intertad_left_target.flatten()
-                    intertad_left_control = intertad_left_control.flatten()
-                    log.debug('intertad_left_target {}'.format(intertad_left_target))
-                    log.debug('intertad_left_control {}'.format(intertad_left_control))
+            if significance_level_right is None or np.isnan(significance_level_right):
+                accepted_inter_right.append(0)
+                p_values.append(np.nan)
+                stats.append(np.nan)
+            elif significance_level_right <= pPValue:
+                accepted_inter_right.append(1)
+                p_values.append(significance_level_right)
+                stats.append(statistic_right)
+            else:
+                accepted_inter_right.append(0)
+                p_values.append(significance_level_right)
+                stats.append(statistic_right)
 
-                    statistic_left, significance_level_left = ranksums(intertad_left_target, intertad_left_control)
+            if significance_level is None or np.isnan(significance_level):
+                accepted_intra.append(0)
+                p_values.append(np.nan)
+                stats.append(np.nan)
+            elif significance_level <= pPValue:
+                accepted_intra.append(1)
+                p_values.append(significance_level)
+                stats.append(statistic)
+            else:
+                accepted_intra.append(0)
+                p_values.append(significance_level)
+                stats.append(statistic)
 
-                # log.debug('matrix_target {}'.format(matrix_target))
-                # log.debug('matrix_control {}'.format(matrix_control))
+            p_values_list.append(p_values)
+            stats_list.append(stats)
 
-                statistic, significance_level = ranksums(matrix_target, matrix_control)
-                log.debug('statistic {}, significance_level {}'.format(statistic, significance_level))
-                log.debug('right statistic {}, significance_level {}'.format(statistic_right, significance_level_right))
-                log.debug('left statistic {}, significance_level {}'.format(statistic_left, significance_level_left))
-
-                p_values = []
-                stats = []
-                if significance_level_left is None or np.isnan(significance_level_left):
-                    accepted_inter_left.append(0)
-                    p_values.append(np.nan)
-                    stats.append(np.nan)
-                elif significance_level_left <= pPValue:
-                    accepted_inter_left.append(1)
-                    p_values.append(significance_level_left)
-                    stats.append(statistic_left)
-                else:
-                    accepted_inter_left.append(0)
-                    p_values.append(significance_level_left)
-                    stats.append(statistic_left)
-
-                if significance_level_right is None or np.isnan(significance_level_right):
-                    accepted_inter_right.append(0)
-                    p_values.append(np.nan)
-                    stats.append(np.nan)
-                elif significance_level_right <= pPValue:
-                    accepted_inter_right.append(1)
-                    p_values.append(significance_level_right)
-                    stats.append(statistic_right)
-                else:
-                    accepted_inter_right.append(0)
-                    p_values.append(significance_level_right)
-                    stats.append(statistic_right)
-
-                if significance_level is None or np.isnan(significance_level):
-                    accepted_intra.append(0)
-                    p_values.append(np.nan)
-                    stats.append(np.nan)
-                elif significance_level <= pPValue:
-                    accepted_intra.append(1)
-                    p_values.append(significance_level)
-                    stats.append(statistic)
-                else:
-                    accepted_intra.append(0)
-                    p_values.append(significance_level)
-                    stats.append(statistic)
-
-                p_values_list.append(p_values)
-                stats_list.append(stats)
-
-                rows.append(row)
+            rows.append(row)
     except Exception as exp:
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
         return
@@ -299,6 +304,29 @@ def main(args=None):
 
     # read domains file
     domains_df = readDomainBoundaries(args.tadDomains)
+    log.debug('len(domains_df) {}'.format(len(domains_df)))
+    domains = domains_df.values.tolist()
+    old_chromosome = None
+
+    tads_per_chromosome = []
+
+    for j in range(len(domains)):
+        if old_chromosome is None:
+            old_chromosome = domains[j][0]
+            per_chromosome = []
+            per_chromosome.append(domains[j])
+
+        elif old_chromosome == domains[j][0]:
+            per_chromosome.append(domains[j])
+            continue
+        else:
+            tads_per_chromosome.append(per_chromosome)
+            per_chromosome = []
+            per_chromosome.append(domains[j])
+            old_chromosome = domains[j][0]
+    tads_per_chromosome.append(per_chromosome)
+    log.debug('len(tads_per_chromosome) {}'.format(len(tads_per_chromosome[0]) + len(tads_per_chromosome[1])))
+
     # read full h5 or only region if cooler
     is_cooler_target = check_cooler(args.targetMatrix)
     is_cooler_control = check_cooler(args.controlMatrix)
@@ -315,92 +343,116 @@ def main(args=None):
     # accepted_H0 = []
     # rejected_H0 = []
     # log.debug('domains_df {}'.format(domains_df))
-    domains = domains_df.values.tolist()
 
-    stats_threads = [None] * args.threads
-    p_values_threads = [None] * args.threads
-    accepted_left_inter_threads = [None] * args.threads
-    accepted_right_inter_threads = [None] * args.threads
-    accepted_intra_threads = [None] * args.threads
-    rows_threads = [None] * args.threads
+    stats_chromosomes = []
+    p_values_chromosomes = []
+    accepted_inter_left_chromosomes = []
+    accepted_inter_right_chromosomes = []
+    accepted_intra_chromosomes = []
+    rows_chromosomes = []
 
-    domainsPerThread = len(domains) // args.threads
-    all_data_collected = False
-    queue = [None] * args.threads
-    process = [None] * args.threads
-    thread_done = [False] * args.threads
+    stats_threads = [[]] * args.threads
+    p_values_threads = [[]] * args.threads
+    accepted_left_inter_threads = [[]] * args.threads
+    accepted_right_inter_threads = [[]] * args.threads
+    accepted_intra_threads = [[]] * args.threads
+    rows_threads = [[]] * args.threads
 
-    # None --> first thread, process first element in list, ignore last one
-    # True --> middle thread: ignore first and last element in tad processing
-    # False --> last thread: ignore first element, process last one
-    thread_id = None
-    for i in range(args.threads):
+    threads_save = args.threads
+    for chromosome in tads_per_chromosome:
+        log.debug('tads_per_chromosome {}'.format(chromosome))
+        domainsPerThread = len(chromosome) // args.threads
+        if domainsPerThread == 0 and len(chromosome) > 0:
+            domainsPerThread = 1
+            args.threads = 1
+        elif domainsPerThread > 0:
+            args.threads = threads_save
 
-        if i == 0:
-            domainListThread = domains[i * domainsPerThread:((i + 1) * domainsPerThread) + 1]
-            thread_id = None
-        elif i < args.threads - 1:
-            domainListThread = domains[(i * domainsPerThread) - 1:((i + 1) * domainsPerThread) + 1]
-            thread_id = True
-
-        else:
-            domainListThread = domains[(i * domainsPerThread) - 1:]
-            thread_id = False
-
-        if args.threads == 1:
-            thread_id = ''
-        queue[i] = Queue()
-        process[i] = Process(target=computeDifferentialTADs, kwargs=dict(
-            pMatrixTarget=hic_matrix_target,
-            pMatrixControl=hic_matrix_control,
-            pDomainList=domainListThread,
-            pCoolOrH5=is_cooler_control,
-            pPValue=args.pValue,
-            pThreadId=thread_id,
-            pQueue=queue[i]
-        )
-        )
-
-        process[i].start()
-    fail_flag = False
-    fail_message = ''
-    while not all_data_collected:
+        all_data_collected = False
+        queue = [None] * args.threads
+        process = [None] * args.threads
+        thread_done = [False] * args.threads
+        # None --> first thread, process first element in list, ignore last one
+        # True --> middle thread: ignore first and last element in tad processing
+        # False --> last thread: ignore first element, process last one
+        thread_id = None
         for i in range(args.threads):
 
-            if queue[i] is not None and not queue[i].empty():
-                queue_data = queue[i].get()
-                if 'Fail:' in queue_data:
-                    fail_flag = True
-                    fail_message = queue_data
-                else:
-                    stats_threads[i], p_values_threads[i], accepted_left_inter_threads[i], \
-                        accepted_right_inter_threads[i], \
-                        accepted_intra_threads[i], rows_threads[i] = queue_data
+            if i == 0:
+                domainListThread = chromosome[i * domainsPerThread:((i + 1) * domainsPerThread) + 1]
+                thread_id = None
+            elif i < args.threads - 1:
+                domainListThread = chromosome[(i * domainsPerThread) - 1:((i + 1) * domainsPerThread) + 1]
+                thread_id = True
 
-                queue[i] = None
-                process[i].join()
-                process[i].terminate()
-                process[i] = None
-                thread_done[i] = True
-        all_data_collected = True
-        for thread in thread_done:
-            if not thread:
-                all_data_collected = False
-        time.sleep(1)
+            else:
+                domainListThread = chromosome[(i * domainsPerThread) - 2:]
+                thread_id = False
 
-    # outfile_names = [item for sublist in outfile_names for item in sublist]
-    # target_list_name = [
-    #     item for sublist in target_list_name for item in sublist]
-    if fail_flag:
-        log.error(fail_message[6:])
-        exit(1)
+            if args.threads == 1:
+                thread_id = ''
+            queue[i] = Queue()
+            process[i] = Process(target=computeDifferentialTADs, kwargs=dict(
+                pMatrixTarget=hic_matrix_target,
+                pMatrixControl=hic_matrix_control,
+                pDomainList=domainListThread,
+                pCoolOrH5=is_cooler_control,
+                pPValue=args.pValue,
+                pThreadId=thread_id,
+                pQueue=queue[i]
+            )
+            )
 
-    stats_list = [item for sublist in stats_threads for item in sublist]
-    p_values_list = [item for sublist in p_values_threads for item in sublist]
-    accepted_inter_left = [item for sublist in accepted_left_inter_threads for item in sublist]
-    accepted_inter_right = [item for sublist in accepted_right_inter_threads for item in sublist]
-    accepted_intra = [item for sublist in accepted_intra_threads for item in sublist]
-    rows = [item for sublist in rows_threads for item in sublist]
+            process[i].start()
+        fail_flag = False
+        fail_message = ''
+        while not all_data_collected:
+            for i in range(args.threads):
+
+                if queue[i] is not None and not queue[i].empty():
+                    queue_data = queue[i].get()
+                    if 'Fail:' in queue_data:
+                        fail_flag = True
+                        fail_message = queue_data
+                    else:
+                        stats_threads[i], p_values_threads[i], accepted_left_inter_threads[i], \
+                            accepted_right_inter_threads[i], \
+                            accepted_intra_threads[i], rows_threads[i] = queue_data
+
+                    queue[i] = None
+                    process[i].join()
+                    process[i].terminate()
+                    process[i] = None
+                    thread_done[i] = True
+                # elif queue[i] is None and 
+
+            all_data_collected = True
+            for thread in thread_done:
+                if not thread:
+                    all_data_collected = False
+            time.sleep(1)
+
+        # outfile_names = [item for sublist in outfile_names for item in sublist]
+        # target_list_name = [
+        #     item for sublist in target_list_name for item in sublist]
+        if fail_flag:
+            log.error(fail_message[6:])
+            exit(1)
+        stats_chromosomes.append([item for sublist in stats_threads for item in sublist])
+        p_values_chromosomes.append([item for sublist in p_values_threads for item in sublist])
+        accepted_inter_left_chromosomes.append([item for sublist in accepted_left_inter_threads for item in sublist])
+        accepted_inter_right_chromosomes.append([item for sublist in accepted_right_inter_threads for item in sublist])
+        accepted_intra_chromosomes.append([item for sublist in accepted_intra_threads for item in sublist])
+        rows_chromosomes.append([item for sublist in rows_threads for item in sublist])
+
+        log.debug('rows_threads {}'.format(rows_threads))
+
+    stats_list = [item for sublist in stats_chromosomes for item in sublist]
+    p_values_list = [item for sublist in p_values_chromosomes for item in sublist]
+    accepted_inter_left = [item for sublist in accepted_inter_left_chromosomes for item in sublist]
+    accepted_inter_right = [item for sublist in accepted_inter_right_chromosomes for item in sublist]
+    accepted_intra = [item for sublist in accepted_intra_chromosomes for item in sublist]
+    rows = [item for sublist in rows_chromosomes for item in sublist]
 
     stats_list = np.array(stats_list)
     p_values_list = np.array(p_values_list)
