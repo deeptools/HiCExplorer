@@ -5,6 +5,7 @@ import argparse
 from multiprocessing import Process, Queue
 import time
 import traceback
+from copy import deepcopy
 import logging
 log = logging.getLogger(__name__)
 from hicmatrix import HiCMatrix as hm
@@ -36,7 +37,9 @@ H0 is the assumption that two regions are identical, the rejected files contain 
                                 required=False)
     parserRequired.add_argument('--outFileNamePrefix', '-o',
                                 help='Outfile name prefix to store the accepted / rejected H0 TADs.',
-                                required=False)
+                                required=False,
+                                default='output_differential_tad'
+                                )
     parserOpt = parser.add_argument_group('Optional arguments')
     parserOpt.add_argument('--pValue', '-p',
                            type=float,
@@ -82,28 +85,6 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
         stats_list = []
         rows = []
 
-        old_chromosome = None
-
-        # tads_per_chromosome = []
-
-        # for j in range(len(pDomainList)):
-        #     if old_chromosome is None:
-        #         old_chromosome = pDomainList[j][0]
-        #         per_chromosome = []
-        #         per_chromosome.append(pDomainList[j])
-
-        #     elif old_chromosome == pDomainList[j][0]:
-        #         per_chromosome.append(pDomainList[j])
-        #         continue
-        #     else:
-        #         tads_per_chromosome.append(per_chromosome)
-        #         per_chromosome = []
-        #         old_chromosome = pDomainList[j][0]
-        # tads_per_chromosome.append(per_chromosome)
-
-        # log.debug('tads_per_chromosome {}'.format(len(tads_per_chromosome)))
-        # for chromosome_list in tads_per_chromosome:
-        # log.debug('chromosome_list {}'.format(len(chromosome_list)))
         chromosome_list = pDomainList
         for i, row in enumerate(chromosome_list):
 
@@ -325,7 +306,7 @@ def main(args=None):
             per_chromosome.append(domains[j])
             old_chromosome = domains[j][0]
     tads_per_chromosome.append(per_chromosome)
-    log.debug('len(tads_per_chromosome) {}'.format(len(tads_per_chromosome[0]) + len(tads_per_chromosome[1])))
+    # log.debug('len(tads_per_chromosome) {}'.format(len(tads_per_chromosome[0]) + len(tads_per_chromosome[1])))
 
     # read full h5 or only region if cooler
     is_cooler_target = check_cooler(args.targetMatrix)
@@ -358,7 +339,7 @@ def main(args=None):
     accepted_intra_threads = [[]] * args.threads
     rows_threads = [[]] * args.threads
 
-    threads_save = args.threads
+    threads_save = deepcopy(args.threads)
     for chromosome in tads_per_chromosome:
         log.debug('tads_per_chromosome {}'.format(chromosome))
         domainsPerThread = len(chromosome) // args.threads
@@ -378,7 +359,10 @@ def main(args=None):
         thread_id = None
         for i in range(args.threads):
 
-            if i == 0:
+            if args.threads == 1:
+                domainListThread = chromosome
+
+            elif i == 0:
                 domainListThread = chromosome[i * domainsPerThread:((i + 1) * domainsPerThread) + 1]
                 thread_id = None
             elif i < args.threads - 1:
@@ -386,11 +370,15 @@ def main(args=None):
                 thread_id = True
 
             else:
-                domainListThread = chromosome[(i * domainsPerThread) - 2:]
+                domainListThread = chromosome[(i * domainsPerThread) - 1:]
                 thread_id = False
 
             if args.threads == 1:
                 thread_id = ''
+
+            log.debug('len(domainListThread) {}'.format(len(domainListThread)))
+            log.debug('len(thread_id) {}'.format(thread_id))
+
             queue[i] = Queue()
             process[i] = Process(target=computeDifferentialTADs, kwargs=dict(
                 pMatrixTarget=hic_matrix_target,
@@ -424,7 +412,7 @@ def main(args=None):
                     process[i].terminate()
                     process[i] = None
                     thread_done[i] = True
-                # elif queue[i] is None and 
+                # elif queue[i] is None and
 
             all_data_collected = True
             for thread in thread_done:
@@ -462,7 +450,7 @@ def main(args=None):
     rows = np.array(rows)
 
     if args.mode == 'intra-TAD':
-        mask = accepted_intra
+        mask = np.array(accepted_intra, dtype=bool)
     elif args.mode == 'left-inter-TAD':
         if args.modeReject == 'all':
             mask = np.logical_and(accepted_inter_left, accepted_intra)
@@ -482,6 +470,10 @@ def main(args=None):
         else:
             mask = np.logical_or(accepted_inter_left, accepted_inter_right)
             mask = np.logical_or(mask, accepted_intra)
+
+    log.debug('len(mask) {}'.format(len(mask)))
+    log.debug('mask.sum() {}'.format(mask.sum()))
+    log.debug('mask[:10] {}'.format(mask[:10]))
 
     accepted_H0 = p_values_list[~mask]
     accepted_H0_s = stats_list[~mask]
