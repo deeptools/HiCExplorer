@@ -49,7 +49,13 @@ def parse_arguments(args=None):
                            default='keep',
                            choices=['keep', 'remove', 'mask']
                            )
-
+    parserOpt.add_argument('--interIntraHandling',
+                           '-iih',
+                           help='Remove the inter- or intra-chromosomal contacts of the given chromosomes.'
+                           ' (Default: %(default)s).',
+                           default=None,
+                           choices=[None, 'inter', 'intra']
+                           )
     parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -102,6 +108,7 @@ def adjustMatrix(pArgs):
             hic_matrix.reorderChromosomes(chromosomes_list)
         elif pArgs.action == 'mask':
             hic_matrix.maskChromosomes(chromosomes_list_to_operate_on)
+
     elif pArgs.regions:
         hic_matrix = hm.hiCMatrix(pArgs.matrix)
         chromosomes_list = list(hic_matrix.chrBinBoundaries)
@@ -158,6 +165,27 @@ def adjustMatrix(pArgs):
 
     else:
         log.info('No data to adjust given. Please specify either --chromosomes or --region parameter.')
+
+    if pArgs.interIntraHandling is not None:
+        if pArgs.interIntraHandling == 'inter':
+            # iterate over all given chromosomes
+            chromosomes_list = list(hic_matrix.chrBinBoundaries)
+            for chromosome in chromosomes_list:
+                # get start and end bins of that chromosome
+                start, end = hic_matrix.getChrBinRange(chromosome)
+                # remove inter region
+                hic_matrix.matrix[start:end, end:] = 0
+
+        elif pArgs.interIntraHandling == 'intra':
+            # iterate over all given chromosomes
+            chromosomes_list = list(hic_matrix.chrBinBoundaries)
+            for chromosome in chromosomes_list:
+                # get start and end bins of that chromosome
+                start, end = hic_matrix.getChrBinRange(chromosome)
+                # remove intra region
+                hic_matrix.matrix[start:end, start:end] = 0
+        else:
+            log.warning('Option not valid: {}'.format(pArgs.interIntraHandling))
 
     return hic_matrix
 
