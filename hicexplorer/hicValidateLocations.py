@@ -61,12 +61,12 @@ The value of the protein is not considered, only match or non-match.
                            'First file contains all loop locations with protein location matches, second file contains statistics about this matching.'
                            )
     parserOpt.add_argument('--chrPrefixLoops', '-cl',
-                           help='Adding a \'chr\'-prefix to chromosome name of the loops.',
+                           help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the loops.',
                            choices=[None, 'add', 'remove'],
                            default=None
                            )
     parserOpt.add_argument('--chrPrefixProtein', '-cp',
-                           help='Adding a \'chr\'-prefix to chromosome name of the protein.',
+                           help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the protein.',
                            choices=[None, 'add', 'remove'],
                            default=None
                            )
