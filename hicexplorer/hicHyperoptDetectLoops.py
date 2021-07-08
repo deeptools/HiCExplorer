@@ -49,6 +49,11 @@ def parse_arguments(args=None):
                            default=10000,
                            help='Resolution of matrix'
                            ' (Default: %(default)s).')
+    parserOpt.add_argument('--chrPrefixLoops', '-cl',
+                           help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the loops.',
+                           choices=[None, 'add', 'remove'],
+                           default=None
+                           )
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module)'
                            ' (Default: %(default)s).',
@@ -70,14 +75,13 @@ def parse_arguments(args=None):
     return parser
 
 
-def compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution):
+def compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution, pChrPrefixLoops):
     with open(pLoopFile, 'r') as file:
         lines = file.readlines()
         if len(lines) == 0:
             return 1
     outfile_statistics = NamedTemporaryFile()
-    args = "--data {} --protein {} -cl --resolution {} --outFileName {}".format(pLoopFile, pProteinFile, pResolution, outfile_statistics.name).split()
-    print(args)
+    args = "--data {} --protein {} -cl {} --resolution {} --outFileName {}".format(pLoopFile, pProteinFile, pChrPrefixLoops, pResolution, outfile_statistics.name).split()
     hicValidateLocations.main(args)
     data_dict = {}
 
@@ -108,7 +112,7 @@ def objective(pArgs):
             pArgs['maxLoopDistance'], pArgs['threads'], pArgs['threads']).split()
     hicDetectLoops.main(args)
 
-    error_score = compute_score(outfile_loop.name, pArgs['proteinFile'], pArgs['maximumNumberOfLoops'], pArgs['resolution'])
+    error_score = compute_score(outfile_loop.name, pArgs['proteinFile'], pArgs['maximumNumberOfLoops'], pArgs['resolution'], pArgs['chrPrefixLoops'])
     print('Error score: {}'.format(error_score))
     return error_score
 
@@ -116,7 +120,6 @@ def objective(pArgs):
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-
     space = {
 
         'pit': hp.uniform('pit', 0, 100),
@@ -130,7 +133,8 @@ def main(args=None):
         'proteinFile': args.proteinFile,
         'maximumNumberOfLoops': args.maximumNumberOfLoops,
         'resolution': args.resolution,
-        'threads': args.threads
+        'threads': args.threads,
+        'chrPrefixLoops': args.chrPrefixLoops
 
     }
 

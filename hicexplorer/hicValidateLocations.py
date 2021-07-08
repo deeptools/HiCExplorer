@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 import pandas as pd
 from pybedtools import BedTool
 import numpy as np
+import cooler
 
 
 def parse_arguments(args=None):
@@ -32,23 +33,25 @@ A bin is assumed to have a protein if one or more protein peaks falling within t
 The value of the protein is not considered, only match or non-match.
 """)
 
-    # TAD or Loop data track
-    # protein data, compute correlation
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--data', '-d',
                                 help='The loop file from hicDetectLoops. To use files from other sources, '
                                 'please follow \'chr start end chr start end\' format.',
                                 required=True)
-    parserRequired.add_argument('--protein', '-p',
-                                help='The protein peak file. Can be narrowPeak or broadPeak',
+    parserRequired.add_argument('--validationData', '-vd',
+                                help='The data file to validate the given locations. Can be narrowPeak, broadPeak, cool, or 2D text.',
                                 required=True)
-    parserRequired.add_argument('--method', '-m',  # loop or domain
+    parserRequired.add_argument('--validationType', '-vt',
+                                help='The type of the validation data. Can be bed, or cool format',
+                                choices=['bed', 'cool'],
+                                default='bed')
+    parserRequired.add_argument('--method', '-m',
                                 help='The method used (for the moment only loop is possible)'
                                 ' (Default: %(default)s).',
                                 choices=['loops'],
                                 default='loops')
-    parserRequired.add_argument('--resolution', '-r',  # loop or domain
+    parserRequired.add_argument('--resolution', '-r',
                                 help='The used resolution of the Hi-C interaction matrix.',
                                 required=True,
                                 type=int)
@@ -57,14 +60,17 @@ The value of the protein is not considered, only match or non-match.
                            help='The prefix name of the output files. Two file are written: output_matched_locations and output_statistics.'
                            'First file contains all loop locations with protein location matches, second file contains statistics about this matching.'
                            )
-    parserOpt.add_argument('--addChrPrefixLoops', '-cl',
-                           help='Adding a \'chr\'-prefix to chromosome name of the loops.',
-                           action='store_true'
+    parserOpt.add_argument('--chrPrefixLoops', '-cl',
+                           help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the loops.',
+                           choices=[None, 'add', 'remove'],
+                           default=None
                            )
-    parserOpt.add_argument('--addChrPrefixProtein', '-cp',
-                           help='Adding a \'chr\'-prefix to chromosome name of the protein.',
-                           action='store_true'
+    parserOpt.add_argument('--chrPrefixProtein', '-cp',
+                           help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the protein.',
+                           choices=[None, 'add', 'remove'],
+                           default=None
                            )
+
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -74,18 +80,24 @@ The value of the protein is not considered, only match or non-match.
     return parser
 
 
-def readProtein(pFile, pAddChr):
+def readProtein(pFile, pChrPrefixProtein):
     protein_df = pd.read_csv(pFile, sep='\t', header=None)[[0, 1, 2]]
-    if pAddChr:
+    if pChrPrefixProtein == 'add':
         protein_df[0] = 'chr' + protein_df[0].astype(str)
+    elif pChrPrefixProtein == 'remove':
+        protein_df[0] = protein_df[0].str.lstrip('chr')
     return protein_df
 
 
-def readLoopFile(pInputFile, pAddChr):
+def readLoopFile(pInputFile, pChrPrefixLoops):
     full_loop = pd.read_csv(pInputFile, sep='\t', header=None)
-    if pAddChr:
+    if pChrPrefixLoops == 'add':
         full_loop[0] = 'chr' + full_loop[0].astype(str)
         full_loop[3] = 'chr' + full_loop[3].astype(str)
+    elif pChrPrefixLoops == 'remove':
+        full_loop[0] = full_loop[0].str.lstrip('chr')
+        full_loop[3] = full_loop[3].str.lstrip('chr')
+
     return full_loop
 
 
@@ -104,20 +116,38 @@ def overlapLoop(pDataFrameLoop, pDataFrameProtein):
 
     return selection
 
-# def overlapTAD(pDataFrameTAD, pDataFrameProtein):
-#     loop_bedtool_x = BedTool.from_dataframe(pDataFrameTAD[[0,1,2]])
-#     # loop_bedtool_y = BedTool.from_dataframe(pDataFrameLoop[[3,4,5]])
 
-#     protein_bedtool = BedTool.from_dataframe(pDataFrameProtein)
-#     x = loop_bedtool_x.intersect(protein_bedtool, c=True).to_dataframe()
-#     # y = loop_bedtool_y.intersect(protein_bedtool, c=True).to_dataframe()
+def correlateCool(pCoolFile, pDataFrameLoop):
+    cool_obj = cooler.Cooler(pCoolFile)
+    number_of_peaks = cool_obj.info['nnz']
+    match_list = []
+    for line in pDataFrameLoop.itertuples():
+        try:
+            matrix_data = cool_obj.matrix(balance=False, sparse=True).fetch(str(line[1]) + ':' + str(line[2]) + '-' + str(line[3]), str(line[4]) + ':' + str(line[5]) + '-' + str(line[6]))
 
-#     mask_x = x['name'] >= 1
-#     # mask_y = y['name'] >= 1
+            if matrix_data.nnz > 0:
+                match_list.append(True)
+            else:
+                match_list.append(False)
+        except Exception:
+            match_list.append(False)
 
-#     # selection  = (mask_x) & (mask_y)
+    selection = pd.Series(match_list)
+    log.debug(selection)
 
-#     return mask_x
+    return number_of_peaks, selection
+
+
+def correlate2DText(pDataFrameProtein, pDataFrameLoop):
+    loop_bedtool_x = BedTool.from_dataframe(pDataFrameLoop[[0, 1, 2, 3, 4, 5]])
+
+    protein_bedtool = BedTool.from_dataframe(pDataFrameProtein)
+    x = loop_bedtool_x.intersect(protein_bedtool, c=True).to_dataframe()
+
+    mask_x = x['name'] >= 1
+
+    log.debug(mask_x)
+    return mask_x
 
 
 def applyBinning(pDataFrame, pBinSize):
@@ -140,27 +170,34 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
 
     if args.method == 'loops':
-        loop_df = readLoopFile(args.data, args.addChrPrefixLoops)
+
+        loop_df = readLoopFile(args.data, args.chrPrefixLoops)
         if loop_df is None:
             log.error('Empty loop file')
             return
         loop_df_bedtool = BedTool.from_dataframe(loop_df)
         loop_df = loop_df_bedtool.sort().to_dataframe(
             disable_auto_names=True, header=None)
+        if args.validationType == 'bed':
+            protein_df = readProtein(args.validationData, args.chrPrefixProtein)
+            if protein_df is None:
+                log.error('Empty protein file')
+                return
+            protein_df_bedtool = BedTool.from_dataframe(protein_df)
+            protein_df = protein_df_bedtool.sort().to_dataframe(
+                disable_auto_names=True, header=None)
 
-        protein_df = readProtein(args.protein, args.addChrPrefixProtein)
-        if protein_df is None:
-            log.error('Empty protein file')
-            return
-        protein_df_bedtool = BedTool.from_dataframe(protein_df)
-        protein_df = protein_df_bedtool.sort().to_dataframe(
-            disable_auto_names=True, header=None)
+            protein_df_resolution = applyBinning(protein_df, args.resolution)
 
-        protein_df_resolution = applyBinning(protein_df, args.resolution)
+            overlap_mask_df = overlapLoop(loop_df, protein_df_resolution)
+            loop_df_ = loop_df[overlap_mask_df]
 
-        overlap_mask_df = overlapLoop(loop_df, protein_df_resolution)
-        loop_df_ = loop_df[overlap_mask_df]
-        print('Protein peaks: {}'.format(len(protein_df_resolution)))
+            number_of_proteins = len(protein_df_resolution)
+        elif args.validationType == 'cool':
+            number_of_proteins, overlap_mask_df = correlateCool(args.validationData, loop_df)
+            loop_df_ = loop_df[overlap_mask_df]
+
+        print('Protein peaks: {}'.format(number_of_proteins))
         print('Matched Loops: {}'.format(len(loop_df_)))
         print('Total Loops: {}'.format(len(loop_df)))
 
@@ -174,9 +211,9 @@ def main(args=None):
                 file.write(
                     '# HiCExplorer hicValidateLocations {}\n'.format(__version__))
                 file.write('# Overlap of loop file {} with protein file {}\n#\n'.format(
-                    args.data, args.protein))
+                    args.data, args.validationData))
                 file.write('Protein peaks: {}\n'.format(
-                    len(protein_df_resolution)))
+                    number_of_proteins))
                 file.write('Matched Loops: {}\n'.format(len(loop_df_)))
                 file.write('Total Loops: {}\n'.format(len(loop_df)))
                 file.write('Loops match protein: {}\n'.format(

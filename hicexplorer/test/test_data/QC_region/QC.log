@@ -1,0 +1,30 @@
+
+File	/tmp/tmpmzka3uhk.h5		
+Sequenced reads	99983		
+Min rest. site distance	300		
+Max library insert size	1000		
+
+#	count	(percentage w.r.t. total sequenced reads)
+Pairs mappable, unique and high quality	52726	(52.73)
+Hi-C contacts	7987	(7.99)
+One mate unmapped	8777	(8.78)
+One mate not unique	3603	(3.60)
+Low mapping quality	34877	(34.88)
+
+#	count	(percentage w.r.t. mappable, unique and high quality pairs)
+dangling end GATC	11	(0.02)
+dangling end AGCT	59	(0.11)
+self ligation (removed)	0	(0.00)
+One mate not close to rest site	40906	(77.58)
+same fragment	3751	(7.11)
+self circle	0	(0.00)
+duplicated pairs	12	(0.02)
+
+#	count	(percentage w.r.t. total valid pairs used)
+inter chromosomal	0	(0.00)
+Intra short range (< 20kb)	2145	(26.86)
+Intra long range (>= 20kb)	5842	(73.14)
+Read pair type: inward pairs	1806	(22.61)
+Read pair type: outward pairs	2447	(30.64)
+Read pair type: left pairs	1865	(23.35)
+Read pair type: right pairs	1869	(23.40)

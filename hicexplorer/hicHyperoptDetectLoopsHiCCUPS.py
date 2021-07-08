@@ -49,6 +49,11 @@ def parse_arguments(args=None):
                            default=10000,
                            help='Resolution of matrix'
                            ' (Default: %(default)s).')
+    parserOpt.add_argument('--chrPrefixLoops', '-cl',
+                           help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the loops.',
+                           choices=[None, 'add', 'remove'],
+                           default=None
+                           )
     parserOpt.add_argument('--runs',
                            type=int,
                            default=100,
@@ -80,13 +85,13 @@ def parse_arguments(args=None):
     return parser
 
 
-def compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution):
+def compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution, pChrPrefixLoops):
     with open(pLoopFile, 'r') as file:
         lines = file.readlines()
         if len(lines) == 0:
             return 1
     outfile_statistics = NamedTemporaryFile()
-    args = "--data {} --protein {} -cl --resolution {} --outFileName {}".format(pLoopFile, pProteinFile, pResolution, outfile_statistics.name).split()
+    args = "--data {} --protein {} -cl {} --resolution {} --outFileName {}".format(pLoopFile, pProteinFile, pChrPrefixLoops, pResolution, outfile_statistics.name).split()
     hicValidateLocations.main(args)
     data_dict = {}
 
@@ -116,7 +121,7 @@ def objective(pArgs):
     subprocess.check_output(['bash', '-c', bashCommand])
     bashCommand = 'bedtools sort -i {}/merged_loops.bedpe > {}/merged_sorted.bedpe'.format(output_folder, output_folder)
     subprocess.check_output(['bash', '-c', bashCommand])
-    error_score = compute_score(output_folder + '/merged_sorted.bedpe', pArgs['proteinFile'], pArgs['maximumNumberOfLoops'], pArgs['resolution'])
+    error_score = compute_score(output_folder + '/merged_sorted.bedpe', pArgs['proteinFile'], pArgs['maximumNumberOfLoops'], pArgs['resolution'], pArgs['chrPrefixLoops'])
     print('Error score: {}'.format(error_score))
     return error_score
 
@@ -135,7 +140,8 @@ def main(args=None):
         'juicer': args.juicerPath,
         'restricted': '--restricted' if args.restricted else '',
         'cpu': '--cpu' if args.cpu else '',
-        'threads': args.threads
+        'threads': args.threads,
+        'chrPrefixLoops': args.chrPrefixLoops
 
     }
 

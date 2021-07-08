@@ -11,7 +11,6 @@ from mimetypes import guess_type
 from functools import partial
 from Bio import SeqIO
 from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
 from hicexplorer._version import __version__
 
 import logging
@@ -97,33 +96,62 @@ def find_pattern(pPattern, fasta_file, out_file):
 
     """
 
+# <<<<<<< multiRestrictionSequence
+#     temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='wt')
+
+#     for pattern in pPattern:
+#         # get the reverse complement of the pattern
+#         rev_compl = str(Seq(pattern, generic_dna).reverse_complement())
+
+#         try:
+#             fasta_file_name = fasta_file.name
+#         except AttributeError:
+#             fasta_file_name = fasta_file
+
+#         encoding = guess_type(fasta_file_name)[1]  # uses file extension
+#         _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
+
+#         with _open(fasta_file_name) as f:
+#             for record in SeqIO.parse(f, 'fasta', generic_dna):
+#                 # find all the occurrences of pattern
+#                 for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
+#                     _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
+# =======
+    # get the reverse complement of the pattern
+    rev_compl = str(Seq(pattern).reverse_complement())
+
     temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='wt')
+                                                                  
+    for pattern in pPattern:                                                            
+      try:
+          fasta_file_name = fasta_file.name
+      except AttributeError:
+          fasta_file_name = fasta_file
 
-    for pattern in pPattern:
-        # get the reverse complement of the pattern
-        rev_compl = str(Seq(pattern, generic_dna).reverse_complement())
+      encoding = guess_type(fasta_file_name)[1]  # uses file extension
+      _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
 
-        try:
-            fasta_file_name = fasta_file.name
-        except AttributeError:
-            fasta_file_name = fasta_file
-
-        encoding = guess_type(fasta_file_name)[1]  # uses file extension
-        _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
-
-        with _open(fasta_file_name) as f:
-            for record in SeqIO.parse(f, 'fasta', generic_dna):
-                # find all the occurrences of pattern
-                for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
-                    _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                                  match.start(),
-                                                                  match.end()))
-                if rev_compl != pattern:
-                    # search for the reverse complement only if the pattern is not palindromic
-                    for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
-                        _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
-                                                                      match.start(),
-                                                                      match.end()))
+      with _open(fasta_file_name) as f:
+          for record in SeqIO.parse(f, 'fasta'):
+              # find all the occurrences of pattern
+              for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
+                  _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
+                                                                match.start(),
+                                                                match.end()))
+              if rev_compl != pattern:
+                  # search for the reverse complement only if the pattern is not palindromic
+                  for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
+                      _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,match.start(),
+                                                                    match.end()))
+# >>>>>>> develop
+#                                                                   match.start(),
+#                                                                   match.end()))
+#                 if rev_compl != pattern:
+#                     # search for the reverse complement only if the pattern is not palindromic
+#                     for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
+#                         _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
+#                                                                       match.start(),
+#                                                                       match.end()))
     log.info("Sorting file ...")
     tmpfile_name = temp.name
     temp.close()

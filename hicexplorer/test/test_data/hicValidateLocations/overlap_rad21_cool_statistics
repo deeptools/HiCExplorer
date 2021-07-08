@@ -1,0 +1,7 @@
+# HiCExplorer hicValidateLocations 3.7-dev
+# Overlap of loop file /home/wolffj/src/HiCExplorer/hicexplorer/test/test_data/hicValidateLocations/loops_1.bedgraph with protein file /home/wolffj/src/HiCExplorer/hicexplorer/test/test_data/hicValidateLocations/GSM1436265_RAD21_ENCFF002EMQ_10kb.cool
+#
+Protein peaks: 7987
+Matched Loops: 2164
+Total Loops: 11723
+Loops match protein: 0.18459438710227757

@@ -1,0 +1,2 @@
+File	Read pair type: inward pairs	Read pair type: inward pairs %	Read pair type: outward pairs	Read pair type: outward pairs %	Read pair type: left pairs	Read pair type: left pairs %	Read pair type: right pairs	Read pair type: right pairs %
+/tmp/tmpmzka3uhk.h5	1806	0.22611744084136723	2447	0.3063728558908226	1865	0.23350444472267434	1869	0.23400525854513585
