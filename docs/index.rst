@@ -66,6 +66,8 @@ tool                                 description
 :ref:`hicPlotSVL`                    Computing short vs long range contacts and plotting the results
 :ref:`hicHyperoptDetectLoops`        Search for optimal hicDectectLoops parameters
 :ref:`hicHyperoptDetectLoopsHiCCUPS` Search for optimal Juicer HiCCUPS parameters
+:ref:`hicInterIntraTAD`              Extras and computes inter and intra TAD data
+
 ==================================== ==========================================================================================================================================================
 
 Getting Help
