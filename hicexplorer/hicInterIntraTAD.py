@@ -1,11 +1,10 @@
 import pandas as pd
-import numpy as np
-from scipy.stats import ranksums
 import argparse
 from multiprocessing import Process, Queue
 import time
 import traceback
 from copy import deepcopy
+import matplotlib.pyplot as plt
 import logging
 log = logging.getLogger(__name__)
 from hicmatrix import HiCMatrix as hm
@@ -36,7 +35,20 @@ Extracts and computes different inter and intra TAD values and ratios.""")
                                 default='output_interintra_tad.tzt'
                                 )
     parserOpt = parser.add_argument_group('Optional arguments')
-
+    parserOpt.add_argument('--outFileNameRatioPlot', '-op',
+                           help='Outfile name for the inter-left/intra vs inter-right/intra ratio plot',
+                           required=False,
+                           default='ratio.png'
+                           )
+    parserOpt.add_argument('--fontsize',
+                           help='Fontsize in the plot for x and y axis.',
+                           type=float,
+                           default=15)
+    parserOpt.add_argument('--dpi',
+                           help='The dpi of the scatter plot.',
+                           required=False,
+                           default=300,
+                           type=int)
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads to use, the parallelization is implemented per chromosome'
                            ' (Default: %(default)s).',
@@ -175,7 +187,7 @@ def computeInterIntraTADs(pMatrix, pDomainList, pCoolOrH5, pThreadId, pQueue):
             intra_sum = matrix.sum()
             intra_number_of_contacts = matrix.shape[0] * matrix.shape[1]
             intra_number_of_contacts_nnz = matrix.nnz
-            intra_density = intra_number_of_contacts_nnz / intra_number_of_contacts_nnz
+            intra_density = intra_number_of_contacts_nnz / intra_number_of_contacts
             # both inter, left and right is available
             if i - 1 >= 0 and i + 1 < len(chromosome_list):
                 # intertad_left = intertad_left.flatten()
@@ -188,7 +200,7 @@ def computeInterIntraTADs(pMatrix, pDomainList, pCoolOrH5, pThreadId, pQueue):
                 inter_left_number_of_contacts_nnz = intertad_left.nnz
                 inter_right_number_of_contacts_nzz = intertad_right.nnz
 
-                inter_left_density = inter_left_number_of_contacts_nnz / inter_left_number_of_contacts_nnz
+                inter_left_density = inter_left_number_of_contacts_nnz / inter_left_number_of_contacts
                 inter_right_density = inter_right_number_of_contacts_nzz / inter_right_number_of_contacts
                 # statistic_left, significance_level_left = ranksums(intertad_left, intertad_left_control)
                 # statistic_right, significance_level_right = ranksums(intertad_right, intertad_right_control)
@@ -208,7 +220,7 @@ def computeInterIntraTADs(pMatrix, pDomainList, pCoolOrH5, pThreadId, pQueue):
                 inter_left_sum = intertad_left.sum()
                 inter_left_number_of_contacts = intertad_left.shape[0] * intertad_left.shape[1]
                 inter_left_number_of_contacts_nnz = intertad_left.nnz
-                inter_left_density = inter_left_number_of_contacts_nnz / inter_left_number_of_contacts_nnz
+                inter_left_density = inter_left_number_of_contacts_nnz / inter_left_number_of_contacts
 
                 # statistic_left, significance_level_left = ranksums(intertad_left, intertad_left_control)
 
@@ -260,7 +272,7 @@ def main(args=None):
 
     # read domains file
     domains_df = readDomainBoundaries(args.tadDomains)
-    log.debug('len(domains_df) {}'.format(len(domains_df)))
+    # log.debug('len(domains_df) {}'.format(len(domains_df)))
     domains = domains_df.values.tolist()
     old_chromosome = None
 
@@ -309,8 +321,6 @@ def main(args=None):
 
     rows_chromosomes = []
 
-
-
     inter_left_sum_list_threads = [[]] * args.threads
     inter_right_sum_list_threads = [[]] * args.threads
     inter_left_density_list_threads = [[]] * args.threads
@@ -332,7 +342,7 @@ def main(args=None):
 
     threads_save = deepcopy(args.threads)
     for chromosome in tads_per_chromosome:
-        log.debug('tads_per_chromosome {}'.format(chromosome))
+        # log.debug('tads_per_chromosome {}'.format(chromosome))
         domainsPerThread = len(chromosome) // args.threads
         if domainsPerThread == 0 and len(chromosome) > 0:
             domainsPerThread = 1
@@ -367,8 +377,8 @@ def main(args=None):
             if args.threads == 1:
                 thread_id = ''
 
-            log.debug('len(domainListThread) {}'.format(len(domainListThread)))
-            log.debug('len(thread_id) {}'.format(thread_id))
+            # log.debug('len(domainListThread) {}'.format(len(domainListThread)))
+            # log.debug('len(thread_id) {}'.format(thread_id))
 
             queue[i] = Queue()
             process[i] = Process(target=computeInterIntraTADs, kwargs=dict(
@@ -424,7 +434,6 @@ def main(args=None):
                     all_data_collected = False
             time.sleep(1)
 
-
         if fail_flag:
             log.error(fail_message[6:])
             exit(1)
@@ -448,7 +457,6 @@ def main(args=None):
 
         rows_chromosomes.append([item for sublist in rows_threads for item in sublist])
 
-
     inter_left_sum_list = [item for sublist in inter_left_sum_list_chromosomes for item in sublist]
     inter_right_sum_list = [item for sublist in inter_right_sum_list_chromosomes for item in sublist]
     inter_left_density_list = [item for sublist in inter_left_density_list_chromosomes for item in sublist]
@@ -467,7 +475,6 @@ def main(args=None):
     inter_left_inter_right_intra_ratio_list = [item for sublist in inter_left_inter_right_intra_ratio_list_chromosomes for item in sublist]
 
     rows = [item for sublist in rows_chromosomes for item in sublist]
-
 
     with open(args.outFileName, 'w') as file:
         header = '# Created with HiCExplorer\'s hicInterIntraTAD version ' + __version__ + '\n'
@@ -496,3 +503,10 @@ def main(args=None):
             file.write('\t{}'.format(inter_left_inter_right_intra_ratio_list[i]))
 
             file.write('\n')
+
+    plt.scatter(inter_left_intra_ratio_list, inter_right_intra_ratio_list, s=20, alpha=0.7)
+    plt.xlabel('Inter-left/intra TAD contact ratio', fontsize=args.fontsize)
+    plt.ylabel('Inter-right/intra TAD contact ratio', fontsize=args.fontsize)
+    plt.tight_layout()
+    plt.savefig(args.outFileNameRatioPlot, dpi=args.dpi)
+    plt.close()
