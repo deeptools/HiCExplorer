@@ -38,7 +38,8 @@ def parse_arguments(args=None):
                                 'is a regexp and can contain regexp specif syntax '
                                 '(see https://docs.python.org/2/library/re.html). For example the pattern'
                                 'CG..GC will find all occurrence of CG followed by any two bases and then GC.',
-                                required=True)
+                                required=True,
+                                nargs='+')
 
     parserRequired.add_argument('--outFile', '-o',
                                 help='Name for the resulting bed file.',
@@ -53,7 +54,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def find_pattern(pattern, fasta_file, out_file):
+def find_pattern(pPattern, fasta_file, out_file):
     r"""
     Finds the occurrences of the match in the fasta file
     and saves a bed file.
@@ -84,43 +85,43 @@ def find_pattern(pattern, fasta_file, out_file):
     >>> fa = open("/tmp/test.fa", 'w')
     >>> foo = fa.write(">chr1\nCTACGGTACGAACGTACGGTACGcgtaCGNAGTCATG\n")
     >>> fa.close()
-    >>> find_pattern("GTAC", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
+    >>> find_pattern(["GTAC"], "/tmp/test.fa", open("/tmp/test.bed", 'w'))
     >>> open("/tmp/test.bed", 'r').readlines()
     ['chr1\t5\t9\t.\t0\t+\n', 'chr1\t13\t17\t.\t0\t+\n', 'chr1\t18\t22\t.\t0\t+\n', 'chr1\t24\t28\t.\t0\t+\n']
 
     Test with non palindromic sequence with regexp
-    >>> find_pattern("CG.AG", "/tmp/test.fa", open("/tmp/test.bed", 'w'))
+    >>> find_pattern(["CG.AG"], "/tmp/test.fa", open("/tmp/test.bed", 'w'))
     >>> open("/tmp/test.bed", 'r').readlines()
     ['chr1\t0\t5\t.\t0\t-\n', 'chr1\t27\t32\t.\t0\t+\n']
 
     """
 
-    # get the reverse complement of the pattern
-    rev_compl = str(Seq(pattern).reverse_complement())
-
     temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='wt')
-    try:
-        fasta_file_name = fasta_file.name
-    except AttributeError:
-        fasta_file_name = fasta_file
 
-    encoding = guess_type(fasta_file_name)[1]  # uses file extension
-    _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
+    for pattern in pPattern:
+        rev_compl = str(Seq(pattern).reverse_complement())
+        try:
+            fasta_file_name = fasta_file.name
+        except AttributeError:
+            fasta_file_name = fasta_file
 
-    with _open(fasta_file_name) as f:
-        for record in SeqIO.parse(f, 'fasta'):
-            # find all the occurrences of pattern
-            for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
-                _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                              match.start(),
-                                                              match.end()))
-            if rev_compl != pattern:
-                # search for the reverse complement only if the pattern is not palindromic
-                for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
-                    _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name,
+        encoding = guess_type(fasta_file_name)[1]  # uses file extension
+        _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
+
+        with _open(fasta_file_name) as f:
+            for record in SeqIO.parse(f, 'fasta'):
+                # find all the occurrences of pattern
+                for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
+                    _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
                                                                   match.start(),
                                                                   match.end()))
-        log.info("Sorting file ...")
+                if rev_compl != pattern:
+                    # search for the reverse complement only if the pattern is not palindromic
+                    for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
+                        _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name, match.start(),
+                                                                      match.end()))
+
+    log.info("Sorting file ...")
     tmpfile_name = temp.name
     temp.close()
     subprocess.check_output(["cat", tmpfile_name])

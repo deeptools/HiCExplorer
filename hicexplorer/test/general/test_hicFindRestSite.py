@@ -50,3 +50,23 @@ def test_fasta():
 
     assert are_files_equal(ROOT + "hindIII_chrM.bed",
                            outfile.name, skip=0)
+
+
+def test_fasta_gz_two_patterns():
+    outfile = NamedTemporaryFile(suffix='.bed', delete=False)
+    outfile.close()
+    args = "-f {}  -p {} {} -o {}".format(ROOT + 'dm3_chrM.fasta.gz', 'AAGCTT', 'GATC', outfile.name).split()
+    hicFindRestSite.main(args)
+
+    assert are_files_equal(ROOT + "hindIII_DpnII.bed",
+                           outfile.name, skip=0)
+
+
+def test_fasta_two_patterns():
+    outfile = NamedTemporaryFile(suffix='.bed', delete=False)
+    outfile.close()
+    args = "-f {}  -p {} {} -o {}".format(ROOT + 'dm3_chrM.fasta', 'AAGCTT', 'GATC', outfile.name).split()
+    hicFindRestSite.main(args)
+
+    assert are_files_equal(ROOT + "hindIII_DpnII.bed",
+                           outfile.name, skip=0)
