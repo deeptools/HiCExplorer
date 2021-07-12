@@ -53,12 +53,12 @@ Computes PCA eigenvectors for a Hi-C matrix.
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
-    parserOpt.add_argument('--numberOfEigenvectors', '-noe',
-                           help='The number of eigenvectors that the PCA '
-                           'should compute'
+    parserOpt.add_argument('--whichEigenvectors', '-we',
+                           help='The list of eigenvectors that the PCA '
+                           'should compute e.g. 1 2 5 will return the first, second and fifth eigenvector.'
                            ' (Default: %(default)s).',
-                           default=2,
-                           type=int,
+                           default='1 2',
+                           nargs='+',
                            required=False)
 
     parserOpt.add_argument('--format', '-f',
@@ -239,12 +239,12 @@ def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome,
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-    if int(args.numberOfEigenvectors) != len(args.outputFileName):
+    if len(args.whichEigenvectors) != len(args.outputFileName):
         log.error("Number of output file names and number of eigenvectors"
                   " does not match. Please"
                   "provide the name of each file.\nFiles: {}\nNumber of "
                   "eigenvectors: {}".format(args.outputFileName,
-                                            args.numberOfEigenvectors))
+                                            len(args.whichEigenvectors)))
         exit(1)
 
     ma = hm.hiCMatrix(args.matrix)
@@ -303,21 +303,27 @@ def main(args=None):
         corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
         corrmatrix = convertInfsToZeros(csr_matrix(corrmatrix)).todense()
         evals, eigs = linalg.eig(corrmatrix)
-        k = args.numberOfEigenvectors
+        # k = len(rgs.numberOfEigenvectors
 
         chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:chr_range[1]])
 
         chrom_list += chrom
         start_list += start
         end_list += end
+        eigenvectors_correlate = None
+        for id in args.whichEigenvectors:
+            if eigenvectors_correlate is None:
+                eigenvectors_correlate = eigs[:, int(id) - 1:int(id)]
+            else:
+                eigenvectors_correlate = np.hstack((eigenvectors_correlate, eigs[:, int(id) - 1:int(id)]))
+
         if args.extraTrack and (args.extraTrack.endswith('.bw') or args.extraTrack.endswith('.bigwig')):
             assert(len(end) == len(start))
-            correlateEigenvectorWithHistonMarkTrack(eigs[:, :k].transpose(),
+            correlateEigenvectorWithHistonMarkTrack(eigenvectors_correlate.transpose(),
                                                     bwTrack, chrname, start,
                                                     end, args.extraTrack,
                                                     args.histonMarkType)
-
-        vecs_list += eigs[:, :k].tolist()
+        vecs_list += eigenvectors_correlate.tolist()
 
     if args.pearsonMatrix:
         file_type = 'cool'
@@ -350,11 +356,12 @@ def main(args=None):
 
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):
+
             assert(len(vecs_list) == len(chrom_list))
 
             with open(outfile, 'w') as fh:
                 for i, value in enumerate(vecs_list):
-                    if len(value) == args.numberOfEigenvectors:
+                    if len(value) == len(args.whichEigenvectors):
                         if isinstance(value[idx], np.complex):
                             value[idx] = value[idx].real
                         fh.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_list[i]), start_list[i], end_list[i], value[idx]))
@@ -388,7 +395,7 @@ def main(args=None):
             # create entry lists
             for i, value in enumerate(vecs_list):
                 # it can happen that some 'value' is having less dimensions than it should
-                if len(value) == args.numberOfEigenvectors:
+                if len(value) == len(args.whichEigenvectors):
                     if isinstance(value[idx], np.complex):
                         value[idx] = value[idx].real
                     values.append(value[idx])
