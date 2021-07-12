@@ -174,6 +174,10 @@ def parse_arguments(args=None):
                            'from hicDetectLoops.',
                            type=str,
                            default=None)
+    parserOpt.add_argument('--tads',
+                           help='Bedgraph file to plot detected tads',
+                           type=str,
+                           default=None)
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -266,7 +270,7 @@ def relabel_ticks(pXTicks):
 
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                 ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pBigwig=None,
-                pLoops=None, pHiCMatrix=None, pChromsomeStartEndDict=None, pResolution=None):
+                pLoops=None, pHiCMatrix=None, pChromsomeStartEndDict=None, pResolution=None, pTads=None):
     log.debug("plotting heatmap")
     if ma.shape[0] < 5:
         # This happens when a tiny matrix wants to be plotted, or by using per chromosome and
@@ -369,6 +373,9 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                               args.region, args.chromosomeOrder)
         # pLongRangeContacts=None, pHiCMatrix=None
         # plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix)
+    if pTads:
+        plotTADs(axHeat2, pTads, pHiCMatrix,
+                 args.region, args.chromosomeOrder)
     axHeat2.invert_yaxis()
 
     if pBigwig:
@@ -862,7 +869,7 @@ def main(args=None):
         plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
-                    pLoops=args.loops, pHiCMatrix=ma, pChromsomeStartEndDict=chromosome_start_end(ma), pResolution=resolution)
+                    pLoops=args.loops, pHiCMatrix=ma, pChromsomeStartEndDict=chromosome_start_end(ma), pResolution=resolution, pTads=args.tads)
 
     if not args.disable_tight_layout:
         if args.perChromosome or args.bigwig:
@@ -1105,3 +1112,36 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
 
         pAxis.plot(x_list, y_list, 's', lw=2,
                    markerfacecolor='none', markeredgecolor='red')
+
+
+def plotTADs(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion, pChromosomeOrder):
+    x_list = []
+    y_list = []
+    with open(pNameOfLongRangeContactsFile, 'rb') as file:
+        for line in file.readlines():
+            line = toString(line)
+            fields = line.strip().split('\t')
+            try:
+                chrom_X, start_X, end_X = fields[0:3]
+
+                if pRegion is not None and chrom_X != pRegion[0]:
+                    continue
+                elif pChromosomeOrder is not None and chrom_X not in pChromosomeOrder:
+                    continue
+
+                x = int(start_X)
+                y = int(end_X)
+                if x >= int(pRegion[1]) and x <= int(pRegion[2]):
+                    if y >= int(pRegion[1]) and y <= int(pRegion[2]):
+                        x_list.append(x)
+                        y_list.append(y)
+            except Exception as exp:
+                log.debug('Exception! {}'.format(str(exp)))
+
+        if pRegion is not None and (int(pRegion[1]) != 0 and int(pRegion[2]) != 1e15):
+            pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
+            pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
+
+        for x_id, y_id in zip(x_list, y_list):
+            pAxis.plot([x_id, x_id], [y_id, x_id], 'k')
+            pAxis.plot([x_id, y_id], [y_id, y_id], 'k')

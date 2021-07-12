@@ -609,3 +609,21 @@ def test_hicPlotMatrix_bigwig_multiple_chr_matrix_pruned():
     assert res is None, res
     if REMOVE_OUTPUT:
         os.remove(outfile.name)
+
+
+@pytest.mark.xfail(raises=ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')
+@pytest.mark.skipif(LOW_MEMORY > memory,
+                    reason="Travis has too less memory to run it.")
+def test_hicPlotMatrix_plot_tads():
+
+    outfile = NamedTemporaryFile(suffix='.png', prefix='hicexplorer_test', delete=False)
+
+    args = "--matrix {}   --disable_tight_layout " \
+           "--outFileName  {} --tads {} --region {}".format(ROOT + "small_test_matrix.h5", outfile.name, ROOT + "find_TADs/None/multiNone_domains.bed", 'chr3L:1300000-4220000').split()
+    # hicexplorer.hicPlotMatrix.main(args)
+    compute(hicexplorer.hicPlotMatrix.main, args, 5)
+
+    res = compare_images(ROOT + "hicPlotMatrix" + '/plot_tads.png', outfile.name, tol=tolerance)
+    assert res is None, res
+    if REMOVE_OUTPUT:
+        os.remove(outfile.name)
