@@ -106,7 +106,7 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--largeRegionsOperation',
                            help='If a given coordinate in the bed file is larger than '
                            'a bin of the input matrix, by default only the first bin '
-                           'is taken into account. However there are more posibilities '
+                           'is taken into account. However there are more possibilities '
                            'to handel such a case. Users can ask for the last bin or '
                            'for center of the region. As an example if a region falls into bins [4,5,6] '
                            'and `--numberOfBins = 2` then if first, bins [3,4,5] are kept. '
