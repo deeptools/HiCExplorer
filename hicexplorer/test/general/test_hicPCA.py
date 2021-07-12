@@ -327,3 +327,26 @@ def test_pca_bedgraph_lieberman_histoneMark_track():
 
     os.unlink(pca1.name)
     os.unlink(pca2.name)
+
+
+def test_pca_extratrack_extends_chromosomesize():
+    pca1 = NamedTemporaryFile(suffix='.bw', delete=False)
+    pca2 = NamedTemporaryFile(suffix='.bw', delete=False)
+
+    pca1.close()
+    pca2.close()
+    matrix = ROOT + "hicPCA/mm9_reduced_chr1.cool"
+    extra_track = ROOT + 'hicPCA/mm9_genes_sorted.bed12'
+
+    args = "--matrix {} --outputFileName {} {} -f bigwig -noe 2 --method lieberman \
+    --extraTrack {}"\
+    .format(matrix, pca1.name, pca2.name, extra_track).split()
+    # hicPCA.main(args)
+    compute(hicPCA.main, args, 5)
+    chrom_list = ['chr1']
+    assert are_files_equal_bigwig(ROOT + "hicPCA/pca_reduced_mm9_1.bw",
+                                  pca1.name, chrom_list)
+    assert are_files_equal_bigwig(ROOT + "hicPCA/pca_reduced_mm9_2.bw",
+                                  pca2.name, chrom_list)
+    os.unlink(pca1.name)
+    os.unlink(pca2.name)

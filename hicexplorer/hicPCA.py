@@ -141,7 +141,7 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
     density. If the correlation is negative, the eigenvector values are
     multiplied with -1.
     '''
-
+    log.debug('correlate eigenvector!')
     file_h = opener(pGeneTrack)
     bed = ReadBed(file_h)
 
@@ -154,10 +154,21 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
         chromosome_name = interval.chromosome
         if chromosome_name not in chromosome_list:
             continue
+        if interval.start > pMatrix.get_chromosome_sizes()[chromosome_name]:
+            log.warning('Your chromosome sizes do not match the chromosome sizes of the extraTrack data!')
+            log.warning('Your chromosome {}; Size {}. ExtraTrack data {} {} {}'.format(chromosome_name, pMatrix.get_chromosome_sizes()[chromosome_name], interval.chromosome,
+                                                                                       interval.start, interval.end))
+            log.warning('Please create your interaction matrix with a chromosome size file! However, if the sizes are intended and it is accepted that certain regions are not part of the correlation, you can ignore this message.')
+            continue
         # in which bin of the Hi-C matrix is the given gene?
         bin_id = pMatrix.getRegionBinRange(interval.chromosome,
                                            interval.start, interval.end)
-
+        if bin_id is None:
+            log.warning('Your chromosome sizes do not match the chromosome sizes of the extraTrack data!')
+            log.warning('Your chromosome {}; Size {}. ExtraTrack data {} {} {}'.format(chromosome_name, pMatrix.get_chromosome_sizes()[chromosome_name], interval.chromosome,
+                                                                                       interval.start, interval.end))
+            log.warning('Please create your interaction matrix with a chromosome size file! However, if the sizes are intended and it is accepted that certain regions are not part of the correlation, you can ignore this message.')
+            continue
         # add +1 for one gene occurrence in this bin
         gene_occurrence[bin_id[1]] += 1
 
@@ -180,7 +191,7 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
                                     gene_occurrence_per_chr[chromosome])
             if _correlation[0] < 0:
                 eigenvector[bin_id[0]:bin_id[1]] = np.negative(eigenvector[bin_id[0]:bin_id[1]])
-
+            # log.debug('correlated to {}!'.format(_correlation[0]))
     return np.array(pEigenvector).transpose()
 
 
