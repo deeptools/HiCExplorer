@@ -174,6 +174,18 @@ def parse_arguments(args=None):
                            'from hicDetectLoops.',
                            type=str,
                            default=None)
+    parserOpt.add_argument('--loopLargeRegionsOperation',
+                           help='If a given coordinate in the bed file is larger than '
+                           'a bin of the input matrix, by default only the first bin '
+                           'is taken into account. However there are more possibilities '
+                           'to handel such a case. Users can ask for the last bin or '
+                           'for center of the region.',
+                           choices=['first', 'last', 'center'],
+                           default='first')
+    parserOpt.add_argument('--tads',
+                           help='Bedgraph file to plot detected tads',
+                           type=str,
+                           default=None)
     parserOpt.add_argument('--help', '-h', action='help',
                            help='show this help message and exit')
 
@@ -204,69 +216,9 @@ def relabel_ticks(pXTicks):
     return labels
 
 
-# def getRegion(args, ma):
-#     chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
-#     chrom, region_start, region_end = translate_region(args.region)
-
-#     chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-#     # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-#     #     chrom = toBytes(chrom)
-
-#     if chrom not in list(ma.interval_trees):
-
-#         chrom = change_chrom_names(chrom)
-
-#         chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-
-#         # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-#         #     chrom = toBytes(chrom)
-
-#         if chrom not in list(ma.interval_trees):
-#             exit("Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
-
-#     args.region = [chrom, region_start, region_end]
-#     is_cooler = check_cooler(args.matrix)
-#     if is_cooler:
-#         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
-#                                  ((x[1] >= region_start and x[2] < region_end) or                            # noqa: W504
-#                                   (x[1] < region_end and x[2] < region_end and x[2] > region_start) or       # noqa: W504
-#                                   (x[1] > region_start and x[1] < region_end))])
-#     else:
-#         idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
-#                                  x[1] >= region_start and x[2] < region_end])
-#     if hasattr(args, 'region2') and args.region2:
-#         chrom2, region_start2, region_end2 = translate_region(args.region2)
-#         chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
-
-#         # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-#         #     chrom2 = toBytes(chrom)
-#         if chrom2 not in list(ma.interval_trees):
-#             chrom2 = change_chrom_names(chrom2)
-#             chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
-
-#             # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-#             #     chrom2 = toBytes(chrom)
-#             if chrom2 not in list(ma.interval_trees):
-#                 exit("Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
-#         if is_cooler:
-#             idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and  # noqa: W504
-#                                      ((x[1] >= region_start2 and x[2] < region_end2) or                           # noqa: W504
-#                                       (x[1] < region_end2 and x[2] < region_end2 and x[2] > region_start2) or     # noqa: W504
-#                                       (x[1] > region_start2 and x[1] < region_end2))])
-#         else:
-#             idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and  # noqa: W504
-#                                      x[1] >= region_start2 and x[2] < region_end2])
-#     else:
-#         idx2 = idx1
-#         chrom2 = chrom
-#         start_pos2 = start_pos1
-
-#     return chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2
-
-
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                 ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pBigwig=None,
-                pLoops=None, pHiCMatrix=None, pChromsomeStartEndDict=None, pResolution=None):
+                pLoops=None, pLoopLargeRegionsOperation=None, pHiCMatrix=None, pChromsomeStartEndDict=None, pResolution=None, pTads=None):
     log.debug("plotting heatmap")
     if ma.shape[0] < 5:
         # This happens when a tiny matrix wants to be plotted, or by using per chromosome and
@@ -365,10 +317,13 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     if pLoops:
         log.debug('pLoops called')
 
-        plotLongRangeContacts(axHeat2, pLoops, pHiCMatrix,
+        plotLongRangeContacts(axHeat2, pLoops, pLoopLargeRegionsOperation,
                               args.region, args.chromosomeOrder)
         # pLongRangeContacts=None, pHiCMatrix=None
         # plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix)
+    if pTads:
+        plotTADs(axHeat2, pTads, pHiCMatrix,
+                 args.region, args.chromosomeOrder)
     axHeat2.invert_yaxis()
 
     if pBigwig:
@@ -862,7 +817,7 @@ def main(args=None):
         plotHeatmap(matrix, ma.get_chromosome_sizes(), fig, position,
                     args, cmap, xlabel=chrom, ylabel=chrom2,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
-                    pLoops=args.loops, pHiCMatrix=ma, pChromsomeStartEndDict=chromosome_start_end(ma), pResolution=resolution)
+                    pLoops=args.loops, pLoopLargeRegionsOperation=args.loopLargeRegionsOperation, pHiCMatrix=ma, pChromsomeStartEndDict=chromosome_start_end(ma), pResolution=resolution, pTads=args.tads)
 
     if not args.disable_tight_layout:
         if args.perChromosome or args.bigwig:
@@ -1071,7 +1026,7 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                         x_values, 0, bigwig_scores, edgecolor='none')
 
 
-def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion, pChromosomeOrder):
+def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pLoopLargeRegionsOperation, pRegion, pChromosomeOrder):
 
     x_list = []
     y_list = []
@@ -1089,8 +1044,16 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
                 elif pChromosomeOrder is not None and (chrom_X not in pChromosomeOrder or chrom_Y not in pChromosomeOrder):
                     continue
 
-                x = int(start_X)
-                y = int(start_Y)
+                if pLoopLargeRegionsOperation == 'first':
+                    x = int(start_X)
+                    y = int(start_Y)
+                elif pLoopLargeRegionsOperation == 'last':
+                    x = int(end_X)
+                    y = int(end_Y)
+                elif pLoopLargeRegionsOperation == 'center':
+                    x = (int(start_X) + int(end_X)) // 2
+                    y = (int(start_Y) + int(end_Y)) // 2
+
                 log.debug('x {} y {}'.format(x, y))
                 if x >= int(pRegion[1]) and x <= int(pRegion[2]):
                     if y >= int(pRegion[1]) and y <= int(pRegion[2]):
@@ -1105,3 +1068,36 @@ def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegi
 
         pAxis.plot(x_list, y_list, 's', lw=2,
                    markerfacecolor='none', markeredgecolor='red')
+
+
+def plotTADs(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion, pChromosomeOrder):
+    x_list = []
+    y_list = []
+    with open(pNameOfLongRangeContactsFile, 'rb') as file:
+        for line in file.readlines():
+            line = toString(line)
+            fields = line.strip().split('\t')
+            try:
+                chrom_X, start_X, end_X = fields[0:3]
+
+                if pRegion is not None and chrom_X != pRegion[0]:
+                    continue
+                elif pChromosomeOrder is not None and chrom_X not in pChromosomeOrder:
+                    continue
+
+                x = int(start_X)
+                y = int(end_X)
+                if x >= int(pRegion[1]) and x <= int(pRegion[2]):
+                    if y >= int(pRegion[1]) and y <= int(pRegion[2]):
+                        x_list.append(x)
+                        y_list.append(y)
+            except Exception as exp:
+                log.debug('Exception! {}'.format(str(exp)))
+
+        if pRegion is not None and (int(pRegion[1]) != 0 and int(pRegion[2]) != 1e15):
+            pAxis.set_xlim(int(pRegion[1]), int(pRegion[2]))
+            pAxis.set_ylim(int(pRegion[1]), int(pRegion[2]))
+
+        for x_id, y_id in zip(x_list, y_list):
+            pAxis.plot([x_id, x_id], [y_id, x_id], 'k')
+            pAxis.plot([x_id, y_id], [y_id, y_id], 'k')
