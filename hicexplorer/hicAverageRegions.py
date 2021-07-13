@@ -50,6 +50,11 @@ WARNING: This tool can only be used with fixed bin size Hi-C matrices. No guaran
                            ' (Default: %(default)s).',
                                 choices=['start', 'center', 'end'],
                                 default='start')
+    parserOpt.add_argument('--considerStrandDirection',
+                           help='This parameter specifies if the strand information is taken into account for the aggregation. '
+                           'It has the effect that the contacts of a reverse strand region are inverted e.g. [1,2,3] becomes [3,2,1].',
+                           action='store_true',
+                           required=False)
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
 
@@ -130,6 +135,7 @@ def main(args=None):
 
     hic_ma = hm.hiCMatrix(pMatrixFile=args.matrix)
     indices_values = []
+
     with open(args.regions, 'r') as file:
         for line in file.readlines():
             _line = line.strip().split('\t')
@@ -141,13 +147,21 @@ def main(args=None):
                 viewpoint = (chrom, start, start)
             elif len(_line) >= 3:
                 chrom, start, end = _line[0], _line[1], _line[2]
+                if args.considerStrandDirection and len(_line) < 6:
+                    log.error('Strand orientation should be considered but file does not contain the 6th column of the bed file containing this information. Exiting!')
+                    exit(1)
+
                 viewpoint = (chrom, start, end)
             if args.range:
                 start_range_genomic, end_range_genomic, start_out, end_out = calculateViewpointRange(hic_ma, viewpoint, args.range, args.coordinatesToBinMapping)
                 start_bin, end_bin = getBinIndices(hic_ma, (chrom, start_range_genomic, end_range_genomic))
             else:
                 start_bin, end_bin, start_out, end_out = calculateViewpointRangeBins(hic_ma, viewpoint, args.rangeInBins, args.coordinatesToBinMapping)
-            indices_values.append([start_bin, end_bin, start_out, end_out])
+            if args.considerStrandDirection:
+                indices_values.append([start_bin, end_bin, start_out, end_out, _line[5]])
+
+            else:
+                indices_values.append([start_bin, end_bin, start_out, end_out, None])
 
     if args.range:
         dimensions_new_matrix = (args.range[0] // hic_ma.getBinSize()) + (args.range[1] // hic_ma.getBinSize())
@@ -158,7 +172,7 @@ def main(args=None):
     count_matrix = np.zeros(shape=(dimensions_new_matrix, dimensions_new_matrix))
 
     # max_length = hic_ma.matrix.shape[1]
-    for start, end, start_out, end_out in indices_values:
+    for start, end, start_out, end_out, orientation in indices_values:
         _start = 0
         _end = summed_matrix.shape[1]
         # if start < 0:
@@ -172,8 +186,18 @@ def main(args=None):
             _start = _end - orig_matrix_length
         if end_out:
             _end = start + orig_matrix_length
+        submatrix = hic_ma.matrix[start:end, start:end]
+        if summed_matrix.shape != submatrix.shape:
+            log.warning('Shape of a submatrix does not match. It is ignored.')
+            log.warning('Region: {}'.format(hic_ma.getBinPos(start)))
+            continue
         count_matrix[_start:_end, _start:_end] += 1
-        summed_matrix[_start:_end, _start:_end] += hic_ma.matrix[start:end, start:end]
+
+        if orientation is None or orientation == '+':
+            summed_matrix[_start:_end, _start:_end] += hic_ma.matrix[start:end, start:end]
+        elif orientation == '-':
+
+            summed_matrix[_start:_end, _start:_end] += hic_ma.matrix[start:end, start:end].T
     summed_matrix /= count_matrix
     summed_matrix = np.array(summed_matrix)
     data = summed_matrix[np.nonzero(summed_matrix)]
