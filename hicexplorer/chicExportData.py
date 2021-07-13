@@ -11,11 +11,11 @@ import logging
 log = logging.getLogger(__name__)
 
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+# import matplotlib
+# matplotlib.use('Agg')
+# import matplotlib.pyplot as plt
+# import matplotlib.gridspec as gridspec
+# from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities

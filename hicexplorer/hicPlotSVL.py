@@ -11,6 +11,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 from scipy.stats import ranksums
 
 from hicmatrix import HiCMatrix as hm

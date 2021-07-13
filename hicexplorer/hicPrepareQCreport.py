@@ -9,6 +9,8 @@ import matplotlib
 import pandas as pd
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 from hicexplorer._version import __version__
 
 import logging

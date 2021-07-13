@@ -5,6 +5,8 @@ import time
 import traceback
 from copy import deepcopy
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 import logging
 log = logging.getLogger(__name__)
 from hicmatrix import HiCMatrix as hm

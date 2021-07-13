@@ -11,7 +11,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from .lib import Viewpoint

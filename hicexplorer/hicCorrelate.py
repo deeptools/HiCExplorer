@@ -15,6 +15,8 @@ from hicexplorer._version import __version__
 from hicexplorer.utilities import check_cooler
 # for plotting
 from matplotlib import use as mplt_use
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 mplt_use('Agg')
 
 import matplotlib.pyplot as plt

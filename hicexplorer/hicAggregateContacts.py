@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
 from mpl_toolkits.mplot3d import Axes3D
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 # from scipy.cluster.vq import vq, kmeans
 # from scipy.cluster.hierarchy import fcluster, linkage
 import sklearn.cluster as skclust

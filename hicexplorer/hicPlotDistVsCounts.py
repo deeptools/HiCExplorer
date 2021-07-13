@@ -12,6 +12,8 @@ from hicexplorer._version import __version__
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 
 from collections import OrderedDict
 from past.builtins import zip

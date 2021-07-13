@@ -16,7 +16,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
 from hicexplorer._version import __version__

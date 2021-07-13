@@ -21,7 +21,8 @@ from matplotlib import use
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 import numpy as np
 debug = 0
 

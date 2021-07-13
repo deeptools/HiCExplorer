@@ -6,6 +6,8 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 import argparse
 from past.builtins import zip
 import pyBigWig
