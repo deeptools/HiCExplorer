@@ -241,17 +241,17 @@ def main(args=None):
     args = parse_arguments().parse_args(args)
     if len(args.whichEigenvectors) != len(args.outputFileName):
         log.error("Number of output file names and number of eigenvectors"
-                  " does not match. Please"
+                  " does not match. Please "
                   "provide the name of each file.\nFiles: {}\nNumber of "
                   "eigenvectors: {}".format(args.outputFileName,
                                             len(args.whichEigenvectors)))
         exit(1)
 
     ma = hm.hiCMatrix(args.matrix)
-    ma.maskBins(ma.nan_bins)
+    # ma.maskBins(ma.nan_bins)
 
     if args.ignoreMaskedBins:
-        # ma.maskBins(ma.nan_bins)
+        ma.maskBins(ma.nan_bins)
         new_intervals = enlarge_bins(ma.cut_intervals)
         ma.setCutIntervals(new_intervals)
 
@@ -267,7 +267,7 @@ def main(args=None):
     chromosome_count = len(ma.getChrNames())
     if args.pearsonMatrix:
         transf_matrix_pearson = lil_matrix(ma.matrix.shape)
-
+        log.debug('ma.matrix.shape {}'.format(ma.matrix.shape))
     if args.obsexpMatrix:
         transf_matrix_obsexp = lil_matrix(ma.matrix.shape)
 
