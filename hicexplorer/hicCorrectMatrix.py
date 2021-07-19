@@ -21,7 +21,8 @@ from matplotlib import use
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 import numpy as np
 debug = 0
 
@@ -739,7 +740,7 @@ def main(args=None):
             # set it to False since the vector is already normalised
             # with the previous True
             # correction_factors = np.true_divide(1, kr.get_normalisation_vector(False).todense())
-            correction_factors = kr.get_normalisation_vector(False).todense()
+            correction_factors = kr.get_normalisation_vector(True).todense()
 
             if args.outFileName.endswith('.h5'):
                 corrected_matrix = kr.get_normalised_matrix(True)

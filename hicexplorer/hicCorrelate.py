@@ -15,12 +15,14 @@ from hicexplorer._version import __version__
 from hicexplorer.utilities import check_cooler
 # for plotting
 from matplotlib import use as mplt_use
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 mplt_use('Agg')
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import FixedLocator
-
+import matplotlib.colors as pltcolors
 import logging
 log = logging.getLogger(__name__)
 
@@ -73,14 +75,6 @@ def parse_arguments(args=None):
              'http://matplotlib.org/examples/color/colormaps_reference.html'
              ' (Default: %(default)s).')
 
-    parserHeatmap.add_argument('--plotFileFormat',
-                               metavar='FILETYPE',
-                               help='Image format type. If given, this option '
-                               'overrides the image format based on the plotFile '
-                               'ending. The available options are: png, emf, '
-                               'eps, pdf and svg.',
-                               choices=['png', 'pdf', 'svg', 'eps', 'emf'])
-
     parserHeatmap.add_argument('--plotNumbers',
                                help='If set, then the correlation number is plotted '
                                'on top of the heatmap.',
@@ -118,11 +112,13 @@ def parse_arguments(args=None):
                            'domains in the genome you are working with.')
 
     parserOpt.add_argument('--outFileNameHeatmap', '-oh',
-                           help='File name to save the resulting heatmap plot.',
+                           help='File name to save the resulting heatmap plot. Supported file formats are given by matplotlib, usually these are:  png, pdf, ps, eps and svg. ',
+                           default='heatmap.png',
                            required=True)
 
     parserOpt.add_argument('--outFileNameScatter', '-os',
-                           help='File name to save the resulting scatter plot.',
+                           help='File name to save the resulting scatter plot. Supported file formats are given by matplotlib, usually these are:  png, pdf, ps, eps and svg. ',
+                           default='scatter.png',
                            required=True)
 
     parserOpt.add_argument('--chromosomes',
@@ -150,7 +146,7 @@ def parse_arguments(args=None):
 
 
 def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
-                     vmin=None, colormap='Reds', image_format=None):
+                     vmin=None, colormap='Reds', pPlotNumbers=None):
     import scipy.cluster.hierarchy as sch
     num_rows = corr_matrix.shape[0]
 
@@ -177,7 +173,10 @@ def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
     # are too dark at the end of the range that do not offer
     # a good contrast between the correlation numbers that are
     # plotted on black.
-    cmap = cmap.from_list(colormap + "clipped", cmap([0.0, 0.8]))
+    # cmap = cmap.from_list(colormap + "clipped", cmap([0.0, 0.8]))
+    if pPlotNumbers:
+        cmap = pltcolors.LinearSegmentedColormap.from_list(colormap + "clipped",
+                                                           cmap(np.linspace(0, 0.9, 10)))
     # Plot distance matrix.
     axmatrix = fig.add_axes([0.13, 0.1, 0.6, 0.7])
     index = z_var['leaves']
@@ -201,13 +200,15 @@ def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
     # Plot colorbar.
     axcolor = fig.add_axes([0.13, 0.065, 0.6, 0.02])
     plt.colorbar(img_mat, cax=axcolor, orientation='horizontal')
-    for row in range(num_rows):
-        for col in range(num_rows):
-            axmatrix.text(row + 0.5, col + 0.5,
-                          "{:.2f}".format(corr_matrix[row, col]),
-                          ha='center', va='center')
 
-    fig.savefig(plot_filename, format=image_format)
+    if pPlotNumbers:
+        for row in range(num_rows):
+            for col in range(num_rows):
+                axmatrix.text(row + 0.5, col + 0.5,
+                              "{:.2f}".format(corr_matrix[row, col]),
+                              ha='center', va='center')
+
+    fig.savefig(plot_filename)
 
 
 def get_vectors(mat1, mat2):
@@ -445,5 +446,4 @@ def main(args=None):
                      args.zMax,
                      args.zMin,
                      args.colorMap,
-                     image_format=args.plotFileFormat)
-#                    plot_numbers=args.plotNumbers)
+                     pPlotNumbers=args.plotNumbers)

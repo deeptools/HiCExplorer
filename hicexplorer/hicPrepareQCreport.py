@@ -9,6 +9,8 @@ import matplotlib
 import pandas as pd
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 from hicexplorer._version import __version__
 
 import logging
@@ -281,6 +283,7 @@ def main(args=None):
                 except ValueError:
                     params[fields[0]].append(fields[1])
 
+    log.debug('params {}'.format(params))
     table = pd.DataFrame(params)
     if args.labels and len(args.labels) == len(args.logfiles):
         try:

@@ -11,7 +11,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from .lib import Viewpoint
@@ -29,7 +30,7 @@ This script creates three output files: a plot with the sparsity distribution pe
 
 An example usage is:
 
-$ chicQualityControl -m matrix1.h5 matrix2.h5 -rp referencePointsFile.bed --range 20000 40000 --sparsity 0.01 -o referencePointFile_QC_passed.bed
+$ chicQualityControl -m matrix1.cool matrix2.cool -rp referencePointsFile.bed --range 20000 40000 --sparsity 0.01 -o referencePointFile_QC_passed.bed
 """
     )
 
@@ -199,9 +200,6 @@ def main(args=None):
         sparsity_local = [item for sublist in sparsity_local for item in sublist]
         sparsity.append(sparsity_local)
 
-    # sparsity = np.array(sparsity)
-    # mask = sparsity == -1.0
-
     # change sparsity to sparsity values per viewpoint per matrix: viewpoint = [matrix1, ..., matrix_n]
     sparsity = np.array(sparsity).T
     count_accepted = 0
@@ -297,14 +295,11 @@ def main(args=None):
     plt.legend(loc='center', bbox_to_anchor=(1.4, 0.5))
     plt.savefig(args.outFileNameSparsity, dpi=args.dpi)
 
-    # plt.xlabel("Length of list (number)")
-    # plt.ylabel("Time taken (seconds)")
     plt.close()
     for i in range(len(args.matrices)):
         plt.hist(x[i], bins=100, alpha=0.5, label=args.matrices[i].split('/')[-1])
     plt.xlabel("Sparsity level")
     plt.ylabel("Number of counts")
-    # plt.legend(loc='upper right')
 
     ax = plt.gca()
     box = ax.get_position()

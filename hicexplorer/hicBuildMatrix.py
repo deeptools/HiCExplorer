@@ -21,7 +21,6 @@ from multiprocessing.sharedctypes import Array, RawArray
 from intervaltree import IntervalTree, Interval
 
 from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
 
 # own tools
 from hicmatrix import HiCMatrix as hm
@@ -383,7 +382,7 @@ def bed2interval_list(bed_file_handler, pChromosomeSize, pRegion):
     >>> foo = file_tmp.write('chr1\t10\t20\tH1\t0\n')
     >>> foo = file_tmp.write("chr1\t60\t70\tH2\t0\n")
     >>> file_tmp.close()
-    >>> bed2interval_list(open(_file.name, 'r'))
+    >>> bed2interval_list(open(_file.name, 'r'), None, None)
     [('chr1', 10, 20), ('chr1', 60, 70)]
     >>> os.remove(_file.name)
     """
@@ -403,8 +402,10 @@ def bed2interval_list(bed_file_handler, pChromosomeSize, pRegion):
         except IndexError:
             log.error("error reading BED file at line {}".format(count))
 
-        if chrom == chrom_size[0] and start_region <= start and end_region <= end:
-
+        if pRegion is not None:
+            if chrom == chrom_size[0] and start_region <= start and end_region <= end:
+                interval_list.append((chrom, start, end))
+        else:
             interval_list.append((chrom, start, end))
 
     return interval_list
@@ -1202,7 +1203,7 @@ def main(args=None):
                 dangling_sequences[args.restrictionSequence[i]] = {}
                 dangling_sequences[args.restrictionSequence[i]]['pat_forw'] = args.danglingSequence[i]
                 dangling_sequences[args.restrictionSequence[i]]['pat_rev'] = str(
-                    Seq(args.danglingSequence[i], generic_dna).reverse_complement())
+                    Seq(args.danglingSequence[i]).reverse_complement())
 
         log.info("dangling sequences to check "
                  "are {}\n".format(dangling_sequences))
@@ -1531,8 +1532,8 @@ Max library insert size\t{}\t\t
 
         for key in dangling_end:
             # dangling_sequences[args.restrictionSequence[i]]['pat_forw']
-            intermediate_qc_log.write("dangling end {}\t{}\t({:.2f})\n".
-                                      format(dangling_sequences[key]['pat_forw'], dangling_end[key], 100 * float(dangling_end[key]) / mappable_unique_high_quality_pairs))
+            intermediate_qc_log.write("dangling end {} (restriction sequence {})\t{}\t({:.2f})\n".
+                                      format(dangling_sequences[key]['pat_forw'], key, dangling_end[key], 100 * float(dangling_end[key]) / mappable_unique_high_quality_pairs))
     else:
         intermediate_qc_log.write("dangling end\t{}\t({:.2f})\n".
                                   format(0, 100 * float(0) / mappable_unique_high_quality_pairs))
@@ -1579,6 +1580,9 @@ Max library insert size\t{}\t\t
     log_file = open(log_file_name, 'w')
     log_file.write(intermediate_qc_log.getvalue())
     log_file.close()
+    log.debug('log_file_name {}'.format(log_file_name))
+    log.debug('args.QCfolder {}'.format(args.QCfolder))
+
     QC.main("-l {} -o {}".format(log_file_name, args.QCfolder).split())
 
     args.outFileName.close()

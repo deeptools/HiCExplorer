@@ -8,6 +8,8 @@ log = logging.getLogger(__name__)
 from scipy.sparse import load_npz
 import matplotlib
 matplotlib.use('Agg')
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
