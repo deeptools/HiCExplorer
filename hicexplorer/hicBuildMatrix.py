@@ -1532,8 +1532,8 @@ Max library insert size\t{}\t\t
 
         for key in dangling_end:
             # dangling_sequences[args.restrictionSequence[i]]['pat_forw']
-            intermediate_qc_log.write("dangling end {}\t{}\t({:.2f})\n".
-                                      format(dangling_sequences[key]['pat_forw'], dangling_end[key], 100 * float(dangling_end[key]) / mappable_unique_high_quality_pairs))
+            intermediate_qc_log.write("dangling end {} (restriction sequence {})\t{}\t({:.2f})\n".
+                                      format(dangling_sequences[key]['pat_forw'], key, dangling_end[key], 100 * float(dangling_end[key]) / mappable_unique_high_quality_pairs))
     else:
         intermediate_qc_log.write("dangling end\t{}\t({:.2f})\n".
                                   format(0, 100 * float(0) / mappable_unique_high_quality_pairs))
@@ -1580,6 +1580,9 @@ Max library insert size\t{}\t\t
     log_file = open(log_file_name, 'w')
     log_file.write(intermediate_qc_log.getvalue())
     log_file.close()
+    log.debug('log_file_name {}'.format(log_file_name))
+    log.debug('args.QCfolder {}'.format(args.QCfolder))
+
     QC.main("-l {} -o {}".format(log_file_name, args.QCfolder).split())
 
     args.outFileName.close()

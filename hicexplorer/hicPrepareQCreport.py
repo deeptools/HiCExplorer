@@ -283,6 +283,7 @@ def main(args=None):
                 except ValueError:
                     params[fields[0]].append(fields[1])
 
+    log.debug('params {}'.format(params))
     table = pd.DataFrame(params)
     if args.labels and len(args.labels) == len(args.logfiles):
         try:
