@@ -17,20 +17,20 @@ def parse_arguments(args=None):
         description="""
 Uses Supervised Learning to call TAD boundaries. One or multiple HiC-Matrices can be passed, from which a BED file will be produced containing the predicted boundary positions. By default, a EasyEnsembleClassifier as described in Liu et al.: “Exploratory Undersampling for Class-Imbalance Learning” will be used to call TADs. Internally this classifier relies on Resampling, Boosting and Bagging. Passed matrices will be range normalized by default. Alternatively, obs/exp normalization can be used. Currently, only classifiers for 10kb resolution are implemented. For building own classifiers or tune existing ones, hicTrainClassifier can be used and passed with the saved_classifer argument. A simple usage example can be seen here:
 
-$ hicTADClassifier -f 'my_matrix.cool' -o 'predictions' -n 'range'
+$ hicTADClassifier -m my_matrix.cool -o predictions -n range
         """)
 
     parserRequired = parser.add_argument_group('Required arguments')
 
-    parserRequired.add_argument('--matrix_file', '-f',
-                                help='HiC-Matrix file or list of files for input',
+    parserRequired.add_argument('--matrices', '-m',
+                                help='HiC-Matrix file or list of files for input. Only COOLER files are supported!',
                                 required=True,
                                 nargs='+')
 
     parserRequired.add_argument('--out_file', '-o',
                                 help='output file path for predictions',
                                 required=True,
-                                type=str)
+                                nargs='+')
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
@@ -57,7 +57,14 @@ $ hicTADClassifier -f 'my_matrix.cool' -o 'predictions' -n 'range'
                            help='number of threads used',
                            default=4,
                            type=int)
-
+    # parserOpt.add_argument('--chrPrefix', '-cp',
+    #                        help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the protein.',
+    #                        choices=[None, 'add', 'remove'],
+    #                        default=None
+    #                        )
+    parserOpt.add_argument('--chromosomes',
+                           help='Chromosomes to include in the analysis. If not set, all chromosomes are included.',
+                           nargs='+')
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -91,7 +98,8 @@ def main(args=None):
                             saved_classifier=args.saved_classifier,
                             normalization_method=args.normalization_method,
                             unselect_border_cases=args.unselect_border_cases,
-                            threads=args.threads
+                            threads=args.threads,
+                            pAddRemoveChrPrexix=None
                             )
 
-    program.run_hicTADClassifier(args.matrix_file)
+    program.run_hicTADClassifier(args.matrices, args.chromosomes)

@@ -22,7 +22,7 @@ ROOT = os.path.join(
 # ROOT = 'test_data/hicTADClassifier/'
 
 
-def test_hicTrainClassifier():
+def test_hicTrainClassifier_train_test():
 
     test_folder = mkdtemp(prefix="testfolder_hicTrainClassifier")
     print(tempfile.gettempdir())
@@ -31,27 +31,29 @@ def test_hicTrainClassifier():
             'train_test',
             '--domain_file',
             ROOT + 'unittest_domains.bed',
-            '--matrix_file',
-            ROOT + 'unittest_matrix_2.cool',
+            '--matrices',
+            ROOT + 'gm12878_chr1.cool',
             '--out_file',
             test_folder + 'train_test.txt',
             '-n',
-            'range',
+            'obs_exp',
             '-r',
             '10000',
             '--estimators_per_step',
             '10']
-
-    compute(hicTrainTADClassifier.main, args, 1)
+    # '--chrPrefixProtein', 'remove']
+    # hicTrainTADClassifier.main(args)
+    compute(hicTrainTADClassifier.main, args, 5)
     f = open(test_folder + 'train_test.txt', "r")
     assert f.readline().split()[0] == 'accuracy'
 
+# def test_hicTrainClassifier_train_new():
     args = ['--mode',
             'train_new',
             '--domain_file',
             ROOT + 'unittest_domains.bed',
-            '--matrix_file',
-            ROOT + 'unittest_matrix_2.cool',
+            '--matrices',
+            ROOT + 'gm12878_chr1.cool',
             '--out_file',
             test_folder + 'unittest_classifier_new',
             '-n',
@@ -61,15 +63,15 @@ def test_hicTrainClassifier():
             '--estimators_per_step',
             '10']
 
-    compute(hicTrainTADClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 5)
     # if estimator is build will be checked by the next run
 
     args = ['--mode',
             'train_existing',
             '--domain_file',
             ROOT + 'unittest_domains.bed',
-            '--matrix_file',
-            ROOT + 'unittest_matrix_2.cool',
+            '--matrices',
+            ROOT + 'gm12878_chr1.cool',
             '--out_file',
             test_folder + 'unittest_classifier_new',
             '-n',
@@ -79,14 +81,14 @@ def test_hicTrainClassifier():
             '--saved_classifier',
             test_folder + 'unittest_classifier_new.BIN']
 
-    compute(hicTrainTADClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 5)
 
     args = ['--mode',
             'predict_test',
             '--domain_file',
             ROOT + 'unittest_domains.bed',
-            '--matrix_file',
-            ROOT + 'unittest_matrix_2.cool',
+            '--matrices',
+            ROOT + 'gm12878_chr1.cool',
             '--out_file',
             test_folder + 'predict_test',
             '-n',
@@ -96,7 +98,7 @@ def test_hicTrainClassifier():
             '--saved_classifier',
             test_folder + 'unittest_classifier_new.BIN']
 
-    compute(hicTrainTADClassifier.main, args, 1)
+    compute(hicTrainTADClassifier.main, args, 5)
     f = open(test_folder + 'predict_test_results.txt', "r")
     assert f.readline().split()[0] == 'accuracy'
 

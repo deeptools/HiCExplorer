@@ -47,7 +47,7 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
 
     parserRequired = parser.add_argument_group('Required arguments')
 
-    parserRequired.add_argument('--mode', '-m',
+    parserRequired.add_argument('--mode', '-mo',
                                 choices=[
                                     'train_new',
                                     'train_existing',
@@ -57,8 +57,8 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
                                 required=True,
                                 type=str)
 
-    parserRequired.add_argument('--matrix_file', '-f',
-                                help='HiC-Matrix file or list of files for input',
+    parserRequired.add_argument('--matrices', '-m',
+                                help='HiC-Matrix file or list of files for input. Only COOLER files are supported!',
                                 required=True,
                                 nargs='+')
 
@@ -114,7 +114,9 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
                            help='number of threads used',
                            default=4,
                            type=int)
-
+    parserOpt.add_argument('--chromosomes',
+                           help='Chromosomes to include in the analysis. If not set, all chromosomes are included.',
+                           nargs='+')
     parserOpt.add_argument('--concatenate_before_resample',
                            help='whether features build from matrix list are concatenated and resampled together or resampled separatly per matrix. Not important for random undersampling, but alter for other resampling methods and check if performance increases.',
                            default=False,
@@ -122,9 +124,10 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
 
     parserOpt.add_argument('--estimators_per_step',
                            help='how many estimators are added in each training step for the classifier (new classifier)',
-                           choices=range(5, 1001),
+                           #    choices=range(5, 1001),
                            metavar="[5-1000]",
-                           default=20)
+                           default=20,
+                           type=int)
 
     parserOpt.add_argument('--resampling_method',
                            help='the method used to resample the training set(new classifier)',
@@ -141,10 +144,11 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
                            default=None)
 
     parserOpt.add_argument('--distance',
-                           help='max distance between genes to be used in calculation (new classifier)',
-                           choices=range(5, 31),
+                           help='max distance between TADs to be used in calculation (new classifier)',
+                           #    choices=range(5, 31),
                            metavar="[5-30]",
-                           default=15)
+                           default=15,
+                           type=int)
 
     parserOpt.add_argument('--impute_value',
                            help='non-numerical float values in matrix will be replaced by this value (new classifier)',
@@ -158,7 +162,11 @@ $ hicTrainTADClassifier -m 'predict_test' -f 'my_test_matrix.cool' -d 'domains.b
     parserOpt.add_argument('--use_cleanlab',
                            help='use Confident Learning with the cleanlab library (new classifier)',
                            action='store_true')
-
+    # parserOpt.add_argument('--chrPrefixProtein', '-cp',
+    #                        help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the protein.',
+    #                        choices=[None, 'add', 'remove'],
+    #                        default=None
+    #                        )
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -201,8 +209,10 @@ def main(args=None):
                             alternative_classifier=args.alternative_classifier,
                             use_cleanlab=args.use_cleanlab,
                             estimators_per_step=args.estimators_per_step,
+                            pAddRemoveChrPrexix=None
                             )
     program.run_hicTrainClassifier(
-        args.matrix_file,
+        args.matrices,
         args.domain_file,
-        args.protein_file)
+        args.protein_file,
+        args.chromosomes)

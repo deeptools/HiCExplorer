@@ -58,7 +58,7 @@ class TADClassifier:
         '''represents domain and protein information and implements helper functions for their preparation'''
 
         def __init__(self, domain_file, protein_file=None,
-                     threshold=None, leniency=0, resolution=10000):
+                     threshold=None, leniency=0, resolution=10000, pAddRemoveChrPrexix=None):
             '''read the necessary files and check domains against proteins'''
 
             # read domain file
@@ -67,8 +67,10 @@ class TADClassifier:
 
             # read protein file and intersect if necessary
             if(protein_file is not None):
+                # if pAddRemoveChrPrexix:
+
                 self.protein_df = TADClassifier.MP_Domain_Data.readProtein(
-                    protein_file, False, True)
+                    protein_file, pAddRemoveChrPrexix)
                 TADClassifier.MP_Domain_Data.apply_binning_and_leniency(
                     self.protein_df, pBinSize=resolution, leniency=leniency)
                 self.domain_df = TADClassifier.MP_Domain_Data.check_domains_against_protein(
@@ -79,15 +81,17 @@ class TADClassifier:
             self.domain_dict = TADClassifier.MP_Domain_Data.build_tad_dictionary(
                 self.domain_df, chromosomes=self.chromosomes)
 
-        def readProtein(pFile, pAddChr, pRemoveChr):
+        def readProtein(pFile, pAddChr):
             '''read in a bed protein file (add pAddChr, if chr are in single digit form)'''
 
             # read
             protein_df = pd.read_csv(pFile, sep='\t', header=None)[
                 [0, 1, 2, 6, 7, 8]]
-            if pAddChr:
+            if pAddChr is None:
+                pass
+            elif pAddChr:
                 protein_df[0] = 'chr' + protein_df[0].astype(str)
-            elif pRemoveChr:
+            elif not pAddChr:
                 # protein_df[0] = 'chr' + protein_df[0].astype(str)
                 protein_df[0] = protein_df[0].str.lstrip('chr')
             log.debug('protein_df {}'.format(protein_df))
@@ -223,7 +227,7 @@ class TADClassifier:
                     matrix_file, pChromosome)
                 hic_ma = TADClassifier.MP_Matrix.obs_exp_normalization(hic_ma, pThreads=pThreads)
                 # hic_ma_np = np.array(hic_ma.getMatrix())
-                hic_ma_np = hic_ma.matrix
+                # hic_ma_np = hic_ma.matrix
 
             # perform range normalization, with given max value or infer from
             # matrix
@@ -235,8 +239,12 @@ class TADClassifier:
                 o_max = 1.0
 
                 if range_max is None:
-                    range_max = np.nanmax(hic_ma_np)
-                elif (range_max < np.nanmax(hic_ma_np)):
+                    # range_max = np.nanmax(hic_ma_np)
+                    range_max = hic_ma_np.max()
+
+                # elif (range_max < np.nanmax(hic_ma_np)):
+                elif (range_max < hic_ma_np.max()):
+
                     raise ValueError('range maximum too low for input matrix')
 
                 hic_ma_np = TADClassifier.MP_Matrix.range_normalization(
@@ -256,6 +264,8 @@ class TADClassifier:
 
             # get start and end position for every bin in the matrix
             indices = np.arange(0, self.numpy_matrix.shape[0])
+            # print('indices {}'.format(indices))
+            # print('self.hic_matrix.cut_intervals {}'.format(self.hic_matrix.cut_intervals))
             vec_bin_pos = np.vectorize(self.hic_matrix.getBinPos)
             pos = vec_bin_pos(indices)
 
@@ -318,6 +328,7 @@ class TADClassifier:
                 # log.debug('triu submatrix: {}'.format(numpy_matrix[start:end, start:end]))
                 # log.debug('start {} end {}'.format(start, end))
                 triangle = np.triu(numpy_matrix[start:end, start:end].todense(), k=0)
+                triangle = triangle.astype(float)
                 triangle[np.tril_indices(triangle.shape[0], -1)] = np.NINF
                 mask = triangle != float('-inf')
                 flattened_triangle = np.ndarray.flatten(triangle[mask])
@@ -701,7 +712,8 @@ class TADClassifier:
                  alternative_classifier=None,
                  use_cleanlab=False,
                  estimators_per_step=50,
-                 concatenate_before_resample=False
+                 concatenate_before_resample=False,
+                 pAddRemoveChrPrexix=None
                  ):
 
         self.mode = mode
@@ -710,6 +722,7 @@ class TADClassifier:
         self.leniency = leniency
         self.unselect_border_cases = unselect_border_cases
         self.concatenate_before_resample = concatenate_before_resample
+        self.addRemoveChrPrexix = pAddRemoveChrPrexix
 
         if(mode == 'predict' or mode == 'train_existing' or mode == 'predict_test'):
             if(saved_classifier is not None):
@@ -749,7 +762,7 @@ class TADClassifier:
                 distance=distance,
                 threads=threads)
 
-    def prepare_train(self, matrix_file, domain_file, protein_file, pChromosome):
+    def prepare_train(self, matrix_file, domain_file, protein_file, pChromosome, ):
         '''prepare matrix and its derivatives for the run'''
 
         log.debug('preparing domain data')
@@ -758,7 +771,8 @@ class TADClassifier:
             protein_file,
             resolution=self.classifier.resolution,
             threshold=self.threshold,
-            leniency=self.leniency)
+            leniency=self.leniency,
+            pAddRemoveChrPrexix=self.addRemoveChrPrexix)
         domain_dict = prep.domain_dict
 
         log.debug('loading matrix')
@@ -1061,7 +1075,7 @@ class TADClassifier:
 
         pickle.dump(self.classifier, open(out_file, 'wb'))
 
-    def run_hicTrainClassifier(self, matrix_list, domain_list, protein_list):
+    def run_hicTrainClassifier(self, matrix_list, domain_list, protein_list, pChromosomes):
         '''run hicTrainClassifier with specified mode on file'''
 
         if(isinstance(matrix_list, str)):
@@ -1086,10 +1100,14 @@ class TADClassifier:
             raise ValueError(
                 'please pass domain (,optional protein) and matrix lists of same length or pass a single domain (and optional protein) file')
 
+
         chromosome_list = []
-        for matrix in matrix_list:
-            cooler_obj = cooler.Cooler(matrix)
-            chromosome_list.append(cooler_obj.chromnames)
+        if pChromosomes is not None:
+            chromosome_list = pChromosomes
+        else:
+            for matrix in matrix_list:
+                cooler_obj = cooler.Cooler(matrix)
+                chromosome_list.append(cooler_obj.chromnames)
 
         if(self.mode == 'train_new' or self.mode == 'train_existing'):
 
@@ -1106,16 +1124,19 @@ class TADClassifier:
         elif(self.mode == 'predict_test'):
             self.multi_test_predict(matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
 
-    def run_hicTADClassifier(self, matrix_list):
+    def run_hicTADClassifier(self, matrix_list, pChromosomes):
         '''predict a dataset'''
 
         if(isinstance(matrix_list, str)):
             matrix_list = [matrix_list]
 
         chromosome_list = []
-        for matrix in matrix_list:
-            cooler_obj = cooler.Cooler(matrix)
-            chromosome_list.append(cooler_obj.chromnames)
+        if pChromosomes is None:
+            for matrix in matrix_list:
+                cooler_obj = cooler.Cooler(matrix)
+                chromosome_list.append(cooler_obj.chromnames)
+        else:
+            chromosome_list = pChromosomes
         # i = 0
         conc_is_boundary = None
         conc_positions = None
@@ -1145,7 +1166,7 @@ class TADClassifier:
                 # i = i + 1
 
             matrix_name = ".".join(os.path.basename(matrix_list[i]).split(".")[:-1])
-            out_file_i = self.out_file + '_' + matrix_name + '.bed'
+            out_file_i = self.out_file[i]
             TADClassifier.print_to_bed(TADClassifier.get_domains(
                 conc_positions, conc_is_boundary), out_file_i)
 
@@ -1181,13 +1202,19 @@ class TADClassifier:
         '''return dataframe of predicted TADs'''
 
         pos_mask = y[:] == True
+        print('pos_mask {}'.format(pos_mask))
         domains = positions[pos_mask]
+        print('domains {}'.format(domains))
+
         domains = TADClassifier.filter_domains(domains)
+        print('domains {}'.format(domains))
+
         name = np.arange(1, domains.shape[0] + 1)
         score = np.full(domains.shape[0], -1)
         strand = np.full(domains.shape[0], 0)
         item_rgb = np.tile([0, 1], domains.shape[0])
         item_rgb = item_rgb[0:domains.shape[0]]
+        print('Chrom {}'.format(domains[:, 0]))
 
         domain_df = pd.DataFrame({'Chrom': domains[:,
                                                    0],
@@ -1203,7 +1230,7 @@ class TADClassifier:
                                   'ThickEnd': domains[:,
                                                       1],
                                   'ItemRGB': item_rgb})
-
+        print('domain_df 1 {}'.format(domain_df))
         def rgb_helper(i):
             if(i == 0):
                 return '31,120,180'
@@ -1228,7 +1255,11 @@ class TADClassifier:
         domain_df['Start'] = domain_df['Start'].shift(1, fill_value=0)
         domain_df['ThickStart'] = domain_df['ThickStart'].shift(
             1, fill_value=0)
-        domain_df = domain_df[1:]
+        print('domain_df 2{}'.format(domain_df))
+        
+        # domain_df = domain_df[1:]
+        print('domain_df 3{}'.format(domain_df))
+
         domain_df = domain_df[domain_df['Start'] < domain_df['End']]
 
         return domain_df

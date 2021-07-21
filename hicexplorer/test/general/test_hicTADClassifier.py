@@ -7,7 +7,7 @@ import numpy as np
 import numpy.testing as nt
 import os
 import shutil
-from tempfile import mkdtemp
+from tempfile import mkdtemp, NamedTemporaryFile
 from hicmatrix import HiCMatrix as hm
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
@@ -27,7 +27,7 @@ ROOT = os.path.join(
 def test_MP_Domain_Data():
 
     protein_df = TADClassifier.MP_Domain_Data.readProtein(
-        ROOT + 'unittest.regionPeak', False)
+        ROOT + 'unittest.regionPeak', None)
     assert protein_df.shape == (28, 6) and protein_df.iloc[0, 0] == 'chr1'
 
     domain_df = TADClassifier.MP_Domain_Data.read_domain_file(
@@ -63,9 +63,8 @@ def test_MP_Matrix():
     assert (
         matrix.numpy_matrix.shape == (
             500,
-            500) and np.nanmax(
-            matrix.numpy_matrix) <= 1 and np.nanmin(
-                matrix.numpy_matrix) >= 0)
+            500) and
+        matrix.numpy_matrix.max() <= 1 and matrix.numpy_matrix.min() >= 0)
 
     X_unittest = pd.read_csv(ROOT + 'X_unittest.csv')
     y_unittest = pd.read_csv(ROOT + 'y_unittest.csv')
@@ -85,7 +84,7 @@ def test_MP_Matrix():
     # build features
     matrix_2 = hm.hiCMatrix(ROOT + 'unittest_matrix_2.cool')
     features = TADClassifier.MP_Matrix.build_features(
-        np.array(matrix_2.getMatrix()), 2)
+        matrix_2.matrix, 2)
     test_value = 37.03932717672038
 
     assert (features.shape == (2000,
@@ -141,67 +140,78 @@ def test_get_domains():
         header=None).to_numpy()
 
     domain_df = TADClassifier.get_domains(positions_unittest, y_unittest)
+
+    print(domain_df.head)
     assert domain_df['Chrom'].iloc[0] == 'chr1' and domain_df['Start'].iloc[0] == 20000
 
 
 def test_hicTADClassifier():
-    test_folder = mkdtemp(prefix="testfolder_hicTADClassifier")
+    outfile = NamedTemporaryFile(suffix='.bed', delete=False)
+    outfile.close()
 
-    args = ['--matrix_file',
-            ROOT + 'unittest_matrix_2.cool',
+    args = ['--matrices',
+            ROOT + 'gm12878_chr1.cool',
             '--out_file',
-            test_folder + 'domains_test',
+            outfile.name,
             '-n',
             'range',
             '--saved_classifier',
-            ROOT + 'unittest_classifier.BIN',
-            '--unselect_border_cases',
-            'False',
+            ROOT + 'trained_model.bin.BIN',
             '--threads',
             '4'
             ]
     hicTADClassifier.main(args)
     # compute(hicTADClassifier.main, args, 1)
     domain_df = TADClassifier.MP_Domain_Data.read_domain_file(
-        test_folder + 'domains_test_0.bed')
-    assert domain_df['Chrom'].iloc[0] == 'chr1'
+        outfile.name)
+    assert domain_df['Chrom'].iloc[0] == 1
 
-#    args = ['--matrix_file',
-#      ROOT + 'unittest_matrix_2.cool',
-#      '--out_file',
-#      test_folder + 'domains_test.bed',
-#      '-n',
-#      'obs_exp',
-#      '--saved_classifier',
-#      'unittest_classifier.data',
-#      '--unselect_border_cases',
-#      'True',
-#      '--threads',
-#      '4'
-#     ]
-#
-#    compute(main, args, 1)
-#    domain_df = TADClassifier.MP_Domain_Data.read_domain_file(test_folder + 'domains_test.bed')
-#    assert domain_df['Chrom'].iloc[0] = 'chr1'
 
-    args = ['--matrix_file',
-            [ROOT + 'unittest_matrix_2.cool',
-             ROOT + 'unittest_matrix.cool'],
+def test_hicTADClassifier_two_matrices():
+    #    args = ['--matrices',
+    #      ROOT + 'unittest_matrix_2.cool',
+    #      '--out_file',
+    #      test_folder + 'domains_test.bed',
+    #      '-n',
+    #      'obs_exp',
+    #      '--saved_classifier',
+    #      'unittest_classifier.data',
+    #      '--unselect_border_cases',
+    #      'True',
+    #      '--threads',
+    #      '4'
+    #     ]
+    #
+    #    compute(main, args, 1)
+    #    domain_df = TADClassifier.MP_Domain_Data.read_domain_file(test_folder + 'domains_test.bed')
+    #    assert domain_df['Chrom'].iloc[0] = 'chr1'
+    outfile_2 = NamedTemporaryFile(suffix='.bed', delete=False)
+    outfile_2.close()
+    outfile_3 = NamedTemporaryFile(suffix='.bed', delete=False)
+    outfile_3.close()
+    args = ['--matrices',
+            ROOT + 'gm12878_chr1.cool',
+            ROOT + 'gm12878_chr1.cool',
             '--out_file',
-            test_folder + 'domains_test',
+            outfile_2.name,
+            outfile_3.name,
             '-n',
             'range',
             '--saved_classifier',
-            ROOT + 'unittest_classifier.BIN',
+            ROOT + 'trained_model.bin.BIN',
             '--unselect_border_cases',
-            'True',
+            # 'True',
             '--threads',
             '4'
             ]
-
-    compute(hicTADClassifier.main, args, 1)
+    print(args)
+    hicTADClassifier.main(args)
+    # compute(hicTADClassifier.main, args, 1)
     domain_df = TADClassifier.MP_Domain_Data.read_domain_file(
-        test_folder + 'domains_test_0.bed')
-    assert domain_df['Chrom'].iloc[0] == 'chr1'
+        outfile_2.name)
+    assert domain_df['Chrom'].iloc[0] == 1
+    domain_df_3 = TADClassifier.MP_Domain_Data.read_domain_file(
+        outfile_3.name)
+    assert domain_df_3['Chrom'].iloc[0] == 1
 
-    shutil.rmtree(test_folder)
+    # shutil.rmtree(test_folder)
