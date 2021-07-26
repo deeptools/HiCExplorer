@@ -59,7 +59,7 @@ qc_folder = mkdtemp(prefix="testQC_")
 def test_build_matrix_restrictionCutFile_five(sam1, sam2, outFile, qcFolder, outBam, binSize,
                                               restrictionCutFile, minDistance, maxDistance,
                                               maxLibraryInsertSize, restrictionSequence,
-                                              danglingSequence, region, 
+                                              danglingSequence, region,
                                               minMappingQuality, threads, inputBufferSize):
     # added minMappingQuality
     args = "-s {} {} --restrictionCutFile {} --outFileName {} --QCfolder {} " \
@@ -207,7 +207,7 @@ def test_build_matrix_restrictionCutFile_eight(sam1, sam2, outFile, qcFolder, ou
                                                         qcFolder, restrictionSequence,
                                                         danglingSequence, minDistance,
                                                         maxLibraryInsertSize, threads,
-                                                        
+
                                                         minMappingQuality,
                                                         inputBufferSize).split()
 

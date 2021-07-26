@@ -1,5 +1,5 @@
 
-File	/tmp/tmpriojfa68.h5		
+File	/tmp/tmpjo4ushzb.h5		
 Sequenced reads	3494		
 Min rest. site distance	300		
 Max library insert size	1000		
@@ -12,7 +12,7 @@ One mate not unique	68	(1.95)
 Low mapping quality	634	(18.15)
 
 #	count	(percentage w.r.t. mappable, unique and high quality pairs)
-dangling end GATC	1	(0.10)
+dangling end GATC (restriction sequence GATC)	1	(0.10)
 self ligation (removed)	104	(10.40)
 One mate not close to rest site	0	(0.00)
 same fragment	198	(19.80)

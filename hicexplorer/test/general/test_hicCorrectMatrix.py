@@ -82,7 +82,7 @@ def test_correct_matrix_KR_partial_cool():
     outfile.close()
 
     args = "correct --matrix {} --correctionMethod KR --chromosomes "\
-           "chrUextra 3  --outFileName {} ".format(ROOT + "gm12878_raw_values.cool",
+           " 3  --outFileName {} ".format(ROOT + "hicCorrectMatrix/gm12878_raw_values.cool",
                                                           outfile.name).split()
     # hicCorrectMatrix.main(args)
     compute(hicCorrectMatrix.main, args, 5)

@@ -60,7 +60,7 @@ qc_folder = mkdtemp(prefix="testQC_")
 def test_build_matrix_restrictionCutFile_two(sam1, sam2, outFile, qcFolder, outBam, binSize,
                                              restrictionCutFile, minDistance, maxDistance,
                                              maxLibraryInsertSize, restrictionSequence,
-                                             danglingSequence, region, 
+                                             danglingSequence, region,
                                              minMappingQuality, threads, inputBufferSize):
     # test more args for restrictionCutFile option
     region = genomicRegion(region)
@@ -71,14 +71,14 @@ def test_build_matrix_restrictionCutFile_two(sam1, sam2, outFile, qcFolder, outB
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
            "--region {}  ".format(bam_R1, bam_R2,
-                                                         restrictionCutFile, outFile.name,
-                                                         qcFolder,
-                                                         restrictionSequence,
-                                                         danglingSequence,
-                                                         minDistance,
-                                                         maxLibraryInsertSize,
-                                                         threads, region
-                                                         ).split()
+                                  restrictionCutFile, outFile.name,
+                                  qcFolder,
+                                  restrictionSequence,
+                                  danglingSequence,
+                                  minDistance,
+                                  maxLibraryInsertSize,
+                                  threads, region
+                                  ).split()
     # hicBuildMatrix.main(args)
     compute(hicBuildMatrix.main, args, 5)
 
@@ -115,10 +115,10 @@ def test_build_matrix_restrictionCutFile_three(sam1, sam2, outFile, qcFolder, ou
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
            " ".format(bam_R1, bam_R2,
-                                             restrictionCutFile, outFile.name, qcFolder,
-                                             restrictionSequence, danglingSequence,
-                                             minDistance, maxLibraryInsertSize, threads
-                                             ).split()
+                      restrictionCutFile, outFile.name, qcFolder,
+                      restrictionSequence, danglingSequence,
+                      minDistance, maxLibraryInsertSize, threads
+                      ).split()
 
     # hicBuildMatrix.main(args)
     compute(hicBuildMatrix.main, args, 5)
@@ -156,14 +156,14 @@ def test_build_matrix_restrictionCutFile_four(sam1, sam2, outFile, qcFolder, out
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
            " --keepSelfCircles ".format(bam_R1, bam_R2,
-                                                               restrictionCutFile,
-                                                               outFile.name, qcFolder,
-                                                               restrictionSequence,
-                                                               danglingSequence,
-                                                               minDistance,
-                                                               maxLibraryInsertSize,
-                                                               threads
-                                                               ).split()
+                                        restrictionCutFile,
+                                        outFile.name, qcFolder,
+                                        restrictionSequence,
+                                        danglingSequence,
+                                        minDistance,
+                                        maxLibraryInsertSize,
+                                        threads
+                                        ).split()
 
     # hicBuildMatrix.main(args)
     compute(hicBuildMatrix.main, args, 5)
