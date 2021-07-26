@@ -105,7 +105,7 @@ install_requires_py = ["numpy >= 1.19.*",
                        "cooler >= 0.8.10",
                        "jinja2 >= 2.11.*",
                        "unidecode >= 1.1.*",
-                       "hicmatrix >= 15",
+                       "hicmatrix >= 16",
                        "pygenometracks >= 3.5",
                        "psutil >= 5.7.*",
                        "fit_nbinom >= 1.1",
@@ -116,7 +116,9 @@ install_requires_py = ["numpy >= 1.19.*",
                        "tqdm >= 4.50",
                        "hyperopt >= 0.2.4",
                        "graphviz >= 0.14",
-                       "scikit-learn >= 0.23.2"
+                       "scikit-learn >= 0.23.2",
+                       "imbalanced-learn >= 0.7.*",
+                       "cleanlab >= 0.1.*"
                        ]
 
 
@@ -135,7 +137,8 @@ setup(
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
              'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicMergeLoops',
              'bin/hicCompartmentalization', 'bin/hicQuickQC', 'bin/hicPlotSVL', 'bin/hicCreateThresholdFile', 'bin/hicHyperoptDetectLoops',
-             'bin/hicHyperoptDetectLoopsHiCCUPS', 'bin/hicMergeDomains', 'bin/hicDifferentialTAD', 'bin/chicExportData', 'bin/hicInterIntraTAD'
+             'bin/hicHyperoptDetectLoopsHiCCUPS', 'bin/hicMergeDomains', 'bin/hicDifferentialTAD', 'bin/chicExportData', 'bin/hicInterIntraTAD',
+             'bin/hicTADClassifier', 'bin/hicTrainTADClassifier'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},

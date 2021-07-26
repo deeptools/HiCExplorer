@@ -214,15 +214,14 @@ def parse_arguments(args=None):
                            required=False,
                            type=genomicRegion
                            )
-    # currently not implemented
-    parserOpt.add_argument('--removeSelfLigation',
+    parserOpt.add_argument('--keepSelfLigation',
                            help='If set, inward facing reads less than 1000 bp apart and having a restriction'
                            'site in between are removed. Although this reads do not contribute to '
                            'any distant contact, they are useful to account for bias in the data'
                            ' (for the moment is always True).',
                            #    help=argparse.SUPPRESS,
-                           default=True
-                           # action='store_true'
+                           #    default=True
+                           action='store_true'
                            )
 
     parserOpt.add_argument('--keepSelfCircles',
@@ -784,7 +783,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
 
 
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
-                 pKeepSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
+                 pKeepSelfCircles, pRestrictionSequence, pKeepSelfLigation, pMatrixSize,
                  pRfPositions, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex,
                  pQueueOut, pTemplate, pOutputBamSet, pCounter,
@@ -803,7 +802,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     pMinMappingQuality : integer, minimum mapping quality of a read
     pKeepSelfCircles : boolean, if self circles should be kept
     pRestrictionSequence : List of String, the restriction sequence
-    pRemoveSelfLigation : If self ligations should be removed
+    pKeepSelfLigation : If self ligations should be removed
     pMatrixSize : integer, the size of the interaction matrix
     pRfPositions : intervalTree, only used if a restriction cut file and not a bin size was defined.
     pRefId2name : Tuple, Maps a reference id to a name
@@ -1032,7 +1031,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
                     self_ligation += 1
 
-                    if pRemoveSelfLigation:
+                    if not pKeepSelfLigation:
                         # skip self ligations
                         continue
 
@@ -1320,7 +1319,7 @@ def main(args=None):
                     pMinMappingQuality=args.minMappingQuality,
                     pKeepSelfCircles=args.keepSelfCircles,
                     pRestrictionSequence=args.restrictionSequence,
-                    pRemoveSelfLigation=args.removeSelfLigation,
+                    pKeepSelfLigation=args.keepSelfLigation,
                     pMatrixSize=matrix_size,
                     pRfPositions=rf_positions,
                     pRefId2name=ref_id2name,
@@ -1485,7 +1484,7 @@ def main(args=None):
         hic_matrix.maskBins(get_poor_bins(bin_max))
         hic_matrix.save(args.outFileName.name)
     """
-    if args.removeSelfLigation:
+    if not args.keepSelfLigation:
         msg = " (removed)"
     else:
         msg = " (not removed)"
