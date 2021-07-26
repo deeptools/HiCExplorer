@@ -54,14 +54,13 @@ qc_folder = mkdtemp(prefix="testQC_")
 @pytest.mark.parametrize("restrictionSequence", ['GATC'])
 @pytest.mark.parametrize("danglingSequence", ['GATC'])
 @pytest.mark.parametrize("region", ["ChrX"])  # region does not work!!
-@pytest.mark.parametrize("removeSelfLigation", [True])
 @pytest.mark.parametrize("minMappingQuality", [15])
 @pytest.mark.parametrize("threads", [4])
 @pytest.mark.parametrize("inputBufferSize", [400000])
 def test_build_matrix_restrictionCutFile_two(sam1, sam2, outFile, qcFolder, outBam, binSize,
                                              restrictionCutFile, minDistance, maxDistance,
                                              maxLibraryInsertSize, restrictionSequence,
-                                             danglingSequence, region, removeSelfLigation,
+                                             danglingSequence, region, 
                                              minMappingQuality, threads, inputBufferSize):
     # test more args for restrictionCutFile option
     region = genomicRegion(region)
@@ -71,15 +70,15 @@ def test_build_matrix_restrictionCutFile_two(sam1, sam2, outFile, qcFolder, outB
            "--danglingSequence {} " \
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
-           "--region {} --removeSelfLigation {} ".format(bam_R1, bam_R2,
+           "--region {}  ".format(bam_R1, bam_R2,
                                                          restrictionCutFile, outFile.name,
                                                          qcFolder,
                                                          restrictionSequence,
                                                          danglingSequence,
                                                          minDistance,
                                                          maxLibraryInsertSize,
-                                                         threads, region,
-                                                         removeSelfLigation).split()
+                                                         threads, region
+                                                         ).split()
     # hicBuildMatrix.main(args)
     compute(hicBuildMatrix.main, args, 5)
 
@@ -101,14 +100,13 @@ def test_build_matrix_restrictionCutFile_two(sam1, sam2, outFile, qcFolder, outB
 @pytest.mark.parametrize("restrictionSequence", ['GATC'])
 @pytest.mark.parametrize("danglingSequence", ['GATC'])
 @pytest.mark.parametrize("region", ["ChrX"])  # region does not work!!
-@pytest.mark.parametrize("removeSelfLigation", [True])
 @pytest.mark.parametrize("minMappingQuality", [15])
 @pytest.mark.parametrize("threads", [4])
 @pytest.mark.parametrize("inputBufferSize", [400000])
 def test_build_matrix_restrictionCutFile_three(sam1, sam2, outFile, qcFolder, outBam, binSize,
                                                restrictionCutFile, minDistance, maxDistance,
                                                maxLibraryInsertSize, restrictionSequence,
-                                               danglingSequence, region, removeSelfLigation,
+                                               danglingSequence, region,
                                                minMappingQuality, threads, inputBufferSize):
     # test more params with restrictionCutFile (now without region param)
     args = "-s {} {} --restrictionCutFile {} --outFileName {} --QCfolder {} " \
@@ -116,11 +114,11 @@ def test_build_matrix_restrictionCutFile_three(sam1, sam2, outFile, qcFolder, ou
            "--danglingSequence {} " \
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
-           "--removeSelfLigation {} ".format(bam_R1, bam_R2,
+           " ".format(bam_R1, bam_R2,
                                              restrictionCutFile, outFile.name, qcFolder,
                                              restrictionSequence, danglingSequence,
-                                             minDistance, maxLibraryInsertSize, threads,
-                                             removeSelfLigation).split()
+                                             minDistance, maxLibraryInsertSize, threads
+                                             ).split()
 
     # hicBuildMatrix.main(args)
     compute(hicBuildMatrix.main, args, 5)
@@ -143,14 +141,13 @@ def test_build_matrix_restrictionCutFile_three(sam1, sam2, outFile, qcFolder, ou
 @pytest.mark.parametrize("restrictionSequence", ['GATC'])
 @pytest.mark.parametrize("danglingSequence", ['GATC'])
 @pytest.mark.parametrize("region", ["ChrX"])  # region does not work!!
-@pytest.mark.parametrize("removeSelfLigation", [True])
 @pytest.mark.parametrize("minMappingQuality", [15])
 @pytest.mark.parametrize("threads", [4])
 @pytest.mark.parametrize("inputBufferSize", [400000])
 def test_build_matrix_restrictionCutFile_four(sam1, sam2, outFile, qcFolder, outBam, binSize,
                                               restrictionCutFile, minDistance, maxDistance,
                                               maxLibraryInsertSize, restrictionSequence,
-                                              danglingSequence, region, removeSelfLigation,
+                                              danglingSequence, region,
                                               minMappingQuality, threads, inputBufferSize):
     # test more params with restrictionCutFile (now without region param)
     args = "-s {} {} --restrictionCutFile {} --outFileName {} --QCfolder {} " \
@@ -158,15 +155,15 @@ def test_build_matrix_restrictionCutFile_four(sam1, sam2, outFile, qcFolder, out
            "--danglingSequence {} " \
            "--minDistance {} " \
            "--maxLibraryInsertSize {} --threads {} " \
-           "--removeSelfLigation {} --keepSelfCircles ".format(bam_R1, bam_R2,
+           " --keepSelfCircles ".format(bam_R1, bam_R2,
                                                                restrictionCutFile,
                                                                outFile.name, qcFolder,
                                                                restrictionSequence,
                                                                danglingSequence,
                                                                minDistance,
                                                                maxLibraryInsertSize,
-                                                               threads,
-                                                               removeSelfLigation).split()
+                                                               threads
+                                                               ).split()
 
     # hicBuildMatrix.main(args)
     compute(hicBuildMatrix.main, args, 5)
