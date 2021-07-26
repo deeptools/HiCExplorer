@@ -89,7 +89,7 @@ def test_correct_matrix_KR_partial_cool():
 
     test = hm.hiCMatrix(ROOT + "hicCorrectMatrix/kr_partial.cool")
     new = hm.hiCMatrix(outfile.name)
-    nt.assert_almost_equal(test.matrix.data, new.matrix.data, decimal=5)
+    nt.assert_allclose(test.matrix.data, new.matrix.data, rtol=1.0)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
     os.unlink(outfile.name)
