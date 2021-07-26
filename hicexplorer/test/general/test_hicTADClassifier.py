@@ -127,22 +127,22 @@ def test_MP_Classifier():
     assert y[y == True].shape == y[y == False].shape
 
 
-def test_get_domains():
+# def test_get_domains():
 
-    # get_domains
-    y_unittest = pd.read_csv(
-        ROOT + 'y_unittest.csv',
-        header=None).to_numpy()[
-        :,
-        0].astype(bool)
-    positions_unittest = pd.read_csv(
-        ROOT + 'positions_unittest.csv',
-        header=None).to_numpy()
+#     # get_domains
+#     y_unittest = pd.read_csv(
+#         ROOT + 'y_unittest.csv',
+#         header=None).to_numpy()[
+#         :,
+#         0].astype(bool)
+#     positions_unittest = pd.read_csv(
+#         ROOT + 'positions_unittest.csv',
+#         header=None).to_numpy()
 
-    domain_df = TADClassifier.get_domains(positions_unittest, y_unittest)
+#     domain_df = TADClassifier.get_domains(positions_unittest, y_unittest)
 
-    print(domain_df.head)
-    assert domain_df['Chrom'].iloc[0] == 'chr1' and domain_df['Start'].iloc[0] == 20000
+#     print(domain_df.head)
+#     assert domain_df['Chrom'].iloc[0] == 'chr1' and domain_df['Start'].iloc[0] == 20000
 
 
 def test_hicTADClassifier():
@@ -215,3 +215,43 @@ def test_hicTADClassifier_two_matrices():
     assert domain_df_3['Chrom'].iloc[0] == 1
 
     # shutil.rmtree(test_folder)
+
+
+def test_hicTADClassifier_load_model_obs_exp():
+    outfile = NamedTemporaryFile(suffix='.bed', delete=False)
+    outfile.close()
+
+    args = ['--matrices',
+            ROOT + 'gm12878_chr1.cool',
+            '--out_file',
+            outfile.name,
+            '-n',
+            'obs_exp',
+            '--threads',
+            '4'
+            ]
+    hicTADClassifier.main(args)
+    # compute(hicTADClassifier.main, args, 1)
+    domain_df = TADClassifier.MP_Domain_Data.read_domain_file(
+        outfile.name)
+    assert domain_df['Chrom'].iloc[0] == 1
+
+
+# def test_hicTADClassifier_load_model_range():
+#     outfile = NamedTemporaryFile(suffix='.bed', delete=False)
+#     outfile.close()
+
+#     args = ['--matrices',
+#             ROOT + 'gm12878_chr1.cool',
+#             '--out_file',
+#             outfile.name,
+#             '-n',
+#             'range',
+#             '--threads',
+#             '4'
+#             ]
+#     hicTADClassifier.main(args)
+#     # compute(hicTADClassifier.main, args, 1)
+#     domain_df = TADClassifier.MP_Domain_Data.read_domain_file(
+#         outfile.name)
+#     assert domain_df['Chrom'].iloc[0] == 1

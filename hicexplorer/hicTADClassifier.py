@@ -44,7 +44,8 @@ $ hicTADClassifier -m my_matrix.cool -o predictions -n range
                            default='range')
 
     parserOpt.add_argument('--saved_classifier',
-                           help='pickled classifier to be trained or used for prediction, if none is passed, default classifier will be used',
+                           help='Default classifier are available for 10kb, 25kb, 50kb and 100kb resolution. Do not set this parameter to use the default models. '
+                           'Pass a self-trained classifier (from hicTrainTADClassifier) to load a non-default model.',
                            type=str,
                            default=None)
 
@@ -57,11 +58,7 @@ $ hicTADClassifier -m my_matrix.cool -o predictions -n range
                            help='number of threads used',
                            default=4,
                            type=int)
-    # parserOpt.add_argument('--chrPrefix', '-cp',
-    #                        help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the protein.',
-    #                        choices=[None, 'add', 'remove'],
-    #                        default=None
-    #                        )
+
     parserOpt.add_argument('--chromosomes',
                            help='Chromosomes to include in the analysis. If not set, all chromosomes are included.',
                            nargs='+')
@@ -74,23 +71,7 @@ $ hicTADClassifier -m my_matrix.cool -o predictions -n range
     return parser
 
 
-# def print_args(args):
-#     """
-#     Print to stderr the parameters used
-#     Parameters
-#     ----------
-#     args
-
-#     Returns
-#     -------
-
-#     """
-#     for key, value in args._get_kwargs():
-#         log.info("{}:\t{}\n".format(key, value))
-
-
 def main(args=None):
-    # args = parse_arguments().parse_args(args)
 
     args = parse_arguments().parse_args(args)
     program = TADClassifier('predict',

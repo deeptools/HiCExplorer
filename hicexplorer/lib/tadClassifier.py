@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.random import Generator
-from os import walk
+from os import EX_CANTCREAT, walk
 from os import listdir
 import os
 import re
@@ -16,7 +16,7 @@ import logging
 import scipy.stats as statsw
 from scipy.sparse import csr_matrix, lil_matrix
 import pickle
-
+import site
 # hicexplorer and pybedtools
 from hicexplorer import hicFindTADs
 from hicexplorer import hicTransform
@@ -726,17 +726,48 @@ class TADClassifier:
 
         if(mode == 'predict' or mode == 'train_existing' or mode == 'predict_test'):
             if(saved_classifier is not None):
-                self.classifier = pickle.load(open(saved_classifier, 'rb'))
+                try:
+                    self.classifier = pickle.load(open(saved_classifier, 'rb'))
+                except Exception as exp:
+                    log.error('Tried to load ML model but failed!')
+                    exit(1)
+
             else:
+                model_location = site.getsitepackages()[0] + '/hicexplorer/trained_models/'
+
                 if(normalization_method == 'obs_exp'):
-                    self.classifier = pickle.load(
-                        open(pretrained_classifier_10000_obsexp, 'rb'))
+                    if resolution == 10000:
+                        model_location += '10kb_model_cleanlab_proteins_obs_exp.BIN'
+                    elif resolution == 25000:
+                        model_location += '25kb_model_cleanlab_proteins_obs_exp.BIN'
+                    elif resolution == 50000:
+                        model_location += '50kb_model_cleanlab_proteins_obs_exp.BIN'
+                    elif resolution == 100000:
+                        model_location += '100kb_model_cleanlab_proteins_obs_exp.BIN'
+                    else:
+                        log.error('No trained model for this resolution! Please train a model on your own with hicTrainTADClassifier!')
+                        exit(1)
+
                     log.debug('using obs/exp default classifier')
                 else:
-                    self.classifier = pickle.load(
-                        open(pretrained_classifier_10000_range, 'rb'))
-                    log.debug('using range default classifier')
+                    if resolution == 10000:
+                        model_location += '10kb_model_cleanlab_proteins_range.BIN'
+                    elif resolution == 25000:
+                        model_location += '25kb_model_cleanlab_proteins_range.BIN'
+                    elif resolution == 50000:
+                        model_location += '50kb_model_cleanlab_proteins_range.BIN'
+                    elif resolution == 100000:
+                        model_location += '100kb_model_cleanlab_proteins_range.BIN'
+                    else:
+                        log.error('No trained model for this resolution! Please train a model on your own with hicTrainTADClassifier!')
+                        exit(1)
 
+                try:
+                    self.classifier = pickle.load(
+                        open(model_location, 'rb'))
+                except Exception as exp:
+                    log.error('Tried to load ML model but failed!')
+                    exit(1)
         if(mode == 'train_new' or mode == 'train_test'):
             if(alternative_classifier is not None and not isinstance(alternative_classifier, sklearn.base.BaseEstimator)):
                 raise ValueError('the passed classifier is not valid')
@@ -1100,7 +1131,6 @@ class TADClassifier:
             raise ValueError(
                 'please pass domain (,optional protein) and matrix lists of same length or pass a single domain (and optional protein) file')
 
-
         chromosome_list = []
         if pChromosomes is not None:
             chromosome_list = pChromosomes
@@ -1202,19 +1232,19 @@ class TADClassifier:
         '''return dataframe of predicted TADs'''
 
         pos_mask = y[:] == True
-        print('pos_mask {}'.format(pos_mask))
+        # print('pos_mask {}'.format(pos_mask))
         domains = positions[pos_mask]
-        print('domains {}'.format(domains))
+        # print('domains {}'.format(domains))
 
         domains = TADClassifier.filter_domains(domains)
-        print('domains {}'.format(domains))
+        # print('domains {}'.format(domains))
 
         name = np.arange(1, domains.shape[0] + 1)
         score = np.full(domains.shape[0], -1)
         strand = np.full(domains.shape[0], 0)
         item_rgb = np.tile([0, 1], domains.shape[0])
         item_rgb = item_rgb[0:domains.shape[0]]
-        print('Chrom {}'.format(domains[:, 0]))
+        # print('Chrom {}'.format(domains[:, 0]))
 
         domain_df = pd.DataFrame({'Chrom': domains[:,
                                                    0],
@@ -1230,7 +1260,8 @@ class TADClassifier:
                                   'ThickEnd': domains[:,
                                                       1],
                                   'ItemRGB': item_rgb})
-        print('domain_df 1 {}'.format(domain_df))
+        # print('domain_df 1 {}'.format(domain_df))
+
         def rgb_helper(i):
             if(i == 0):
                 return '31,120,180'
@@ -1255,10 +1286,10 @@ class TADClassifier:
         domain_df['Start'] = domain_df['Start'].shift(1, fill_value=0)
         domain_df['ThickStart'] = domain_df['ThickStart'].shift(
             1, fill_value=0)
-        print('domain_df 2{}'.format(domain_df))
-        
+        # print('domain_df 2{}'.format(domain_df))
+
         # domain_df = domain_df[1:]
-        print('domain_df 3{}'.format(domain_df))
+        # print('domain_df 3{}'.format(domain_df))
 
         domain_df = domain_df[domain_df['Start'] < domain_df['End']]
 
