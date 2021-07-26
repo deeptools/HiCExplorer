@@ -137,7 +137,7 @@ setup(
              'bin/hicConvertFormat', 'bin/hicAdjustMatrix', 'bin/hicNormalize',
              'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicMergeLoops',
              'bin/hicCompartmentalization', 'bin/hicQuickQC', 'bin/hicPlotSVL', 'bin/hicCreateThresholdFile', 'bin/hicHyperoptDetectLoops',
-             'bin/hicHyperoptDetectLoopsHiCCUPS', 'bin/hicMergeDomains', 'bin/hicDifferentialTAD', 'bin/chicExportData', 'bin/hicInterIntraTAD', 
+             'bin/hicHyperoptDetectLoopsHiCCUPS', 'bin/hicMergeDomains', 'bin/hicDifferentialTAD', 'bin/chicExportData', 'bin/hicInterIntraTAD',
              'bin/hicTADClassifier', 'bin/hicTrainTADClassifier'
              ],
     include_package_data=True,

@@ -116,6 +116,7 @@ def overlapLoop(pDataFrameLoop, pDataFrameProtein):
 
     return selection
 
+
 def overlapTAD(pDataFrameTAD, pDataFrameProtein):
     loop_bedtool_x = BedTool.from_dataframe(pDataFrameTAD)
     # loop_bedtool_y = BedTool.from_dataframe(pDataFrameLoop[[3,4,5]])
@@ -129,6 +130,7 @@ def overlapTAD(pDataFrameTAD, pDataFrameProtein):
 
     # selection  = (mask_x) & (mask_y)
     return mask_x
+
 
 def correlateCool(pCoolFile, pDataFrameLoop):
     cool_obj = cooler.Cooler(pCoolFile)
@@ -252,7 +254,6 @@ def main(args=None):
         log.debug('{}'.format(tad_df_resolution))
         log.debug('{}'.format(protein_df_resolution))
         log.debug('{}'.format(overlap_mask_df))
-
 
         tad_df_ = tad_df[overlap_mask_df]
         print('Protein peaks: {}'.format(len(protein_df_resolution)))

@@ -729,7 +729,7 @@ class TADClassifier:
                 try:
                     self.classifier = pickle.load(open(saved_classifier, 'rb'))
                 except Exception as exp:
-                    log.error('Tried to load ML model but failed!')
+                    log.error('Tried to load ML model but failed! {}'.format(str(exp)))
                     exit(1)
 
             else:
@@ -766,7 +766,7 @@ class TADClassifier:
                     self.classifier = pickle.load(
                         open(model_location, 'rb'))
                 except Exception as exp:
-                    log.error('Tried to load ML model but failed!')
+                    log.error('Tried to load ML model but failed! {}'.format(str(exp)))
                     exit(1)
         if(mode == 'train_new' or mode == 'train_test'):
             if(alternative_classifier is not None and not isinstance(alternative_classifier, sklearn.base.BaseEstimator)):
@@ -1195,7 +1195,7 @@ class TADClassifier:
                 positions = None
                 # i = i + 1
 
-            matrix_name = ".".join(os.path.basename(matrix_list[i]).split(".")[:-1])
+            # matrix_name = ".".join(os.path.basename(matrix_list[i]).split(".")[:-1])
             out_file_i = self.out_file[i]
             TADClassifier.print_to_bed(TADClassifier.get_domains(
                 conc_positions, conc_is_boundary), out_file_i)

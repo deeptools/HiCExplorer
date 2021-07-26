@@ -417,6 +417,7 @@ def expected_interactions(pSubmatrix, pThreads=None):
 
 #     return sum_per_distance / binary_interactions_per_distance
 
+
 def compute_zscore(pSubmatrix, pDepth, pThreads):
     # depth is to be expected in matrix units
     # indice == distance
@@ -424,7 +425,7 @@ def compute_zscore(pSubmatrix, pDepth, pThreads):
     expected_interactions_array = expected_interactions(pSubmatrix, pThreads=pThreads)
     occurrences = np.arange(pSubmatrix.shape[0] + 1, 1, -1)
     row, col = pSubmatrix.nonzero()
-    distance = np.absolute(row-col)
+    distance = np.absolute(row - col)
     if pDepth is not None:
         max_distance = min(pSubmatrix.shape[0], pDepth)
         mask = distance > pDepth
@@ -441,9 +442,8 @@ def compute_zscore(pSubmatrix, pDepth, pThreads):
 
         sum_for_sigma += np.square((0 - expected_interactions_array[distance_index]) * (occurrences[distance_index] - np.sum(mask)))
         pSubmatrix.data[mask] = x_minus_mu[mask] / np.sqrt(sum_for_sigma / occurrences[distance_index])
-    
-    return pSubmatrix
 
+    return pSubmatrix
 
 
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
@@ -528,7 +528,7 @@ def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None, p
         mask = distance >= pDistance
         pSubmatrix.data[mask] = 0
         pSubmatrix.eliminate_zeros()
-    
+
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix, pThreads)
     if expected_interactions_in_distance_ is None:
         return None

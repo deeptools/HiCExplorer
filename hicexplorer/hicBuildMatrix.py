@@ -220,7 +220,7 @@ def parse_arguments(args=None):
                            'any distant contact, they are useful to account for bias in the data'
                            ' (for the moment is always True).',
                            #    help=argparse.SUPPRESS,
-                        #    default=True
+                           #    default=True
                            action='store_true'
                            )
 
