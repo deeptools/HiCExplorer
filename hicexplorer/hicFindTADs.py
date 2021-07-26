@@ -12,12 +12,8 @@ from hicexplorer.utilities import enlarge_bins
 from scipy import sparse
 import numpy as np
 import multiprocessing
-import cooler
 from hicexplorer._version import __version__
-from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes, compute_zscore, check_cooler
-
-from scipy.sparse import csr_matrix, lil_matrix
-# import numpy as np
+from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
 
 from past.builtins import zip
 from past.builtins import map
@@ -42,16 +38,12 @@ running window of different sizes. Then, TADs are called as those
 positions having a local TAD-separation score minimum. The TAD-separation score is
 measured using the z-score of the Hi-C matrix and is defined as the mean zscore of all
 the matrix contacts between the left and right regions (diamond).
-
 To find the TADs, the program  needs to compute first the
 TAD scores at different window sizes. Then, the results of that computation
 are used to call the TADs. This is convenient to test different filtering criteria quickly
 as the demanding step is the computation of TAD-separation scores.
-
  A simple example usage is:
-
 $ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting fdr
-
 The bedgraph file produced by this tool can be used to plot the so-called insulation score
 along the genome or at specific regions. This score is much more reliable across samples
 than the number of TADs or the TADs width that can vary depending on the sequencing depth because of the lack
@@ -70,15 +62,16 @@ of information at certain bins, and depending on the parameters used with this t
                                 'We call this format a bedgraph matrix and can be plotted using '
                                 '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
                                 'a different window length starting from --minDepth to --maxDepth. '
-                                ' 2. < prefix > _boundaries.bed, which '
+                                '2. <prefix>_zscore_matrix.h5, the z-score matrix used for the computation of '
+                                'the TAD-separation score.  3. < prefix > _boundaries.bed, which '
                                 'contains the positions of boundaries. The genomic coordinates in this file '
                                 'correspond to the resolution used. Thus, for Hi-C bins of '
                                 '10.000bp the boundary position is 10.000bp long. For restriction fragment '
                                 'matrices the boundary position varies depending on the fragment length '
-                                'at the boundary. 3. <prefix>_domains.bed '
+                                'at the boundary. 4. <prefix>_domains.bed '
                                 'contains the TADs positions. This is a non-overlapping set of genomic '
-                                'positions. 4. <prefix>_boundaries.gff Similar to the boundaries bed file '
-                                'but with extra information (p-value, delta). 5. <prefix>_score.bedgraph file '
+                                'positions. 5. <prefix>_boundaries.gff Similar to the boundaries bed file '
+                                'but with extra information (p-value, delta). 6. <prefix>_score.bedgraph file '
                                 'contains the TAD-separation score '
                                 'measured at each Hi-C bin coordinate. Is useful to visualize in a genome '
                                 'browser. The delta and p-value settings are saved as part of the name.',
@@ -157,8 +150,11 @@ of information at certain bins, and depending on the parameters used with this t
                            'used to reduce spurious boundaries caused by noise.',
                            type=int)
 
-    parserOpt.add_argument('--chromosome',
-                           help='Compute TADs for one chromosome only.')
+    parserOpt.add_argument('--chromosomes',
+                           help='Chromosomes and order in which the '
+                           'chromosomes should be plotted. This option '
+                           'overrides --region and --region2.',
+                           nargs='+')
 
     parserOpt.add_argument('--numberOfProcessors', '-p',
                            help='Number of processors to use '
@@ -181,7 +177,6 @@ def get_cut_weight_by_bin_id(matrix, cut, depth, return_mean=False):
     """
     like get_cut_weight which is the 'diamond' representing the counts
     from a region -dept to +depth from the given bin position (cut):
-
     """
     if cut < 0 or cut > matrix.shape[0]:
         return None
@@ -209,7 +204,6 @@ def get_idx_of_bins_at_given_distance(hic_matrix, idx, window_len):
     ----------
     idx reference index
     window_len distance in bp
-
     Returns
     -------
     tuple, with left and right bin indices
@@ -242,7 +236,6 @@ def get_cut_weight(hic_matrix, cut, window_len, return_mean=False):
     """
     'diamond' (when matrix is rotated 45 degrees) representing the counts
     from a region -window_len to +window_len from the given bin position (cut):
-
     """
     if cut < 0 or cut > hic_matrix.matrix.shape[0]:
         return None
@@ -268,7 +261,6 @@ def get_triangle(hic_matrix, cut, window_len, return_mean=False):
     """
     like get_cut_weight which is the 'diamond' representing the counts
     from a region -window_len to +window_len from the given bin position (cut):
-
     """
     if cut < 0 or cut > hic_matrix.matrix.shape[0]:
         return None
@@ -291,7 +283,6 @@ def get_triangle(hic_matrix, cut, window_len, return_mean=False):
 def get_incremental_step_size(min_win_size, max_win_size, start_step_len):
     """
     generates a list of incremental windows sizes (measured in bins)
-
     :param min_win_size: starting window size
     :param max_win_size: end window size
     :param start_step_len: start length
@@ -313,7 +304,6 @@ def get_incremental_step_size(min_win_size, max_win_size, start_step_len):
 def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
     """
     Receives a number of bins for which the tad-score should be computed.
-
     Parameters
     ----------
     hic_ma Hi-C matrix object
@@ -321,10 +311,8 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
     min_win_size
     max_win_size
     step_len
-
     Returns
     -------
-
     """
 
     """
@@ -354,9 +342,6 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
         cond_matrix.append(mult_matrix)
 
         positions_array.append((chrom, chr_start, chr_end))
-    if len(positions_array) == 0:
-        return [], [], [],[]
-
     chrom, chr_start, chr_end = zip(*positions_array)
     cond_matrix = np.vstack(cond_matrix)
 
@@ -369,7 +354,6 @@ class HicFindTads(object):
                  min_boundary_distance=None, use_zscore=True, p_correct_for_multiple_testing="fdr", p_threshold_comparisons=0.01,
                  pChromosomes=None):
         """
-
         Parameters
         ----------
         matrix  Either a filename or a Hi-C Matrix object
@@ -388,17 +372,11 @@ class HicFindTads(object):
 
         # if matrix is string, loaded, else, assume is a HiCMatrix object
 
-      
+        self.set_matrix(matrix, pChromosomes)
         if max_depth is not None and min_depth is not None and max_depth <= min_depth:
             log.error("Please check that maxDepth is larger than minDepth.")
             exit()
-        # if isinstance(matrix, str) and matrix.endswith(".cool"):
-        #     cooler_file = cooler.Cooler(matrix)
-        #     self.binsize = cooler_file.binsize
-        self.is_cooler = False
-        # else:
-        #     self.is_cooler = False
-        self.matrix_name = matrix
+
         self.num_processors = num_processors
         self.max_depth = max_depth
         self.min_depth = min_depth
@@ -406,37 +384,20 @@ class HicFindTads(object):
         self.delta = delta
         self.min_boundary_distance = min_boundary_distance
         self.use_zscore = use_zscore
-        self.bedgraph_matrix = {}
-        self.boundaries = {}
-        self.chromosomes = pChromosomes
-        # if isinstance(matrix, str) and matrix.endswith(".h5") or not isinstance(matrix, str):
-        #     log.info('h5 file')
-        #     self.set_matrix(matrix, pChromosomes)
-        #     self.binsize = self.hic_ma.getBinSize()
-        #     self.set_variables()
-        # else:
-        #     log.info('cool file')
-
-        #     self.set_variables()
-        #     log.info('Load matrix!')
-        #     self.set_matrix(matrix, pChromosomes)
-        #     log.info('Load matrix! ... DONE')
-        # self.max_depth_bin = self.max_depth // self.binsize
-
+        self.binsize = self.hic_ma.getBinSize()
+        self.bedgraph_matrix = None
+        self.boundaries = None
+        self.set_variables()
         self.correct_for_multiple_testing = p_correct_for_multiple_testing
         self.threshold_comparisons = p_threshold_comparisons
-        
 
     def set_matrix(self, pMatrix, pChromosomes):
         if isinstance(pMatrix, str):
-            log.debug('pChromosomes {}'.format(pChromosomes))
-            self.hic_ma = hm.hiCMatrix(pMatrix, pChrnameList=pChromosomes)#pDistance=self.max_depth * 2.5, pUpperTriangleOnly=True)
-            log.debug('self.hic_ma {}'.format(self.hic_ma))
-
+            self.hic_ma = hm.hiCMatrix(pMatrix)
         else:
             self.hic_ma = pMatrix
 
-        if pChromosomes is not None and not self.is_cooler:
+        if pChromosomes is not None:
             valid_chromosomes = []
             invalid_chromosomes = []
             log.debug('args.chromosomeOrder: {}'.format(pChromosomes))
@@ -459,7 +420,6 @@ class HicFindTads(object):
         """
         Checks the value of the max_depth, min_depth and step variables, setting default parameters
         if neccesary.
-
         Returns
         -------
         None
@@ -486,6 +446,7 @@ class HicFindTads(object):
         elif self.min_depth < self.binsize * 3:
             log.error("Please specify a --minDepth that is at least 3 times larger than the matrix bin size")
             exit(1)
+
         if self.step is None:
             if self.binsize < 1000:
                 self.step = self.binsize * 4
@@ -507,11 +468,9 @@ class HicFindTads(object):
         """
         Based on the MATLAB script at:
         http://billauer.co.il/peakdet.html
-
         function for detecting local maximum and minimum in a signal.
         Discovers peaks by searching for values which are surrounded by lower
         or larger values for maximum and minimum respectively
-
         keyword arguments:
         :param: y_axis -- A list containing the signal over which to find peaks
         :param: x_axis -- (optional) A x-axis whose values correspond to the y_axis list
@@ -523,8 +482,6 @@ class HicFindTads(object):
             the following points, before a peak may be considered a peak. Useful
             to hinder the function from picking up false peaks towards to end of
             the signal. To work well delta should be set to delta >= RMSnoise * 5.
-
-
         :return: -- two lists [max_peaks, min_peaks] containing the positive and
             negative peaks respectively. Each cell of the lists contains a tuple
             of: (position, peak_value)
@@ -621,18 +578,15 @@ class HicFindTads(object):
         delta is defined as the difference between the TAD-separation score at the minimum with respect
         to each of the TAD-separation scores of the `window_len` to the left, plus the `window_len` to
         the right of each minimum. The minimum itself is excluded.
-
         Parameters
         ----------
         matrix TAD score matrix for different window sizes
         chrom list of chrom names for each matrix row
         window_len the length of the window to look for the local TAD-score average
-
         Returns
         -------
         A dict of each minima delta to the mean of the TAD-separation score surrounding the minima. The keys
         are the min_idx
-
         """
 
         # compute the start and end points of the chromosomes
@@ -680,8 +634,7 @@ class HicFindTads(object):
 
         # get the delta for each boundary
         delta_to_mean = HicFindTads.delta_wrt_window(min_idx, tad_score_matrix_avg, chrom)
-        
-        # X, dict
+
         return min_idx, delta_to_mean
 
     def hierarchical_clustering(self, boundary_list, clusters_cutoff=[]):
@@ -692,13 +645,9 @@ class HicFindTads(object):
             (chrom, start, value)
         :param clusters_cutoff: List of values to separate clusters. The
             clusters found at those value thresholds are returned.
-
-
         :return: z_value, clusters
-
         For z_value, the format used is similar as the scipy.cluster.hierarchy.linkage() function
         which is described as follows:
-
         A 4 by :math:`(n-1)` matrix ``z_value`` is returned. At the
         :math:`i`-th iteration, clusters with indices ``z_value[i, 0]`` and
         ``z_value[i, 1]`` are combined to form cluster :math:`n + i`. A
@@ -707,11 +656,9 @@ class HicFindTads(object):
         clusters ``z_value[i, 0]`` and ``z_value[i, 1]`` is given by ``z_value[i, 2]``. The
         fourth value ``z_value[i, 3]`` represents the number of original
         observations in the newly formed cluster.
-
         The difference is that instead of a 4 times n-1 array, a
         6 times n-1 array is returned. Where positions 4, and 5
         correspond to the genomic coordinates of ``z_value[i, 0]`` and ``z_value[i, 1]``
-
         """
         # run the hierarchical clustering per chromosome
         if clusters_cutoff:
@@ -763,11 +710,8 @@ class HicFindTads(object):
             :param clusters_: cluster ids
             :param chrom_name: chromosome name
             :return: list of tuples with (chrom_name, start, end)
-
             Example:
-
             clusters = [set(1,2,3), set(4,5,10)]
-
             """
             start_list = []
             end_list = []
@@ -852,7 +796,6 @@ class HicFindTads(object):
 
     def save_linkage(Z, file_name):
         """
-
         :param Z: Z has a format similar to the scipy.cluster.linkage matrix (see function
                     hierarchical_clustering).
         :param file_name: File name to save the results
@@ -907,33 +850,30 @@ class HicFindTads(object):
         """
         Save matrix as chrom, start, end ,row, values separated by tab
         I call this a bedgraph matrix and the ending is .bm
-
         Returns
         -------
         None
         """
         # get params to save as part of the bedgraph file
         params = OrderedDict()
-        params['step'] = int(self.step)
-        params['minDepth'] = int(self.min_depth)
-        params['maxDepth'] = int(self.max_depth)
-        params['binsize'] = int(self.binsize)
+        params['step'] = self.step
+        params['minDepth'] = self.min_depth
+        params['maxDepth'] = self.max_depth
+        params['binsize'] = self.binsize
         params_str = json.dumps(params, separators=(',', ':'))
 
         with open(outfile, 'w') as f:
             f.write("#" + params_str + "\n")
-            for chromosome in self.bedgraph_matrix:
-                for idx in range(len(self.bedgraph_matrix[chromosome]['chrom'])):
-                    matrix_values = "\t".join(np.char.mod('%f', self.bedgraph_matrix[chromosome]['matrix'][idx, :]))
+            for idx in range(len(self.bedgraph_matrix['chrom'])):
+                matrix_values = "\t".join(np.char.mod('%f', self.bedgraph_matrix['matrix'][idx, :]))
 
-                    f.write("{}\t{}\t{}\t{}\n".format(toString(self.bedgraph_matrix[chromosome]['chrom'][idx]),
-                                                    toString(self.bedgraph_matrix[chromosome]['chr_start'][idx]),
-                                                    toString(self.bedgraph_matrix[chromosome]['chr_end'][idx]),
-                                                    toString(matrix_values)))
+                f.write("{}\t{}\t{}\t{}\n".format(toString(self.bedgraph_matrix['chrom'][idx]),
+                                                  toString(self.bedgraph_matrix['chr_start'][idx]),
+                                                  toString(self.bedgraph_matrix['chr_end'][idx]),
+                                                  toString(matrix_values)))
 
     def save_clusters(clusters, file_prefix):
         """
-
         :param clusters: is a dictionary whose key is the cut of used to create it.
                          the value is a list of tuples, each representing
                           a genomec interval as ('chr', start, end).
@@ -946,92 +886,68 @@ class HicFindTads(object):
                 fileh.write("{}\t{}\t{}\t.\t0\t.\n".format(chrom, start, end))
 
     def save_domains_and_boundaries(self, prefix):
-        log.debug('write domains and boundaries')
-        log.debug('boundaries keys {}'.format(list(self.boundaries.keys())))
-        chrom_min_bin_global = []
-        chrom_bedgraph_global = []
-        chrom_min_bin_domains_global = []
-        left_bin_center_global = []
-        right_bin_center_global = []
-        left_bin_center_bedgraph_global = []
-        right_bin_center_bedgraph_global = []
-        min_bin_id_global = []
-        mean_mat_all_global = []
-        mean_mat_all_domains_global = []
 
-        mean_mat_all_bedgraph_global = []
-        delta_of_min_global = []
-        pvalue_of_min_global = []
-        start_global = []
-        end_global = []
-        count_global = []
-        rgb_global = [] 
+        # a boundary is added to the start and end of each chromosome
+        # np.unique return index is used to quickly get
+        # the indices at which the name of the chromosome changes (chrom, start, end should be  sorted)
+        chrom = self.bedgraph_matrix['chrom']
+        chr_start = self.bedgraph_matrix['chr_start']
+        chr_end = self.bedgraph_matrix['chr_end']
+        matrix = self.bedgraph_matrix['matrix']
 
+        min_idx = self.boundaries['min_idx']
+        delta_of_min = self.boundaries['delta']
+        pvalue_of_min = self.boundaries['pvalues']
 
-        for chromosome in self.boundaries:
-            log.debug('chromosome {}'.format(chromosome))
+        unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
 
-            # a boundary is added to the start and end of each chromosome
-            # np.unique return index is used to quickly get
-            # the indices at which the name of the chromosome changes (chrom, start, end should be  sorted)
-            chrom = self.bedgraph_matrix[chromosome]['chrom']
-            chr_start = self.bedgraph_matrix[chromosome]['chr_start']
-            chr_end = self.bedgraph_matrix[chromosome]['chr_end']
-            matrix = self.bedgraph_matrix[chromosome]['matrix']
+        # the trick to get the start positions using np.unique only works when
+        # more than one chromosome is present
+        if len(unique_chroms) == 1:
+            chr_start_idx = [0]
+            chr_end_idx = [len(chrom) - 1]
+        else:
+            chr_end_idx = chr_start_idx
+            # the indices for the end of the chromosomes
+            # are the the start indices - 1, with the exception
+            # of the idx == 0 that is transformed into the length
+            # of the chromosome to get the idx for the end of the
+            # last chromosome
+            chr_end_idx[chr_end_idx == 0] = len(chrom)
+            chr_end_idx -= 1
 
-            min_idx = self.boundaries[chromosome]['min_idx']
-            delta_of_min = self.boundaries[chromosome]['delta']
-            pvalue_of_min = self.boundaries[chromosome]['pvalues']
+        # put all indices together and sort
+        min_idx = np.sort(np.concatenate([chr_start_idx, chr_end_idx, min_idx]))
 
-            unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
+        mean_mat_all = matrix.mean(axis=1)
 
-            # the trick to get the start positions using np.unique only works when
-            # more than one chromosome is present
-            if len(unique_chroms) == 1:
-                chr_start_idx = [0]
-                chr_end_idx = [len(chrom) - 1]
-            else:
-                chr_end_idx = chr_start_idx
-                # the indices for the end of the chromosomes
-                # are the the start indices - 1, with the exception
-                # of the idx == 0 that is transformed into the length
-                # of the chromosome to get the idx for the end of the
-                # last chromosome
-                chr_end_idx[chr_end_idx == 0] = len(chrom)
-                chr_end_idx -= 1
+        filtered_min_idx = []
 
-            # put all indices together and sort
-            min_idx = np.sort(np.concatenate([chr_start_idx, chr_end_idx, min_idx]))
-
-            mean_mat_all = matrix.mean(axis=1)
-
-            filtered_min_idx = []
-
-            for idx in min_idx:
-                # filter by delta and pvalue_thresholds
-                if idx not in delta_of_min:
-                    delta_of_min[idx] = np.nan
-                if self.correct_for_multiple_testing == 'fdr':
-                    if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.pvalueFDR:
-                        filtered_min_idx += [idx]
-                elif self.correct_for_multiple_testing == 'bonferroni':
-                    if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.threshold_comparisons:
-                        filtered_min_idx += [idx]
-                elif self.correct_for_multiple_testing == 'None':
-                    if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.threshold_comparisons:
-                        filtered_min_idx += [idx]
-
+        for idx in min_idx:
+            # filter by delta and pvalue_thresholds
+            if idx not in delta_of_min:
+                delta_of_min[idx] = np.nan
             if self.correct_for_multiple_testing == 'fdr':
-                log.info("FDR correction. Number of boundaries for delta {}, qval {}: {}".format(self.delta, self.threshold_comparisons,
-                                                                                                len(filtered_min_idx)))
+                if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.pvalueFDR:
+                    filtered_min_idx += [idx]
             elif self.correct_for_multiple_testing == 'bonferroni':
-                log.info("Bonferroni correction. Number of boundaries for delta {} and pval {}: {}".format(self.delta, self.threshold_comparisons,
-                                                                                                        len(filtered_min_idx)))
-            else:
-                log.info("No multiple testing correction. Number of boundaries for delta {}: {}, used threshold: {}".format(self.delta, len(filtered_min_idx), self.threshold_comparisons))
+                if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.threshold_comparisons:
+                    filtered_min_idx += [idx]
+            elif self.correct_for_multiple_testing == 'None':
+                if delta_of_min[idx] >= self.delta and idx in pvalue_of_min and pvalue_of_min[idx] <= self.threshold_comparisons:
+                    filtered_min_idx += [idx]
 
-            count = 1
+        if self.correct_for_multiple_testing == 'fdr':
+            log.info("FDR correction. Number of boundaries for delta {}, qval {}: {}".format(self.delta, self.threshold_comparisons,
+                                                                                             len(filtered_min_idx)))
+        elif self.correct_for_multiple_testing == 'bonferroni':
+            log.info("Bonferroni correction. Number of boundaries for delta {} and pval {}: {}".format(self.delta, self.threshold_comparisons,
+                                                                                                       len(filtered_min_idx)))
+        else:
+            log.info("No multiple testing correction. Number of boundaries for delta {}: {}, used threshold: {}".format(self.delta, len(filtered_min_idx), self.threshold_comparisons))
 
+        count = 1
+        with open(prefix + '_boundaries.bed', 'w') as file_boundary_bin, open(prefix + '_domains.bed', 'w') as file_domains, open(prefix + '_boundaries.gff', 'w') as gff:
             for idx, min_bin_id in enumerate(filtered_min_idx):
                 # skip if the start of the boundary
                 # is the end of the chromosome
@@ -1046,36 +962,26 @@ class HicFindTads(object):
 
                 left_bin_center = chr_start[min_bin_id - 1] + int((chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) / 2)
 
-
                 if chrom[min_bin_id] != chrom[min_bin_id - 1]:
                     continue
-                
-                
-                chrom_min_bin_global.append(chrom[min_bin_id])
-                left_bin_center_global.append(left_bin_center)
-                right_bin_center_global.append(right_bin_center)
-                min_bin_id_global.append(min_bin_id)
-                mean_mat_all_global.append(mean_mat_all[min_bin_id])
-                delta_of_min_global.append(delta_of_min[min_bin_id])
-                pvalue_of_min_global.append(pvalue_of_min[min_bin_id])
-                 
+
                 # 2. save the position of the boundary range
-                # file_boundary_bin.write("{}\t{}\t{}\tB{:05d}\t{:.12f}\t.\n".format(toString(chrom[min_bin_id]),
-                #                                                                 left_bin_center,
-                #                                                                 right_bin_center,
-                #                                                                 min_bin_id,
-                #                                                                 mean_mat_all[min_bin_id]))
+                file_boundary_bin.write("{}\t{}\t{}\tB{:05d}\t{:.12f}\t.\n".format(toString(chrom[min_bin_id]),
+                                                                                   left_bin_center,
+                                                                                   right_bin_center,
+                                                                                   min_bin_id,
+                                                                                   mean_mat_all[min_bin_id]))
 
                 # safe gff file that can contain more information
-                # gff.write("{chrom}\tHiCExplorer\tboundary\t{start}\t{end}\t{score:.12f}"
-                #         "\t.\t.\tID=B{id:05d};delta={delta:.12f};pvalue={pvalue:.12f};"
-                #         "tad_sep={score:.12f}\n".format(chrom=toString(chrom[min_bin_id]),
-                #                                         start=left_bin_center,
-                #                                         end=right_bin_center,
-                #                                         delta=delta_of_min[min_bin_id],
-                #                                         pvalue=pvalue_of_min[min_bin_id],
-                #                                         score=mean_mat_all[min_bin_id],
-                #                                         id=min_bin_id))
+                gff.write("{chrom}\tHiCExplorer\tboundary\t{start}\t{end}\t{score:.12f}"
+                          "\t.\t.\tID=B{id:05d};delta={delta:.12f};pvalue={pvalue:.12f};"
+                          "tad_sep={score:.12f}\n".format(chrom=toString(chrom[min_bin_id]),
+                                                          start=left_bin_center,
+                                                          end=right_bin_center,
+                                                          delta=delta_of_min[min_bin_id],
+                                                          pvalue=pvalue_of_min[min_bin_id],
+                                                          score=mean_mat_all[min_bin_id],
+                                                          id=min_bin_id))
 
                 start = chr_start[min_bin_id]
                 # check that the next boundary exists and is in the same chromosome
@@ -1089,325 +995,138 @@ class HicFindTads(object):
                     rgb = '51,160,44'
                 else:
                     rgb = '31,120,180'
-                
-                chrom_min_bin_domains_global.append(chrom[min_bin_id])
-                mean_mat_all_domains_global.append(mean_mat_all[min_bin_id])
 
-                start_global.append(start)
-                end_global.append(end)
-                # count_global.append(count)
-                rgb_global.append(rgb)
-                # file_domains.write("{0}\t{1}\t{2}\tID_{6}_{3}\t{4:.12f}\t.\t{1}\t{2}\t{5}\n".format(toString(chrom[min_bin_id]),
-                #                                                                                     start, end, count,
-                #                                                                                     mean_mat_all[min_bin_id],
-                #                                                                                     rgb, self.delta))
+                file_domains.write("{0}\t{1}\t{2}\tID_{6}_{3}\t{4:.12f}\t.\t{1}\t{2}\t{5}\n".format(toString(chrom[min_bin_id]),
+                                                                                                    start, end, count,
+                                                                                                    mean_mat_all[min_bin_id],
+                                                                                                    rgb, self.delta))
 
                 count += 1
 
+        # save track with mean values in bedgraph format
+        with open(prefix + '_score.bedgraph', 'w') as tad_score:
             for idx in range(1, len(chrom)):
                 right_bin_center = chr_start[idx] + int((chr_end[idx] - chr_start[idx]) / 2)
                 left_bin_center = chr_start[idx - 1] + int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
-
                 if right_bin_center <= left_bin_center:
                     # this condition happens at chromosome borders
                     continue
-                
-                chrom_bedgraph_global.append(chrom[idx])
-                mean_mat_all_bedgraph_global.append(mean_mat_all[idx])
-
-                left_bin_center_bedgraph_global.append(left_bin_center)
-                right_bin_center_global.append(right_bin_center)
-        count_global = list(range(1, len(start_global)+1))      
-        # with open(prefix + '_' + chromosome + '_score.bedgraph', 'w') as tad_score:
-        #     for idx in range(1, len(chrom)):
-        #         right_bin_center = chr_start[idx] + int((chr_end[idx] - chr_start[idx]) / 2)
-        #         left_bin_center = chr_start[idx - 1] + int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
-        #         if right_bin_center <= left_bin_center:
-        #             # this condition happens at chromosome borders
-        #             continue
-        #         tad_score.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom[idx]), left_bin_center, right_bin_center,
-        #                                                     mean_mat_all[idx]))
-        
-        with open(prefix +'_boundaries.bed', 'w') as file_boundary_bin, open(prefix + '_domains.bed', 'w') as file_domains, open(prefix + '_boundaries.gff', 'w') as gff:
-            
-            #   chrom_min_bin_global.append(chrom[min_bin_id])
-            #     left_bin_center_global.append(left_bin_center)
-            #     right_bin_center_global.append(right_bin_center)
-            #     min_bin_id_global.append(min_bin_id)
-            #     mean_mat_all_global.append(mean_mat_all[min_bin_id])
-            #     delta_of_min_global.append(delta_of_min[min_bin_id])
-            #     pvalue_of_min_global.append(pvalue_of_min[min_bin_id])
-            for i in range(len(chrom_min_bin_global)):
-                # 2. save the position of the boundary range
-                file_boundary_bin.write("{}\t{}\t{}\tB{:05d}_{}\t{:.12f}\t.\n".format(toString(chrom_min_bin_global[i]),
-                                                                                left_bin_center_global[i],
-                                                                                right_bin_center_global[i],
-                                                                                min_bin_id_global[i], toString(chrom_min_bin_global[i]),
-                                                                                mean_mat_all_global[i]))
-
-                # safe gff file that can contain more information
-                gff.write("{chrom}\tHiCExplorer\tboundary\t{start}\t{end}\t{score:.12f}"
-                        "\t.\t.\tID=B{id:05d}_{chrom};delta={delta:.12f};pvalue={pvalue:.12f};"
-                        "tad_sep={score:.12f}\n".format(chrom=toString(chrom_min_bin_global[i]),
-                                                        start=left_bin_center_global[i],
-                                                        end=right_bin_center_global[i],
-                                                        delta=delta_of_min_global[i],
-                                                        pvalue=pvalue_of_min_global[i],
-                                                        score=mean_mat_all_global[i],
-                                                        id=min_bin_id_global[i]))
-
-                # start_global.append(start)
-                # end_global.append(end)
-                # count_global.append(count)
-                # rgb_global.append(rgb)
-            log.debug('chrom_min_bin_domains_global[i] {}'.format(len(chrom_min_bin_domains_global)))
-            log.debug('start_global[i] {}'.format(len(start_global)))
-
-            log.debug('end_global[i] {}'.format(len(end_global)))
-            log.debug('count_global[i] {}'.format(len(count_global)))
-            log.debug('mean_mat_all_domains_global[i] {}'.format(len(mean_mat_all_domains_global)))
-            log.debug('rgb_global[i] {}'.format(len(rgb_global)))
-            for i in range(len(start_global)):
-                # log.debug('chrom_min_bin_domains_global[i] {}'.format(chrom_min_bin_domains_global[i]))
-                # log.debug('start_global[i] {}'.format(start_global[i]))
-
-                # log.debug('end_global[i] {}'.format(end_global[i]))
-                # log.debug('count_global[i] {}'.format(count_global[i]))
-                # log.debug('mean_mat_all_domains_global[i] {}'.format(mean_mat_all_domains_global[i]))
-                # log.debug('rgb_global[i] {}'.format(rgb_global[i]))
-
-                file_domains.write("{0}\t{1}\t{2}\tID_{6}_{3}\t{4:.12f}\t.\t{1}\t{2}\t{5}\n".format(toString(chrom_min_bin_domains_global[i]),
-                                                                                                    start_global[i], end_global[i], count_global[i],
-                                                                                                    mean_mat_all_domains_global[i],
-                                                                                                    rgb_global[i], self.delta))
-
-               
-        # save track with mean values in bedgraph format
-        with open(prefix + '_score.bedgraph', 'w') as tad_score:
-
-            for i in range(len(chrom_bedgraph_global)):
-                tad_score.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_bedgraph_global[i]), left_bin_center_bedgraph_global[i], right_bin_center_global[i],
-                                                                            mean_mat_all_bedgraph_global[i]))
-            #  chrom_bedgraph_global.append(chrom[idx])
-            #     mean_mat_all_bedgraph_global.append(mean_mat_all[idx])
-
-            #     left_bin_center_bedgraph_global.append(left_bin_center)
-            #     right_bin_center_global.append(right_bin_center)
+                tad_score.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom[idx]), left_bin_center, right_bin_center,
+                                                               mean_mat_all[idx]))
 
     def compute_spectra_matrix(self, perchr=True):
         """
         Uses multiple processors to compute the TAD-score
-
         Returns
         -------
         bed matrix (chrom start end value1 value2 ... value_n)
-
         """
 
-        # if cool, check the chromosomes if self.chromosomes is empty and iterate over them
-        # else h5: load full matrix, get chromosomes all at once, and iterate only once with all chromosomes over it.
-        log.debug('self.matrix_name {}'.format(self.matrix_name))
-        log.debug('check_cooler(self.matrix_name) {}'.format(check_cooler(self.matrix_name)))
+        # remove self counts
+        log.info('removing diagonal values\n')
+        self.hic_ma.diagflat(value=0)
 
-        if check_cooler(self.matrix_name):
-            cooler_obj = cooler.Cooler(self.matrix_name)
+        # mask bins without any information
+        self.hic_ma.maskBins(self.hic_ma.nan_bins)
+        orig_intervals = self.hic_ma.cut_intervals[:]
 
-            if self.chromosomes is None or (len(self.chromosomes) == 1 and self.chromosomes[0] is None):
-                self.chromosomes = cooler_obj.chromnames
+        if self.use_zscore:
+            # use zscore matrix
+            log.info("Computing z-score matrix...\n")
+            self.hic_ma.convert_to_zscore_matrix(maxdepth=self.max_depth * 2.5, perchr=perchr)
 
+        # extend remaining bins to remove gaps in
+        # the matrix
+        new_intervals = enlarge_bins(self.hic_ma.cut_intervals)
 
-            self.is_cooler = True
+        # rebuilt bin positions if necessary
+        if new_intervals != orig_intervals:
+            self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = self.hic_ma.intervalListToIntervalTree(new_intervals)
+            self.hic_ma.cut_intervals = new_intervals
+            self.hic_ma.orig_cut_intervals = new_intervals
+            self.hic_ma.orig_bin_ids = list(range(len(new_intervals)))
+            self.hic_ma.nan_bins = []
 
-            if len(self.chromosomes) == 1 and self.chromosomes[0] is not None:
-                # log.debug('self.chromosomes')
-                extent_range = cooler_obj.extent(self.chromosomes[0])
-                left_min = 0
-                right_max = extent_range[1] - extent_range[0]
-                z_score_matrix_tmp = lil_matrix((left_min, right_max))
-            else:
-                left_min = None
-                right_max = None
-                for chromosome in self.chromosomes:
-                    extent_range = cooler_obj.extent(chromosome)
-                    if left_min is None and right_max is None:
-                        left_min = extent_range[0]
-                        right_max = extent_range[1]
-                    else:
-                        if left_min > extent_range[0]:
-                            left_min = extent_range[0]
-                        if right_max < extent_range[1]:
-                            right_max = extent_range[1]
+        if self.min_depth % self.hic_ma.getBinSize() != 0:
+            log.warn('Warning. specified *depth* is not multiple of the '
+                     'Hi-C matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
+        if self.step % self.hic_ma.getBinSize() != 0:
+            log.warn('Warning. specified *step* is not multiple of the '
+                     'Hi-C matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
 
-                z_score_matrix = lil_matrix((left_min, right_max))
-            
+        self.binsize = self.hic_ma.getBinSize()
 
+        log.info("Computing TAD-separation scores...\n")
+        min_depth_in_bins = int(self.min_depth / self.binsize)
+        max_depth_in_bins = int(self.max_depth / self.binsize)
+        step_in_bins = int(self.step / self.binsize)
+        if step_in_bins == 0:
+            log.error("Please select a step size larger than {}".format(self.binsize))
+            exit(1)
+
+        incremental_step = get_incremental_step_size(self.min_depth, self.max_depth, self.step)
+
+        log.info("computing spectrum for window sizes between {} ({} bp)"
+                 "and {} ({} bp) at the following window sizes {} {}\n".format(min_depth_in_bins,
+                                                                               self.binsize * min_depth_in_bins,
+                                                                               max_depth_in_bins,
+                                                                               self.binsize * max_depth_in_bins,
+                                                                               step_in_bins, incremental_step))
+        if min_depth_in_bins <= 1:
+            log.error('ERROR\nminDepth length too small. Use a value that is at least '
+                      'twice as large as the bin size which is: {}\n'.format(self.binsize))
+            exit(0)
+
+        if max_depth_in_bins <= 1:
+            log.error('ERROR\nmaxDepth length too small. Use a value that is larger '
+                      'than the bin size which is: {}\n'.format(self.binsize))
+            exit(0)
+        # work only with the upper matrix
+        # and remove all pixels that are beyond
+        # 2 * max_depth_in_bis which are not required
+        # (this is done by subtracting a second sparse matrix
+        # that contains only the upper matrix that wants to be removed.
+        limit = 2 * max_depth_in_bins
+        self.hic_ma.matrix = sparse.triu(self.hic_ma.matrix, k=0, format='csr') - sparse.triu(self.hic_ma.matrix,
+                                                                                              k=limit, format='csr')
+        self.hic_ma.matrix.eliminate_zeros()
+
+        func = compute_matrix_wrapper
+        TASKS = []
+        bins_to_consider = []
+        # to speed up parallel computation the self.hic_ma (HiCMatrix object) is converted into a global object.
+        global hic_ma
+        hic_ma = self.hic_ma
+        for chrom in list(self.hic_ma.chrBinBoundaries):
+            bins_to_consider.extend(list(range(*self.hic_ma.chrBinBoundaries[chrom])))
+
+        for idx_array in np.array_split(bins_to_consider, self.num_processors):
+            TASKS.append((idx_array, self.min_depth, self.max_depth, self.step))
+
+        if self.num_processors > 1:
+            pool = multiprocessing.Pool(self.num_processors)
+            log.info("Using {} processors\n".format(self.num_processors))
+            res = pool.map_async(func, TASKS).get(9999999)
+            pool.close()
         else:
-            self.set_matrix(self.matrix_name, self.chromosomes)
-            self.binsize = self.hic_ma.getBinSize()
-            self.set_variables()
-            self.max_depth_bin = self.max_depth // self.binsize
-            self.chromosomes = [None]
-        
-        # chromosome_list = []
-        # chr_start_list  = []
-        # chr_end_list  = []
-        # matrix_list  = []
+            res = map(func, TASKS)
 
-        # chromosome_list_chr = []
-        # chr_start_list_chr  = []
-        # chr_end_list_chr  = []
-        # matrix_list_chr  = []
+        chrom = []
+        chr_start = []
+        chr_end = []
+        matrix = []
+        for _chrom, _chr_start, _chr_end, _matrix in res:
+            chrom.extend(toString(_chrom))
+            chr_start.extend(_chr_start)
+            chr_end.extend(_chr_end)
+            matrix.append(_matrix)
 
-        for chromosome in self.chromosomes:
+        matrix = np.vstack(matrix)
 
-            if self.is_cooler:
-                self.set_matrix(self.matrix_name, [chromosome])
-                log.debug('self.hic_ma {}'.format(self.hic_ma))
-
-                self.binsize = self.hic_ma.getBinSize()
-                self.set_variables()
-                self.max_depth_bin = self.max_depth // self.binsize
-                if len(self.chromosomes) == 1:
-                    chr_range = self.hic_ma.getChrBinRange(chromosome)
-                else:
-                    chr_range = cooler_obj.extent(chromosome)
-            
-            if self.hic_ma.matrix.nnz <= 10:
-                continue
-            elif chromosome == 'MT':
-                log.debug('shape {}'.format(self.hic_ma.matrix.shape))
-                log.debug('nnz {}'.format(self.hic_ma.matrix.nnz))
-                log.debug('matrix {}'.format(self.hic_ma.matrix))
-
-            # remove self counts
-            log.info('removing diagonal values\n')
-            self.hic_ma.diagflat(value=0)
-
-            # mask bins without any information
-            self.hic_ma.maskBins(self.hic_ma.nan_bins)
-            orig_intervals = self.hic_ma.cut_intervals[:]
-
-
-            if self.use_zscore:
-            
-                self.hic_ma.convert_to_zscore_matrix(maxdepth=self.max_depth * 2.5, perchr=perchr)
-
-            if self.is_cooler:
-                log.debug('self.hic_ma.matrix.shape {}'.format(self.hic_ma.matrix.shape))
-                log.debug('chr_range {}'.format(chr_range))
-                # z_score_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(self.hic_ma.matrix)
-
-            # extend remaining bins to remove gaps in
-            # the matrix
-            new_intervals = enlarge_bins(self.hic_ma.cut_intervals)
-
-            # rebuilt bin positions if necessary
-            if new_intervals != orig_intervals:
-                self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = self.hic_ma.intervalListToIntervalTree(new_intervals)
-                self.hic_ma.cut_intervals = new_intervals
-                self.hic_ma.orig_cut_intervals = new_intervals
-                self.hic_ma.orig_bin_ids = list(range(len(new_intervals)))
-                self.hic_ma.nan_bins = []
-
-            if self.min_depth % self.hic_ma.getBinSize() != 0:
-                log.warn('Warning. specified *depth* is not multiple of the '
-                        'Hi-C matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
-            if self.step % self.hic_ma.getBinSize() != 0:
-                log.warn('Warning. specified *step* is not multiple of the '
-                        'Hi-C matrix bin size ({})\n'.format(self.hic_ma.getBinSize()))
-
-            self.binsize = self.hic_ma.getBinSize()
-
-            log.info("Computing TAD-separation scores...\n")
-            min_depth_in_bins = int(self.min_depth / self.binsize)
-            max_depth_in_bins = int(self.max_depth / self.binsize)
-            step_in_bins = int(self.step / self.binsize)
-            if step_in_bins == 0:
-                log.error("Please select a step size larger than {}".format(self.binsize))
-                exit(1)
-
-            incremental_step = get_incremental_step_size(self.min_depth, self.max_depth, self.step)
-
-            log.info("computing spectrum for window sizes between {} ({} bp)"
-                    "and {} ({} bp) at the following window sizes {} {}\n".format(min_depth_in_bins,
-                                                                                self.binsize * min_depth_in_bins,
-                                                                                max_depth_in_bins,
-                                                                                self.binsize * max_depth_in_bins,
-                                                                                step_in_bins, incremental_step))
-            if min_depth_in_bins <= 1:
-                log.error('ERROR\nminDepth length too small. Use a value that is at least '
-                        'twice as large as the bin size which is: {}\n'.format(self.binsize))
-                exit(0)
-
-            if max_depth_in_bins <= 1:
-                log.error('ERROR\nmaxDepth length too small. Use a value that is larger '
-                        'than the bin size which is: {}\n'.format(self.binsize))
-                exit(0)
-            # work only with the upper matrix
-            # and remove all pixels that are beyond
-            # 2 * max_depth_in_bis which are not required
-            # (this is done by subtracting a second sparse matrix
-            # that contains only the upper matrix that wants to be removed.
-            limit = 2 * max_depth_in_bins
-            self.hic_ma.matrix = sparse.triu(self.hic_ma.matrix, k=0, format='csr') - sparse.triu(self.hic_ma.matrix,
-                                                                                                k=limit, format='csr')
-            self.hic_ma.matrix.eliminate_zeros()
-
-            func = compute_matrix_wrapper
-            TASKS = []
-            bins_to_consider = []
-            # to speed up parallel computation the self.hic_ma (HiCMatrix object) is converted into a global object.
-            global hic_ma
-            hic_ma = self.hic_ma
-            for chrom in list(self.hic_ma.chrBinBoundaries):
-                bins_to_consider.extend(list(range(*self.hic_ma.chrBinBoundaries[chrom])))
-
-            for idx_array in np.array_split(bins_to_consider, self.num_processors):
-                TASKS.append((idx_array, self.min_depth, self.max_depth, self.step))
-
-            if self.num_processors > 1:
-                pool = multiprocessing.Pool(self.num_processors)
-                log.info("Using {} processors\n".format(self.num_processors))
-                res = pool.map_async(func, TASKS).get(9999999)
-                pool.close()
-            else:
-                res = map(func, TASKS)
-
-            chromosome_list_chr = []
-            chr_start_list_chr  = []
-            chr_end_list_chr  = []
-            matrix_list_chr  = []
-            for _chrom, _chr_start, _chr_end, _matrix in res:
-                # chromosome_list.extend(toString(_chrom))
-                # chr_start_list.extend(_chr_start)
-                # chr_end_list.extend(_chr_end)
-                # matrix_list.append(_matrix)
-                if len(_matrix) != 0:
-                    chromosome_list_chr.extend(toString(_chrom))
-                    chr_start_list_chr.extend(_chr_start)
-                    chr_end_list_chr.extend(_chr_end)
-                    matrix_list_chr.append(_matrix)
-            if len(matrix_list_chr) > 0:
-                matrix_list_chr = np.vstack(matrix_list_chr)
-            self.bedgraph_matrix[chromosome] = {'chrom': np.array(chromosome_list_chr),
-                                'chr_start': np.array(chr_start_list_chr).astype(int),
-                                'chr_end': np.array(chr_end_list_chr).astype(int),
-                                'matrix': matrix_list_chr}
-            self.find_boundaries([chromosome])
-
-        # global one
-        # if len(matrix_list) > 0:
-        #     matrix_list = np.vstack(matrix_list)
-
-        # self.bedgraph_matrix = {'chrom': np.array(chromosome_list ),
-        #                         'chr_start': np.array(chr_start_list).astype(int),
-        #                         'chr_end': np.array(chr_end_list).astype(int),
-        #                         'matrix': matrix_list}
-        
-        if self.is_cooler:     
-            pass                   
-            # self.hic_ma.matrix = z_score_matrix_tmp
-            # self.hic_ma.matrix.eliminate_zeros()
+        self.bedgraph_matrix = {'chrom': np.array(chrom),
+                                'chr_start': np.array(chr_start).astype(int),
+                                'chr_end': np.array(chr_end).astype(int),
+                                'matrix': matrix}
 
     def load_bedgraph_matrix(self, filename, pChromosomes=None):
         # load spectrum matrix:
@@ -1441,37 +1160,28 @@ class HicFindTads(object):
         self.binsize = parameters['binsize']
 
         matrix = np.vstack(matrix)
-        self.bedgraph_matrix = {}
-
-        self.bedgraph_matrix["all"] = {'chrom': np.array(chrom_list),
+        self.bedgraph_matrix = {'chrom': np.array(chrom_list),
                                 'chr_start': np.array(start_list).astype(int),
                                 'chr_end': np.array(end_list).astype(int),
                                 'matrix': matrix}
 
-    def min_pvalue(self, min_idx, pChromosome, pChromosomeStart, pChromosomeEnd):
+    def min_pvalue(self, min_idx):
         """
         For each putative local minima, find the -window_len diammond and the +window_len diamond
         and compare with the local minima using wilcoxon rank sum.
-
         Parameters
         ----------
         min_idx list of local minima
-
         Returns
         -------
         list of p-values per each local minima
-
         """
 
         log.info("Computing p-values for window length: {}\n".format(self.min_depth))
         pvalues = []
-        # chrom = self.bedgraph_matrix['chrom']
-        # chr_start = self.bedgraph_matrix['chr_start']
-        # chr_end = self.bedgraph_matrix['chr_end']
-
-        chrom = pChromosome
-        chr_start = pChromosomeStart
-        chr_end = pChromosomeEnd
+        chrom = self.bedgraph_matrix['chrom']
+        chr_start = self.bedgraph_matrix['chr_start']
+        chr_end = self.bedgraph_matrix['chr_end']
         window_len = self.min_depth
 
         from scipy.stats import ranksums
@@ -1538,62 +1248,50 @@ class HicFindTads(object):
 
         return OrderedDict(zip(new_min_idx, pvalues))
 
-    def find_boundaries(self, pChromosome):
+    def find_boundaries(self):
 
-        for chromosome in pChromosome:
-            # perform some checks
-            avg_bin_size = np.median(self.bedgraph_matrix[chromosome]['chr_end'] - self.bedgraph_matrix[chromosome]['chr_start'])
+        # perform some checks
+        avg_bin_size = np.median(self.bedgraph_matrix['chr_end'] - self.bedgraph_matrix['chr_start'])
 
-            # compute lookahead (in number of bins)
-            if self.min_boundary_distance is None:
-                self.min_boundary_distance = avg_bin_size * 4
+        # compute lookahead (in number of bins)
+        if self.min_boundary_distance is None:
+            self.min_boundary_distance = avg_bin_size * 4
 
-            lookahead = int(self.min_boundary_distance / avg_bin_size)
-            if lookahead < 1:
-                raise ValueError("minBoundaryDistance must be '1' or above in value")
-            # X, dict
-            min_idx, delta = HicFindTads.find_consensus_minima(self.bedgraph_matrix[chromosome]['matrix'], lookahead=lookahead,
-                                                            chrom=self.bedgraph_matrix[chromosome]['chrom'])
-            # log.debug('min_idx {}'.format(min_idx))
-            # log.debug('delta {}'.format(delta))
-            
+        lookahead = int(self.min_boundary_distance / avg_bin_size)
+        if lookahead < 1:
+            raise ValueError("minBoundaryDistance must be '1' or above in value")
 
-            # self.bedgraph_matrix[chromosome]['chrom']
-            # chr_start = self.bedgraph_matrix[chromosome]['chr_start']
-            # chr_end = self.bedgraph_matrix[chromosome]['chr_end']
+        min_idx, delta = HicFindTads.find_consensus_minima(self.bedgraph_matrix['matrix'], lookahead=lookahead,
+                                                           chrom=self.bedgraph_matrix['chrom'])
 
-            # ordered dict
-            pvalues = self.min_pvalue(min_idx, self.bedgraph_matrix[chromosome]['chrom'], self.bedgraph_matrix[chromosome]['chr_start'], self.bedgraph_matrix[chromosome]['chr_end'])
-            # log.debug('pvalues {}'.format(pvalues))
+        pvalues = self.min_pvalue(min_idx)
 
-            if len(min_idx) <= 10:
-                mat_mean = self.bedgraph_matrix[chromosome]['matrix'].mean(axis=1)
-                m_mean = mat_mean.mean()
-                m_median = np.median(mat_mean)
-                m_75 = np.percentile(mat_mean, 75)
-                m_25 = np.percentile(mat_mean, 25)
+        if len(min_idx) <= 10:
+            mat_mean = self.bedgraph_matrix['matrix'].mean(axis=1)
+            m_mean = mat_mean.mean()
+            m_median = np.median(mat_mean)
+            m_75 = np.percentile(mat_mean, 75)
+            m_25 = np.percentile(mat_mean, 25)
 
-                msg = ("Please check the parameters:\n"
-                    " delta: {}\n"
-                    " minBoundaryDistance: {}\n\n"
-                    "TAD Score values:\n"
-                    " mean: {:.3f}\n"
-                    " median: {:.3f}\n"
-                    " 1st quartile: {:.3f}\n"
-                    " 3rd quartile: {:.3f}\n".format(self.delta, self.min_boundary_distance,
-                                                        m_mean, m_median, m_25, m_75))
+            msg = ("Please check the parameters:\n"
+                   " delta: {}\n"
+                   " minBoundaryDistance: {}\n\n"
+                   "TAD Score values:\n"
+                   " mean: {:.3f}\n"
+                   " median: {:.3f}\n"
+                   " 1st quartile: {:.3f}\n"
+                   " 3rd quartile: {:.3f}\n".format(self.delta, self.min_boundary_distance,
+                                                    m_mean, m_median, m_25, m_75))
 
-                if len(min_idx) == 0:
-                    log.error("\n*ERROR*\nNo boundaries were found. {}".format(msg))
-                    exit(1)
-                else:
-                    log.info("Only {} boundaries found. {}".format(len(min_idx), msg))
+            if len(min_idx) == 0:
+                log.error("\n*ERROR*\nNo boundaries were found. {}".format(msg))
+                exit(1)
+            else:
+                log.info("Only {} boundaries found. {}".format(len(min_idx), msg))
 
-            log.debug('write boundaries for chromosome {}'.format(chromosome))
-            self.boundaries[chromosome] = {'min_idx': min_idx,
-                                'delta': delta,
-                                'pvalues': pvalues}
-      
+        self.boundaries = {'min_idx': min_idx,
+                           'delta': delta,
+                           'pvalues': pvalues}
 
 
 def print_args(args):
@@ -1602,10 +1300,8 @@ def print_args(args):
     Parameters
     ----------
     args
-
     Returns
     -------
-
     """
     for key, value in args._get_kwargs():
         log.info("{}:\t{}\n".format(key, value))
@@ -1618,8 +1314,7 @@ def main(args=None):
                      min_depth=args.minDepth, step=args.step, delta=args.delta,
                      min_boundary_distance=args.minBoundaryDistance, use_zscore=True,
                      p_correct_for_multiple_testing=args.correctForMultipleTesting, p_threshold_comparisons=args.thresholdComparisons,
-                     pChromosomes=[args.chromosome])
-
+                     pChromosomes=args.chromosomes)
 
     matrix_ending = args.matrix.split('.')[-1]
     if matrix_ending not in ['cool', 'h5']:
@@ -1629,43 +1324,37 @@ def main(args=None):
 
             exit(1)
     tad_score_file = args.outPrefix + "_tad_score.bm"
-    # zscore_matrix_file = args.outPrefix + "_zscore_matrix." + matrix_ending
+    zscore_matrix_file = args.outPrefix + "_zscore_matrix." + matrix_ending
 
-    # if args.TAD_sep_score_prefix is not None:
-    #     tad_score_file = args.TAD_sep_score_prefix + "_tad_score.bm"
-    #     # zscore_matrix_file = args.TAD_sep_score_prefix + "_zscore_matrix." + matrix_ending
-    #     # check that the given file exists
-    #     if not os.path.isfile(tad_score_file):
-    #         log.error("The given TAD_sep_score_prefix does not contain a valid TAD-separation score. Please check.\n"
-    #                   "Could not find file {}".format(tad_score_file))
-    #         exit(1)
-    #     if not os.path.isfile(zscore_matrix_file):
-    #         log.error("The given TAD_sep_score_prefix does not contain a valid z-score matrix. Please check.\n"
-    #                   "Could not find file {}".format(zscore_matrix_file))
-    #         exit(1)
-    #     log.info("\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
-    #     # ft.set_matrix(zscore_matrix_file, [args.chromosome])
-        # ft.load_bedgraph_matrix(tad_score_file, [args.chromosome])
+    if args.TAD_sep_score_prefix is not None:
+        tad_score_file = args.TAD_sep_score_prefix + "_tad_score.bm"
+        zscore_matrix_file = args.TAD_sep_score_prefix + "_zscore_matrix." + matrix_ending
+        # check that the given file exists
+        if not os.path.isfile(tad_score_file):
+            log.error("The given TAD_sep_score_prefix does not contain a valid TAD-separation score. Please check.\n"
+                      "Could not find file {}".format(tad_score_file))
+            exit(1)
+        if not os.path.isfile(zscore_matrix_file):
+            log.error("The given TAD_sep_score_prefix does not contain a valid z-score matrix. Please check.\n"
+                      "Could not find file {}".format(zscore_matrix_file))
+            exit(1)
+        log.info("\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
+        ft.set_matrix(zscore_matrix_file, args.chromosomes)
+        ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
 
-    # elif not os.path.isfile(tad_score_file):
-    ft.compute_spectra_matrix()
-    # save z-score matrix that is needed for find TADs algorithm
-    # ft.hic_ma.save(args.outPrefix + "_zscore_matrix." + matrix_ending)
-    ft.save_bedgraph_matrix(tad_score_file)
-    # else:
-    #     log.info("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
-    #     log.info("This file will be used\n")
-    #     ft.set_matrix(zscore_matrix_file, [args.chromosome])
-    #     # ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
-    #     ft.load_bedgraph_matrix(tad_score_file, [args.chromosome])
+    elif not os.path.isfile(tad_score_file):
+        ft.compute_spectra_matrix()
+        # save z-score matrix that is needed for find TADs algorithm
+        ft.hic_ma.save(args.outPrefix + "_zscore_matrix." + matrix_ending)
+        ft.save_bedgraph_matrix(tad_score_file)
+    else:
+        log.info("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
+        log.info("This file will be used\n")
+        ft.set_matrix(zscore_matrix_file, args.chromosomes)
+        # ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
+        ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
 
-    if args.chromosome is None:
-        if check_cooler(args.matrix):
-            cooler_obj = cooler.Cooler(args.matrix)
-            args.chromosome = cooler_obj.chromnames
-        else:
-            args.chromosome = ft.hic_ma.getChrNames()
-    # ft.find_boundaries(args.chromosome)
+    ft.find_boundaries()
     ft.save_domains_and_boundaries(args.outPrefix)
 
     # turn of hierarchical clustering which is apparently not working.
