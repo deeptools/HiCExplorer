@@ -16,7 +16,7 @@ from hicexplorer.utilities import check_cooler
 # for plotting
 from matplotlib import use as mplt_use
 import matplotlib as mpl
-mpl.rcParams['pdf.fonttype'] = 42
+
 mplt_use('Agg')
 
 import matplotlib.pyplot as plt
@@ -247,7 +247,7 @@ def get_vectors(mat1, mat2):
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-
+    mpl.rcParams['pdf.fonttype'] = 42
     if args.labels and len(args.matrices) != len(args.labels):
         log.error("The number of labels does not match the number of matrices.")
         exit(0)

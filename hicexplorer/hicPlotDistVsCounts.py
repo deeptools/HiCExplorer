@@ -13,7 +13,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-mpl.rcParams['pdf.fonttype'] = 42
 
 from collections import OrderedDict
 from past.builtins import zip
@@ -406,6 +405,8 @@ def main(args=None):
     """
 
     args = parse_arguments().parse_args(args)
+    mpl.rcParams['pdf.fonttype'] = 42
+
     mean_dict = OrderedDict()
     matrix_sum = {}
     if args.labels is None:

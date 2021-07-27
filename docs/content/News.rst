@@ -148,7 +148,7 @@ Release 3.4.2
 
 Preprint
 --------
-**6 March 2020*
+**6 March 2020**
 
 The preprint of the loop detection algorithm is online via biorXiv: `<https://www.biorxiv.org/content/10.1101/2020.03.05.979096v1>`_
 

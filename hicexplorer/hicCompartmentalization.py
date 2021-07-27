@@ -3,8 +3,7 @@ import argparse
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-mpl.rcParams['pdf.fonttype'] = 42
+
 import logging
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
@@ -177,6 +176,7 @@ def main(args=None):
     Main function to generate the polarization plot.
     """
     args = parse_arguments().parse_args(args)
+    matplotlib.rcParams['pdf.fonttype'] = 42
 
     pc1 = pd.read_table(args.pca, header=None, sep="\t",
                         dtype={0: "object", 1: "Int64", 2: "Int64", 3: "float32"})

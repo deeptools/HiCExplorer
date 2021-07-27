@@ -6,7 +6,6 @@ import traceback
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-mpl.rcParams['pdf.fonttype'] = 42
 import logging
 log = logging.getLogger(__name__)
 from hicmatrix import HiCMatrix as hm
@@ -271,6 +270,7 @@ def computeInterIntraTADs(pMatrix, pDomainList, pCoolOrH5, pThreadId, pQueue):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    mpl.rcParams['pdf.fonttype'] = 42
 
     # read domains file
     domains_df = readDomainBoundaries(args.tadDomains)

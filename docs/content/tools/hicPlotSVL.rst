@@ -8,6 +8,9 @@ hicPlotSVL
 
 Description
 ^^^^^^^^^^^
+.. argparse::
+    :ref: hicexplorer.hicPlotSVL.parse_arguments
+    :prog: hicPlotSVL
 
 hicPlotSVL computes the ratio between short range and long range contacts per chromosome independently. Per sample one box plot is created and, if more than one sample is given,
 the computed ratios are assumed to be one distribution and a Wilcoxon rank-sum test under H0 'distributions are equal' is computed. All used data is written to a third raw data file.

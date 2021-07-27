@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import matplotlib as mpl
-mpl.rcParams['pdf.fonttype'] = 42
 import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
 from hicexplorer._version import __version__
@@ -298,6 +297,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    mpl.rcParams['pdf.fonttype'] = 42
+
     viewpointObj = Viewpoint()
     background_data = None
 

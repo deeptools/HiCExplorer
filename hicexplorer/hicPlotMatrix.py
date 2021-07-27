@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib
 import matplotlib as mpl
-mpl.rcParams['pdf.fonttype'] = 42
 import argparse
 from past.builtins import zip
 import pyBigWig
@@ -637,6 +636,8 @@ def bigwig_axes_config(pArgs, pBigWigInfo):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    mpl.rcParams['pdf.fonttype'] = 42
+
     if args.title:
         args.title = remove_non_ascii(args.title)
 

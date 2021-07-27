@@ -21,8 +21,7 @@ from matplotlib import use
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-import matplotlib as mpl
-mpl.rcParams['pdf.fonttype'] = 42
+import matplotlib
 import numpy as np
 debug = 0
 
@@ -591,6 +590,8 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    matplotlib.rcParams['pdf.fonttype'] = 42
+
     if args.verbose:
         log.setLevel(logging.INFO)
 

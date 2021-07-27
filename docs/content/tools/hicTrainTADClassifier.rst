@@ -1,7 +1,7 @@
 .. _hicTrainTADClassifier:
 
 hicTrainTADClassifier
-==================
+=====================
 
 .. contents:: 
     :local:

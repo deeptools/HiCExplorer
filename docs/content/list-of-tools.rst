@@ -51,6 +51,8 @@ Tools for TADs processing
     tools/hicDifferentialTAD
     tools/hicMergeTADbins
     tools/hicInterIntraTAD
+    tools/hicTrainTADClassifier
+    tools/hicTADClassifier
 
 
 Tools for Hi-C and TADs visualization
@@ -115,7 +117,11 @@ For single-cell Hi-C data analysis please use `scHiCExplorer <https://schicexplo
 |:ref:`hicDifferentialTAD`             | analysis         | two Hi-C matrices                 | two diff_tad files: accepted H0 and         | Identifies differential Topologically Associating Domains (TADs) between          |
 |                                      |                  | one TAD domain file               | rejected H0. Similar to BED6                | two Hi-C matrices                                                                 |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
-|:ref:`hicInterIntraTAD`             | analysis         | Hi-C matrix, TAD boundaries       | data file and a plot                        | Computes and extracts TAD data. Creates a plot for the inter/intra contact ratio. |
+|:ref:`hicInterIntraTAD`               | analysis         | Hi-C matrix, TAD boundaries       | data file and a plot                        | Computes and extracts TAD data. Creates a plot for the inter/intra contact ratio. |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicTrainTADClassifier`          | analysis         | Hi-C matrix, TAD boundaries       | ML model for hicTADClassifier               | Computes a ML model for hicTADClassifier.                                         |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicTADClassifier`               | analysis         | Hi-C matrix, (ML model)           | predicted TAD boundaries                    | Computes TAD boundaries based on a ML model from hicTrainTADClassifier            |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicPlotMatrix`                  | visualization    | hicMatrix object                  | a heatmap of Hi-C contacts                  | Plots a Hi-C matrix as a heatmap                                                  |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
