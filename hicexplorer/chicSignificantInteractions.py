@@ -384,6 +384,8 @@ def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList,
 
     significantFileH5Object = h5py.File(pOutFileName, 'w')
     significantFileH5Object.attrs['type'] = "significant"
+    significantFileH5Object.attrs['version'] = __version__
+
     significantFileH5Object.attrs['pvalue'] = pArgs.pValue
 
     if pArgs.xFoldBackground is not None:
@@ -481,6 +483,8 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
 
     targetFileH5Object = h5py.File(pOutFileName, 'w')
     targetFileH5Object.attrs['type'] = "target"
+    targetFileH5Object.attrs['version'] = __version__
+
     targetFileH5Object.attrs['pvalue'] = pArgs.pValue
 
     if pArgs.xFoldBackground is not None:

@@ -184,6 +184,8 @@ def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pAlpha, pTest):
 def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, pInputData, pAlpha, pTest):
     resultFileH5Object = h5py.File(pOutFileName, 'w')
     resultFileH5Object.attrs['type'] = "differential"
+    resultFileH5Object.attrs['version'] = __version__
+
     resultFileH5Object.attrs['alpha'] = pAlpha
     resultFileH5Object.attrs['test'] = pTest
 

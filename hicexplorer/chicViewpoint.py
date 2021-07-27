@@ -210,6 +210,8 @@ def main(args=None):
     # create hdf5 output file
     interactionFileH5Object = h5py.File(args.outFileName, 'w')
     interactionFileH5Object.attrs['type'] = 'interactions'
+    interactionFileH5Object.attrs['version'] = __version__
+
     interactionFileH5Object.attrs['range'] = args.range
     interactionFileH5Object.attrs['averageContactBin'] = args.averageContactBin
     interactionFileH5Object.attrs['fixateRange'] = args.fixateRange

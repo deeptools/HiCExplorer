@@ -131,6 +131,7 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArg
     aggregateFileH5Object = h5py.File(pOutFileName, 'w')
 
     aggregateFileH5Object.attrs['type'] = "aggregate"
+    aggregateFileH5Object.attrs['version'] = __version__
 
     counter = 0
     for key_outer, data_outer in zip(pOutfileNamesList, pAcceptedScoresList):
