@@ -22,29 +22,44 @@ ROOT = os.path.join(os.path.dirname(
 
 def are_files_equal(file1, file2, delta=None):
     equal = True
-    if delta:
-        mismatches = 0
+    # if delta:
+    mismatches = 0
     with open(file1) as textfile1, open(file2) as textfile2:
         for x, y in zip(textfile1, textfile2):
             if x.startswith('File'):
                 continue
             if x != y:
-                if delta:
-                    mismatches += 1
-                    if mismatches > delta:
-                        equal = False
-                        break
-                else:
-                    equal = False
-                    break
+                mismatches += 1
+                if mismatches > delta:
+                    return False
     return equal
 
 
 def test_main():
     outfile = NamedTemporaryFile(suffix='.txt', delete=True)
-
+    outfile.close()
     args = "--matrix {} -p {} -ml {} -r {} --runs {} -o {}".format(
         ROOT + "hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
         ROOT + 'hicHyperoptDectedLoops/ctcf_sorted.bed', 3210, 10000, 2, outfile.name).split()
     hicHyperoptDetectLoops.main(args)
-    are_files_equal(outfile.name, ROOT + 'hicHyperoptDetectLoops/hyperopt_result.txt', delta=2)
+    assert are_files_equal(outfile.name, ROOT + 'hicHyperoptDetectLoops/hyperopt_result.txt', delta=2)
+
+
+def test_main_add():
+    outfile = NamedTemporaryFile(suffix='.txt', delete=True)
+    outfile.close()
+    args = "--matrix {} -p {} -ml {} -r {} --runs {} -o {} -cl {}".format(
+        ROOT + "hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
+        ROOT + 'hicHyperoptDectedLoops/ctcf_sorted.bed', 3210, 10000, 2, outfile.name, 'add').split()
+    hicHyperoptDetectLoops.main(args)
+    assert are_files_equal(outfile.name, ROOT + 'hicHyperoptDetectLoops/hyperopt_result.txt', delta=2)
+
+
+def test_main_remove():
+    outfile = NamedTemporaryFile(suffix='.txt', delete=True)
+    outfile.close()
+    args = "--matrix {} -p {} -ml {} -r {} --runs {} -o {} -cl {}".format(
+        ROOT + "hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
+        ROOT + 'hicHyperoptDectedLoops/ctcf_sorted.bed', 3210, 10000, 2, outfile.name, 'remove').split()
+    hicHyperoptDetectLoops.main(args)
+    assert are_files_equal(outfile.name, ROOT + 'hicHyperoptDetectLoops/hyperopt_result.txt', delta=2)

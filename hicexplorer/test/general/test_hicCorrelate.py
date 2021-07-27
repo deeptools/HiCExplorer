@@ -41,9 +41,9 @@ def test_correlate_chromosomes():
     args = "--matrices {} {} --labels 'first' 'second' " \
         " --method spearman --log1p --colorMap jet "\
         "--outFileNameHeatmap {} --outFileNameScatter {} " \
-        "--chromosomes chrUextra chr3LHet".format(ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
-                                                  ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
-                                                  outfile_heatmap.name, outfile_scatter.name).split()
+        "--chromosomes chrUextra chr3LHet --plotNumbers".format(ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
+                                                                ROOT + "hicCorrectMatrix/small_test_matrix_ICEcorrected_chrUextra_chr3LHet.h5",
+                                                                outfile_heatmap.name, outfile_scatter.name).split()
     hicCorrelate.main(args)
     # compute(hicCorrelate.main, args, 5)
 

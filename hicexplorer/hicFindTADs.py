@@ -38,16 +38,12 @@ running window of different sizes. Then, TADs are called as those
 positions having a local TAD-separation score minimum. The TAD-separation score is
 measured using the z-score of the Hi-C matrix and is defined as the mean zscore of all
 the matrix contacts between the left and right regions (diamond).
-
 To find the TADs, the program  needs to compute first the
 TAD scores at different window sizes. Then, the results of that computation
 are used to call the TADs. This is convenient to test different filtering criteria quickly
 as the demanding step is the computation of TAD-separation scores.
-
  A simple example usage is:
-
 $ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting fdr
-
 The bedgraph file produced by this tool can be used to plot the so-called insulation score
 along the genome or at specific regions. This score is much more reliable across samples
 than the number of TADs or the TADs width that can vary depending on the sequencing depth because of the lack
@@ -181,7 +177,6 @@ def get_cut_weight_by_bin_id(matrix, cut, depth, return_mean=False):
     """
     like get_cut_weight which is the 'diamond' representing the counts
     from a region -dept to +depth from the given bin position (cut):
-
     """
     if cut < 0 or cut > matrix.shape[0]:
         return None
@@ -209,7 +204,6 @@ def get_idx_of_bins_at_given_distance(hic_matrix, idx, window_len):
     ----------
     idx reference index
     window_len distance in bp
-
     Returns
     -------
     tuple, with left and right bin indices
@@ -242,7 +236,6 @@ def get_cut_weight(hic_matrix, cut, window_len, return_mean=False):
     """
     'diamond' (when matrix is rotated 45 degrees) representing the counts
     from a region -window_len to +window_len from the given bin position (cut):
-
     """
     if cut < 0 or cut > hic_matrix.matrix.shape[0]:
         return None
@@ -268,7 +261,6 @@ def get_triangle(hic_matrix, cut, window_len, return_mean=False):
     """
     like get_cut_weight which is the 'diamond' representing the counts
     from a region -window_len to +window_len from the given bin position (cut):
-
     """
     if cut < 0 or cut > hic_matrix.matrix.shape[0]:
         return None
@@ -291,7 +283,6 @@ def get_triangle(hic_matrix, cut, window_len, return_mean=False):
 def get_incremental_step_size(min_win_size, max_win_size, start_step_len):
     """
     generates a list of incremental windows sizes (measured in bins)
-
     :param min_win_size: starting window size
     :param max_win_size: end window size
     :param start_step_len: start length
@@ -313,7 +304,6 @@ def get_incremental_step_size(min_win_size, max_win_size, start_step_len):
 def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
     """
     Receives a number of bins for which the tad-score should be computed.
-
     Parameters
     ----------
     hic_ma Hi-C matrix object
@@ -321,10 +311,8 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
     min_win_size
     max_win_size
     step_len
-
     Returns
     -------
-
     """
 
     """
@@ -366,7 +354,6 @@ class HicFindTads(object):
                  min_boundary_distance=None, use_zscore=True, p_correct_for_multiple_testing="fdr", p_threshold_comparisons=0.01,
                  pChromosomes=None):
         """
-
         Parameters
         ----------
         matrix  Either a filename or a Hi-C Matrix object
@@ -433,7 +420,6 @@ class HicFindTads(object):
         """
         Checks the value of the max_depth, min_depth and step variables, setting default parameters
         if neccesary.
-
         Returns
         -------
         None
@@ -482,11 +468,9 @@ class HicFindTads(object):
         """
         Based on the MATLAB script at:
         http://billauer.co.il/peakdet.html
-
         function for detecting local maximum and minimum in a signal.
         Discovers peaks by searching for values which are surrounded by lower
         or larger values for maximum and minimum respectively
-
         keyword arguments:
         :param: y_axis -- A list containing the signal over which to find peaks
         :param: x_axis -- (optional) A x-axis whose values correspond to the y_axis list
@@ -498,8 +482,6 @@ class HicFindTads(object):
             the following points, before a peak may be considered a peak. Useful
             to hinder the function from picking up false peaks towards to end of
             the signal. To work well delta should be set to delta >= RMSnoise * 5.
-
-
         :return: -- two lists [max_peaks, min_peaks] containing the positive and
             negative peaks respectively. Each cell of the lists contains a tuple
             of: (position, peak_value)
@@ -596,18 +578,15 @@ class HicFindTads(object):
         delta is defined as the difference between the TAD-separation score at the minimum with respect
         to each of the TAD-separation scores of the `window_len` to the left, plus the `window_len` to
         the right of each minimum. The minimum itself is excluded.
-
         Parameters
         ----------
         matrix TAD score matrix for different window sizes
         chrom list of chrom names for each matrix row
         window_len the length of the window to look for the local TAD-score average
-
         Returns
         -------
         A dict of each minima delta to the mean of the TAD-separation score surrounding the minima. The keys
         are the min_idx
-
         """
 
         # compute the start and end points of the chromosomes
@@ -666,13 +645,9 @@ class HicFindTads(object):
             (chrom, start, value)
         :param clusters_cutoff: List of values to separate clusters. The
             clusters found at those value thresholds are returned.
-
-
         :return: z_value, clusters
-
         For z_value, the format used is similar as the scipy.cluster.hierarchy.linkage() function
         which is described as follows:
-
         A 4 by :math:`(n-1)` matrix ``z_value`` is returned. At the
         :math:`i`-th iteration, clusters with indices ``z_value[i, 0]`` and
         ``z_value[i, 1]`` are combined to form cluster :math:`n + i`. A
@@ -681,11 +656,9 @@ class HicFindTads(object):
         clusters ``z_value[i, 0]`` and ``z_value[i, 1]`` is given by ``z_value[i, 2]``. The
         fourth value ``z_value[i, 3]`` represents the number of original
         observations in the newly formed cluster.
-
         The difference is that instead of a 4 times n-1 array, a
         6 times n-1 array is returned. Where positions 4, and 5
         correspond to the genomic coordinates of ``z_value[i, 0]`` and ``z_value[i, 1]``
-
         """
         # run the hierarchical clustering per chromosome
         if clusters_cutoff:
@@ -737,11 +710,8 @@ class HicFindTads(object):
             :param clusters_: cluster ids
             :param chrom_name: chromosome name
             :return: list of tuples with (chrom_name, start, end)
-
             Example:
-
             clusters = [set(1,2,3), set(4,5,10)]
-
             """
             start_list = []
             end_list = []
@@ -826,7 +796,6 @@ class HicFindTads(object):
 
     def save_linkage(Z, file_name):
         """
-
         :param Z: Z has a format similar to the scipy.cluster.linkage matrix (see function
                     hierarchical_clustering).
         :param file_name: File name to save the results
@@ -881,7 +850,6 @@ class HicFindTads(object):
         """
         Save matrix as chrom, start, end ,row, values separated by tab
         I call this a bedgraph matrix and the ending is .bm
-
         Returns
         -------
         None
@@ -906,7 +874,6 @@ class HicFindTads(object):
 
     def save_clusters(clusters, file_prefix):
         """
-
         :param clusters: is a dictionary whose key is the cut of used to create it.
                          the value is a list of tuples, each representing
                           a genomec interval as ('chr', start, end).
@@ -1050,11 +1017,9 @@ class HicFindTads(object):
     def compute_spectra_matrix(self, perchr=True):
         """
         Uses multiple processors to compute the TAD-score
-
         Returns
         -------
         bed matrix (chrom start end value1 value2 ... value_n)
-
         """
 
         # remove self counts
@@ -1204,15 +1169,12 @@ class HicFindTads(object):
         """
         For each putative local minima, find the -window_len diammond and the +window_len diamond
         and compare with the local minima using wilcoxon rank sum.
-
         Parameters
         ----------
         min_idx list of local minima
-
         Returns
         -------
         list of p-values per each local minima
-
         """
 
         log.info("Computing p-values for window length: {}\n".format(self.min_depth))
@@ -1338,10 +1300,8 @@ def print_args(args):
     Parameters
     ----------
     args
-
     Returns
     -------
-
     """
     for key, value in args._get_kwargs():
         log.info("{}:\t{}\n".format(key, value))

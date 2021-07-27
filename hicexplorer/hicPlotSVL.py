@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib as mpl
 from scipy.stats import ranksums
 
 from hicmatrix import HiCMatrix as hm
@@ -130,6 +131,8 @@ def compute_relation_short_long_range(pHiCMatrix, pChromosomes, pDistance, pIsCo
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
+    mpl.rcParams['pdf.fonttype'] = 42
+
     short_v_long_range = []
     sum_smaller = []
     sum_greater = []

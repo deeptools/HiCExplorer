@@ -4,6 +4,8 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger('matplotlib').setLevel(logging.ERROR)
 logging.getLogger('cooler').setLevel(logging.ERROR)
 logging.getLogger('hicmatrix').setLevel(logging.ERROR)
+# logging.getLogger('hicmatrix').setLevel(logging.DEBUG)
+
 logging.getLogger('numexpr').setLevel(logging.ERROR)
 
 

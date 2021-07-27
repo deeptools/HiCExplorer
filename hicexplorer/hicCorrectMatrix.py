@@ -21,7 +21,7 @@ from matplotlib import use
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-
+import matplotlib
 import numpy as np
 debug = 0
 
@@ -590,6 +590,8 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
+    matplotlib.rcParams['pdf.fonttype'] = 42
+
     if args.verbose:
         log.setLevel(logging.INFO)
 
@@ -739,7 +741,7 @@ def main(args=None):
             # set it to False since the vector is already normalised
             # with the previous True
             # correction_factors = np.true_divide(1, kr.get_normalisation_vector(False).todense())
-            correction_factors = kr.get_normalisation_vector(False).todense()
+            correction_factors = kr.get_normalisation_vector(True).todense()
 
             if args.outFileName.endswith('.h5'):
                 corrected_matrix = kr.get_normalised_matrix(True)

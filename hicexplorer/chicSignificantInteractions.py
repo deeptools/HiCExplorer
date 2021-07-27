@@ -16,6 +16,8 @@ from hicexplorer import utilities
 from hicexplorer._version import __version__
 from .lib import Viewpoint
 from hicexplorer.lib import cnb
+import h5py
+import traceback
 
 
 def parse_arguments(args=None):
@@ -29,45 +31,30 @@ to test for a differential interaction scheme.
 chicSignificantInteractions supports two modes to detect significant interactions, either by an x-fold over the average background or a loose p-value. In both cases neighboring significant peaks are merged together and an additional
 p-value is computed based on the sum of interactions for this neighborhood. Only interactions with a higher p-value (as specified by the threshold `--pValue`) are accepted as a significant interaction.
 
-An example usage is for single mode is:
-
-`$ chicSignificantInteractions --interactionFile interactionFilesFolder/Sox17_FL-E13-5_chr1_1000_2000.bed --referencePoints referencePointsFile.bed --range 20000 40000 --backgroundModelFile background_model.bed --loosePValue 0.5 --pValue 0.01`
-
-An example usage is for batch mode is:
-
-`$ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool --referencePoints referencePointsFile.bed --range 20000 40000 --outFileName background_model.bed`
-
-The main difference between single mode and batch mode is that in single mode the parameter `--interactionFile` is interpreted as a list of viewpoint files created with `chicViewpoint`, whereas in batch mode only one file is allowed, containing the file names of viewpoint files (one per line).
-This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFile`. In batch mode, please remember to specify the folder (via `--interactionFileFolder`) where `chicViewpoint` wrote the files.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')
 
     parserRequired.add_argument('--interactionFile', '-if',
-                                help='path to the interaction files which should be used for aggregation of the statistics.',
-                                required=True,
-                                nargs='+')
+                                help='path to the interaction file (HDF5) which should be used for aggregation of the statistics.',
+                                required=True)
 
     parserRequired.add_argument('--pValue', '-p',
                                 help='p-value threshold to filter target regions for inclusion in differential analysis.',
-                                # type=float,
                                 required=True)
     parserMutuallyExclusiveGroupFilter = parser.add_mutually_exclusive_group(
         required=False)
     parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
                                                     help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
                                                     'less significant interactions to a single peak with high significance. Used only for pValue option.'
-                                                    # type=float
-
                                                     )
     parserMutuallyExclusiveGroupFilter.add_argument('--loosePValue', '-lp',
                                                     help='loose p-value threshold to filter target regions in a first round. '
                                                     'Used to merge neighboring bins with a broader peak but less significant interactions to a single peak with high significance.'
                                                     ' Used only for pValue option.'
-                                                    # type=float
                                                     )
     parserRequired.add_argument('--backgroundModelFile', '-bmf',
-                                help='path to the background file which is necessary to compute the rbz-score',
+                                help='path to the background file.',
                                 required=True)
     parserRequired.add_argument('--range',
                                 help='Defines the region upstream and downstream of a reference point which should be included. '
@@ -78,38 +65,24 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
-    parserOpt.add_argument('--outFileNameSuffix', '-suffix',
+    parserOpt.add_argument('--outFileNameSignificant', '-os',
                            help='File name suffix to save the results; prefix is the input file name'
                            ' (Default: %(default)s).',
                            required=False,
-                           default='_significant_interactions.txt')
-
-    parserOpt.add_argument('--interactionFileFolder', '-iff',
-                           help='Folder where the interaction files are stored. Applies only for batch mode'
+                           default='significantInteractions.hdf5')
+    parserOpt.add_argument('--outFileNameTarget', '-ot',
+                           help='The file to store the target data'
                            ' (Default: %(default)s).',
-                           required=False,
-                           default='.')
-    parserOpt.add_argument('--targetFolder', '-tf',
-                           help='Folder where the target files are stored'
+                           default='targetFile.hdf5')
+    parserOpt.add_argument('--combinationMode',
+                           '-cm',
+                           help='This option defines how the interaction data should be computed and combined: '
+                           'dual: Combines as follows: [[matrix1_gene1, matrix2_gene1], [matrix2_gene1, matrix3_gene1],[matrix1_gene2, matrix2_gene2], ...]'
+                           'single: Combines as follows: [matrix1_gene1, matrix1_gene2, matrix2_gene1, ...], '
                            ' (Default: %(default)s).',
-                           required=False,
-                           default='targetFolder')
-    parserOpt.add_argument('--outputFolder', '-o',
-                           help='Output folder of the significant interaction files'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='significantFiles')
-    parserOpt.add_argument('--writeFileNamesToFile', '-w',
-                           help='(Default: %(default)s).',
-                           default='significantFilesBatch.txt')
-    parserOpt.add_argument('--targetFileList', '-tl',
-                           help='The file to store the target file names'
-                           ' (Default: %(default)s).',
-                           default='targetList.txt')
-    parserOpt.add_argument('--batchMode', '-bm',
-                           help='Turn on batch mode. The given file for --interactionFile and or --targetFile contain a list of the to be processed files.',
-                           required=False,
-                           action='store_true')
+                           default='dual',
+                           choices=['dual', 'single']
+                           )
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module)'
                            ' (Default: %(default)s).',
@@ -133,31 +106,6 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
                            default=5,
                            help='The minimum number of interactions a detected peak needs to have to be considered'
                            ' (Default: %(default)s).')
-
-    parserOpt.add_argument('--resolution', '-r',
-                           help='Resolution of the bin in genomic units. Values are set as number of bases, e.g. 1000 for a 1kb, 5000 for a 5kb or 10000 for a 10kb resolution.'
-                           'This value is used to merge neighboring bins'
-                           ' (Default: %(default)s).',
-                           type=int,
-                           default=1000,
-                           required=False)
-
-    parserOpt.add_argument('--computeSampleNumber', '-csn',
-                           help='Number of samples to compute together. Applies only in batch mode'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=2,
-                           type=int)
-    parserOpt.add_argument('--multipleTesting', '-mt',
-                           help='Multiple testing correction per relative distance with Bonferroni or FDR'
-                           ' (Default: %(default)s).',
-                           type=str,
-                           default="None",
-                           choices=['fdr', 'bonferroni', 'None'],
-                           )
-    parserOpt.add_argument('--thresholdMultipleTesting', '-tmt',
-                           help='Threshold for Bonferroni / FDR. Either a float value for all or a file with one threshold per relative distance.'
-                           )
     parserOpt.add_argument("--help", "-h", action="help",
                            help="show this help message and exit")
 
@@ -166,95 +114,116 @@ This file is created by `chicViewpoint` and the parameter `--writeFileNamesToFil
     return parser
 
 
-def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pQueue=None):
-    outfile_names = []
+def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pFilePath, pResolution, pQueue=None):
     target_outfile_names = []
+    significant_data_list = []
+    significant_key_list = []
+
+    target_data_list = []
+    target_key_list = []
+
+    reference_points_list_target = []
+    reference_points_list_significant = []
+
     try:
         for interactionFile in pInteractionFilesList:
             target_list = []
-            sample_prefix = ''
+            sample_prefix = []
+
             for sample in interactionFile:
-                # header,
-                # interaction_data:rel interaction, p-value, raw, x-fold::{-1000:[0.1, 0.01, 2.3, 5]},
-                if pArgs.interactionFileFolder != '.':
-                    absolute_sample_path = pArgs.interactionFileFolder + '/' + sample
-                else:
-                    absolute_sample_path = sample
-                data = pViewpointObj.readInteractionFileForAggregateStatistics(absolute_sample_path)
-                sample_prefix += sample.split('/')[-1].split('_')[0]
-                sample_prefix += '_'
-                # filter by x-fold over background value or loose p-value
-                # and merge neighbors. Use center position to compute new p-value.
+                data = pViewpointObj.readInteractionFile(pFilePath, sample)
+                sample_prefix.append(sample[0])
+                compute_new_p_values_bool = False
                 if pArgs.xFoldBackground is not None:
                     accepted_scores, merged_lines_dict = merge_neighbors_x_fold(
-                        pArgs.xFoldBackground, data, pViewpointObj, pResolution=pArgs.resolution)
-                else:
+                        pArgs.xFoldBackground, data, pViewpointObj, pResolution=pResolution)
+                    compute_new_p_values_bool = True
+                elif pArgs.loosePValue is not None:
                     accepted_scores, merged_lines_dict = merge_neighbors_loose_p_value(
-                        pArgs.loosePValue, data, pViewpointObj, pResolution=pArgs.resolution, pTruncateZeroPvalues=pArgs.truncateZeroPvalues)
+                        pArgs.loosePValue, data, pViewpointObj, pResolution=pResolution, pTruncateZeroPvalues=pArgs.truncateZeroPvalues)
+                    compute_new_p_values_bool = True
 
                 # compute new p-values and filter by them
-                accepted_scores, target_lines = compute_new_p_values(
-                    accepted_scores, pBackground, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold, pViewpointObj)
+                if compute_new_p_values_bool:
+                    accepted_scores, target_lines = compute_new_p_values(
+                        accepted_scores, pBackground, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold)
+                else:
+                    accepted_scores, target_lines = filter_by_pvalue(
+                        data[0], pArgs.pValue, data[1], pArgs.peakInteractionsThreshold)
 
                 # filter by new p-value
                 if len(accepted_scores) == 0:
-                    if pArgs.batchMode:
-                        with open('errorLog.txt', 'a+') as errorlog:
-                            errorlog.write('Failed for: {} and {}.\n'.format(
-                                interactionFile[0], interactionFile[1]))
-                    else:
-                        log.info('No target regions found')
-                outFileName = '.'.join(sample.split(
-                    '/')[-1].split('.')[:-1]) + '_' + pArgs.outFileNameSuffix
-                if pArgs.batchMode:
-                    outfile_names.append(outFileName)
-                outFileName = pArgs.outputFolder + '/' + outFileName
-                # write only significant lines to file
-                write(outFileName, data[0], accepted_scores)
+                    with open('errorLog.txt', 'a+') as errorlog:
+                        errorlog.write('Failed for: {}.\n'.format(
+                            interactionFile))
+
                 target_list.append(target_lines)
+                significant_data_list.append(accepted_scores)
+                significant_key_list.append(sample)
+                reference_points_list_significant.append(data[2])
 
             target_list = [item for sublist in target_list for item in sublist]
-            log.debug('interactionFile {}'.format(interactionFile))
-            sample_name = '_'.join(interactionFile[0].split('/')[-1].split('.')[0].split('_')[1:])
-            target_name = sample_prefix + sample_name + '_target.txt'
-            target_outfile_names.append(target_name)
-            target_name = pArgs.targetFolder + '/' + target_name
-            writeTargetList(target_list, target_name, pArgs)
+            sample_prefix.append('::')
+            sample_prefix.append(interactionFile[0][1])
+            sample_prefix.append(interactionFile[0][2])
+            target_data_list.append(target_list)
+            target_key_list.append(sample_prefix)
+            reference_points_list_target.append(data[2])
+
         if pQueue is None:
             return target_outfile_names
     except Exception as exp:
         if pQueue is None:
-            return 'Fail: ' + str(exp)
-        pQueue.put('Fail: ' + str(exp))
+            return 'Fail: ' + str(exp) + traceback.format_exc()
+        pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
         return
-    pQueue.put([outfile_names, target_outfile_names])
+    pQueue.put([significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list_target, reference_points_list_significant])
     return
 
 
-def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPeakInteractionsThreshold, pViewpointObj):
+def filter_by_pvalue(pData, pPValue, pMergedLinesDict, pPeakInteractionsThreshold):
+    accepted = {}
+    accepted_lines = []
+    if isinstance(pPValue, float):
+        for key in pData:
+            if pData[key][-3] <= pPValue:
+                if float(pData[key][-1]) >= pPeakInteractionsThreshold:
+                    accepted[key] = pMergedLinesDict[key]
+                    target_content = pMergedLinesDict[key][:3]
+                    accepted_lines.append(target_content)
+    elif isinstance(pPValue, dict):
+        for key in pData:
+
+            if pData[key][-3] <= pPValue[key]:
+                if float(pData[key][-1]) >= pPeakInteractionsThreshold:
+                    accepted[key] = pMergedLinesDict[key]
+                    target_content = pMergedLinesDict[key][:3]
+                    accepted_lines.append(target_content)
+
+    return accepted, accepted_lines
+
+
+def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPeakInteractionsThreshold):
     accepted = {}
     accepted_lines = []
     if isinstance(pPValue, float):
         for key in pData:
             if key in pBackgroundModel:
-                log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
+
                 pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
-                log.debug('new {}\n\n'.format(pData[key][-3]))
                 if pData[key][-3] <= pPValue:
                     if float(pData[key][-1]) >= pPeakInteractionsThreshold:
                         accepted[key] = pData[key]
                         target_content = pMergedLinesDict[key][0][:3]
+
                         target_content[2] = pMergedLinesDict[key][-1][2]
                         accepted_lines.append(target_content)
             else:
-                log.debug('key not in background')
+                log.debug('key not in background {}'.format(key))
     elif isinstance(pPValue, dict):
         for key in pData:
             if key in pBackgroundModel:
-                log.debug('Recompute p-values. Old: {}'.format(pData[key][-3]))
-
                 pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
-                log.debug('new {}\n\n'.format(pData[key][-3]))
 
                 if pData[key][-3] <= pPValue[key]:
                     if float(pData[key][-1]) >= pPeakInteractionsThreshold:
@@ -263,7 +232,7 @@ def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPe
                         target_content[2] = pMergedLinesDict[key][-1][2]
                         accepted_lines.append(target_content)
             else:
-                log.debug('key not in background')
+                log.debug('key not in background {}'.format(key))
     return accepted, accepted_lines
 
 
@@ -271,18 +240,18 @@ def merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution):
     accepted = {}
     accepted_line = {}
     if isinstance(pXfold, float):
-        for key in pData[1]:
+        for key in pData[0]:
 
-            if pData[1][key][-1] < pXfold:
+            if pData[0][key][-1] < pXfold:
                 continue
-            accepted[key] = pData[1][key]
-            accepted_line[key] = pData[2][key]
+            accepted[key] = pData[0][key]
+            accepted_line[key] = pData[1][key]
     elif isinstance(pXfold, dict):
-        for key in pData[1]:
-            if pData[1][key][-1] < pXfold[key]:
+        for key in pData[0]:
+            if pData[0][key][-1] < pXfold[key]:
                 continue
-            accepted[key] = pData[1][key]
-            accepted_line[key] = pData[2][key]
+            accepted[key] = pData[0][key]
+            accepted_line[key] = pData[1][key]
     if accepted_line:
         return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
     return accepted_line, None
@@ -292,50 +261,39 @@ def merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolutio
     accepted = {}
     accepted_line = {}
     if isinstance(pLoosePValue, float):
-        for key in pData[1]:
+        for key in pData[0]:
             if pTruncateZeroPvalues:
-                if pData[1][key][1] == 0 or pData[1][key][1] > pLoosePValue:
+                if pData[0][key][1] == 0 or pData[0][key][1] > pLoosePValue:
                     continue
             else:
-                if pData[1][key][1] > pLoosePValue:
+                if pData[0][key][1] > pLoosePValue:
                     continue
-            accepted[key] = pData[1][key]
-            accepted_line[key] = pData[2][key]
+            accepted[key] = pData[0][key]
+            accepted_line[key] = pData[1][key]
     elif isinstance(pLoosePValue, dict):
-        for key in pData[1]:
+        for key in pData[0]:
             if pTruncateZeroPvalues:
-                if pData[1][key][1] == 0 or pData[1][key][1] > pLoosePValue[key]:
+                if pData[0][key][1] == 0 or pData[0][key][1] > pLoosePValue[key]:
                     continue
             else:
-                if pData[1][key][1] > pLoosePValue[key]:
+                if pData[0][key][1] > pLoosePValue[key]:
                     continue
-            accepted[key] = pData[1][key]
-            accepted_line[key] = pData[2][key]
+            accepted[key] = pData[0][key]
+            accepted_line[key] = pData[1][key]
     if accepted_line:
         return pViewpointObj.merge_neighbors(accepted_line, pMergeThreshold=pResolution)
     return accepted_line, None
 
 
-def write(pOutFileName, pHeader, pInteractionLines):
+def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pFilePath, pResolution):
+    significant_data_list = [None] * pArgs.threads
+    significant_key_list = [None] * pArgs.threads
 
-    # sum_of_interactions = float(pHeader.split('\t')[-1].split(' ')[-1])
-    with open(pOutFileName, 'w') as file:
-        file.write(pHeader)
-        file.write(
-            '#Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative interactions\tp-value\tx-fold\tRaw target')
-        file.write('\n')
+    target_data_list = [None] * pArgs.threads
+    target_key_list = [None] * pArgs.threads
+    reference_points_list_target = [None] * pArgs.threads
+    reference_points_list_significant = [None] * pArgs.threads
 
-        for data in pInteractionLines:
-            new_line = '\t'.join(pInteractionLines[data][:6])
-            new_line += '\t' + '\t'.join(format(float(x), "0.20f")
-                                         for x in pInteractionLines[data][6:])
-            new_line += '\n'
-            file.write(new_line)
-
-
-def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground):
-    outfile_names = [None] * pArgs.threads
-    target_list_name = [None] * pArgs.threads
     interactionFilesPerThread = len(pInteractionFilesList) // pArgs.threads
     all_data_collected = False
     queue = [None] * pArgs.threads
@@ -358,6 +316,8 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground):
             pArgs=pArgs,
             pViewpointObj=pViewpointObj,
             pBackground=pBackground,
+            pFilePath=pFilePath,
+            pResolution=pResolution,
             pQueue=queue[i]
         )
         )
@@ -372,7 +332,7 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground):
                     fail_flag = True
                     fail_message = background_data_thread[6:]
                 else:
-                    outfile_names[i], target_list_name[i] = background_data_thread
+                    significant_data_list[i], significant_key_list[i], target_data_list[i], target_key_list[i], reference_points_list_target[i], reference_points_list_significant[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -387,44 +347,22 @@ def call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground):
         log.error(fail_message)
         exit(1)
 
-    outfile_names = [item for sublist in outfile_names for item in sublist]
-    target_list_name = [
-        item for sublist in target_list_name for item in sublist]
+    significant_data_list = [item for sublist in significant_data_list for item in sublist]
+    significant_key_list = np.array([item for sublist in significant_key_list for item in sublist])
+    reference_points_list_target = np.array([item for sublist in reference_points_list_target for item in sublist])
+    reference_points_list_significant = np.array([item for sublist in reference_points_list_significant for item in sublist])
 
-    return outfile_names, target_list_name
+    significant_key_list, indices = np.unique(significant_key_list, axis=0, return_index=True)
 
+    significant_data_list_new = []
+    for x in indices:
+        significant_data_list_new.append(significant_data_list[x])
+    significant_data_list = significant_data_list_new
 
-def writeTargetList(pTargetList, pOutFileName, pArgs):
-    # remove duplicates
-    target_list_ = []
-    for line in pTargetList:
-        target_list_.append('\t'.join(line))
-    target_set = set(target_list_)
-    pTargetList = sorted(list(target_set))
+    target_data_list = [item for sublist in target_data_list for item in sublist]
+    target_key_list = [item for sublist in target_key_list for item in sublist]
 
-    a = pybedtools.BedTool(pTargetList)
-
-    header = '# Significant interactions result file of HiCExplorer\'s chicSignificantInteractions version '
-    header += str(__version__)
-    header += '\n'
-    header += '# {}\n'.format(pOutFileName)
-
-    if pArgs.xFoldBackground:
-        header += '# Mode: x-fold background with '
-        header += str(pArgs.xFoldBackground)
-        header += '\n'
-    else:
-        header += '# Mode: loose p-value with '
-        header += str(pArgs.loosePValue)
-        header += '\n'
-    header += '# Used p-value: '
-    header += str(pArgs.pValue)
-    header += '\n#\n'
-    if len(pTargetList) == 0:
-        with open(pOutFileName, 'w') as file:
-            file.write(header)
-    else:
-        a.sort().merge(d=pArgs.resolution).saveas(pOutFileName, trackline=header)
+    return significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list_target, reference_points_list_significant
 
 
 def read_threshold_file(pFile):
@@ -442,24 +380,203 @@ def read_threshold_file(pFile):
     return distance_value_dict
 
 
+def writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList, pViewpointObj, pReferencePointsList, pArgs):
+
+    significantFileH5Object = h5py.File(pOutFileName, 'w')
+    significantFileH5Object.attrs['type'] = "significant"
+    significantFileH5Object.attrs['version'] = __version__
+
+    significantFileH5Object.attrs['pvalue'] = pArgs.pValue
+
+    if pArgs.xFoldBackground is not None:
+        significantFileH5Object.attrs['mode_preselection'] = "xfold"
+        significantFileH5Object.attrs['mode_preselection_value'] = pArgs.xFoldBackground
+
+    elif pArgs.loosePValue is not None:
+        significantFileH5Object.attrs['mode_preselection'] = "loosePValue"
+        significantFileH5Object.attrs['mode_preselection_value'] = pArgs.loosePValue
+    else:
+        significantFileH5Object.attrs['mode_preselection'] = "None"
+        significantFileH5Object.attrs['mode_preselection_value'] = "None"
+
+    significantFileH5Object.attrs['range'] = pArgs.range
+    significantFileH5Object.attrs['combinationMode'] = pArgs.combinationMode
+
+    significantFileH5Object.attrs['truncateZeroPvalues'] = pArgs.truncateZeroPvalues
+    significantFileH5Object.attrs['fixateRange'] = pArgs.fixateRange
+    significantFileH5Object.attrs['peakInteractionsThreshold'] = pArgs.peakInteractionsThreshold
+
+    keys_seen = {}
+
+    for i, (key, data) in enumerate(zip(pSignificantKeyList, pSignificantDataList)):
+        if len(data) == 0:
+            continue
+        chromosome = None
+        start_list = []
+        end_list = []
+        gene_name = None
+        sum_of_interactions = None
+        relative_distance_list = []
+        relative_interactions_list = []
+        pvalue_list = []
+        xfold_list = []
+        raw_target_list = []
+
+        for datum in data.values():
+            chromosome = datum[0]
+            start_list.append(datum[1])
+            end_list.append(datum[2])
+            gene_name = datum[3]
+            sum_of_interactions = datum[4]
+            relative_distance_list.append(datum[5])
+            relative_interactions_list.append(datum[6])
+            pvalue_list.append(datum[7])
+            xfold_list.append(datum[8])
+            raw_target_list.append(datum[9])
+
+        if key[0] not in significantFileH5Object:
+            matrixGroup = significantFileH5Object.create_group(key[0])
+            keys_seen[key[0]] = set()
+        else:
+            matrixGroup = significantFileH5Object[key[0]]
+
+        if chromosome not in matrixGroup:
+            chromosomeObject = matrixGroup.create_group(chromosome)
+        else:
+            chromosomeObject = matrixGroup[chromosome]
+
+        if 'genes' not in matrixGroup:
+            geneGroup = matrixGroup.create_group('genes')
+        else:
+            geneGroup = matrixGroup['genes']
+
+        success = False
+        counter = 0
+        while not success:
+
+            if counter != 0:
+                gene_name_key = key[2] + '_' + str(counter)
+            else:
+                gene_name_key = key[2]
+            if gene_name_key in keys_seen[key[0]]:
+                success = False
+            else:
+                keys_seen[key[0]].add(gene_name_key)
+                success = True
+            counter += 1
+
+        group_name = pViewpointObj.writeInteractionFileHDF5(
+            chromosomeObject, gene_name_key, [chromosome, start_list, end_list, gene_name, sum_of_interactions, relative_distance_list,
+                                              relative_interactions_list, pvalue_list, xfold_list, raw_target_list], pReferencePointsList[i])
+
+        try:
+            geneGroup[group_name] = chromosomeObject[group_name]
+        except Exception as exp:
+            log.debug('exception {}'.format(str(exp)))
+            log.debug('Gene group given: {}'.format(key[2]))
+            log.debug('Gene group return: {}'.format(group_name))
+
+    significantFileH5Object.close()
+
+
+def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj, pResolution, pReferencePointsList, pArgs):
+
+    targetFileH5Object = h5py.File(pOutFileName, 'w')
+    targetFileH5Object.attrs['type'] = "target"
+    targetFileH5Object.attrs['version'] = __version__
+
+    targetFileH5Object.attrs['pvalue'] = pArgs.pValue
+
+    if pArgs.xFoldBackground is not None:
+        targetFileH5Object.attrs['mode_preselection'] = "xfold"
+        targetFileH5Object.attrs['mode_preselection_value'] = pArgs.xFoldBackground
+
+    elif pArgs.loosePValue is not None:
+        targetFileH5Object.attrs['mode_preselection'] = "loosePValue"
+        targetFileH5Object.attrs['mode_preselection_value'] = pArgs.loosePValue
+    else:
+        targetFileH5Object.attrs['mode_preselection'] = "None"
+        targetFileH5Object.attrs['mode_preselection_calue'] = "None"
+
+    targetFileH5Object.attrs['range'] = pArgs.range
+    targetFileH5Object.attrs['combinationMode'] = pArgs.combinationMode
+
+    targetFileH5Object.attrs['truncateZeroPvalues'] = pArgs.truncateZeroPvalues
+    targetFileH5Object.attrs['fixateRange'] = pArgs.fixateRange
+    targetFileH5Object.attrs['peakInteractionsThreshold'] = pArgs.peakInteractionsThreshold
+    keys_seen = {}
+    for i, (key, data) in enumerate(zip(pTargetKeyList, pTargetDataList)):
+        if len(data) == 0:
+            continue
+
+        chromosome = None
+        start_list = []
+        end_list = []
+        a = pybedtools.BedTool(data)
+        data_sorted_merged = a.sort().merge(d=pResolution)
+        for datum in data_sorted_merged:
+            chromosome = datum[0]
+            start_list.append(datum[1])
+            end_list.append(datum[2])
+
+        if key[0] not in targetFileH5Object:
+            matrixGroup = targetFileH5Object.create_group(key[0])
+            keys_seen[key[0]] = set()
+        else:
+            matrixGroup = targetFileH5Object[key[0]]
+
+        for matrix_name in key[1:]:
+            if matrix_name == '::':
+                break
+            if matrix_name not in matrixGroup:
+                matrixGroup = matrixGroup.create_group(matrix_name)
+                keys_seen[matrix_name] = set()
+            else:
+                matrixGroup = matrixGroup[matrix_name]
+
+        if 'genes' not in matrixGroup:
+            geneGroup = matrixGroup.create_group('genes')
+        else:
+            geneGroup = matrixGroup['genes']
+        if chromosome not in matrixGroup:
+            chromosomeObject = matrixGroup.create_group(chromosome)
+        else:
+            chromosomeObject = matrixGroup[chromosome]
+
+        success = False
+        counter = 0
+        while not success:
+
+            if counter != 0:
+                gene_name_key = key[-1] + '_' + str(counter)
+            else:
+                gene_name_key = key[-1]
+            if gene_name_key in keys_seen[key[0]]:
+                success = False
+            else:
+                keys_seen[key[0]].add(gene_name_key)
+                success = True
+            counter += 1
+
+        groupObject, groupName = pViewpointObj.createUniqueHDFGroup(chromosomeObject, gene_name_key)
+
+        groupObject["chromosome"] = chromosome
+        groupObject.create_dataset("start_list", data=start_list)
+        groupObject.create_dataset("end_list", data=end_list)
+        groupObject.create_dataset("reference_point_start", data=int(pReferencePointsList[i][0]))
+        groupObject.create_dataset("reference_point_end", data=int(pReferencePointsList[i][1]))
+        try:
+            geneGroup[groupName] = chromosomeObject[groupName]
+        except Exception as exp:
+            log.debug('exception {}'.format(str(exp)))
+            log.debug('Gene group: {}'.format(key[-1]))
+            log.debug('Adjusted name {}'.format(groupName))
+    targetFileH5Object.close()
+
+
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-    # args.p_value_dict = None
-    # args.p_loose_value_dict = None
-    # args.x_fold_dict = None
-    if not os.path.exists(args.outputFolder):
-        try:
-            os.makedirs(args.outputFolder)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
-    if not os.path.exists(args.targetFolder):
-        try:
-            os.makedirs(args.targetFolder)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
 
     if args.pValue:
         try:
@@ -478,45 +595,56 @@ def main(args=None):
             args.xFoldBackground = read_threshold_file(args.xFoldBackground)
 
     viewpointObj = Viewpoint()
-    outfile_names = []
-
-    interactionFileList = []
 
     background_model = viewpointObj.readBackgroundDataFile(
         args.backgroundModelFile, args.range, args.fixateRange)
-    if args.batchMode:
-        with open(args.interactionFile[0], 'r') as interactionFile:
-            file_ = True
-            while file_:
-                lines = []
-                for i in range(0, args.computeSampleNumber):
-                    file_ = interactionFile.readline().strip()
-                    if file_ != '':
-                        lines.append(file_)
-                if len(lines) > 0:
-                    interactionFileList.append(lines)
-        log.debug('interactionFileList {}'.format(interactionFileList))
-        outfile_names, target_list_name = call_multi_core(
-            interactionFileList, args, viewpointObj, background_model)
 
-    else:
-        i = 0
-        while i < len(args.interactionFile):
-            lines = []
-            for j in range(0, args.computeSampleNumber):
-                if i < len(args.interactionFile):
-                    lines.append(args.interactionFile[i])
-                i += 1
-            interactionFileList.append(lines)
+    # read hdf file
+    interactionFileHDF5Object = h5py.File(args.interactionFile, 'r')
+    keys_interactionFile = list(interactionFileHDF5Object.keys())
 
-        target_list_name = compute_interaction_file(
-            interactionFileList, args, viewpointObj, background_model)
-        if 'Fail: ' in target_list_name:
-            log.error(target_list_name[6:])
+    if interactionFileHDF5Object.attrs['type'] != 'interactions':
+        log.error('Please provide a file created by chicViewpoint for the parameter --interactionFile.')
+        exit(1)
 
-    if args.batchMode:
-        with open(args.writeFileNamesToFile, 'w') as nameListFile:
-            nameListFile.write('\n'.join(outfile_names))
+    interactionList = []
+    if args.combinationMode == 'dual':
+        if len(keys_interactionFile) > 1:
+            for i, sample in enumerate(keys_interactionFile):
+                for sample2 in keys_interactionFile[i + 1:]:
 
-        with open(args.targetFileList, 'w') as targetNamesFile:
-            targetNamesFile.write('\n'.join(target_list_name))
+                    matrix_obj1 = interactionFileHDF5Object[sample]
+                    matrix_obj2 = interactionFileHDF5Object[sample]
+
+                    chromosomeList1 = sorted(list(matrix_obj1.keys()))
+                    chromosomeList2 = sorted(list(matrix_obj2.keys()))
+                    chromosomeList1.remove('genes')
+                    chromosomeList2.remove('genes')
+                    for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
+                        geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                        geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
+
+                        for gene1, gene2 in zip(geneList1, geneList2):
+                            interactionList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
+
+        else:
+            log.error('Dual mode selected but only one matrix is stored')
+    elif args.combinationMode == 'single':
+        for i, sample in enumerate(keys_interactionFile):
+
+            matrix_obj1 = interactionFileHDF5Object[sample]
+            chromosomeList1 = sorted(list(matrix_obj1.keys()))
+            chromosomeList1.remove('genes')
+            for chromosome1 in chromosomeList1:
+                geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                for gene1 in geneList1:
+                    interactionList.append([[sample, chromosome1, gene1]])
+
+    resolution = interactionFileHDF5Object.attrs['resolution'][()]
+    interactionFileHDF5Object.close()
+
+    significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list_target, reference_points_list_significant = call_multi_core(
+        interactionList, args, viewpointObj, background_model, args.interactionFile, resolution)
+
+    writeSignificantHDF(args.outFileNameSignificant, significant_data_list, significant_key_list, viewpointObj, reference_points_list_significant, args)
+    writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj, resolution, reference_points_list_target, args)

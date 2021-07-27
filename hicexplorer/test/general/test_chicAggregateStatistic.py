@@ -2,6 +2,7 @@ from hicexplorer import chicAggregateStatistic
 from tempfile import NamedTemporaryFile, mkdtemp
 import os
 import pytest
+import h5py
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -33,182 +34,120 @@ def are_files_equal(file1, file2, delta=2, skip=0):
 
 
 def test_regular_mode():
-    output_folder = mkdtemp(prefix="output_")
-
-    args = "--interactionFile {} {} --targetFile {} --outFileNameSuffix {} \
-            --outputFolder {} -t {}".format(ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.txt',
-                                            ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.txt ',
-                                            ROOT + 'chicSignificantInteractions/output_5_target/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_target.txt',
-                                            'aggregated.txt',
-                                            output_folder, 1).split()
+    outfile_aggregate = NamedTemporaryFile(suffix='.hdf5', delete=False)
+    outfile_aggregate.close()
+    args = "--interactionFile {} --targetFile {} --outFileName {} \
+            -t {}".format(ROOT + 'chicViewpoint/two_matrices.hdf5',
+                          ROOT + 'chicSignificantInteractions/targetFile_dual.hdf5',
+                          outfile_aggregate.name, 1).split()
     chicAggregateStatistic.main(args)
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/regular_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/regular_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
+    aggregateFileH5Object = h5py.File(outfile_aggregate.name, 'r')
+    assert 'FL-E13-5_chr1_MB-E10-5_chr1' in aggregateFileH5Object
+    assert 'FL-E13-5_chr1' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']
+    assert 'MB-E10-5_chr1' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']
 
-    assert set(os.listdir(ROOT + "chicAggregateStatistic/regular_mode/")
-               ) == set(os.listdir(output_folder))
+    assert 'genes' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1']
+    assert 'genes' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1']
+    assert len(aggregateFileH5Object) == 1
+    assert aggregateFileH5Object.attrs['type'] == 'aggregate'
+
+    for chromosome in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1']:
+
+        assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome]) == 3
+
+        for gene in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome]:
+            assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome][gene]) == 7
+            for data in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome][gene]:
+                assert data in ['chromosome', 'end_list', 'gene_name', 'raw_target_list', 'relative_distance_list', 'start_list', 'sum_of_interactions']
+
+    for chromosome in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1']:
+
+        assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome]) == 3
+
+        for gene in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome]:
+            assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome][gene]) == 7
+            for data in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome][gene]:
+                assert data in ['chromosome', 'end_list', 'gene_name', 'raw_target_list', 'relative_distance_list', 'start_list', 'sum_of_interactions']
+
+    aggregateFileH5Object.close()
 
 
 def test_regular_mode_threads():
-    output_folder = mkdtemp(prefix="output_")
-
-    args = "--interactionFile {} {} --targetFile {} --outFileNameSuffix {} \
-            --outputFolder {} -t {}".format(ROOT + 'chicViewpoint/output_1/FL-E13-5_chr1_chr1_14300280_14300280_Eya1.txt',
-                                            ROOT + 'chicViewpoint/output_1/MB-E10-5_chr1_chr1_14300280_14300280_Eya1.txt ',
-                                            ROOT + 'chicSignificantInteractions/output_5_target/FL-E13-5_MB-E10-5_chr1_chr1_14300280_14300280_Eya1_target.txt',
-                                            'aggregated.txt',
-                                            output_folder, 10).split()
+    outfile_aggregate = NamedTemporaryFile(suffix='.hdf5', delete=False)
+    outfile_aggregate.close()
+    args = "--interactionFile {} --targetFile {} --outFileName {} \
+            -t {}".format(ROOT + 'chicViewpoint/two_matrices.hdf5',
+                          ROOT + 'chicSignificantInteractions/targetFile_dual.hdf5',
+                          outfile_aggregate.name, 10).split()
     chicAggregateStatistic.main(args)
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/regular_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/regular_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
+    aggregateFileH5Object = h5py.File(outfile_aggregate.name, 'r')
+    assert 'FL-E13-5_chr1_MB-E10-5_chr1' in aggregateFileH5Object
+    assert 'FL-E13-5_chr1' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']
+    assert 'MB-E10-5_chr1' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']
 
-    assert set(os.listdir(ROOT + "chicAggregateStatistic/regular_mode/")
-               ) == set(os.listdir(output_folder))
+    assert 'genes' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1']
+    assert 'genes' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1']
+    assert len(aggregateFileH5Object) == 1
+    assert aggregateFileH5Object.attrs['type'] == 'aggregate'
+
+    for chromosome in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1']:
+
+        assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome]) == 3
+
+        for gene in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome]:
+            assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome][gene]) == 7
+            for data in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome][gene]:
+                assert data in ['chromosome', 'end_list', 'gene_name', 'raw_target_list', 'relative_distance_list', 'start_list', 'sum_of_interactions']
+
+    for chromosome in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1']:
+
+        assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome]) == 3
+
+        for gene in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome]:
+            assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome][gene]) == 7
+            for data in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome][gene]:
+                assert data in ['chromosome', 'end_list', 'gene_name', 'raw_target_list', 'relative_distance_list', 'start_list', 'sum_of_interactions']
+
+    aggregateFileH5Object.close()
 
 
-def test_batch_mode():
-    outfile = NamedTemporaryFile(suffix='.txt', delete=False)
-    output_folder = mkdtemp(prefix="output_")
-
-    outfile.close()
-    args = "--interactionFile {} --targetFile {} --outFileNameSuffix {} \
-        --outputFolder {} -iff {} -tff {} -w {} -bm -t {}".format(ROOT + 'chicViewpoint/fileNames_two_matrices.txt',
-                                                                  ROOT + 'chicSignificantInteractions/output_5_target_list.txt',
-                                                                  'aggregated.txt',
-                                                                  output_folder,
-                                                                  ROOT + 'chicViewpoint/output_1',
-                                                                  ROOT + 'chicSignificantInteractions/output_5_target',
-                                                                  outfile.name, 1).split()
+def test_target_list():
+    outfile_aggregate = NamedTemporaryFile(suffix='.hdf5', delete=False)
+    outfile_aggregate.close()
+    args = "--interactionFile {} --targetFile {} --outFileName {} \
+            -t {}".format(ROOT + 'chicViewpoint/two_matrices.hdf5',
+                          ROOT + 'chicAggregateStatistic/target_list.bed',
+                          outfile_aggregate.name, 10).split()
     chicAggregateStatistic.main(args)
-    assert are_files_equal(
-        ROOT + "chicAggregateStatistic/batch_mode_file_names.txt", outfile.name)
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
+    aggregateFileH5Object = h5py.File(outfile_aggregate.name, 'r')
+    assert 'FL-E13-5_chr1_MB-E10-5_chr1' in aggregateFileH5Object
+    assert 'FL-E13-5_chr1' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']
+    assert 'MB-E10-5_chr1' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt')
+    assert 'genes' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1']
+    assert 'genes' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1']
+    assert len(aggregateFileH5Object) == 1
+    assert aggregateFileH5Object.attrs['type'] == 'aggregate'
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt')
+    for chromosome in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1']:
 
-    assert set(os.listdir(ROOT + "chicAggregateStatistic/batch_mode/")
-               ) == set(os.listdir(output_folder))
+        assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome]) == 3
 
+        for gene in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome]:
+            assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome][gene]) == 7
+            for data in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome][gene]:
+                assert data in ['chromosome', 'end_list', 'gene_name', 'raw_target_list', 'relative_distance_list', 'start_list', 'sum_of_interactions']
 
-def test_batch_mode_too_many_threads():
-    outfile = NamedTemporaryFile(suffix='.txt', delete=False)
-    output_folder = mkdtemp(prefix="output_")
+    for chromosome in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1']:
 
-    outfile.close()
-    args = "--interactionFile {} --targetFile {} --outFileNameSuffix {} \
-        --outputFolder {} -iff {} -tff {} -w {} -bm -t {}".format(ROOT + 'chicViewpoint/fileNames_two_matrices.txt',
-                                                                  ROOT + 'chicSignificantInteractions/output_5_target_list.txt',
-                                                                  'aggregated.txt',
-                                                                  output_folder,
-                                                                  ROOT + 'chicViewpoint/output_1',
-                                                                  ROOT + 'chicSignificantInteractions/output_5_target',
-                                                                  outfile.name, 100).split()
-    chicAggregateStatistic.main(args)
-    assert are_files_equal(
-        ROOT + "chicAggregateStatistic/batch_mode_file_names.txt", outfile.name)
+        assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome]) == 3
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
+        for gene in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome]:
+            assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome][gene]) == 7
+            for data in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome][gene]:
+                assert data in ['chromosome', 'end_list', 'gene_name', 'raw_target_list', 'relative_distance_list', 'start_list', 'sum_of_interactions']
 
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt')
-
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt')
-
-    assert set(os.listdir(ROOT + "chicAggregateStatistic/batch_mode/")
-               ) == set(os.listdir(output_folder))
-
-
-def test_batch_mode_one_targetfile():
-    outfile = NamedTemporaryFile(suffix='.txt', delete=False)
-    output_folder = mkdtemp(prefix="output_")
-
-    outfile.close()
-    args = "--interactionFile {} --targetFile {} --outFileNameSuffix {} \
-        --outputFolder {} -iff {} -w {} -bm -t {}".format(ROOT + 'chicViewpoint/fileNames_two_matrices.txt',
-                                                          ROOT + 'chicSignificantInteractions/output_5_target_regions.txt',
-                                                          'aggregated.txt',
-                                                          output_folder,
-                                                          ROOT + 'chicViewpoint/output_1',
-                                                          outfile.name, 3).split()
-    chicAggregateStatistic.main(args)
-    assert are_files_equal(
-        ROOT + "chicAggregateStatistic/batch_mode_file_names.txt", outfile.name)
-
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
-
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt')
-
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt')
-
-    assert set(os.listdir(ROOT + "chicAggregateStatistic/batch_mode/")
-               ) == set(os.listdir(output_folder))
-
-
-def test_batch_mode_one_targetfile_threads():
-    outfile = NamedTemporaryFile(suffix='.txt', delete=False)
-    output_folder = mkdtemp(prefix="output_")
-
-    outfile.close()
-    args = "--interactionFile {} --targetFile {} --outFileNameSuffix {} \
-        --outputFolder {} -iff {} -w {} -bm -t {}".format(ROOT + 'chicViewpoint/fileNames_two_matrices.txt',
-                                                          ROOT + 'chicSignificantInteractions/output_5_target_regions.txt',
-                                                          'aggregated.txt',
-                                                          output_folder,
-                                                          ROOT + 'chicViewpoint/output_1',
-                                                          outfile.name, 20).split()
-    chicAggregateStatistic.main(args)
-    assert are_files_equal(
-        ROOT + "chicAggregateStatistic/batch_mode_file_names.txt", outfile.name)
-
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_14300280_14300280_Eya1_aggregated.txt')
-
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_4487435_4487435_Sox17_aggregated.txt')
-
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt",
-                           output_folder + '/FL-E13-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt')
-    assert are_files_equal(ROOT + "chicAggregateStatistic/batch_mode/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt",
-                           output_folder + '/MB-E10-5_chr1_chr1_19093103_19093103_Tfap2d_aggregated.txt')
-
-    assert set(os.listdir(ROOT + "chicAggregateStatistic/batch_mode/")
-               ) == set(os.listdir(output_folder))
+    aggregateFileH5Object.close()

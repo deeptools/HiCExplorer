@@ -148,3 +148,43 @@ def test_remove():
     np.assert_equal(test.cut_intervals, new.cut_intervals)
 
     os.unlink(outfile.name)
+
+
+def test_remove_inter():
+    outfile = NamedTemporaryFile(
+        suffix='.cool', prefix='test_matrix', delete=True)
+    outfile.close()
+    args = "--matrix {} --outFileName {} --chromosomes 1 2 3 {} --action {} --interIntraHandling {} ".format(
+        ROOT + 'hicAdjustMatrix/gm12878_1_2_3.cool',
+        outfile.name,
+        ROOT + 'hicAdjustMatrix/remove.bed',
+        "keep", "inter").split()
+
+    compute(hicAdjustMatrix.main, args, 5)
+    test = hm.hiCMatrix(
+        ROOT + "hicAdjustMatrix/inter-removed.cool")
+    new = hm.hiCMatrix(outfile.name)
+    np.assert_almost_equal(test.matrix.data, new.matrix.data, decimal=5)
+    np.assert_equal(test.cut_intervals, new.cut_intervals)
+
+    os.unlink(outfile.name)
+
+
+def test_remove_intra():
+    outfile = NamedTemporaryFile(
+        suffix='.cool', prefix='test_matrix', delete=True)
+    outfile.close()
+    args = "--matrix {} --outFileName {} --chromosomes 1 2 3 {} --action {} --interIntraHandling {} ".format(
+        ROOT + 'hicAdjustMatrix/gm12878_1_2_3.cool',
+        outfile.name,
+        ROOT + 'hicAdjustMatrix/remove.bed',
+        "keep", "intra").split()
+
+    compute(hicAdjustMatrix.main, args, 5)
+    test = hm.hiCMatrix(
+        ROOT + "hicAdjustMatrix/intra-removed.cool")
+    new = hm.hiCMatrix(outfile.name)
+    np.assert_almost_equal(test.matrix.data, new.matrix.data, decimal=5)
+    np.assert_equal(test.cut_intervals, new.cut_intervals)
+
+    os.unlink(outfile.name)

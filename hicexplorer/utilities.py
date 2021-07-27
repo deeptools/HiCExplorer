@@ -25,8 +25,11 @@ def readBed(pBedFile):
             _line = line.strip().split('\t')
             if len(line) == 0:
                 continue
-
-            chrom, start, end = _line[:3]
+            try:
+                chrom, start, end = _line[:3]
+            except ValueError:
+                _line = line.strip().split()
+                chrom, start, end = _line[:3]
             viewpoints.append((chrom, start, end))
 
     return viewpoints
@@ -415,6 +418,34 @@ def expected_interactions(pSubmatrix, pThreads=None):
 #     return sum_per_distance / binary_interactions_per_distance
 
 
+def compute_zscore(pSubmatrix, pDepth, pThreads):
+    # depth is to be expected in matrix units
+    # indice == distance
+
+    expected_interactions_array = expected_interactions(pSubmatrix, pThreads=pThreads)
+    occurrences = np.arange(pSubmatrix.shape[0] + 1, 1, -1)
+    row, col = pSubmatrix.nonzero()
+    distance = np.absolute(row - col)
+    if pDepth is not None:
+        max_distance = min(pSubmatrix.shape[0], pDepth)
+        mask = distance > pDepth
+        pSubmatrix.data[mask] = 0
+    else:
+        max_distance = pSubmatrix.shape[0]
+
+    x_minus_mu = np.zeros(len(pSubmatrix.data))
+    # sum_for_sigma = np.zeros(len(expected_interactions_array))
+    for distance_index in range(max_distance):
+        mask = distance == distance_index
+        x_minus_mu[mask] -= expected_interactions_array[distance_index]
+        sum_for_sigma = np.sum(np.square(x_minus_mu[mask]))
+
+        sum_for_sigma += np.square((0 - expected_interactions_array[distance_index]) * (occurrences[distance_index] - np.sum(mask)))
+        pSubmatrix.data[mask] = x_minus_mu[mask] / np.sqrt(sum_for_sigma / occurrences[distance_index])
+
+    return pSubmatrix
+
+
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
         Creates normalized contact matrix M* by
@@ -481,7 +512,7 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False, pInplace=True, pT
     return submatrix
 
 
-def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None):
+def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None, pDistance=None):
     """
         Creates normalized contact matrix M* by
         dividing each entry by the gnome-wide
@@ -491,6 +522,13 @@ def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None):
         interactions at abs(i-j)
     """
     # time_start = time.time()
+    if pDistance is not None:
+        row, col = pSubmatrix.nonzero()
+        distance = np.absolute(row - col)
+        mask = distance >= pDistance
+        pSubmatrix.data[mask] = 0
+        pSubmatrix.eliminate_zeros()
+
     expected_interactions_in_distance_ = expected_interactions(pSubmatrix, pThreads)
     if expected_interactions_in_distance_ is None:
         return None

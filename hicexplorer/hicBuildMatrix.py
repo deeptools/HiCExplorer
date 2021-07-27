@@ -21,7 +21,6 @@ from multiprocessing.sharedctypes import Array, RawArray
 from intervaltree import IntervalTree, Interval
 
 from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
 
 # own tools
 from hicmatrix import HiCMatrix as hm
@@ -215,15 +214,14 @@ def parse_arguments(args=None):
                            required=False,
                            type=genomicRegion
                            )
-    # currently not implemented
-    parserOpt.add_argument('--removeSelfLigation',
+    parserOpt.add_argument('--keepSelfLigation',
                            help='If set, inward facing reads less than 1000 bp apart and having a restriction'
                            'site in between are removed. Although this reads do not contribute to '
                            'any distant contact, they are useful to account for bias in the data'
                            ' (for the moment is always True).',
                            #    help=argparse.SUPPRESS,
-                           default=True
-                           # action='store_true'
+                           #    default=True
+                           action='store_true'
                            )
 
     parserOpt.add_argument('--keepSelfCircles',
@@ -368,7 +366,7 @@ def get_bins(bin_size, chrom_size, region=None):
     return bin_intvals
 
 
-def bed2interval_list(bed_file_handler):
+def bed2interval_list(bed_file_handler, pChromosomeSize, pRegion):
     r"""
     reads a BED file and returns
     a list of tuples containing
@@ -383,10 +381,15 @@ def bed2interval_list(bed_file_handler):
     >>> foo = file_tmp.write('chr1\t10\t20\tH1\t0\n')
     >>> foo = file_tmp.write("chr1\t60\t70\tH2\t0\n")
     >>> file_tmp.close()
-    >>> bed2interval_list(open(_file.name, 'r'))
+    >>> bed2interval_list(open(_file.name, 'r'), None, None)
     [('chr1', 10, 20), ('chr1', 60, 70)]
     >>> os.remove(_file.name)
     """
+
+    if pRegion is not None:
+        chrom_size, start_region, end_region, _ = \
+            getUserRegion(pChromosomeSize, pRegion)
+
     count = 0
     interval_list = []
     for line in bed_file_handler:
@@ -394,10 +397,16 @@ def bed2interval_list(bed_file_handler):
         fields = line.strip().split()
         try:
             chrom, start, end = fields[0], int(fields[1]), int(fields[2])
+
         except IndexError:
             log.error("error reading BED file at line {}".format(count))
 
-        interval_list.append((chrom, start, end))
+        if pRegion is not None:
+            if chrom == chrom_size[0] and start_region <= start and end_region <= end:
+                interval_list.append((chrom, start, end))
+        else:
+            interval_list.append((chrom, start, end))
+
     return interval_list
 
 
@@ -774,7 +783,7 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
 
 
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
-                 pKeepSelfCircles, pRestrictionSequence, pRemoveSelfLigation, pMatrixSize,
+                 pKeepSelfCircles, pRestrictionSequence, pKeepSelfLigation, pMatrixSize,
                  pRfPositions, pRefId2name,
                  pDanglingSequences, pBinsize, pResultIndex,
                  pQueueOut, pTemplate, pOutputBamSet, pCounter,
@@ -793,7 +802,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
     pMinMappingQuality : integer, minimum mapping quality of a read
     pKeepSelfCircles : boolean, if self circles should be kept
     pRestrictionSequence : List of String, the restriction sequence
-    pRemoveSelfLigation : If self ligations should be removed
+    pKeepSelfLigation : If self ligations should be removed
     pMatrixSize : integer, the size of the interaction matrix
     pRfPositions : intervalTree, only used if a restriction cut file and not a bin size was defined.
     pRefId2name : Tuple, Maps a reference id to a name
@@ -1022,7 +1031,7 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
 
                     self_ligation += 1
 
-                    if pRemoveSelfLigation:
+                    if not pKeepSelfLigation:
                         # skip self ligations
                         continue
 
@@ -1153,7 +1162,7 @@ def main(args=None):
 
     rf_interval = []
     for restrictionCutFile in args.restrictionCutFile:
-        rf_interval.extend(bed2interval_list(restrictionCutFile))
+        rf_interval.extend(bed2interval_list(restrictionCutFile, chrom_sizes, args.region))
 
     rf_positions = intervalListToIntervalTree(rf_interval)
     log.debug('rf_positions {}'.format(rf_positions.keys()))
@@ -1193,7 +1202,7 @@ def main(args=None):
                 dangling_sequences[args.restrictionSequence[i]] = {}
                 dangling_sequences[args.restrictionSequence[i]]['pat_forw'] = args.danglingSequence[i]
                 dangling_sequences[args.restrictionSequence[i]]['pat_rev'] = str(
-                    Seq(args.danglingSequence[i], generic_dna).reverse_complement())
+                    Seq(args.danglingSequence[i]).reverse_complement())
 
         log.info("dangling sequences to check "
                  "are {}\n".format(dangling_sequences))
@@ -1310,7 +1319,7 @@ def main(args=None):
                     pMinMappingQuality=args.minMappingQuality,
                     pKeepSelfCircles=args.keepSelfCircles,
                     pRestrictionSequence=args.restrictionSequence,
-                    pRemoveSelfLigation=args.removeSelfLigation,
+                    pKeepSelfLigation=args.keepSelfLigation,
                     pMatrixSize=matrix_size,
                     pRfPositions=rf_positions,
                     pRefId2name=ref_id2name,
@@ -1475,7 +1484,7 @@ def main(args=None):
         hic_matrix.maskBins(get_poor_bins(bin_max))
         hic_matrix.save(args.outFileName.name)
     """
-    if args.removeSelfLigation:
+    if not args.keepSelfLigation:
         msg = " (removed)"
     else:
         msg = " (not removed)"
@@ -1522,8 +1531,8 @@ Max library insert size\t{}\t\t
 
         for key in dangling_end:
             # dangling_sequences[args.restrictionSequence[i]]['pat_forw']
-            intermediate_qc_log.write("dangling end {}\t{}\t({:.2f})\n".
-                                      format(dangling_sequences[key]['pat_forw'], dangling_end[key], 100 * float(dangling_end[key]) / mappable_unique_high_quality_pairs))
+            intermediate_qc_log.write("dangling end {} (restriction sequence {})\t{}\t({:.2f})\n".
+                                      format(dangling_sequences[key]['pat_forw'], key, dangling_end[key], 100 * float(dangling_end[key]) / mappable_unique_high_quality_pairs))
     else:
         intermediate_qc_log.write("dangling end\t{}\t({:.2f})\n".
                                   format(0, 100 * float(0) / mappable_unique_high_quality_pairs))
@@ -1570,6 +1579,9 @@ Max library insert size\t{}\t\t
     log_file = open(log_file_name, 'w')
     log_file.write(intermediate_qc_log.getvalue())
     log_file.close()
+    log.debug('log_file_name {}'.format(log_file_name))
+    log.debug('args.QCfolder {}'.format(args.QCfolder))
+
     QC.main("-l {} -o {}".format(log_file_name, args.QCfolder).split())
 
     args.outFileName.close()

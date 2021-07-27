@@ -53,12 +53,12 @@ Computes PCA eigenvectors for a Hi-C matrix.
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
-    parserOpt.add_argument('--numberOfEigenvectors', '-noe',
-                           help='The number of eigenvectors that the PCA '
-                           'should compute'
+    parserOpt.add_argument('--whichEigenvectors', '-we',
+                           help='The list of eigenvectors that the PCA '
+                           'should compute e.g. 1 2 5 will return the first, second and fifth eigenvector.'
                            ' (Default: %(default)s).',
-                           default=2,
-                           type=int,
+                           default='1 2',
+                           nargs='+',
                            required=False)
 
     parserOpt.add_argument('--format', '-f',
@@ -92,10 +92,11 @@ Computes PCA eigenvectors for a Hi-C matrix.
                            action='store_true')
 
     parserOpt.add_argument('--extraTrack',
-                           help='Either a gene track or a histon mark coverage'
+                           help='Either a gene track or a histone mark coverage'
                            ' file (preferably a broad mark) is needed to decide'
                            ' if the values of the eigenvector need a sign flip'
-                           ' or not.',
+                           ' or not. Please consider: bed files are interpreted as'
+                           ' gene tracks and bigwig files as histone marks.',
                            default=None)
 
     parserOpt.add_argument('--histonMarkType',
@@ -140,7 +141,7 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
     density. If the correlation is negative, the eigenvector values are
     multiplied with -1.
     '''
-
+    log.debug('correlate eigenvector!')
     file_h = opener(pGeneTrack)
     bed = ReadBed(file_h)
 
@@ -153,10 +154,21 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
         chromosome_name = interval.chromosome
         if chromosome_name not in chromosome_list:
             continue
+        if interval.start > pMatrix.get_chromosome_sizes()[chromosome_name]:
+            log.warning('Your chromosome sizes do not match the chromosome sizes of the extraTrack data!')
+            log.warning('Your chromosome {}; Size {}. ExtraTrack data {} {} {}'.format(chromosome_name, pMatrix.get_chromosome_sizes()[chromosome_name], interval.chromosome,
+                                                                                       interval.start, interval.end))
+            log.warning('Please create your interaction matrix with a chromosome size file! However, if the sizes are intended and it is accepted that certain regions are not part of the correlation, you can ignore this message.')
+            continue
         # in which bin of the Hi-C matrix is the given gene?
         bin_id = pMatrix.getRegionBinRange(interval.chromosome,
                                            interval.start, interval.end)
-
+        if bin_id is None:
+            log.warning('Your chromosome sizes do not match the chromosome sizes of the extraTrack data!')
+            log.warning('Your chromosome {}; Size {}. ExtraTrack data {} {} {}'.format(chromosome_name, pMatrix.get_chromosome_sizes()[chromosome_name], interval.chromosome,
+                                                                                       interval.start, interval.end))
+            log.warning('Please create your interaction matrix with a chromosome size file! However, if the sizes are intended and it is accepted that certain regions are not part of the correlation, you can ignore this message.')
+            continue
         # add +1 for one gene occurrence in this bin
         gene_occurrence[bin_id[1]] += 1
 
@@ -175,11 +187,11 @@ def correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack):
     for chromosome in chromosome_list:
         bin_id = pMatrix.getChrBinRange(chromosome)
         for i, eigenvector in enumerate(pEigenvector):
-            _correlation = pearsonr(eigenvector[bin_id[0]:bin_id[1]].real,
+            _correlation = pearsonr(np.array(eigenvector[bin_id[0]:bin_id[1]]).real,
                                     gene_occurrence_per_chr[chromosome])
             if _correlation[0] < 0:
                 eigenvector[bin_id[0]:bin_id[1]] = np.negative(eigenvector[bin_id[0]:bin_id[1]])
-
+            # log.debug('correlated to {}!'.format(_correlation[0]))
     return np.array(pEigenvector).transpose()
 
 
@@ -227,19 +239,19 @@ def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome,
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-    if int(args.numberOfEigenvectors) != len(args.outputFileName):
+    if len(args.whichEigenvectors) != len(args.outputFileName):
         log.error("Number of output file names and number of eigenvectors"
-                  " does not match. Please"
+                  " does not match. Please "
                   "provide the name of each file.\nFiles: {}\nNumber of "
                   "eigenvectors: {}".format(args.outputFileName,
-                                            args.numberOfEigenvectors))
+                                            len(args.whichEigenvectors)))
         exit(1)
 
     ma = hm.hiCMatrix(args.matrix)
-    ma.maskBins(ma.nan_bins)
+    # ma.maskBins(ma.nan_bins)
 
     if args.ignoreMaskedBins:
-        # ma.maskBins(ma.nan_bins)
+        ma.maskBins(ma.nan_bins)
         new_intervals = enlarge_bins(ma.cut_intervals)
         ma.setCutIntervals(new_intervals)
 
@@ -255,7 +267,7 @@ def main(args=None):
     chromosome_count = len(ma.getChrNames())
     if args.pearsonMatrix:
         transf_matrix_pearson = lil_matrix(ma.matrix.shape)
-
+        log.debug('ma.matrix.shape {}'.format(ma.matrix.shape))
     if args.obsexpMatrix:
         transf_matrix_obsexp = lil_matrix(ma.matrix.shape)
 
@@ -291,21 +303,27 @@ def main(args=None):
         corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
         corrmatrix = convertInfsToZeros(csr_matrix(corrmatrix)).todense()
         evals, eigs = linalg.eig(corrmatrix)
-        k = args.numberOfEigenvectors
+        # k = len(rgs.numberOfEigenvectors
 
         chrom, start, end, _ = zip(*ma.cut_intervals[chr_range[0]:chr_range[1]])
 
         chrom_list += chrom
         start_list += start
         end_list += end
+        eigenvectors_correlate = None
+        for id in args.whichEigenvectors:
+            if eigenvectors_correlate is None:
+                eigenvectors_correlate = eigs[:, int(id) - 1:int(id)]
+            else:
+                eigenvectors_correlate = np.hstack((eigenvectors_correlate, eigs[:, int(id) - 1:int(id)]))
+
         if args.extraTrack and (args.extraTrack.endswith('.bw') or args.extraTrack.endswith('.bigwig')):
             assert(len(end) == len(start))
-            correlateEigenvectorWithHistonMarkTrack(eigs[:, :k].transpose(),
+            correlateEigenvectorWithHistonMarkTrack(eigenvectors_correlate.transpose(),
                                                     bwTrack, chrname, start,
                                                     end, args.extraTrack,
                                                     args.histonMarkType)
-
-        vecs_list += eigs[:, :k].tolist()
+        vecs_list += eigenvectors_correlate.tolist()
 
     if args.pearsonMatrix:
         file_type = 'cool'
@@ -338,11 +356,12 @@ def main(args=None):
 
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):
+
             assert(len(vecs_list) == len(chrom_list))
 
             with open(outfile, 'w') as fh:
                 for i, value in enumerate(vecs_list):
-                    if len(value) == args.numberOfEigenvectors:
+                    if len(value) == len(args.whichEigenvectors):
                         if isinstance(value[idx], np.complex):
                             value[idx] = value[idx].real
                         fh.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_list[i]), start_list[i], end_list[i], value[idx]))
@@ -376,7 +395,7 @@ def main(args=None):
             # create entry lists
             for i, value in enumerate(vecs_list):
                 # it can happen that some 'value' is having less dimensions than it should
-                if len(value) == args.numberOfEigenvectors:
+                if len(value) == len(args.whichEigenvectors):
                     if isinstance(value[idx], np.complex):
                         value[idx] = value[idx].real
                     values.append(value[idx])

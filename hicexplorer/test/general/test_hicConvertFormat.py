@@ -14,7 +14,6 @@ import numpy as np
 from hicexplorer.test.test_compute_function import compute
 
 REMOVE_OUTPUT = True
-# DIFF = 60
 
 DELTA_DECIMAL = 0
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/hicConvertFormat")
@@ -29,7 +28,6 @@ def test_hicConvertFormat_h5_to_cool():
     outfile.close()
 
     args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat cool".format(original_matrix_h5, outfile.name).split()
-    # hicConvertFormat.main(args)
     compute(hicConvertFormat.main, args, 5)
 
     test = hm.hiCMatrix(original_matrix_cool)
@@ -43,7 +41,6 @@ def test_hicConvertFormat_h5_to_cool_enforce_integer():
     outfile.close()
 
     args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat cool ".format(original_matrix_h5, outfile.name).split()
-    # hicConvertFormat.main(args)
     compute(hicConvertFormat.main, args, 5)
 
     test = hm.hiCMatrix(original_matrix_cool)
@@ -58,7 +55,6 @@ def test_hicConvertFormat_h5_to_homer():
     outfile.close()
 
     args = "--matrices {} --outFileName {} --inputFormat cool --outputFormat homer ".format(original_matrix_cool_chr4, outfile.name).split()
-    # hicConvertFormat.main(args)
     compute(hicConvertFormat.main, args, 5)
 
     test = hm.hiCMatrix(original_matrix_cool_chr4)
@@ -82,10 +78,17 @@ def test_hicConvertFormat_h5_to_ginteractions():
     outfile.close()
 
     args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat ginteractions ".format(original_matrix_h5, outfile.name).split()
-    # hicConvertFormat.main(args)
     compute(hicConvertFormat.main, args, 5)
 
-    # os.unlink(outfile.name)
+
+def test_hicConvertFormat_h5_to_hicpro():
+    outfile = NamedTemporaryFile(suffix='.hicpro', delete=False)
+    outfile_bed = NamedTemporaryFile(suffix='.bed', delete=False)
+
+    outfile.close()
+
+    args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat hicpro --bedFileHicpro {}".format(original_matrix_h5, outfile.name, outfile_bed.name).split()
+    compute(hicConvertFormat.main, args, 5)
 
 
 def test_hicConvertFormat_h5_to_mcool():
@@ -93,28 +96,22 @@ def test_hicConvertFormat_h5_to_mcool():
     outfile.close()
 
     args = "--matrices {} --outFileName {} --inputFormat h5 --outputFormat mcool -r 10000 100000 200000 ".format(original_matrix_h5, outfile.name).split()
-    # hicConvertFormat.main(args)
     compute(hicConvertFormat.main, args, 5)
 
     new1 = hm.hiCMatrix(outfile.name + '::/resolutions/10000')  # noqa: F841
     new2 = hm.hiCMatrix(outfile.name + '::/resolutions/100000')  # noqa: F841
     new3 = hm.hiCMatrix(outfile.name + '::/resolutions/200000')  # noqa: F841
 
-    # os.unlink(outfile.name)
-
 
 def test_hicConvertFormat_cool_to_h5():
 
-    # original_matrix = ''
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()
 
     args = "--matrices {} --outFileName {} --inputFormat cool --outputFormat h5".format(original_matrix_cool, outfile.name).split()
-    # hicConvertFormat.main(args)
     compute(hicConvertFormat.main, args, 5)
 
     test = hm.hiCMatrix(original_matrix_h5)
-    # print(outfile.name)
     new = hm.hiCMatrix(outfile.name)
     nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
 
@@ -126,15 +123,31 @@ def test_hicConvertFormat_hicpro_to_cool():
     hicprofile = ROOT + '/test_matrix.hicpro'
     bedfile = ROOT + '/test_matrix.bed'
     args = "--matrices {} --outFileName {} --inputFormat hicpro --outputFormat cool --bedFileHicpro {}".format(hicprofile, outfile.name, bedfile).split()
-    # hicConvertFormat.main(args)
     compute(hicConvertFormat.main, args, 5)
 
-    # test = hm.hiCMatrix(original_matrix_cool)
-    # print(outfile.name)
     new = hm.hiCMatrix(outfile.name)
 
     matrixFileHandlerInput = MatrixFileHandler(pFileType='hicpro', pMatrixFile=hicprofile,
                                                pBedFileHicPro=bedfile)
+
+    _matrix, cut_intervals, nan_bins, \
+        distance_counts, correction_factors = matrixFileHandlerInput.load()
+
+    new.matrix = triu(new.matrix)
+    nt.assert_array_almost_equal(new.matrix.data, _matrix.data, decimal=0)
+
+
+def test_hicConvertFormat_2D_text_to_cool():
+
+    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
+    outfile.close()
+    text_2d = ROOT + '/GSM1436265_RAD21_ENCFF002EMQ.txt'
+    args = "--matrices {} --outFileName {} --inputFormat 2D-text --outputFormat cool -r 10000 --chromosomeSizes {}".format(text_2d, outfile.name, ROOT + '/hg19.chrom.sizes').split()
+    compute(hicConvertFormat.main, args, 5)
+
+    new = hm.hiCMatrix(outfile.name)
+
+    matrixFileHandlerInput = MatrixFileHandler(pFileType='cool', pMatrixFile=ROOT + '/2dtexttocool.cool')
 
     _matrix, cut_intervals, nan_bins, \
         distance_counts, correction_factors = matrixFileHandlerInput.load()
