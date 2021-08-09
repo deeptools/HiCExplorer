@@ -103,7 +103,11 @@ def parse_arguments(args=None):
                            'intra-chromosomal contacts are of interest.',
                            action='store_true',
                            required=False)
-
+    parserOpt.add_argument('--considerStrandDirection',
+                           help='This parameter specifies if the strand information is taken into account for the aggregation. '
+                           'It has the effect that the contacts of a reverse strand region are inverted e.g. [1,2,3] becomes [3,2,1].',
+                           action='store_true',
+                           required=False)
     parserOpt.add_argument('--largeRegionsOperation',
                            help='If a given coordinate in the bed file is larger than '
                            'a bin of the input matrix, by default only the first bin '
@@ -232,7 +236,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def read_bed_per_chrom(fh, chrom_list):
+def read_bed_per_chrom(fh, chrom_list, pConsiderStrandDirection=None):
     """
     Reads the given BED file returning
     a dictionary that contains, per each chromosome
@@ -243,6 +247,10 @@ def read_bed_per_chrom(fh, chrom_list):
         if line[0] == "#":
             continue
         fields = line.strip().split()
+        if pConsiderStrandDirection and len(fields) < 6:
+            log.error('Strand information should be considered, but BED file has not at least six columns. Exiting!')
+            exit(1)
+        # log.debug('fields {}'.format(fields))
         if fields[0] not in chrom_list:
             if change_chrom_names(fields[0]) in chrom_list:
                 fields[0] = change_chrom_names(fields[0])
@@ -250,13 +258,17 @@ def read_bed_per_chrom(fh, chrom_list):
                 continue
         if fields[0] not in interval:
             interval[fields[0]] = []
-        interval[fields[0]].append((int(fields[1]), int(fields[2])))
+
+        if pConsiderStrandDirection:
+            interval[fields[0]].append((int(fields[1]), int(fields[2]), str(fields[5])))
+        else:
+            interval[fields[0]].append((int(fields[1]), int(fields[2])))
     return interval
 
 
-def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range=None, transform=None, mode=''):
+def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range=None, transform=None, mode='', pConsiderStrandDirection=None):
     """
-    To aggregate the contacts of desired sumatrices.
+    To aggregate the contacts of desired submatrices.
     """
     seen_chrs = []
     for k1, v1 in bed1.items():
@@ -272,7 +284,11 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, 
                 for coord2 in v2:
                     if (k1 == k2) and (coord1 == coord2):
                         continue
-                    interval = [(k1, coord1[0], coord1[1]), (k2, coord2[0], coord2[1])]
+                    if pConsiderStrandDirection:
+                        interval = [(k1, coord1[0], coord1[1], coord1[2]), (k2, coord2[0], coord2[1], coord2[2])]
+                    else:
+                        interval = [(k1, coord1[0], coord1[1]), (k2, coord2[0], coord2[1])]
+
                     count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, seen_chrs, range, transform)
     to_del = []
     for k1, v1 in agg_info["agg_matrix"].items():
@@ -289,7 +305,7 @@ def aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, 
     agg_info["agg_contact_position"] = {key: val for key, val in agg_info["agg_contact_position"].items() if key not in to_del}
 
 
-def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False):
+def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False, pConsiderStrandDirection=None):
     """
     To aggregate the contacts of the desired submatrices , if row-wise.
     """
@@ -311,7 +327,11 @@ def aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, lar
         elif mode == 'intra-chr':  # skip the lines with different chrom
             if line1[0] != line2[0]:
                 continue
-        interval = [(line1[0], line1[1], line1[2]), (line2[0], line2[1], line2[2])]
+        if pConsiderStrandDirection:
+            interval = [(line1[0], line1[1], line1[2], line1[5]), (line2[0], line2[1], line2[2], line2[5])]
+        else:
+            interval = [(line1[0], line1[1], line1[2]), (line2[0], line2[1], line2[2])]
+
         count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, seen_chrs, range, transform)
     to_del = []
     for k1, v1 in agg_info["agg_matrix"].items():
@@ -329,9 +349,16 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
     """
     To count the number of contacts for a given pair of intervals
     """
+    log.debug('interval {}'.format(interval))
 
-    chrom1, start1, end1 = interval[0]
-    chrom2, start2, end2 = interval[1]
+    orientation1 = None
+    orientation2 = None
+    if len(interval[0]) == 3 and len(interval[1]) == 3:
+        chrom1, start1, end1 = interval[0]
+        chrom2, start2, end2 = interval[1]
+    elif len(interval[0]) == 4 and len(interval[1]) == 4:
+        chrom1, start1, end1, orientation1 = interval[0]
+        chrom2, start2, end2, orientation2 = interval[1]
 
     if chrom1 not in agg_info["chrom_coord"]:
         return
@@ -399,6 +426,19 @@ def count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, 
         return
     try:
         mat_to_append = ma.matrix[bin_id1 - M_half:bin_id1 + M_half + 1, :][:, bin_id2 - M_half:bin_id2 + M_half + 1].todense().astype(float)
+
+        if (orientation1 is None and orientation2 is None) or (orientation1 == '+' and orientation2 == '+'):
+            pass
+        elif orientation1 == '+' and orientation2 == '-':
+            # flip values concerning the y axis
+            mat_to_append = np.fliplr(mat_to_append)
+        elif orientation1 == '-' and orientation2 == '+':
+            # flip values concerning the x axis
+            mat_to_append = np.flipud(mat_to_append)
+        elif orientation1 == '-' and orientation2 == '-':
+            # flip values concerning the x and y axis
+            mat_to_append = mat_to_append.T
+
     except IndexError:
         log.info("index error for {} {}".format(bin_id1, bin_id2))
         return
@@ -698,88 +738,6 @@ def plot_aggregated_contacts(clustered_info, num_clusters, M_half, args):
 
     plt.close()
 
-# def plot_aggregated_contacts(clustered_info, num_clusters, M_half, args):
-#
-#     fig = plt.figure(figsize=(5.5 , 5.5 * num_clusters + 0.5))
-#     gs = gridspec.GridSpec(num_clusters+1, 1,
-#                            width_ratios=[10],
-#                            height_ratios=[10] * num_clusters + [0.6])
-#
-#     gs.update(wspace=0.01, hspace=0.2)
-#     vmin, vmax = (args.vMin, args.vMax)
-#     cmap = cm.get_cmap(args.colorMap)
-#     log.debug("vmax: {}, vmin: {}".format(vmax, vmin))
-#     chrom_avg = []
-#     for cluster_number, cluster_indices in enumerate(clustered_info["clustered_dict"]):
-#         # compute median values
-#         submatrices = np.array([clustered_info["submatrices"][x] for x in cluster_indices])
-#         chrom_avg.append(compute_avg(submatrices, args.operationType))
-#         log.info("Mean aggregate matrix values: {}".format(chrom_avg[cluster_number].mean()))
-#         log.info("total pairs considered on cluster_{}: "
-#                  "{}".format(cluster_number + 1, len(cluster_indices)))
-#
-#         if chrom_avg[cluster_number].shape[0] == 0:
-#             log.debug("matrix for contacts on cluster_{} is empty".format(cluster_number + 1))
-#             continue
-#         title = "cluster_{}".format(cluster_number + 1)
-#         if args.plotType == '2d':
-#             ax = plt.subplot(gs[cluster_number, 0])
-#             ax.set_title(title)
-#             img = ax.imshow(chrom_avg[cluster_number], aspect='equal',
-#                             interpolation='nearest', vmax=vmax, vmin=vmin,
-#                             cmap=cmap,
-#                             extent=[-M_half, M_half + 1, -M_half, M_half + 1])
-#
-#         else:
-#             # Axes3D is required for projection='3d' to work
-#             # but since is imported but not used, flake8 will complain
-#             # thus I add this dummy variable to avoid the error
-#             Axes3D(fig)
-#             ax = plt.subplot(gs[cluster_number, 1], projection='3d')
-#             # ax.set_aspect('equal')
-#             ax.margins(0)
-#             X, Y = np.meshgrid(range(-M_half, M_half + 1),
-#                                range(-M_half, M_half + 1))
-#             Z = chrom_avg[chrom][cluster_number].copy()
-#             img = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, linewidth=0, cmap=cmap,
-#                                   vmax=vmax, vmin=vmin, edgecolor='none')
-#
-#             ax.set_zticklabels([])
-#             if vmax is not None and vmax is not None:
-#                 ax.set_zlim(vmin, vmax)
-#
-#         if args.outFilePrefixMatrix:
-#             # save aggregate matrix values
-#             if num_clusters == 1:
-#                 output_matrix_name = "{file}_genome.tab".format(file=args.outFilePrefixMatrix)
-#             else:
-#                 output_matrix_name = "{file}_genome_cluster_{id}.tab".format(file=args.outFilePrefixMatrix,
-#                                                                              id=cluster_number + 1)
-#             np.savetxt(output_matrix_name, chrom_avg[cluster_number], '%0.5f', delimiter='\t')
-#
-#         if args.outFileContactPairs:
-#             center_values_to_order = np.array(clustered_info["centers"])[cluster_indices]
-#             center_values_order = np.argsort(center_values_to_order)[::-1]
-#
-#             output_name = "{file}_cluster_{id}.tab".format(file=args.outFileContactPairs,
-#                                                            id=cluster_number + 1)
-#             with open(output_name, 'w') as fh:
-#                 for cl_idx in center_values_order:
-#                     value = center_values_to_order[cl_idx]
-#                     chrom1, start1, end1, chrom2, start2, end2 = clustered_info["coords"][cl_idx]
-#                     fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom1, start1, end1, chrom2, start2, end2, value))
-#
-#
-#         cbar_x = plt.subplot(gs[-1, 0])
-#         fig.colorbar(img, cax=cbar_x, orientation='horizontal')
-#
-#     if args.disable_bbox_tight:
-#         plt.savefig(args.outFileName.name, dpi=args.dpi)
-#     else:
-#         plt.savefig(args.outFileName.name, dpi=args.dpi, bbox_inches='tight')
-#
-#     plt.close()
-
 
 def plot_diagnostic_heatmaps(clustered_info, M_half, args):
     num_chromosomes = len(clustered_info.keys())
@@ -929,6 +887,8 @@ def main(args=None):
     agg_info["counter"] = 0
     agg_info["used_counter"] = 0
     agg_info["empty_mat"] = 0
+
+    log.debug('agg_info["agg_matrix"] {}'.format(agg_info["agg_matrix"]))
     if (args.mode == 'inter-chr') and (len(agg_info["chrom_coord"]) == 1):
         exit("Error: 'inter-chr' mode can not be applied on matrices of only one chromosme.")
     if (args.mode == 'inter-chr') and (args.perChr):
@@ -949,18 +909,18 @@ def main(args=None):
         # agg_matrix could be either per chromosome or genome wide
         aggregate_contacts_per_row(bed_intervals, bed_intervals2, agg_info, ma, chrom_list,
                                    M_half, args.largeRegionsOperation, args.range,
-                                   args.transform, mode=args.mode, perChr=args.perChr)
+                                   args.transform, mode=args.mode, perChr=args.perChr, pConsiderStrandDirection=args.considerStrandDirection)
     else:  # not row-wise
         # read and sort bed files.
-        bed_intervals = read_bed_per_chrom(args.BED, chrom_list)
+        bed_intervals = read_bed_per_chrom(args.BED, chrom_list, args.considerStrandDirection)
         if args.BED2:
-            bed_intervals2 = read_bed_per_chrom(args.BED2, chrom_list)
+            bed_intervals2 = read_bed_per_chrom(args.BED2, chrom_list, args.considerStrandDirection)
         else:
             bed_intervals2 = bed_intervals
         # agg_matrix could be either per chromosome or genome wide
         aggregate_contacts(bed_intervals, bed_intervals2, agg_info, ma, M_half,
                            args.largeRegionsOperation, args.range, args.transform,
-                           mode=args.mode)
+                           mode=args.mode, pConsiderStrandDirection=args.considerStrandDirection)
     if len(agg_info["agg_matrix"]) == 0:
         exit("No susbmatrix found to be aggregated.")
 
