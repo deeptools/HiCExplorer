@@ -1,7 +1,7 @@
-|travis| |rtd| |conda| |docker| |galaxy|
+|azure| |rtd| |conda| |docker| |galaxy|
 
-.. |travis| image:: https://travis-ci.org/deeptools/HiCExplorer.svg?branch=master
-   :target: https://travis-ci.org/deeptools/HiCExplorer
+.. |azure| image:: https://dev.azure.com/wolffj/HiCExplorer/_apis/build/status/deeptools.HiCExplorer?branchName=master
+	:target: https://dev.azure.com/wolffj/HiCExplorer/_build/latest?definitionId=2&branchName=master
 .. |rtd| image:: https://readthedocs.org/projects/hicexplorer/badge/?version=latest
    :target: http://hicexplorer.readthedocs.io/?badge=latest
 .. |conda| image:: https://anaconda.org/bioconda/hicexplorer/badges/installer/conda.svg
