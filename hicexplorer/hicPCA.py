@@ -291,15 +291,15 @@ def main(args=None):
         obs_exp_matrix_ = csr_matrix(obs_exp_matrix_).todense()
         if args.obsexpMatrix:
             transf_matrix_obsexp[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp_matrix_)
-        pearson_correlation_matrix = np.corrcoef(obs_exp_matrix_)
-        pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
-        pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
 
         if args.pearsonMatrix:
+            pearson_correlation_matrix = np.corrcoef(obs_exp_matrix_)
+            pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix)).todense()
+            pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix)).todense()
             transf_matrix_pearson[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(pearson_correlation_matrix)
 
-        corrmatrix = np.cov(pearson_correlation_matrix)
-        corrmatrix = pearson_correlation_matrix
+        corrmatrix = np.cov(obs_exp_matrix_)
+        # corrmatrix = pearson_correlation_matrix
         corrmatrix = convertNansToZeros(csr_matrix(corrmatrix)).todense()
         corrmatrix = convertInfsToZeros(csr_matrix(corrmatrix)).todense()
         evals, eigs = linalg.eig(corrmatrix)
