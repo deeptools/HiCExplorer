@@ -45,7 +45,7 @@ $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
     parserOpt.add_argument('--help', '-h', action='help',
                            help='Show this help message and exit.')
 
-    parserOpt.add_argument('--version', action='version',
+    parserOpt.add_argument('--version', '-v', action='version',
                            version='%(prog)s {}'.format(__version__))
 
     return parser
