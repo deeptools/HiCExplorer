@@ -37,10 +37,10 @@ The value of the protein is not considered, only match or non-match.
 
     parserRequired.add_argument('--data', '-d',
                                 help='The loop file from hicDetectLoops. To use files from other sources, '
-                                'please follow \'chr start end chr start end\' format.',
+                                'please follow \'chr start end chr start end\' format. For TAD data use the boundaries.bed file and not the domains file!',
                                 required=True)
     parserRequired.add_argument('--validationData', '-vd',
-                                help='The data file to validate the given locations. Can be narrowPeak, broadPeak, cool, or 2D text.',
+                                help='The data file to validate the given locations. Can be narrowPeak, broadPeak (both in bed), or cool',
                                 required=True)
     parserRequired.add_argument('--validationType', '-vt',
                                 help='The type of the validation data. Can be bed, or cool format',
@@ -82,6 +82,7 @@ The value of the protein is not considered, only match or non-match.
 
 def readThreeColumn(pFile, pChrPrefixProtein):
     protein_df = pd.read_csv(pFile, sep='\t', header=None)[[0, 1, 2]]
+    log.debug('protein_df {}'.format(protein_df))
     if pChrPrefixProtein == 'add':
         protein_df[0] = 'chr' + protein_df[0].astype(str)
     elif pChrPrefixProtein == 'remove':
@@ -118,18 +119,15 @@ def overlapLoop(pDataFrameLoop, pDataFrameProtein):
 
 
 def overlapTAD(pDataFrameTAD, pDataFrameProtein):
-    loop_bedtool_x = BedTool.from_dataframe(pDataFrameTAD)
-    # loop_bedtool_y = BedTool.from_dataframe(pDataFrameLoop[[3,4,5]])
+    tad_bedtool_x = BedTool.from_dataframe(pDataFrameTAD)
+
+    log.debug('tad_bedtool_x {}'.format(tad_bedtool_x))
 
     protein_bedtool = BedTool.from_dataframe(pDataFrameProtein)
-    x = loop_bedtool_x.intersect(protein_bedtool, c=True).to_dataframe()
-    # y = loop_bedtool_y.intersect(protein_bedtool, c=True).to_dataframe()
+    x = tad_bedtool_x.intersect(protein_bedtool, c=True).to_dataframe()
 
     mask_x = x['name'] >= 1
-    # mask_y = y['name'] >= 1
-
-    # selection  = (mask_x) & (mask_y)
-    return mask_x
+    return pd.Series(mask_x)
 
 
 def correlateCool(pCoolFile, pDataFrameLoop):
@@ -153,27 +151,38 @@ def correlateCool(pCoolFile, pDataFrameLoop):
     return number_of_peaks, selection
 
 
-def correlate2DText(pDataFrameProtein, pDataFrameLoop):
-    loop_bedtool_x = BedTool.from_dataframe(pDataFrameLoop[[0, 1, 2, 3, 4, 5]])
+# def correlate2DText(pDataFrameProtein, pDataFrameLoop):
+#     loop_bedtool_x = BedTool.from_dataframe(pDataFrameLoop[[0, 1, 2, 3, 4, 5]])
 
-    protein_bedtool = BedTool.from_dataframe(pDataFrameProtein)
-    x = loop_bedtool_x.intersect(protein_bedtool, c=True).to_dataframe()
+#     protein_bedtool = BedTool.from_dataframe(pDataFrameProtein)
+#     x = loop_bedtool_x.intersect(protein_bedtool, c=True).to_dataframe()
 
-    mask_x = x['name'] >= 1
+#     mask_x = x['name'] >= 1
 
-    log.debug(mask_x)
-    return mask_x
+#     log.debug(mask_x)
+#     return mask_x
 
 
-def applyBinning(pDataFrame, pBinSize):
+def applyBinning(pDataFrame, pBinSize, pMerge=True):
     pDataFrame_out = pDataFrame.copy()
     pDataFrame_out[1] = (pDataFrame[1] / pBinSize).astype(int) * pBinSize
     pDataFrame_out[2] = ((pDataFrame[2] / pBinSize).astype(int) + 1) * pBinSize
-    pDataFrame_out.drop_duplicates()
-    bedtools_data = BedTool.from_dataframe(pDataFrame_out)
-    bedtools_data = bedtools_data.merge()
-    bedtools_data = bedtools_data.sort()
-    return bedtools_data.to_dataframe()
+
+    log.debug('pDataFrame_out {}'.format(pDataFrame_out))
+    pDataFrame_out = pDataFrame_out.drop_duplicates()
+    log.debug('pDataFrame_out {}'.format(pDataFrame_out))
+
+    if pMerge:
+        bedtools_data = BedTool.from_dataframe(pDataFrame_out)
+        bedtools_data = bedtools_data.merge()
+        log.debug('bedtools_data {}'.format(bedtools_data.to_dataframe()))
+
+        bedtools_data = bedtools_data.sort()
+        log.debug('bedtools_data {}'.format(bedtools_data.to_dataframe()))
+
+        return bedtools_data.to_dataframe()
+    else:
+        return pDataFrame_out
 
 
 def writeLoopFile(pOutFileName, pLoopDataFrame):
@@ -234,10 +243,9 @@ def main(args=None):
                 file.write('Loops match protein: {}\n'.format(
                     len(loop_df_) / len(loop_df)))
     elif args.method == 'tad':
-        tad_df = readThreeColumn(args.data, args.addChrPrefixLoops)
-        protein_df = readThreeColumn(args.protein, args.addChrPrefixProtein)
+        tad_df = readThreeColumn(args.data, args.chrPrefixLoops)
+        protein_df = readThreeColumn(args.validationData, args.chrPrefixProtein)
 
-        # log.debug('')
         tad_df_bedtool = BedTool.from_dataframe(tad_df)
         tad_df = tad_df_bedtool.sort().to_dataframe(
             disable_auto_names=True, header=None)
@@ -246,18 +254,31 @@ def main(args=None):
         protein_df = protein_df_bedtool.sort().to_dataframe(
             disable_auto_names=True, header=None)
 
-        tad_df_resolution = applyBinning(tad_df, args.resolution)
+        tad_df_resolution = applyBinning(tad_df, args.resolution, pMerge=False)
         protein_df_resolution = applyBinning(protein_df, args.resolution)
+        log.debug('tad_df_resolution {}'.format(tad_df_resolution))
+        log.debug('protein_df_resolution {}'.format(protein_df_resolution))
 
         overlap_mask_df = overlapTAD(tad_df_resolution, protein_df_resolution).to_frame()
 
-        log.debug('{}'.format(tad_df_resolution))
-        log.debug('{}'.format(protein_df_resolution))
-        log.debug('{}'.format(overlap_mask_df))
+        tad_df_ = tad_df[overlap_mask_df['name']]
 
-        tad_df_ = tad_df[overlap_mask_df]
         print('Protein peaks: {}'.format(len(protein_df_resolution)))
         print('Matched TADs: {}'.format(len(tad_df_)))
         print('Total TADs: {}'.format(len(tad_df)))
 
         print('TADs match protein: {}'.format(len(tad_df_) / len(tad_df)))
+        if args.outFileName:
+            with open(args.outFileName + '_statistics', 'w') as file:
+                file.write(
+                    '# HiCExplorer hicValidateLocations {}\n'.format(__version__))
+                file.write('# Overlap of TAD file {} with protein file {}\n#\n'.format(
+                    args.data, args.validationData))
+                file.write('Protein peaks: {}\n'.format(
+                    len(protein_df_resolution)))
+                file.write('Matched Loops: {}\n'.format(len(tad_df_)))
+                file.write('Total Loops: {}\n'.format(len(tad_df)))
+                file.write('Loops match protein: {}\n'.format(
+                    len(tad_df_) / len(tad_df)))
+
+            tad_df_.to_csv(args.outFileName, sep='\t', header=False, index=False)
