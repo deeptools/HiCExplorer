@@ -1,0 +1,7 @@
+# HiCExplorer hicValidateLocations 3.7.2-dev
+# Overlap of TAD file untreated_R1_boundaries.bed with protein file GSM733752_hg19_ctcf_GM12878.broadPeak
+#
+Protein peaks: 22394
+Matched Loops: 99
+Total Loops: 201
+Loops match protein: 0.4925373134328358
