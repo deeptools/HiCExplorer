@@ -87,13 +87,14 @@ def test_loop_cool():
     assert are_files_equal(ROOT + 'overlap_rad21_cool_statistics',
                            outfile.name + '_statistics', skip=3)
 
+
 def test_tad():
     outfile = NamedTemporaryFile(suffix='out', delete=True)
     outfile.close()
 
     args = "--data {} --validationData {} --validationType {} --method {} --outFileName {} -r {} ".format(ROOT + 'untreated_R1_boundaries.bed',
-                                                                                                                             ROOT + 'GSM733752_hg19_ctcf_GM12878.broadPeak', 'bed',
-                                                                                                                             'tad', outfile.name, 20000).split()
+                                                                                                          ROOT + 'GSM733752_hg19_ctcf_GM12878.broadPeak', 'bed',
+                                                                                                          'tad', outfile.name, 20000).split()
     compute(hicValidateLocations.main, args, 5)
 
     # print(open(outfile.name + '_matched_locations', "r").read(1000))

@@ -81,7 +81,11 @@ def compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution, p
         if len(lines) == 0:
             return 1
     outfile_statistics = NamedTemporaryFile()
-    args = "--data {} --protein {} -cl {} --resolution {} --outFileName {}".format(pLoopFile, pProteinFile, pChrPrefixLoops, pResolution, outfile_statistics.name).split()
+    if pChrPrefixLoops is None:
+        pChrPrefixLoops = ''
+    else:
+        pChrPrefixLoops = '-cl ' + pChrPrefixLoops
+    args = "--data {} --validationData {} {} --resolution {} --outFileName {} --method loops".format(pLoopFile, pProteinFile, pChrPrefixLoops, pResolution, outfile_statistics.name).split()
     hicValidateLocations.main(args)
     data_dict = {}
 
