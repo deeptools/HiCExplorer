@@ -85,6 +85,7 @@ Contents:
 
    content/installation
    content/list-of-tools
+   content/file-formats
    content/example_usage
    content/News
    content/citation

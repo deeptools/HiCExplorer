@@ -2,6 +2,27 @@ News and Developments
 =====================
 
 
+Release 3.7.2
+-------------
+**1 October 2021**
+
+- Fixing a bug in hicHyperoptDetectLoops concerning the validation of the loop locations
+- Fixing a bug in hicValidateLocations concerning the computation of TADs
+- Adding the -v option for the version for hicInfo
+- Adding documentation concerning the native file formats of HiCExplorer
+- Fixing the way A/B compartments are computed based on Lieberman-Aiden 2009. The intermediate Pearson matrix is not used anymore.
+
+Release 3.7.1
+-------------
+**9 August 2021**
+
+The promised functions for the strand information in 3.7 were not part of the release due to confusion in merging multiple branches. Therefore they are now included in the 3.7.1 release:
+
+- hicAggregateContacts: Option to consider the strand orientation (#633)
+- hicAverageRegions: Option to consider the strand orientation (#633)
+
+Additionally, a small bug fix in hicInfo concerning the correct sum of the interaction matrix.
+
 Release 3.7
 -----------
 **27 July 2021**

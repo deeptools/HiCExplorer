@@ -63,8 +63,8 @@ def test_loop_broad_peak():
                                                                                                                                 'loops', outfile.name, 10000, 'remove').split()
     compute(hicValidateLocations.main, args, 5)
 
-    print(open(outfile.name + '_matched_locations', "r").read(1000))
-    print(open(outfile.name + '_statistics', "r").read(1000))
+    # print(open(outfile.name + '_matched_locations', "r").read(1000))
+    # print(open(outfile.name + '_statistics', "r").read(1000))
     assert are_files_equal(
         ROOT + 'overlap_ctcf_matched_locations', outfile.name + '_matched_locations')
     assert are_files_equal(ROOT + 'overlap_ctcf_statistics',
@@ -80,9 +80,26 @@ def test_loop_cool():
                                                                                                                              'loops', outfile.name, 10000, 'add').split()
     compute(hicValidateLocations.main, args, 5)
 
-    print(open(outfile.name + '_matched_locations', "r").read(1000))
-    print(open(outfile.name + '_statistics', "r").read(1000))
+    # print(open(outfile.name + '_matched_locations', "r").read(1000))
+    # print(open(outfile.name + '_statistics', "r").read(1000))
     assert are_files_equal(
         ROOT + 'overlap_rad21_cool_matched_locations', outfile.name + '_matched_locations')
     assert are_files_equal(ROOT + 'overlap_rad21_cool_statistics',
+                           outfile.name + '_statistics', skip=3)
+
+
+def test_tad():
+    outfile = NamedTemporaryFile(suffix='out', delete=True)
+    outfile.close()
+
+    args = "--data {} --validationData {} --validationType {} --method {} --outFileName {} -r {} ".format(ROOT + 'untreated_R1_boundaries.bed',
+                                                                                                          ROOT + 'GSM733752_hg19_ctcf_GM12878.broadPeak', 'bed',
+                                                                                                          'tad', outfile.name, 20000).split()
+    compute(hicValidateLocations.main, args, 5)
+
+    # print(open(outfile.name + '_matched_locations', "r").read(1000))
+    # print(open(outfile.name + '_statistics', "r").read(1000))
+    assert are_files_equal(
+        ROOT + 'validatedTADs.txt', outfile.name)
+    assert are_files_equal(ROOT + 'validatedTADs.txt_statistics',
                            outfile.name + '_statistics', skip=3)
